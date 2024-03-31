@@ -8,15 +8,22 @@ namespace Mu3Library.Utility {
 
         #region Integer
         public static int GetLayerMask(string layerName, bool exclude = false) {
-            int mask = (1 << LayerMask.NameToLayer(layerName));
+            int layer = LayerMask.NameToLayer(layerName);
+            int mask = 0;
+            if(layer >= 0) mask = 1 << layer;
+            else { Debug.LogWarning($"LayerName not found. name: {layerName}"); }
+
             if(exclude) mask = ~mask;
             return mask;
         }
 
         public static int GetLayerMask(string[] layerNames, bool exclude = false) {
             int mask = 0;
+            int layer;
             foreach(string name in layerNames) {
-                mask |= (1 << LayerMask.NameToLayer(name));
+                layer = LayerMask.NameToLayer(name);
+                if(layer >= 0) { mask |= (1 << layer); }
+                else { Debug.LogWarning($"LayerName not found. name: {name}"); }
             }
 
             if(exclude) mask = ~mask;
