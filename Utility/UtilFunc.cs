@@ -39,6 +39,10 @@ namespace Mu3Library.Utility {
         public static bool IsInAngleRange(Vector3 forward, Vector3 directionToTarget, float angleDeg) {
             return Vector3.Angle(forward, directionToTarget) < angleDeg * 0.5f;
         }
+
+        public static bool IsTargetOnRight(Vector3 forward, Vector3 toTarget) {
+            return Vector3.Cross(forward, toTarget).y > 0.0f;
+        }
         #endregion
 
         #region Vector3
