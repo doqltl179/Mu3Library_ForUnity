@@ -1,4 +1,9 @@
 namespace Mu3Library {
+    public enum CharacterType {
+        Player, 
+        Monster, 
+    }
+
     public enum CharacterState {
         None,
         Idle,
@@ -16,6 +21,11 @@ namespace Mu3Library {
     public enum AttackType {
         NormalAttack, 
         HardAttack, 
+    }
+
+    public enum RayType {
+        Sphere,
+        Capsule,
     }
 
     public enum Coordinate {
