@@ -4,12 +4,23 @@ using Mu3Library.Utility;
 using System.Collections.Generic;
 using UnityEngine;
 
+using AnimationInfo = Mu3Library.Animation.AnimationInfo;
+
 namespace Mu3Library.Character {
     public abstract class CharacterController : MonoBehaviour {
         protected Dictionary<CharacterStateType, CharacterState> states;
 
+        protected KeyCode inputForward = KeyCode.W;
+        protected KeyCode inputLeft = KeyCode.A;
+        protected KeyCode inputBack = KeyCode.S;
+        protected KeyCode inputRight = KeyCode.D;
+        protected KeyCode inputRun = KeyCode.LeftShift;
+        protected KeyCode inputJump = KeyCode.Space;
+        protected KeyCode inputAttack = KeyCode.Mouse0;
+
         [SerializeField] protected Animator animator;
         public Animator Animator => animator;
+        protected AnimationInfo animationInfo;
 
         [Space(20)]
         [SerializeField] protected Transform cameraTarget;
@@ -39,6 +50,7 @@ namespace Mu3Library.Character {
         }
 
         public bool IsPlaying { get; protected set; }
+        public bool PlayAuto { get; protected set; }
 
         protected CharacterState currentState;
         protected float stateChangeCool = 0.0f;
@@ -70,21 +82,21 @@ namespace Mu3Library.Character {
 
         private Vector3 moveDirection;
         private Vector3 dashDirection;
-        private bool inputRun;
-        private bool inputJump;
-        private bool inputAttack;
+        private bool isInputRun;
+        private bool isInputJump;
+        private bool isInputAttack;
 
         public Vector3 MoveDirection => moveDirection;
         public Vector3 DashDirection => dashDirection;
-        public bool InputRun => inputRun;
-        public bool InputJump => inputJump;
-        public bool InputAttack => inputAttack;
-
-
+        public bool IsInputRun => isInputRun;
+        public bool IsInputJump => isInputJump;
+        public bool IsInputAttack => isInputAttack;
 
 
 
         protected virtual void Start() {
+            animationInfo = new AnimationInfo(animator);
+
             int floorContactLayerMask = UtilFunc.GetLayerMask(new string[] { "Player", "Monster" }, true);
             floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.1f, floorContactLayerMask);
         }
@@ -92,12 +104,9 @@ namespace Mu3Library.Character {
         protected virtual void Update() {
             if(currentState == null) return;
 
-            if(floorContactHelper != null) {
-                floorContactHelper.Raycast();
-                if(!floorContactHelper.OnFloor) {
+            if(animationInfo != null) animationInfo.UpdateStateInfoAll();
 
-                }
-            }
+            if(floorContactHelper != null) floorContactHelper.Raycast();
 
             stateChangeCool = Mathf.Max(stateChangeCool - Time.deltaTime, 0.0f);
             hitCool = Mathf.Max(hitCool - Time.deltaTime, 0.0f);
@@ -105,36 +114,37 @@ namespace Mu3Library.Character {
             // Play With Input
             if(AttackTarget == null) {
                 moveDirection = Vector3.zero;
-                if(KeyCodeInputCollector.Instance.GetKey(KeyCode.W)) moveDirection += CameraManager.Instance.CameraForwardXZ;
-                if(KeyCodeInputCollector.Instance.GetKey(KeyCode.A)) moveDirection -= CameraManager.Instance.CameraRightXZ;
-                if(KeyCodeInputCollector.Instance.GetKey(KeyCode.S)) moveDirection -= CameraManager.Instance.CameraForwardXZ;
-                if(KeyCodeInputCollector.Instance.GetKey(KeyCode.D)) moveDirection += CameraManager.Instance.CameraRightXZ;
+                if(KeyCodeInputCollector.Instance.GetKey(inputForward)) moveDirection += CameraManager.Instance.CameraForwardXZ;
+                if(KeyCodeInputCollector.Instance.GetKey(inputLeft)) moveDirection -= CameraManager.Instance.CameraRightXZ;
+                if(KeyCodeInputCollector.Instance.GetKey(inputBack)) moveDirection -= CameraManager.Instance.CameraForwardXZ;
+                if(KeyCodeInputCollector.Instance.GetKey(inputRight)) moveDirection += CameraManager.Instance.CameraRightXZ;
                 moveDirection = moveDirection.normalized;
 
                 dashDirection = Vector3.zero;
-                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.W)) dashDirection += CameraManager.Instance.CameraForwardXZ;
-                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.A)) dashDirection -= CameraManager.Instance.CameraRightXZ;
-                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.S)) dashDirection -= CameraManager.Instance.CameraForwardXZ;
-                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.D)) dashDirection += CameraManager.Instance.CameraRightXZ;
+                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(inputForward)) dashDirection += CameraManager.Instance.CameraForwardXZ;
+                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(inputLeft)) dashDirection -= CameraManager.Instance.CameraRightXZ;
+                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(inputBack)) dashDirection -= CameraManager.Instance.CameraForwardXZ;
+                if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(inputRight)) dashDirection += CameraManager.Instance.CameraRightXZ;
                 dashDirection = dashDirection.normalized;
 
-                inputRun = KeyCodeInputCollector.Instance.GetKey(KeyCode.LeftShift);
+                isInputRun = KeyCodeInputCollector.Instance.GetKey(inputRun);
 
-                inputJump = KeyCodeInputCollector.Instance.GetKey(KeyCode.Space);
+                isInputJump = KeyCodeInputCollector.Instance.GetKey(inputJump);
 
-                inputAttack = KeyCodeInputCollector.Instance.GetKey(KeyCode.Mouse0);
+                isInputAttack = KeyCodeInputCollector.Instance.GetKey(inputAttack);
             }
+
+            currentState.Update();
 
             if(moveDirection.magnitude <= 0) {
                 rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity.normalized * moveSpeedOffset, rigidbody.velocity.y);
             }
-
-            currentState.Update();
         }
 
         #region Utility
-        public virtual void Play() {
+        public virtual void Play(bool playAuto) {
             IsPlaying = true;
+            PlayAuto = playAuto;
 
             ChangeState(CharacterStateType.Idle);
         }
@@ -151,6 +161,23 @@ namespace Mu3Library.Character {
 
         public virtual void GetHit(int damage, Vector3 attackPoint, float knockbackStrength) {
             
+        }
+
+        public void SetInput(
+            KeyCode forward, 
+            KeyCode left, 
+            KeyCode back, 
+            KeyCode right, 
+            KeyCode run, 
+            KeyCode jump, 
+            KeyCode attack) {
+            inputForward = forward;
+            inputLeft = left;
+            inputBack = back;
+            inputRight = right;
+            inputRun = run;
+            inputJump = jump;
+            inputAttack = attack;
         }
 
         public void ChangeState(CharacterStateType type) {
@@ -190,7 +217,19 @@ namespace Mu3Library.Character {
         }
 
         public void Move() {
-            rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset);
+            rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
+        }
+
+        public void Jump() {
+            rigidbody.velocity += Vector3.up * jumpStrength;
+        }
+
+        public void Dash() {
+
+        }
+
+        public bool CanDash() {
+            return true;
         }
         #endregion
     }

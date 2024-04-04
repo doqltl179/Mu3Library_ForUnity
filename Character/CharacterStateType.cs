@@ -8,6 +8,7 @@ namespace Mu3Library.Character {
         Idle, 
         Move, 
         Jump, 
+        Dash, 
         NormalAttack, 
     }
 }

@@ -9,40 +9,30 @@ namespace Mu3Library.InputHelper {
 
 
 
-        private void Awake() {
-            if(keyArray == null) {
-                KeyCode[] keys = (KeyCode[])System.Enum.GetValues(typeof(KeyCode));
-                List<KeyCode> keyList = new List<KeyCode>();
-                string keyString;
-                foreach(KeyCode key in keys) {
-                    keyString = key.ToString();
-                    if(keyString.Contains("Joystick") || keyString.Contains("Apple") || keyString.Contains("Meta")) { }
-                    else {
-                        keyList.Add(key);
-                    }
-                }
-                keyArray = keyList.ToArray();
-            }
-
-            if(keyInfos == null || keyInfos.Count <= 0) {
-                keyInfos = new Dictionary<KeyCode, KeyData>();
-                foreach(KeyCode key in keyArray) {
-                    KeyData data = new KeyData(key);
-
-                    keyInfos.Add(key, data);
-                }
-            }
-        }
-
         private void Update() {
-            foreach(KeyCode key in keyArray) {
-                keyInfos[key].UpdateKey(Input.GetKeyDown(key), Input.GetKeyUp(key));
+            if(keyInfos != null) {
+                foreach(KeyCode key in keyArray) {
+                    keyInfos[key].UpdateKey(Input.GetKeyDown(key), Input.GetKeyUp(key));
+                }
             }
         }
-
-
 
         #region Utility
+        public void SetCollectKeys(KeyCode[] keys) {
+            keyInfos = new Dictionary<KeyCode, KeyData>();
+            KeyData temp;
+            foreach(KeyCode key in keys) {
+                if(keyInfos.TryGetValue(key, out temp)) {
+
+                }
+                else {
+                    keyInfos.Add(key, new KeyData(key));
+                }
+            }
+
+            keyArray = keys;
+        }
+
         public bool GetKeyDown(KeyCode key) => keyInfos[key].KeyDown;
         public bool GetKeyUp(KeyCode key) => keyInfos[key].KeyUp;
         public bool GetKey(KeyCode key) => keyInfos[key].KeyPressing;
