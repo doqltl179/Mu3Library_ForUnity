@@ -1,18 +1,19 @@
 using Mu3Library.InputHelper;
 using Mu3Library.Raycast;
 using Mu3Library.Utility;
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Character {
-    public class CharacterController : MonoBehaviour {
+    public abstract class CharacterController : MonoBehaviour {
+        protected Dictionary<CharacterStateType, CharacterState> states;
+
         [SerializeField] protected Animator animator;
+        public Animator Animator => animator;
 
         [Space(20)]
         [SerializeField] protected Transform cameraTarget;
-        public Transform CameraTarget { get => cameraTarget; }
+        public Transform CameraTarget => cameraTarget;
 
         [Space(20)]
         [SerializeField] protected Rigidbody rigidbody;
@@ -32,6 +33,12 @@ namespace Mu3Library.Character {
             get => transform.forward;
             set => transform.forward = value;
         }
+        public Vector3 Velocity {
+            get => rigidbody.velocity;
+            set => rigidbody.velocity = value;
+        }
+
+        public bool IsPlaying { get; protected set; }
 
         protected CharacterState currentState;
         protected float stateChangeCool = 0.0f;
@@ -41,6 +48,11 @@ namespace Mu3Library.Character {
         [SerializeField, Range(0.1f, 10.0f)] protected float moveBoost = 1.0f;
         [SerializeField, Range(0.1f, 10.0f)] protected float jumpStrength = 1.0f;
         [SerializeField, Range(1.0f, 10.0f)] protected float dashDistance = 2.0f;
+        public float MoveSpeed => moveSpeed;
+        public float MoveBoost => moveBoost;
+        public float JumpStrength => jumpStrength;
+        public float DashDistance => dashDistance;
+        public float moveSpeedOffset { get; protected set; }
 
         [Space(20)]
         [SerializeField, Range(0.1f, 3.0f)] protected float hitCoolTime = 1.0f;
@@ -48,7 +60,6 @@ namespace Mu3Library.Character {
 
         [Space(20)]
         [SerializeField, Range(10, 200)] protected int hpMax = 100;
-
         public int HP { get; protected set; }
 
         private FloorContactRayHelper floorContactHelper;
@@ -59,6 +70,15 @@ namespace Mu3Library.Character {
 
         private Vector3 moveDirection;
         private Vector3 dashDirection;
+        private bool inputRun;
+        private bool inputJump;
+        private bool inputAttack;
+
+        public Vector3 MoveDirection => moveDirection;
+        public Vector3 DashDirection => dashDirection;
+        public bool InputRun => inputRun;
+        public bool InputJump => inputJump;
+        public bool InputAttack => inputAttack;
 
 
 
@@ -97,18 +117,35 @@ namespace Mu3Library.Character {
                 if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.S)) dashDirection -= CameraManager.Instance.CameraForwardXZ;
                 if(KeyCodeInputCollector.Instance.GetKeyDoubleDown(KeyCode.D)) dashDirection += CameraManager.Instance.CameraRightXZ;
                 dashDirection = dashDirection.normalized;
+
+                inputRun = KeyCodeInputCollector.Instance.GetKey(KeyCode.LeftShift);
+
+                inputJump = KeyCodeInputCollector.Instance.GetKey(KeyCode.Space);
+
+                inputAttack = KeyCodeInputCollector.Instance.GetKey(KeyCode.Mouse0);
             }
-            // Play Auto
-            else {
-                moveDirection = transform.forward;
-                dashDirection = transform.forward;
+
+            if(moveDirection.magnitude <= 0) {
+                rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity.normalized * moveSpeedOffset, rigidbody.velocity.y);
             }
 
             currentState.Update();
         }
 
         #region Utility
+        public virtual void Play() {
+            IsPlaying = true;
+
+            ChangeState(CharacterStateType.Idle);
+        }
+
         public virtual void Init() {
+            if(currentState != null) {
+                currentState.Exit();
+                currentState = null;
+            }
+            states = new Dictionary<CharacterStateType, CharacterState>();
+
             HP = hpMax;
         }
 
@@ -116,21 +153,45 @@ namespace Mu3Library.Character {
             
         }
 
-        public virtual void ChangeState(CharacterState state) {
-            currentState = state;
+        public void ChangeState(CharacterStateType type) {
+            if(currentState != null) currentState.Exit();
+
+            if(states.TryGetValue(type, out currentState)) {
+
+            }
+            else {
+                CharacterState changedState = GetState(type);
+                states.Add(type, changedState);
+
+                currentState = changedState;
+            }
+
+            currentState.Enter();
         }
+
+        protected abstract CharacterState GetState(CharacterStateType type);
 
         public virtual void SetAttackTarget(CharacterController target) {
             AttackTarget = target;
         }
-        #endregion
 
-        #region Action
+        public void IncreaseMoveSpeedOffset(float max = 1.0f) {
+            moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, max, Time.deltaTime * moveBoost);
+            animator.SetFloat("MoveBlend", moveSpeedOffset);
+        }
 
-        #endregion
+        public void DecreaseMoveSpeedOffset() {
+            moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, 0.0f, Time.deltaTime * moveBoost);
+            animator.SetFloat("MoveBlend", moveSpeedOffset);
+        }
 
-        #region Animation Func
+        public void Rotate() {
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * 30.0f);
+        }
 
+        public void Move() {
+            rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset);
+        }
         #endregion
     }
 }
