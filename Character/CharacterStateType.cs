@@ -11,5 +11,6 @@ namespace Mu3Library.Character {
         Dash, 
         DashAttack,
         NormalAttack, 
+        Hit, 
     }
 }

@@ -79,9 +79,14 @@ namespace Mu3Library.Character {
         public float FloorDistance => floorContactHelper.FloorDistance;
         public bool OnFloor => floorContactHelper.OnFloor;
 
-        private RaycastHit dashRayHit;
-
         public CharacterController AttackTarget { get; private set; }
+
+        private struct KnockbackParameters {
+            public Vector3 KnockbackDirection;
+            public Vector3 KnockbackDirectionXZ;
+            public float Strength;
+        }
+        private KnockbackParameters knockbackParams;
 
         private Vector3 moveDirection;
         private Vector3 dashDirection;
@@ -94,6 +99,9 @@ namespace Mu3Library.Character {
         public bool IsInputRun => isInputRun;
         public bool IsInputJump => isInputJump;
         public bool IsInputAttack => isInputAttack;
+
+        private RaycastHit dashRayHit;
+        private RaycastHit knockbackRayHit;
 
 
 
@@ -159,7 +167,37 @@ namespace Mu3Library.Character {
         }
 
         public virtual void GetHit(int damage, Vector3 attackPoint, float knockbackStrength) {
-            
+            if(hitCool > 0.0f || Avoid()) {
+                return;
+            }
+
+            HP -= damage;
+            //Debug.Log($"Player Get Hit! damage: {damage}, currentHP: {HP}");
+            if(HP <= 0) {
+
+            }
+            else {
+                knockbackParams = new KnockbackParameters {
+                    KnockbackDirection = (transform.position - attackPoint).normalized,
+                    KnockbackDirectionXZ = UtilFunc.GetVec3XZ(transform.position - attackPoint).normalized, 
+                    Strength = knockbackStrength
+                };
+
+                Vector3 toAttackPoint = (attackPoint - transform.position).normalized;
+                Vector3 toAttackPointXZ = UtilFunc.GetVec3XZ(toAttackPoint).normalized;
+                float angle = Vector3.Angle(transform.forward, toAttackPointXZ);
+                bool isRight = UtilFunc.IsTargetOnRight(transform.forward, toAttackPointXZ);
+                if(angle < 45) animator.SetInteger("HitDirection", 1); //Forward
+                else if(angle > 135) animator.SetInteger("HitDirection", 0); //Back
+                else if(isRight) animator.SetInteger("HitDirection", 3); //Right
+                else animator.SetInteger("HitDirection", 2); //Left
+
+                ChangeState(CharacterStateType.Hit);
+            }
+        }
+
+        protected virtual bool Avoid() {
+            return false;
         }
 
         public virtual void SetAttackTarget(CharacterController target) {
@@ -267,7 +305,7 @@ namespace Mu3Library.Character {
         }
 
         public void Dash() {
-            Dash(dashDirection, dashDistance, 0.3f, UtilFunc.GetLayerMask("Props"));
+            Dash(dashDirection, dashDistance, 0.3f, UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
         }
 
         public void Dash(Vector3 direction, float distance, float moveTime, int mask, Ease ease = Ease.OutQuad) {
@@ -286,6 +324,31 @@ namespace Mu3Library.Character {
 
             transform.DOMove(dashEndPos, moveTime).SetEase(Ease.OutQuad);
             transform.DORotateQuaternion(Quaternion.LookRotation(direction), moveTime * 0.33f).SetEase(ease);
+        }
+
+        public void Knockback() {
+            Knockback(
+                knockbackParams.KnockbackDirectionXZ,
+                knockbackParams.Strength, 
+                0.2f, 
+                UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
+        }
+
+        public void Knockback(Vector3 direction, float strength, float time, int mask, Ease ease = Ease.OutQuad) {
+            Vector3 knockbackEndPos = transform.position + direction * strength;
+
+            Vector3 p1 = knockbackEndPos;
+            Vector3 p2 = p1 + Vector3.up * Height;
+            if(Physics.CapsuleCast(p1, p1, Radius, Vector3.forward, out knockbackRayHit, 0.0f, mask)) {
+                p1 = transform.position;
+                p2 = p1 + Vector3.up * Height;
+                if(Physics.CapsuleCast(p1, p2, Radius, direction, out knockbackRayHit, strength, mask)) {
+                    float newDashDistance = UtilFunc.GetDistanceXZ(transform.position, dashRayHit.point);
+                    knockbackEndPos = transform.position + direction * newDashDistance;
+                }
+            }
+
+            transform.DOMove(knockbackEndPos, time).SetEase(ease);
         }
         #endregion
     }
