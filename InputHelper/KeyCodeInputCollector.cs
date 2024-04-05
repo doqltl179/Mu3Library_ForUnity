@@ -79,7 +79,7 @@ namespace Mu3Library.InputHelper {
 
                 if((System.DateTime.Now - KeyDownTime).TotalMilliseconds * 0.001f < DoubleDownInterval) {
                     DoubleDown = true;
-                    Debug.Log($"DoubleDown. Key: {Key.ToString()}");
+                    //Debug.Log($"DoubleDown. Key: {Key}");
                 }
                 KeyDownTime = System.DateTime.Now;
 

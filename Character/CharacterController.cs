@@ -20,7 +20,6 @@ namespace Mu3Library.Character {
         protected KeyCode inputAttack = KeyCode.Mouse0;
 
         [SerializeField] protected Animator animator;
-        public Animator Animator => animator;
         protected AnimationInfo animationInfo;
 
         [Space(20)]
@@ -55,6 +54,7 @@ namespace Mu3Library.Character {
 
         protected CharacterState currentState;
         protected float stateChangeCool = 0.0f;
+        protected const float StandardStateChangeCoolTime = 0.1f;
 
         [Header("Properties")]
         [SerializeField, Range(0.1f, 10.0f)] protected float moveSpeed = 1.0f;
@@ -138,10 +138,6 @@ namespace Mu3Library.Character {
             }
 
             currentState.Update();
-
-            if(moveDirection.magnitude <= 0) {
-                rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity.normalized * moveSpeedOffset, rigidbody.velocity.y);
-            }
         }
 
         #region Utility
@@ -187,14 +183,16 @@ namespace Mu3Library.Character {
             inputAttack = attack;
         }
 
-        public void ChangeState(CharacterStateType type) {
+        public void ChangeState(CharacterStateType type, bool ignorCool = false) {
+            if(!ignorCool && stateChangeCool > 0) return;
+
             if(currentState != null) currentState.Exit();
 
             if(states.TryGetValue(type, out currentState)) {
 
             }
             else {
-                CharacterState changedState = GetState(type);
+                CharacterState changedState = GetNewState(type);
                 states.Add(type, changedState);
 
                 currentState = changedState;
@@ -202,9 +200,11 @@ namespace Mu3Library.Character {
 
             Debug.Log($"State Change To `{type}`");
             currentState.Enter();
+
+            stateChangeCool = StandardStateChangeCoolTime;
         }
 
-        protected abstract CharacterState GetState(CharacterStateType type);
+        protected abstract CharacterState GetNewState(CharacterStateType type);
 
 
 
@@ -215,6 +215,23 @@ namespace Mu3Library.Character {
         public float GetCurrentAnimationNormalizedTimeClamp01(int layer = 0) {
             return animationInfo.GetNormalizedTimeClamp01(layer);
         }
+
+        public int GetPlayingClipCount(int layer = 0) {
+            return animationInfo.GetPlayingClipCount(layer);
+        }
+
+        public bool IsPlayingAnimationClipWithName(string name) {
+            return animationInfo.IsPlayingAnimationClipWithName(name);
+        }
+
+        public void SetBool(string parameter, bool value) => animator.SetBool(parameter, value);
+        public bool GetBool(string parameter) => animator.GetBool(parameter);
+
+        public void SetFloat(string parameter, float value) => animator.SetFloat(parameter, value);
+        public float GetFloat(string parameter) => animator.GetFloat(parameter);
+
+        public void SetInteger(string parameter, int value) => animator.SetInteger(parameter, value);
+        public int GetInteger(string parameter) => animator.GetInteger(parameter);
 
 
 
@@ -228,8 +245,17 @@ namespace Mu3Library.Character {
             animator.SetFloat("MoveBlend", moveSpeedOffset);
         }
 
+        public void UpdateVelocityToMoveSpeedOffset() {
+            rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity.normalized * moveSpeedOffset, rigidbody.velocity.y);
+        }
+
         public void Rotate() {
             transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * 30.0f);
+        }
+
+        public void RotateImmediately(Vector3 lookForward, float time = 0.0f, Ease ease = Ease.Linear) {
+            if(time <= 0.0f) transform.rotation = Quaternion.LookRotation(lookForward);
+            else transform.DORotateQuaternion(Quaternion.LookRotation(lookForward), time).SetEase(ease);
         }
 
         public void Move() {
@@ -241,23 +267,25 @@ namespace Mu3Library.Character {
         }
 
         public void Dash() {
-            Vector3 dashEndPos = transform.position + dashDirection * dashDistance;
+            Dash(dashDirection, dashDistance, 0.3f, UtilFunc.GetLayerMask("Props"));
+        }
+
+        public void Dash(Vector3 direction, float distance, float moveTime, int mask, Ease ease = Ease.OutQuad) {
+            Vector3 dashEndPos = transform.position + direction * distance;
 
             Vector3 p1 = dashEndPos;
             Vector3 p2 = p1 + Vector3.up * Height;
-            int layerMask = UtilFunc.GetLayerMask("Props");
-            if(Physics.CapsuleCast(p1, p2, Radius, Vector3.forward, out dashRayHit, 0.0f, layerMask)) {
+            if(Physics.CapsuleCast(p1, p2, Radius, Vector3.forward, out dashRayHit, 0.0f, mask)) {
                 p1 = transform.position;
                 p2 = p1 + Vector3.up * Height;
-                if(Physics.CapsuleCast(p1, p2, Radius, dashDirection, out dashRayHit, dashDistance, layerMask)) {
+                if(Physics.CapsuleCast(p1, p2, Radius, direction, out dashRayHit, distance, mask)) {
                     float newDashDistance = UtilFunc.GetDistanceXZ(transform.position, dashRayHit.point);
-                    dashEndPos = transform.position + dashDirection * newDashDistance;
+                    dashEndPos = transform.position + direction * newDashDistance;
                 }
             }
 
-            float moveTime = 0.3f;
             transform.DOMove(dashEndPos, moveTime).SetEase(Ease.OutQuad);
-            transform.DORotateQuaternion(Quaternion.LookRotation(dashDirection), moveTime * 0.33f).SetEase(Ease.OutQuad);
+            transform.DORotateQuaternion(Quaternion.LookRotation(direction), moveTime * 0.33f).SetEase(ease);
         }
         #endregion
     }

@@ -6,12 +6,14 @@ namespace Mu3Library.Animation {
     public class AnimationInfo {
         private Animator m_animator;
         private AnimatorStateInfo[] m_stateInfos;
+        private AnimatorClipInfo[][] m_clipInfos;
 
 
 
         public AnimationInfo(Animator animator) {
             m_animator = animator;
             m_stateInfos = new AnimatorStateInfo[animator.layerCount];
+            m_clipInfos = new AnimatorClipInfo[animator.layerCount][];
         }
 
         public void UpdateStateInfo(int layer) {
@@ -25,8 +27,9 @@ namespace Mu3Library.Animation {
         }
 
         public void UpdateStateInfoAll() {
-            for(int i = 0; i < m_stateInfos.Length; i++) {
+            for(int i = 0; i < m_animator.layerCount; i++) {
                 m_stateInfos[i] = m_animator.GetCurrentAnimatorStateInfo(i);
+                m_clipInfos[i] = m_animator.GetCurrentAnimatorClipInfo(i);
             }
         }
 
@@ -62,6 +65,22 @@ namespace Mu3Library.Animation {
 
         private bool IsLayerOutOfRange(int layer) {
             return layer < 0 || m_stateInfos.Length <= layer;
+        }
+
+        public int GetPlayingClipCount(int layer) {
+            return m_clipInfos[layer].Length;
+        }
+
+        public bool IsPlayingAnimationClipWithName(string name) {
+            for(int i = 0; i < m_clipInfos.Length; i++) {
+                for(int j = 0; j < m_clipInfos[i].Length; j++) {
+                    if(m_clipInfos[i][j].clip.name.Contains(name)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }
