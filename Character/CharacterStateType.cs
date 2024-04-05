@@ -9,6 +9,7 @@ namespace Mu3Library.Character {
         Move, 
         Jump, 
         Dash, 
+        DashAttack,
         NormalAttack, 
     }
 }

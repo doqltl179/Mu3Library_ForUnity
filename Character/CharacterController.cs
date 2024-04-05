@@ -1,3 +1,4 @@
+using DG.Tweening;
 using Mu3Library.InputHelper;
 using Mu3Library.Raycast;
 using Mu3Library.Utility;
@@ -78,6 +79,8 @@ namespace Mu3Library.Character {
         public float FloorDistance => floorContactHelper.FloorDistance;
         public bool OnFloor => floorContactHelper.OnFloor;
 
+        private RaycastHit dashRayHit;
+
         public CharacterController AttackTarget { get; private set; }
 
         private Vector3 moveDirection;
@@ -97,8 +100,8 @@ namespace Mu3Library.Character {
         protected virtual void Start() {
             animationInfo = new AnimationInfo(animator);
 
-            int floorContactLayerMask = UtilFunc.GetLayerMask(new string[] { "Player", "Monster" }, true);
-            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.1f, floorContactLayerMask);
+            int layerMask = UtilFunc.GetLayerMask("Player", true);
+            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.1f, layerMask);
         }
 
         protected virtual void Update() {
@@ -163,6 +166,10 @@ namespace Mu3Library.Character {
             
         }
 
+        public virtual void SetAttackTarget(CharacterController target) {
+            AttackTarget = target;
+        }
+
         public void SetInput(
             KeyCode forward, 
             KeyCode left, 
@@ -193,14 +200,23 @@ namespace Mu3Library.Character {
                 currentState = changedState;
             }
 
+            Debug.Log($"State Change To `{type}`");
             currentState.Enter();
         }
 
         protected abstract CharacterState GetState(CharacterStateType type);
 
-        public virtual void SetAttackTarget(CharacterController target) {
-            AttackTarget = target;
+
+
+        public float GetCurrentAnimationNormalizedTime(int layer = 0) {
+            return animationInfo.GetNormalizedTime(layer);
         }
+
+        public float GetCurrentAnimationNormalizedTimeClamp01(int layer = 0) {
+            return animationInfo.GetNormalizedTimeClamp01(layer);
+        }
+
+
 
         public void IncreaseMoveSpeedOffset(float max = 1.0f) {
             moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, max, Time.deltaTime * moveBoost);
@@ -225,11 +241,23 @@ namespace Mu3Library.Character {
         }
 
         public void Dash() {
+            Vector3 dashEndPos = transform.position + dashDirection * dashDistance;
 
-        }
+            Vector3 p1 = dashEndPos;
+            Vector3 p2 = p1 + Vector3.up * Height;
+            int layerMask = UtilFunc.GetLayerMask("Props");
+            if(Physics.CapsuleCast(p1, p2, Radius, Vector3.forward, out dashRayHit, 0.0f, layerMask)) {
+                p1 = transform.position;
+                p2 = p1 + Vector3.up * Height;
+                if(Physics.CapsuleCast(p1, p2, Radius, dashDirection, out dashRayHit, dashDistance, layerMask)) {
+                    float newDashDistance = UtilFunc.GetDistanceXZ(transform.position, dashRayHit.point);
+                    dashEndPos = transform.position + dashDirection * newDashDistance;
+                }
+            }
 
-        public bool CanDash() {
-            return true;
+            float moveTime = 0.3f;
+            transform.DOMove(dashEndPos, moveTime).SetEase(Ease.OutQuad);
+            transform.DORotateQuaternion(Quaternion.LookRotation(dashDirection), moveTime * 0.33f).SetEase(Ease.OutQuad);
         }
         #endregion
     }

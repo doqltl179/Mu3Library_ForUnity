@@ -4,10 +4,8 @@ using UnityEngine;
 
 namespace Mu3Library.Character {
     public abstract class CharacterState {
-        protected CharacterController controller;
-
         public CharacterState(CharacterController character) {
-            controller = character;
+
         }
 
         public abstract void Enter();
