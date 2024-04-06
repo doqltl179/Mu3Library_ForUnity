@@ -48,6 +48,12 @@ namespace Mu3Library.Utility {
         #region Vector3
         public static Vector3 GetVec3XZ(Vector3 vec3, float y = 0.0f) => new Vector3(vec3.x, y, vec3.z);
         public static Vector3 GetVec3Y(Vector3 vec3, float x = 0.0f, float z = 0.0f) => new Vector3(x, vec3.y, z);
+
+        public static Vector3 BezierCurve(Vector3 start, Vector3 end, Vector3 controlPoint, float lerp) {
+            Vector3 startLerp = Vector3.LerpUnclamped(start, controlPoint, lerp);
+            Vector3 endLerp = Vector3.LerpUnclamped(controlPoint, end, lerp);
+            return Vector3.LerpUnclamped(startLerp, endLerp, lerp);
+        }
         #endregion
     }
 }
