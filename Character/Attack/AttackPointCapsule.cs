@@ -11,9 +11,11 @@ namespace Mu3Library.Character.Attack {
 
 #if UNITY_EDITOR
         private void OnDrawGizmos() {
-            Gizmos.color = Color.red;
+            if(enabled) {
+                Gizmos.color = Color.red;
 
-            Editor.Gizmo.Draw.WireCapsule(transform, radius, height);
+                Editor.Gizmo.Draw.WireCapsule(transform, radius, height);
+            }
         }
 #endif
 

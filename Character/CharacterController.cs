@@ -52,6 +52,10 @@ namespace Mu3Library.Character {
         public bool IsPlaying { get; protected set; }
         public bool PlayAuto { get; protected set; }
 
+        [Space(20)]
+        [SerializeField] protected Transform weaponSlot;
+        [SerializeField] protected Mu3Library.Character.Weapon.Weapon currentWeapon;
+
         protected CharacterState currentState;
         protected float stateChangeCool = 0.0f;
         protected const float StandardStateChangeCoolTime = 0.1f;
@@ -349,6 +353,16 @@ namespace Mu3Library.Character {
             }
 
             transform.DOMove(knockbackEndPos, time).SetEase(ease);
+        }
+        #endregion
+
+        #region Animation Func
+        public void ActivateWeaponAttackPoint() {
+            if(currentWeapon != null) currentWeapon.ActivateAttackPoint();
+        }
+
+        public void DeactivateWeaponAttackPoint() {
+            if(currentWeapon != null) currentWeapon.DeactivateAttackPoint();
         }
         #endregion
     }
