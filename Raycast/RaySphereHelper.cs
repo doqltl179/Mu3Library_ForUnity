@@ -14,14 +14,12 @@ namespace Mu3Library.Raycast {
             Direction direction,
             Transform origin,
             float radius,
-            float height,
             float distance,
             int mask = -1) {
             m_coordinate = coordinate;
             m_direction = direction;
             m_origin = origin;
             m_radius = radius;
-            m_height = height;
             m_distance = distance;
             m_mask = mask;
         }

@@ -2,7 +2,9 @@
     using System.Collections;
     using System.Collections.Generic;
     using System.IO;
-    using UnityEditor;
+using System.Linq;
+using System.Text;
+using UnityEditor;
     using UnityEngine;
 
 namespace Mu3Library.Editor.Window {
@@ -32,8 +34,18 @@ namespace Mu3Library.Editor.Window {
         }
 
         void OnGUI() {
-            GUIStyle titleStyle = new GUIStyle() {
+            GUIStyle headerStyle = new GUIStyle() {
                 fontSize = 24,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(20, 20, 12, 12),
+                fixedHeight = 40,
+                normal = new GUIStyleState() {
+                    textColor = Color.white,
+                },
+            };
+            GUIStyle header2Style = new GUIStyle() {
+                fontSize = 16,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(20, 20, 12, 12),
@@ -45,7 +57,7 @@ namespace Mu3Library.Editor.Window {
 
 
 
-            EditorGUILayout.LabelField("User Settings", titleStyle);
+            EditorGUILayout.LabelField("User Settings", headerStyle);
 
             GUILayout.Space(25);
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
@@ -53,7 +65,7 @@ namespace Mu3Library.Editor.Window {
 
 
             #region Edit Animation Clip
-            EditorGUILayout.LabelField("Edit Animation Clip", titleStyle);
+            EditorGUILayout.LabelField("Edit Animation Clip", headerStyle);
 
             GUILayout.Space(25);
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
@@ -77,21 +89,7 @@ namespace Mu3Library.Editor.Window {
                 if(!string.IsNullOrEmpty(path)) {
                     animationClipSavePath = path;
 
-                    AnimationClip clip = new AnimationClip();
-                    clip.frameRate = selectedClip.frameRate;
-
-                    EditorCurveBinding[] curves = AnimationUtility.GetCurveBindings(selectedClip);
-                    AnimationCurve tempCurve;
-                    foreach(EditorCurveBinding curve in curves) {
-                        tempCurve = AnimationUtility.GetEditorCurve(selectedClip, curve);
-                        AnimationCurve reverseCurve = new AnimationCurve();
-                        foreach(Keyframe key in tempCurve.keys) {
-                            Keyframe reverseKey = new Keyframe(selectedClip.length - key.time, key.value, -key.inTangent, -key.outTangent);
-                            reverseCurve.AddKey(reverseKey);
-                        }
-
-                        AnimationUtility.SetEditorCurve(clip, curve, reverseCurve);
-                    }
+                    AnimationClip clip = GetReverseClip(selectedClip);
 
                     AssetDatabase.CreateAsset(clip, animationClipSavePath);
                     AssetDatabase.SaveAssets();
@@ -106,7 +104,7 @@ namespace Mu3Library.Editor.Window {
             #endregion
 
             GUILayout.Space(30);
-            EditorGUILayout.LabelField("Screen Capture", titleStyle);
+            EditorGUILayout.LabelField("Screen Capture", headerStyle);
 
             GUILayout.Space(25);
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
@@ -143,6 +141,26 @@ namespace Mu3Library.Editor.Window {
 
             GUILayout.EndHorizontal();
             #endregion
+        }
+
+        private AnimationClip GetReverseClip(AnimationClip originalClip) {
+            AnimationClip clip = new AnimationClip();
+            clip.frameRate = originalClip.frameRate;
+
+            EditorCurveBinding[] curves = AnimationUtility.GetCurveBindings(originalClip);
+            AnimationCurve tempCurve;
+            foreach(EditorCurveBinding curve in curves) {
+                tempCurve = AnimationUtility.GetEditorCurve(originalClip, curve);
+                AnimationCurve reverseCurve = new AnimationCurve();
+                foreach(Keyframe key in tempCurve.keys) {
+                    Keyframe reverseKey = new Keyframe(originalClip.length - key.time, key.value, -key.inTangent, -key.outTangent);
+                    reverseCurve.AddKey(reverseKey);
+                }
+
+                AnimationUtility.SetEditorCurve(clip, curve, reverseCurve);
+            }
+
+            return clip;
         }
 
         private void Capture(Vector2Int captureSize, string path) {

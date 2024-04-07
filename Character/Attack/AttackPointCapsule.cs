@@ -27,7 +27,7 @@ namespace Mu3Library.Character.Attack {
                 radius,
                 height,
                 0.0f,
-                1 << AttackTargetLayer);
+                AttackTargetLayer);
         }
 
         protected override void UpdateHit() {

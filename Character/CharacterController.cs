@@ -1,4 +1,5 @@
 using DG.Tweening;
+using Mu3Library.Character.Attack;
 using Mu3Library.InputHelper;
 using Mu3Library.Raycast;
 using Mu3Library.Utility;
@@ -63,6 +64,7 @@ namespace Mu3Library.Character {
         [Header("Properties")]
         [SerializeField, Range(0.1f, 10.0f)] protected float moveSpeed = 1.0f;
         [SerializeField, Range(0.1f, 10.0f)] protected float moveBoost = 1.0f;
+        [SerializeField, Range(0.1f, 10.0f)] protected float rotateSpeed = 1.0f;
         [SerializeField, Range(0.1f, 10.0f)] protected float jumpStrength = 1.0f;
         [SerializeField, Range(1.0f, 10.0f)] protected float dashDistance = 2.0f;
         public float MoveSpeed => moveSpeed;
@@ -76,7 +78,7 @@ namespace Mu3Library.Character {
         protected float hitCool = 0.0f;
 
         [Space(20)]
-        [SerializeField, Range(10, 200)] protected int hpMax = 100;
+        [SerializeField, Range(10, 20000)] protected int hpMax = 100;
         public int HP { get; protected set; }
 
         private FloorContactRayHelper floorContactHelper;
@@ -84,6 +86,12 @@ namespace Mu3Library.Character {
         public bool OnFloor => floorContactHelper.OnFloor;
 
         public CharacterController AttackTarget { get; private set; }
+
+        private Vector3 attackTargetDirection;
+        private Vector3 attackTargetDirectionXZ;
+
+        public Vector3 AttackTargetDirection => attackTargetDirection;
+        public Vector3 AttackTargetDirectionXZ => attackTargetDirectionXZ;
 
         private struct KnockbackParameters {
             public Vector3 KnockbackDirection;
@@ -106,6 +114,8 @@ namespace Mu3Library.Character {
 
         private RaycastHit dashRayHit;
         private RaycastHit knockbackRayHit;
+
+        [HideInInspector] public bool Avoid;
 
 
 
@@ -148,6 +158,10 @@ namespace Mu3Library.Character {
 
                 isInputAttack = KeyCodeInputCollector.Instance.GetKey(inputAttack);
             }
+            else {
+                attackTargetDirection = (AttackTarget.Pos - transform.position).normalized;
+                attackTargetDirectionXZ = UtilFunc.GetVec3XZ(attackTargetDirection).normalized;
+            }
 
             currentState.Update();
         }
@@ -171,12 +185,12 @@ namespace Mu3Library.Character {
         }
 
         public virtual void GetHit(int damage, Vector3 attackPoint, float knockbackStrength) {
-            if(hitCool > 0.0f || Avoid()) {
+            if(hitCool > 0.0f || Avoid) {
                 return;
             }
 
             HP -= damage;
-            //Debug.Log($"Player Get Hit! damage: {damage}, currentHP: {HP}");
+            Debug.Log($"Get Hit! name: {transform.name}, damage: {damage}, currentHP: {HP}");
             if(HP <= 0) {
 
             }
@@ -200,21 +214,17 @@ namespace Mu3Library.Character {
             }
         }
 
-        protected virtual bool Avoid() {
-            return false;
-        }
-
         public virtual void SetAttackTarget(CharacterController target) {
             AttackTarget = target;
         }
 
         public void SetInput(
-            KeyCode forward, 
-            KeyCode left, 
-            KeyCode back, 
-            KeyCode right, 
-            KeyCode run, 
-            KeyCode jump, 
+            KeyCode forward,
+            KeyCode left,
+            KeyCode back,
+            KeyCode right,
+            KeyCode run,
+            KeyCode jump,
             KeyCode attack) {
             inputForward = forward;
             inputLeft = left;
@@ -240,7 +250,7 @@ namespace Mu3Library.Character {
                 currentState = changedState;
             }
 
-            Debug.Log($"State Change To `{type}`");
+            Debug.Log($"{transform.name} || State Change To `{type}`");
             currentState.Enter();
 
             stateChangeCool = StandardStateChangeCoolTime;
@@ -292,16 +302,24 @@ namespace Mu3Library.Character {
         }
 
         public void Rotate() {
-            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * 30.0f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
         }
 
-        public void RotateImmediately(Vector3 lookForward, float time = 0.0f, Ease ease = Ease.Linear) {
-            if(time <= 0.0f) transform.rotation = Quaternion.LookRotation(lookForward);
-            else transform.DORotateQuaternion(Quaternion.LookRotation(lookForward), time).SetEase(ease);
+        public void Rotate(Quaternion rotation) {
+            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * rotateSpeed);
+        }
+
+        public void RotateImmediately(Quaternion rotation, float time = 0.0f, Ease ease = Ease.Linear) {
+            if(time <= 0.0f) transform.rotation = rotation;
+            else transform.DORotateQuaternion(rotation, time).SetEase(ease);
         }
 
         public void Move() {
             rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
+        }
+
+        public void Move(Vector3 direction) {
+            rigidbody.velocity = UtilFunc.GetVec3XZ(direction * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
         }
 
         public void Jump() {
@@ -354,9 +372,25 @@ namespace Mu3Library.Character {
 
             transform.DOMove(knockbackEndPos, time).SetEase(ease);
         }
+
+        public bool TargetInRange(AttackInfo info, CharacterController target) {
+            float dist = UtilFunc.GetDistanceXZ(transform.position, target.Pos);
+            if(dist < info.RangeMin || info.RangeMax < dist) return false;
+            Debug.Log($"dist: {dist}, min: {info.RangeMin}, max: {info.RangeMax}");
+
+            Vector3 directionToTarget = (target.Pos - transform.position).normalized;
+            Vector3 directionToTargetXZ = UtilFunc.GetVec3XZ(directionToTarget).normalized;
+            float angle = Vector3.Angle(transform.forward, directionToTargetXZ);
+            if(angle > info.AngleDeg * 0.5f) return false;
+
+            float heightDiff = target.Pos.y - transform.position.y;
+            if(heightDiff < info.HeightMin || info.HeightMax < heightDiff) return false;
+
+            return true;
+        }
         #endregion
 
-        #region Animation Func
+            #region Animation Func
         public void ActivateWeaponAttackPoint() {
             if(currentWeapon != null) currentWeapon.ActivateAttackPoint();
         }
