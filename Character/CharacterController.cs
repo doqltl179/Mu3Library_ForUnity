@@ -22,6 +22,7 @@ namespace Mu3Library.Character {
 
         [SerializeField] protected Animator animator;
         protected AnimationInfo animationInfo;
+        [SerializeField] protected CharacterType characterType;
 
         [Space(20)]
         [SerializeField] protected Transform cameraTarget;
@@ -115,12 +116,14 @@ namespace Mu3Library.Character {
         private RaycastHit dashRayHit;
         private RaycastHit knockbackRayHit;
 
-        [HideInInspector] public bool Avoid;
+        [HideInInspector] public bool Avoid; //Å¸°Ý È¸ÇÇ
+        [HideInInspector] public bool SuperArmour; //³Ë¹é Äµ½½
 
 
 
         protected virtual void Start() {
             animationInfo = new AnimationInfo(animator);
+            animator.SetInteger("CharacterType", (int)characterType);
 
             int layerMask = UtilFunc.GetLayerMask("Player", true);
             floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.1f, layerMask);
@@ -195,12 +198,6 @@ namespace Mu3Library.Character {
 
             }
             else {
-                knockbackParams = new KnockbackParameters {
-                    KnockbackDirection = (transform.position - attackPoint).normalized,
-                    KnockbackDirectionXZ = UtilFunc.GetVec3XZ(transform.position - attackPoint).normalized, 
-                    Strength = knockbackStrength
-                };
-
                 Vector3 toAttackPoint = (attackPoint - transform.position).normalized;
                 Vector3 toAttackPointXZ = UtilFunc.GetVec3XZ(toAttackPoint).normalized;
                 float angle = Vector3.Angle(transform.forward, toAttackPointXZ);
@@ -210,7 +207,15 @@ namespace Mu3Library.Character {
                 else if(isRight) animator.SetInteger("HitDirection", 3); //Right
                 else animator.SetInteger("HitDirection", 2); //Left
 
-                ChangeState(CharacterStateType.Hit);
+                if(!SuperArmour) {
+                    Knockback(
+                        UtilFunc.GetVec3XZ(transform.position - attackPoint).normalized,
+                        knockbackStrength,
+                        0.2f,
+                        UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
+
+                    ChangeState(CharacterStateType.Hit, true);
+                }
             }
         }
 
@@ -275,6 +280,9 @@ namespace Mu3Library.Character {
         public bool IsPlayingAnimationClipWithName(string name) {
             return animationInfo.IsPlayingAnimationClipWithName(name);
         }
+
+        public void SetTrigger(string parameter) => animator.SetTrigger(parameter);
+        public void ResetTrigger(string parameter) => animator.ResetTrigger(parameter);
 
         public void SetBool(string parameter, bool value) => animator.SetBool(parameter, value);
         public bool GetBool(string parameter) => animator.GetBool(parameter);
@@ -348,15 +356,7 @@ namespace Mu3Library.Character {
             transform.DORotateQuaternion(Quaternion.LookRotation(direction), moveTime * 0.33f).SetEase(ease);
         }
 
-        public void Knockback() {
-            Knockback(
-                knockbackParams.KnockbackDirectionXZ,
-                knockbackParams.Strength, 
-                0.2f, 
-                UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
-        }
-
-        public void Knockback(Vector3 direction, float strength, float time, int mask, Ease ease = Ease.OutQuad) {
+        public virtual void Knockback(Vector3 direction, float strength, float time, int mask, Ease ease = Ease.OutQuad) {
             Vector3 knockbackEndPos = transform.position + direction * strength;
 
             Vector3 p1 = knockbackEndPos;
@@ -376,7 +376,6 @@ namespace Mu3Library.Character {
         public bool TargetInRange(AttackInfo info, CharacterController target) {
             float dist = UtilFunc.GetDistanceXZ(transform.position, target.Pos);
             if(dist < info.RangeMin || info.RangeMax < dist) return false;
-            Debug.Log($"dist: {dist}, min: {info.RangeMin}, max: {info.RangeMax}");
 
             Vector3 directionToTarget = (target.Pos - transform.position).normalized;
             Vector3 directionToTargetXZ = UtilFunc.GetVec3XZ(directionToTarget).normalized;
@@ -390,13 +389,21 @@ namespace Mu3Library.Character {
         }
         #endregion
 
-            #region Animation Func
+        #region Animation Func
         public void ActivateWeaponAttackPoint() {
             if(currentWeapon != null) currentWeapon.ActivateAttackPoint();
         }
 
         public void DeactivateWeaponAttackPoint() {
             if(currentWeapon != null) currentWeapon.DeactivateAttackPoint();
+        }
+
+        public virtual void AnimationHitStart() {
+
+        }
+
+        public virtual void AnimationHitEnd() {
+
         }
         #endregion
     }

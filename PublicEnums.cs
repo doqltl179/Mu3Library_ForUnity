@@ -1,28 +1,4 @@
 namespace Mu3Library {
-    public enum CharacterType {
-        Player, 
-        Monster, 
-    }
-
-    public enum CharacterState {
-        None,
-        Idle,
-        Move,
-        Dash, 
-        Jump,
-        Hit,
-        Avoid, 
-        Attack,
-        KnockDown,
-        Die,
-        Victory,
-    }
-
-    public enum AttackType {
-        NormalAttack, 
-        HardAttack, 
-    }
-
     public enum RayType {
         Sphere,
         Capsule,
