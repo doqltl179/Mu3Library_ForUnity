@@ -22,7 +22,11 @@ namespace Mu3Library.Character {
 
         [SerializeField] protected Animator animator;
         protected AnimationInfo animationInfo;
+
         [SerializeField] protected CharacterType characterType;
+
+        public int Layer => gameObject.layer;
+        public string LayerName => LayerMask.LayerToName(gameObject.layer);
 
         [Space(20)]
         [SerializeField] protected Transform cameraTarget;
@@ -58,9 +62,14 @@ namespace Mu3Library.Character {
         [SerializeField] protected Transform weaponSlot;
         [SerializeField] protected Mu3Library.Character.Weapon.Weapon currentWeapon;
 
+        [Space(20)]
+        // 0: Normal Attack
+        // else: Skill
+        [SerializeField] private AttackInfo[] attackInfos;
+        public AttackInfo[] AttackInfos => attackInfos;
+
         protected CharacterState currentState;
         protected float stateChangeCool = 0.0f;
-        protected const float StandardStateChangeCoolTime = 0.1f;
 
         [Header("Properties")]
         [SerializeField, Range(0.1f, 10.0f)] protected float moveSpeed = 1.0f;
@@ -88,9 +97,15 @@ namespace Mu3Library.Character {
 
         public CharacterController AttackTarget { get; private set; }
 
+        private float dotAT;
+        private float attackTargetDistance;
+        private float attackTargetDistanceXZ;
         private Vector3 attackTargetDirection;
         private Vector3 attackTargetDirectionXZ;
 
+        public float DotAT => dotAT;
+        public float AttackTargetDistance => attackTargetDistance;
+        public float AttackTargetDistanceXZ => attackTargetDistanceXZ;
         public Vector3 AttackTargetDirection => attackTargetDirection;
         public Vector3 AttackTargetDirectionXZ => attackTargetDirectionXZ;
 
@@ -115,6 +130,8 @@ namespace Mu3Library.Character {
 
         private RaycastHit dashRayHit;
         private RaycastHit knockbackRayHit;
+        public int LayerMask_ExcludeThis { get; protected set; }
+        public int LayerMask_OnlyTarget { get; protected set; }
 
         [HideInInspector] public bool Avoid; //Å¸°Ý È¸ÇÇ
         [HideInInspector] public bool SuperArmour; //³Ë¹é Äµ½½
@@ -124,9 +141,6 @@ namespace Mu3Library.Character {
         protected virtual void Start() {
             animationInfo = new AnimationInfo(animator);
             animator.SetInteger("CharacterType", (int)characterType);
-
-            int layerMask = UtilFunc.GetLayerMask("Player", true);
-            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.1f, layerMask);
         }
 
         protected virtual void Update() {
@@ -138,6 +152,12 @@ namespace Mu3Library.Character {
 
             stateChangeCool = Mathf.Max(stateChangeCool - Time.deltaTime, 0.0f);
             hitCool = Mathf.Max(hitCool - Time.deltaTime, 0.0f);
+
+            if(attackInfos != null) {
+                foreach(AttackInfo info in attackInfos) {
+                    info.Update();
+                }
+            }
 
             // Play With Input
             if(AttackTarget == null) {
@@ -162,8 +182,11 @@ namespace Mu3Library.Character {
                 isInputAttack = KeyCodeInputCollector.Instance.GetKey(inputAttack);
             }
             else {
+                attackTargetDistance = Vector3.Distance(AttackTarget.Pos, transform.position);
+                attackTargetDistanceXZ = UtilFunc.GetDistanceXZ(AttackTarget.Pos, transform.position);
                 attackTargetDirection = (AttackTarget.Pos - transform.position).normalized;
                 attackTargetDirectionXZ = UtilFunc.GetVec3XZ(attackTargetDirection).normalized;
+                dotAT = Vector3.Dot(attackTargetDirectionXZ, transform.forward);
             }
 
             currentState.Update();
@@ -178,13 +201,38 @@ namespace Mu3Library.Character {
         }
 
         public virtual void Init() {
+            LayerMask_ExcludeThis = ~(1 << gameObject.layer);
+            LayerMask_OnlyTarget = UtilFunc.GetLayerMask(
+                LayerMask.LayerToName(gameObject.layer) == "PlayCharacter" ? "OtherCharacter" : "PlayCharacter");
+
+            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.06f, LayerMask_ExcludeThis);
+
             if(currentState != null) {
                 currentState.Exit();
                 currentState = null;
             }
             states = new Dictionary<CharacterStateType, CharacterState>();
 
+            if(attackInfos != null && attackInfos.Length > 0) {
+                foreach(AttackInfo info in attackInfos) {
+                    info.Init();
+                }
+
+                if(currentWeapon != null) {
+                    currentWeapon.Init(LayerMask_OnlyTarget);
+                    currentWeapon.SetDamage(attackInfos[0].Damage, attackInfos[0].KnockbackStrength);
+                }
+            }
+
             HP = hpMax;
+        }
+
+        public void SetLayer(string layerName) {
+            SetLayer(LayerMask.NameToLayer(layerName));
+        }
+
+        public void SetLayer(int layer) {
+            UtilFunc.SetLayerWithChildren(transform, layer);
         }
 
         public virtual void GetHit(int damage, Vector3 attackPoint, float knockbackStrength) {
@@ -212,10 +260,12 @@ namespace Mu3Library.Character {
                         UtilFunc.GetVec3XZ(transform.position - attackPoint).normalized,
                         knockbackStrength,
                         0.2f,
-                        UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
+                        LayerMask_ExcludeThis);
 
                     ChangeState(CharacterStateType.Hit, true);
                 }
+
+                hitCool = hitCoolTime;
             }
         }
 
@@ -257,13 +307,43 @@ namespace Mu3Library.Character {
 
             Debug.Log($"{transform.name} || State Change To `{type}`");
             currentState.Enter();
-
-            stateChangeCool = StandardStateChangeCoolTime;
         }
 
         protected abstract CharacterState GetNewState(CharacterStateType type);
 
+        public void SetStateChangeCoolTime(float time) => stateChangeCool = time;
 
+        protected void InitAttackInfo(int index) {
+            if(index < 0 || index >= attackInfos.Length) {
+                Debug.LogWarning($"AttackInfo index out of range. index: {index}");
+
+                return;
+            }
+
+            attackInfos[index].Init();
+        }
+
+        public int GetActivatableAttackIndex() {
+            if(attackInfos != null && attackInfos.Length > 1) {
+                for(int i = attackInfos.Length - 1; i >= 0; i--) {
+                    if(CheckSkillActivatable(i)) return i;
+                }
+            }
+            else {
+                return -1;
+            }
+
+            return -1;
+        }
+
+        protected abstract bool CheckSkillActivatable(int index);
+        public abstract void ActivateSkill(int index);
+
+
+
+        public void PlayAnimation(string name, int layer = 0, float normalizedTime = 0.0f) {
+            animationInfo.PlayAnimation(name, layer, normalizedTime);
+        }
 
         public float GetCurrentAnimationNormalizedTime(int layer = 0) {
             return animationInfo.GetNormalizedTime(layer);
@@ -279,6 +359,10 @@ namespace Mu3Library.Character {
 
         public bool IsPlayingAnimationClipWithName(string name) {
             return animationInfo.IsPlayingAnimationClipWithName(name);
+        }
+
+        public bool IsClipTransitioning(int layer = 0) {
+            return animationInfo.IsClipTransitioning(layer);
         }
 
         public void SetTrigger(string parameter) => animator.SetTrigger(parameter);
@@ -310,11 +394,11 @@ namespace Mu3Library.Character {
         }
 
         public void Rotate() {
-            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
+            Rotate(Quaternion.LookRotation(moveDirection));
         }
 
-        public void Rotate(Quaternion rotation) {
-            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * rotateSpeed);
+        public void Rotate(Quaternion rotation, float offset = 1.0f) {
+            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * rotateSpeed * offset);
         }
 
         public void RotateImmediately(Quaternion rotation, float time = 0.0f, Ease ease = Ease.Linear) {
@@ -326,16 +410,17 @@ namespace Mu3Library.Character {
             rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
         }
 
-        public void Move(Vector3 direction) {
-            rigidbody.velocity = UtilFunc.GetVec3XZ(direction * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
+        public void Move(Vector3 direction, float offset = 1.0f) {
+            rigidbody.velocity = UtilFunc.GetVec3XZ(direction * moveSpeed * moveSpeedOffset * offset, rigidbody.velocity.y);
         }
 
         public void Jump() {
-            rigidbody.velocity += Vector3.up * jumpStrength;
+            //rigidbody.velocity += Vector3.up * jumpStrength;
+            rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity, jumpStrength);
         }
 
         public void Dash() {
-            Dash(dashDirection, dashDistance, 0.3f, UtilFunc.GetLayerMask(new string[] { "Monster", "Props" }));
+            Dash(dashDirection, dashDistance, 0.3f, LayerMask_ExcludeThis);
         }
 
         public void Dash(Vector3 direction, float distance, float moveTime, int mask, Ease ease = Ease.OutQuad) {

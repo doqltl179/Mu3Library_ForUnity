@@ -9,6 +9,7 @@ namespace Mu3Library.Raycast {
         public float HeightSensitive { get; private set; }
         public int LayerMask { get; private set; }
 
+        private Ray ray;
         private RaycastHit Hit;
         public float FloorDistance { get; private set; }
         public bool OnFloor { get; private set; }
@@ -24,14 +25,16 @@ namespace Mu3Library.Raycast {
 
         #region Raycast
         public bool Raycast() {
+            ray = new Ray(Origin.position + Vector3.up * HeightOffset, Vector3.down);
             if(Physics.Raycast(
-                Origin.position + Vector3.up * HeightOffset,
-                Vector3.down,
+                ray,
                 out Hit,
                 float.MaxValue,
                 LayerMask)) {
-                FloorDistance = (Origin.position.y - Hit.point.y) - HeightOffset;
+                FloorDistance = (ray.origin.y - Hit.point.y) - HeightOffset;
                 OnFloor = FloorDistance < HeightSensitive;
+
+                Debug.DrawLine(Origin.position + Vector3.up * HeightOffset, Hit.point, Color.green);
 
                 return true;
             }

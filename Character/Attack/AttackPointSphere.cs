@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace Mu3Library.Character.Attack {
     public class AttackPointSphere : AttackPoint {
-        private RaySphereHelper locationHit;
 
 
 
@@ -19,19 +18,20 @@ namespace Mu3Library.Character.Attack {
         }
 #endif
 
-        private void Start() {
-            locationHit = new RaySphereHelper(
+        public override void Init(int layerMask = -1) {
+            rayHelper = new RaySphereHelper(
                 Coordinate.Local,
                 Direction.None,
                 transform,
                 radius,
-                0.0f, 
-                AttackTargetLayer);
+                0.0f,
+                layerMask);
         }
 
         protected override void UpdateHit() {
-            if(locationHit.Raycast()) {
-                hits = locationHit.GetHitPointWithComponentOnRigidbody<CharacterController>();
+            if(enabled && rayHelper.Raycast()) {
+                //hits = locationHit.GetHitPointWithComponentOnRigidbody<CharacterController>();
+                hits = rayHelper.GetComponentsOnRigidbody<CharacterController>();
             }
             else {
                 hits = null;
@@ -39,7 +39,7 @@ namespace Mu3Library.Character.Attack {
         }
 
         protected override bool IsInHitRange(CharacterController character) {
-            return true;
+            return IsHeightInOffsetRange(character);
         }
     }
 }

@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace Mu3Library.Character.Attack {
     public class AttackPointCapsule : AttackPoint {
-        private RayCapsuleHelper locationHit;
 
 
 
@@ -19,20 +18,21 @@ namespace Mu3Library.Character.Attack {
         }
 #endif
 
-        private void Start() {
-            locationHit = new RayCapsuleHelper(
+        public override void Init(int layerMask = -1) {
+            rayHelper = new RayCapsuleHelper(
                 Coordinate.Local,
                 Direction.None,
                 transform,
                 radius,
                 height,
                 0.0f,
-                AttackTargetLayer);
+                layerMask);
         }
 
         protected override void UpdateHit() {
-            if(locationHit.Raycast()) {
-                hits = locationHit.GetHitPointWithComponentOnRigidbody<CharacterController>();
+            if(enabled && rayHelper.Raycast()) {
+                //hits = locationHit.GetHitPointWithComponentOnRigidbody<CharacterController>();
+                hits = rayHelper.GetComponentsOnRigidbody<CharacterController>();
             }
             else {
                 hits = null;
@@ -40,14 +40,7 @@ namespace Mu3Library.Character.Attack {
         }
 
         protected override bool IsInHitRange(CharacterController character) {
-            return true;
-        }
-
-        private bool IsHeightInOffsetRange(CharacterController controller) {
-            float p1 = transform.position.y;
-            float p2 = p1 + height;
-            if(p1 < p2) return !(p2 < controller.Pos.y || controller.Pos.y + controller.Height < p1);
-            else return !(p1 < controller.Pos.y || controller.Pos.y + controller.Height < p2);
+            return IsHeightInOffsetRange(character);
         }
     }
 }

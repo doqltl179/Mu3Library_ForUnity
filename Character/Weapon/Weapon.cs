@@ -23,7 +23,13 @@ namespace Mu3Library.Character.Weapon {
             attackPoint.enabled = false;
         }
 
+        public void Init(int layerMask = -1) {
+            attackPoint.Init(layerMask);
+        }
+
         public void SetDamage(int damage, float knockbackStrength = 0.0f) => attackPoint.SetDamage(damage, knockbackStrength);
+
+        public void ChangeTarget(int layerMask) => attackPoint.SetTargetLayer(layerMask);
         #endregion
     }
 }

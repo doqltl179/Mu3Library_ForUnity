@@ -55,5 +55,23 @@ namespace Mu3Library.Utility {
             return Vector3.LerpUnclamped(startLerp, endLerp, lerp);
         }
         #endregion
+
+        #region Else
+        public static void SetLayerWithChildren(Transform target, string layerName) {
+            SetLayerWithChildren(target, LayerMask.NameToLayer(layerName));
+        }
+
+        public static void SetLayerWithChildren(Transform target, int layer) {
+            void SetLayer(Transform t) {
+                t.gameObject.layer = layer;
+                if(t.childCount > 0) {
+                    for(int i = 0; i < t.childCount; i++) {
+                        SetLayer(t.GetChild(i));
+                    }
+                }
+            }
+            SetLayer(target);
+        }
+        #endregion
     }
 }

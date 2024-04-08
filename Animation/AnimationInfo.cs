@@ -33,6 +33,10 @@ namespace Mu3Library.Animation {
             }
         }
 
+        public void PlayAnimation(string name, int layer, float normalizedTime) {
+            m_animator.Play(name, layer, normalizedTime);
+        }
+
         public float GetNormalizedTime(int layer) {
             if(IsLayerOutOfRange(layer)) {
                 Debug.LogWarning($"Layer Index Out Of Range. layer: ${layer}");
@@ -81,6 +85,10 @@ namespace Mu3Library.Animation {
             }
 
             return false;
+        }
+
+        public bool IsClipTransitioning(int layer) {
+            return m_clipInfos[layer].Length > 1;
         }
     }
 }
