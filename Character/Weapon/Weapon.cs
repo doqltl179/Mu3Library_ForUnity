@@ -5,31 +5,35 @@ using UnityEngine;
 
 namespace Mu3Library.Character.Weapon {
     public class Weapon : MonoBehaviour {
-        [SerializeField] private AttackPoint attackPoint;
-
+        [SerializeField] protected AttackPoint attackPoint;
+        public AttackPointType AttackPointType {
+            get => attackPoint.Type;
+            set => attackPoint.Type = value;
+        }
 
 
 
         protected virtual void OnEnable() {
-            attackPoint.enabled = false;
+            attackPoint.ClearProperties();
+
+            attackPoint.gameObject.SetActive(false);
         }
 
         #region Utility
         public virtual void ActivateAttackPoint() {
-            attackPoint.enabled = true;
+            attackPoint.ClearProperties();
+            attackPoint.gameObject.SetActive(true);
         }
 
         public virtual void DeactivateAttackPoint() {
-            attackPoint.enabled = false;
+            attackPoint.gameObject.SetActive(false);
         }
 
-        public void Init(int layerMask = -1) {
-            attackPoint.Init(layerMask);
+        public void Init(AttackInfo info, int layerMask = -1) {
+            attackPoint.Init(info, layerMask);
         }
 
-        public void SetDamage(int damage, float knockbackStrength = 0.0f) => attackPoint.SetDamage(damage, knockbackStrength);
-
-        public void ChangeTarget(int layerMask) => attackPoint.SetTargetLayer(layerMask);
+        public void ChangeLayerMask(int layerMask) => attackPoint.ChangeLayerMask(layerMask);
         #endregion
     }
 }

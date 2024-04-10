@@ -18,7 +18,9 @@ namespace Mu3Library.Character.Attack {
         }
 #endif
 
-        public override void Init(int layerMask = -1) {
+        public override void Init(AttackInfo info, int layerMask = -1) {
+            attackInfo = info;
+
             rayHelper = new RayCapsuleHelper(
                 Coordinate.Local,
                 Direction.None,
@@ -27,20 +29,6 @@ namespace Mu3Library.Character.Attack {
                 height,
                 0.0f,
                 layerMask);
-        }
-
-        protected override void UpdateHit() {
-            if(enabled && rayHelper.Raycast()) {
-                //hits = locationHit.GetHitPointWithComponentOnRigidbody<CharacterController>();
-                hits = rayHelper.GetComponentsOnRigidbody<CharacterController>();
-            }
-            else {
-                hits = null;
-            }
-        }
-
-        protected override bool IsInHitRange(CharacterController character) {
-            return IsHeightInOffsetRange(character);
         }
     }
 }

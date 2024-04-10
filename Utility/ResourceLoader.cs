@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Resource {
+namespace Mu3Library.Utility {
     public static class ResourceLoader {
         private static Dictionary<string, UnityEngine.Object> resources = new Dictionary<string, UnityEngine.Object>();
 

@@ -24,6 +24,7 @@ namespace Mu3Library.Character {
         protected AnimationInfo animationInfo;
 
         [SerializeField] protected CharacterType characterType;
+        public string CharacterTypeString => characterType.ToString();
 
         public int Layer => gameObject.layer;
         public string LayerName => LayerMask.LayerToName(gameObject.layer);
@@ -59,8 +60,13 @@ namespace Mu3Library.Character {
         public bool PlayAuto { get; protected set; }
 
         [Space(20)]
-        [SerializeField] protected Transform weaponSlot;
+        [SerializeField] protected Transform weaponSlot_L;
+        [SerializeField] protected Transform weaponSlot_R;
+        public Transform WeaponSlot_L => weaponSlot_L;
+        public Transform WeaponSlot_R => weaponSlot_R;
+
         [SerializeField] protected Mu3Library.Character.Weapon.Weapon currentWeapon;
+        public Mu3Library.Character.Weapon.Weapon CurrentWeapon => currentWeapon;
 
         [Space(20)]
         // 0: Normal Attack
@@ -102,12 +108,16 @@ namespace Mu3Library.Character {
         private float attackTargetDistanceXZ;
         private Vector3 attackTargetDirection;
         private Vector3 attackTargetDirectionXZ;
+        private Quaternion attackTargetLookRotation;
+        private Quaternion attackTargetLookRotationXZ;
 
         public float DotAT => dotAT;
         public float AttackTargetDistance => attackTargetDistance;
         public float AttackTargetDistanceXZ => attackTargetDistanceXZ;
         public Vector3 AttackTargetDirection => attackTargetDirection;
         public Vector3 AttackTargetDirectionXZ => attackTargetDirectionXZ;
+        public Quaternion AttackTargetLookRotation => attackTargetLookRotation;
+        public Quaternion AttackTargetLookRotationXZ => attackTargetLookRotationXZ;
 
         private struct KnockbackParameters {
             public Vector3 KnockbackDirection;
@@ -131,6 +141,7 @@ namespace Mu3Library.Character {
         private RaycastHit dashRayHit;
         private RaycastHit knockbackRayHit;
         public int LayerMask_ExcludeThis { get; protected set; }
+        public int LayerMask_ExcludeThisAndFloor { get; protected set; }
         public int LayerMask_OnlyTarget { get; protected set; }
 
         [HideInInspector] public bool Avoid; //타격 회피
@@ -186,6 +197,8 @@ namespace Mu3Library.Character {
                 attackTargetDistanceXZ = UtilFunc.GetDistanceXZ(AttackTarget.Pos, transform.position);
                 attackTargetDirection = (AttackTarget.Pos - transform.position).normalized;
                 attackTargetDirectionXZ = UtilFunc.GetVec3XZ(attackTargetDirection).normalized;
+                attackTargetLookRotation = Quaternion.LookRotation(attackTargetDirection);
+                attackTargetLookRotationXZ = Quaternion.LookRotation(attackTargetDirectionXZ);
                 dotAT = Vector3.Dot(attackTargetDirectionXZ, transform.forward);
             }
 
@@ -202,6 +215,8 @@ namespace Mu3Library.Character {
 
         public virtual void Init() {
             LayerMask_ExcludeThis = ~(1 << gameObject.layer);
+            LayerMask_ExcludeThisAndFloor = UtilFunc.GetLayerMask(
+                new string[] { LayerMask.LayerToName(gameObject.layer), "Floor" }, true);
             LayerMask_OnlyTarget = UtilFunc.GetLayerMask(
                 LayerMask.LayerToName(gameObject.layer) == "PlayCharacter" ? "OtherCharacter" : "PlayCharacter");
 
@@ -219,8 +234,8 @@ namespace Mu3Library.Character {
                 }
 
                 if(currentWeapon != null) {
-                    currentWeapon.Init(LayerMask_OnlyTarget);
-                    currentWeapon.SetDamage(attackInfos[0].Damage, attackInfos[0].KnockbackStrength);
+                    currentWeapon.Init(AttackInfos[0], LayerMask_OnlyTarget);
+                    currentWeapon.AttackPointType = AttackPointType.HitEachCharacterOnce;
                 }
             }
 
@@ -420,7 +435,14 @@ namespace Mu3Library.Character {
         }
 
         public void Dash() {
-            Dash(dashDirection, dashDistance, 0.3f, LayerMask_ExcludeThis);
+            Dash(dashDirection, dashDistance, 0.3f, LayerMask_ExcludeThisAndFloor);
+        }
+
+        public void Dash(Vector3 direction, float distance, float moveTime, Ease ease = Ease.OutQuad) {
+            Vector3 dashEndPos = transform.position + direction * distance;
+
+            transform.DOMove(dashEndPos, moveTime).SetEase(Ease.OutQuad);
+            transform.DORotateQuaternion(Quaternion.LookRotation(direction), moveTime * 0.33f).SetEase(ease);
         }
 
         public void Dash(Vector3 direction, float distance, float moveTime, int mask, Ease ease = Ease.OutQuad) {
@@ -472,23 +494,9 @@ namespace Mu3Library.Character {
 
             return true;
         }
-        #endregion
 
-        #region Animation Func
-        public void ActivateWeaponAttackPoint() {
-            if(currentWeapon != null) currentWeapon.ActivateAttackPoint();
-        }
-
-        public void DeactivateWeaponAttackPoint() {
-            if(currentWeapon != null) currentWeapon.DeactivateAttackPoint();
-        }
-
-        public virtual void AnimationHitStart() {
-
-        }
-
-        public virtual void AnimationHitEnd() {
-
+        public T GetInstantiateObject<T>(T obj) where T : Object {
+            return Instantiate(obj);
         }
         #endregion
     }

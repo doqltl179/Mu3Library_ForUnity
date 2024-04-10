@@ -35,4 +35,12 @@ namespace Mu3Library.Character {
         NormalAttack,
         HardAttack,
     }
+
+    public enum AttackPointType {
+        HitAnything,
+        HitOnlyOneObject, 
+        HitEachCharacterOnce,
+        HitEachCharacter,
+        HitOnlyOneChatacter,
+    }
 }

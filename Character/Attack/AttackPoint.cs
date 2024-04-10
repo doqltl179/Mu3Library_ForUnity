@@ -1,4 +1,5 @@
 using Mu3Library.Raycast;
+using Mu3Library.Utility;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,82 +7,139 @@ using UnityEngine;
 
 namespace Mu3Library.Character.Attack {
     public abstract class AttackPoint : MonoBehaviour {
+        protected AttackInfo attackInfo;
         protected RayHelper rayHelper;
-
-        [SerializeField] protected bool hitOnce = true;
 
         [Space(20)]
         [SerializeField, Range(0.01f, 100.0f)] protected float radius;
         [SerializeField, Range(0.01f, 100.0f)] protected float height;
 
-        //[Space(20)]
-        //[SerializeField] protected LayerMask AttackTargetLayer;
-        protected int TargetLayer = -1;
+        private List<CharacterController> hitCharacterList = new List<CharacterController>();
+        private bool firstHit;
 
-        //protected HitPointWithComponent<CharacterController>[] hits;
-        protected CharacterController[] hits;
-        protected List<CharacterController> hitCharacterList = new List<CharacterController>();
+        public AttackPointType Type;
 
-        protected int m_damage;
-        protected float m_knockbackStrength;
+        public Action OnHit;
 
 
 
-        protected void OnEnable() {
-            hitCharacterList.Clear();
-        }
-
+        CharacterController tempController;
         protected void Update() {
             if(rayHelper == null) return;
 
-            UpdateHit();
+            if(rayHelper.Raycast()) {
+                switch(Type) {
+                    case AttackPointType.HitAnything: {
+                            foreach(RaycastHit hit in rayHelper.Hits) {
+                                if(hit.rigidbody != null) {
+                                    tempController = hit.rigidbody.GetComponent<CharacterController>();
+                                    if(tempController != null && TargetInRange(attackInfo, tempController)) {
+                                        tempController.GetHit(attackInfo.Damage, transform.position, attackInfo.KnockbackStrength);
+                                    }
+                                }
 
-            if(hits != null) {
-                foreach(CharacterController c in hits) {
-                    if(IsInHitRange(c)) {
-                        if(hitOnce) {
-                            if(!hitCharacterList.Contains(c)) {
-                                //c.Component.GetHit(m_damage, c.HitPoint, m_knockbackStrength);
-                                c.GetHit(m_damage, transform.position, m_knockbackStrength);
-
-                                hitCharacterList.Add(c);
+                                OnHit?.Invoke();
                             }
                         }
-                        else {
-                            //c.Component.GetHit(m_damage, c.HitPoint, m_knockbackStrength);
-                            c.GetHit(m_damage, transform.position, m_knockbackStrength);
+                        break;
+                    case AttackPointType.HitOnlyOneObject: {
+                            if(firstHit) return;
+
+                            foreach(RaycastHit hit in rayHelper.Hits) {
+                                if(hit.rigidbody != null) {
+                                    tempController = hit.rigidbody.GetComponent<CharacterController>();
+                                    if(tempController != null && TargetInRange(attackInfo, tempController)) {
+                                        tempController.GetHit(attackInfo.Damage, transform.position, attackInfo.KnockbackStrength);
+                                    }
+                                }
+
+                                firstHit = true;
+
+                                OnHit?.Invoke();
+
+                                break;
+                            }
                         }
-                    }
+                        break;
+                    case AttackPointType.HitEachCharacterOnce: {
+                            foreach(RaycastHit hit in rayHelper.Hits) {
+                                if(hit.rigidbody != null) {
+                                    CharacterController controller = hit.rigidbody.GetComponent<CharacterController>();
+                                    if(controller != null && hitCharacterList.FindIndex(t => t == controller) < 0 && 
+                                        TargetInRange(attackInfo, controller)) {
+                                        controller.GetHit(attackInfo.Damage, transform.position, attackInfo.KnockbackStrength);
+
+                                        hitCharacterList.Add(controller);
+
+                                        OnHit?.Invoke();
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case AttackPointType.HitEachCharacter: {
+                            foreach(RaycastHit hit in rayHelper.Hits) {
+                                if(hit.rigidbody != null) {
+                                    tempController = hit.rigidbody.GetComponent<CharacterController>();
+                                    if(tempController != null && TargetInRange(attackInfo, tempController)) {
+                                        tempController.GetHit(attackInfo.Damage, transform.position, attackInfo.KnockbackStrength);
+
+                                        OnHit?.Invoke();
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case AttackPointType.HitOnlyOneChatacter: {
+                            if(firstHit) return;
+
+                            foreach(RaycastHit hit in rayHelper.Hits) {
+                                if(hit.rigidbody != null) {
+                                    tempController = hit.rigidbody.GetComponent<CharacterController>();
+                                    if(tempController != null && TargetInRange(attackInfo, tempController)) {
+                                        tempController.GetHit(attackInfo.Damage, transform.position, attackInfo.KnockbackStrength);
+
+                                        firstHit = true;
+
+                                        OnHit?.Invoke();
+
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        break;
                 }
             }
         }
 
-        /// <summary>
-        /// Raycast 범위안에 있는 모든 CharacterController를 가져옴
-        /// 정밀 체크 X
-        /// </summary>
-        protected abstract void UpdateHit();
-        /// <summary>
-        /// parameter로 설정한 범위 안에 있는지를 체크
-        /// 정밀 체크 O
-        /// </summary>
-        protected abstract bool IsInHitRange(CharacterController character);
-
         #region Utility
-        public abstract void Init(int layerMask = -1);
+        public abstract void Init(AttackInfo info, int layerMask = -1);
 
-        public void SetDamage(int damage, float knockbackStrength = 0.0f) {
-            m_damage = damage;
-            m_knockbackStrength = knockbackStrength;
+        public void ClearProperties() {
+            hitCharacterList.Clear();
+            tempController = null;
+
+            firstHit = false;
+
+            OnHit = null;
         }
 
-        public void SetTargetLayer(int layerMask) => rayHelper.ChangeLayerMask(layerMask);
+        public void ChangeLayerMask(int layerMask) => rayHelper.ChangeLayerMask(layerMask);
 
-        protected bool IsHeightInOffsetRange(CharacterController controller) {
-            float p1 = transform.position.y;
-            float p2 = p1 + height;
-            if(p1 < p2) return !(p2 < controller.Pos.y || controller.Pos.y + controller.Height < p1);
-            else return !(p1 < controller.Pos.y || controller.Pos.y + controller.Height < p2);
+        protected bool TargetInRange(AttackInfo info, CharacterController target) {
+            float dist = UtilFunc.GetDistanceXZ(transform.position, target.Pos);
+            if(dist < info.RangeMin || info.RangeMax < dist) return false;
+
+            Vector3 directionToTarget = (target.Pos - transform.position).normalized;
+            Vector3 directionToTargetXZ = UtilFunc.GetVec3XZ(directionToTarget).normalized;
+            float angle = Vector3.Angle(transform.forward, directionToTargetXZ);
+            if(angle > info.AngleDeg * 0.5f) return false;
+
+            float heightDiff = target.Pos.y - transform.position.y;
+            if(heightDiff < info.HeightMin || info.HeightMax < heightDiff) return false;
+
+            return true;
         }
         #endregion
     }

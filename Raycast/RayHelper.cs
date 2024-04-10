@@ -17,6 +17,8 @@ namespace Mu3Library.Raycast {
         protected RaycastHit[] hits;
         protected Vector3 m_rayDirection;
 
+        public RaycastHit[] Hits => hits;
+
 
 
         #region Utility
@@ -27,41 +29,11 @@ namespace Mu3Library.Raycast {
                 .ToArray();
         }
 
-        //public HitPointWithComponent<T>[] GetHitPointWithComponentOnRigidbody<T>() where T : UnityEngine.Object {
-        //    List<HitPointWithComponent<T>> hitList = new List<HitPointWithComponent<T>>();
-
-        //    for(int i = 0; i < hits.Length; i++) {
-        //        if(hits[i].rigidbody != null && hits[i].rigidbody.GetComponent<T>() != null) {
-        //            hitList.Add(new HitPointWithComponent<T> {
-        //                Component = hits[i].rigidbody.GetComponent<T>(),
-        //                HitPoint = hits[i].point
-        //            });
-        //        }
-        //    }
-
-        //    return hitList.ToArray();
-        //}
-
         public T[] GetComponentsOnCollider<T>() where T : UnityEngine.Object {
             return hits.Select(t => t.collider.GetComponent<T>())
                 .Where(t => t != null)
                 .ToArray();
         }
-
-        //public HitPointWithComponent<T>[] GetHitPointWithComponentOnCollider<T>() where T : UnityEngine.Object {
-        //    List<HitPointWithComponent<T>> hitList = new List<HitPointWithComponent<T>>();
-
-        //    for(int i = 0; i < hits.Length; i++) {
-        //        if(hits[i].collider.GetComponent<T>() != null) {
-        //            hitList.Add(new HitPointWithComponent<T> {
-        //                Component = hits[i].collider.GetComponent<T>(),
-        //                HitPoint = hits[i].point
-        //            });
-        //        }
-        //    }
-
-        //    return hitList.ToArray();
-        //}
 
         public bool HasEqualOnRigidbody<T>(T component) where T : UnityEngine.Object {
             foreach(RaycastHit hit in hits) {
@@ -82,6 +54,8 @@ namespace Mu3Library.Raycast {
         }
 
         public void ChangeLayerMask(int mask) => m_mask = mask;
+        public void ChangeRadius(float radius) => m_radius = radius;
+        public void ChangeHeight(float height) => m_height = height;
         #endregion
 
         #region Raycast

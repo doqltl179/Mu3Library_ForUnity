@@ -49,6 +49,20 @@ namespace Mu3Library.Utility {
         public static Vector3 GetVec3XZ(Vector3 vec3, float y = 0.0f) => new Vector3(vec3.x, y, vec3.z);
         public static Vector3 GetVec3Y(Vector3 vec3, float x = 0.0f, float z = 0.0f) => new Vector3(x, vec3.y, z);
 
+        public static Vector3 BezierCurve(Vector3 start, Vector3 end, float angleDeg, float lerp) {
+            Vector3 posDiff = end - start;
+
+            // angleOffsetDeg : dist = angleDeg : ??
+            float angleUpToEndDeg = Vector3.Angle(Vector3.up, posDiff.normalized);
+            float angleOffsetDeg = 90 - angleUpToEndDeg;
+            float heightOffset = angleDeg * Mathf.Abs(posDiff.y) / Mathf.Abs(angleOffsetDeg);
+            if(float.IsNaN(heightOffset)) heightOffset = 0.0f;
+
+            Vector3 middlePoint = (start + end) * 0.5f;
+
+            Vector3 controlPoint = new Vector3(middlePoint.x, middlePoint.y + heightOffset, middlePoint.z);
+            return BezierCurve(start, end, controlPoint, lerp);
+        }
         public static Vector3 BezierCurve(Vector3 start, Vector3 end, Vector3 controlPoint, float lerp) {
             Vector3 startLerp = Vector3.LerpUnclamped(start, controlPoint, lerp);
             Vector3 endLerp = Vector3.LerpUnclamped(controlPoint, end, lerp);
