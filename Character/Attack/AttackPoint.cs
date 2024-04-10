@@ -17,7 +17,19 @@ namespace Mu3Library.Character.Attack {
         private List<CharacterController> hitCharacterList = new List<CharacterController>();
         private bool firstHit;
 
+        protected float rayDistance = 0;
+        public float RayDistance {
+            get => rayDistance;
+            set {
+                rayHelper.ChangeDistance(value);
+
+                rayDistance = value;
+            }
+        }
+
         public AttackPointType Type;
+
+        public bool CheckRange = false;
 
         public Action OnHit;
 
@@ -128,6 +140,8 @@ namespace Mu3Library.Character.Attack {
         public void ChangeLayerMask(int layerMask) => rayHelper.ChangeLayerMask(layerMask);
 
         protected bool TargetInRange(AttackInfo info, CharacterController target) {
+            if(!CheckRange) return true;
+
             float dist = UtilFunc.GetDistanceXZ(transform.position, target.Pos);
             if(dist < info.RangeMin || info.RangeMax < dist) return false;
 

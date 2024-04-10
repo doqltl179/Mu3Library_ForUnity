@@ -56,6 +56,7 @@ namespace Mu3Library.Raycast {
         public void ChangeLayerMask(int mask) => m_mask = mask;
         public void ChangeRadius(float radius) => m_radius = radius;
         public void ChangeHeight(float height) => m_height = height;
+        public void ChangeDistance(float distance) => m_distance = distance;
         #endregion
 
         #region Raycast

@@ -22,6 +22,7 @@ namespace Mu3Library.Character.Weapon {
         #region Utility
         public virtual void ActivateAttackPoint() {
             attackPoint.ClearProperties();
+
             attackPoint.gameObject.SetActive(true);
         }
 
