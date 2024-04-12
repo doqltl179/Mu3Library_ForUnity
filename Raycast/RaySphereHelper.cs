@@ -24,8 +24,13 @@ namespace Mu3Library.Raycast {
             m_mask = mask;
         }
 
-        protected override bool RaycastFunc() {
-            hits = Physics.SphereCastAll(m_origin.position, m_radius, m_rayDirection, m_distance, m_mask);
+        protected override bool RaycastFunc(float scale = 1.0f) {
+            hits = Physics.SphereCastAll(
+                m_origin.position, 
+                m_radius * scale, 
+                m_rayDirection, 
+                m_distance, 
+                m_mask);
             return hits.Length > 0;
         }
     }

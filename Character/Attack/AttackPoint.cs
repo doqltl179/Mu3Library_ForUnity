@@ -7,25 +7,32 @@ using UnityEngine;
 
 namespace Mu3Library.Character.Attack {
     public abstract class AttackPoint : MonoBehaviour {
+        public CharacterController Owner {
+            get {
+                if(owner == null) {
+                    owner = UtilFunc.GetComponentOnParent<CharacterController>(transform);
+                }
+
+                return owner;
+            }
+        }
+        private CharacterController owner = null;
+
         protected AttackInfo attackInfo;
         protected RayHelper rayHelper;
 
         [Space(20)]
-        [SerializeField, Range(0.01f, 100.0f)] protected float radius;
-        [SerializeField, Range(0.01f, 100.0f)] protected float height;
+        [SerializeField, Range(0.01f, 100.0f)] protected float m_radius;
+        [SerializeField, Range(0.01f, 100.0f)] protected float m_height;
 
         private List<CharacterController> hitCharacterList = new List<CharacterController>();
         private bool firstHit;
 
-        protected float rayDistance = 0;
-        public float RayDistance {
-            get => rayDistance;
-            set {
-                rayHelper.ChangeDistance(value);
-
-                rayDistance = value;
-            }
+        public float RayScale {
+            get => rayScale;
+            set => rayScale = value;
         }
+        protected float rayScale = 1.0f;
 
         public AttackPointType Type;
 
@@ -39,7 +46,7 @@ namespace Mu3Library.Character.Attack {
         protected void Update() {
             if(rayHelper == null) return;
 
-            if(rayHelper.Raycast()) {
+            if(rayHelper.Raycast(rayScale)) {
                 switch(Type) {
                     case AttackPointType.HitAnything: {
                             foreach(RaycastHit hit in rayHelper.Hits) {
@@ -139,8 +146,14 @@ namespace Mu3Library.Character.Attack {
 
         public void ChangeLayerMask(int layerMask) => rayHelper.ChangeLayerMask(layerMask);
 
+        public void ChangeRadius(float radius) => rayHelper.ChangeRadius(radius);
+
+        public void ChangeHeight(float height) => rayHelper.ChangeHeight(height);
+
         protected bool TargetInRange(AttackInfo info, CharacterController target) {
             if(!CheckRange) return true;
+
+            if(Owner != null) return Owner.TargetInRange(info, target);
 
             float dist = UtilFunc.GetDistanceXZ(transform.position, target.Pos);
             if(dist < info.RangeMin || info.RangeMax < dist) return false;

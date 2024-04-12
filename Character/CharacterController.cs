@@ -55,6 +55,7 @@ namespace Mu3Library.Character {
             get => rigidbody.velocity;
             set => rigidbody.velocity = value;
         }
+        public Vector3 MiddlePos => transform.position + transform.up * Height;
 
         public bool IsPlaying { get; protected set; }
         public bool PlayAuto { get; protected set; }
@@ -69,9 +70,9 @@ namespace Mu3Library.Character {
         public Mu3Library.Character.Weapon.Weapon CurrentWeapon => currentWeapon;
 
         [Space(20)]
+        [SerializeField] private AttackInfo[] attackInfos;
         // 0: Normal Attack
         // else: Skill
-        [SerializeField] private AttackInfo[] attackInfos;
         public AttackInfo[] AttackInfos => attackInfos;
 
         protected CharacterState currentState;
@@ -188,9 +189,9 @@ namespace Mu3Library.Character {
 
                 isInputRun = KeyCodeInputCollector.Instance.GetKey(inputRun);
 
-                isInputJump = KeyCodeInputCollector.Instance.GetKey(inputJump);
+                isInputJump = KeyCodeInputCollector.Instance.GetKeyDown(inputJump);
 
-                isInputAttack = KeyCodeInputCollector.Instance.GetKey(inputAttack);
+                isInputAttack = KeyCodeInputCollector.Instance.GetKeyDown(inputAttack);
             }
             else {
                 attackTargetDistance = Vector3.Distance(AttackTarget.Pos, transform.position);
@@ -270,7 +271,7 @@ namespace Mu3Library.Character {
                 else if(isRight) animator.SetInteger("HitDirection", 3); //Right
                 else animator.SetInteger("HitDirection", 2); //Left
 
-                if(!SuperArmour) {
+                if(!SuperArmour && knockbackStrength > 0 && floorContactHelper.OnFloor) {
                     Knockback(
                         UtilFunc.GetVec3XZ(transform.position - attackPoint).normalized,
                         knockbackStrength,

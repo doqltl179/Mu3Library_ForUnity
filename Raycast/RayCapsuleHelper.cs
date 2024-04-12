@@ -1,9 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Mu3Library.Raycast {
     public class RayCapsuleHelper : RayHelper {
@@ -29,10 +26,10 @@ namespace Mu3Library.Raycast {
             m_mask = mask;
         }
 
-        protected override bool RaycastFunc() {
+        protected override bool RaycastFunc(float scale = 1.0f) {
             p1 = m_origin.position;
-            p2 = p1 + (m_coordinate == Coordinate.Local ? m_origin.up : Vector3.up) * m_height;
-            hits = Physics.CapsuleCastAll(p1, p2, m_radius, m_rayDirection, m_distance, m_mask);
+            p2 = p1 + (m_coordinate == Coordinate.Local ? m_origin.up : Vector3.up) * m_height * scale;
+            hits = Physics.CapsuleCastAll(p1, p2, m_radius * scale, m_rayDirection, m_distance, m_mask);
             return hits.Length > 0;
         }
     }

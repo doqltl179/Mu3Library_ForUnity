@@ -18,6 +18,12 @@ namespace Mu3Library.Raycast {
         protected Vector3 m_rayDirection;
 
         public RaycastHit[] Hits => hits;
+        public Transform Origin => m_origin;
+        public float Radius => m_radius;
+        public float Height => m_height;
+        public float Distance => m_distance;
+        public int Mask => m_mask;
+        public Vector3 RayDirection => m_rayDirection;
 
 
 
@@ -60,13 +66,13 @@ namespace Mu3Library.Raycast {
         #endregion
 
         #region Raycast
-        public bool Raycast() {
+        public bool Raycast(float scale = 1.0f) {
             SetRayDirection();
 
             return RaycastFunc();
         }
 
-        protected abstract bool RaycastFunc();
+        protected abstract bool RaycastFunc(float scale = 1.0f);
         #endregion
 
         private void SetRayDirection() {

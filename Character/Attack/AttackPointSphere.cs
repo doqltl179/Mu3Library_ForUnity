@@ -13,7 +13,8 @@ namespace Mu3Library.Character.Attack {
             if(enabled) {
                 Gizmos.color = Color.red;
 
-                Gizmos.DrawWireSphere(transform.position, radius);
+                if(rayHelper == null) Gizmos.DrawWireSphere(transform.position, m_radius * rayScale);
+                else Gizmos.DrawWireSphere(rayHelper.Origin.position, rayHelper.Radius * rayScale);
             }
         }
 #endif
@@ -25,7 +26,7 @@ namespace Mu3Library.Character.Attack {
                 Coordinate.Local,
                 Direction.None,
                 transform,
-                radius,
+                m_radius,
                 0.0f,
                 layerMask);
         }

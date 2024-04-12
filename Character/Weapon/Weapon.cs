@@ -10,6 +10,18 @@ namespace Mu3Library.Character.Weapon {
             get => attackPoint.Type;
             set => attackPoint.Type = value;
         }
+        public float Scale {
+            get => transform.localScale.x;
+            set {
+                attackPoint.RayScale = value;
+
+                transform.localScale = Vector3.one * value;
+            }
+        }
+        public bool CheckRange {
+            get => attackPoint.CheckRange;
+            set => attackPoint.CheckRange = value;
+        }
 
 
 

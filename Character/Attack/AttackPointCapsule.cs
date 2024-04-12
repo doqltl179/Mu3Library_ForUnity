@@ -13,7 +13,8 @@ namespace Mu3Library.Character.Attack {
             if(enabled) {
                 Gizmos.color = Color.red;
 
-                Editor.Gizmo.Draw.WireCapsule(transform, radius, height);
+                if(rayHelper == null) Editor.Gizmo.Draw.WireCapsule(transform, m_radius * rayScale, m_height * rayScale);
+                else Editor.Gizmo.Draw.WireCapsule(rayHelper.Origin, rayHelper.Radius * rayScale, rayHelper.Height * rayScale);
             }
         }
 #endif
@@ -25,8 +26,8 @@ namespace Mu3Library.Character.Attack {
                 Coordinate.Local,
                 Direction.None,
                 transform,
-                radius,
-                height,
+                m_radius,
+                m_height,
                 0.0f,
                 layerMask);
         }

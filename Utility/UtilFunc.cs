@@ -86,6 +86,33 @@ namespace Mu3Library.Utility {
             }
             SetLayer(target);
         }
+
+        public static T GetComponentOnParent<T>(Transform target) where T : MonoBehaviour  {
+            T result = null;
+
+            void FindComponent(Transform t) {
+                if(t == null) return;
+
+                result = t.GetComponent<T>();
+                if(result == null) {
+                    FindComponent(t.parent);
+                }
+            }
+            FindComponent(target);
+
+            return result;
+        }
+
+        public static bool IsTargetInConeRange(Vector3 origin, Vector3 targetPos, Vector3 direction, float angleDeg, float distance) {
+            float targetDistance = Vector3.Distance(origin, targetPos);
+            if(targetDistance > distance) return false;
+
+            Vector3 toTarget = (targetPos - origin).normalized;
+            float targetAngleDeg = Vector3.Angle(direction, toTarget);
+            if(targetAngleDeg * 0.5f > angleDeg) return false;
+
+            return true;
+        }
         #endregion
     }
 }
