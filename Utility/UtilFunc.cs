@@ -49,6 +49,8 @@ namespace Mu3Library.Utility {
         public static Vector3 GetVec3XZ(Vector3 vec3, float y = 0.0f) => new Vector3(vec3.x, y, vec3.z);
         public static Vector3 GetVec3Y(Vector3 vec3, float x = 0.0f, float z = 0.0f) => new Vector3(x, vec3.y, z);
 
+        public static Vector3 GetDirectionXZ(Vector3 from, Vector3 to) => (new Vector3(to.x, 0, to.z) - new Vector3(from.x, 0, from.z)).normalized;
+
         public static Vector3 BezierCurve(Vector3 start, Vector3 end, float angleDeg, float lerp) {
             Vector3 posDiff = end - start;
 
