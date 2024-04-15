@@ -13,6 +13,8 @@ namespace Mu3Library.Character {
         public abstract void Update();
         public abstract void Exit();
 
-        public abstract void ReEnter();
+        public virtual void ReEnter() {
+            Enter();
+        }
     }
 }

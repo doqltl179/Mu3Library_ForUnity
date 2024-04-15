@@ -3,6 +3,10 @@ namespace Mu3Library.Character {
         TwoHandSword = 100,
 
         TreantMinion = 1000,
+        TreantTree = 1003, 
+        TreantForest = 1006,
+
+        ImpMischief = 1010,
     }
 
     public enum CharacterStateType {

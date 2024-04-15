@@ -19,6 +19,8 @@ namespace Mu3Library.Editor.Window {
         private AnimationClip selectedClip;
         private string animationClipSavePath;
 
+        private int clipSampleRateChangeTo;
+
         private Vector2Int captureSize;
         private bool changeCaptureColor;
         private Color targetColor;
@@ -72,34 +74,78 @@ namespace Mu3Library.Editor.Window {
             GUILayout.Space(10);
 
             selectedClip = EditorGUILayout.ObjectField("Animation Clip", selectedClip, typeof(AnimationClip), false) as AnimationClip;
-            if(selectedClip != null && GUILayout.Button("Create Reverse Clip")) {
-                string path = AssetDatabase.GetAssetPath(selectedClip);
-                string directory = Path.GetDirectoryName(path);
-                string fileName = Path.GetFileName(path);
-                string[] nameSplit = fileName.Split('.');
-                fileName = nameSplit[0] + "_Reverse";
-                if(nameSplit.Length > 1) {
-                    for(int i = 1; i < nameSplit.Length; i++) {
-                        fileName += '.';
-                        fileName += nameSplit[i];
+            if(selectedClip != null) {
+                if(GUILayout.Button("Create Reverse Clip")) {
+                    string path = AssetDatabase.GetAssetPath(selectedClip);
+                    string directory = Path.GetDirectoryName(path);
+                    string fileName = Path.GetFileName(path);
+                    string[] nameSplit = fileName.Split('.');
+                    fileName = nameSplit[0] + "_Reverse";
+                    if(nameSplit.Length > 1) {
+                        for(int i = 1; i < nameSplit.Length; i++) {
+                            fileName += '.';
+                            fileName += nameSplit[i];
+                        }
+                    }
+                    path = Path.Combine(directory, fileName);
+
+                    if(!string.IsNullOrEmpty(path)) {
+                        animationClipSavePath = path;
+
+                        AnimationClip clip = GetReverseClip(selectedClip);
+
+                        AssetDatabase.CreateAsset(clip, animationClipSavePath);
+                        AssetDatabase.SaveAssets();
+                        AssetDatabase.Refresh();
+
+                        Debug.Log($"AnimationClip saved. path: {animationClipSavePath}");
+                    }
+                    else {
+                        Debug.Log("AnimationClip path is NULL.");
                     }
                 }
-                path = Path.Combine(directory, fileName);
 
-                if(!string.IsNullOrEmpty(path)) {
-                    animationClipSavePath = path;
+                GUILayout.BeginHorizontal();
 
-                    AnimationClip clip = GetReverseClip(selectedClip);
+                GUILayout.Label("Sample Rate");
+                clipSampleRateChangeTo = EditorGUILayout.IntField(clipSampleRateChangeTo);
+                if(GUILayout.Button("Change Sample Rate")) {
+                    if(clipSampleRateChangeTo <= 0) {
+                        Debug.Log($"Can not change. Sample Rate: {clipSampleRateChangeTo}");
 
-                    AssetDatabase.CreateAsset(clip, animationClipSavePath);
-                    AssetDatabase.SaveAssets();
-                    AssetDatabase.Refresh();
+                        return;
+                    }
 
-                    Debug.Log($"AnimationClip saved. path: {animationClipSavePath}");
+                    string path = AssetDatabase.GetAssetPath(selectedClip);
+                    string directory = Path.GetDirectoryName(path);
+                    string fileName = Path.GetFileName(path);
+                    string[] nameSplit = fileName.Split('.');
+                    fileName = nameSplit[0] + $"_{clipSampleRateChangeTo}";
+                    if(nameSplit.Length > 1) {
+                        for(int i = 1; i < nameSplit.Length; i++) {
+                            fileName += '.';
+                            fileName += nameSplit[i];
+                        }
+                    }
+                    path = Path.Combine(directory, fileName);
+
+                    if(!string.IsNullOrEmpty(path)) {
+                        animationClipSavePath = path;
+
+                        AnimationClip clip = GetSampleRateChangedClip(selectedClip, clipSampleRateChangeTo);
+
+                        AssetDatabase.CreateAsset(clip, animationClipSavePath);
+                        AssetDatabase.SaveAssets();
+                        AssetDatabase.Refresh();
+
+                        Debug.Log($"AnimationClip saved. path: {animationClipSavePath}");
+                    }
+                    else {
+                        Debug.Log("AnimationClip path is NULL.");
+                    }
                 }
-                else {
-                    Debug.Log("AnimationClip path is NULL.");
-                }
+
+                GUILayout.EndHorizontal();
             }
             #endregion
 
@@ -141,6 +187,21 @@ namespace Mu3Library.Editor.Window {
 
             GUILayout.EndHorizontal();
             #endregion
+        }
+
+        private AnimationClip GetSampleRateChangedClip(AnimationClip originalClip, int sampleRate) {
+            AnimationClip clip = new AnimationClip();
+            EditorUtility.CopySerialized(originalClip, clip);
+            clip.frameRate = sampleRate;
+
+            EditorCurveBinding[] curves = AnimationUtility.GetCurveBindings(originalClip);
+            AnimationCurve tempCurve;
+            foreach(EditorCurveBinding curve in curves) {
+                tempCurve = AnimationUtility.GetEditorCurve(originalClip, curve);
+                clip.SetCurve(curve.path, curve.type, curve.propertyName, tempCurve);
+            }
+
+            return clip;
         }
 
         private AnimationClip GetReverseClip(AnimationClip originalClip) {

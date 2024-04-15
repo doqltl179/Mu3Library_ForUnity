@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using AnimationInfo = Mu3Library.Animation.AnimationInfo;
+using static UnityEngine.ParticleSystem;
 
 namespace Mu3Library.Character {
+    [RequireComponent(typeof(Rigidbody))]
     public abstract class CharacterController : MonoBehaviour {
         protected Dictionary<CharacterStateType, CharacterState> states;
 
@@ -148,6 +150,7 @@ namespace Mu3Library.Character {
         public int LayerMask_ExcludeThis { get; protected set; }
         public int LayerMask_ExcludeThisAndFloor { get; protected set; }
         public int LayerMask_OnlyTarget { get; protected set; }
+        public int LayerMask_ExcludeCharacter { get; protected set; }
 
         [HideInInspector] public bool Avoid; //Å¸°Ý È¸ÇÇ
         [HideInInspector] public bool SuperArmour; //³Ë¹é Äµ½½
@@ -224,6 +227,7 @@ namespace Mu3Library.Character {
                 new string[] { LayerMask.LayerToName(gameObject.layer), "Floor" }, true);
             LayerMask_OnlyTarget = UtilFunc.GetLayerMask(
                 LayerMask.LayerToName(gameObject.layer) == "PlayCharacter" ? "OtherCharacter" : "PlayCharacter");
+            LayerMask_ExcludeCharacter = UtilFunc.GetLayerMask(new string[] { "PlayCharacter", "OtherCharacter" }, true);
 
             floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.06f, LayerMask_ExcludeThis);
 
@@ -398,6 +402,16 @@ namespace Mu3Library.Character {
 
 
 
+        public void IncreaseHealthPointWithPercentage(float value) {
+            HP += Mathf.FloorToInt(hpMax * value);
+            if(HP > hpMax) HP = hpMax;
+        }
+
+        public void IncreaseHealthPoint(int value) {
+            HP += value;
+            if(HP > hpMax) HP = hpMax;
+        }
+
         public void IncreaseMoveSpeedOffset(float max = 1.0f) {
             moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, max, Time.deltaTime * moveBoost);
             animator.SetFloat("MoveBlend", moveSpeedOffset);
@@ -487,6 +501,35 @@ namespace Mu3Library.Character {
         }
 
         public virtual void AttackAll(Vector3 attackPoint, AttackInfo attackInfo, int targetLayer, Action callback = null) {
+#if UNITY_EDITOR
+            Vector3 point = transform.position;
+            Vector3 direction = transform.forward;
+
+            float angleDeg = attackInfo.AngleDeg * 0.5f;
+            float range = attackInfo.RangeMax;
+
+            Vector3 pointL = Quaternion.AngleAxis(-angleDeg, transform.up) * transform.forward * range + point;
+            Vector3 pointR = Quaternion.AngleAxis(angleDeg, transform.up) * transform.forward * range + point;
+            Vector3 pointT = Quaternion.AngleAxis(-angleDeg, transform.right) * transform.forward * range + point;
+            Vector3 pointB = Quaternion.AngleAxis(angleDeg, transform.right) * transform.forward * range + point;
+
+            Vector3 p1, p2;
+            for(int i = 0; i < 32; i++) {
+                p1 = Vector3.Slerp(pointL, pointR, (float)i / 32);
+                p2 = Vector3.Slerp(pointL, pointR, (float)(i + 1) / 32);
+                Debug.DrawLine(p1, p2, Color.magenta);
+
+                p1 = Vector3.Slerp(pointB, pointT, (float)i / 32);
+                p2 = Vector3.Slerp(pointB, pointT, (float)(i + 1) / 32);
+                Debug.DrawLine(p1, p2, Color.magenta);
+            }
+
+            Debug.DrawLine(point, pointL, Color.magenta);
+            Debug.DrawLine(point, pointR, Color.magenta);
+            Debug.DrawLine(point, pointT, Color.magenta);
+            Debug.DrawLine(point, pointB, Color.magenta);
+#endif
+
             RaycastHit[] hits = Physics.SphereCastAll(attackPoint, attackInfo.RangeMax, Vector3.forward, 0.0f, targetLayer);
             if(hits != null && hits.Length > 0) {
                 CharacterController target;
@@ -512,6 +555,35 @@ namespace Mu3Library.Character {
         }
 
         public virtual void AttackOne(Vector3 attackPoint, AttackInfo attackInfo, int targetLayer, Action callback = null) {
+#if UNITY_EDITOR
+            Vector3 point = transform.position;
+            Vector3 direction = transform.forward;
+
+            float angleDeg = attackInfo.AngleDeg * 0.5f;
+            float range = attackInfo.RangeMax;
+
+            Vector3 pointL = Quaternion.AngleAxis(-angleDeg, transform.up) * transform.forward * range + point;
+            Vector3 pointR = Quaternion.AngleAxis(angleDeg, transform.up) * transform.forward * range + point;
+            Vector3 pointT = Quaternion.AngleAxis(-angleDeg, transform.right) * transform.forward * range + point;
+            Vector3 pointB = Quaternion.AngleAxis(angleDeg, transform.right) * transform.forward * range + point;
+
+            Vector3 p1, p2;
+            for(int i = 0; i < 32; i++) {
+                p1 = Vector3.Slerp(pointL, pointR, (float)i / 32);
+                p2 = Vector3.Slerp(pointL, pointR, (float)(i + 1) / 32);
+                Debug.DrawLine(p1, p2, Color.magenta);
+
+                p1 = Vector3.Slerp(pointB, pointT, (float)i / 32);
+                p2 = Vector3.Slerp(pointB, pointT, (float)(i + 1) / 32);
+                Debug.DrawLine(p1, p2, Color.magenta);
+            }
+
+            Debug.DrawLine(point, pointL, Color.magenta);
+            Debug.DrawLine(point, pointR, Color.magenta);
+            Debug.DrawLine(point, pointT, Color.magenta);
+            Debug.DrawLine(point, pointB, Color.magenta);
+#endif
+
             RaycastHit[] hits = Physics.SphereCastAll(attackPoint, attackInfo.RangeMax, Vector3.forward, 0.0f, targetLayer);
             if(hits != null && hits.Length > 0) {
                 if(hits[0].rigidbody != null) {
