@@ -207,7 +207,7 @@ namespace Mu3Library.Character {
                 attackTargetLookRotation = Quaternion.LookRotation(attackTargetDirection);
                 attackTargetLookRotationXZ = Quaternion.LookRotation(attackTargetDirectionXZ);
                 dotAT = Vector3.Dot(attackTargetDirectionXZ, transform.forward);
-                attackTargetAngleDeg = Mathf.Acos(dotAT) * Mathf.Rad2Deg;
+                attackTargetAngleDeg = Mathf.Max(Mathf.Acos(dotAT) * Mathf.Rad2Deg, 0.0f);
             }
 
             currentState.Update();
@@ -403,7 +403,7 @@ namespace Mu3Library.Character {
 
 
         public void IncreaseHealthPointWithPercentage(float value) {
-            HP += Mathf.FloorToInt(hpMax * value);
+            HP += Mathf.FloorToInt(hpMax * (value / 100));
             if(HP > hpMax) HP = hpMax;
         }
 
