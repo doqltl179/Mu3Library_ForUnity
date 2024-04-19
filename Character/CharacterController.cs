@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using AnimationInfo = Mu3Library.Animation.AnimationInfo;
-using static UnityEngine.ParticleSystem;
 
 namespace Mu3Library.Character {
     [RequireComponent(typeof(Rigidbody))]
@@ -384,8 +383,8 @@ namespace Mu3Library.Character {
             return animationInfo.IsPlayingAnimationClipWithName(name);
         }
 
-        public bool IsClipTransitioning(int layer = 0) {
-            return animationInfo.IsClipTransitioning(layer);
+        public bool IsTransitioning(int layer = 0) {
+            return animationInfo.IsTransitioning(layer);
         }
 
         public void SetTrigger(string parameter) => animator.SetTrigger(parameter);

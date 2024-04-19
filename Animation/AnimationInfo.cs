@@ -87,8 +87,6 @@ namespace Mu3Library.Animation {
             return false;
         }
 
-        public bool IsClipTransitioning(int layer) {
-            return m_clipInfos[layer].Length > 1;
-        }
+        public bool IsTransitioning(int layer) => m_animator.GetNextAnimatorStateInfo(layer).shortNameHash != 0;
     }
 }
