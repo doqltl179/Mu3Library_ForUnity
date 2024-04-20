@@ -1,6 +1,5 @@
 using System;
 using DG.Tweening;
-using Mu3Library.Character.Attack;
 using Mu3Library.InputHelper;
 using Mu3Library.Raycast;
 using Mu3Library.Utility;
@@ -13,6 +12,7 @@ namespace Mu3Library.Character {
     [RequireComponent(typeof(Rigidbody))]
     public abstract class CharacterController : MonoBehaviour {
         protected Dictionary<CharacterStateType, CharacterState> states;
+        public CharacterState CurrentState { get; protected set; }
 
         protected KeyCode inputForward = KeyCode.W;
         protected KeyCode inputLeft = KeyCode.A;
@@ -64,23 +64,6 @@ namespace Mu3Library.Character {
         public bool IsPlaying { get; protected set; }
         public bool PlayAuto { get; protected set; }
 
-        [Space(20)]
-        [SerializeField] protected Transform weaponSlot_L;
-        [SerializeField] protected Transform weaponSlot_R;
-        public Transform WeaponSlot_L => weaponSlot_L;
-        public Transform WeaponSlot_R => weaponSlot_R;
-
-        [SerializeField] protected Mu3Library.Character.Weapon.Weapon currentWeapon;
-        public Mu3Library.Character.Weapon.Weapon CurrentWeapon => currentWeapon;
-
-        [Space(20)]
-        [SerializeField] private AttackInfo[] attackInfos;
-        // 0: Normal Attack
-        // else: Skill
-        public AttackInfo[] AttackInfos => attackInfos;
-
-        protected CharacterState currentState;
-
         [Header("Properties")]
         [SerializeField, Range(0.1f, 10.0f)] protected float moveSpeed = 1.0f;
         [SerializeField, Range(0.1f, 10.0f)] protected float moveBoost = 1.0f;
@@ -105,25 +88,25 @@ namespace Mu3Library.Character {
         public float FloorDistance => floorContactHelper.FloorDistance;
         public bool OnFloor => floorContactHelper.OnFloor;
 
-        public CharacterController AttackTarget { get; private set; }
+        public CharacterController FollowTarget { get; private set; }
 
         private float dotAT;
-        private float attackTargetAngleDeg;
-        private float attackTargetDistance;
-        private float attackTargetDistanceXZ;
-        private Vector3 attackTargetDirection;
-        private Vector3 attackTargetDirectionXZ;
-        private Quaternion attackTargetLookRotation;
-        private Quaternion attackTargetLookRotationXZ;
+        private float followTargetAngleDeg;
+        private float followTargetDistance;
+        private float followTargetDistanceXZ;
+        private Vector3 followTargetDirection;
+        private Vector3 followTargetDirectionXZ;
+        private Quaternion followTargetLookRotation;
+        private Quaternion followTargetLookRotationXZ;
 
         public float DotAT => dotAT;
-        public float AttackTargetAngleDeg => attackTargetAngleDeg;
-        public float AttackTargetDistance => attackTargetDistance;
-        public float AttackTargetDistanceXZ => attackTargetDistanceXZ;
-        public Vector3 AttackTargetDirection => attackTargetDirection;
-        public Vector3 AttackTargetDirectionXZ => attackTargetDirectionXZ;
-        public Quaternion AttackTargetLookRotation => attackTargetLookRotation;
-        public Quaternion AttackTargetLookRotationXZ => attackTargetLookRotationXZ;
+        public float FollowTargetAngleDeg => followTargetAngleDeg;
+        public float FollowTargetDistance => followTargetDistance;
+        public float FollowTargetDistanceXZ => followTargetDistanceXZ;
+        public Vector3 FollowTargetDirection => followTargetDirection;
+        public Vector3 FollowTargetDirectionXZ => followTargetDirectionXZ;
+        public Quaternion FollowTargetLookRotation => followTargetLookRotation;
+        public Quaternion FollowTargetLookRotationXZ => followTargetLookRotationXZ;
 
         private struct KnockbackParameters {
             public Vector3 KnockbackDirection;
@@ -162,7 +145,7 @@ namespace Mu3Library.Character {
         }
 
         protected virtual void Update() {
-            if(currentState == null) return;
+            if(CurrentState == null) return;
 
             if(animationInfo != null) animationInfo.UpdateStateInfoAll();
 
@@ -170,14 +153,8 @@ namespace Mu3Library.Character {
 
             hitCool = Mathf.Max(hitCool - Time.deltaTime, 0.0f);
 
-            if(attackInfos != null) {
-                foreach(AttackInfo info in attackInfos) {
-                    info.Update();
-                }
-            }
-
             // Play With Input
-            if(AttackTarget == null) {
+            if(FollowTarget == null) {
                 moveDirection = Vector3.zero;
                 if(KeyCodeInputCollector.Instance.GetKey(inputForward)) moveDirection += CameraManager.Instance.CameraForwardXZ;
                 if(KeyCodeInputCollector.Instance.GetKey(inputLeft)) moveDirection -= CameraManager.Instance.CameraRightXZ;
@@ -199,17 +176,17 @@ namespace Mu3Library.Character {
                 isInputAttack = KeyCodeInputCollector.Instance.GetKeyDown(inputAttack);
             }
             else {
-                attackTargetDistance = Vector3.Distance(AttackTarget.Pos, transform.position);
-                attackTargetDistanceXZ = UtilFunc.GetDistanceXZ(AttackTarget.Pos, transform.position);
-                attackTargetDirection = (AttackTarget.Pos - transform.position).normalized;
-                attackTargetDirectionXZ = UtilFunc.GetVec3XZ(attackTargetDirection).normalized;
-                attackTargetLookRotation = Quaternion.LookRotation(attackTargetDirection);
-                attackTargetLookRotationXZ = Quaternion.LookRotation(attackTargetDirectionXZ);
-                dotAT = Vector3.Dot(attackTargetDirectionXZ, transform.forward);
-                attackTargetAngleDeg = Mathf.Max(Mathf.Acos(dotAT) * Mathf.Rad2Deg, 0.0f);
+                followTargetDistance = Vector3.Distance(FollowTarget.Pos, transform.position);
+                followTargetDistanceXZ = UtilFunc.GetDistanceXZ(FollowTarget.Pos, transform.position);
+                followTargetDirection = (FollowTarget.Pos - transform.position).normalized;
+                followTargetDirectionXZ = UtilFunc.GetVec3XZ(followTargetDirection).normalized;
+                followTargetLookRotation = Quaternion.LookRotation(followTargetDirection);
+                followTargetLookRotationXZ = Quaternion.LookRotation(followTargetDirectionXZ);
+                dotAT = Vector3.Dot(followTargetDirectionXZ, transform.forward);
+                followTargetAngleDeg = Mathf.Max(Mathf.Acos(dotAT) * Mathf.Rad2Deg, 0.0f);
             }
 
-            currentState.Update();
+            CurrentState.Update();
         }
 
         #region Utility
@@ -221,30 +198,24 @@ namespace Mu3Library.Character {
         }
 
         public virtual void Init() {
-            LayerMask_ExcludeThis = ~(1 << gameObject.layer);
-            LayerMask_ExcludeThisAndFloor = UtilFunc.GetLayerMask(
-                new string[] { LayerMask.LayerToName(gameObject.layer), "Floor" }, true);
-            LayerMask_OnlyTarget = UtilFunc.GetLayerMask(
-                LayerMask.LayerToName(gameObject.layer) == "PlayCharacter" ? "OtherCharacter" : "PlayCharacter");
-            LayerMask_ExcludeCharacter = UtilFunc.GetLayerMask(new string[] { "PlayCharacter", "OtherCharacter" }, true);
+            LayerMask_OnlyTarget = characterType == CharacterType.PlayerCharacter ?
+                UtilFunc.GetLayerMask(CharacterType.PlayerCharacter.ToString()) :
+                UtilFunc.GetLayerMask(CharacterType.OtherCharacter.ToString());
+            LayerMask_ExcludeThis = ~LayerMask_OnlyTarget;
+            LayerMask_ExcludeThisAndFloor = ~(LayerMask_OnlyTarget | (1 << LayerMask.NameToLayer("Floor")));
+            LayerMask_ExcludeCharacter = UtilFunc.GetLayerMask(
+                new string[] {
+                    CharacterType.PlayerCharacter.ToString(),
+                    CharacterType.OtherCharacter.ToString()
+                }, true);
 
-            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.06f, LayerMask_ExcludeThis);
+            floorContactHelper = new FloorContactRayHelper(transform, 0.1f, 0.05f, LayerMask_ExcludeThis);
 
-            if(currentState != null) {
-                currentState.Exit();
-                currentState = null;
+            if(CurrentState != null) {
+                CurrentState.Exit();
+                CurrentState = null;
             }
             states = new Dictionary<CharacterStateType, CharacterState>();
-
-            if(attackInfos != null && attackInfos.Length > 0) {
-                foreach(AttackInfo info in attackInfos) {
-                    info.Init();
-                }
-
-                if(currentWeapon != null) {
-
-                }
-            }
 
             HP = hpMax;
         }
@@ -291,8 +262,8 @@ namespace Mu3Library.Character {
             }
         }
 
-        public virtual void SetAttackTarget(CharacterController target) {
-            AttackTarget = target;
+        public virtual void SetFollowTarget(CharacterController target) {
+            FollowTarget = target;
         }
 
         public void SetInput(
@@ -324,8 +295,8 @@ namespace Mu3Library.Character {
                 changeTo = changedState;
             }
 
-            if(changeTo != currentState) {
-                if(currentState != null) currentState.Exit();
+            if(changeTo != CurrentState) {
+                if(CurrentState != null) CurrentState.Exit();
                 changeTo.Enter();
             }
             else {
@@ -333,33 +304,10 @@ namespace Mu3Library.Character {
             }
 
             Debug.Log($"{transform.name} || State Change To `{type}`");
-            currentState = changeTo;
+            CurrentState = changeTo;
         }
 
         protected abstract CharacterState GetNewState(CharacterStateType type);
-
-        protected void InitAttackInfo(int index) {
-            if(index < 0 || index >= attackInfos.Length) {
-                Debug.LogWarning($"AttackInfo index out of range. index: {index}");
-
-                return;
-            }
-
-            attackInfos[index].Init();
-        }
-
-        public int GetActivatableAttackIndex() {
-            if(attackInfos != null && attackInfos.Length > 1) {
-                for(int i = attackInfos.Length - 1; i >= 0; i--) {
-                    if(CheckSkillActivatable(i)) return i;
-                }
-            }
-
-            return -1;
-        }
-
-        protected abstract bool CheckSkillActivatable(int index);
-        public abstract void ActivateSkill(int index);
 
 
 
@@ -416,12 +364,12 @@ namespace Mu3Library.Character {
             animator.SetFloat("MoveBlend", moveSpeedOffset);
         }
 
-        public void DecreaseMoveSpeedOffset() {
-            moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, 0.0f, Time.deltaTime * moveBoost);
+        public void DecreaseMoveSpeedOffset(float min = 0.0f) {
+            moveSpeedOffset = Mathf.Lerp(moveSpeedOffset, min, Time.deltaTime * moveBoost);
             animator.SetFloat("MoveBlend", moveSpeedOffset);
         }
 
-        public void UpdateVelocityToMoveSpeedOffset() {
+        public void UpdateVelocityWithMoveSpeedOffset() {
             rigidbody.velocity = UtilFunc.GetVec3XZ(rigidbody.velocity.normalized * moveSpeedOffset, rigidbody.velocity.y);
         }
 
@@ -439,11 +387,21 @@ namespace Mu3Library.Character {
         }
 
         public void Move() {
-            rigidbody.velocity = UtilFunc.GetVec3XZ(moveDirection * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
+            Vector3 dir = moveDirection;
+            if(floorContactHelper.OnFloor) {
+                Quaternion rot = Quaternion.FromToRotation(Vector3.up, floorContactHelper.FloorNormal);
+                dir = rot * moveDirection;
+            }
+
+            rigidbody.velocity = UtilFunc.GetVec3XZ(dir * moveSpeed * moveSpeedOffset, rigidbody.velocity.y);
         }
 
         public void Move(Vector3 direction, float offset = 1.0f) {
             rigidbody.velocity = UtilFunc.GetVec3XZ(direction * moveSpeed * moveSpeedOffset * offset, rigidbody.velocity.y);
+        }
+
+        public void AttachOnFloor(float strength) {
+            rigidbody.AddForce(Vector3.down * strength);
         }
 
         public void Jump() {
@@ -497,112 +455,6 @@ namespace Mu3Library.Character {
             }
 
             transform.DOMove(knockbackEndPos, time).SetEase(ease);
-        }
-
-        public virtual void AttackAll(Vector3 attackPoint, AttackInfo attackInfo, int targetLayer, Action callback = null) {
-#if UNITY_EDITOR
-            Vector3 point = transform.position;
-            Vector3 direction = transform.forward;
-
-            float angleDeg = attackInfo.AngleDeg * 0.5f;
-            float range = attackInfo.RangeMax;
-
-            Vector3 pointL = Quaternion.AngleAxis(-angleDeg, transform.up) * transform.forward * range + point;
-            Vector3 pointR = Quaternion.AngleAxis(angleDeg, transform.up) * transform.forward * range + point;
-            Vector3 pointT = Quaternion.AngleAxis(-angleDeg, transform.right) * transform.forward * range + point;
-            Vector3 pointB = Quaternion.AngleAxis(angleDeg, transform.right) * transform.forward * range + point;
-
-            Vector3 p1, p2;
-            for(int i = 0; i < 32; i++) {
-                p1 = Vector3.Slerp(pointL, pointR, (float)i / 32);
-                p2 = Vector3.Slerp(pointL, pointR, (float)(i + 1) / 32);
-                Debug.DrawLine(p1, p2, Color.magenta);
-
-                p1 = Vector3.Slerp(pointB, pointT, (float)i / 32);
-                p2 = Vector3.Slerp(pointB, pointT, (float)(i + 1) / 32);
-                Debug.DrawLine(p1, p2, Color.magenta);
-            }
-
-            Debug.DrawLine(point, pointL, Color.magenta);
-            Debug.DrawLine(point, pointR, Color.magenta);
-            Debug.DrawLine(point, pointT, Color.magenta);
-            Debug.DrawLine(point, pointB, Color.magenta);
-#endif
-
-            RaycastHit[] hits = Physics.SphereCastAll(attackPoint, attackInfo.RangeMax, Vector3.forward, 0.0f, targetLayer);
-            if(hits != null && hits.Length > 0) {
-                CharacterController target;
-                Vector3 targetPoint;
-                Vector3 targetDirection;
-                float targetAngleDeg;
-                for(int i = 0; i < hits.Length; i++) {
-                    if(hits[i].rigidbody != null) {
-                        target = hits[i].rigidbody.GetComponent<CharacterController>();
-                        if(target != null) {
-                            targetPoint = target.Pos + Vector3.up * target.Height * 0.5f;
-                            targetDirection = UtilFunc.GetDirectionXZ(attackPoint, targetPoint);
-                            targetAngleDeg = Vector3.Angle(transform.forward, targetDirection);
-                            if(targetAngleDeg < attackInfo.AngleDeg * 0.5f) {
-                                target.GetHit(attackInfo.Damage, attackPoint, attackInfo.KnockbackStrength);
-                            }
-                        }
-                    }
-                }
-            }
-
-            callback?.Invoke();
-        }
-
-        public virtual void AttackOne(Vector3 attackPoint, AttackInfo attackInfo, int targetLayer, Action callback = null) {
-#if UNITY_EDITOR
-            Vector3 point = transform.position;
-            Vector3 direction = transform.forward;
-
-            float angleDeg = attackInfo.AngleDeg * 0.5f;
-            float range = attackInfo.RangeMax;
-
-            Vector3 pointL = Quaternion.AngleAxis(-angleDeg, transform.up) * transform.forward * range + point;
-            Vector3 pointR = Quaternion.AngleAxis(angleDeg, transform.up) * transform.forward * range + point;
-            Vector3 pointT = Quaternion.AngleAxis(-angleDeg, transform.right) * transform.forward * range + point;
-            Vector3 pointB = Quaternion.AngleAxis(angleDeg, transform.right) * transform.forward * range + point;
-
-            Vector3 p1, p2;
-            for(int i = 0; i < 32; i++) {
-                p1 = Vector3.Slerp(pointL, pointR, (float)i / 32);
-                p2 = Vector3.Slerp(pointL, pointR, (float)(i + 1) / 32);
-                Debug.DrawLine(p1, p2, Color.magenta);
-
-                p1 = Vector3.Slerp(pointB, pointT, (float)i / 32);
-                p2 = Vector3.Slerp(pointB, pointT, (float)(i + 1) / 32);
-                Debug.DrawLine(p1, p2, Color.magenta);
-            }
-
-            Debug.DrawLine(point, pointL, Color.magenta);
-            Debug.DrawLine(point, pointR, Color.magenta);
-            Debug.DrawLine(point, pointT, Color.magenta);
-            Debug.DrawLine(point, pointB, Color.magenta);
-#endif
-
-            RaycastHit[] hits = Physics.SphereCastAll(attackPoint, attackInfo.RangeMax, Vector3.forward, 0.0f, targetLayer);
-            if(hits != null && hits.Length > 0) {
-                if(hits[0].rigidbody != null) {
-                    CharacterController target = hits[0].rigidbody.GetComponent<CharacterController>();
-                    if(target != null) {
-                        Vector3 targetPoint = target.Pos + Vector3.up * target.Height * 0.5f;
-                        Vector3 targetDirection = UtilFunc.GetDirectionXZ(attackPoint, targetPoint);
-                        float targetAngleDeg = Vector3.Angle(transform.forward, targetDirection);
-                        if(targetAngleDeg < attackInfo.AngleDeg * 0.5f) {
-                            target.GetHit(attackInfo.Damage, attackPoint, attackInfo.KnockbackStrength);
-                        }
-                    }
-                }
-            }
-
-            callback?.Invoke();
-        }
-
-        public T GetInstantiateObject<T>(T obj) where T : UnityEngine.Object {
-            return Instantiate(obj);
         }
         #endregion
     }

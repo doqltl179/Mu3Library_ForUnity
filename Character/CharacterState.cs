@@ -5,7 +5,11 @@ using UnityEngine;
 
 namespace Mu3Library.Character {
     public abstract class CharacterState {
-        public CharacterState(CharacterController character) {
+        public CharacterStateType StateType { get; protected set; }
+
+
+
+        public CharacterState(CharacterController character, CharacterStateType stateType) {
 
         }
 

@@ -1,12 +1,7 @@
 namespace Mu3Library.Character {
     public enum CharacterType {
-        TwoHandSword = 100,
-
-        TreantMinion = 1000,
-        TreantTree = 1003, 
-        TreantForest = 1006,
-
-        ImpMischief = 1010,
+        PlayerCharacter = 0,
+        OtherCharacter = 1,
     }
 
     public enum CharacterStateType {
@@ -15,10 +10,15 @@ namespace Mu3Library.Character {
         Idle,
         Move,
         Jump,
+
         Dash,
         DashAttack,
         NormalAttack,
         Hit,
+
+        PickupL,
+        PickupR,
+        PickupLR, 
 
         Skill_01,
         Skill_02,
@@ -33,18 +33,5 @@ namespace Mu3Library.Character {
 
         /* Else */
 
-    }
-
-    public enum AttackType {
-        NormalAttack,
-        HardAttack,
-    }
-
-    public enum AttackPointType {
-        HitAnything,
-        HitOnlyOneObject, 
-        HitEachCharacterOnce,
-        HitEachCharacter,
-        HitOnlyOneChatacter,
     }
 }
