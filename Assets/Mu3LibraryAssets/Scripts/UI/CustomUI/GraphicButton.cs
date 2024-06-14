@@ -1,6 +1,7 @@
 using Mu3Library.Utility;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -21,7 +22,20 @@ namespace Mu3Library.UI.Custom {
         [Space(20)]
         public UnityEvent OnClick;
 
+        private float hiehlightLerpness = 0.0f;
+        private IEnumerator highlightAnimationCoroutine = null;
 
+
+#if UNITY_EDITOR
+        protected override void Reset() {
+            base.Reset();
+            
+            //string materialPath = System.IO.Path.Combine(Application.dataPath, "Mu3LibraryAssets/Materials");
+            string materialPath = "Assets/Mu3LibraryAssets/Materials";
+            string materialName = "CustomGraphic.mat";
+            material = AssetDatabase.LoadAssetAtPath<Material>(System.IO.Path.Combine(materialPath, materialName));
+        }
+#endif
 
         protected override void OnPopulateMesh(VertexHelper vh) {
             //base.OnPopulateMesh(vh);
@@ -119,15 +133,45 @@ namespace Mu3Library.UI.Custom {
         }
 
         public void OnEnter(PointerEventData point) {
-            throw new System.NotImplementedException();
+            if(highlightAnimationCoroutine != null) StopCoroutine(highlightAnimationCoroutine);
+
+            highlightAnimationCoroutine = HighlightAnimationCoroutine(true);
+            StartCoroutine(highlightAnimationCoroutine);
         }
 
         public void OnExit(PointerEventData point) {
-            throw new System.NotImplementedException();
+            if(highlightAnimationCoroutine != null) StopCoroutine(highlightAnimationCoroutine);
+
+            highlightAnimationCoroutine = HighlightAnimationCoroutine(false);
+            StartCoroutine(highlightAnimationCoroutine);
         }
 
         public void OnMove(PointerEventData point) {
-            throw new System.NotImplementedException();
+
+        }
+
+        private IEnumerator HighlightAnimationCoroutine(bool isIn, float fadeTime = 0.25f) {
+            float timer = fadeTime * hiehlightLerpness;
+            if(isIn) {
+                while(timer < fadeTime) {
+                    timer += Time.deltaTime;
+                    hiehlightLerpness = timer / fadeTime;
+                    color = Color.Lerp(Color.gray, Color.green, hiehlightLerpness);
+
+                    yield return null;
+                }
+            }
+            else {
+                while(timer > 0) {
+                    timer -= Time.deltaTime;
+                    hiehlightLerpness = timer / fadeTime;
+                    color = Color.Lerp(Color.gray, Color.green, hiehlightLerpness);
+
+                    yield return null;
+                }
+            }
+
+            highlightAnimationCoroutine = null;
         }
     }
 }

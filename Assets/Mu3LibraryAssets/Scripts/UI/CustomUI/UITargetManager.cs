@@ -48,13 +48,20 @@ namespace Mu3Library.UI.Custom {
 
             rayResults.Clear();
             graphicRaycaster.Raycast(pointerEventData, rayResults);
+
+            IUIRaycaster outValue = null;
             if(rayResults.Count > 0) {
-                StringBuilder logBuilder = new StringBuilder();
-                for(int i = 0; i < rayResults.Count; i++) {
-                    logBuilder.AppendLine($"depth: {rayResults[i].depth}, name: {rayResults[i].gameObject.name}");
+                if(rayResults[0].gameObject.TryGetComponent(out outValue)) {
+
                 }
-                Debug.Log(logBuilder.ToString());
+
+                //StringBuilder logBuilder = new StringBuilder();
+                //for(int i = 0; i < rayResults.Count; i++) {
+                //    logBuilder.AppendLine($"depth: {rayResults[i].depth}, name: {rayResults[i].gameObject.name}");
+                //}
+                //Debug.Log(logBuilder.ToString());
             }
+            CurrentTarget = outValue;
 
             currentTarget?.OnMove(pointerEventData);
         }
