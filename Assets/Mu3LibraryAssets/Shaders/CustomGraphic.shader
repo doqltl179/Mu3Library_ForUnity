@@ -15,8 +15,18 @@ Shader "_MyCustom/CustomGraphic"
 
         // [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
 
-        _BaseColor ("Base Color", Color) = (1,1,1,1)
+        [Space(20)]
+        [Toggle(USE_SHADOW)] _UseShadow ("Use Shadow", float) = 1
         _ShadowColor ("Shadow Color", Color) = (0,0,0,1)
+        _ShadowHeight ("Shadow Height", Range(0, 1)) = 0.15
+        _ShadowStrength ("Shadow Strength", Range(0, 1)) = 1
+        _ShadowDensity ("Shadow Density", Range(1, 8)) = 1
+
+        [Space(20)]
+        [Toggle(USE_Highlight)] _UseHighlight ("Use Highlight", float) = 1
+        _HighlightHeight ("Highlight Height", Range(0, 1)) = 0.15
+        _HighlightStrength ("Highlight Strength", Range(0, 1)) = 0.15
+        _HighlightDensity ("Highlight Density", Range(1, 64)) = 16
     }
 
     SubShader
@@ -59,6 +69,8 @@ Shader "_MyCustom/CustomGraphic"
 
             // #pragma multi_compile_local _ UNITY_UI_CLIP_RECT
             // #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
+            #pragma multi_compile_local _ USE_SHADOW
+            #pragma multi_compile_local _ USE_Highlight
 
             struct appdata_t
             {
@@ -83,8 +95,18 @@ Shader "_MyCustom/CustomGraphic"
             // float4 _ClipRect;
             float4 _MainTex_ST;
 
-            float4 _BaseColor;
             float4 _ShadowColor;
+            half _ShadowHeight;
+            half _ShadowStrength;
+            half _ShadowDensity;
+
+            half _HighlightHeight;
+            half _HighlightStrength;
+            half _HighlightDensity;
+
+            float inverseLerp(float a, float b, float l) {
+                return (l - a) / (b - a);
+            }
 
             v2f vert(appdata_t v)
             {
@@ -115,12 +137,26 @@ Shader "_MyCustom/CustomGraphic"
                 // #endif
 
                 // Volume
-                color *= lerp(_ShadowColor, _BaseColor, pow(IN.texcoord.y, 2));
+                #ifdef USE_SHADOW
+                fixed4 middleColor = (_ShadowColor + IN.color) * 0.5;
+                fixed4 shadowCol;
+                if(IN.texcoord.y < _ShadowHeight) {
+                    shadowCol = color * pow(lerp(_ShadowColor, middleColor, inverseLerp(0, _ShadowHeight, IN.texcoord.y)), _ShadowDensity);
+                }
+                else {
+                    shadowCol = color * pow(lerp(middleColor, IN.color, inverseLerp(_ShadowHeight, _ShadowHeight * 2, IN.texcoord.y)), _ShadowDensity);
+                }
+                color = lerp(color, shadowCol, _ShadowStrength);
 
+                #ifdef USE_Highlight
+                half highlightValue = abs(1.0 - abs(IN.texcoord.y - _HighlightHeight));
                 // Highlight
-                color += ((_BaseColor + _ShadowColor) * 0.5 * 0.5) * pow(1.0 - IN.texcoord.y, 16);
+                color += IN.color * pow(highlightValue, _HighlightDensity) * _HighlightStrength;
+                #endif
+                #endif
 
                 // Outline
+
 
                 return color;
             }

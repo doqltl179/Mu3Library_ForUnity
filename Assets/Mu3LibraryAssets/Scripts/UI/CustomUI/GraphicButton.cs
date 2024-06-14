@@ -52,6 +52,7 @@ namespace Mu3Library.UI.Custom {
             float radius = Mathf.Min(radiusX, radiusY);
             float radiusOffsetLength = radius * radiusOffset;
 
+            Vector3 posOffset = rectTransform.rect.size * (rectTransform.pivot - Vector2.one * 0.5f) * -1;
             float angleDegOffset;
             int triIndexOffset;
             for(int i = 0; i < 4; i++) {
@@ -76,7 +77,7 @@ namespace Mu3Library.UI.Custom {
                     center.y *= -1;
                 }
 
-                vertex.position = center;
+                vertex.position = center + posOffset;
                 vertex.uv0 = new Vector2(center.x / rectTransform.rect.width + 0.5f, center.y / rectTransform.rect.height + 0.5f);
                 vh.AddVert(vertex);
 
@@ -90,7 +91,7 @@ namespace Mu3Library.UI.Custom {
                     //point = dir * radius;
                     point = dir * radiusOffsetLength;
 
-                    vertex.position = center + point;
+                    vertex.position = center + point + posOffset;
                     vertex.uv0 = new Vector2((center.x + point.x) / rectTransform.rect.width + 0.5f, (center.y + point.y) / rectTransform.rect.height + 0.5f);
                     vh.AddVert(vertex);
                 }
