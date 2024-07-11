@@ -34,7 +34,7 @@ namespace Mu3Library.Editor.Window {
 
         private void OnBecameVisible() {
             usePlayLoadScene = EditorUtilPrefs.UsePlayLoadScene;
-            playLoadScene = UtilFunc.StringToEnum<SceneType>(EditorUtilPrefs.PlayLoadSceneName);
+            UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene);
         }
 
         void OnGUI() {

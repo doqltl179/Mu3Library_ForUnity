@@ -44,6 +44,8 @@ namespace Mu3Library.Log {
         }
 
         private void Start() {
+            logObj.gameObject.SetActive(false);
+
             logCountText.text = "";
 
             logParent.sizeDelta = new Vector2(anchorRT.anchoredPosition.x - anchorLB.anchoredPosition.x, logParent.sizeDelta.y);
@@ -81,8 +83,8 @@ namespace Mu3Library.Log {
                 if(lm == null) {
                     lm = Instantiate(logObj);
                 }
-                lm.transform.SetParent(logParent);
-                lm.transform.localScale = Vector3.one;
+                //lm.transform.SetParent(logParent);
+                //lm.transform.localScale = Vector3.one;
                 lm.gameObject.SetActive(true);
 
                 string logText = condition;

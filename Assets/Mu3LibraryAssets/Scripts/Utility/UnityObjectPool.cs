@@ -20,7 +20,7 @@ namespace Mu3Library.Utility {
         }
 
         public void AddObject<T>(T obj) where T : MonoBehaviour {
-            obj.transform.SetParent(transform);
+            //obj.transform.SetParent(transform);
 
             string typeName = typeof(T).Name;
             List<MonoBehaviour> targetList = null;
@@ -33,7 +33,9 @@ namespace Mu3Library.Utility {
             }
 
             obj.gameObject.SetActive(false);
-            pool[typeName].Add(obj);
+            targetList.Add(obj);
+
+            pool[typeName] = targetList;
         }
 
         public T GetObject<T>() where T : MonoBehaviour {
@@ -46,9 +48,10 @@ namespace Mu3Library.Utility {
                 if(objectIndex >= 0) {
                     obj = (T)targetList[objectIndex];
 
-                    for(int i = 0; i <= objectIndex; i++) {
-                        targetList.RemoveAt(i);
-                    }
+                    //for(int i = 0; i <= objectIndex; i++) {
+                    //    targetList.RemoveAt(i);
+                    //}
+                    targetList.RemoveRange(0, objectIndex + 1);
                     pool[typeName] = targetList;
                 }
             }

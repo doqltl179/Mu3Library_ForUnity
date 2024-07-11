@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using UnityEngine;
 
 namespace Mu3Library.Utility {
@@ -36,6 +37,16 @@ namespace Mu3Library.Utility {
         public static float GetDistanceXZ(Vector3 from, Vector3 to) => Vector2.Distance(new Vector2(from.x, from.z), new Vector2(to.x, to.z));
 
         public static float InverseLerpUnclamped(float from, float to, float a) => (a - from) / (to - from);
+
+        public static float InverseLerp(Vector3 from, Vector3 to, Vector3 a) {
+            Vector3 ab = to - from;
+            if(ab.magnitude == 0f) {
+                return 0f;
+            }
+
+            Vector3 av = a - from;
+            return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
+        }
 
         public static float MinMax(float min, float max, float value) {
             if(value > max) return max;
@@ -89,8 +100,35 @@ namespace Mu3Library.Utility {
         #endregion
 
         #region Else
+        public static void GetWorldCorners(RectTransform rect, out Vector3 lb, out Vector3 lt, out Vector3 rt, out Vector3 rb) {
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+
+            lb = corners[0];
+            lt = corners[1];
+            rt = corners[2];
+            rb = corners[3];
+        }
+
+        public static void GetLocalCorners(RectTransform rect, out Vector3 lb, out Vector3 lt, out Vector3 rt, out Vector3 rb) {
+            Vector3[] corners = new Vector3[4];
+            rect.GetLocalCorners(corners);
+
+            lb = corners[0];
+            lt = corners[1];
+            rt = corners[2];
+            rb = corners[3];
+        }
+
         public static string EnumToString<T>(T enumValue) where T : Enum => enumValue.ToString();
-        public static T StringToEnum<T>(string stringValue) where T : Enum => (T)Enum.Parse(typeof(T), stringValue);
+        public static void StringToEnum<T>(string stringValue, ref T outValue) where T : Enum {
+            try {
+                outValue = (T)Enum.Parse(typeof(T), stringValue);
+            }
+            catch(Exception ex) {
+                Debug.LogError(ex.ToString());
+            }
+        }
 
         public static void SetLayerWithChildren(Transform target, string layerName) {
             SetLayerWithChildren(target, LayerMask.NameToLayer(layerName));

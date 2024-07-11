@@ -39,7 +39,7 @@ public static class EditorUtilPrefs {
         usePlayLoadScene = EditorPrefs.GetBool(Key_UsePlayLoadScene, usePlayLoadScene);
 
         string loadSceneName = EditorPrefs.GetString(Key_PlayLoadScene, playLoadScene.ToString());
-        playLoadScene = UtilFunc.StringToEnum<SceneType>(loadSceneName);
+        UtilFunc.StringToEnum(loadSceneName, ref playLoadScene);
         PlayLoadSceneName = playLoadScene.ToString();
     }
 }
