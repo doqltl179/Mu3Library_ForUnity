@@ -1,4 +1,4 @@
-Shader "_MyCustom/PostEffect/DisplayWave"
+Shader "_Mu3/PostEffect/DisplayWave"
 {
     Properties {
         _Center("Center", Vector) = (0.5, 0.5, 0, 0)

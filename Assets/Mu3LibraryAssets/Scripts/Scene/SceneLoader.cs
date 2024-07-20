@@ -1,6 +1,8 @@
 using Mu3Library.UI;
 using Mu3Library.Utility;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,7 +10,21 @@ using UnityEngine.SceneManagement;
 namespace Mu3Library.Scene {
     public class SceneLoader : GenericSingleton<SceneLoader> {
         public SceneController CurrentSceneController { get; private set; }
-        public SceneType CurrentSceneType => CurrentSceneController == null ? SceneType.None : CurrentSceneController.Type;
+
+        public SceneType CurrentSceneType {
+            get => currentSceneType;
+            private set {
+                if(currentSceneType != value) {
+                    OnSceneChanged?.Invoke(currentSceneType, value);
+
+                    currentSceneType = value;
+                }
+            }
+        }
+        private SceneType currentSceneType = SceneType.None;
+        public Action<SceneType, SceneType> OnSceneChanged;
+
+        private List<SceneType> addedSceneTypeList = new List<SceneType>();
 
         public object[] Param { get; private set; } = null;
         public bool IsLoading => loadSceneCoroutine != null;
@@ -27,7 +43,6 @@ namespace Mu3Library.Scene {
                 StartCoroutine(loadSceneCoroutine);
             }
         }
-        #endregion
 
         private IEnumerator LoadSceneCoroutine(SceneType scene) {
             // CurrentSceneController unload action
@@ -83,6 +98,8 @@ namespace Mu3Library.Scene {
                 }
             }
 
+            CurrentSceneType = scene;
+
             //Fake Wait
             const float fakeWaitTime = 1.0f;
             float timer = 0.0f;
@@ -101,6 +118,26 @@ namespace Mu3Library.Scene {
             yield return wait;
 
             loadSceneCoroutine = null;
+        }
+        #endregion
+
+        public enum SceneType {
+            None,
+
+            Splash,
+
+            Main,
+            Lobby,
+            Game,
+
+            Credits,
+
+
+
+            /***** Demo Template *****/
+            StandardSceneTemplate_00_Splash,
+            StandardSceneTemplate_01_Main, 
+            StandardSceneTemplate_02_Game,
         }
     }
 }

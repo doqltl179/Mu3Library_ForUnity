@@ -1,4 +1,4 @@
-Shader "_MyCustom/CustomGraphic"
+Shader "_Mu3/CustomGraphic"
 {
      Properties
     {

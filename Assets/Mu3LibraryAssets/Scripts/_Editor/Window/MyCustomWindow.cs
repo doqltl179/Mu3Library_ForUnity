@@ -1,12 +1,12 @@
 #if UNITY_EDITOR
 using Mu3Library.Utility;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using TMPro;
 using UnityEditor;
 using UnityEngine;
+
+using static Mu3Library.Scene.SceneLoader;
 
 namespace Mu3Library.Editor.Window {
     public class MyCustomWindow : EditorWindow {

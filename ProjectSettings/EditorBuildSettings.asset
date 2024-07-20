@@ -4,6 +4,15 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_00_Splash.unity
+    guid: caf56da83eee49c40955615bb948239c
+  - enabled: 1
+    path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_01_Main.unity
+    guid: 80e10cfe46a9820439d55ff6772a12c2
+  - enabled: 1
+    path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_02_Game.unity
+    guid: ef85a7472e6514b4eaffd4a75a7b299b
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: f9db01e0799dafd489f87ace5cc24eda, type: 2}

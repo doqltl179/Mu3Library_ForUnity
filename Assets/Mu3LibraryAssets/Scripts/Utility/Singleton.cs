@@ -10,8 +10,10 @@ namespace Mu3Library.Utility {
                 T inst = null;
                 string componentName = typeof(T).Name;
                 if(instances.TryGetValue(componentName, out inst)) {
-                    if(inst == null) {
+                    if(inst == null || inst.gameObject == null) {
                         instances.Remove(componentName);
+
+                        inst = null;
                     }
                 }
 

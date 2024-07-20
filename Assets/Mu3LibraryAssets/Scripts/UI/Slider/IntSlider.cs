@@ -53,6 +53,7 @@ namespace Mu3Library.UI {
 
         private IEnumerator checkPointerCoroutine;
 
+        [Space(20)]
         public UnityEvent<int> OnIntValueChanged;
         public UnityEvent<float> OnSliderValueChanged;
 

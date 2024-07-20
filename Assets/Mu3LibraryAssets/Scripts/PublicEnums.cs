@@ -1,11 +1,4 @@
 namespace Mu3Library {
-    public enum CharacterStateType {
-        None, 
-
-        Movement, 
-
-    }
-
     public enum Coordinate {
         Local, 
         World, 
@@ -19,17 +12,5 @@ namespace Mu3Library {
         B = 1 << 1, 
         R = 1 << 2, 
         L = 1 << 3, 
-    }
-
-    public enum SceneType {
-        None,
-
-        Splash, 
-
-        Main,
-        Lobby, 
-        Game,
-
-        Credits,
     }
 }

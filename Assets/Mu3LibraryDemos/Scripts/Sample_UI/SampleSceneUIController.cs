@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-namespace Mu3Library.Sample.UI {
-    public class SampleUIController : MonoBehaviour {
+namespace Mu3Library.Demo.Sample_UI {
+    public class SampleSceneUIController : MonoBehaviour {
         [Header("Int Slider")]
         [SerializeField] private IntSlider intSlider;
         [SerializeField] private TextMeshPro intSliderValueText;

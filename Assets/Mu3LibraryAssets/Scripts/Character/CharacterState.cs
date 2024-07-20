@@ -1,14 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
 namespace Mu3Library.Character {
     public abstract class CharacterState {
         protected CharacterController character;
 
 
 
-        public virtual void Init(CharacterController controller) {
+        public virtual void Init(CharacterController controller, object[] param = null) {
             character = controller;
         }
 

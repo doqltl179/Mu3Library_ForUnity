@@ -1,10 +1,11 @@
 #if UNITY_EDITOR
-using Mu3Library;
 using Mu3Library.Utility;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+
+using static Mu3Library.Scene.SceneLoader;
 
 public static class EditorUtilPrefs {
     private static readonly string Key_UsePlayLoadScene = "UsePlayLoadScene";

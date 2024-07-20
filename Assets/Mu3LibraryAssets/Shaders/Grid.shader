@@ -1,4 +1,4 @@
-Shader "_MyCustom/Grid"
+Shader "_Mu3/Grid"
 {
     Properties
     {

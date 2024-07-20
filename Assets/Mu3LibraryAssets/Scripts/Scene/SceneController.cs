@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+using static Mu3Library.Scene.SceneLoader;
+
 namespace Mu3Library.Scene {
     public class SceneController : MonoBehaviour {
         public SceneType Type => type;
