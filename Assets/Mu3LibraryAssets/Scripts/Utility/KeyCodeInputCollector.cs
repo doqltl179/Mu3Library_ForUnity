@@ -9,8 +9,8 @@ namespace Mu3Library.Utility {
 
         private void Update() {
             if(keyInfos != null) {
-                foreach(KeyCode key in keyInfos.Keys) {
-                    keyInfos[key].UpdateKey(Input.GetKeyDown(key), Input.GetKeyUp(key));
+                foreach(KeyData data in keyInfos.Values) {
+                    data.UpdateKey();
                 }
             }
         }
@@ -21,30 +21,22 @@ namespace Mu3Library.Utility {
         }
 
         public void AddCollectKeys(KeyCode[] keys) {
-            KeyData temp;
-            foreach(KeyCode key in keys) {
-                if(keyInfos.TryGetValue(key, out temp)) {
-                    Debug.Log($"`{key}` already exist in list.");
-                }
-                else {
-                    keyInfos.Add(key, new KeyData(key));
+            for(int i = 0; i < keys.Length; i++) {
+                if(!keyInfos.ContainsKey(keys[i])) {
+                    keyInfos.Add(keys[i], new KeyData(keys[i]));
                 }
             }
         }
 
         public void AddCollectKey(KeyCode key) {
-            KeyData temp;
-            if(keyInfos.TryGetValue(key, out temp)) {
-                Debug.Log($"`{key}` already exist in list.");
-            }
-            else {
+            if(!keyInfos.ContainsKey(key)) {
                 keyInfos.Add(key, new KeyData(key));
             }
         }
 
         public void RemoveCollectKeys(KeyCode[] keys) {
-            foreach(KeyCode key in keys) {
-                keyInfos.Remove(key);
+            for(int i = 0; i < keys.Length; i++) { 
+                keyInfos.Remove(keys[i]);
             }
         }
 
@@ -92,10 +84,11 @@ namespace Mu3Library.Utility {
         }
 
         #region Utility
-        public void UpdateKey(bool down, bool up) {
-            if(down) {
-                KeyDown = true;
+        public void UpdateKey() {
+            KeyDown = Input.GetKeyDown(Key);
+            KeyUp = Input.GetKeyUp(Key);
 
+            if(KeyDown) {
                 if((System.DateTime.Now - KeyDownTime).TotalMilliseconds * 0.001f < DoubleDownInterval) {
                     DoubleDown = true;
                     //Debug.Log($"DoubleDown. Key: {Key}");
@@ -104,22 +97,13 @@ namespace Mu3Library.Utility {
 
                 KeyPressing = true;
             }
-            else {
-                KeyDown = false;
-                DoubleDown = false;
-            }
 
-            if(up) {
-                KeyUp = true;
-
+            if(KeyUp) {
                 KeyUpTime = System.DateTime.Now;
 
                 DoubleDown = false;
 
                 KeyPressing = false;
-            }
-            else {
-                KeyUp = false;
             }
 
             if(KeyPressing) KeyPressingTime = (float)(System.DateTime.Now - KeyDownTime).TotalMilliseconds * 0.001f;

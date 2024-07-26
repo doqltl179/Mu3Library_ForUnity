@@ -6,24 +6,32 @@ namespace Mu3Library.Utility {
         private static Dictionary<string, T> instances = new Dictionary<string, T>();
         public static T Instance {
             get {
-                T inst = null;
-                string componentName = typeof(T).Name;
-                if(!instances.TryGetValue(componentName, out inst)) {
+                componentName = typeof(T).Name;
+                if(!instances.ContainsKey(componentName)) {
                     T[] temps = FindObjectsOfType<T>();
-                    foreach(T temp in temps) {
-                        Destroy(temp.gameObject);
+                    T instance = null;
+                    if(temps.Length > 0) {
+                        if(temps.Length > 1) {
+                            Debug.LogWarning($"Multiple instances of singleton {componentName} found. Using the first instance found and destroying others.");
+                            for(int i = 1; i < temps.Length; i++) {
+                                Destroy(temps[i].gameObject);
+                            }
+                        }
+                        instance = temps[0];
+                    }
+                    else {
+                        GameObject go = new GameObject(componentName);
+                        instance = go.AddComponent<T>();
                     }
 
-                    GameObject go = new GameObject(componentName);
-                    inst = go.AddComponent<T>();
-
-                    instances.Add(componentName, inst);
-
-                    DontDestroyOnLoad(go);
+                    DontDestroyOnLoad(instance.gameObject);
+                    instances.Add(componentName, instance);
                 }
 
-                return inst;
+                return instances[componentName];
             }
         }
+
+        private static string componentName = "";
     }
 }

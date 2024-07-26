@@ -3,7 +3,9 @@ using Mu3Library.Utility;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 using static Mu3Library.Scene.SceneLoader;
@@ -24,6 +26,12 @@ namespace Mu3Library.Editor.Window {
         private float colorChangeStrength = 1.0f;
         private string captureSavePath;
 
+        /// <summary>
+        /// (Directory, Paths)
+        /// </summary>
+        private Dictionary<string, List<string>> scenePaths;
+        private Vector2 scrollPos;
+
 
 
         [MenuItem(WindowName_MyCustomWindow)]
@@ -35,6 +43,19 @@ namespace Mu3Library.Editor.Window {
         private void OnBecameVisible() {
             usePlayLoadScene = EditorUtilPrefs.UsePlayLoadScene;
             UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene);
+
+            scenePaths = new Dictionary<string, List<string>>();
+            string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
+            if(scenes != null && scenes.Length > 0) {
+                foreach(string s in scenes) {
+                    string directory = Path.GetDirectoryName(s);
+                    if(!scenePaths.ContainsKey(directory)) {
+                        scenePaths.Add(directory, new List<string>());
+                    }
+
+                    scenePaths[directory].Add(s);
+                }
+            }
         }
 
         void OnGUI() {
@@ -58,6 +79,16 @@ namespace Mu3Library.Editor.Window {
                     textColor = Color.white,
                 },
             };
+            GUIStyle header3Style = new GUIStyle() {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(20, 20, 12, 12),
+                fixedHeight = 40,
+                normal = new GUIStyleState() {
+                    textColor = Color.white,
+                },
+            };
 
 
 
@@ -68,6 +99,9 @@ namespace Mu3Library.Editor.Window {
             GUILayout.Space(10);
 
             #region User Settings
+            EditorGUILayout.LabelField("Play Load Scene", header2Style);
+            GUILayout.Space(15);
+
             bool usePlayScene = GUILayout.Toggle(usePlayLoadScene, "Use Play Load Scene");
             if(usePlayScene) {
                 SceneType playScene = (SceneType)EditorGUILayout.EnumPopup("Play Load Scene", playLoadScene);
@@ -84,6 +118,38 @@ namespace Mu3Library.Editor.Window {
 
                 EditorUtilPrefs.UsePlayLoadScene = usePlayScene;
                 usePlayLoadScene = usePlayScene;
+            }
+
+            GUILayout.Space(15);
+            EditorGUILayout.LabelField("Move Scene", header2Style);
+            GUILayout.Space(15);
+
+            if(EditorApplication.isPlayingOrWillChangePlaymode) {
+                GUILayout.Label("Now editor is playing.");
+            }
+            else if(scenePaths == null || scenePaths.Count == 0) {
+                GUILayout.Label("Scenes not found.");
+            }
+            else {
+                const float buttonHeight = 30;
+
+                foreach(var scenePath in scenePaths) {
+                    GUILayout.Space(-5);
+                    EditorGUILayout.LabelField(scenePath.Key, header3Style);
+                    GUILayout.Space(15);
+
+                    scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Count + 10));
+
+                    foreach(var path in scenePath.Value) {
+                        if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
+                            if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
+                                EditorSceneManager.OpenScene(path);
+                            }
+                        }
+                    }
+
+                    EditorGUILayout.EndScrollView();
+                }
             }
             #endregion
 

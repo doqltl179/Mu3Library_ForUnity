@@ -10,9 +10,9 @@ namespace Mu3Library.Utility {
 
         public void Init() {
             if(pool != null && pool.Keys.Count > 0) {
-                foreach(string key in pool.Keys) {
-                    foreach(MonoBehaviour obj in pool[key]) {
-                        if(obj.gameObject != null) Destroy(obj.gameObject);
+                foreach(List<MonoBehaviour> components in pool.Values) {
+                    for(int i = 0; i < components.Count; i++) {
+                        if(components[i].gameObject != null) components[i].gameObject.SetActive(true);
                     }
                 }
             }
@@ -20,22 +20,13 @@ namespace Mu3Library.Utility {
         }
 
         public void AddObject<T>(T obj) where T : MonoBehaviour {
-            //obj.transform.SetParent(transform);
-
             string typeName = typeof(T).Name;
-            List<MonoBehaviour> targetList = null;
-            if(pool.TryGetValue(typeName, out targetList)) {
-
-            }
-            else {
-                targetList = new List<MonoBehaviour>();
-                pool.Add(typeName, targetList);
+            if(pool.ContainsKey(typeName)) { 
+                pool.Add(typeName, new List<MonoBehaviour>());
             }
 
             obj.gameObject.SetActive(false);
-            targetList.Add(obj);
-
-            pool[typeName] = targetList;
+            pool[typeName].Add(obj);
         }
 
         public T GetObject<T>() where T : MonoBehaviour {
@@ -48,9 +39,6 @@ namespace Mu3Library.Utility {
                 if(objectIndex >= 0) {
                     obj = (T)targetList[objectIndex];
 
-                    //for(int i = 0; i <= objectIndex; i++) {
-                    //    targetList.RemoveAt(i);
-                    //}
                     targetList.RemoveRange(0, objectIndex + 1);
                     pool[typeName] = targetList;
                 }

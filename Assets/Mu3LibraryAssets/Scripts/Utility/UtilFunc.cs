@@ -22,10 +22,10 @@ namespace Mu3Library.Utility {
         public static int GetLayerMask(string[] layerNames, bool exclude = false) {
             int mask = 0;
             int layer;
-            foreach(string name in layerNames) {
-                layer = LayerMask.NameToLayer(name);
+            for(int i = 0; i < layerNames.Length; i++) {
+                layer = LayerMask.NameToLayer(layerNames[i]);
                 if(layer >= 0) { mask |= (1 << layer); }
-                else { Debug.LogWarning($"LayerName not found. name: {name}"); }
+                else { Debug.LogWarning($"LayerName not found. name: {layerNames[i]}"); }
             }
 
             if(exclude) mask = ~mask;
@@ -127,6 +127,8 @@ namespace Mu3Library.Utility {
             }
             catch(Exception ex) {
                 Debug.LogError(ex.ToString());
+
+                outValue = default(T);
             }
         }
 
