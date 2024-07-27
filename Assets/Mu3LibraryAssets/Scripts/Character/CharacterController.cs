@@ -1,4 +1,5 @@
 using Mu3Library.Utility;
+using Mu3Library.CameraUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -127,11 +128,8 @@ namespace Mu3Library.Character {
         }
 
         protected virtual CharacterState GetState(CharacterStateType type) {
-            CharacterState state = null;
-            if(states.TryGetValue(type, out state)) {
-
-            }
-            else {
+            if(!states.ContainsKey(type)) {
+                CharacterState state = null;
                 switch(type) {
                     case CharacterStateType.Movement: {
                             state = new StandardCharacterState_Movement();
@@ -149,7 +147,7 @@ namespace Mu3Library.Character {
                 states.Add(type, state);
             }
 
-            return state;
+            return states[type];
         }
 
         #region Interface

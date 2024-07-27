@@ -6,32 +6,49 @@ namespace Mu3Library.Utility {
         private static Dictionary<string, T> instances = new Dictionary<string, T>();
         public static T Instance {
             get {
-                componentName = typeof(T).Name;
-                if(!instances.ContainsKey(componentName)) {
-                    T[] temps = FindObjectsOfType<T>();
-                    T instance = null;
-                    if(temps.Length > 0) {
-                        if(temps.Length > 1) {
-                            Debug.LogWarning($"Multiple instances of singleton {componentName} found. Using the first instance found and destroying others.");
-                            for(int i = 1; i < temps.Length; i++) {
-                                Destroy(temps[i].gameObject);
-                            }
+                lock(lockObject) {
+                    inst = null;
+                    componentName = typeof(T).Name;
+
+                    if(instances.ContainsKey(componentName)) {
+                        inst = instances[componentName];
+                        if(inst == null || inst.gameObject == null) {
+                            instances.Remove(componentName);
+
+                            inst = null;
                         }
-                        instance = temps[0];
                     }
-                    else {
-                        GameObject go = new GameObject(componentName);
-                        instance = go.AddComponent<T>();
+                    
+                    if(inst == null) {
+                        T[] temps = FindObjectsOfType<T>();
+                        T instance = null;
+                        if(temps.Length > 0) {
+                            if(temps.Length > 1) {
+                                Debug.LogWarning($"Multiple instances of singleton '{componentName}' found. Using the first instance found and destroying others.");
+                                for(int i = 1; i < temps.Length; i++) {
+                                    Destroy(temps[i].gameObject);
+                                }
+                            }
+                            instance = temps[0];
+                        }
+                        else {
+                            GameObject go = new GameObject(componentName);
+                            instance = go.AddComponent<T>();
+                        }
+
+                        DontDestroyOnLoad(instance.gameObject);
+                        instances.Add(componentName, instance);
+                        inst = instance;
                     }
 
-                    DontDestroyOnLoad(instance.gameObject);
-                    instances.Add(componentName, instance);
+                    return inst;
                 }
-
-                return instances[componentName];
             }
         }
 
+        private static T inst = null;
         private static string componentName = "";
+
+        private static readonly object lockObject = new object();
     }
 }

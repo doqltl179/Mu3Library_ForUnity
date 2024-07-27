@@ -1,11 +1,12 @@
-using Mu3Library.Scene;
+using Mu3Library.Utility;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-using static Mu3Library.Scene.SceneLoader;
+using SceneLoader = Mu3Library.Scene.SceneLoader;
+using SceneType = Mu3Library.Scene.SceneLoader.SceneType;
 
-namespace Mu3Library.Utility {
+namespace Mu3Library.CameraUtil {
     public class CameraManager : GenericSingleton<CameraManager> {
         private Camera cam = null;
 
