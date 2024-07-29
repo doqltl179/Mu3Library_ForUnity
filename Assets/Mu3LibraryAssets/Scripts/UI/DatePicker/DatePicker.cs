@@ -1,18 +1,27 @@
+using Mu3Library.Utility;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using UnityEditor;
-using UnityEditor.Events;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+
+#if UNITY_EDITOR
+
+using UnityEditor;
+using UnityEditor.Events;
+
+#endif
 
 namespace Mu3Library.UI {
     public class DatePicker : MonoBehaviour {
         [SerializeField] private Button invisibleBackgroundButton;
         [SerializeField] private RectTransform rect;
         private Vector2 initializeRectSize = Vector2.zero;
+
+        [Space(20)]
+        [SerializeField] private bool disableWhenClickOutOfRect = true;
 
         [Header("YearMonth")]
         [SerializeField] private RectTransform yearMonthRect;
@@ -70,13 +79,17 @@ namespace Mu3Library.UI {
                 SetChildButtonProperties("InvisibleBackgroundButton", out invisibleBackgroundButton, transform.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
                 if(invisibleBackgroundButton != null) {
                     invisibleBackgroundButton.image.color = Vector4.zero;
+
+                    UtilFunc.RemoveAllListener(ref invisibleBackgroundButton);
+                    UnityAction unityAction = new UnityAction(OnClickedInvisibleBackground);
+                    UnityEventTools.AddPersistentListener(invisibleBackgroundButton.onClick, unityAction);
                 }
             }
 
             if(rect == null) {
                 SetChildRectProperties("Rect", out rect, (RectTransform)transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
                 if(rect != null) {
-                    rect.sizeDelta = new Vector2(400, 440);
+                    //rect.sizeDelta = new Vector2(400, 440);
                 }
             }
 
@@ -118,7 +131,7 @@ namespace Mu3Library.UI {
                 if(monthMinusOneButton == null) {
                     SetChildButtonProperties("MonthMinusOneButton", out monthMinusOneButton, leftButtonsRect, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f));
 
-                    monthMinusOneButton.onClick.RemoveAllListeners();
+                    UtilFunc.RemoveAllListener(ref monthMinusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(monthMinusOneButton.onClick, unityAction, -1);
 
@@ -126,7 +139,7 @@ namespace Mu3Library.UI {
                 if(yearMinusOneButton == null) {
                     SetChildButtonProperties("YearMinusOneButton", out yearMinusOneButton, leftButtonsRect, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f));
 
-                    yearMinusOneButton.onClick.RemoveAllListeners();
+                    UtilFunc.RemoveAllListener(ref yearMinusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(yearMinusOneButton.onClick, unityAction, -12);
                 }
@@ -147,14 +160,14 @@ namespace Mu3Library.UI {
                 if(monthPlusOneButton == null) {
                     SetChildButtonProperties("MonthPlusOneButton", out monthPlusOneButton, rightButtonsRect, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f));
 
-                    monthPlusOneButton.onClick.RemoveAllListeners();
+                    UtilFunc.RemoveAllListener(ref monthPlusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(monthPlusOneButton.onClick, unityAction, 1);
                 }
                 if(yearPlusOneButton == null) {
                     SetChildButtonProperties("YearPlusOneButton", out yearPlusOneButton, rightButtonsRect, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f));
 
-                    yearPlusOneButton.onClick.RemoveAllListeners();
+                    UtilFunc.RemoveAllListener(ref yearPlusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(yearPlusOneButton.onClick, unityAction, 12);
                 }
@@ -380,6 +393,12 @@ namespace Mu3Library.UI {
             }
         }
 
+        private void OnEnable() {
+            if(invisibleBackgroundButton != null) {
+                invisibleBackgroundButton.gameObject.SetActive(disableWhenClickOutOfRect);
+            }
+        }
+
         #region Utility
         public void SetDateToNow() {
             currentSelectedDate = DateTime.Now;
@@ -393,6 +412,10 @@ namespace Mu3Library.UI {
         #endregion
 
         #region UI Event
+        public void OnClickedInvisibleBackground() {
+            gameObject.SetActive(false);
+        }
+
         public void MoveMonth(int month) {
             SetDate(currentShowingDate.AddMonths(month));
         }
@@ -405,6 +428,14 @@ namespace Mu3Library.UI {
         #endregion
 
         private void ChangeCurrentSelectedDate(DatePickerItem item) {
+            for(int i = 0; i < datePickerItems.Length; i++) {
+                if(datePickerItems[i].IsSelected) {
+                    datePickerItems[i].IsSelected = false;
+
+                    break;
+                }
+            }
+
             item.IsSelected = true;
 
             currentSelectedDate = item.Date;
