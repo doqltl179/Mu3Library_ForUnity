@@ -120,14 +120,12 @@ namespace Mu3Library.Utility {
         }
 
         public static string EnumToString<T>(T enumValue) where T : Enum => enumValue.ToString();
-        public static void StringToEnum<T>(string stringValue, ref T outValue) where T : Enum {
+        public static void StringToEnum<T>(string stringValue, ref T outValue, T catchValue) where T : Enum {
             try {
                 outValue = (T)Enum.Parse(typeof(T), stringValue);
             }
             catch(Exception ex) {
-                Debug.LogError(ex.ToString());
-
-                outValue = default(T);
+                outValue = catchValue;
             }
         }
 

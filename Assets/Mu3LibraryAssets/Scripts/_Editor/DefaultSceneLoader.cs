@@ -21,7 +21,7 @@ public static class DefaultSceneLoader {
             if(state == PlayModeStateChange.EnteredPlayMode) {
                 string loadSceneName = EditorUtilPrefs.PlayLoadSceneName;
                 string compareSceneName = "";
-                int loadSceneIndex = 0;
+                int loadSceneIndex = -1;
                 for(int i = 0; i < EditorBuildSettings.scenes.Length; i++) {
                     compareSceneName = System.IO.Path.GetFileNameWithoutExtension(EditorBuildSettings.scenes[i].path);
                     if(compareSceneName == loadSceneName) {
@@ -31,7 +31,9 @@ public static class DefaultSceneLoader {
                     }
                 }
 
-                EditorSceneManager.LoadScene(loadSceneIndex);
+                if(loadSceneIndex >= 0) {
+                    EditorSceneManager.LoadScene(loadSceneIndex);
+                }
             }
         }
     }

@@ -13,8 +13,9 @@ namespace Mu3Library.UI {
         [SerializeField] private Image fillImage;
         [SerializeField] private SliderHandle handle;
 
-        [Space(20)]
-        [SerializeField] private int intValueMin = 0;
+        public int IntValueMin => intValueMin;
+        [Space(20), SerializeField] private int intValueMin = 0;
+        public int IntValueMax => intValueMax;
         [SerializeField] private int intValueMax = 10;
         private float minMaxDiff = 10 - 0;
         private float sliderSplitValue = 1.0f / (10 - 0);

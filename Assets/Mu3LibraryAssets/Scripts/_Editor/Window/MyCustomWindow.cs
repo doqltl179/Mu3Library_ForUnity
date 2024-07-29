@@ -42,7 +42,7 @@ namespace Mu3Library.Editor.Window {
 
         private void OnBecameVisible() {
             usePlayLoadScene = EditorUtilPrefs.UsePlayLoadScene;
-            UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene);
+            UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene, SceneType.None);
 
             scenePaths = new Dictionary<string, List<string>>();
             string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
