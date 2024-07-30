@@ -5,7 +5,7 @@ using UnityEngine.Rendering.PostProcessing;
 
 namespace Mu3Library.PostEffect {
     [System.Serializable]
-    [PostProcess(typeof(DisplayWaveRenderer), PostProcessEvent.AfterStack, "_MyCustom/DisplayWave")]
+    [PostProcess(typeof(DisplayWaveEffect), PostProcessEvent.AfterStack, "_MyCustom/DisplayWave")]
     public sealed class DisplayWave : PostProcessEffectSettings {
         //public FloatParameter frequency = new FloatParameter { value = 1.0f };
         //public FloatParameter amplitude = new FloatParameter { value = 0.1f };
@@ -15,7 +15,7 @@ namespace Mu3Library.PostEffect {
         public Vector2Parameter center = new Vector2Parameter { value = Vector2.one * 0.5f };
     }
 
-    public class DisplayWaveRenderer : PostProcessEffectRenderer<DisplayWave> {
+    public class DisplayWaveEffect : PostProcessEffectRenderer<DisplayWave> {
         private Shader shader;
 
 

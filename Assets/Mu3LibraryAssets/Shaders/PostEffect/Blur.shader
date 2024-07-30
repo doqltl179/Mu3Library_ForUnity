@@ -1,12 +1,12 @@
-Shader "_MyCustom/PostEffect/DisplayWave"
+Shader "_MyCustom/PostEffect/Blur"
 {
     Properties {
-        _Center("Center", Vector) = (0.5, 0.5, 0, 0)
+        _BlurAmount("Blur Amount", Range(0, 10)) = 5.0
+        _Strength("Blur Strength", Range(0, 1)) = 1.0
     }
 
     HLSLINCLUDE
     #include "UnityCG.cginc"
-    // copied from "Packages/com.unity.postprocessing/PostProcessing/Shaders/StdLib.hlsl"
 
     UNITY_DECLARE_TEX2D(_MainTex);
 
@@ -15,9 +15,6 @@ Shader "_MyCustom/PostEffect/DisplayWave"
         float4 vertex : SV_POSITION;
         float2 texcoord : TEXCOORD0;
         float2 texcoordStereo : TEXCOORD1;
-    // #if STEREO_INSTANCING_ENABLED
-    //     uint stereoTargetEyeIndex : SV_RenderTargetArrayIndex;
-    // #endif
     };
 
     float2 TransformTriangleVertexToUV(float2 vertex)
@@ -46,30 +43,25 @@ Shader "_MyCustom/PostEffect/DisplayWave"
         return o;
     }
 
-    float4 _Center;
+    float _BlurAmount;
+    float _Strength;
 
-    float4 Frag(VaryingsDefault i): SV_Target
+    float4 Frag(VaryingsDefault i) : SV_Target
     {
         float2 uv = i.texcoord;
+        float4 color = float4(0, 0, 0, 0);
+        float2 offset = float2(1.0 / _ScreenParams.x, 1.0 / _ScreenParams.y) * _BlurAmount;
 
-        // 화면 중앙을 원점으로 변환
-        //float2 center = float2(0.5, 0.5);
-        float2 toCenter = uv - _Center;
+        for (int x = -2; x <= 2; x++)
+        {
+            for (int y = -2; y <= 2; y++)
+            {
+                color += _MainTex.SampleLevel(sampler_MainTex, uv + float2(x, y) * offset, 0);
+            }
+        }
 
-        // 화면 비율 보정을 위해 비율 계산
-        float aspectRatio = _ScreenParams.x / _ScreenParams.y;
-        toCenter.x *= aspectRatio; // x 좌표를 비율에 맞게 조정
-
-        float distance = length(toCenter);
-
-        // 시간에 따라 변화하는 원형 웨이브
-        float wave = sin(distance * 20.0 - _Time.y * 5.0) * 0.05;
-
-        // 웨이브를 UV 좌표에 적용
-        uv += normalize(toCenter) * wave / aspectRatio; // 비율에 맞게 웨이브 적용
-
-        float4 c = _MainTex.SampleLevel(sampler_MainTex, uv, 0);
-        return float4(c.r, c.r, c.r, 1.0);
+        color /= 25.0; // 평균값 계산
+        return lerp(_MainTex.SampleLevel(sampler_MainTex, uv, 0), color, _Strength);
     }
     ENDHLSL
 
