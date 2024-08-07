@@ -519,7 +519,7 @@ MonoBehaviour:
   keyCode_moveB: 115
   keyCode_run: 304
   moveSpeed: 2
-  moveBoost: 0.6
+  moveBoost: 8
   rotateSpeed: 6
 --- !u!54 &628820324
 Rigidbody:

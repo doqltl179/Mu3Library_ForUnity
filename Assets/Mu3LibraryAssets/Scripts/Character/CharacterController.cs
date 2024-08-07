@@ -92,7 +92,7 @@ namespace Mu3Library.Character {
 
         [Space(20)]
         [SerializeField, Range(0.1f, 10.0f)] private float moveSpeed = 2;
-        [SerializeField, Range(0.1f, 10.0f)] private float moveBoost = 0.6f;
+        [SerializeField, Range(0.1f, 20.0f)] private float moveBoost = 10.0f;
         [SerializeField, Range(0.1f, 50.0f)] private float rotateSpeed = 6;
         public float MoveSpeed => moveSpeed;
         public float MoveBoost => moveBoost;
@@ -166,16 +166,19 @@ namespace Mu3Library.Character {
                 transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
 
                 if(KeyCodeInputCollector.Instance.GetKey(keyCode_run)) {
-                    moveStrength = Mathf.Clamp01(moveStrength + moveBoost * Time.deltaTime);
+                    //moveStrength = Mathf.Clamp01(moveStrength + moveBoost * Time.deltaTime);
+                    moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.deltaTime);
                 }
                 else {
-                    moveStrength = Mathf.Clamp(moveStrength + moveBoost * Time.deltaTime, 0.0f, 0.5f);
+                    //moveStrength = Mathf.Clamp(moveStrength + moveBoost * Time.deltaTime, 0.0f, 0.5f);
+                    moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.deltaTime);
                 }
 
                 moveDirection = moveDirection.normalized;
             }
             else {
-                moveStrength = Mathf.Clamp01(moveStrength - moveBoost * 5.0f * Time.deltaTime);
+                //moveStrength = Mathf.Clamp01(moveStrength - moveBoost * 5.0f * Time.deltaTime);
+                moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.deltaTime);
             }
 
             // Move
