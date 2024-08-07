@@ -46,6 +46,10 @@ namespace Mu3Library.CameraUtil {
         private float followingStrength = 1.0f;
         public bool IsFollowing => IsFollowing;
         private bool isFollowing = false;
+        /// <summary>
+        /// Apply posOffset as Local or World space.
+        /// </summary>
+        private bool followingPosAsLocalSpace;
 
         private Transform lookingTarget = null;
         /// <summary>
@@ -58,6 +62,16 @@ namespace Mu3Library.CameraUtil {
         private float lookingStrength = 1.0f;
         public bool IsLooking => isLooking;
         private bool isLooking = false;
+        /// <summary>
+        /// Apply posOffset as Local or World space.
+        /// </summary>
+        private bool lookingPosAsLocalSpace;
+
+        private CameraMoveSystem currentMoveSystem = null;
+        private CameraMoveSystemType currentMoveSystemType = CameraMoveSystemType.None;
+
+        private CameraRotateSystem currentRotateSystem = null;
+        private CameraRotateSystemType currentRotateSystemType = CameraRotateSystemType.None;
 
 
 
@@ -72,7 +86,14 @@ namespace Mu3Library.CameraUtil {
         private void Update() {
             if(cam != null) {
                 if(isFollowing) {
-                    Vector3 targetPos = followingTarget.transform.TransformPoint(followingPosOffset);
+                    Vector3 targetPos;
+                    if(followingPosAsLocalSpace) {
+                        targetPos = followingTarget.transform.TransformPoint(followingPosOffset);
+                    }
+                    else {
+                        targetPos = followingTarget.transform.position + followingPosOffset;
+                    }
+
                     if(followingStrength < 1) {
                         cam.transform.position = Vector3.Lerp(cam.transform.position, targetPos, followingStrength);
                     }
@@ -82,7 +103,14 @@ namespace Mu3Library.CameraUtil {
                 }
 
                 if(isLooking) {
-                    Vector3 targetPos = lookingTarget.transform.TransformPoint(lookingPosOffset);
+                    Vector3 targetPos;
+                    if(lookingPosAsLocalSpace) {
+                        targetPos = lookingTarget.transform.TransformPoint(lookingPosOffset);
+                    }
+                    else {
+                        targetPos = lookingTarget.transform.position + lookingPosOffset;
+                    }
+
                     Quaternion lookingRot = Quaternion.LookRotation((targetPos - cam.transform.position).normalized, Vector3.up);
                     if(lookingStrength < 1) {
                         cam.transform.rotation = Quaternion.Lerp(cam.transform.rotation, lookingRot, lookingStrength);
@@ -104,25 +132,25 @@ namespace Mu3Library.CameraUtil {
             isFollowing = true;
         }
 
-        public void StartFollowing(Transform target) {
-            SetFollowingProperties(target, Vector3.zero, 1.0f);
+        public void StartFollowing(Transform target, bool localSpace) {
+            SetFollowingProperties(target, Vector3.zero, 1.0f, localSpace);
         }
 
-        public void StartFollowing(Transform target, Vector3 posOffset) {
-            SetFollowingProperties(target, posOffset, 1.0f);
+        public void StartFollowing(Transform target, Vector3 posOffset, bool localSpace) {
+            SetFollowingProperties(target, posOffset, 1.0f, localSpace);
         }
 
-        public void StartFollowing(Transform target, float strength) {
-            SetFollowingProperties(target, Vector3.zero, strength);
+        public void StartFollowing(Transform target, float strength, bool localSpace) {
+            SetFollowingProperties(target, Vector3.zero, strength, localSpace);
         }
 
-        public void StartFollowing(Transform target, Vector3 posOffset, float strength) {
-            SetFollowingProperties(target, posOffset, strength);
+        public void StartFollowing(Transform target, Vector3 posOffset, float strength, bool localSpace) {
+            SetFollowingProperties(target, posOffset, strength, localSpace);
         }
         #endregion
 
         public void StopFollowing() {
-            SetFollowingProperties(null, Vector3.zero, 1.0f);
+            SetFollowingProperties(null, Vector3.zero, 1.0f, false);
         }
 
         public void PauseFollowing() {
@@ -134,25 +162,25 @@ namespace Mu3Library.CameraUtil {
             isLooking = true;
         }
 
-        public void StartLooking(Transform target) {
-            SetLookingProperties(target, Vector3.zero, 1.0f);
+        public void StartLooking(Transform target, bool localSpace) {
+            SetLookingProperties(target, Vector3.zero, 1.0f, localSpace);
         }
 
-        public void StartLooking(Transform target, Vector3 posOffset) {
-            SetLookingProperties(target, posOffset, 1.0f);
+        public void StartLooking(Transform target, Vector3 posOffset, bool localSpace) {
+            SetLookingProperties(target, posOffset, 1.0f, localSpace);
         }
 
-        public void StartLooking(Transform target, float strength) {
-            SetLookingProperties(target, Vector3.zero, strength);
+        public void StartLooking(Transform target, float strength, bool localSpace) {
+            SetLookingProperties(target, Vector3.zero, strength, localSpace);
         }
 
-        public void StartLooking(Transform target, Vector3 posOffset, float strength) {
-            SetLookingProperties(target, posOffset, strength);
+        public void StartLooking(Transform target, Vector3 posOffset, float strength, bool localSpace) {
+            SetLookingProperties(target, posOffset, strength, localSpace);
         }
         #endregion
 
         public void StopLooking() {
-            SetLookingProperties(null, Vector3.zero, 1.0f);
+            SetLookingProperties(null, Vector3.zero, 1.0f, true);
         }
 
         public void PauseLooking() {
@@ -170,20 +198,34 @@ namespace Mu3Library.CameraUtil {
         }
         #endregion
 
-        private void SetFollowingProperties(Transform target, Vector3 posOffset, float strength) {
+        private void SetFollowingProperties(Transform target, Vector3 posOffset, float strength, bool localSpace) {
             followingTarget = target;
             followingPosOffset = posOffset;
             followingStrength = Mathf.Clamp01(strength);
+            followingPosAsLocalSpace = localSpace;
 
             isFollowing = target != null;
         }
 
-        private void SetLookingProperties(Transform target, Vector3 posOffset, float strength) {
+        private void SetLookingProperties(Transform target, Vector3 posOffset, float strength, bool localSpace) {
             lookingTarget = target;
             lookingPosOffset = posOffset;
             lookingStrength = Mathf.Clamp01(strength);
+            lookingPosAsLocalSpace = localSpace;
 
             isLooking = target != null;
         }
+    }
+
+    public enum CameraMoveSystemType {
+        None,
+
+
+    }
+
+    public enum CameraRotateSystemType {
+        None, 
+
+        
     }
 }

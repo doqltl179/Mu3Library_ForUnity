@@ -162,6 +162,9 @@ namespace Mu3Library.Character {
             if(KeyCodeInputCollector.Instance.GetKey(keyCode_moveR)) moveDirection += moveDir_r;
 
             if(moveDirection.magnitude > 0) {
+                // Rotate
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
+
                 if(KeyCodeInputCollector.Instance.GetKey(keyCode_run)) {
                     moveStrength = Mathf.Clamp01(moveStrength + moveBoost * Time.deltaTime);
                 }
@@ -175,6 +178,7 @@ namespace Mu3Library.Character {
                 moveStrength = Mathf.Clamp01(moveStrength - moveBoost * 5.0f * Time.deltaTime);
             }
 
+            // Move
             rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.deltaTime;
 
             animationController.SetValue_MoveBlend(moveStrength);

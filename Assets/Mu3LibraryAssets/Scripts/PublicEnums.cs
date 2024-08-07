@@ -1,7 +1,13 @@
 namespace Mu3Library {
+    public enum PlayState {
+        Stop = 0, 
+        Playing = 1, 
+        Paused = 2, 
+    }
+
     public enum Coordinate {
-        Local, 
-        World, 
+        Local = 0, 
+        World = 1, 
     }
 
     [System.Flags]

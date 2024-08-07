@@ -1,4 +1,4 @@
-Shader "_MyCustom/PostEffect/Blur"
+Shader "_Mu3/PostEffect/Blur"
 {
     Properties {
         _BlurAmount("Blur Amount", Range(0, 10)) = 5.0
