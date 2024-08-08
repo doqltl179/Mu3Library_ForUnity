@@ -52,19 +52,22 @@ namespace Mu3Library.Character {
 
         /*-----------------------------------------------------------------------------*/
 
-        public Dictionary<CharacterStateType, CharacterState> states = new Dictionary<CharacterStateType, CharacterState>();
-
         public CharacterStateType CurrentStateType {
             get => currentStateType;
             protected set {
                 if(currentStateType != value) {
-                    currentState?.Exit();
+                    if(currentState != null) {
+                        currentState.Exit();
+                    }
 
-                    currentState = GetState(value);
-                    currentState.Enter();
+                    CharacterState newState = GetState(value);
+                    if(newState != null) {
+                        newState.Enter();
+                    }
 
                     OnStateChanged?.Invoke(currentStateType, value);
 
+                    currentState = newState;
                     currentStateType = value;
                 }
             }
@@ -124,30 +127,35 @@ namespace Mu3Library.Character {
         }
 
         protected virtual void Update() {
-            currentState?.Update();
+            if(currentState != null) {
+                currentState.Update();
+            }
         }
 
-        protected virtual CharacterState GetState(CharacterStateType type) {
-            if(!states.ContainsKey(type)) {
-                CharacterState state = null;
-                switch(type) {
-                    case CharacterStateType.Movement: {
-                            state = new StandardCharacterState_Movement();
-                            state.Init(this);
-                        }
-                        break;
+        protected virtual CharacterState GetState(CharacterStateType type, object[] param = null) {
+            CharacterState state = null;
+            switch(type) {
+                case CharacterStateType.None: {
+                        state = new StandardCharacterState_None();
+                    }
+                    break;
 
-                    default: {
-                            state = new StandardCharacterState_None();
-                            state.Init(this);
-                        }
-                        break;
-                }
+                case CharacterStateType.Movement: {
+                        state = new StandardCharacterState_Movement();
+                    }
+                    break;
 
-                states.Add(type, state);
+                default: {
+                        Debug.Log($"Not defined 'CharacterState'. type: {type}");
+                    }
+                    break;
             }
 
-            return states[type];
+            if(state != null) {
+                state.Init(this, param);
+            }
+
+            return state;
         }
 
         #region Interface

@@ -10,6 +10,8 @@ namespace Mu3Library.CameraUtil {
     public class CameraManager : GenericSingleton<CameraManager> {
         private Camera cam = null;
 
+        public bool isCameraExist => cam != null;
+
         public Vector3 CamPos {
             get => cam.transform.position;
             set => cam.transform.position = value;
@@ -35,38 +37,6 @@ namespace Mu3Library.CameraUtil {
             set => cam.transform.rotation = value;
         }
 
-        private Transform followingTarget = null;
-        /// <summary>
-        /// Offset calculated on Local Space.
-        /// </summary>
-        private Vector3 followingPosOffset = Vector3.zero;
-        /// <summary>
-        /// Range: 0.0 ~ 1.0
-        /// </summary>
-        private float followingStrength = 1.0f;
-        public bool IsFollowing => IsFollowing;
-        private bool isFollowing = false;
-        /// <summary>
-        /// Apply posOffset as Local or World space.
-        /// </summary>
-        private bool followingPosAsLocalSpace;
-
-        private Transform lookingTarget = null;
-        /// <summary>
-        /// Offset calculated on Local Space.
-        /// </summary>
-        private Vector3 lookingPosOffset = Vector3.zero;
-        /// <summary>
-        /// Range: 0.0 ~ 1.0
-        /// </summary>
-        private float lookingStrength = 1.0f;
-        public bool IsLooking => isLooking;
-        private bool isLooking = false;
-        /// <summary>
-        /// Apply posOffset as Local or World space.
-        /// </summary>
-        private bool lookingPosAsLocalSpace;
-
         private CameraMoveSystem currentMoveSystem = null;
         private CameraMoveSystemType currentMoveSystemType = CameraMoveSystemType.None;
 
@@ -85,106 +55,64 @@ namespace Mu3Library.CameraUtil {
 
         private void Update() {
             if(cam != null) {
-                if(isFollowing) {
-                    Vector3 targetPos;
-                    if(followingPosAsLocalSpace) {
-                        targetPos = followingTarget.transform.TransformPoint(followingPosOffset);
-                    }
-                    else {
-                        targetPos = followingTarget.transform.position + followingPosOffset;
-                    }
-
-                    if(followingStrength < 1) {
-                        cam.transform.position = Vector3.Lerp(cam.transform.position, targetPos, followingStrength);
-                    }
-                    else {
-                        cam.transform.position = targetPos;
-                    }
+                if(currentMoveSystem != null && currentMoveSystem.IsPlaying) {
+                    currentMoveSystem.Move(cam);
                 }
 
-                if(isLooking) {
-                    Vector3 targetPos;
-                    if(lookingPosAsLocalSpace) {
-                        targetPos = lookingTarget.transform.TransformPoint(lookingPosOffset);
-                    }
-                    else {
-                        targetPos = lookingTarget.transform.position + lookingPosOffset;
-                    }
-
-                    Quaternion lookingRot = Quaternion.LookRotation((targetPos - cam.transform.position).normalized, Vector3.up);
-                    if(lookingStrength < 1) {
-                        cam.transform.rotation = Quaternion.Lerp(cam.transform.rotation, lookingRot, lookingStrength);
-                    }
-                    else {
-                        cam.transform.rotation = lookingRot;
-                    }
+                if(currentRotateSystem != null && currentRotateSystem.IsPlaying) {
+                    currentRotateSystem.Rotate(cam);
                 }
             }
         }
 
         #region Utility
-        public void ChangeFollowingPosOffset(Vector3 posOffset) {
-            followingPosOffset = posOffset;
+
+        public void ChangeMoveSystem(CameraMoveSystemType type, object[] param = null) {
+            if(currentMoveSystemType == type) {
+                Debug.Log("CameraMoveSystemType already applyed.");
+
+                return;
+            }
+
+            currentMoveSystem = GetMoveSystem(type, param);
+            currentMoveSystemType = type;
         }
 
-        #region StartFollowing Variant
-        public void StartFollowing() {
-            isFollowing = true;
+        public void ChangeRotateSystem(CameraRotateSystemType type, object[] param = null) {
+            if(currentRotateSystemType == type) {
+                Debug.Log("CameraRotateSystem already applyed.");
+
+                return;
+            }
+
+            currentRotateSystem = GetRotateSystem(type, param);
+            currentRotateSystemType = type;
         }
 
-        public void StartFollowing(Transform target, bool localSpace) {
-            SetFollowingProperties(target, Vector3.zero, 1.0f, localSpace);
+        public void StartMoveAndRotate() {
+            if(currentMoveSystem != null) currentMoveSystem.Play();
+            if(currentRotateSystem != null) currentRotateSystem.Play();
         }
 
-        public void StartFollowing(Transform target, Vector3 posOffset, bool localSpace) {
-            SetFollowingProperties(target, posOffset, 1.0f, localSpace);
+        public void StopMoveAndRotate() {
+            if(currentMoveSystem != null) currentMoveSystem.Stop();
+            if(currentRotateSystem != null) currentRotateSystem.Stop();
         }
 
-        public void StartFollowing(Transform target, float strength, bool localSpace) {
-            SetFollowingProperties(target, Vector3.zero, strength, localSpace);
+        public void StartMove() {
+            if(currentMoveSystem != null) currentMoveSystem.Play();
         }
 
-        public void StartFollowing(Transform target, Vector3 posOffset, float strength, bool localSpace) {
-            SetFollowingProperties(target, posOffset, strength, localSpace);
-        }
-        #endregion
-
-        public void StopFollowing() {
-            SetFollowingProperties(null, Vector3.zero, 1.0f, false);
+        public void StopMove() {
+            if(currentMoveSystem != null) currentMoveSystem.Stop();
         }
 
-        public void PauseFollowing() {
-            isFollowing = false;
+        public void StartRotate() {
+            if(currentRotateSystem != null) currentRotateSystem.Play();
         }
 
-        #region StartLooking Variant
-        public void StartLooking() {
-            isLooking = true;
-        }
-
-        public void StartLooking(Transform target, bool localSpace) {
-            SetLookingProperties(target, Vector3.zero, 1.0f, localSpace);
-        }
-
-        public void StartLooking(Transform target, Vector3 posOffset, bool localSpace) {
-            SetLookingProperties(target, posOffset, 1.0f, localSpace);
-        }
-
-        public void StartLooking(Transform target, float strength, bool localSpace) {
-            SetLookingProperties(target, Vector3.zero, strength, localSpace);
-        }
-
-        public void StartLooking(Transform target, Vector3 posOffset, float strength, bool localSpace) {
-            SetLookingProperties(target, posOffset, strength, localSpace);
-        }
-        #endregion
-
-        public void StopLooking() {
-            SetLookingProperties(null, Vector3.zero, 1.0f, true);
-        }
-
-        public void PauseLooking() {
-            isLooking = false;
+        public void StopRotate() {
+            if(currentRotateSystem != null) currentRotateSystem.Stop();
         }
 
         public void SetCameraToMainCamera() {
@@ -198,34 +126,92 @@ namespace Mu3Library.CameraUtil {
         }
         #endregion
 
-        private void SetFollowingProperties(Transform target, Vector3 posOffset, float strength, bool localSpace) {
-            followingTarget = target;
-            followingPosOffset = posOffset;
-            followingStrength = Mathf.Clamp01(strength);
-            followingPosAsLocalSpace = localSpace;
+        private CameraMoveSystem GetMoveSystem(CameraMoveSystemType type, object[] param = null) {
+            CameraMoveSystem system = null;
+            switch(type) {
+                case CameraMoveSystemType.None: {
 
-            isFollowing = target != null;
+                    }
+                    break;
+
+                case CameraMoveSystemType.LocalFollowing: {
+                        system = new CameraMoveSystem_LocalFollowing();
+                    }
+                    break;
+
+                case CameraMoveSystemType.WorldFollowing: {
+                        system = new CameraMoveSystem_WorldFollowing();
+                    }
+                    break;
+
+                default: {
+                        Debug.Log($"Not defined 'CameraMoveSystem'. type: {type}");
+                    }
+                    break;
+            }
+
+            if(system != null) {
+                system.SetProperties(param);
+            }
+
+            return system;
         }
 
-        private void SetLookingProperties(Transform target, Vector3 posOffset, float strength, bool localSpace) {
-            lookingTarget = target;
-            lookingPosOffset = posOffset;
-            lookingStrength = Mathf.Clamp01(strength);
-            lookingPosAsLocalSpace = localSpace;
+        private CameraRotateSystem GetRotateSystem(CameraRotateSystemType type, object[] param = null) {
+            CameraRotateSystem system = null;
+            switch(type) {
+                case CameraRotateSystemType.None: {
 
-            isLooking = target != null;
+                    }
+                    break;
+
+                case CameraRotateSystemType.LocalLooking: {
+                        system = new CameraRotateSystem_LocalLooking();
+                    }
+                    break;
+
+                case CameraRotateSystemType.WorldLooking: {
+                        system = new CameraRotateSystem_WorldLooking();
+                    }
+                    break;
+
+                default: {
+                        Debug.Log($"Not defined 'CameraRotateSystem'. type: {type}");
+                    }
+                    break;
+            }
+
+            if(system != null) {
+                system.SetProperties(param);
+            }
+
+            return system;
         }
     }
 
     public enum CameraMoveSystemType {
         None,
 
-
+        /// <summary>
+        /// Following target with 'local position offset'.
+        /// </summary>
+        LocalFollowing,
+        /// <summary>
+        /// Following target with 'world position offset'.
+        /// </summary>
+        WorldFollowing,
     }
 
     public enum CameraRotateSystemType {
-        None, 
+        None,
 
-        
+        /// <summary>
+        /// Looking target with 'local position offset'.
+        /// </summary>
+        LocalLooking,
+        /// <summary>
+        /// Looking target with 'world position offset'.
+        /// </summary>
+        WorldLooking,
     }
 }
