@@ -38,6 +38,6 @@ namespace Mu3Library.Scene {
         }
 
         public virtual void OnActivate() { }
-        public virtual void OnDeActivate() { }
+        public virtual void OnDeactivate() { }
     }
 }

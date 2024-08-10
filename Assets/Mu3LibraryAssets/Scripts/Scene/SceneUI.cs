@@ -59,7 +59,7 @@ namespace Mu3Library.Scene {
                         fromTransitionTime));
 
                     transitionSequence.AppendCallback(() => {
-                        from.OnDeActivate();
+                        from.OnDeactivate();
 
                         from.Interactable = true;
                         from.SetActive = false;
@@ -91,7 +91,7 @@ namespace Mu3Library.Scene {
             }
             else {
                 if(from != null) {
-                    from.OnDeActivate();
+                    from.OnDeactivate();
 
                     from.Alpha = 0.0f;
                     from.SetActive = false;
