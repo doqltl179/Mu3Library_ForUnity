@@ -123,6 +123,9 @@ namespace Mu3Library.CameraUtil {
         #region Action
         private void OnSceneChanged(SceneType from, SceneType to) {
             cam = Camera.main;
+
+            ChangeMoveSystem(CameraMoveSystemType.None);
+            ChangeRotateSystem(CameraRotateSystemType.None);
         }
         #endregion
 
@@ -141,6 +144,11 @@ namespace Mu3Library.CameraUtil {
 
                 case CameraMoveSystemType.WorldFollowing: {
                         system = new CameraMoveSystem_WorldFollowing();
+                    }
+                    break;
+
+                case CameraMoveSystemType.RoundMoving: {
+                        system = new CameraMoveSystem_RoundMoving();
                     }
                     break;
 
@@ -200,6 +208,10 @@ namespace Mu3Library.CameraUtil {
         /// Following target with 'world position offset'.
         /// </summary>
         WorldFollowing,
+        /// <summary>
+        /// 
+        /// </summary>
+        RoundMoving, 
     }
 
     public enum CameraRotateSystemType {

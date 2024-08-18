@@ -126,6 +126,12 @@ namespace Mu3Library.Character {
             animationController.SetValue_CharacterType((int)type);
         }
 
+        private void FixedUpdate() {
+            if(currentState != null) {
+                currentState.FixedUpdate();
+            }
+        }
+
         protected virtual void Update() {
             if(currentState != null) {
                 currentState.Update();
@@ -171,26 +177,28 @@ namespace Mu3Library.Character {
 
             if(moveDirection.magnitude > 0) {
                 // Rotate
-                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
+                //transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.fixedDeltaTime * rotateSpeed);
 
                 if(KeyCodeInputCollector.Instance.GetKey(keyCode_run)) {
-                    //moveStrength = Mathf.Clamp01(moveStrength + moveBoost * Time.deltaTime);
-                    moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.deltaTime);
+                    //moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.deltaTime);
+                    moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.fixedDeltaTime);
                 }
                 else {
-                    //moveStrength = Mathf.Clamp(moveStrength + moveBoost * Time.deltaTime, 0.0f, 0.5f);
-                    moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.deltaTime);
+                    //moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.deltaTime);
+                    moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.fixedDeltaTime);
                 }
 
                 moveDirection = moveDirection.normalized;
             }
             else {
-                //moveStrength = Mathf.Clamp01(moveStrength - moveBoost * 5.0f * Time.deltaTime);
-                moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.deltaTime);
+                //moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.deltaTime);
+                moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.fixedDeltaTime);
             }
 
             // Move
-            rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.deltaTime;
+            //rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.deltaTime;
+            rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.fixedDeltaTime;
 
             animationController.SetValue_MoveBlend(moveStrength);
         }

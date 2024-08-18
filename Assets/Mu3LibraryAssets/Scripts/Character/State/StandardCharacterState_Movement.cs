@@ -16,8 +16,12 @@ namespace Mu3Library.Character {
 
         }
 
-        public override void Update() {
+        public override void FixedUpdate() {
             character.Move();
+        }
+
+        public override void Update() {
+            
         }
     }
 }

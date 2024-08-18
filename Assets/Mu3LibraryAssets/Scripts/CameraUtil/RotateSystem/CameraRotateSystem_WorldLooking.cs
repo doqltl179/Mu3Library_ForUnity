@@ -20,12 +20,8 @@ namespace Mu3Library.CameraUtil {
             Vector3 targetPos = lookingTarget.transform.position + lookingPosOffset;
 
             Quaternion lookingRot = Quaternion.LookRotation((targetPos - cam.transform.position).normalized, Vector3.up);
-            if(lookingStrength < 1) {
-                cam.transform.rotation = Quaternion.Lerp(cam.transform.rotation, lookingRot, lookingStrength);
-            }
-            else {
-                cam.transform.rotation = lookingRot;
-            }
+
+            cam.transform.rotation = Quaternion.Lerp(cam.transform.rotation, lookingRot, lookingStrength * Time.deltaTime);
         }
 
         /// <summary>
@@ -37,7 +33,7 @@ namespace Mu3Library.CameraUtil {
             if(param != null && param.Length >= 3) {
                 lookingTarget = (Transform)param[0];
                 lookingPosOffset = (Vector3)param[1];
-                lookingStrength = Mathf.Clamp01((float)param[2]);
+                lookingStrength = (float)param[2];
             }
             else {
                 Debug.Log("Camera Setting Properties are not enough.");

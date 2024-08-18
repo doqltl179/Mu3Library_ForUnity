@@ -26,26 +26,34 @@ namespace Mu3Library.Demo.Sample_Character {
             //    new object[] {
             //        character.transform,
             //        Vector3.up * character.Height * 2.0f + Vector3.back * character.Height * 3.0f,
-            //        0.01f});
+            //        1.0f});
+            //CameraManager.Instance.ChangeMoveSystem(
+            //    CameraMoveSystemType.WorldFollowing,
+            //    new object[] {
+            //        character.transform,
+            //        Vector3.up * character.Height * 2.0f + Vector3.back * character.Height * 3.0f,
+            //        1.0f});
             CameraManager.Instance.ChangeMoveSystem(
-                CameraMoveSystemType.WorldFollowing,
+                CameraMoveSystemType.RoundMoving,
                 new object[] {
                     character.transform,
-                    Vector3.up * character.Height * 2.0f + Vector3.back * character.Height * 3.0f,
-                    0.01f});
+                    Vector3.up * character.Height * 2.0f,
+                    25.0f, 
+                    3.0f, 
+                    8.0f});
 
             CameraManager.Instance.ChangeRotateSystem(
                 CameraRotateSystemType.LocalLooking,
                 new object[] {
                     character.transform,
                     Vector3.up * character.Height * 1.2f,
-                    0.04f});
+                    1000.0f});
             //CameraManager.Instance.ChangeRotateSystem(
             //    CameraRotateSystemType.WorldLooking,
             //    new object[] {
             //        character.transform,
             //        Vector3.up * character.Height * 1.2f,
-            //        0.04f});
+            //        1.0f});
 
             CameraManager.Instance.SetCameraToMainCamera();
             CameraManager.Instance.StartMoveAndRotate();

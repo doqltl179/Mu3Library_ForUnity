@@ -16,6 +16,10 @@ namespace Mu3Library.Character {
 
         }
 
+        public override void FixedUpdate() {
+            
+        }
+
         public override void Update() {
 
         }

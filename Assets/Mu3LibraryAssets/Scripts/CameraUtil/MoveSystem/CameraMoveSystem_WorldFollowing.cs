@@ -19,12 +19,7 @@ namespace Mu3Library.CameraUtil {
         public override void Move(Camera cam) {
             Vector3 targetPos = followingTarget.transform.position + followingPosOffset;
 
-            if(followingStrength < 1) {
-                cam.transform.position = Vector3.Lerp(cam.transform.position, targetPos, followingStrength);
-            }
-            else {
-                cam.transform.position = targetPos;
-            }
+            cam.transform.position = Vector3.Lerp(cam.transform.position, targetPos, followingStrength * Time.deltaTime);
         }
 
         /// <summary>
@@ -36,7 +31,7 @@ namespace Mu3Library.CameraUtil {
             if(param != null && param.Length >= 3) {
                 followingTarget = (Transform)param[0];
                 followingPosOffset = (Vector3)param[1];
-                followingStrength = Mathf.Clamp01((float)param[2]);
+                followingStrength = (float)param[2];
             }
             else {
                 Debug.Log("Camera Setting Properties are not enough.");

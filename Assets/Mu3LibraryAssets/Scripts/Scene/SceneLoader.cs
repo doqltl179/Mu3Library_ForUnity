@@ -61,7 +61,9 @@ namespace Mu3Library.Scene {
 
             // Activate loading panel
             LoadingPanel.Instance.SetActive(true, loadingPanelFadeTime);
-            LoadingPanel.Instance.UpdateProgress();
+            LoadingPanel.Instance.UpdateProgress(
+                () => loadSceneCoroutine != null, 
+                () => ProgressNum);
             yield return wait;
 
             // Load scene ==> not activate
@@ -78,6 +80,9 @@ namespace Mu3Library.Scene {
             while(!asyncLoad.isDone) {
                 yield return null;
             }
+
+            // OnSceneChanged Action
+            CurrentSceneType = scene;
 
             // Find SceneController in loaded scene
             SceneController[] sceneControllers = FindObjectsOfType<SceneController>();
@@ -97,8 +102,6 @@ namespace Mu3Library.Scene {
                     yield return null;
                 }
             }
-
-            CurrentSceneType = scene;
 
             //Fake Wait
             const float fakeWaitTime = 1.0f;

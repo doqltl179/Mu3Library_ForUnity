@@ -1,4 +1,3 @@
-using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,8 +14,8 @@ namespace Mu3Library.Scene {
         protected CanvasScaler canvasScaler;
         protected GraphicRaycaster graphicRaycaster;
 
-        private Sequence transitionSequence;
-        public bool IsTransitioning => transitionSequence != null;
+        public bool IsTransitioning => transitionCoroutine != null;
+        private IEnumerator transitionCoroutine;
 
         public SceneUILayer CurrentLayer { get; private set; }
 
@@ -33,63 +32,16 @@ namespace Mu3Library.Scene {
 
         #region Utility
         public void Transition(SceneUILayer layer, float time = 0) {
-            Transition(CurrentLayer, layer, time);
+            if(transitionCoroutine == null) {
+                transitionCoroutine = TransitionCoroutine(CurrentLayer, layer, time);
+                StartCoroutine(transitionCoroutine);
+            }
         }
 
-        public void Transition(SceneUILayer from, SceneUILayer to, float time = 0) {
-            if(transitionSequence != null) {
-                transitionSequence.Kill();
-                transitionSequence = null;
-            }
+        public IEnumerator TransitionCoroutine(SceneUILayer from, SceneUILayer to, float time = 0) {
+            float halfTime = time * 0.5f;
 
-            if(time > 0) {
-                transitionSequence = DOTween.Sequence();
-                float halfTime = time * 0.5f;
-
-                if(from != null) {
-                    from.Interactable = false;
-
-                    float fromTransitionTime = (from.Alpha / 1.0f) * halfTime;
-                    transitionSequence.Append(DOTween.To(
-                        () => from.Alpha,
-                        (value) => {
-                            from.Alpha = value;
-                        },
-                        0.0f,
-                        fromTransitionTime));
-
-                    transitionSequence.AppendCallback(() => {
-                        from.OnDeactivate();
-
-                        from.Interactable = true;
-                        from.SetActive = false;
-                    });
-                }
-
-                if(to != null) {
-                    to.Interactable = false;
-
-                    transitionSequence.AppendCallback(() => {
-                        to.SetActive = true;
-
-                        to.OnActivate();
-                    });
-
-                    float toTransitionTime = (1.0f - (to.Alpha / 1.0f)) * halfTime;
-                    transitionSequence.Append(DOTween.To(
-                        () => to.Alpha,
-                        (value) => {
-                            to.Alpha = value;
-                        },
-                        1.0f,
-                        toTransitionTime));
-
-                    transitionSequence.AppendCallback(() => to.Interactable = true);
-                }
-
-                transitionSequence.AppendCallback(() => transitionSequence = null);
-            }
-            else {
+            if(halfTime == 0) {
                 if(from != null) {
                     from.OnDeactivate();
 
@@ -104,8 +56,39 @@ namespace Mu3Library.Scene {
                     to.OnActivate();
                 }
             }
+            else {
+                float timer = halfTime;
+
+                if(from != null) {
+                    from.Interactable = false;
+
+                    while(timer < halfTime) {
+                        timer -= Time.deltaTime;
+
+                        from.Alpha = timer / halfTime;
+
+                        yield return null;
+                    }
+                }
+
+                if(to != null) {
+                    to.Interactable = false;
+
+                    while(timer > 0) {
+                        timer += Time.deltaTime;
+
+                        to.Alpha = timer / halfTime;
+
+                        yield return null;
+                    }
+
+                    to.Interactable = true;
+                }
+            }
 
             CurrentLayer = to;
+
+            transitionCoroutine = null;
         }
         #endregion
     }

@@ -1,6 +1,5 @@
-using DG.Tweening;
-using Mu3Library.Scene;
 using Mu3Library.Utility;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -36,54 +35,38 @@ namespace Mu3Library.UI {
         [SerializeField] private Image fillImage;
         [SerializeField] private TextMeshProUGUI progressText;
         public float Progress {
-            get => fillImage.fillAmount;
+            get => progress;
             set {
                 fillImage.fillAmount = value;
                 progressText.text = $"{(value * 100).ToString("0.0")}%";
+
+                progress = value;
             }
         }
+        private float progress = 0.0f;
 
-        private Sequence fadeAnimationTween = null;
-
+        private IEnumerator fadeAnimationCoroutine = null;
         private IEnumerator progressUpdateCoroutine = null;
 
 
 
         #region Utility
         public void SetActive(bool active, float fadeTime = 0.0f) {
-            if(fadeAnimationTween != null) {
-                fadeAnimationTween.Kill();
-            }
-
             if(fadeTime <= 0) {
                 loadingObj.SetActive(active);
                 canvasGroup.alpha = active ? 1.0f : 0.0f;
             }
             else {
-                fadeAnimationTween = DOTween.Sequence();
-                loadingObj.SetActive(true);
-
-                fadeAnimationTween.Append(DOTween.To(
-                    () => canvasGroup.alpha,
-                    (value) => canvasGroup.alpha = value,
-                    active ? 1.0f : 0.0f,
-                    fadeTime));
-                if(!active) {
-                    fadeAnimationTween.AppendCallback(() => {
-                        loadingObj.SetActive(false);
-                    });
+                if(fadeAnimationCoroutine == null) {
+                    fadeAnimationCoroutine = FadeAnimationCoroutine(active, fadeTime);
+                    StartCoroutine(fadeAnimationCoroutine);
                 }
-                fadeAnimationTween.AppendCallback(() => {
-                    fadeAnimationTween = null;
-                });
-
-                fadeAnimationTween.Play();
             }
         }
 
-        public void UpdateProgress() {
+        public void UpdateProgress(Func<bool> keepProgressFunc, Func<float> progressUpdateFunc) {
             if(progressUpdateCoroutine == null) {
-                progressUpdateCoroutine = ProgressUpdateCoroutine();
+                progressUpdateCoroutine = ProgressUpdateCoroutine(keepProgressFunc, progressUpdateFunc);
                 StartCoroutine(progressUpdateCoroutine);
             }
         }
@@ -96,9 +79,48 @@ namespace Mu3Library.UI {
         }
         #endregion
 
-        private IEnumerator ProgressUpdateCoroutine() {
-            while(SceneLoader.Instance.IsLoading) {
-                Progress = SceneLoader.Instance.ProgressNum;
+        private IEnumerator FadeAnimationCoroutine(bool active, float fadeTime) {
+            if(active) {
+                canvasGroup.gameObject.SetActive(true);
+
+                yield return StartCoroutine(FadeInCoroutine(fadeTime));
+            }
+            else {
+                yield return StartCoroutine(FadeOutCoroutine(fadeTime));
+
+                canvasGroup.gameObject.SetActive(false);
+            }
+
+            fadeAnimationCoroutine = null;
+        }
+
+        private IEnumerator FadeInCoroutine(float fadeTime) {
+            float timer = 0.0f;
+
+            while(timer < fadeTime) {
+                timer += Time.deltaTime;
+
+                canvasGroup.alpha = timer / fadeTime;
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator FadeOutCoroutine(float fadeTime) {
+            float timer = fadeTime;
+
+            while(timer > 0) {
+                timer -= Time.deltaTime;
+
+                canvasGroup.alpha = timer / fadeTime;
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator ProgressUpdateCoroutine(Func<bool> keepProgressFunc, Func<float> progressUpdateFunc) {
+            while(keepProgressFunc()) {
+                Progress = progressUpdateFunc();
 
                 yield return null;
             }
