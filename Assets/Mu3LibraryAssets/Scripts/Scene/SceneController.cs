@@ -5,9 +5,15 @@ using UnityEngine;
 using static Mu3Library.Scene.SceneLoader;
 
 namespace Mu3Library.Scene {
+    /// <summary>
+    /// Create once at each scenes.
+    /// </summary>
     public class SceneController : MonoBehaviour {
         public SceneType Type => type;
         [SerializeField] protected SceneType type;
+
+        [Space(20)]
+        [SerializeField] protected SceneUI sceneUi;
 
         /// <summary>
         /// <br/>If [False] => SceneLoader.LoadScene not end.
@@ -18,6 +24,8 @@ namespace Mu3Library.Scene {
 
 
         public virtual void OnSceneLoad() {
+            if(sceneUi != null) sceneUi.OnFirstActivate();
+
             SceneLoadedCompletely = true;
         }
 

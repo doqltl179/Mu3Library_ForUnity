@@ -4,6 +4,6 @@ using UnityEngine;
 
 namespace Mu3Library.Character {
     public interface IMove {
-        void Move();
+        public void Move(Vector2 input, bool isRun = false);
     }
 }

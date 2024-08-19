@@ -8,6 +8,9 @@ namespace Mu3Library.Scene {
     [RequireComponent(typeof(Canvas))]
     [RequireComponent(typeof(CanvasScaler))]
     [RequireComponent(typeof(GraphicRaycaster))]
+    /// <summary>
+    /// Create once at each scenes.
+    /// </summary>
     public class SceneUI : MonoBehaviour {
         protected RectTransform rectTransform;
         protected Canvas canvas;

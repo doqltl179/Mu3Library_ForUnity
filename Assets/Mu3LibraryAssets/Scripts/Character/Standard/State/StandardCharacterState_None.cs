@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Character {
-    public class StandardCharacterState_Movement : CharacterState {
+    public class StandardCharacterState_None : CharacterState {
 
 
 
@@ -17,11 +17,15 @@ namespace Mu3Library.Character {
         }
 
         public override void FixedUpdate() {
-            character.Move();
+            
         }
 
         public override void Update() {
-            
+
+        }
+
+        public override void LateUpdate() {
+
         }
     }
 }

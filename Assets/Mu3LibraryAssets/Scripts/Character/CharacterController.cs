@@ -1,15 +1,13 @@
-using Mu3Library.Utility;
-using Mu3Library.CameraUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Character {
-    public class CharacterController : MonoBehaviour, IMove {
-        [SerializeField] private CharacterAnimationController animationController;
-        [SerializeField] private Rigidbody rigidbody;
-        [SerializeField] private CapsuleCollider collider;
+    public abstract class CharacterController : MonoBehaviour {
+        [SerializeField] protected CharacterAnimationController animationController;
+        [SerializeField] protected Rigidbody rigidbody;
+        [SerializeField] protected CapsuleCollider collider;
 
         public bool IsKinematic {
             get => rigidbody.isKinematic;
@@ -47,62 +45,16 @@ namespace Mu3Library.Character {
         /*-----------------------------------------------------------------------------*/
 
         [Space(20)]
-        [SerializeField] private CharacterType type = CharacterType.None;
-        public CharacterType Type => type;
+        [SerializeField] private CharacterType currentType = CharacterType.None;
+        public CharacterType CurrentType => currentType;
 
         /*-----------------------------------------------------------------------------*/
 
-        public CharacterStateType CurrentStateType {
-            get => currentStateType;
-            protected set {
-                if(currentStateType != value) {
-                    if(currentState != null) {
-                        currentState.Exit();
-                    }
-
-                    CharacterState newState = GetState(value);
-                    if(newState != null) {
-                        newState.Enter();
-                    }
-
-                    OnStateChanged?.Invoke(currentStateType, value);
-
-                    currentState = newState;
-                    currentStateType = value;
-                }
-            }
-        }
+        public CharacterStateType CurrentStateType => currentStateType;
         protected CharacterStateType currentStateType = CharacterStateType.None;
 
         protected CharacterState currentState = null;
         public Action<CharacterStateType, CharacterStateType> OnStateChanged;
-
-        /*-----------------------------------------------------------------------------*/
-
-        [Space(20)]
-        [SerializeField] private KeyCode keyCode_moveL = KeyCode.A;
-        [SerializeField] private KeyCode keyCode_moveR = KeyCode.D;
-        [SerializeField] private KeyCode keyCode_moveF = KeyCode.W;
-        [SerializeField] private KeyCode keyCode_moveB = KeyCode.S;
-        [SerializeField] private KeyCode keyCode_run = KeyCode.LeftShift;
-        public KeyCode KeyCode_MoveL => keyCode_moveL;
-        public KeyCode KeyCode_MoveR => keyCode_moveR;
-        public KeyCode KeyCode_MoveF => keyCode_moveF;
-        public KeyCode KeyCode_MoveB => keyCode_moveB;
-        public KeyCode KeyCode_Run => keyCode_run;
-
-        /*-----------------------------------------------------------------------------*/
-
-        [Space(20)]
-        [SerializeField, Range(0.1f, 10.0f)] private float moveSpeed = 2;
-        [SerializeField, Range(0.1f, 20.0f)] private float moveBoost = 10.0f;
-        [SerializeField, Range(0.1f, 50.0f)] private float rotateSpeed = 6;
-        public float MoveSpeed => moveSpeed;
-        public float MoveBoost => moveBoost;
-        public float RotateSpeed => rotateSpeed;
-
-        private Vector3 moveDirection;
-        private float moveStrength = 0.0f;
 
 
 
@@ -123,10 +75,10 @@ namespace Mu3Library.Character {
 #endif
 
         protected virtual void Start() {
-            animationController.SetValue_CharacterType((int)type);
+            animationController.SetValue_CharacterType((int)currentType);
         }
 
-        private void FixedUpdate() {
+        protected virtual void FixedUpdate() {
             if(currentState != null) {
                 currentState.FixedUpdate();
             }
@@ -138,93 +90,49 @@ namespace Mu3Library.Character {
             }
         }
 
-        protected virtual CharacterState GetState(CharacterStateType type, object[] param = null) {
-            CharacterState state = null;
-            switch(type) {
-                case CharacterStateType.None: {
-                        state = new StandardCharacterState_None();
-                    }
-                    break;
-
-                case CharacterStateType.Movement: {
-                        state = new StandardCharacterState_Movement();
-                    }
-                    break;
-
-                default: {
-                        Debug.Log($"Not defined 'CharacterState'. type: {type}");
-                    }
-                    break;
+        protected virtual void LateUpdate() {
+            if(currentState != null) {
+                currentState.LateUpdate();
             }
-
-            if(state != null) {
-                state.Init(this, param);
-            }
-
-            return state;
         }
 
-        #region Interface
-        public virtual void Move() {
-            Vector3 moveDir_f = UtilFunc.GetVec3XZ(CameraManager.Instance.CamForward).normalized;
-            Vector3 moveDir_r = UtilFunc.GetVec3XZ(CameraManager.Instance.CamRight).normalized;
-
-            moveDirection = Vector3.zero;
-            if(KeyCodeInputCollector.Instance.GetKey(keyCode_moveF)) moveDirection += moveDir_f;
-            if(KeyCodeInputCollector.Instance.GetKey(keyCode_moveB)) moveDirection -= moveDir_f;
-            if(KeyCodeInputCollector.Instance.GetKey(keyCode_moveL)) moveDirection -= moveDir_r;
-            if(KeyCodeInputCollector.Instance.GetKey(keyCode_moveR)) moveDirection += moveDir_r;
-
-            if(moveDirection.magnitude > 0) {
-                // Rotate
-                //transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.deltaTime * rotateSpeed);
-                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(moveDirection), Time.fixedDeltaTime * rotateSpeed);
-
-                if(KeyCodeInputCollector.Instance.GetKey(keyCode_run)) {
-                    //moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.deltaTime);
-                    moveStrength = Mathf.Lerp(moveStrength, 1.0f, moveBoost * Time.fixedDeltaTime);
-                }
-                else {
-                    //moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.deltaTime);
-                    moveStrength = Mathf.Lerp(moveStrength, 0.5f, moveBoost * Time.fixedDeltaTime);
-                }
-
-                moveDirection = moveDirection.normalized;
-            }
-            else {
-                //moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.deltaTime);
-                moveStrength = Mathf.Lerp(moveStrength, 0.0f, moveBoost * 5.0f * Time.fixedDeltaTime);
-            }
-
-            // Move
-            //rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.deltaTime;
-            rigidbody.position += moveDirection * moveSpeed * moveStrength * Time.fixedDeltaTime;
-
-            animationController.SetValue_MoveBlend(moveStrength);
-        }
-        #endregion
+        protected abstract CharacterState GetState(CharacterStateType type, object[] param = null);
 
         #region Utility
-        public virtual void Play(CharacterStateType playTo = CharacterStateType.Movement) {
-            KeyCodeInputCollector.Instance.AddCollectKey(keyCode_moveL);
-            KeyCodeInputCollector.Instance.AddCollectKey(keyCode_moveR);
-            KeyCodeInputCollector.Instance.AddCollectKey(keyCode_moveF);
-            KeyCodeInputCollector.Instance.AddCollectKey(keyCode_moveB);
-            KeyCodeInputCollector.Instance.AddCollectKey(keyCode_run);
+        public virtual void ChangeCharacterType(CharacterType type) {
+            if(type != currentType) {
+                animationController.SetValue_CharacterType((int)type);
 
-            CurrentStateType = playTo;
+                currentType = type;
+            }
+        }
+
+        public virtual void Play(CharacterStateType playTo = CharacterStateType.Movement) {
+            ChangeCharacterStateType(playTo);
         }
 
         public virtual void Stop() {
-            KeyCodeInputCollector.Instance.RemoveCollectKey(keyCode_moveL);
-            KeyCodeInputCollector.Instance.RemoveCollectKey(keyCode_moveR);
-            KeyCodeInputCollector.Instance.RemoveCollectKey(keyCode_moveF);
-            KeyCodeInputCollector.Instance.RemoveCollectKey(keyCode_moveB);
-            KeyCodeInputCollector.Instance.RemoveCollectKey(keyCode_run);
-
-            CurrentStateType = CharacterStateType.None;
+            ChangeCharacterStateType(CharacterStateType.None);
         }
         #endregion
+
+        private void ChangeCharacterStateType(CharacterStateType changeTo) {
+            if(currentStateType != changeTo) {
+                if(currentState != null) {
+                    currentState.Exit();
+                }
+
+                CharacterState newState = GetState(changeTo);
+                if(newState != null) {
+                    newState.Enter();
+                }
+
+                OnStateChanged?.Invoke(currentStateType, changeTo);
+
+                currentState = newState;
+                currentStateType = changeTo;
+            }
+        }
 
         public enum CharacterType {
             None = 0, 

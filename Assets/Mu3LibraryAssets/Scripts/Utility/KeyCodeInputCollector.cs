@@ -2,58 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Utility {
-    public class KeyCodeInputCollector : GenericSingleton<KeyCodeInputCollector> {
-        private Dictionary<KeyCode, KeyData> keyInfos = null;
-
-
-
-        private void Update() {
-            if(keyInfos != null) {
-                foreach(KeyData data in keyInfos.Values) {
-                    data.UpdateKey();
-                }
-            }
-        }
-
-        #region Utility
-        public void InitCollectKeys() {
-            keyInfos = new Dictionary<KeyCode, KeyData>();
-        }
-
-        public void AddCollectKeys(KeyCode[] keys) {
-            for(int i = 0; i < keys.Length; i++) {
-                if(!keyInfos.ContainsKey(keys[i])) {
-                    keyInfos.Add(keys[i], new KeyData(keys[i]));
-                }
-            }
-        }
-
-        public void AddCollectKey(KeyCode key) {
-            if(!keyInfos.ContainsKey(key)) {
-                keyInfos.Add(key, new KeyData(key));
-            }
-        }
-
-        public void RemoveCollectKeys(KeyCode[] keys) {
-            for(int i = 0; i < keys.Length; i++) { 
-                keyInfos.Remove(keys[i]);
-            }
-        }
-
-        public void RemoveCollectKey(KeyCode key) {
-            keyInfos.Remove(key);
-        }
-
-        public bool GetKeyDown(KeyCode key) => keyInfos[key].KeyDown;
-        public bool GetKeyUp(KeyCode key) => keyInfos[key].KeyUp;
-        public bool GetKey(KeyCode key) => keyInfos[key].KeyPressing;
-
-        public bool GetKeyDoubleDown(KeyCode key) => keyInfos[key].DoubleDown;
-
-        public float GetKeyPressingTime(KeyCode key) => keyInfos[key].KeyPressingTime;
-        #endregion
-    }
-
     public class KeyData {
         public KeyCode Key { get; private set; }
 

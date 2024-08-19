@@ -355,6 +355,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 399182724}
+  - {fileID: 1290910796}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &399182720
@@ -471,7 +472,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 628820322}
-  - component: {fileID: 628820323}
+  - component: {fileID: 628820325}
   - component: {fileID: 628820324}
   m_Layer: 0
   m_Name: CharacterController
@@ -497,30 +498,6 @@ Transform:
   - {fileID: 832186661}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &628820323
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 628820321}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 786508a4414bfd647801ed2b89063ca0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  animationController: {fileID: 41879660}
-  rigidbody: {fileID: 628820324}
-  collider: {fileID: 832186662}
-  type: 1
-  keyCode_moveL: 97
-  keyCode_moveR: 100
-  keyCode_moveF: 119
-  keyCode_moveB: 115
-  keyCode_run: 304
-  moveSpeed: 2
-  moveBoost: 8
-  rotateSpeed: 6
 --- !u!54 &628820324
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -548,6 +525,30 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 80
   m_CollisionDetection: 0
+--- !u!114 &628820325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 628820321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44d0cae709a2fc046ba1c6d702d3d7a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  animationController: {fileID: 41879660}
+  rigidbody: {fileID: 628820324}
+  collider: {fileID: 832186662}
+  currentType: 1
+  keyCode_moveL: 97
+  keyCode_moveR: 100
+  keyCode_moveF: 119
+  keyCode_moveB: 115
+  keyCode_run: 304
+  moveSpeed: 2
+  moveBoost: 10
+  rotateSpeed: 6
 --- !u!1 &832186660
 GameObject:
   m_ObjectHideFlags: 0
@@ -701,12 +702,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1290910792}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 2.7740538, y: 0.0034244503, z: 1.2510018}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 292379285}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1943600295
 GameObject:
@@ -829,7 +830,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ddc0017d7b309e04b877cb5d116d9899, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  character: {fileID: 628820323}
+  character: {fileID: 628820325}
 --- !u!4 &2117202233
 Transform:
   m_ObjectHideFlags: 0
@@ -854,4 +855,3 @@ SceneRoots:
   - {fileID: 2117202233}
   - {fileID: 292379285}
   - {fileID: 628820322}
-  - {fileID: 1290910796}

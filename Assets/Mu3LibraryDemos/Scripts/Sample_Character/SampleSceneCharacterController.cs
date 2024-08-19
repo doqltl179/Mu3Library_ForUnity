@@ -14,8 +14,6 @@ namespace Mu3Library.Demo.Sample_Character {
 
         private void Awake() {
             Time.fixedDeltaTime = 1.0f / (144 * 2);
-
-            KeyCodeInputCollector.Instance.InitCollectKeys();
         }
 
         private void Start() {
