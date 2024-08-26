@@ -29,7 +29,7 @@ namespace Mu3Library.Editor.Window {
         /// <summary>
         /// (Directory, Paths)
         /// </summary>
-        private Dictionary<string, List<string>> scenePaths;
+        private Dictionary<string, SceneControlStruct> scenePaths;
         private Vector2 scrollPos;
 
 
@@ -44,16 +44,21 @@ namespace Mu3Library.Editor.Window {
             usePlayLoadScene = EditorUtilPrefs.UsePlayLoadScene;
             UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene, SceneType.None);
 
-            scenePaths = new Dictionary<string, List<string>>();
+            scenePaths = new Dictionary<string, SceneControlStruct>();
             string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
             if(scenes != null && scenes.Length > 0) {
                 foreach(string s in scenes) {
                     string directory = Path.GetDirectoryName(s);
                     if(!scenePaths.ContainsKey(directory)) {
-                        scenePaths.Add(directory, new List<string>());
+                        SceneControlStruct st = new SceneControlStruct() {
+                            ShowInInspector = true,
+                            Paths = new List<string>(), 
+                        };
+
+                        scenePaths.Add(directory, st);
                     }
 
-                    scenePaths[directory].Add(s);
+                    scenePaths[directory].Paths.Add(s);
                 }
             }
         }
@@ -64,6 +69,7 @@ namespace Mu3Library.Editor.Window {
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(20, 20, 12, 12),
+                margin = new RectOffset(0, 0, 0, 0), 
                 fixedHeight = 40,
                 normal = new GUIStyleState() {
                     textColor = Color.white,
@@ -74,6 +80,7 @@ namespace Mu3Library.Editor.Window {
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(20, 20, 12, 12),
+                margin = new RectOffset(0, 0, 0, 0),
                 fixedHeight = 40,
                 normal = new GUIStyleState() {
                     textColor = Color.white,
@@ -84,6 +91,7 @@ namespace Mu3Library.Editor.Window {
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(20, 20, 12, 12),
+                margin = new RectOffset(0, 0, 0, 0),
                 fixedHeight = 40,
                 normal = new GUIStyleState() {
                     textColor = Color.white,
@@ -135,20 +143,34 @@ namespace Mu3Library.Editor.Window {
 
                 foreach(var scenePath in scenePaths) {
                     GUILayout.Space(-5);
-                    EditorGUILayout.LabelField(scenePath.Key, header3Style);
+                    GUILayout.BeginHorizontal();
+
+                    GUILayout.BeginVertical();
                     GUILayout.Space(15);
+                    bool showInInspector = GUILayout.Toggle(scenePath.Value.ShowInInspector, "Show In Inspector");
+                    GUILayout.EndVertical();
 
-                    scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Count + 10));
+                    EditorGUILayout.LabelField(scenePath.Key, header3Style);
 
-                    foreach(var path in scenePath.Value) {
-                        if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
-                            if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
-                                EditorSceneManager.OpenScene(path);
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                    //GUILayout.Space(15);
+
+                    if(showInInspector) {
+                        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Paths.Count + 10));
+
+                        foreach(var path in scenePath.Value.Paths) {
+                            if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
+                                if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
+                                    EditorSceneManager.OpenScene(path);
+                                }
                             }
                         }
+
+                        EditorGUILayout.EndScrollView();
                     }
 
-                    EditorGUILayout.EndScrollView();
+                    scenePath.Value.ShowInInspector = showInInspector;
                 }
             }
             #endregion
@@ -234,6 +256,13 @@ namespace Mu3Library.Editor.Window {
 
             byte[] bytes = tex.EncodeToPNG();
             File.WriteAllBytes(path, bytes);
+        }
+
+
+
+        class SceneControlStruct {
+            public bool ShowInInspector;
+            public List<string> Paths;
         }
     }
 }
