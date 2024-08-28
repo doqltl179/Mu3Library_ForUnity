@@ -85,11 +85,6 @@ namespace Mu3Library.Editor.Window {
         [SerializeField, ReadOnly] private string captureSaveFileName = "ScreenShot";
         #endregion
 
-        [Space(20)]
-        [SerializeField, ReadOnly] private TestDrawClass testProperty2 = new TestDrawClass() {
-            testFloatList = new List<float>() { 2, 3, 4 },
-        };
-
 
 
         public void Refresh() {
