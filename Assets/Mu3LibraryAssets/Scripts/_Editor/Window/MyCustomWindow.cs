@@ -16,21 +16,33 @@ namespace Mu3Library.Editor.Window {
 
         private const string WindowName_MyCustomWindow = WindowsMenuName + "/My Custom Window";
 
+        private Vector2 windowScreenPos;
+
+        #region Play Load Scene Properties
         private bool usePlayLoadScene = true;
         private SceneType playLoadScene = SceneType.Splash;
+        #endregion
 
-        private Vector2Int captureSize = new Vector2Int(1920, 1080);
-        private bool changeCaptureColor;
-        private Color targetColor = Color.black;
-        private Color changeColor = Color.white;
-        private float colorChangeStrength = 1.0f;
-        private string captureSavePath;
-
+        #region Move Scene Properties
         /// <summary>
         /// (Directory, Paths)
         /// </summary>
         private Dictionary<string, SceneControlStruct> scenePaths;
-        private Vector2 scrollPos;
+        private Vector2 sceneListScrollPos;
+        #endregion
+
+        #region Screen Capture Properties
+        private bool captureToCustomSize = true;
+        private Vector2Int captureSize = new Vector2Int(1920, 1080);
+
+        private bool changeCaptureColor;
+        private Color targetColor = Color.black;
+        private Color changeColor = Color.white;
+        private float colorChangeStrength = 1.0f;
+
+        private string captureSaveDirectory = "";
+        private string captureSaveFileName = "ScreenShot";
+        #endregion
 
 
 
@@ -69,7 +81,7 @@ namespace Mu3Library.Editor.Window {
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(20, 20, 12, 12),
-                margin = new RectOffset(0, 0, 0, 0), 
+                margin = new RectOffset(0, 0, 0, 0),
                 fixedHeight = 40,
                 normal = new GUIStyleState() {
                     textColor = Color.white,
@@ -97,6 +109,8 @@ namespace Mu3Library.Editor.Window {
                     textColor = Color.white,
                 },
             };
+
+            windowScreenPos = EditorGUILayout.BeginScrollView(windowScreenPos);
 
 
 
@@ -157,7 +171,8 @@ namespace Mu3Library.Editor.Window {
                     //GUILayout.Space(15);
 
                     if(showInInspector) {
-                        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Paths.Count + 10));
+                        //scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Paths.Count + 10));
+                        //sceneListScrollPos = EditorGUILayout.BeginScrollView(sceneListScrollPos);
 
                         foreach(var path in scenePath.Value.Paths) {
                             if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
@@ -167,7 +182,7 @@ namespace Mu3Library.Editor.Window {
                             }
                         }
 
-                        EditorGUILayout.EndScrollView();
+                        //EditorGUILayout.EndScrollView();
                     }
 
                     scenePath.Value.ShowInInspector = showInInspector;
@@ -183,7 +198,23 @@ namespace Mu3Library.Editor.Window {
             GUILayout.Space(10);
 
             #region Screen Capture
-            captureSize = EditorGUILayout.Vector2IntField("Capture Size", captureSize);
+            EditorGUILayout.BeginHorizontal();
+
+            bool useCustomSizeWhenScreenCapture = GUILayout.Toggle(captureToCustomSize, "Capture Size To Custom Size");
+            if(useCustomSizeWhenScreenCapture != captureToCustomSize) {
+
+
+                captureToCustomSize = useCustomSizeWhenScreenCapture;
+            }
+
+            if(captureToCustomSize) {
+                GUILayout.Space(15);
+
+                captureSize = EditorGUILayout.Vector2IntField("", captureSize);
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
 
             changeCaptureColor = GUILayout.Toggle(changeCaptureColor, "Change Color");
             if(changeCaptureColor) {
@@ -197,15 +228,21 @@ namespace Mu3Library.Editor.Window {
             if(GUILayout.Button("Screen Capture")) {
                 string path = EditorUtility.SaveFilePanel(
                     "Save ScreenShot",
-                    string.IsNullOrEmpty(captureSavePath) ? Application.dataPath : captureSavePath,
-                    "ScreenShot" + ".png",
+                    string.IsNullOrEmpty(captureSaveDirectory) ? Application.dataPath : captureSaveDirectory,
+                    captureSaveFileName + ".png",
                     "png");
                 if(!string.IsNullOrEmpty(path)) {
-                    captureSavePath = path;
-                    //ScreenCapture.CaptureScreenshot(captureSavePath);
-                    Capture(captureSize, captureSavePath);
+                    captureSaveDirectory = Path.GetDirectoryName(path);
+                    captureSaveFileName = Path.GetFileNameWithoutExtension(path);
 
-                    Debug.Log($"ScreenShot saved. path: {captureSavePath}");
+                    if(captureToCustomSize) {
+                        Capture(captureSize, path);
+                    }
+                    else {
+                        Capture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
+                    }
+
+                    Debug.Log($"ScreenShot saved. path: {path}");
                 }
                 else {
                     Debug.Log("ScreenShot path is NULL.");
@@ -214,6 +251,10 @@ namespace Mu3Library.Editor.Window {
 
             GUILayout.EndHorizontal();
             #endregion
+
+
+
+            EditorGUILayout.EndScrollView();
         }
 
         private void Capture(Vector2Int captureSize, string path) {
