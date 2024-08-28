@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 using Mu3Library.Utility;
-using Mu3Library.Utility.CustomClass;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -26,35 +25,17 @@ namespace Mu3Library.Editor.Window {
         private GUIStyle header1Style = null;
         private GUIStyle header2Style = null;
         private GUIStyle header3Style = null;
+        private GUIStyle normalMiddleLeftStyle = null;
 
         #endregion
 
         private Vector2 windowScreenPos;
 
-        #region Play Load Scene Properties
-        private bool usePlayLoadScene = false;
-        private SceneType playLoadScene = SceneType.Splash;
-        #endregion
-
-        #region Move Scene Properties
-        /// <summary>
-        /// (Directory, Paths)
-        /// </summary>
-        private SerializableDictionary<SceneControlStruct> sceneStructs;
-        private Vector2 sceneListScrollPos;
-        #endregion
-
         #region Screen Capture Properties
-        private bool captureToCustomSize = false;
-        private Vector2Int captureSize = new Vector2Int(1920, 1080);
-
-        private bool changeCaptureColor;
-        private Color targetColor = Color.black;
-        private Color changeColor = Color.white;
-        private float colorChangeStrength = 1.0f;
 
         private string captureSaveDirectory = "";
         private string captureSaveFileName = "ScreenShot";
+
         #endregion
 
 
@@ -93,7 +74,6 @@ namespace Mu3Library.Editor.Window {
 
             if(currentWindowProperty != null && !isRefreshed) {
                 currentWindowProperty.Refresh();
-                SetProperties(currentWindowProperty);
 
                 header1Style = new GUIStyle() {
                     fontSize = 24,
@@ -120,6 +100,7 @@ namespace Mu3Library.Editor.Window {
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.MiddleLeft,
                     padding = new RectOffset(11, 11, 5, 5),
+                    fixedHeight = 22,
                     normal = new GUIStyleState() {
                         textColor = Color.white,
                     },
@@ -127,24 +108,6 @@ namespace Mu3Library.Editor.Window {
 
                 isRefreshed = true;
             }
-        }
-
-        private void SetProperties(Mu3WindowProperty property) {
-            usePlayLoadScene = property.UsePlayLoadScene;
-            playLoadScene = property.PlayLoadScene;
-
-            sceneStructs = property.SceneStructs;
-
-            captureToCustomSize = property.CaptureToCustomSize;
-            captureSize = property.CaptureSize;
-
-            changeCaptureColor = property.ChangeCaptureColor;
-            targetColor = property.TargetColor;
-            changeColor = property.ChangeColor;
-            colorChangeStrength = property.ColorChangeStrength;
-
-            captureSaveDirectory = property.CaptureSaveDirectory;
-            captureSaveFileName = property.CaptureSaveFileName;
         }
 
         void OnGUI() {
@@ -174,31 +137,20 @@ namespace Mu3Library.Editor.Window {
 
 
 
+            #region User Settings
             DrawHeader1("User Settings");
 
-            #region User Settings
             DrawHeader2("Play Load Scene");
 
-            bool usePlayScene = GUILayout.Toggle(usePlayLoadScene, "Use Play Load Scene");
-            if(usePlayScene != usePlayLoadScene) {
-                usePlayLoadScene = usePlayScene;
+            bool usePlayScene = GUILayout.Toggle(currentWindowProperty.UsePlayLoadScene, "Use Play Load Scene");
+            if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
                 currentWindowProperty.UsePlayLoadScene = usePlayScene;
             }
             if(usePlayScene) {
-                SceneType playScene = (SceneType)EditorGUILayout.EnumPopup("Play Load Scene", playLoadScene);
-                if(playScene != playLoadScene) {
-                    Debug.Log($"playLoadScene changed to [{playScene}]");
-
-                    EditorUtilPrefs.PlayLoadScene = playScene;
-                    playLoadScene = playScene;
+                SceneType playScene = (SceneType)EditorGUILayout.EnumPopup("Play Load Scene", currentWindowProperty.PlayLoadScene);
+                if(playScene != currentWindowProperty.PlayLoadScene) {
+                    currentWindowProperty.PlayLoadScene = playScene;
                 }
-            }
-
-            if(usePlayScene != usePlayLoadScene) {
-                Debug.Log($"usePlayLoadScene changed to [{usePlayScene}]");
-
-                EditorUtilPrefs.UsePlayLoadScene = usePlayScene;
-                usePlayLoadScene = usePlayScene;
             }
 
             DrawHeader2("Move Scene", true);
@@ -206,17 +158,17 @@ namespace Mu3Library.Editor.Window {
             if(EditorApplication.isPlayingOrWillChangePlaymode) {
                 GUILayout.Label("Now editor is playing.");
             }
-            else if(sceneStructs == null || sceneStructs.Count == 0) {
+            else if(currentWindowProperty.SceneStructs == null || currentWindowProperty.SceneStructs.Count == 0) {
                 GUILayout.Label("Scenes not found.");
             }
             else {
                 const float buttonHeight = 30;
 
-                foreach(var st in sceneStructs) {
+                foreach(var st in currentWindowProperty.SceneStructs) {
                     //GUILayout.BeginHorizontal(GUILayout.Height(header3Style.fixedHeight));
                     GUILayout.BeginHorizontal();
 
-                    bool showInInspector = GUILayout.Toggle(st.Value.ShowInInspector, "Show In Inspector");
+                    bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
 
                     DrawHeader3(st.Key);
 
@@ -224,46 +176,59 @@ namespace Mu3Library.Editor.Window {
                     GUILayout.EndHorizontal();
 
                     if(showInInspector) {
-                        foreach(var path in st.Value.Paths) {
-                            if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
+                        foreach(var property in st.Properties) {
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Space(20);
+
+                            bool includeInBuild = GUILayout.Toggle(property.IncludeInBuild, "Include In Build", GUILayout.Width(120));
+                            if(includeInBuild != property.IncludeInBuild) {
+
+
+                                property.IncludeInBuild = includeInBuild;
+                            }
+
+                            if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
                                 if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
-                                    EditorSceneManager.OpenScene(path);
+                                    EditorSceneManager.OpenScene(property.Path);
                                 }
                             }
+
+                            GUILayout.Space(20);
+                            GUILayout.EndHorizontal();
                         }
+
+                        GUILayout.Space(5);
                     }
 
-                    st.Value.ShowInInspector = showInInspector;
+                    st.ShowInInspector = showInInspector;
                 }
             }
             #endregion
 
+            #region Screen Capture
             DrawHeader1("Screen Capture", true);
 
-            #region Screen Capture
             EditorGUILayout.BeginHorizontal();
 
-            bool useCustomSizeWhenScreenCapture = GUILayout.Toggle(captureToCustomSize, "Capture Size To Custom Size");
-            if(useCustomSizeWhenScreenCapture != captureToCustomSize) {
-
-
-                captureToCustomSize = useCustomSizeWhenScreenCapture;
+            bool useCustomSizeWhenScreenCapture = GUILayout.Toggle(currentWindowProperty.CaptureToCustomSize, "Capture Size To Custom Size");
+            if(useCustomSizeWhenScreenCapture != currentWindowProperty.CaptureToCustomSize) {
+                currentWindowProperty.CaptureToCustomSize = useCustomSizeWhenScreenCapture;
             }
 
-            if(captureToCustomSize) {
+            if(useCustomSizeWhenScreenCapture) {
                 GUILayout.Space(15);
 
-                captureSize = EditorGUILayout.Vector2IntField("", captureSize);
+                currentWindowProperty.CaptureSize = EditorGUILayout.Vector2IntField("", currentWindowProperty.CaptureSize);
             }
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
 
-            changeCaptureColor = GUILayout.Toggle(changeCaptureColor, "Change Color");
-            if(changeCaptureColor) {
-                targetColor = EditorGUILayout.ColorField("Target", targetColor);
-                changeColor = EditorGUILayout.ColorField("Change To", changeColor);
-                colorChangeStrength = EditorGUILayout.Slider("Color Change Strength", colorChangeStrength, 0.0f, 16.0f);
+            currentWindowProperty.ChangeCaptureColor = GUILayout.Toggle(currentWindowProperty.ChangeCaptureColor, "Change Color");
+            if(currentWindowProperty.ChangeCaptureColor) {
+                currentWindowProperty.TargetColor = EditorGUILayout.ColorField("Target", currentWindowProperty.TargetColor);
+                currentWindowProperty.ChangeColor = EditorGUILayout.ColorField("Change To", currentWindowProperty.ChangeColor);
+                currentWindowProperty.ColorChangeStrength = EditorGUILayout.Slider("Color Change Strength", currentWindowProperty.ColorChangeStrength, 0.0f, 16.0f);
             }
 
             GUILayout.BeginHorizontal();
@@ -278,8 +243,8 @@ namespace Mu3Library.Editor.Window {
                     captureSaveDirectory = Path.GetDirectoryName(path);
                     captureSaveFileName = Path.GetFileNameWithoutExtension(path);
 
-                    if(captureToCustomSize) {
-                        Capture(captureSize, path);
+                    if(currentWindowProperty.CaptureToCustomSize) {
+                        Capture(currentWindowProperty.CaptureSize, path);
                     }
                     else {
                         Capture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
@@ -319,9 +284,9 @@ namespace Mu3Library.Editor.Window {
             RenderTexture.active = null;
             DestroyImmediate(rt);
 
-            if(changeCaptureColor) {
-                Vector3 targetVec = UtilFunc.ColToVec(targetColor);
-                Vector3 changeVec = UtilFunc.ColToVec(changeColor);
+            if(currentWindowProperty.ChangeCaptureColor) {
+                Vector3 targetVec = UtilFunc.ColToVec(currentWindowProperty.TargetColor);
+                Vector3 changeVec = UtilFunc.ColToVec(currentWindowProperty.ChangeColor);
                 float changeDistance = Vector3.Distance(targetVec, changeVec);
 
                 Color[] colors = tex.GetPixels();
@@ -331,7 +296,7 @@ namespace Mu3Library.Editor.Window {
                     currentVec = UtilFunc.ColToVec(colors[i]);
                     dist = Vector3.Distance(currentVec, targetVec);
 
-                    colors[i] = Color.Lerp(colors[i], changeColor, Mathf.Pow(Mathf.Clamp01(1.0f - dist / changeDistance), colorChangeStrength));
+                    colors[i] = Color.Lerp(colors[i], currentWindowProperty.ChangeColor, Mathf.Pow(Mathf.Clamp01(1.0f - dist / changeDistance), currentWindowProperty.ColorChangeStrength));
                 }
 
                 tex.SetPixels(colors);

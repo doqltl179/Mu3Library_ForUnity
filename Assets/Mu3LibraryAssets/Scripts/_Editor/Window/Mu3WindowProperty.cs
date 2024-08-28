@@ -1,4 +1,3 @@
-using Mu3Library.Utility.CustomClass;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -32,11 +31,11 @@ namespace Mu3Library.Editor.Window {
         #endregion
 
         #region Move Scene Properties
-        public SerializableDictionary<SceneControlStruct> SceneStructs {
+        public List<SceneControlStruct> SceneStructs {
             get => sceneStructs;
         }
         [Title("Move Scene Properties")]
-        [SerializeField, ReadOnly] private SerializableDictionary<SceneControlStruct> sceneStructs;
+        [SerializeField, ReadOnly] private List<SceneControlStruct> sceneStructs;
         #endregion
 
         #region Screen Capture Properties
@@ -73,44 +72,89 @@ namespace Mu3Library.Editor.Window {
         }
         [SerializeField, ReadOnly] private float colorChangeStrength = 1.0f;
 
-        public string CaptureSaveDirectory {
-            get => captureSaveDirectory;
-            set => captureSaveDirectory = value;
-        }
-        [SerializeField, ReadOnly] private string captureSaveDirectory = "";
-        public string CaptureSaveFileName {
-            get => captureSaveFileName;
-            set => captureSaveFileName = value;
-        }
-        [SerializeField, ReadOnly] private string captureSaveFileName = "ScreenShot";
+        //public string CaptureSaveDirectory {
+        //    get => captureSaveDirectory;
+        //    set => captureSaveDirectory = value;
+        //}
+        //[SerializeField, ReadOnly] private string captureSaveDirectory = "";
+        //public string CaptureSaveFileName {
+        //    get => captureSaveFileName;
+        //    set => captureSaveFileName = value;
+        //}
+        //[SerializeField, ReadOnly] private string captureSaveFileName = "ScreenShot";
         #endregion
 
 
 
+        private void OnEnable() {
+            Refresh();
+        }
+
         public void Refresh() {
-            sceneStructs = new SerializableDictionary<SceneControlStruct>();
+            RefreshSceneStructs();
+        }
+
+        private void RefreshSceneStructs() {
+            List<SceneControlStruct>  newStructs = new List<SceneControlStruct>();
             string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
             if(scenes != null && scenes.Length > 0) {
-                foreach(string s in scenes) {
-                    string directory = Path.GetDirectoryName(s);
-                    if(!sceneStructs.ContainsKey(directory)) {
+                foreach(string path in scenes) {
+                    string directory = Path.GetDirectoryName(path);
+
+                    SceneControlStruct currentST = newStructs.Where(t => t.Key == directory).FirstOrDefault();
+                    if(currentST == null) {
                         SceneControlStruct st = new SceneControlStruct() {
+                            Key = directory,
                             ShowInInspector = true,
-                            Paths = new List<string>(),
+                            Properties = new List<SceneProperty>(),
                         };
 
-                        sceneStructs.Add(directory, st);
+                        newStructs.Add(st);
+                        currentST = st;
                     }
 
-                    ((SceneControlStruct)sceneStructs[directory]).Paths.Add(s);
+                    SceneProperty newProperty = new SceneProperty();
+                    newProperty.IncludeInBuild = false;
+                    newProperty.Path = path;
+
+                    currentST.Properties.Add(newProperty);
                 }
             }
+
+            if(sceneStructs != null) {
+                for(int i = 0; i < newStructs.Count; i++) {
+                    SceneControlStruct scs = newStructs[i];
+                    SceneControlStruct old = sceneStructs.Where(t => t.Key == scs.Key).FirstOrDefault();
+                    if(old != null) {
+                        scs.ShowInInspector = old.ShowInInspector;
+
+                        for(int j = 0; j < scs.Properties.Count; j++) {
+                            SceneProperty sp = scs.Properties[j];
+                            SceneProperty op = old.Properties.Where(t => t.Path == sp.Path).FirstOrDefault();
+                            if(op != null) {
+                                sp.IncludeInBuild = op.IncludeInBuild;
+                            }
+                        }
+                    }
+                }
+            }
+
+            sceneStructs = newStructs;
         }
     }
 
     [System.Serializable]
     public class SceneControlStruct {
+        public string Key;
         public bool ShowInInspector;
-        public List<string> Paths;
+
+        public List<SceneProperty> Properties;
+    }
+
+    [System.Serializable]
+    public class SceneProperty {
+        public bool IncludeInBuild;
+
+        public string Path;
     }
 }

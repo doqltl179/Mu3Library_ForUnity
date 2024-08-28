@@ -15,28 +15,31 @@ MonoBehaviour:
   usePlayLoadScene: 0
   playLoadScene: 1
   sceneStructs:
-    pairs:
-    - Key: Assets\Mu3LibraryDemos\Scenes
-      Value:
-        ShowInInspector: 1
-        Paths:
-        - Assets/Mu3LibraryDemos/Scenes/Sample_Attribute.unity
-        - Assets/Mu3LibraryDemos/Scenes/Sample_Character.unity
-        - Assets/Mu3LibraryDemos/Scenes/Sample_CustomUI.unity
-        - Assets/Mu3LibraryDemos/Scenes/Sample_PostEffect.unity
-        - Assets/Mu3LibraryDemos/Scenes/Sample_UI.unity
-    - Key: Assets\Mu3LibraryDemos\Scenes\SceneLoadTemplate
-      Value:
-        ShowInInspector: 1
-        Paths:
-        - Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_00_Splash.unity
-        - Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_01_Main.unity
-        - Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_02_Game.unity
+  - Key: Assets\Mu3LibraryDemos\Scenes
+    ShowInInspector: 0
+    Properties:
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/Sample_Attribute.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/Sample_Character.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/Sample_CustomUI.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/Sample_PostEffect.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/Sample_UI.unity
+  - Key: Assets\Mu3LibraryDemos\Scenes\SceneLoadTemplate
+    ShowInInspector: 1
+    Properties:
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_00_Splash.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_01_Main.unity
+    - IncludeInBuild: 0
+      Path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_02_Game.unity
   captureToCustomSize: 0
   captureSize: {x: 1920, y: 1080}
   changeCaptureColor: 0
   targetColor: {r: 0, g: 0, b: 0, a: 1}
   changeColor: {r: 1, g: 1, b: 1, a: 1}
   colorChangeStrength: 1
-  captureSaveDirectory: 
-  captureSaveFileName: ScreenShot
