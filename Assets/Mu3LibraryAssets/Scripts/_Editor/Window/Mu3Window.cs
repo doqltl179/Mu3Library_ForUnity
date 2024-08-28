@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using Mu3Library.Utility;
+using Mu3Library.Utility.CustomClass;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -11,15 +12,27 @@ using UnityEngine;
 using static Mu3Library.Scene.SceneLoader;
 
 namespace Mu3Library.Editor.Window {
-    public class MyCustomWindow : EditorWindow {
+    public class Mu3Window : EditorWindow {
         private const string WindowsMenuName = "Mu3Library/Windows";
 
-        private const string WindowName_MyCustomWindow = WindowsMenuName + "/My Custom Window";
+        private const string WindowName_MyCustomWindow = WindowsMenuName + "/Mu3 Window";
+
+        private List<Mu3WindowProperty> windowPropertyList;
+        private Mu3WindowProperty currentWindowProperty = null;
+        private bool isRefreshed = false;
+
+        #region GUIStyle
+
+        private GUIStyle header1Style = null;
+        private GUIStyle header2Style = null;
+        private GUIStyle header3Style = null;
+
+        #endregion
 
         private Vector2 windowScreenPos;
 
         #region Play Load Scene Properties
-        private bool usePlayLoadScene = true;
+        private bool usePlayLoadScene = false;
         private SceneType playLoadScene = SceneType.Splash;
         #endregion
 
@@ -27,12 +40,12 @@ namespace Mu3Library.Editor.Window {
         /// <summary>
         /// (Directory, Paths)
         /// </summary>
-        private Dictionary<string, SceneControlStruct> scenePaths;
+        private SerializableDictionary<SceneControlStruct> sceneStructs;
         private Vector2 sceneListScrollPos;
         #endregion
 
         #region Screen Capture Properties
-        private bool captureToCustomSize = true;
+        private bool captureToCustomSize = false;
         private Vector2Int captureSize = new Vector2Int(1920, 1080);
 
         private bool changeCaptureColor;
@@ -49,82 +62,128 @@ namespace Mu3Library.Editor.Window {
         [MenuItem(WindowName_MyCustomWindow)]
         public static void ShowWindow() {
             // 윈도우 인스턴스를 가져오거나 생성합니다.
-            GetWindow(typeof(MyCustomWindow), false, "My Custom Window");
+            GetWindow(typeof(Mu3Window), false, "Mu3 Window");
         }
 
         private void OnBecameVisible() {
-            usePlayLoadScene = EditorUtilPrefs.UsePlayLoadScene;
-            UtilFunc.StringToEnum(EditorUtilPrefs.PlayLoadSceneName, ref playLoadScene, SceneType.None);
+            InitializeProperties();
+        }
 
-            scenePaths = new Dictionary<string, SceneControlStruct>();
-            string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
-            if(scenes != null && scenes.Length > 0) {
-                foreach(string s in scenes) {
-                    string directory = Path.GetDirectoryName(s);
-                    if(!scenePaths.ContainsKey(directory)) {
-                        SceneControlStruct st = new SceneControlStruct() {
-                            ShowInInspector = true,
-                            Paths = new List<string>(), 
-                        };
+        private void InitializeProperties() {
+            if(currentWindowProperty == null || windowPropertyList == null || windowPropertyList.Count == 0) {
+                isRefreshed = false;
 
-                        scenePaths.Add(directory, st);
+                string[] guids = AssetDatabase.FindAssets("t:ScriptableObject");
+                currentWindowProperty = null;
+
+                windowPropertyList = new List<Mu3WindowProperty>();
+                foreach(string guid in guids) {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    ScriptableObject obj = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+
+                    if(obj.GetType() == typeof(Mu3WindowProperty)) {
+                        windowPropertyList.Add((Mu3WindowProperty)obj);
                     }
-
-                    scenePaths[directory].Paths.Add(s);
                 }
+
+                if(windowPropertyList.Count > 0) {
+                    currentWindowProperty = windowPropertyList[0];
+                }
+            }
+
+            if(currentWindowProperty != null && !isRefreshed) {
+                currentWindowProperty.Refresh();
+                SetProperties(currentWindowProperty);
+
+                header1Style = new GUIStyle() {
+                    fontSize = 24,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(24, 24, 12, 12),
+                    fixedHeight = 48,
+                    normal = new GUIStyleState() {
+                        textColor = Color.white,
+                    },
+                };
+                header2Style = new GUIStyle() {
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(16, 16, 8, 8),
+                    fixedHeight = 32,
+                    normal = new GUIStyleState() {
+                        textColor = Color.white,
+                    },
+                };
+                header3Style = new GUIStyle() {
+                    fontSize = 11,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(11, 11, 5, 5),
+                    normal = new GUIStyleState() {
+                        textColor = Color.white,
+                    },
+                };
+
+                isRefreshed = true;
             }
         }
 
+        private void SetProperties(Mu3WindowProperty property) {
+            usePlayLoadScene = property.UsePlayLoadScene;
+            playLoadScene = property.PlayLoadScene;
+
+            sceneStructs = property.SceneStructs;
+
+            captureToCustomSize = property.CaptureToCustomSize;
+            captureSize = property.CaptureSize;
+
+            changeCaptureColor = property.ChangeCaptureColor;
+            targetColor = property.TargetColor;
+            changeColor = property.ChangeColor;
+            colorChangeStrength = property.ColorChangeStrength;
+
+            captureSaveDirectory = property.CaptureSaveDirectory;
+            captureSaveFileName = property.CaptureSaveFileName;
+        }
+
         void OnGUI() {
-            GUIStyle headerStyle = new GUIStyle() {
-                fontSize = 24,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleLeft,
-                padding = new RectOffset(20, 20, 12, 12),
-                margin = new RectOffset(0, 0, 0, 0),
-                fixedHeight = 40,
-                normal = new GUIStyleState() {
-                    textColor = Color.white,
-                },
-            };
-            GUIStyle header2Style = new GUIStyle() {
-                fontSize = 16,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleLeft,
-                padding = new RectOffset(20, 20, 12, 12),
-                margin = new RectOffset(0, 0, 0, 0),
-                fixedHeight = 40,
-                normal = new GUIStyleState() {
-                    textColor = Color.white,
-                },
-            };
-            GUIStyle header3Style = new GUIStyle() {
-                fontSize = 11,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleLeft,
-                padding = new RectOffset(20, 20, 12, 12),
-                margin = new RectOffset(0, 0, 0, 0),
-                fixedHeight = 40,
-                normal = new GUIStyleState() {
-                    textColor = Color.white,
-                },
-            };
+            if(currentWindowProperty == null) {
+                EditorGUILayout.LabelField("CurrentWindowProperty is NULL...");
+
+                return;
+            }
+            else {
+                GUILayout.BeginHorizontal();
+
+                if(GUILayout.Button("Refresh")) {
+                    isRefreshed = false;
+
+                    InitializeProperties();
+                }
+
+                DrawAsReadOnlyField(currentWindowProperty);
+
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+            }
+
+
 
             windowScreenPos = EditorGUILayout.BeginScrollView(windowScreenPos);
 
 
 
-            EditorGUILayout.LabelField("User Settings", headerStyle);
-
-            GUILayout.Space(25);
-            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
-            GUILayout.Space(10);
+            DrawHeader1("User Settings");
 
             #region User Settings
-            EditorGUILayout.LabelField("Play Load Scene", header2Style);
-            GUILayout.Space(15);
+            DrawHeader2("Play Load Scene");
 
             bool usePlayScene = GUILayout.Toggle(usePlayLoadScene, "Use Play Load Scene");
+            if(usePlayScene != usePlayLoadScene) {
+                usePlayLoadScene = usePlayScene;
+                currentWindowProperty.UsePlayLoadScene = usePlayScene;
+            }
             if(usePlayScene) {
                 SceneType playScene = (SceneType)EditorGUILayout.EnumPopup("Play Load Scene", playLoadScene);
                 if(playScene != playLoadScene) {
@@ -142,60 +201,44 @@ namespace Mu3Library.Editor.Window {
                 usePlayLoadScene = usePlayScene;
             }
 
-            GUILayout.Space(15);
-            EditorGUILayout.LabelField("Move Scene", header2Style);
-            GUILayout.Space(15);
+            DrawHeader2("Move Scene", true);
 
             if(EditorApplication.isPlayingOrWillChangePlaymode) {
                 GUILayout.Label("Now editor is playing.");
             }
-            else if(scenePaths == null || scenePaths.Count == 0) {
+            else if(sceneStructs == null || sceneStructs.Count == 0) {
                 GUILayout.Label("Scenes not found.");
             }
             else {
                 const float buttonHeight = 30;
 
-                foreach(var scenePath in scenePaths) {
-                    GUILayout.Space(-5);
+                foreach(var st in sceneStructs) {
+                    //GUILayout.BeginHorizontal(GUILayout.Height(header3Style.fixedHeight));
                     GUILayout.BeginHorizontal();
 
-                    GUILayout.BeginVertical();
-                    GUILayout.Space(15);
-                    bool showInInspector = GUILayout.Toggle(scenePath.Value.ShowInInspector, "Show In Inspector");
-                    GUILayout.EndVertical();
+                    bool showInInspector = GUILayout.Toggle(st.Value.ShowInInspector, "Show In Inspector");
 
-                    EditorGUILayout.LabelField(scenePath.Key, header3Style);
+                    DrawHeader3(st.Key);
 
                     GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
-                    //GUILayout.Space(15);
 
                     if(showInInspector) {
-                        //scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(buttonHeight * scenePath.Value.Paths.Count + 10));
-                        //sceneListScrollPos = EditorGUILayout.BeginScrollView(sceneListScrollPos);
-
-                        foreach(var path in scenePath.Value.Paths) {
+                        foreach(var path in st.Value.Paths) {
                             if(GUILayout.Button(Path.GetFileNameWithoutExtension(path), GUILayout.Height(buttonHeight))) {
                                 if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
                                     EditorSceneManager.OpenScene(path);
                                 }
                             }
                         }
-
-                        //EditorGUILayout.EndScrollView();
                     }
 
-                    scenePath.Value.ShowInInspector = showInInspector;
+                    st.Value.ShowInInspector = showInInspector;
                 }
             }
             #endregion
 
-            GUILayout.Space(30);
-            EditorGUILayout.LabelField("Screen Capture", headerStyle);
-
-            GUILayout.Space(25);
-            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
-            GUILayout.Space(10);
+            DrawHeader1("Screen Capture", true);
 
             #region Screen Capture
             EditorGUILayout.BeginHorizontal();
@@ -299,12 +342,38 @@ namespace Mu3Library.Editor.Window {
             File.WriteAllBytes(path, bytes);
         }
 
+        #region Util Style
+        private void DrawHeader1(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(25);
+            EditorGUILayout.LabelField(label, header1Style);
+            GUILayout.Space(25);
 
-
-        class SceneControlStruct {
-            public bool ShowInInspector;
-            public List<string> Paths;
+            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
+            GUILayout.Space(10);
         }
+
+        private void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(25);
+            EditorGUILayout.LabelField(label, header2Style);
+            GUILayout.Space(15);
+        }
+
+        private void DrawHeader3(string label) {
+            EditorGUILayout.LabelField(label, header3Style);
+        }
+
+        private void DrawAsReadOnlyField<T>(T obj) where T : Object {
+            GUI.enabled = false;
+            EditorGUILayout.ObjectField(obj, typeof(T), false);
+            GUI.enabled = true;
+        }
+
+        private void DrawAsReadOnlyField(SerializedProperty property) {
+            GUI.enabled = false;
+            EditorGUILayout.PropertyField(property);
+            GUI.enabled = true;
+        }
+        #endregion
     }
 }
 #endif
