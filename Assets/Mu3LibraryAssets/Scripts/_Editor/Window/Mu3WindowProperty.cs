@@ -96,6 +96,7 @@ namespace Mu3Library.Editor.Window {
 
         private void RefreshSceneStructs() {
             List<SceneControlStruct>  newStructs = new List<SceneControlStruct>();
+
             string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
             if(scenes != null && scenes.Length > 0) {
                 foreach(string path in scenes) {
@@ -115,7 +116,9 @@ namespace Mu3Library.Editor.Window {
 
                     SceneProperty newProperty = new SceneProperty();
                     newProperty.IncludeInBuild = false;
+                    newProperty.GUID = AssetDatabase.AssetPathToGUID(path);
                     newProperty.Path = path;
+                    newProperty.Name = Path.GetFileNameWithoutExtension(path);
 
                     currentST.Properties.Add(newProperty);
                 }
@@ -130,7 +133,7 @@ namespace Mu3Library.Editor.Window {
 
                         for(int j = 0; j < scs.Properties.Count; j++) {
                             SceneProperty sp = scs.Properties[j];
-                            SceneProperty op = old.Properties.Where(t => t.Path == sp.Path).FirstOrDefault();
+                            SceneProperty op = old.Properties.Where(t => t.GUID == sp.GUID).FirstOrDefault();
                             if(op != null) {
                                 sp.IncludeInBuild = op.IncludeInBuild;
                             }
@@ -141,7 +144,26 @@ namespace Mu3Library.Editor.Window {
 
             sceneStructs = newStructs;
         }
+
+        #region Utility
+        public SceneProperty GetSceneProperty(string guid) {
+            if(sceneStructs == null) return null;
+
+            SceneProperty result = null;
+            for(int i = 0; i < sceneStructs.Count; i++) {
+                result = sceneStructs[i].GetSceneProperty(guid);
+
+                if(result != null) {
+                    break;
+                }
+            }
+
+            return result;
+        }
+        #endregion
     }
+
+
 
     [System.Serializable]
     public class SceneControlStruct {
@@ -149,12 +171,22 @@ namespace Mu3Library.Editor.Window {
         public bool ShowInInspector;
 
         public List<SceneProperty> Properties;
+
+
+
+        #region Utility
+        public SceneProperty GetSceneProperty(string guid) {
+            return Properties == null ? null : Properties.Where(t => t.GUID == guid).FirstOrDefault();
+        }
+        #endregion
     }
 
     [System.Serializable]
     public class SceneProperty {
         public bool IncludeInBuild;
 
+        public string GUID;
         public string Path;
+        public string Name;
     }
 }

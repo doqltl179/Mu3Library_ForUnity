@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditorInternal;
 using UnityEngine;
 
 using static Mu3Library.Scene.SceneLoader;
@@ -30,6 +31,13 @@ namespace Mu3Library.Editor.Window {
         #endregion
 
         private Vector2 windowScreenPos;
+
+        #region Move Scene Properties
+
+        private List<SceneProperty> sceneInBuildControlList;
+        private ReorderableList sceneInBuildReorderableList;
+
+        #endregion
 
         #region Screen Capture Properties
 
@@ -74,6 +82,37 @@ namespace Mu3Library.Editor.Window {
 
             if(currentWindowProperty != null && !isRefreshed) {
                 currentWindowProperty.Refresh();
+
+                List<EditorBuildSettingsScene> scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+                sceneInBuildControlList = new List<SceneProperty>();
+                for(int i = 0; i < scenes.Count; i++) {
+                    SceneProperty s = currentWindowProperty.GetSceneProperty(scenes[i].guid.ToString());
+
+                    if(s == null) {
+                        Debug.LogWarning($"Build Scene not found in 'currentWindowProperty'. path: {scenes[i].path}, guid: {scenes[i].guid}");
+                    }
+                    else {
+                        sceneInBuildControlList.Add(s);
+                    }
+                }
+
+                sceneInBuildReorderableList = new ReorderableList(sceneInBuildControlList, typeof(SceneProperty), true, true, true, true);
+                sceneInBuildReorderableList.drawHeaderCallback = (Rect rect) => {
+                    EditorGUI.LabelField(rect, "Scene In Build");
+                };
+                sceneInBuildReorderableList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
+                    var item = sceneInBuildControlList[index];
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), item.Name);
+                };
+                sceneInBuildReorderableList.onCanAddCallback = (ReorderableList list) => {
+                    return false;
+                };
+                sceneInBuildReorderableList.onCanRemoveCallback = (ReorderableList list) => {
+                    return false;
+                };
+                sceneInBuildReorderableList.onReorderCallback = (ReorderableList list) => {
+                    ResetScenesInBuild(sceneInBuildControlList);
+                };
 
                 header1Style = new GUIStyle() {
                     fontSize = 24,
@@ -120,7 +159,7 @@ namespace Mu3Library.Editor.Window {
                 GUILayout.BeginHorizontal();
 
                 if(GUILayout.Button("Refresh")) {
-                    isRefreshed = false;
+                    currentWindowProperty = null;
 
                     InitializeProperties();
                 }
@@ -140,7 +179,7 @@ namespace Mu3Library.Editor.Window {
             #region User Settings
             DrawHeader1("User Settings");
 
-            DrawHeader2("Play Load Scene");
+            DrawHeader2("Play Load Scene", true, true);
 
             bool usePlayScene = GUILayout.Toggle(currentWindowProperty.UsePlayLoadScene, "Use Play Load Scene");
             if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
@@ -153,7 +192,13 @@ namespace Mu3Library.Editor.Window {
                 }
             }
 
-            DrawHeader2("Move Scene", true);
+            DrawHeader2("Scene Control", true, true);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(20);
+            sceneInBuildReorderableList.DoLayoutList();
+            GUILayout.Space(20);
+            GUILayout.EndHorizontal();
 
             if(EditorApplication.isPlayingOrWillChangePlaymode) {
                 GUILayout.Label("Now editor is playing.");
@@ -165,27 +210,53 @@ namespace Mu3Library.Editor.Window {
                 const float buttonHeight = 30;
 
                 foreach(var st in currentWindowProperty.SceneStructs) {
-                    //GUILayout.BeginHorizontal(GUILayout.Height(header3Style.fixedHeight));
                     GUILayout.BeginHorizontal();
 
-                    bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
-
+                    //bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
+                    bool showInInspector = EditorGUILayout.Foldout(st.ShowInInspector, "");
                     DrawHeader3(st.Key);
 
                     GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     if(showInInspector) {
+                        GUILayout.Space(5);
+
                         foreach(var property in st.Properties) {
                             GUILayout.BeginHorizontal();
                             GUILayout.Space(20);
 
                             bool includeInBuild = GUILayout.Toggle(property.IncludeInBuild, "Include In Build", GUILayout.Width(120));
                             if(includeInBuild != property.IncludeInBuild) {
+                                int changeSceneIndex = sceneInBuildControlList.FindIndex(t => t.GUID == property.GUID);
 
+                                if(includeInBuild) {
+                                    if(changeSceneIndex >= 0) {
+                                        Debug.LogWarning($"Scene already included in build. {property.Name}");
+                                    }
+                                    else {
+                                        sceneInBuildControlList.Add(property);
+                                    }
+                                }
+                                else {
+                                    if(changeSceneIndex >= 0) {
+                                        sceneInBuildControlList.RemoveAt(changeSceneIndex);
+                                    }
+                                    else {
+                                        Debug.LogWarning($"Scene not included in build. {property.Name}");
+                                    }
+                                }
+
+                                ResetScenesInBuild(sceneInBuildControlList);
 
                                 property.IncludeInBuild = includeInBuild;
                             }
+
+                            if(GUILayout.Button("Select", GUILayout.Height(buttonHeight), GUILayout.Width(60))) {
+                                Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(property.Path);
+                                EditorGUIUtility.PingObject(Selection.activeObject);
+                            }
+                            GUILayout.Space(15);
 
                             if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
                                 if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
@@ -309,22 +380,24 @@ namespace Mu3Library.Editor.Window {
 
         #region Util Style
         private void DrawHeader1(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
-            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(25);
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header1Style.fontSize);
             EditorGUILayout.LabelField(label, header1Style);
-            GUILayout.Space(25);
+            GUILayout.Space(header1Style.fontSize);
 
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
             GUILayout.Space(10);
         }
 
-        private void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
-            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(25);
+        private void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
             EditorGUILayout.LabelField(label, header2Style);
-            GUILayout.Space(15);
+            if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
         }
 
-        private void DrawHeader3(string label) {
+        private void DrawHeader3(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
             EditorGUILayout.LabelField(label, header3Style);
+            if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
         }
 
         private void DrawAsReadOnlyField<T>(T obj) where T : Object {
@@ -339,6 +412,14 @@ namespace Mu3Library.Editor.Window {
             GUI.enabled = true;
         }
         #endregion
+
+        private void ResetScenesInBuild(List<SceneProperty> sp) {
+            EditorBuildSettingsScene[] scenes = new EditorBuildSettingsScene[sp.Count];
+            for(int i = 0; i < scenes.Length; i++) {
+                scenes[i] = new EditorBuildSettingsScene(sp[i].Path, true);
+            }
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
     }
 }
 #endif
