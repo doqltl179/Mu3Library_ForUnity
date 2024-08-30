@@ -142,9 +142,7 @@ namespace Mu3Library.Editor.Window {
             DrawHeader2("Play Load Scene", false, true);
 
             GUILayout.BeginHorizontal();
-            bool usePlayScene = GUILayout.Toggle(currentWindowProperty.UsePlayLoadScene, "Use Play Load Scene", new GUIStyle(EditorStyles.toggle) {
-
-            });
+            bool usePlayScene = EditorGUILayout.ToggleLeft("Use Play Load Scene", currentWindowProperty.UsePlayLoadScene);
             if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
                 currentWindowProperty.UsePlayLoadScene = usePlayScene;
             }
@@ -213,7 +211,6 @@ namespace Mu3Library.Editor.Window {
                         GUILayout.BeginHorizontal();
                         GUILayout.Space(5);
 
-                        //bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
                         if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
                             currentWindowProperty.AddBuildScenes(st.Properties);
                             currentWindowProperty.RefreshBuildSceneList();
@@ -304,7 +301,7 @@ namespace Mu3Library.Editor.Window {
 
             GUILayout.BeginHorizontal();
 
-            if(GUILayout.Button("Screen Capture")) {
+            if(GUILayout.Button("Screen Capture", GUILayout.Height(buttonHeight))) {
                 string path = EditorUtility.SaveFilePanel(
                     "Save ScreenShot",
                     string.IsNullOrEmpty(captureSaveDirectory) ? Application.dataPath : captureSaveDirectory,
