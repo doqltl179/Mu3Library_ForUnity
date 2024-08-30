@@ -1,15 +1,10 @@
 #if UNITY_EDITOR
 using Mu3Library.Utility;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEditorInternal;
 using UnityEngine;
-
-using static Mu3Library.Scene.SceneLoader;
 
 namespace Mu3Library.Editor.Window {
     public class Mu3Window : EditorWindow {
@@ -18,7 +13,11 @@ namespace Mu3Library.Editor.Window {
         private const string WindowName_MyCustomWindow = WindowsMenuName + "/Mu3 Window";
 
         private List<Mu3WindowProperty> windowPropertyList;
+        public Mu3WindowProperty CurrentWindowProperty {
+            get => currentWindowProperty;
+        }
         private Mu3WindowProperty currentWindowProperty = null;
+
         private bool isRefreshed = false;
 
         #region GUIStyle
@@ -34,8 +33,7 @@ namespace Mu3Library.Editor.Window {
 
         #region Move Scene Properties
 
-        private List<SceneProperty> sceneInBuildControlList;
-        private ReorderableList sceneInBuildReorderableList;
+
 
         #endregion
 
@@ -50,7 +48,6 @@ namespace Mu3Library.Editor.Window {
 
         [MenuItem(WindowName_MyCustomWindow)]
         public static void ShowWindow() {
-            // 윈도우 인스턴스를 가져오거나 생성합니다.
             GetWindow(typeof(Mu3Window), false, "Mu3 Window");
         }
 
@@ -62,18 +59,11 @@ namespace Mu3Library.Editor.Window {
             if(currentWindowProperty == null || windowPropertyList == null || windowPropertyList.Count == 0) {
                 isRefreshed = false;
 
-                string[] guids = AssetDatabase.FindAssets("t:ScriptableObject");
                 currentWindowProperty = null;
 
-                windowPropertyList = new List<Mu3WindowProperty>();
-                foreach(string guid in guids) {
-                    string path = AssetDatabase.GUIDToAssetPath(guid);
-                    ScriptableObject obj = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
-
-                    if(obj.GetType() == typeof(Mu3WindowProperty)) {
-                        windowPropertyList.Add((Mu3WindowProperty)obj);
-                    }
-                }
+                UtilFuncForEditor.ResetAssetsFindOptions();
+                UtilFuncForEditor.TypeString = nameof(Mu3WindowProperty);
+                windowPropertyList = UtilFuncForEditor.LoadAssets<Mu3WindowProperty>();
 
                 if(windowPropertyList.Count > 0) {
                     currentWindowProperty = windowPropertyList[0];
@@ -82,37 +72,6 @@ namespace Mu3Library.Editor.Window {
 
             if(currentWindowProperty != null && !isRefreshed) {
                 currentWindowProperty.Refresh();
-
-                List<EditorBuildSettingsScene> scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-                sceneInBuildControlList = new List<SceneProperty>();
-                for(int i = 0; i < scenes.Count; i++) {
-                    SceneProperty s = currentWindowProperty.GetSceneProperty(scenes[i].guid.ToString());
-
-                    if(s == null) {
-                        Debug.LogWarning($"Build Scene not found in 'currentWindowProperty'. path: {scenes[i].path}, guid: {scenes[i].guid}");
-                    }
-                    else {
-                        sceneInBuildControlList.Add(s);
-                    }
-                }
-
-                sceneInBuildReorderableList = new ReorderableList(sceneInBuildControlList, typeof(SceneProperty), true, true, true, true);
-                sceneInBuildReorderableList.drawHeaderCallback = (Rect rect) => {
-                    EditorGUI.LabelField(rect, "Scene In Build");
-                };
-                sceneInBuildReorderableList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
-                    var item = sceneInBuildControlList[index];
-                    EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), item.Name);
-                };
-                sceneInBuildReorderableList.onCanAddCallback = (ReorderableList list) => {
-                    return false;
-                };
-                sceneInBuildReorderableList.onCanRemoveCallback = (ReorderableList list) => {
-                    return false;
-                };
-                sceneInBuildReorderableList.onReorderCallback = (ReorderableList list) => {
-                    ResetScenesInBuild(sceneInBuildControlList);
-                };
 
                 header1Style = new GUIStyle() {
                     fontSize = 24,
@@ -173,105 +132,146 @@ namespace Mu3Library.Editor.Window {
 
 
             windowScreenPos = EditorGUILayout.BeginScrollView(windowScreenPos);
+            const float buttonHeight = 30;
 
 
 
             #region User Settings
             DrawHeader1("User Settings");
 
-            DrawHeader2("Play Load Scene", true, true);
+            DrawHeader2("Play Load Scene", false, true);
 
-            bool usePlayScene = GUILayout.Toggle(currentWindowProperty.UsePlayLoadScene, "Use Play Load Scene");
+            GUILayout.BeginHorizontal();
+            bool usePlayScene = GUILayout.Toggle(currentWindowProperty.UsePlayLoadScene, "Use Play Load Scene", new GUIStyle(EditorStyles.toggle) {
+
+            });
             if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
                 currentWindowProperty.UsePlayLoadScene = usePlayScene;
             }
             if(usePlayScene) {
-                SceneType playScene = (SceneType)EditorGUILayout.EnumPopup("Play Load Scene", currentWindowProperty.PlayLoadScene);
-                if(playScene != currentWindowProperty.PlayLoadScene) {
-                    currentWindowProperty.PlayLoadScene = playScene;
+                GUILayout.Space(5);
+
+                if(currentWindowProperty.SceneInBuildNameList == null || currentWindowProperty.SceneInBuildNameList.Length == 0) {
+                    if(!string.IsNullOrEmpty(currentWindowProperty.PlayLoadScene)) {
+                        currentWindowProperty.PlayLoadScene = "";
+                    }
+
+                    GUILayout.Label("Build Scenes not found.");
+                }
+                else {
+                    if(currentWindowProperty.PlayLoadSceneIndex < 0) {
+                        currentWindowProperty.PlayLoadSceneIndex = 0;
+                    }
+                    else if(currentWindowProperty.PlayLoadSceneIndex >= currentWindowProperty.SceneInBuildNameList.Length) {
+                        currentWindowProperty.PlayLoadSceneIndex = currentWindowProperty.SceneInBuildNameList.Length - 1;
+                    }
+
+                    int playSceneIndex = EditorGUILayout.Popup(currentWindowProperty.PlayLoadSceneIndex, currentWindowProperty.SceneInBuildNameList, EditorStyles.popup);
+                    if(playSceneIndex != currentWindowProperty.PlayLoadSceneIndex) {
+
+
+                        currentWindowProperty.PlayLoadSceneIndex = playSceneIndex;
+                    }
                 }
             }
+            GUILayout.EndHorizontal();
 
             DrawHeader2("Scene Control", true, true);
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(20);
-            sceneInBuildReorderableList.DoLayoutList();
-            GUILayout.Space(20);
-            GUILayout.EndHorizontal();
 
             if(EditorApplication.isPlayingOrWillChangePlaymode) {
                 GUILayout.Label("Now editor is playing.");
             }
-            else if(currentWindowProperty.SceneStructs == null || currentWindowProperty.SceneStructs.Count == 0) {
-                GUILayout.Label("Scenes not found.");
-            }
             else {
-                const float buttonHeight = 30;
+                GUILayout.BeginHorizontal();
+                if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
+                    currentWindowProperty.AddAllScenesInBuild();
+                    currentWindowProperty.RefreshBuildSceneList();
+                }
+                GUILayout.Space(5);
+                if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
+                    currentWindowProperty.RemoveAllScenesInBuild();
+                    currentWindowProperty.RefreshBuildSceneList();
+                }
+                GUILayout.EndHorizontal();
 
-                foreach(var st in currentWindowProperty.SceneStructs) {
-                    GUILayout.BeginHorizontal();
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(20);
+                if(currentWindowProperty.SceneInBuildReorderableList != null) {
+                    currentWindowProperty.SceneInBuildReorderableList.DoLayoutList();
+                }
+                else {
+                    GUILayout.Label("'sceneInBuildReorderableList' is NULL.");
+                }
+                GUILayout.Space(20);
+                GUILayout.EndHorizontal();
 
-                    //bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
-                    bool showInInspector = EditorGUILayout.Foldout(st.ShowInInspector, "");
-                    DrawHeader3(st.Key);
-
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndHorizontal();
-
-                    if(showInInspector) {
+                if(currentWindowProperty.SceneStructs == null || currentWindowProperty.SceneStructs.Count == 0) {
+                    GUILayout.Label("Scenes not found.");
+                }
+                else {
+                    foreach(var st in currentWindowProperty.SceneStructs) {
+                        GUILayout.BeginHorizontal();
                         GUILayout.Space(5);
 
-                        foreach(var property in st.Properties) {
-                            GUILayout.BeginHorizontal();
-                            GUILayout.Space(20);
+                        //bool showInInspector = GUILayout.Toggle(st.ShowInInspector, "Show In Inspector");
+                        if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
+                            currentWindowProperty.AddBuildScenes(st.Properties);
+                            currentWindowProperty.RefreshBuildSceneList();
+                        }
+                        GUILayout.Space(5);
+                        if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
+                            currentWindowProperty.RemoveBuildScenes(st.Properties);
+                            currentWindowProperty.RefreshBuildSceneList();
+                        }
+                        GUILayout.Space(5);
+                        Rect lastRect = GUILayoutUtility.GetLastRect(); //이전 요소의 Rect 가져오기
+                        Rect foldoutRect = new Rect(lastRect.x + 5, lastRect.y + lastRect.height + 2, 20, EditorGUIUtility.singleLineHeight); //이전 Rect를 기반으로 Foldout 그리기
+                        bool showInInspector = EditorGUI.Foldout(foldoutRect, st.ShowInInspector, "");
+                        GUILayout.Space(5);
+                        DrawHeader3(st.Key);
 
-                            bool includeInBuild = GUILayout.Toggle(property.IncludeInBuild, "Include In Build", GUILayout.Width(120));
-                            if(includeInBuild != property.IncludeInBuild) {
-                                int changeSceneIndex = sceneInBuildControlList.FindIndex(t => t.GUID == property.GUID);
+                        GUILayout.EndHorizontal();
 
-                                if(includeInBuild) {
-                                    if(changeSceneIndex >= 0) {
-                                        Debug.LogWarning($"Scene already included in build. {property.Name}");
-                                    }
-                                    else {
-                                        sceneInBuildControlList.Add(property);
+                        if(showInInspector) {
+                            GUILayout.Space(5);
+
+                            foreach(var property in st.Properties) {
+                                GUILayout.BeginHorizontal();
+                                GUILayout.Space(20);
+
+                                if(currentWindowProperty.IsExistInBuildScenes(property)) GUI.enabled = false;
+                                if(GUILayout.Button("Add In Build", GUILayout.Height(buttonHeight), GUILayout.Width(90))) {
+                                    currentWindowProperty.AddBuildScene(property);
+                                    currentWindowProperty.RefreshBuildSceneList();
+                                }
+                                if(currentWindowProperty.IsExistInBuildScenes(property)) GUI.enabled = true;
+                                GUILayout.Space(5);
+
+                                if(GUILayout.Button("Select", GUILayout.Height(buttonHeight), GUILayout.Width(60))) {
+                                    Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(property.Path);
+                                    EditorGUIUtility.PingObject(Selection.activeObject);
+                                }
+                                GUILayout.Space(5);
+
+                                if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
+                                    if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
+                                        EditorSceneManager.OpenScene(property.Path);
                                     }
                                 }
-                                else {
-                                    if(changeSceneIndex >= 0) {
-                                        sceneInBuildControlList.RemoveAt(changeSceneIndex);
-                                    }
-                                    else {
-                                        Debug.LogWarning($"Scene not included in build. {property.Name}");
-                                    }
-                                }
 
-                                ResetScenesInBuild(sceneInBuildControlList);
-
-                                property.IncludeInBuild = includeInBuild;
+                                GUILayout.Space(20);
+                                GUILayout.EndHorizontal();
                             }
 
-                            if(GUILayout.Button("Select", GUILayout.Height(buttonHeight), GUILayout.Width(60))) {
-                                Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(property.Path);
-                                EditorGUIUtility.PingObject(Selection.activeObject);
-                            }
-                            GUILayout.Space(15);
-
-                            if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
-                                if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
-                                    EditorSceneManager.OpenScene(property.Path);
-                                }
-                            }
-
-                            GUILayout.Space(20);
-                            GUILayout.EndHorizontal();
+                            GUILayout.Space(10);
                         }
 
-                        GUILayout.Space(5);
-                    }
+                        if(showInInspector != st.ShowInInspector) {
 
-                    st.ShowInInspector = showInInspector;
+
+                            st.ShowInInspector = showInInspector;
+                        }
+                    }
                 }
             }
             #endregion
@@ -412,14 +412,6 @@ namespace Mu3Library.Editor.Window {
             GUI.enabled = true;
         }
         #endregion
-
-        private void ResetScenesInBuild(List<SceneProperty> sp) {
-            EditorBuildSettingsScene[] scenes = new EditorBuildSettingsScene[sp.Count];
-            for(int i = 0; i < scenes.Length; i++) {
-                scenes[i] = new EditorBuildSettingsScene(sp[i].Path, true);
-            }
-            EditorBuildSettings.scenes = scenes.ToArray();
-        }
     }
 }
 #endif

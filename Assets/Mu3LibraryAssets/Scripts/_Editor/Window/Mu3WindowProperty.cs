@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 using static Mu3Library.Scene.SceneLoader;
@@ -23,11 +24,26 @@ namespace Mu3Library.Editor.Window {
         [Title("Play Load Scene")]
         [SerializeField, ReadOnly] private bool usePlayLoadScene = false;
 
-        public SceneType PlayLoadScene {
+        public string PlayLoadScene {
             get => playLoadScene;
             set => playLoadScene = value;
         }
-        [SerializeField, ReadOnly] private SceneType playLoadScene = SceneType.Splash;
+        [SerializeField, ReadOnly] private string playLoadScene = "";
+
+        public int PlayLoadSceneIndex {
+            get => playLoadSceneIndex;
+            set {
+                playLoadScene = (sceneInBuildNameList == null || sceneInBuildNameList.Length == 0 || value >= sceneInBuildNameList.Length) ? "" : sceneInBuildNameList[value];
+
+                playLoadSceneIndex = value;
+            }
+        }
+        [SerializeField, ReadOnly] private int playLoadSceneIndex = 0;
+
+        public string[] SceneInBuildNameList {
+            get => sceneInBuildNameList;
+        }
+        private string[] sceneInBuildNameList;
         #endregion
 
         #region Move Scene Properties
@@ -36,6 +52,11 @@ namespace Mu3Library.Editor.Window {
         }
         [Title("Move Scene Properties")]
         [SerializeField, ReadOnly] private List<SceneControlStruct> sceneStructs;
+
+        public ReorderableList SceneInBuildReorderableList {
+            get => sceneInBuildReorderableList;
+        }
+        [SerializeField, ReadOnly] private ReorderableList sceneInBuildReorderableList;
         #endregion
 
         #region Screen Capture Properties
@@ -86,18 +107,66 @@ namespace Mu3Library.Editor.Window {
 
 
 
+        /// <summary>
+        /// When called recompile.
+        /// </summary>
         private void OnEnable() {
             Refresh();
         }
 
         public void Refresh() {
             RefreshSceneStructs();
+            RefreshBuildScenes();
+        }
+
+        private void RefreshBuildScenes() {
+            List<EditorBuildSettingsScene> scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            List<SceneProperty> sceneInBuildControlList = new List<SceneProperty>();
+            for(int i = 0; i < scenes.Count; i++) {
+                SceneProperty s = GetSceneProperty(scenes[i].guid.ToString());
+
+                if(s == null) {
+                    Debug.LogWarning($"Build Scene not found in 'currentWindowProperty'. path: {scenes[i].path}, guid: {scenes[i].guid}");
+                }
+                else {
+                    sceneInBuildControlList.Add(s);
+                }
+            }
+
+            sceneInBuildReorderableList = new ReorderableList(sceneInBuildControlList, typeof(SceneProperty), true, true, false, false);
+            sceneInBuildReorderableList.drawHeaderCallback = (Rect rect) => {
+                EditorGUI.LabelField(rect, "Scenes In Build");
+            };
+            sceneInBuildReorderableList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
+                if(index >= sceneInBuildControlList.Count) {
+                    Debug.LogWarning($"Index out of range. listCount: {sceneInBuildControlList.Count}, index: {index}");
+
+                    return;
+                }
+
+                var item = sceneInBuildControlList[index];
+
+                EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width - 100, EditorGUIUtility.singleLineHeight), item.Name);
+                if(GUI.Button(new Rect(rect.x + rect.width - 90, rect.y, 80, EditorGUIUtility.singleLineHeight), "Remove")) {
+                    RemoveBuildScene(index);
+
+                    RefreshBuildSceneList();
+                }
+            };
+            sceneInBuildReorderableList.onReorderCallback = (ReorderableList list) => {
+                RefreshBuildSceneList();
+
+                PlayLoadSceneIndex = (sceneInBuildNameList == null || string.IsNullOrEmpty(playLoadScene)) ? 0 : System.Array.FindIndex(sceneInBuildNameList, t => t == playLoadScene);
+            };
         }
 
         private void RefreshSceneStructs() {
             List<SceneControlStruct>  newStructs = new List<SceneControlStruct>();
 
-            string[] scenes = AssetDatabase.FindAssets("t:Scene").Select(AssetDatabase.GUIDToAssetPath).ToArray();
+            UtilFuncForEditor.ResetAssetsFindOptions();
+            UtilFuncForEditor.TypeString = "Scene";
+            string[] scenes = UtilFuncForEditor.FindAssetsPath();
+
             if(scenes != null && scenes.Length > 0) {
                 foreach(string path in scenes) {
                     string directory = Path.GetDirectoryName(path);
@@ -115,7 +184,6 @@ namespace Mu3Library.Editor.Window {
                     }
 
                     SceneProperty newProperty = new SceneProperty();
-                    newProperty.IncludeInBuild = false;
                     newProperty.GUID = AssetDatabase.AssetPathToGUID(path);
                     newProperty.Path = path;
                     newProperty.Name = Path.GetFileNameWithoutExtension(path);
@@ -131,13 +199,13 @@ namespace Mu3Library.Editor.Window {
                     if(old != null) {
                         scs.ShowInInspector = old.ShowInInspector;
 
-                        for(int j = 0; j < scs.Properties.Count; j++) {
-                            SceneProperty sp = scs.Properties[j];
-                            SceneProperty op = old.Properties.Where(t => t.GUID == sp.GUID).FirstOrDefault();
-                            if(op != null) {
-                                sp.IncludeInBuild = op.IncludeInBuild;
-                            }
-                        }
+                        //for(int j = 0; j < scs.Properties.Count; j++) {
+                        //    SceneProperty sp = scs.Properties[j];
+                        //    SceneProperty op = old.Properties.Where(t => t.GUID == sp.GUID).FirstOrDefault();
+                        //    if(op != null) {
+
+                        //    }
+                        //}
                     }
                 }
             }
@@ -146,6 +214,71 @@ namespace Mu3Library.Editor.Window {
         }
 
         #region Utility
+        public void AddAllScenesInBuild() {
+            if(sceneStructs == null) return;
+
+            for(int i = 0; i < sceneStructs.Count; i++) {
+                AddBuildScenes(sceneStructs[i].Properties);
+            }
+        }
+
+        public void AddBuildScenes(List<SceneProperty> properties) {
+            for(int i = 0; i < properties.Count; i++) {
+                AddBuildScene(properties[i]);
+            }
+        }
+
+        public void AddBuildScene(SceneProperty property) {
+            int changeSceneIndex = (sceneInBuildReorderableList.list as List<SceneProperty>).FindIndex(t => t.GUID == property.GUID);
+            if(changeSceneIndex >= 0) {
+                Debug.LogWarning($"Scene already included in build. {property.Name}");
+            }
+            else {
+                sceneInBuildReorderableList.list.Add(property);
+            }
+        }
+
+        public void RemoveAllScenesInBuild() {
+            sceneInBuildReorderableList.list.Clear();
+        }
+
+        public void RemoveBuildScenes(List<SceneProperty> properties) {
+            for(int i = 0; i < properties.Count; i++) {
+                RemoveBuildScene(properties[i]);
+            }
+        }
+
+        public void RemoveBuildScene(SceneProperty property) {
+            int changeSceneIndex = (sceneInBuildReorderableList.list as List<SceneProperty>).FindIndex(t => t.GUID == property.GUID);
+            if(changeSceneIndex >= 0) {
+                sceneInBuildReorderableList.list.RemoveAt(changeSceneIndex);
+            }
+            else {
+                Debug.LogWarning($"Scene not found in build list. name: {property.Name}, path: {property.Path}, guid: {property.GUID}");
+            }
+        }
+
+        public void RemoveBuildScene(int index) {
+            if(index < sceneInBuildReorderableList.count) {
+                sceneInBuildReorderableList.list.RemoveAt(index);
+            }
+            else {
+                Debug.LogWarning($"Index out of range. index: {index}");
+            }
+        }
+
+        public void RefreshBuildSceneList() {
+            RefreshBuildSceneList(sceneInBuildReorderableList);
+
+            sceneInBuildNameList = ReorderableListToGenericList<SceneProperty>(sceneInBuildReorderableList).Select(t => t.Name).ToArray();
+        }
+
+        public bool IsExistInBuildScenes(SceneProperty property) {
+            if(sceneInBuildReorderableList == null || sceneInBuildReorderableList.count == 0) return false;
+
+            return (sceneInBuildReorderableList.list as List<SceneProperty>).Any(t => t.GUID == property.GUID);
+        }
+
         public SceneProperty GetSceneProperty(string guid) {
             if(sceneStructs == null) return null;
 
@@ -161,6 +294,32 @@ namespace Mu3Library.Editor.Window {
             return result;
         }
         #endregion
+
+        private void RefreshBuildSceneList(ReorderableList list) {
+            List<SceneProperty> properties = ReorderableListToGenericList<SceneProperty>(list);
+
+            EditorBuildSettingsScene[] scenes = new EditorBuildSettingsScene[properties.Count];
+            for(int i = 0; i < scenes.Length; i++) {
+                scenes[i] = new EditorBuildSettingsScene(properties[i].Path, true);
+            }
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
+        private List<T> ReorderableListToGenericList<T>(ReorderableList list) {
+            List<T> result = new List<T>();
+
+            if(list == null) {
+                Debug.LogWarning("ReorderableList is NULL.");
+            }
+            else if(list.GetType().IsGenericType && list.GetType().GenericTypeArguments[0] != typeof(T)) {
+                Debug.LogWarning($"Type is different. GenericType: {typeof(T)}, ReorderableType: {list.GetType().GenericTypeArguments[0]}");
+            }
+            else {
+                result = list.list as List<T>;
+            }
+
+            return result;
+        }
     }
 
 
@@ -183,8 +342,6 @@ namespace Mu3Library.Editor.Window {
 
     [System.Serializable]
     public class SceneProperty {
-        public bool IncludeInBuild;
-
         public string GUID;
         public string Path;
         public string Name;
