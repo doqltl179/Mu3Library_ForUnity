@@ -6,8 +6,6 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
-using static Mu3Library.Scene.SceneLoader;
-
 namespace Mu3Library.Editor.Window {
     /// <summary>
     /// <br/> 해당 'ScriptableObject'는 에디터의 데이터를 저장하기 위해 사용한다.
@@ -47,7 +45,10 @@ namespace Mu3Library.Editor.Window {
         #endregion
 
         #region Move Scene Properties
-        public List<SceneControlStruct> SceneStructs {
+        public int SceneStructCount {
+            get => sceneStructs.Count;
+        }
+        public IEnumerable<SceneControlStruct> SceneStructs {
             get => sceneStructs;
         }
         [Title("Move Scene Properties")]
@@ -173,22 +174,19 @@ namespace Mu3Library.Editor.Window {
 
                     SceneControlStruct currentST = newStructs.Where(t => t.Key == directory).FirstOrDefault();
                     if(currentST == null) {
-                        SceneControlStruct st = new SceneControlStruct() {
-                            Key = directory,
-                            ShowInInspector = true,
-                            Properties = new List<SceneProperty>(),
-                        };
+                        SceneControlStruct st = new SceneControlStruct();
+                        st.ChangeKey(directory);
 
                         newStructs.Add(st);
                         currentST = st;
                     }
 
                     SceneProperty newProperty = new SceneProperty();
-                    newProperty.GUID = AssetDatabase.AssetPathToGUID(path);
-                    newProperty.Path = path;
-                    newProperty.Name = Path.GetFileNameWithoutExtension(path);
+                    newProperty.ChangeGUID(AssetDatabase.AssetPathToGUID(path));
+                    newProperty.ChangePath(path);
+                    newProperty.ChangeName(Path.GetFileNameWithoutExtension(path));
 
-                    currentST.Properties.Add(newProperty);
+                    currentST.AddSceneProperty(newProperty);
                 }
             }
 
@@ -197,7 +195,7 @@ namespace Mu3Library.Editor.Window {
                     SceneControlStruct scs = newStructs[i];
                     SceneControlStruct old = sceneStructs.Where(t => t.Key == scs.Key).FirstOrDefault();
                     if(old != null) {
-                        scs.ShowInInspector = old.ShowInInspector;
+                        scs.ChangeShowInInspector(old.ShowInInspector);
 
                         //for(int j = 0; j < scs.Properties.Count; j++) {
                         //    SceneProperty sp = scs.Properties[j];
@@ -222,9 +220,9 @@ namespace Mu3Library.Editor.Window {
             }
         }
 
-        public void AddBuildScenes(List<SceneProperty> properties) {
-            for(int i = 0; i < properties.Count; i++) {
-                AddBuildScene(properties[i]);
+        public void AddBuildScenes(IEnumerable<SceneProperty> properties) {
+            foreach(SceneProperty property in properties) { 
+                AddBuildScene(property);
             }
         }
 
@@ -242,9 +240,9 @@ namespace Mu3Library.Editor.Window {
             sceneInBuildReorderableList.list.Clear();
         }
 
-        public void RemoveBuildScenes(List<SceneProperty> properties) {
-            for(int i = 0; i < properties.Count; i++) {
-                RemoveBuildScene(properties[i]);
+        public void RemoveBuildScenes(IEnumerable<SceneProperty> properties) {
+            foreach(SceneProperty property in properties) {
+                RemoveBuildScene(property);
             }
         }
 
@@ -326,24 +324,106 @@ namespace Mu3Library.Editor.Window {
 
     [System.Serializable]
     public class SceneControlStruct {
-        public string Key;
-        public bool ShowInInspector;
+        public string Key {
+            get => key;
+        }
+        [SerializeField, ReadOnly] private string key = "";
+        public bool ShowInInspector {
+            get => showInInspector;
+        }
+        [SerializeField, ReadOnly] private bool showInInspector = true;
 
-        public List<SceneProperty> Properties;
+        public IEnumerable<SceneProperty> Properties {
+            get => properties;
+        }
+        [SerializeField, ReadOnly] private List<SceneProperty> properties = new List<SceneProperty>();
 
 
+
+        public SceneControlStruct() {
+            key = "";
+            showInInspector = true;
+            properties = new List<SceneProperty>();
+        }
 
         #region Utility
+        public void ChangeKey(string value) {
+            if(value != key) {
+                Debug.Log($"'key' changed. value: {value}");
+
+                key = value;
+            }
+        }
+
+        public void ChangeShowInInspector(bool value) {
+            if(value != showInInspector) {
+                Debug.Log($"'showInInspector' changed. value: {value}");
+
+                showInInspector = value;
+            }
+        }
+
+        public void AddSceneProperty(SceneProperty property) {
+            properties.Add(property);
+        }
+
+        public void RemoveSceneProperty(SceneProperty property) {
+            properties.Remove(property);
+        }
+
         public SceneProperty GetSceneProperty(string guid) {
-            return Properties == null ? null : Properties.Where(t => t.GUID == guid).FirstOrDefault();
+            return properties == null ? null : properties.Where(t => t.GUID == guid).FirstOrDefault();
         }
         #endregion
     }
 
     [System.Serializable]
     public class SceneProperty {
-        public string GUID;
-        public string Path;
-        public string Name;
+        public string Path {
+            get => path;
+        }
+        [SerializeField, ReadOnly] private string path = "";
+        public string GUID {
+            get => guid;
+        }
+        [SerializeField, ReadOnly] private string guid = "";
+        public string Name {
+            get => name;
+        }
+        [SerializeField, ReadOnly] private string name = "";
+
+
+
+        public SceneProperty() {
+            path = "";
+            guid = "";
+            name = "";
+        }
+
+        #region Utility
+        public void ChangePath(string value) {
+            if(path != value) {
+                Debug.Log($"'path' changed. value: {value}");
+
+                path = value;
+            }
+        }
+
+        public void ChangeGUID(string value) {
+            if(guid != value) {
+                Debug.Log($"'guid' changed. value: {value}");
+
+                guid = value;
+            }
+        }
+
+        public void ChangeName(string value) {
+            if(name != value) {
+                Debug.Log($"'name' changed. value: {value}");
+
+                name = value;
+            }
+        }
+        #endregion
     }
 }
