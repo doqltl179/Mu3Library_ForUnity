@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using Mu3Library.Utility;
+using Mu3Library.MeshUtil;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -33,6 +34,11 @@ namespace Mu3Library.Editor.Window {
         #endregion
 
         private Vector2 windowScreenPos;
+
+        #region Test Properties
+        private Terrain testTerrain;
+        private Texture2D testTexture;
+        #endregion
 
         #region Move Scene Properties
 
@@ -139,6 +145,16 @@ namespace Mu3Library.Editor.Window {
             const float buttonHeight = 30;
 
 
+
+            #region Test
+
+            testTerrain = EditorGUILayout.ObjectField(testTerrain, typeof(Terrain), true) as Terrain;
+            testTexture = EditorGUILayout.ObjectField(testTexture, typeof(Texture2D), false) as Texture2D;
+            if(testTerrain != null && testTexture != null && GUILayout.Button("Create Cut Mesh In Terrain")) {
+                MeshUtilFunc.CutMeshInTerrainUsingTextureAlpha(testTerrain, testTexture);
+            }
+
+            #endregion
 
             #region User Settings
             DrawHeader1("User Settings");
