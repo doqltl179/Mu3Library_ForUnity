@@ -16,7 +16,7 @@ public static class DefaultSceneLoader {
     }
 
     static void LoadDefaultScene(PlayModeStateChange state) {
-        Mu3Window win = EditorWindow.GetWindow<Mu3Window>();
+        UtilWindow win = EditorWindow.GetWindow<UtilWindow>();
         if(win == null) {
             // Log
         }

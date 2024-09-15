@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fa522febc101a3648881bc4177f936c9, type: 3}
-  m_Name: Mu3WindowPropertyObject
+  m_Name: UtilWindowPropertyObject
   m_EditorClassIdentifier: 
   usePlayLoadScene: 0
-  playLoadScene: 
-  playLoadSceneIndex: 1
+  playLoadScene: Sample_Attribute
+  playLoadSceneIndex: 0
   sceneStructs:
   - key: Assets\Mu3LibraryDemos\Scenes
     showInInspector: 1
@@ -46,6 +46,12 @@ MonoBehaviour:
     - path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_02_Game.unity
       guid: ef85a7472e6514b4eaffd4a75a7b299b
       name: StandardSceneTemplate_02_Game
+  - key: Assets\Mu3LibraryDemos
+    showInInspector: 1
+    properties:
+    - path: Assets/Mu3LibraryDemos/TestScene.unity
+      guid: c5198546ab74f844bba1134fb92506e1
+      name: TestScene
   captureToCustomSize: 0
   captureSize: {x: 1920, y: 1080}
   changeCaptureColor: 0

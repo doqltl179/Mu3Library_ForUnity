@@ -1,67 +1,64 @@
-#if UNITY_EDITOR
 using System;
-using Mu3Library.Utility;
-using Mu3Library.MeshUtil;
+using System.Collections;
 using System.Collections.Generic;
-using System.IO;
+using System.Text;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 using Object = UnityEngine.Object;
 
 namespace Mu3Library.Editor.Window {
-    public class Mu3Window : EditorWindow {
-        private const string WindowsMenuName = "Mu3Library/Windows";
+    public class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
+        protected const string PropertyObjectFolderPath = "Assets/22_Tool/Editor";
 
-        private const string WindowName_MyCustomWindow = WindowsMenuName + "/Mu3 Window";
+        private List<T> windowPropertyList;
 
-        private List<Mu3WindowProperty> windowPropertyList;
-        public Mu3WindowProperty CurrentWindowProperty {
+        public T CurrentWindowProperty {
             get => currentWindowProperty;
         }
-        private Mu3WindowProperty currentWindowProperty = null;
+        protected T currentWindowProperty = null;
 
-        private bool isRefreshed = false;
+        protected bool isRefreshed = false;
+
+        protected Vector2 windowScreenPos;
 
         #region GUIStyle
 
-        private GUIStyle header1Style = null;
-        private GUIStyle header2Style = null;
-        private GUIStyle header3Style = null;
-        private GUIStyle normalMiddleLeftStyle = null;
-
-        #endregion
-
-        private Vector2 windowScreenPos;
-
-        #region Test Properties
-        private Terrain testTerrain;
-        private Texture2D testTexture;
-        #endregion
-
-        #region Move Scene Properties
-
-
-
-        #endregion
-
-        #region Screen Capture Properties
-
-        private string captureSaveDirectory = "";
-        private string captureSaveFileName = "ScreenShot";
+        protected GUIStyle header1Style = null;
+        protected GUIStyle header2Style = null;
+        protected GUIStyle header3Style = null;
+        protected GUIStyle normalMiddleLeftStyle = null;
 
         #endregion
 
 
 
-        [MenuItem(WindowName_MyCustomWindow)]
-        public static void ShowWindow() {
-            GetWindow(typeof(Mu3Window), false, "Mu3 Window");
+        protected virtual void OnBecameVisible() {
+            InitializeProperties();
+
+            if(currentWindowProperty) {
+                currentWindowProperty.OnStateInfoChanged += OnStateInfoChanged;
+            }
         }
 
-        private void OnBecameVisible() {
-            InitializeProperties();
+        protected virtual void OnBecameInvisible() {
+            if(currentWindowProperty != null) {
+                EditorUtility.SetDirty(currentWindowProperty);
+                AssetDatabase.SaveAssets();
+            }
+
+            if(currentWindowProperty) {
+                currentWindowProperty.OnStateInfoChanged -= OnStateInfoChanged;
+            }
+        }
+
+        private void OnStateInfoChanged(string title = "", string info = "", float progress = 0) {
+            if(string.IsNullOrEmpty(title) && string.IsNullOrEmpty(info)) {
+                ClearProgressBar();
+            }
+            else {
+                DisplayProgressBar(title, info, progress);
+            }
         }
 
         private void InitializeProperties() {
@@ -70,9 +67,9 @@ namespace Mu3Library.Editor.Window {
 
                 currentWindowProperty = null;
 
-                UtilFuncForEditor.ResetAssetsFindOptions();
-                UtilFuncForEditor.TypeString = nameof(Mu3WindowProperty);
-                windowPropertyList = UtilFuncForEditor.LoadAssets<Mu3WindowProperty>();
+                string typeString = typeof(T).Name;
+                string nameString = $"{typeString}Object";
+                windowPropertyList = FileManager.LoadAssets<T>(typeString, nameString, "");
 
                 if(windowPropertyList.Count > 0) {
                     currentWindowProperty = windowPropertyList[0];
@@ -117,275 +114,20 @@ namespace Mu3Library.Editor.Window {
             }
         }
 
-        void OnGUI() {
-            // 'DrawLayoutStructWithState'를 사용하려 했으나,
-            // 'return'을 날려 'OnGUI'를 종료해야 하는 코드가 있기 때문에 사용하지 않음.
-            if(currentWindowProperty == null) {
-                EditorGUILayout.LabelField("CurrentWindowProperty is NULL...");
-
-                return;
-            }
-            else {
-                DrawHorizontal(() => {
-                    if(GUILayout.Button("Refresh")) {
-                        currentWindowProperty = null;
-
-                        InitializeProperties();
-                    }
-
-                    DrawAsReadOnlyField(currentWindowProperty);
-
-                    GUILayout.FlexibleSpace();
-                });
-            }
-
-
-
-            windowScreenPos = EditorGUILayout.BeginScrollView(windowScreenPos);
-            const float buttonHeight = 30;
-
-
-
-            #region Test
-
-            testTerrain = EditorGUILayout.ObjectField(testTerrain, typeof(Terrain), true) as Terrain;
-            testTexture = EditorGUILayout.ObjectField(testTexture, typeof(Texture2D), false) as Texture2D;
-            if(testTerrain != null && testTexture != null && GUILayout.Button("Create Cut Mesh In Terrain")) {
-                MeshUtilFunc.CutMeshInTerrainUsingTextureAlpha(testTerrain, testTexture);
-            }
-
-            #endregion
-
-            #region User Settings
-            DrawHeader1("User Settings");
-
-            DrawHeader2("Play Load Scene", false, true);
-
-            DrawHorizontal(() => {
-                bool usePlayScene = EditorGUILayout.ToggleLeft("Use Play Load Scene", currentWindowProperty.UsePlayLoadScene);
-                if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
-                    currentWindowProperty.UsePlayLoadScene = usePlayScene;
-                }
-                if(usePlayScene) {
-                    GUILayout.Space(5);
-
-                    DrawLayoutStructWithState(() => {
-                        if(!string.IsNullOrEmpty(currentWindowProperty.PlayLoadScene)) {
-                            currentWindowProperty.PlayLoadScene = "";
-                        }
-
-                        GUILayout.Label("Build Scenes not found.");
-                    }, () => {
-                        if(currentWindowProperty.PlayLoadSceneIndex < 0) {
-                            currentWindowProperty.PlayLoadSceneIndex = 0;
-                        }
-                        else if(currentWindowProperty.PlayLoadSceneIndex >= currentWindowProperty.SceneInBuildNameList.Length) {
-                            currentWindowProperty.PlayLoadSceneIndex = currentWindowProperty.SceneInBuildNameList.Length - 1;
-                        }
-
-                        int playSceneIndex = EditorGUILayout.Popup(currentWindowProperty.PlayLoadSceneIndex, currentWindowProperty.SceneInBuildNameList, EditorStyles.popup);
-                        if(playSceneIndex != currentWindowProperty.PlayLoadSceneIndex) {
-
-
-                            currentWindowProperty.PlayLoadSceneIndex = playSceneIndex;
-                        }
-                    }, () => {
-                        return currentWindowProperty.SceneInBuildNameList == null || currentWindowProperty.SceneInBuildNameList.Length == 0;
-                    });
-                }
-            });
-
-            DrawHeader2("Scene Control", true, true);
-
-            DrawLayoutStructWithState(() => {
-                GUILayout.Label("Now editor is playing.");
-            }, () => {
-                DrawHorizontal(() => {
-                    if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
-                        currentWindowProperty.AddAllScenesInBuild();
-                        currentWindowProperty.RefreshBuildSceneList();
-                    }
-
-                    GUILayout.Space(5);
-
-                    if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
-                        currentWindowProperty.RemoveAllScenesInBuild();
-                        currentWindowProperty.RefreshBuildSceneList();
-                    }
-                });
-
-                DrawHorizontal(() => {
-                    if(currentWindowProperty.SceneInBuildReorderableList != null) {
-                        currentWindowProperty.SceneInBuildReorderableList.DoLayoutList();
-                    }
-                    else {
-                        GUILayout.Label("'sceneInBuildReorderableList' is NULL.");
-                    }
-                }, 20, 20);
-
-                DrawLayoutStructWithState(() => {
-                    GUILayout.Label("Scenes not found.");
-                }, () => {
-                    foreach(var st in currentWindowProperty.SceneStructs) {
-                        DrawHorizontal(() => {
-                            if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
-                                currentWindowProperty.AddBuildScenes(st.Properties);
-                                currentWindowProperty.RefreshBuildSceneList();
-                            }
-                            GUILayout.Space(5);
-
-                            if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
-                                currentWindowProperty.RemoveBuildScenes(st.Properties);
-                                currentWindowProperty.RefreshBuildSceneList();
-                            }
-                            GUILayout.Space(5);
-
-                            Rect lastRect = GUILayoutUtility.GetLastRect(); //이전 요소의 Rect 가져오기
-                            Rect foldoutRect = new Rect(lastRect.x + 5, lastRect.y + lastRect.height + 2, 20, EditorGUIUtility.singleLineHeight); //이전 Rect를 기반으로 Foldout 그리기
-                            st.ChangeShowInInspector(EditorGUI.Foldout(foldoutRect, st.ShowInInspector, ""));
-
-                            GUILayout.Space(5);
-
-                            DrawHeader3(st.Key);
-                        }, 5);
-
-                        if(st.ShowInInspector) {
-                            DrawLayoutStruct(() => {
-                                foreach(var property in st.Properties) {
-                                    DrawHorizontal(() => {
-                                        DrawAsReadOnly(() => {
-                                            if(GUILayout.Button("Add In Build", GUILayout.Height(buttonHeight), GUILayout.Width(90))) {
-                                                currentWindowProperty.AddBuildScene(property);
-                                                currentWindowProperty.RefreshBuildSceneList();
-                                            }
-                                        }, () => currentWindowProperty.IsExistInBuildScenes(property));
-
-                                        DrawLayoutStruct(() => {
-                                            if(GUILayout.Button("Select", GUILayout.Height(buttonHeight), GUILayout.Width(60))) {
-                                                Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(property.Path);
-                                                EditorGUIUtility.PingObject(Selection.activeObject);
-                                            }
-                                        }, 5, 5);
-
-                                        if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
-                                            if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
-                                                EditorSceneManager.OpenScene(property.Path);
-                                            }
-                                        }
-                                    }, 20, 20);
-                                }
-                            }, 5, 10);
-                        }
-                    }
-                }, () => {
-                    return currentWindowProperty.SceneStructs == null || currentWindowProperty.SceneStructCount == 0;
-                });
-            }, () => {
-                return EditorApplication.isPlayingOrWillChangePlaymode;
-            });
-            #endregion
-
-            #region Screen Capture
-            DrawHeader1("Screen Capture", true);
-
-            DrawHorizontal(() => {
-                bool useCustomSizeWhenScreenCapture = GUILayout.Toggle(currentWindowProperty.CaptureToCustomSize, "Capture Size To Custom Size");
-                if(useCustomSizeWhenScreenCapture != currentWindowProperty.CaptureToCustomSize) {
-                    currentWindowProperty.CaptureToCustomSize = useCustomSizeWhenScreenCapture;
-                }
-
-                if(useCustomSizeWhenScreenCapture) {
-                    GUILayout.Space(15);
-
-                    currentWindowProperty.CaptureSize = EditorGUILayout.Vector2IntField("", currentWindowProperty.CaptureSize);
-                }
-
-                GUILayout.FlexibleSpace();
-            });
-
-            currentWindowProperty.ChangeCaptureColor = GUILayout.Toggle(currentWindowProperty.ChangeCaptureColor, "Change Color");
-            if(currentWindowProperty.ChangeCaptureColor) {
-                currentWindowProperty.TargetColor = EditorGUILayout.ColorField("Target", currentWindowProperty.TargetColor);
-                currentWindowProperty.ChangeColor = EditorGUILayout.ColorField("Change To", currentWindowProperty.ChangeColor);
-                currentWindowProperty.ColorChangeStrength = EditorGUILayout.Slider("Color Change Strength", currentWindowProperty.ColorChangeStrength, 0.0f, 16.0f);
-            }
-
-            DrawHorizontal(() => {
-                if(GUILayout.Button("Screen Capture", GUILayout.Height(buttonHeight))) {
-                    string path = EditorUtility.SaveFilePanel(
-                        "Save ScreenShot",
-                        string.IsNullOrEmpty(captureSaveDirectory) ? Application.dataPath : captureSaveDirectory,
-                        captureSaveFileName + ".png",
-                        "png");
-                    if(!string.IsNullOrEmpty(path)) {
-                        captureSaveDirectory = Path.GetDirectoryName(path);
-                        captureSaveFileName = Path.GetFileNameWithoutExtension(path);
-
-                        if(currentWindowProperty.CaptureToCustomSize) {
-                            Capture(currentWindowProperty.CaptureSize, path);
-                        }
-                        else {
-                            Capture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
-                        }
-
-                        Debug.Log($"ScreenShot saved. path: {path}");
-                    }
-                    else {
-                        Debug.Log("ScreenShot path is NULL.");
-                    }
-                }
-            });
-            #endregion
-
-
-
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void Capture(Vector2Int captureSize, string path) {
-            int width = captureSize.x;
-            int height = captureSize.y;
-            Debug.Log($"Capture Size: {width}x{height}");
-
-            RenderTexture rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
-
-            Camera.main.targetTexture = rt;
-            Camera.main.Render();
-            RenderTexture.active = rt;
-
-            Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.ARGB32, false);
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
-
-            Camera.main.targetTexture = null;
-            RenderTexture.active = null;
-            DestroyImmediate(rt);
-
-            if(currentWindowProperty.ChangeCaptureColor) {
-                Vector3 targetVec = UtilFunc.ColToVec(currentWindowProperty.TargetColor);
-                Vector3 changeVec = UtilFunc.ColToVec(currentWindowProperty.ChangeColor);
-                float changeDistance = Vector3.Distance(targetVec, changeVec);
-
-                Color[] colors = tex.GetPixels();
-                Vector3 currentVec;
-                float dist;
-                for(int i = 0; i < colors.Length; i++) {
-                    currentVec = UtilFunc.ColToVec(colors[i]);
-                    dist = Vector3.Distance(currentVec, targetVec);
-
-                    colors[i] = Color.Lerp(colors[i], currentWindowProperty.ChangeColor, Mathf.Pow(Mathf.Clamp01(1.0f - dist / changeDistance), currentWindowProperty.ColorChangeStrength));
-                }
-
-                tex.SetPixels(colors);
-                tex.Apply();
-            }
-
-            byte[] bytes = tex.EncodeToPNG();
-            File.WriteAllBytes(path, bytes);
-        }
-
         #region Util Style
-        private void DrawHeader1(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
+        protected void DisplayProgressBar(string title, string info, float progress) {
+            EditorUtility.DisplayProgressBar(title, info, progress);
+        }
+
+        protected void DisplayCancelableProgressBar(string title, string info, float progress) {
+            EditorUtility.DisplayCancelableProgressBar(title, info, progress);
+        }
+
+        protected void ClearProgressBar() {
+            EditorUtility.ClearProgressBar();
+        }
+
+        protected void DrawHeader1(string label, bool insertSpaceOnUpSpaceOfHeader = false) {
             if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header1Style.fontSize);
             EditorGUILayout.LabelField(label, header1Style);
             GUILayout.Space(header1Style.fontSize);
@@ -394,19 +136,37 @@ namespace Mu3Library.Editor.Window {
             GUILayout.Space(10);
         }
 
-        private void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
+        protected void DrawHeader1(string headText, bool insertSpaceOnUpSpaceOfHeader, string btnText, Action<bool> onClicked, params GUILayoutOption[] options) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header1Style.fontSize);
+
+            DrawHorizontal(() => {
+                DrawVertical(() => {
+                    onClicked?.Invoke(GUILayout.Button(btnText, options));
+                }, 8, 0);
+
+                GUILayout.Space(-20);
+                GUILayout.Label(headText, header1Style, GUILayout.Width(100));
+
+                GUILayout.FlexibleSpace();
+            });
+
+            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
+            GUILayout.Space(10);
+        }
+
+        protected void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
             if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
             EditorGUILayout.LabelField(label, header2Style);
             if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
         }
 
-        private void DrawHeader3(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
+        protected void DrawHeader3(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
             if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
             EditorGUILayout.LabelField(label, header3Style);
             if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
         }
 
-        private void DrawVertical(Action content, float beginSpace = 0, float endSpace = 0) {
+        protected void DrawVertical(Action content, float beginSpace = 0, float endSpace = 0) {
             GUILayout.BeginVertical();
 
             DrawLayoutStruct(content, beginSpace, endSpace);
@@ -414,7 +174,7 @@ namespace Mu3Library.Editor.Window {
             GUILayout.EndVertical();
         }
 
-        private void DrawHorizontal(Action content, float beginSpace = 0, float endSpace = 0) {
+        protected void DrawHorizontal(Action content, float beginSpace = 0, float endSpace = 0) {
             GUILayout.BeginHorizontal();
 
             DrawLayoutStruct(content, beginSpace, endSpace);
@@ -430,7 +190,7 @@ namespace Mu3Library.Editor.Window {
             if(endSpace != 0) GUILayout.Space(endSpace);
         }
 
-        private void DrawLayoutStructWithState(Action contentTrue, Action contentFalse, Func<bool> stateFunc) {
+        protected void DrawLayoutStructWithState(Action contentTrue, Action contentFalse, Func<bool> stateFunc) {
             if(stateFunc == null) {
                 GUILayout.Label("StateFunc is NULL..");
 
@@ -445,13 +205,13 @@ namespace Mu3Library.Editor.Window {
             }
         }
 
-        private void DrawAsReadOnlyField<T>(T obj, Func<bool> stateFunc = null) where T : Object {
+        protected void DrawAsReadOnlyField<UO>(UO obj, Func<bool> stateFunc = null) where UO : Object {
             DrawAsReadOnly(() => {
-                EditorGUILayout.ObjectField(obj, typeof(T), false);
+                EditorGUILayout.ObjectField(obj, typeof(UO), false);
             }, stateFunc);
         }
 
-        private void DrawAsReadOnlyField(SerializedProperty property, Func<bool> stateFunc = null) {
+        protected void DrawAsReadOnlyField(SerializedProperty property, Func<bool> stateFunc = null) {
             DrawAsReadOnly(() => {
                 EditorGUILayout.PropertyField(property);
             }, stateFunc);
@@ -460,7 +220,7 @@ namespace Mu3Library.Editor.Window {
         /// <summary>
         /// If 'stateFunc() == null' or 'stateFunc() == true', content will be draw as readonly.
         /// </summary>
-        private void DrawAsReadOnly(Action content, Func<bool> stateFunc = null) {
+        protected void DrawAsReadOnly(Action content, Func<bool> stateFunc = null) {
             if(stateFunc == null || stateFunc()) {
                 GUI.enabled = false;
                 content?.Invoke();
@@ -470,7 +230,44 @@ namespace Mu3Library.Editor.Window {
                 content?.Invoke();
             }
         }
+
+        protected bool DrawPropertyArea() {
+            // 'DrawLayoutStructWithState'를 사용하려 했으나,
+            // 'return'을 날려 'OnGUI'를 종료해야 하는 코드가 있기 때문에 사용하지 않음.
+            if(currentWindowProperty == null) {
+                EditorGUILayout.LabelField("CurrentWindowProperty is NULL...");
+
+                return false;
+            }
+            else {
+                DrawHorizontal(() => {
+                    if(GUILayout.Button("Refresh")) {
+                        currentWindowProperty = null;
+
+                        InitializeProperties();
+                    }
+
+                    DrawAsReadOnlyField(currentWindowProperty);
+
+                    GUILayout.FlexibleSpace();
+                });
+
+                return true;
+            }
+        }
         #endregion
+
+        protected string GetPathOfGameObjectOnHierarchy(Transform go) {
+            StringBuilder result = new StringBuilder();
+
+            Transform root = go;
+            while(root != null) {
+                result.Insert(0, $"/{root.name}");
+
+                root = root.parent;
+            }
+
+            return result.ToString();
+        }
     }
 }
-#endif
