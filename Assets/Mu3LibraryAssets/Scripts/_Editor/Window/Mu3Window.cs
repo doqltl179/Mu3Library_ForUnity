@@ -69,7 +69,7 @@ namespace Mu3Library.Editor.Window {
 
                 string typeString = typeof(T).Name;
                 string nameString = $"{typeString}Object";
-                windowPropertyList = FileManager.LoadAssets<T>(typeString, nameString, "");
+                windowPropertyList = FileManager.LoadAssetsWithTypeAndName<T>(typeString, nameString);
 
                 if(windowPropertyList.Count > 0) {
                     currentWindowProperty = windowPropertyList[0];

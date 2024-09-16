@@ -161,7 +161,7 @@ namespace Mu3Library.Editor.Window {
             List<SceneControlStruct>  newStructs = new List<SceneControlStruct>();
 
             string typeString = "Scene";
-            string[] scenePaths = FileManager.FindAssetPaths(typeString, "", "");
+            string[] scenePaths = FileManager.FindAssetPathsWithType(typeString);
             if(scenePaths != null && scenePaths.Length > 0) {
                 foreach(string path in scenePaths) {
                     string directory = Path.GetDirectoryName(path);

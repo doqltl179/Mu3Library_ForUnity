@@ -29,18 +29,87 @@ namespace Mu3Library.Editor {
             return importer;
         }
 
-        public static string[] FindAssetGUIDs(string typeName, string name, string label, string[] folders = null) {
-            return GetAssetGUIDs(typeName, name, label, folders);
+
+
+        public static string[] FindAssetGUIDsWithType(string type, string[] folders = null) {
+            return FindAssetGUIDs(type, "", "", folders);
         }
 
-        public static string[] FindAssetPaths(string typeName, string name, string label, string[] folders = null) {
-            string[] guids = GetAssetGUIDs(typeName, name, label, folders);
-            return guids.Select(t => AssetDatabase.GUIDToAssetPath(t)).ToArray();
+        public static string[] FindAssetGUIDsWithName(string name, string[] folders = null) {
+            return FindAssetGUIDs("", name, "", folders);
         }
 
-        public static List<T> LoadAssets<T>(string typeName, string name, string label, string[] folders = null) where T : Object {
-            string[] guids = GetAssetGUIDs(typeName, name, label, folders);
-            string[] paths = guids.Select(t => AssetDatabase.GUIDToAssetPath(t)).ToArray();
+        public static string[] FindAssetGUIDsWithLabel(string label, string[] folders = null) {
+            return FindAssetGUIDs("", "", label, folders);
+        }
+
+        public static string[] FindAssetGUIDsWithTypeAndName(string type, string name, string[] folders = null) {
+            return FindAssetGUIDs(type, name, "", folders);
+        }
+        
+        public static string[] FindAssetGUIDsWithTypeAndLabel(string type, string label, string[] folders = null) {
+            return FindAssetGUIDs(type, "", label, folders);
+        }
+
+        public static string[] FindAssetGUIDsWithTypeAndNameAndLabel(string type, string name, string label, string[] folders = null) {
+            return FindAssetGUIDs(type, name, label, folders);
+        }
+
+
+
+        public static string[] FindAssetPathsWithType(string type, string[] folders = null) {
+            return FindAssetPaths(type, "", "", folders);
+        }
+
+        public static string[] FindAssetPathsWithName(string name, string[] folders = null) {
+            return FindAssetPaths("", name, "", folders);
+        }
+
+        public static string[] FindAssetPathsWithLabel(string label, string[] folders = null) {
+            return FindAssetPaths("", "", label, folders);
+        }
+
+        public static string[] FindAssetPathsWithTypeAndName(string type, string name, string[] folders = null) {
+            return FindAssetPaths(type, name, "", folders);
+        }
+
+        public static string[] FindAssetPathsWithTypeAndLabel(string type, string label, string[] folders = null) {
+            return FindAssetPaths(type, "", label, folders);
+        }
+
+        public static string[] FindAssetPathsWithTypeAndNameAndLabel(string type, string name, string label, string[] folders = null) {
+            return FindAssetPaths(type, name, label, folders);
+        }
+
+
+
+        public static List<T> LoadAssetsWithType<T>(string type, string[] folders = null) where T : Object {
+            return LoadAssets<T>(type, "", "", folders);
+        }
+
+        public static List<T> LoadAssetsWithName<T>(string name, string[] folders = null) where T : Object {
+            return LoadAssets<T>("", name, "", folders);
+        }
+
+        public static List<T> LoadAssetsWithLabel<T>(string label, string[] folders = null) where T : Object {
+            return LoadAssets<T>("", "", label, folders);
+        }
+
+        public static List<T> LoadAssetsWithTypeAndName<T>(string type, string name, string[] folders = null) where T : Object {
+            return LoadAssets<T>(type, name, "", folders);
+        }
+
+        public static List<T> LoadAssetsWithTypeAndLabel<T>(string type, string label, string[] folders = null) where T : Object {
+            return LoadAssets<T>(type, "", label, folders);
+        }
+
+        public static List<T> LoadAssetsWithTypeAndNameAndLabel<T>(string type, string name, string label, string[] folders = null) where T : Object {
+            return LoadAssets<T>(type, name, label, folders);
+        }
+        #endregion
+
+        private static List<T> LoadAssets<T>(string type, string name, string label, string[] folders = null) where T : Object {
+            string[] paths = FindAssetPaths(type, name, label, folders);
 
             List<T> values = new List<T>();
             for(int i = 0; i < paths.Length; i++) {
@@ -53,10 +122,14 @@ namespace Mu3Library.Editor {
 
             return values;
         }
-        #endregion
 
-        private static string[] GetAssetGUIDs(string typeName, string name, string label, string[] folders = null) {
-            string optionString = GetFindAssetsOptions(typeName, name, label);
+        private static string[] FindAssetPaths(string type, string name, string label, string[] folders = null) {
+            string[] guids = FindAssetGUIDs(type, name, label, folders);
+            return guids.Select(t => AssetDatabase.GUIDToAssetPath(t)).ToArray();
+        }
+
+        private static string[] FindAssetGUIDs(string type, string name, string label, string[] folders = null) {
+            string optionString = GetFindAssetsOptions(type, name, label);
             if(string.IsNullOrEmpty(optionString)) {
                 Debug.Log("Please set options.");
 
