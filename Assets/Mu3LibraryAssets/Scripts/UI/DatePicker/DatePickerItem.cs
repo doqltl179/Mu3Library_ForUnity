@@ -38,7 +38,7 @@ namespace Mu3Library.UI {
         public Action<DatePickerItem> OnClicked;
 
         [Header("Disable")]
-        [SerializeField] private Color disabledBackgroundColor = UtilFunc.GetChangedAlphaColor(Color.gray * 0.4f, 1.0f);
+        [SerializeField] private Color disabledBackgroundColor = new Color(0.2f, 0.2f, 0.2f, 1.0f);
         [SerializeField] private Color disabledTextColor = Color.gray;
 
         [Header("Enable")]
@@ -46,7 +46,8 @@ namespace Mu3Library.UI {
         [SerializeField] private Color enabledTextColor = Color.black;
 
         [Header("Select")]
-        [SerializeField] private Color selectedBackgroundColor = UtilFunc.GetChangedAlphaColor(Color.blue + (Color.yellow * 0.2f), 1.0f);
+        //[SerializeField] private Color selectedBackgroundColor = UtilFunc.GetChangedAlphaColor(Color.blue + (Color.yellow * 0.2f), 1.0f);
+        [SerializeField] private Color selectedBackgroundColor = new Color(0.2f, 0.2f, 1.0f, 1.0f);
         [SerializeField] private Color selectedTextColor = Color.green;
 
         public bool IsSelected {

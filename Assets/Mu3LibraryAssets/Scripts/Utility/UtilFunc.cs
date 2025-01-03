@@ -13,10 +13,17 @@ namespace Mu3Library.Utility {
         public static int GetLayerMask(string layerName, bool exclude = false) {
             int layer = LayerMask.NameToLayer(layerName);
             int mask = 0;
-            if(layer >= 0) mask = 1 << layer;
-            else { Debug.LogWarning($"LayerName not found. name: {layerName}"); }
+            if(layer >= 0) {
+                mask = 1 << layer;
+            }
+            else { 
+                Debug.LogWarning($"LayerName not found. name: {layerName}"); 
+            }
 
-            if(exclude) mask = ~mask;
+            if(exclude) {
+                mask = ~mask;
+            }
+
             return mask;
         }
 
@@ -25,8 +32,12 @@ namespace Mu3Library.Utility {
             int layer;
             for(int i = 0; i < layerNames.Length; i++) {
                 layer = LayerMask.NameToLayer(layerNames[i]);
-                if(layer >= 0) { mask |= (1 << layer); }
-                else { Debug.LogWarning($"LayerName not found. name: {layerNames[i]}"); }
+                if(layer >= 0) { 
+                    mask |= (1 << layer);
+                }
+                else { 
+                    Debug.LogWarning($"LayerName not found. name: {layerNames[i]}");
+                }
             }
 
             if(exclude) mask = ~mask;
@@ -35,9 +46,9 @@ namespace Mu3Library.Utility {
         #endregion
 
         #region Float
-        public static float GetDistanceXZ(Vector3 from, Vector3 to) => Vector2.Distance(new Vector2(from.x, from.z), new Vector2(to.x, to.z));
-
-        public static float InverseLerpUnclamped(float from, float to, float a) => (a - from) / (to - from);
+        public static float InverseLerpUnclamped(float from, float to, float a) {
+            return (a - from) / (to - from);
+        }
 
         public static float InverseLerp(Vector3 from, Vector3 to, Vector3 a) {
             Vector3 ab = to - from;
@@ -47,12 +58,6 @@ namespace Mu3Library.Utility {
 
             Vector3 av = a - from;
             return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
-        }
-
-        public static float MinMax(float min, float max, float value) {
-            if(value > max) return max;
-            else if(value < min) return min;
-            else return value;
         }
         #endregion
 
@@ -67,111 +72,26 @@ namespace Mu3Library.Utility {
         #endregion
 
         #region Vector3
-        public static Vector3 GetVec3XZ(Vector3 vec3, float y = 0.0f) => new Vector3(vec3.x, y, vec3.z);
-        public static Vector3 GetVec3Y(Vector3 vec3, float x = 0.0f, float z = 0.0f) => new Vector3(x, vec3.y, z);
-
-        public static Vector3 GetDirectionXZ(Vector3 from, Vector3 to) => (new Vector3(to.x, 0, to.z) - new Vector3(from.x, 0, from.z)).normalized;
-
-        public static Vector3 ColToVec(Color col) => new Vector3(col.r, col.g, col.b);
-        public static Color VecToCol(Vector3 vec3, float alpha = 1.0f) => new Color(vec3.x, vec3.y, vec3.z, alpha);
-
-        public static Vector3 BezierCurve(Vector3 start, Vector3 end, float angleDeg, float lerp) {
+        public static Vector3 BezierCurve(Vector3 start, Vector3 end, Vector3 upDir, float angleDeg, float lerp) {
             Vector3 posDiff = end - start;
 
-            // angleOffsetDeg : dist = angleDeg : ??
-            float angleUpToEndDeg = Vector3.Angle(Vector3.up, posDiff.normalized);
+            float angleUpToEndDeg = Vector3.Angle(upDir, posDiff.normalized);
             float angleOffsetDeg = 90 - angleUpToEndDeg;
             float heightOffset = angleDeg * Mathf.Abs(posDiff.y) / Mathf.Abs(angleOffsetDeg);
-            if(float.IsNaN(heightOffset)) heightOffset = 0.0f;
+            if(float.IsNaN(heightOffset)) {
+                heightOffset = 0.0f;
+            }
 
             Vector3 middlePoint = (start + end) * 0.5f;
 
             Vector3 controlPoint = new Vector3(middlePoint.x, middlePoint.y + heightOffset, middlePoint.z);
             return BezierCurve(start, end, controlPoint, lerp);
         }
+
         public static Vector3 BezierCurve(Vector3 start, Vector3 end, Vector3 controlPoint, float lerp) {
             Vector3 startLerp = Vector3.LerpUnclamped(start, controlPoint, lerp);
             Vector3 endLerp = Vector3.LerpUnclamped(controlPoint, end, lerp);
             return Vector3.LerpUnclamped(startLerp, endLerp, lerp);
-        }
-        #endregion
-
-        #region Color
-        public static Color GetChangedAlphaColor(Color color, float alpha) => new Color(color.r, color.g, color.b, alpha);
-        #endregion
-
-        #region Else
-        public static void GetWorldCorners(RectTransform rect, out Vector3 lb, out Vector3 lt, out Vector3 rt, out Vector3 rb) {
-            Vector3[] corners = new Vector3[4];
-            rect.GetWorldCorners(corners);
-
-            lb = corners[0];
-            lt = corners[1];
-            rt = corners[2];
-            rb = corners[3];
-        }
-
-        public static void GetLocalCorners(RectTransform rect, out Vector3 lb, out Vector3 lt, out Vector3 rt, out Vector3 rb) {
-            Vector3[] corners = new Vector3[4];
-            rect.GetLocalCorners(corners);
-
-            lb = corners[0];
-            lt = corners[1];
-            rt = corners[2];
-            rb = corners[3];
-        }
-
-        public static string EnumToString<T>(T enumValue) where T : Enum => enumValue.ToString();
-        public static void StringToEnum<T>(string stringValue, ref T outValue, T catchValue) where T : Enum {
-            try {
-                outValue = (T)Enum.Parse(typeof(T), stringValue);
-            }
-            catch(Exception ex) {
-                outValue = catchValue;
-            }
-        }
-
-        public static void SetLayerWithChildren(Transform target, string layerName) {
-            SetLayerWithChildren(target, LayerMask.NameToLayer(layerName));
-        }
-
-        public static void SetLayerWithChildren(Transform target, int layer) {
-            void SetLayer(Transform t) {
-                t.gameObject.layer = layer;
-                if(t.childCount > 0) {
-                    for(int i = 0; i < t.childCount; i++) {
-                        SetLayer(t.GetChild(i));
-                    }
-                }
-            }
-            SetLayer(target);
-        }
-
-        public static T GetComponentOnParent<T>(Transform target) where T : MonoBehaviour  {
-            T result = null;
-
-            void FindComponent(Transform t) {
-                if(t == null) return;
-
-                result = t.GetComponent<T>();
-                if(result == null) {
-                    FindComponent(t.parent);
-                }
-            }
-            FindComponent(target);
-
-            return result;
-        }
-
-        public static bool IsTargetInConeRange(Vector3 origin, Vector3 targetPos, Vector3 direction, float angleDeg, float distance) {
-            float targetDistance = Vector3.Distance(origin, targetPos);
-            if(targetDistance > distance) return false;
-
-            Vector3 toTarget = (targetPos - origin).normalized;
-            float targetAngleDeg = Vector3.Angle(direction, toTarget);
-            if(targetAngleDeg * 0.5f > angleDeg) return false;
-
-            return true;
         }
         #endregion
 
@@ -183,7 +103,7 @@ namespace Mu3Library.Utility {
             onClickProperty.FindPropertyRelative("m_PersistentCalls.m_Calls").ClearArray();
             serializedButton.ApplyModifiedProperties();
 
-            // ¹öÆ° º¯°æ »çÇ×À» Àû¿ëÇÏ¿© À¯´ÏÆ¼ ¿¡µğÅÍ¿¡ ¹İ¿µ
+            // ë²„íŠ¼ ë³€ê²½ ì‚¬í•­ì„ ì ìš©í•˜ì—¬ ìœ ë‹ˆí‹° ì—ë””í„°ì— ë°˜ì˜
             EditorUtility.SetDirty(btn);
         }
         #endregion
