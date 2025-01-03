@@ -55,13 +55,15 @@ namespace Mu3Library.Editor.Window {
 
                 currentWindowProperty = null;
 
-                string typeString = typeof(T).Name;
-                string nameString = $"{typeString}Object";
-                windowPropertyList = FileManager.LoadAssetsWithTypeAndName<T>(typeString, nameString);
+                //string typeString = typeof(T).Name;
+                //string nameString = $"{typeString}Object";
+                //windowPropertyList = FileManager.LoadAssetsWithTypeAndName<T>(typeString, nameString);
 
-                if(windowPropertyList.Count > 0) {
-                    currentWindowProperty = windowPropertyList[0];
-                }
+                //MonoScript.FromScriptableObject((ScriptableObject)this)
+
+                //if(windowPropertyList.Count > 0) {
+                //    currentWindowProperty = windowPropertyList[0];
+                //}
             }
 
             if(currentWindowProperty != null && !isRefreshed) {

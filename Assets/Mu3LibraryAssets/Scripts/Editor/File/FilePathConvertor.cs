@@ -40,7 +40,7 @@ namespace Mu3Library.Editor.FileUtil {
             // (유니티 프로젝트의 절대 경로 + "/") 만큼 제외한 string 값을 반환한다.
             string result = replacedPath[(absolutePathOfRootFolder.Length + 1)..replacedPath.Length];
 
-            Debug.Log($"SystemPath changed to AssetPath. systemPath: {systemPath}, assetPath: {result}");
+            //Debug.Log($"SystemPath changed to AssetPath. systemPath: {systemPath}, assetPath: {result}");
 
             return result;
         }
@@ -62,7 +62,7 @@ namespace Mu3Library.Editor.FileUtil {
 
             string result = absolutePathOfRootFolder + "/" + replacedPath;
 
-            Debug.Log($"AssetPath changed to SystemPath. assetPath: {assetPath}, systemPath: {result}");
+            //Debug.Log($"AssetPath changed to SystemPath. assetPath: {assetPath}, systemPath: {result}");
 
             return result;
         }
