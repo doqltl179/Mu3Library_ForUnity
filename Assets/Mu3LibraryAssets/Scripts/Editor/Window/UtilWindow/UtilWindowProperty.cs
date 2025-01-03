@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using Mu3Library.Editor.Attribute;
+using Mu3Library.Attribute;
 
 namespace Mu3Library.Editor.Window {
     /// <summary>
