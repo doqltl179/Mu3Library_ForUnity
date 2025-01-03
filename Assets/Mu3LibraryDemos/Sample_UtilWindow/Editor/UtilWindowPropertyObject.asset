@@ -12,40 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa522febc101a3648881bc4177f936c9, type: 3}
   m_Name: UtilWindowPropertyObject
   m_EditorClassIdentifier: 
-  usePlayLoadScene: 0
-  playLoadScene: Sample_Attribute
-  playLoadSceneIndex: 0
-  sceneStructs:
-  - key: Assets\Mu3LibraryDemos\Scenes
-    showInInspector: 1
-    properties:
-    - path: Assets/Mu3LibraryDemos/Scenes/Sample_Attribute.unity
-      guid: 5f3ed4ffceb083f45b321458ad95a889
-      name: Sample_Attribute
-    - path: Assets/Mu3LibraryDemos/Scenes/Sample_Character.unity
-      guid: 978e4d9b288601e4cbb43ea1b2f8fa1d
-      name: Sample_Character
-    - path: Assets/Mu3LibraryDemos/Scenes/Sample_CustomUI.unity
-      guid: 9fc0d4010bbf28b4594072e72b8655ab
-      name: Sample_CustomUI
-    - path: Assets/Mu3LibraryDemos/Scenes/Sample_PostEffect.unity
-      guid: c5da1c9a27272ae4b939bb0c1bbb3943
-      name: Sample_PostEffect
-    - path: Assets/Mu3LibraryDemos/Scenes/Sample_UI.unity
-      guid: c5027a84b40e27e4a8ea5e2ee7cd4500
-      name: Sample_UI
-  - key: Assets\Mu3LibraryDemos\Scenes\SceneLoadTemplate
-    showInInspector: 1
-    properties:
-    - path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_00_Splash.unity
-      guid: caf56da83eee49c40955615bb948239c
-      name: StandardSceneTemplate_00_Splash
-    - path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_01_Main.unity
-      guid: 80e10cfe46a9820439d55ff6772a12c2
-      name: StandardSceneTemplate_01_Main
-    - path: Assets/Mu3LibraryDemos/Scenes/SceneLoadTemplate/StandardSceneTemplate_02_Game.unity
-      guid: ef85a7472e6514b4eaffd4a75a7b299b
-      name: StandardSceneTemplate_02_Game
+  foldout_debug: 1
+  foldout_sceneList: 1
+  sceneCheckDirectoryList: []
   captureToCustomSize: 0
   captureSize: {x: 1920, y: 1080}
   changeCaptureColor: 0

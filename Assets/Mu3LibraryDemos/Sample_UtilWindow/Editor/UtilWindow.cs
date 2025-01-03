@@ -3,11 +3,10 @@ using Mu3Library.Editor;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-
-using Object = UnityEngine.Object;
 
 namespace Mu3Library.Demo.Editor.UtilWindow {
     public class UtilWindow : Mu3Window<UtilWindowProperty> {
@@ -35,148 +34,12 @@ namespace Mu3Library.Demo.Editor.UtilWindow {
             GetWindow(typeof(UtilWindow), false, "Util Window");
         }
 
-        void OnGUI() {
-            if(!DrawPropertyArea()) {
-                return;
-            }
+        protected override void OnGUIFunc() {
+            //DrawPropertiesForDebug();
 
+            GUILayoutOption normalButtonHeight = GUILayout.Height(30);
 
-
-            windowScreenPos = EditorGUILayout.BeginScrollView(windowScreenPos);
-            const float buttonHeight = 30;
-
-            if(GUILayout.Button("Test Button")) {
-                string assetPath = FileFinder.GetAssetPathFromScriptableObject(this);
-
-                Debug.Log(assetPath);
-            }
-
-            #region User Settings
-            DrawHeader1("User Settings");
-
-            DrawHeader2("Play Load Scene", false, true);
-
-            DrawHorizontal(() => {
-                bool usePlayScene = EditorGUILayout.ToggleLeft("Use Play Load Scene", currentWindowProperty.UsePlayLoadScene);
-                if(usePlayScene != currentWindowProperty.UsePlayLoadScene) {
-                    currentWindowProperty.UsePlayLoadScene = usePlayScene;
-                }
-                if(usePlayScene) {
-                    GUILayout.Space(5);
-
-                    DrawLayoutStructWithState(() => {
-                        if(!string.IsNullOrEmpty(currentWindowProperty.PlayLoadScene)) {
-                            currentWindowProperty.PlayLoadScene = "";
-                        }
-
-                        GUILayout.Label("Build Scenes not found.");
-                    }, () => {
-                        if(currentWindowProperty.PlayLoadSceneIndex < 0) {
-                            currentWindowProperty.PlayLoadSceneIndex = 0;
-                        }
-                        else if(currentWindowProperty.PlayLoadSceneIndex >= currentWindowProperty.SceneInBuildNameList.Length) {
-                            currentWindowProperty.PlayLoadSceneIndex = currentWindowProperty.SceneInBuildNameList.Length - 1;
-                        }
-
-                        int playSceneIndex = EditorGUILayout.Popup(currentWindowProperty.PlayLoadSceneIndex, currentWindowProperty.SceneInBuildNameList, EditorStyles.popup);
-                        if(playSceneIndex != currentWindowProperty.PlayLoadSceneIndex) {
-
-
-                            currentWindowProperty.PlayLoadSceneIndex = playSceneIndex;
-                        }
-                    }, () => {
-                        return currentWindowProperty.SceneInBuildNameList == null || currentWindowProperty.SceneInBuildNameList.Length == 0;
-                    });
-                }
-            });
-
-            DrawHeader2("Scene Control", true, true);
-
-            DrawLayoutStructWithState(() => {
-                GUILayout.Label("Now editor is playing.");
-            }, () => {
-                DrawHorizontal(() => {
-                    if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
-                        currentWindowProperty.AddAllScenesInBuild();
-                        currentWindowProperty.RefreshBuildSceneList();
-                    }
-
-                    GUILayout.Space(5);
-
-                    if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
-                        currentWindowProperty.RemoveAllScenesInBuild();
-                        currentWindowProperty.RefreshBuildSceneList();
-                    }
-                });
-
-                DrawHorizontal(() => {
-                    if(currentWindowProperty.SceneInBuildReorderableList != null) {
-                        currentWindowProperty.SceneInBuildReorderableList.DoLayoutList();
-                    }
-                    else {
-                        GUILayout.Label("'sceneInBuildReorderableList' is NULL.");
-                    }
-                }, 20, 20);
-
-                DrawLayoutStructWithState(() => {
-                    GUILayout.Label("Scenes not found.");
-                }, () => {
-                    foreach(var st in currentWindowProperty.SceneStructs) {
-                        DrawHorizontal(() => {
-                            if(GUILayout.Button("Add All", GUILayout.Width(60), GUILayout.Height(buttonHeight))) {
-                                currentWindowProperty.AddBuildScenes(st.Properties);
-                                currentWindowProperty.RefreshBuildSceneList();
-                            }
-                            GUILayout.Space(5);
-
-                            if(GUILayout.Button("Remove All", GUILayout.Width(80), GUILayout.Height(buttonHeight))) {
-                                currentWindowProperty.RemoveBuildScenes(st.Properties);
-                                currentWindowProperty.RefreshBuildSceneList();
-                            }
-                            GUILayout.Space(5);
-
-                            Rect lastRect = GUILayoutUtility.GetLastRect(); //이전 요소의 Rect 가져오기
-                            Rect foldoutRect = new Rect(lastRect.x + 5, lastRect.y + lastRect.height + 2, 20, EditorGUIUtility.singleLineHeight); //이전 Rect를 기반으로 Foldout 그리기
-                            st.ChangeShowInInspector(EditorGUI.Foldout(foldoutRect, st.ShowInInspector, ""));
-
-                            GUILayout.Space(5);
-
-                            DrawHeader3(st.Key);
-                        }, 5);
-
-                        if(st.ShowInInspector) {
-                            foreach(var property in st.Properties) {
-                                DrawHorizontal(() => {
-                                    DrawAsReadOnly(() => {
-                                        if(GUILayout.Button("Add In Build", GUILayout.Height(buttonHeight), GUILayout.Width(90))) {
-                                            currentWindowProperty.AddBuildScene(property);
-                                            currentWindowProperty.RefreshBuildSceneList();
-                                        }
-                                    }, () => currentWindowProperty.IsExistInBuildScenes(property));
-
-                                    if(GUILayout.Button("Select", GUILayout.Height(buttonHeight), GUILayout.Width(60))) {
-                                        Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(property.Path);
-                                        EditorGUIUtility.PingObject(Selection.activeObject);
-                                    }
-
-                                    if(GUILayout.Button(Path.GetFileNameWithoutExtension(property.Path), GUILayout.Height(buttonHeight))) {
-                                        if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
-                                            EditorSceneManager.OpenScene(property.Path);
-                                        }
-                                    }
-                                }, 20, 20);
-                            }
-
-                            GUILayout.Space(5);
-                        }
-                    }
-                }, () => {
-                    return currentWindowProperty.SceneStructs == null || currentWindowProperty.SceneStructCount == 0;
-                });
-            }, () => {
-                return EditorApplication.isPlayingOrWillChangePlaymode;
-            });
-            #endregion
+            SceneListDrawFunc();
 
             #region Screen Capture
             DrawHeader1("Screen Capture", true);
@@ -204,7 +67,7 @@ namespace Mu3Library.Demo.Editor.UtilWindow {
             }
 
             DrawHorizontal(() => {
-                if(GUILayout.Button("Screen Capture", GUILayout.Height(buttonHeight))) {
+                if(GUILayout.Button("Screen Capture", normalButtonHeight)) {
                     string path = EditorUtility.SaveFilePanel(
                         "Save ScreenShot",
                         string.IsNullOrEmpty(captureSaveDirectory) ? Application.dataPath : captureSaveDirectory,
@@ -215,10 +78,10 @@ namespace Mu3Library.Demo.Editor.UtilWindow {
                         captureSaveFileName = Path.GetFileNameWithoutExtension(path);
 
                         if(currentWindowProperty.CaptureToCustomSize) {
-                            Capture(currentWindowProperty.CaptureSize, path);
+                            ScreenCapture(currentWindowProperty.CaptureSize, path);
                         }
                         else {
-                            Capture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
+                            ScreenCapture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
                         }
 
                         Debug.Log($"ScreenShot saved. path: {path}");
@@ -229,13 +92,109 @@ namespace Mu3Library.Demo.Editor.UtilWindow {
                 }
             });
             #endregion
-
-
-
-            EditorGUILayout.EndScrollView();
         }
 
-        private void Capture(Vector2Int captureSize, string path) {
+        #region Draw Func
+
+        #region Scene List
+        private void SceneListDrawFunc() {
+            GUILayoutOption normalButtonHeight = GUILayout.Height(30);
+
+            bool foldout_sceneList = currentWindowProperty.Foldout_SceneList;
+            DrawFoldoutHeader1("Scene List", ref foldout_sceneList);
+
+            if(foldout_sceneList) {
+                DrawHorizontal(() => {
+                    if(GUILayout.Button("Add Scene Directory", GUILayout.Width(136), normalButtonHeight)) {
+                        // 폴더의 절대 경로
+                        string directory = EditorUtility.OpenFolderPanel("Find Scene Directory", Application.dataPath, "Scenes");
+                        // 폴더의 상대 경로
+                        string relativeDirectory = FilePathConvertor.SystemPathToAssetPath(directory);
+
+                        currentWindowProperty.AddSceneCheckDirectory(relativeDirectory);
+                    }
+
+                    GUILayout.Space(4);
+
+                    if(GUILayout.Button("Remove All", GUILayout.Width(96), normalButtonHeight)) {
+                        currentWindowProperty.SceneCheckDirectoryList.Clear();
+                    }
+                }, 20, 20);
+
+                GUILayout.Space(4);
+
+                DrawHorizontal(() => {
+                    DrawVertical(() => {
+                        for(int i = 0; i < currentWindowProperty.SceneCheckDirectoryList.Count; i++) {
+                            GUILayout.Space(4);
+
+                            SceneCheckDirectoryStruct sceneStruct = currentWindowProperty.SceneCheckDirectoryList[i];
+                            bool isRemoved = false;
+
+                            DrawHorizontal(() => {
+                                //DrawHeader2($"{sceneStruct.Directory}");
+                                bool foldout_sceneStruct = sceneStruct.Foldout;
+                                DrawFoldoutHeader2($"{sceneStruct.Directory} ({sceneStruct.ScenePaths.Length})", ref foldout_sceneStruct);
+
+                                if(GUILayout.Button("Remove", GUILayout.Width(60), normalButtonHeight)) {
+                                    currentWindowProperty.SceneCheckDirectoryList.RemoveAt(i);
+                                    i--;
+                                    isRemoved = true;
+                                }
+
+                                sceneStruct.Foldout = foldout_sceneStruct;
+                            }, 20, 20);
+
+                            if(isRemoved) {
+                                continue;
+                            }
+
+                            if(sceneStruct.Foldout) {
+                                DrawHorizontal(() => {
+                                    DrawVertical(() => {
+                                        foreach(string scenePath in sceneStruct.ScenePaths) {
+                                            DrawHorizontal(() => {
+                                                if(GUILayout.Button("Select", GUILayout.Width(60), normalButtonHeight)) {
+                                                    Selection.activeObject = FileFinder.LoadAssetAtPath<Object>(scenePath);
+                                                    EditorGUIUtility.PingObject(Selection.activeObject);
+                                                }
+
+                                                GUILayout.Space(4);
+
+                                                string directory = "";
+                                                string fileName = "";
+                                                string extension = "";
+                                                FilePathConvertor.SplitPathToDirectoryAndFileNameAndExtension(scenePath, out directory, out fileName, out extension);
+
+                                                string sceneButtonName = $"{directory.Replace(sceneStruct.Directory, "")}/{fileName}";
+                                                if(GUILayout.Button($"{sceneButtonName}", normalButtonHeight)) {
+                                                    if(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) {
+                                                        EditorSceneManager.OpenScene(scenePath);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                }, 20, 20);
+                            }
+                        }
+                    });
+                }, 20, 20);
+            }
+
+            currentWindowProperty.Foldout_SceneList = foldout_sceneList;
+        }
+        #endregion
+
+        #region Screen Capture
+        private void ScreenCaptureDrawFunc() {
+
+        }
+        #endregion
+
+        #endregion
+
+        private void ScreenCapture(Vector2Int captureSize, string path) {
             int width = captureSize.x;
             int height = captureSize.y;
             Debug.Log($"Capture Size: {width}x{height}");

@@ -1,3 +1,4 @@
+using Mu3Library.Editor.FileUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,23 +9,31 @@ using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Mu3Library.Editor.Window {
-    public class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
+    public abstract class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
         protected const string PropertyObjectFolderPath = "Assets/22_Tool/Editor";
-
-        private List<T> windowPropertyList;
         
         protected T currentWindowProperty = null;
 
         protected bool isRefreshed = false;
 
-        protected Vector2 windowScreenPos;
+        protected Vector2 windowScrollPos;
+
+        #region Window Propertyies
+
+        protected Rect windowRect;
+        protected float windowWidth;
+        protected float windowHeight;
+
+        #endregion
 
         #region GUIStyle
 
         protected GUIStyle header1Style = null;
         protected GUIStyle header2Style = null;
         protected GUIStyle header3Style = null;
-        protected GUIStyle normalMiddleLeftStyle = null;
+
+        protected GUIStyle toggleIcon1Style = null;
+        protected GUIStyle toggleIcon2Style = null;
 
         #endregion
 
@@ -40,30 +49,61 @@ namespace Mu3Library.Editor.Window {
 
         }
 
-        private void OnStateInfoChanged(string title = "", string info = "", float progress = 0) {
-            if(string.IsNullOrEmpty(title) && string.IsNullOrEmpty(info)) {
-                ClearProgressBar();
+        protected virtual void OnGUI() {
+            DrawPropertyArea();
+
+            // PropertyObject가 존재하지 않는다면 GUI를 그리지 않는다.
+            if(currentWindowProperty == null) {
+                return;
             }
-            else {
-                DisplayProgressBar(title, info, progress);
-            }
+
+            windowRect = position;
+            windowWidth = windowRect.width;
+            windowHeight = windowRect.height;
+
+            windowScrollPos = EditorGUILayout.BeginScrollView(windowScrollPos);
+
+            OnGUIFunc();
+
+            EditorGUILayout.EndScrollView();
         }
 
+        protected abstract void OnGUIFunc();
+
         private void InitializeProperties() {
-            if(currentWindowProperty == null || windowPropertyList == null || windowPropertyList.Count == 0) {
+            if(currentWindowProperty == null) {
                 isRefreshed = false;
 
-                currentWindowProperty = null;
+                string windowScriptAssetPath = FileFinder.GetAssetPathFromScriptableObject(this);
+                if(!string.IsNullOrEmpty(windowScriptAssetPath)) {
+                    string directory = "";
+                    string fileName = "";
+                    string extension = "";
+                    FilePathConvertor.SplitPathToDirectoryAndFileNameAndExtension(windowScriptAssetPath, out directory, out fileName, out extension);
 
-                //string typeString = typeof(T).Name;
-                //string nameString = $"{typeString}Object";
-                //windowPropertyList = FileManager.LoadAssetsWithTypeAndName<T>(typeString, nameString);
+                    // cs 파일 확인
+                    if(!string.IsNullOrEmpty(directory) && extension == "cs") {
+                        string propertyTypeString = typeof(T).Name;
 
-                //MonoScript.FromScriptableObject((ScriptableObject)this)
+                        List<T> propertyObjs = FileFinder.LoadAllAssetsAtPath<T>(directory, "", propertyTypeString, "");
+                        // PropertyObject가 존재하지 않으면 생성한다.
+                        if(propertyObjs.Count == 0) {
+                            //Debug.Log($"Property Object not found. directory: {directory}");
 
-                //if(windowPropertyList.Count > 0) {
-                //    currentWindowProperty = windowPropertyList[0];
-                //}
+                            string propertyObjName = $"{this.GetType().Name}PropertyObject";
+
+                            currentWindowProperty = FileCreator.CreateScriptableObject<T>(directory, propertyObjName);
+                        }
+                        else if(propertyObjs.Count == 1) {
+                            currentWindowProperty = propertyObjs[0];
+                        }
+                        else {
+                            Debug.LogWarning($"PropertyObject found. But, there are exist more than two PropertyObjects.");
+
+                            currentWindowProperty = propertyObjs[0];
+                        }
+                    }
+                }
             }
 
             if(currentWindowProperty != null && !isRefreshed) {
@@ -100,11 +140,32 @@ namespace Mu3Library.Editor.Window {
                     },
                 };
 
+                toggleIcon1Style = new GUIStyle() {
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(12, 12, 8, 8),
+                    fixedHeight = 32,
+                    normal = new GUIStyleState() {
+                        textColor = Color.white,
+                    },
+                };
+                toggleIcon2Style = new GUIStyle() {
+                    fontSize = 11,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    padding = new RectOffset(11, 11, 5, 5),
+                    fixedHeight = 22,
+                    normal = new GUIStyleState() {
+                        textColor = Color.white,
+                    },
+                };
+
                 isRefreshed = true;
             }
         }
 
-        #region Util Style
+        #region Struct Util Style
         protected void DisplayProgressBar(string title, string info, float progress) {
             EditorUtility.DisplayProgressBar(title, info, progress);
         }
@@ -126,19 +187,22 @@ namespace Mu3Library.Editor.Window {
             GUILayout.Space(10);
         }
 
-        protected void DrawHeader1(string headText, bool insertSpaceOnUpSpaceOfHeader, string btnText, Action<bool> onClicked, params GUILayoutOption[] options) {
+        protected void DrawFoldoutHeader1(string label, ref bool foldout, bool insertSpaceOnUpSpaceOfHeader = false) {
             if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header1Style.fontSize);
 
-            DrawHorizontal(() => {
-                DrawVertical(() => {
-                    onClicked?.Invoke(GUILayout.Button(btnText, options));
-                }, 8, 0);
+            GUILayout.BeginHorizontal();
 
-                GUILayout.Space(-20);
-                GUILayout.Label(headText, header1Style, GUILayout.Width(100));
+            GUILayout.Space(header1Style.fontSize);
 
-                GUILayout.FlexibleSpace();
-            });
+            // 토글 마크 그리기
+            toggleIcon1Style.normal.textColor = foldout ? Color.green : Color.red;
+            toggleIcon1Style.fixedHeight = header1Style.fixedHeight;
+            EditorGUILayout.LabelField(foldout ? "▼" : "▲", toggleIcon1Style, GUILayout.Width(16), GUILayout.Height(header1Style.fixedHeight));
+
+            // 토글 텍스트 작성
+            foldout = GUILayout.Toggle(foldout, label, header1Style);
+
+            GUILayout.EndHorizontal();
 
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
             GUILayout.Space(10);
@@ -150,6 +214,26 @@ namespace Mu3Library.Editor.Window {
             if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
         }
 
+        protected void DrawFoldoutHeader2(string label, ref bool foldout, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
+            if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(header2Style.fontSize);
+
+            // 토글 마크 그리기
+            toggleIcon2Style.normal.textColor = foldout ? Color.green : Color.red;
+            toggleIcon2Style.fixedHeight = header2Style.fixedHeight;
+            EditorGUILayout.LabelField(foldout ? "▼" : "▲", toggleIcon2Style, GUILayout.Width(16), GUILayout.Height(header2Style.fixedHeight));
+
+            // 토글 텍스트 작성
+            foldout = GUILayout.Toggle(foldout, label, header2Style);
+
+            GUILayout.EndHorizontal();
+
+            if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header2Style.fontSize);
+        }
+
         protected void DrawHeader3(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false) {
             if(insertSpaceOnUpSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
             EditorGUILayout.LabelField(label, header3Style);
@@ -157,93 +241,69 @@ namespace Mu3Library.Editor.Window {
         }
 
         protected void DrawVertical(Action content, float beginSpace = 0, float endSpace = 0) {
+            if(content == null) {
+                return;
+            }
+
             GUILayout.BeginVertical();
 
-            DrawLayoutStruct(content, beginSpace, endSpace);
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
 
             GUILayout.EndVertical();
         }
 
         protected void DrawHorizontal(Action content, float beginSpace = 0, float endSpace = 0) {
+            if(content == null) {
+                return;
+            }
+
             GUILayout.BeginHorizontal();
 
-            DrawLayoutStruct(content, beginSpace, endSpace);
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
 
             GUILayout.EndHorizontal();
         }
 
-        private void DrawLayoutStruct(Action content, float beginSpace = 0, float endSpace = 0) {
-            if(beginSpace != 0) GUILayout.Space(beginSpace);
+        protected void DrawPropertyArea() {
+            GUILayout.BeginHorizontal();
 
-            content?.Invoke();
+            if(GUILayout.Button("Refresh")) {
+                currentWindowProperty = null;
 
-            if(endSpace != 0) GUILayout.Space(endSpace);
-        }
-
-        protected void DrawLayoutStructWithState(Action contentTrue, Action contentFalse, Func<bool> stateFunc) {
-            if(stateFunc == null) {
-                GUILayout.Label("StateFunc is NULL..");
-
-                return;
+                InitializeProperties();
             }
 
-            if(stateFunc()) {
-                contentTrue?.Invoke();
-            }
-            else {
-                contentFalse?.Invoke();
-            }
-        }
-
-        protected void DrawAsReadOnlyField<UO>(UO obj, Func<bool> stateFunc = null) where UO : Object {
-            DrawAsReadOnly(() => {
-                EditorGUILayout.ObjectField(obj, typeof(UO), false);
-            }, stateFunc);
-        }
-
-        protected void DrawAsReadOnlyField(SerializedProperty property, Func<bool> stateFunc = null) {
-            DrawAsReadOnly(() => {
-                EditorGUILayout.PropertyField(property);
-            }, stateFunc);
-        }
-
-        /// <summary>
-        /// If 'stateFunc() == null' or 'stateFunc() == true', content will be draw as readonly.
-        /// </summary>
-        protected void DrawAsReadOnly(Action content, Func<bool> stateFunc = null) {
-            if(stateFunc == null || stateFunc()) {
-                GUI.enabled = false;
-                content?.Invoke();
-                GUI.enabled = true;
-            }
-            else {
-                content?.Invoke();
-            }
-        }
-
-        protected bool DrawPropertyArea() {
-            // 'DrawLayoutStructWithState'를 사용하려 했으나,
-            // 'return'을 날려 'OnGUI'를 종료해야 하는 코드가 있기 때문에 사용하지 않음.
             if(currentWindowProperty == null) {
                 EditorGUILayout.LabelField("CurrentWindowProperty is NULL...");
-
-                return false;
             }
             else {
-                DrawHorizontal(() => {
-                    if(GUILayout.Button("Refresh")) {
-                        currentWindowProperty = null;
-
-                        InitializeProperties();
-                    }
-
-                    DrawAsReadOnlyField(currentWindowProperty);
-
-                    GUILayout.FlexibleSpace();
-                });
-
-                return true;
+                GUI.enabled = false;
+                EditorGUILayout.ObjectField(currentWindowProperty, typeof(T), false);
+                GUI.enabled = true;
             }
+
+            GUILayout.FlexibleSpace();
+
+            GUILayout.EndHorizontal();
+        }
+
+        protected void DrawPropertiesForDebug() {
+            bool foldout_debug = currentWindowProperty.Foldout_Debug;
+            DrawFoldoutHeader1("Debug Properties", ref foldout_debug);
+
+            if(foldout_debug) {
+                EditorGUILayout.LabelField($"windowScrollPos -> ({windowScrollPos.x:F2}, {windowScrollPos.y:F2})");
+
+                EditorGUILayout.LabelField($"windowRect -> pos: ({windowRect.x:F2}, {windowRect.y:F2}), size: ({windowRect.width:F2}, {windowRect.height:F2})");
+            }
+
+            GUILayout.Space(20);
+
+            currentWindowProperty.Foldout_Debug = foldout_debug;
         }
         #endregion
 
@@ -252,7 +312,12 @@ namespace Mu3Library.Editor.Window {
 
             Transform root = go;
             while(root != null) {
-                result.Insert(0, $"/{root.name}");
+                if(root.parent != null) {
+                    result.Insert(0, $"/{root.name}");
+                }
+                else {
+                    result.Insert(0, $"{root.name}");
+                }
 
                 root = root.parent;
             }

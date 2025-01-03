@@ -22,6 +22,46 @@ namespace Mu3Library.Editor.FileUtil {
 
 
         #region Utility
+        public static void SplitPathToDirectoryAndFileNameAndExtension(string path, out string directory, out string fileName, out string extension) {
+            directory = "";
+            fileName = "";
+            extension = "";
+
+            if(string.IsNullOrEmpty(path)) {
+                Debug.LogWarning("Path is NULL.");
+
+                return;
+            }
+
+            string replacedPath = path.Replace('\\', '/');
+
+            // 'path'가 비어있지 않기 때문에 반드시 '1' 이상의 길이가 나온다.
+            string[] splitPath = replacedPath.Split('/');
+
+            // 파일명 혹은 폴더명
+            string lastString = splitPath[splitPath.Length - 1];
+
+            // 만약 길이가 '1' 보다 크다면 'path'는 파일 경로일 것이고, 
+            // 그렇지 않다면 'path'는 폴더 경로일 것이다.
+            string[] lastStringSplit = lastString.Split('.');
+
+            // 'lastString' == 파일명
+            if(lastStringSplit.Length > 1) {
+                extension = lastStringSplit[lastStringSplit.Length - 1];
+                fileName = lastString[0..(lastString.Length - (extension.Length + 1))];
+
+                if(lastString.Length != replacedPath.Length) {
+                    directory = replacedPath[0..(replacedPath.Length - (lastString.Length + 1))];
+                }
+            }
+            // 'lastString' == 폴더명
+            else {
+                directory = replacedPath;
+            }
+
+            //Debug.Log($"Path Split.\r\npath: {path}\r\ndirectory: {directory}\r\nfileName: {fileName}\r\nextension: {extension}\r\n");
+        }
+
         public static string SystemPathToAssetPath(string systemPath) {
             if(string.IsNullOrEmpty(systemPath)) {
                 Debug.LogError("SystemPath is NULL.");

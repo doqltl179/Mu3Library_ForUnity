@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -11,7 +12,44 @@ namespace Mu3Library.Editor.FileUtil {
 
         #region Utility
         /// <summary>
-        /// 에셋의 상대 경로를 반환한다.
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="filePath"> Assets 폴더를 기준으로 한 상대 경로 </param>
+        /// <returns></returns>
+        public static T LoadAssetAtPath<T>(string filePath) where T : Object {
+            return AssetDatabase.LoadAssetAtPath<T>(filePath);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
+        /// <param name="name"></param>
+        /// <param name="typeString"></param>
+        /// <param name="assetlabel"></param>
+        /// <returns></returns>
+        public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string typeString = "", string assetlabel = "") where T : Object {
+            string[] guids = FindAssets(directory, name, typeString, assetlabel);
+            string[] relativePaths = guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
+
+            List<T> objs = new List<T>();
+            foreach(string path in relativePaths) {
+                T obj = AssetDatabase.LoadAssetAtPath<T>(path);
+                if(obj != null) {
+                    objs.Add(obj);
+                }
+                else {
+                    Debug.LogWarning($"Object not found. path: {path}");
+                }
+            }
+
+            return objs;
+        }
+
+        /// <summary>
+        /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
         public static string GetAssetPathFromScriptableObject<T>(T obj) where T : ScriptableObject {
             if(obj == null) {
@@ -34,7 +72,7 @@ namespace Mu3Library.Editor.FileUtil {
         }
 
         /// <summary>
-        /// 에셋의 상대 경로를 반환한다.
+        /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
         public static string[] GetAssetPaths(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string[] guids = FindAssets(directory, name, typeString, assetlabel);
@@ -51,7 +89,7 @@ namespace Mu3Library.Editor.FileUtil {
         #endregion
 
         /// <summary>
-        /// Guid를 반환한다.
+        /// 에셋 파일의 Guid를 반환한다.
         /// </summary>
         private static string[] FindAssets(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string optionString = GetOptionString(name, typeString, assetlabel);
