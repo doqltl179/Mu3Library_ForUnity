@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using UnityEditor;
 using UnityEngine;
 
@@ -37,3 +39,5 @@ namespace Mu3Library.Attribute {
     }
 
 }
+
+#endif
