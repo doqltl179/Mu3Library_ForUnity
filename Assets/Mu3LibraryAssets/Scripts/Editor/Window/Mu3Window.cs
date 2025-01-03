@@ -6,12 +6,8 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 
-using Object = UnityEngine.Object;
-
 namespace Mu3Library.Editor.Window {
     public abstract class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
-        protected const string PropertyObjectFolderPath = "Assets/22_Tool/Editor";
-        
         protected T currentWindowProperty = null;
 
         protected bool isRefreshed = false;
@@ -50,7 +46,7 @@ namespace Mu3Library.Editor.Window {
         }
 
         protected virtual void OnGUI() {
-            DrawPropertyArea();
+            DrawPropertyObjectArea();
 
             // PropertyObject가 존재하지 않는다면 GUI를 그리지 않는다.
             if(currentWindowProperty == null) {
@@ -197,7 +193,7 @@ namespace Mu3Library.Editor.Window {
             // 토글 마크 그리기
             toggleIcon1Style.normal.textColor = foldout ? Color.green : Color.red;
             toggleIcon1Style.fixedHeight = header1Style.fixedHeight;
-            EditorGUILayout.LabelField(foldout ? "▼" : "▲", toggleIcon1Style, GUILayout.Width(16), GUILayout.Height(header1Style.fixedHeight));
+            EditorGUILayout.LabelField(foldout ? "▼" : "▶", toggleIcon1Style, GUILayout.Width(16), GUILayout.Height(header1Style.fixedHeight));
 
             // 토글 텍스트 작성
             foldout = GUILayout.Toggle(foldout, label, header1Style);
@@ -224,7 +220,7 @@ namespace Mu3Library.Editor.Window {
             // 토글 마크 그리기
             toggleIcon2Style.normal.textColor = foldout ? Color.green : Color.red;
             toggleIcon2Style.fixedHeight = header2Style.fixedHeight;
-            EditorGUILayout.LabelField(foldout ? "▼" : "▲", toggleIcon2Style, GUILayout.Width(16), GUILayout.Height(header2Style.fixedHeight));
+            EditorGUILayout.LabelField(foldout ? "▼" : "▶", toggleIcon2Style, GUILayout.Width(16), GUILayout.Height(header2Style.fixedHeight));
 
             // 토글 텍스트 작성
             foldout = GUILayout.Toggle(foldout, label, header2Style);
@@ -240,7 +236,69 @@ namespace Mu3Library.Editor.Window {
             if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
         }
 
-        protected void DrawVertical(Action content, float beginSpace = 0, float endSpace = 0) {
+        protected void DrawGrid(List<Action> contents, int columnCount, float leftSpace, float rightSpace, float upSpace, float downSpace) {
+            if(contents == null || contents.Count == 0) {
+                return;
+            }
+
+            GUILayout.BeginVertical();
+
+            GUILayout.Space(upSpace);
+
+            float cellWidth = (windowWidth - (leftSpace + rightSpace)) / columnCount;
+
+            int rowCount = Mathf.CeilToInt(contents.Count / (float)columnCount);
+            for(int r = 0; r < rowCount; r++) {
+                GUILayout.BeginHorizontal();
+
+                GUILayout.Space(leftSpace);
+
+                for(int c = 0; c < columnCount; c++) {
+                    int contentIdx = r * columnCount + c;
+                    // Action 개수 부족
+                    if(contentIdx >= contents.Count) {
+                        GUILayout.FlexibleSpace();
+                    }
+                    else {
+                        GUILayout.BeginVertical(GUILayout.Width(cellWidth));
+                        contents[contentIdx]?.Invoke();
+                        GUILayout.EndVertical();
+                    }
+                }
+
+                GUILayout.Space(rightSpace);
+
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(downSpace);
+
+            GUILayout.EndVertical();
+        }
+
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace, float upSpace, float downSpace) {
+            if(content == null) {
+                return;
+            }
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(leftSpace);
+
+            GUILayout.BeginVertical();
+
+            GUILayout.Space(upSpace);
+            content?.Invoke();
+            GUILayout.Space(downSpace);
+
+            GUILayout.EndVertical();
+
+            GUILayout.Space(rightSpace);
+
+            GUILayout.EndHorizontal();
+        }
+
+        protected void DrawVertical(Action content, float beginSpace, float endSpace) {
             if(content == null) {
                 return;
             }
@@ -254,7 +312,7 @@ namespace Mu3Library.Editor.Window {
             GUILayout.EndVertical();
         }
 
-        protected void DrawHorizontal(Action content, float beginSpace = 0, float endSpace = 0) {
+        protected void DrawHorizontal(Action content, float beginSpace, float endSpace) {
             if(content == null) {
                 return;
             }
@@ -268,7 +326,7 @@ namespace Mu3Library.Editor.Window {
             GUILayout.EndHorizontal();
         }
 
-        protected void DrawPropertyArea() {
+        protected void DrawPropertyObjectArea() {
             GUILayout.BeginHorizontal();
 
             if(GUILayout.Button("Refresh")) {
