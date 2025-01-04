@@ -28,7 +28,7 @@ namespace Mu3Library.Attribute {
             EditorGUI.LabelField(titleRect, titleAttribute.TitleText, style);
 
             // 밑줄을 그릴 영역 설정
-            Rect underlineRect = new Rect(position.x, titleRect.height + 3, position.width, 1);
+            Rect underlineRect = new Rect(position.x, position.y + fontSize * 2, position.width, 1);
             EditorGUI.DrawRect(underlineRect, Color.gray);
         }
 

@@ -9,7 +9,7 @@ using UnityEngine;
 
 using Object = UnityEngine.Object;
 
-namespace Mu3Library.Demo.Editor.UtilWindow {
+namespace Mu3Library.Demo.UtilWindow {
     public class UtilWindow : Mu3Window<UtilWindowProperty> {
         private const string WindowsMenuName = "Mu3Library/Windows";
 
