@@ -2,9 +2,12 @@ using Mu3Library.Editor.FileUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
+
+using Object = UnityEngine.Object;
 
 namespace Mu3Library.Editor.Window {
     public abstract class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
@@ -236,6 +239,24 @@ namespace Mu3Library.Editor.Window {
             if(insertSpaceOnDownSpaceOfHeader) GUILayout.Space(header3Style.fontSize);
         }
 
+        protected void DrawToggleArea(string label, ref bool toggle) {
+            toggle = EditorGUILayout.ToggleLeft(label, toggle);
+        }
+
+        protected void DrawObjectAreaForProjectObject<Obj>(ref Obj obj) where Obj : Object {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), false) as Obj;
+        }
+
+        protected void DrawObjectAreaForHierarchyObject<Obj>(ref Obj obj) where Obj : Object {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), true) as Obj;
+
+            if(obj != null && AssetDatabase.Contains(obj)) {
+                Debug.LogError($"This Object not exist in Hierarchy.");
+
+                obj = null;
+            }
+        }
+
         protected void DrawGrid(List<Action> contents, int columnCount, float leftSpace, float rightSpace, float upSpace, float downSpace) {
             if(contents == null || contents.Count == 0) {
                 return;
@@ -354,6 +375,20 @@ namespace Mu3Library.Editor.Window {
             DrawFoldoutHeader1("Debug Properties", ref foldout_debug);
 
             if(foldout_debug) {
+                DrawHeader3("[ Game View Properties ]");
+
+                if(Camera.main != null) {
+                    EditorGUILayout.LabelField($"Camera Pixel Size -> {Camera.main.pixelWidth}x{Camera.main.pixelHeight}");
+                    EditorGUILayout.LabelField($"Camera ScaledPixel Size -> {Camera.main.scaledPixelWidth}x{Camera.main.scaledPixelHeight}");
+                }
+                else {
+                    EditorGUILayout.LabelField($"Main Camera not found...");
+                }
+
+                GUILayout.Space(8);
+
+                DrawHeader3("[ Current Window Properties ]");
+
                 EditorGUILayout.LabelField($"windowScrollPos -> ({windowScrollPos.x:F2}, {windowScrollPos.y:F2})");
 
                 EditorGUILayout.LabelField($"windowRect -> pos: ({windowRect.x:F2}, {windowRect.y:F2}), size: ({windowRect.width:F2}, {windowRect.height:F2})");

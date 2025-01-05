@@ -1,7 +1,8 @@
 #if UNITY_EDITOR
-using Mu3Library.Editor;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window;
+using Mu3Library.Utility;
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -15,18 +16,8 @@ namespace Mu3Library.Demo.UtilWindow {
 
         private const string WindowName_MyCustomWindow = WindowsMenuName + "/Util Window";
 
-        #region Move Scene Properties
-
-
-
-        #endregion
-
-        #region Screen Capture Properties
-
+        private int screenCaptureSuperSize = 1;
         private string captureSaveDirectory = "";
-        private string captureSaveFileName = "ScreenShot";
-
-        #endregion
 
 
 
@@ -36,63 +27,12 @@ namespace Mu3Library.Demo.UtilWindow {
         }
 
         protected override void OnGUIFunc() {
-            //DrawPropertiesForDebug();
+            DrawPropertiesForDebug();
 
             GUILayoutOption normalButtonHeight = GUILayout.Height(30);
 
             SceneListDrawFunc();
-
-            #region Screen Capture
-            DrawHeader1("Screen Capture", true);
-
-            DrawHorizontal(() => {
-                bool useCustomSizeWhenScreenCapture = GUILayout.Toggle(currentWindowProperty.CaptureToCustomSize, "Capture Size To Custom Size");
-                if(useCustomSizeWhenScreenCapture != currentWindowProperty.CaptureToCustomSize) {
-                    currentWindowProperty.CaptureToCustomSize = useCustomSizeWhenScreenCapture;
-                }
-
-                if(useCustomSizeWhenScreenCapture) {
-                    GUILayout.Space(15);
-
-                    currentWindowProperty.CaptureSize = EditorGUILayout.Vector2IntField("", currentWindowProperty.CaptureSize);
-                }
-
-                GUILayout.FlexibleSpace();
-            }, 0, 0);
-
-            currentWindowProperty.ChangeCaptureColor = GUILayout.Toggle(currentWindowProperty.ChangeCaptureColor, "Change Color");
-            if(currentWindowProperty.ChangeCaptureColor) {
-                currentWindowProperty.TargetColor = EditorGUILayout.ColorField("Target", currentWindowProperty.TargetColor);
-                currentWindowProperty.ChangeColor = EditorGUILayout.ColorField("Change To", currentWindowProperty.ChangeColor);
-                currentWindowProperty.ColorChangeStrength = EditorGUILayout.Slider("Color Change Strength", currentWindowProperty.ColorChangeStrength, 0.0f, 16.0f);
-            }
-
-            DrawHorizontal(() => {
-                if(GUILayout.Button("Screen Capture", normalButtonHeight)) {
-                    string path = EditorUtility.SaveFilePanel(
-                        "Save ScreenShot",
-                        string.IsNullOrEmpty(captureSaveDirectory) ? Application.dataPath : captureSaveDirectory,
-                        captureSaveFileName + ".png",
-                        "png");
-                    if(!string.IsNullOrEmpty(path)) {
-                        captureSaveDirectory = Path.GetDirectoryName(path);
-                        captureSaveFileName = Path.GetFileNameWithoutExtension(path);
-
-                        if(currentWindowProperty.CaptureToCustomSize) {
-                            ScreenCapture(currentWindowProperty.CaptureSize, path);
-                        }
-                        else {
-                            ScreenCapture(new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height), path);
-                        }
-
-                        Debug.Log($"ScreenShot saved. path: {path}");
-                    }
-                    else {
-                        Debug.Log("ScreenShot path is NULL.");
-                    }
-                }
-            }, 0, 0);
-            #endregion
+            ScreenCaptureDrawFunc();
         }
 
         #region Draw Func
@@ -103,6 +43,7 @@ namespace Mu3Library.Demo.UtilWindow {
 
             bool foldout_sceneList = currentWindowProperty.Foldout_SceneList;
             DrawFoldoutHeader1("Scene List", ref foldout_sceneList);
+            currentWindowProperty.Foldout_SceneList = foldout_sceneList;
 
             if(foldout_sceneList) {
                 DrawHorizontal(() => {
@@ -113,6 +54,9 @@ namespace Mu3Library.Demo.UtilWindow {
                         string relativeDirectory = FilePathConvertor.SystemPathToAssetPath(directory);
 
                         currentWindowProperty.AddSceneCheckDirectory(relativeDirectory);
+
+                        // 변경사항 적용
+                        EditorUtility.SetDirty(currentWindowProperty);
                     }
 
                     GUILayout.Space(4);
@@ -139,6 +83,8 @@ namespace Mu3Library.Demo.UtilWindow {
                                 currentWindowProperty.SceneCheckDirectoryList.RemoveAt(i);
                                 i--;
                                 isRemoved = true;
+
+                                EditorUtility.SetDirty(currentWindowProperty);
                             }
 
                             sceneStruct.Foldout = foldout_sceneStruct;
@@ -177,60 +123,86 @@ namespace Mu3Library.Demo.UtilWindow {
                     }
                 }, 20, 20, 0, 0);
             }
-
-            currentWindowProperty.Foldout_SceneList = foldout_sceneList;
         }
         #endregion
 
         #region Screen Capture
         private void ScreenCaptureDrawFunc() {
+            GUILayoutOption normalButtonHeight = GUILayout.Height(30);
 
+            bool foldout_screenCapture = currentWindowProperty.Foldout_ScreenCapture;
+            DrawFoldoutHeader1("Screen Capture", ref foldout_screenCapture);
+            currentWindowProperty.Foldout_ScreenCapture = foldout_screenCapture;
+
+            if(foldout_screenCapture) {
+                DrawStruct(() => {
+                    DrawHorizontal(() => {
+                        if(Camera.main != null) {
+                            int superSizeWidth = Camera.main.scaledPixelWidth * screenCaptureSuperSize;
+                            int superSizeHeight = Camera.main.scaledPixelHeight * screenCaptureSuperSize;
+                            GUILayout.Label($"Super Size ({superSizeWidth}x{superSizeHeight})", GUILayout.Width(240));
+                        }
+                        else {
+                            GUILayout.Label("Super Size (Main Camera not found...)", GUILayout.Width(240));
+                        }
+
+                        GUILayout.Space(4);
+
+                        screenCaptureSuperSize = EditorGUILayout.IntSlider("", screenCaptureSuperSize, 1, 10);
+                    }, 0, 0);
+
+                    GUILayout.Space(4);
+
+                    if(GUILayout.Button("Screen Capture", normalButtonHeight)) {
+                        string panelTitle = "ScreenShot Save Folder";
+                        string directory = 
+                            string.IsNullOrEmpty(captureSaveDirectory) ? 
+                            Environment.GetFolderPath(Environment.SpecialFolder.Desktop) :
+                            captureSaveDirectory;
+                        string defaultFolderName = "";
+                        string saveFolderDirectory = EditorUtility.SaveFolderPanel(panelTitle, directory, defaultFolderName);
+
+                        if(!string.IsNullOrEmpty(saveFolderDirectory)) {
+                            captureSaveDirectory = saveFolderDirectory;
+
+                            if(Application.isPlaying) {
+                                ScreenCaptureHelper.ScreenShot(saveFolderDirectory, screenCaptureSuperSize, (tex) => {
+                                    if(tex != null) {
+                                        MonoBehaviour.DestroyImmediate(tex);
+                                    }
+                                });
+                            }
+                            else {
+                                ScreenCaptureHelper.ScreenShot(saveFolderDirectory, screenCaptureSuperSize);
+                            }
+                        }
+                    }
+                }, 20, 20, 0, 0);
+            }
         }
-        #endregion
 
-        #endregion
+        private void SaveImageAsPNG(Texture2D tex, string directory) {
+            if(tex == null) {
+                Debug.LogError($"Failed save image. Image is NULL.");
 
-        private void ScreenCapture(Vector2Int captureSize, string path) {
-            int width = captureSize.x;
-            int height = captureSize.y;
-            Debug.Log($"Capture Size: {width}x{height}");
+                return;
+            }
+            if(string.IsNullOrEmpty(directory)) {
+                Debug.LogError($"Failed save image. Directory is empty.");
 
-            RenderTexture rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
-
-            Camera.main.targetTexture = rt;
-            Camera.main.Render();
-            RenderTexture.active = rt;
-
-            Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.ARGB32, false);
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
-
-            Camera.main.targetTexture = null;
-            RenderTexture.active = null;
-            DestroyImmediate(rt);
-
-            if(currentWindowProperty.ChangeCaptureColor) {
-                Vector3 targetVec = UtilFuncForEditor.ColToVec3(currentWindowProperty.TargetColor);
-                Vector3 changeVec = UtilFuncForEditor.ColToVec3(currentWindowProperty.ChangeColor);
-                float changeDistance = Vector3.Distance(targetVec, changeVec);
-
-                Color[] colors = tex.GetPixels();
-                Vector3 currentVec;
-                float dist;
-                for(int i = 0; i < colors.Length; i++) {
-                    currentVec = UtilFuncForEditor.ColToVec3(colors[i]);
-                    dist = Vector3.Distance(currentVec, targetVec);
-
-                    colors[i] = Color.Lerp(colors[i], currentWindowProperty.ChangeColor, Mathf.Pow(Mathf.Clamp01(1.0f - dist / changeDistance), currentWindowProperty.ColorChangeStrength));
-                }
-
-                tex.SetPixels(colors);
-                tex.Apply();
+                return;
             }
 
             byte[] bytes = tex.EncodeToPNG();
-            File.WriteAllBytes(path, bytes);
+            //string fileName = $"ScreenCapture_{tex.width}x{tex.height}_{DateTime.Now.ToString("yyyyMMdd_HHmmss_fffffff")}";
+            string fileName = $"ScreenCapture_{DateTime.Now.ToString("yyyyMMdd_HHmmss_fffffff")}";
+            string filePath = $"{directory}/{fileName}.png";
+            File.WriteAllBytes(filePath, bytes);
+            MonoBehaviour.DestroyImmediate(tex);
         }
+        #endregion
+
+        #endregion
     }
 }
 #endif

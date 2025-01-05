@@ -51,6 +51,29 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
+        public static string GetAssetPathFromMonoBehaviour<T>(T obj) where T : MonoBehaviour {
+            if(obj == null) {
+                Debug.LogError("MonoBehaviour is NULL.");
+
+                return "";
+            }
+
+            MonoScript scriptObj = MonoScript.FromMonoBehaviour(obj);
+            if(scriptObj == null) {
+                Debug.LogError($"MonoScript not found. type: {typeof(T).Name}");
+
+                return "";
+            }
+
+            // 상대 경로 반환
+            string assetPath = AssetDatabase.GetAssetPath(scriptObj);
+
+            return assetPath;
+        }
+
+        /// <summary>
+        /// 에셋 파일의 상대 경로를 반환한다.
+        /// </summary>
         public static string GetAssetPathFromScriptableObject<T>(T obj) where T : ScriptableObject {
             if(obj == null) {
                 Debug.LogError("ScriptableObject is NULL.");

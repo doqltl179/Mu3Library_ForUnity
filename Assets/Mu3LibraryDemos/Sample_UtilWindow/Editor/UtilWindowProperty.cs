@@ -14,7 +14,6 @@ namespace Mu3Library.Demo.UtilWindow {
     [System.Serializable]
     [CreateAssetMenu(fileName = "UtilWindowPropertyObject", menuName = "Mu3 Library/Window/Util Window Property Object", order = 1)]
     public class UtilWindowProperty : Mu3WindowProperty {
-
         #region Scene List Properties
         public bool Foldout_SceneList {
             get => foldout_sceneList;
@@ -30,49 +29,12 @@ namespace Mu3Library.Demo.UtilWindow {
         #endregion
 
         #region Screen Capture Properties
-        public bool CaptureToCustomSize {
-            get => captureToCustomSize;
-            set => captureToCustomSize = value;
+        public bool Foldout_ScreenCapture {
+            get => foldout_screenCapture;
+            set => foldout_screenCapture = value;
         }
         [Title("Screen Capture Properties")]
-        [SerializeField] private bool captureToCustomSize = false;
-        public Vector2Int CaptureSize {
-            get => captureSize;
-            set => captureSize = value;
-        }
-        [SerializeField] private Vector2Int captureSize = new Vector2Int(1920, 1080);
-
-        public bool ChangeCaptureColor {
-            get => changeCaptureColor;
-            set => changeCaptureColor = value;
-        }
-        [SerializeField] private bool changeCaptureColor;
-        public Color TargetColor {
-            get => targetColor;
-            set => targetColor = value;
-        }
-        [SerializeField] private Color targetColor = Color.black;
-        public Color ChangeColor {
-            get => changeColor;
-            set => changeColor = value;
-        }
-        [SerializeField] private Color changeColor = Color.white;
-        public float ColorChangeStrength {
-            get => colorChangeStrength;
-            set => colorChangeStrength = value;
-        }
-        [SerializeField] private float colorChangeStrength = 1.0f;
-
-        //public string CaptureSaveDirectory {
-        //    get => captureSaveDirectory;
-        //    set => captureSaveDirectory = value;
-        //}
-        //[SerializeField] private string captureSaveDirectory = "";
-        //public string CaptureSaveFileName {
-        //    get => captureSaveFileName;
-        //    set => captureSaveFileName = value;
-        //}
-        //[SerializeField] private string captureSaveFileName = "ScreenShot";
+        [SerializeField] private bool foldout_screenCapture = true;
         #endregion
 
 
