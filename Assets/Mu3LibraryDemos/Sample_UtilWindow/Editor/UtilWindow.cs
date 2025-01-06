@@ -55,8 +55,10 @@ namespace Mu3Library.Demo.UtilWindow {
 
                         currentWindowProperty.AddSceneCheckDirectory(relativeDirectory);
 
-                        // 변경사항 적용
+                        // Unity에 변경 사항이 있음을 알림
                         EditorUtility.SetDirty(currentWindowProperty);
+                        // 변경 사항 저장
+                        AssetDatabase.SaveAssets();
                     }
 
                     GUILayout.Space(4);
@@ -85,6 +87,7 @@ namespace Mu3Library.Demo.UtilWindow {
                                 isRemoved = true;
 
                                 EditorUtility.SetDirty(currentWindowProperty);
+                                AssetDatabase.SaveAssets();
                             }
 
                             sceneStruct.Foldout = foldout_sceneStruct;
@@ -175,6 +178,11 @@ namespace Mu3Library.Demo.UtilWindow {
                             else {
                                 ScreenCaptureHelper.ScreenShot(saveFolderDirectory, screenCaptureSuperSize);
                             }
+
+                            // 간혹, 캡처 후 에러 메시지가 나오지 않음에도 이미지 파일이 보이지 않는 문제가 있는데
+                            // Editor에서 ScreenCapture를 사용할 경우 EditMode 혹은 PlayMode에 상관 없이
+                            // GameView에 포커스가 잡혀있어야 캡처가 진행된다.
+                            EditorApplication.ExecuteMenuItem("Window/General/Game");
                         }
                     }
                 }, 20, 20, 0, 0);

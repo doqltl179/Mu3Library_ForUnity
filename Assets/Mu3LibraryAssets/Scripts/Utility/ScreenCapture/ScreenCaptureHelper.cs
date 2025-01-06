@@ -16,9 +16,6 @@ namespace Mu3Library.Utility {
 
             string fileName = GetFileName();
             string filePath = $"{directory}/{fileName}.png";
-            // 이유는 모르겠으나, EditMode에서 캡처한 이미지를 처리하는데 한 박자씩 작업이 밀리는 것처럼 보이는 경향이 있다.
-            // 이 때, 이미지가 생성되었다는 로그는 나오지만 이미지 파일이 보이지 않는 문제가 있는데
-            // Editor에서 플레이를 한 번 해주면 파일이 보이게 된다.
             ScreenCapture.CaptureScreenshot(filePath, superSize);
 
             Debug.Log($"Screen Capture. path: {filePath}");
