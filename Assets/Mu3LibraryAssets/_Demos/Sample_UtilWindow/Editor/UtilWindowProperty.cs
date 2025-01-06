@@ -45,7 +45,18 @@ namespace Mu3Library.Demo.UtilWindow {
         public override void Refresh() {
             if(sceneCheckDirectoryList != null) {
                 for(int i = 0; i < sceneCheckDirectoryList.Count; i++) {
+                    // 'NULL'이면 제거
                     if(sceneCheckDirectoryList[i] == null) {
+                        sceneCheckDirectoryList.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+
+                    // 디렉토리가 존재하지 않으면 제거
+                    string assetDirectory = sceneCheckDirectoryList[i].Directory;
+                    string systemDirectory = FilePathConvertor.AssetPathToSystemPath(assetDirectory);
+                    if(!System.IO.Directory.Exists(systemDirectory)) {
+                        Debug.Log($"Directory not found. AssetPath: {assetDirectory}");
                         sceneCheckDirectoryList.RemoveAt(i);
                         i--;
                         continue;

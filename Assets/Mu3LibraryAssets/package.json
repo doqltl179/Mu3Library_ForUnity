@@ -6,5 +6,27 @@
     "dependencies": {
         "com.unity.postprocessing": "3.4.0", 
         "com.unity.textmeshpro": "3.0.9"
-    }
+    }, 
+    "samples": [
+        {
+            "displayName": "Sample_Attribute",
+            "description": "Attribute Sample",
+            "path": "_Demos/Sample_Attribute"
+        },
+        {
+            "displayName": "Sample_CustomUI",
+            "description": "Custom UI Sample",
+            "path": "_Demos/Sample_CustomUI"
+        },
+        {
+            "displayName": "Sample_PostEffect",
+            "description": "Custom Post Effect Sample",
+            "path": "_Demos/Sample_PostEffect"
+        }, 
+        {
+            "displayName": "Sample_UtilWindow",
+            "description": "Custom Window Sample",
+            "path": "_Demos/Sample_UtilWindow"
+        }
+    ]
 }

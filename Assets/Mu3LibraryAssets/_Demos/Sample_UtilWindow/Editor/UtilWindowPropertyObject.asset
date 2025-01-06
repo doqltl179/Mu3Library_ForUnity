@@ -15,10 +15,10 @@ MonoBehaviour:
   foldout_debug: 1
   foldout_sceneList: 1
   sceneCheckDirectoryList:
-  - directory: Assets/Mu3LibraryDemos
+  - directory: Assets/Mu3LibraryAssets/_Demos
     scenePaths:
-    - Assets/Mu3LibraryDemos/Sample_Attribute/Scenes/Sample_Attribute.unity
-    - Assets/Mu3LibraryDemos/Sample_CustomUI/Scenes/Sample_UI.unity
-    - Assets/Mu3LibraryDemos/Sample_PostEffect/Scenes/Sample_PostEffect.unity
+    - Assets/Mu3LibraryAssets/_Demos/Sample_Attribute/Scenes/Sample_Attribute.unity
+    - Assets/Mu3LibraryAssets/_Demos/Sample_CustomUI/Scenes/Sample_UI.unity
+    - Assets/Mu3LibraryAssets/_Demos/Sample_PostEffect/Scenes/Sample_PostEffect.unity
     foldout: 1
   foldout_screenCapture: 1
