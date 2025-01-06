@@ -1,4 +1,4 @@
-Shader "_Mu3/SimpleToon"
+Shader "Mu3Library/SimpleToon"
 {
     Properties
     {

@@ -1,8 +1,9 @@
-Shader "_Mu3/PostEffect/Blur"
+Shader "Mu3Library/PostEffect/Blur"
 {
     Properties {
         _BlurAmount("Blur Amount", Range(0, 10)) = 5.0
         _Strength("Blur Strength", Range(0, 1)) = 1.0
+        _KernelSize("Blur Kernel Size", Range(1, 10)) = 2
     }
 
     HLSLINCLUDE
@@ -17,11 +18,11 @@ Shader "_Mu3/PostEffect/Blur"
         float2 texcoordStereo : TEXCOORD1;
     };
 
-    float2 TransformTriangleVertexToUV(float2 vertex)
-    {
-        float2 uv = (vertex + 1.0) * 0.5;
-        return uv;
-    }
+    // float2 TransformTriangleVertexToUV(float2 vertex)
+    // {
+    //     float2 uv = (vertex + 1.0) * 0.5;
+    //     return uv;
+    // }
 
     struct AttributesDefault
     {
@@ -45,23 +46,34 @@ Shader "_Mu3/PostEffect/Blur"
 
     float _BlurAmount;
     float _Strength;
+    int _KernelSize;
 
     float4 Frag(VaryingsDefault i) : SV_Target
     {
         float2 uv = i.texcoord;
-        float4 color = float4(0, 0, 0, 0);
-        float2 offset = float2(1.0 / _ScreenParams.x, 1.0 / _ScreenParams.y) * _BlurAmount;
 
-        for (int x = -2; x <= 2; x++)
-        {
-            for (int y = -2; y <= 2; y++)
+        if(_Strength > 0) {
+            float4 color = float4(0, 0, 0, 0);
+            float2 offset = float2(1.0 / _ScreenParams.x, 1.0 / _ScreenParams.y) * _BlurAmount;
+
+            for (int x = -_KernelSize; x <= _KernelSize; x++)
             {
-                color += _MainTex.SampleLevel(sampler_MainTex, uv + float2(x, y) * offset, 0);
+                for (int y = -_KernelSize; y <= _KernelSize; y++)
+                {
+                    color += _MainTex.SampleLevel(sampler_MainTex, uv + float2(x, y) * offset, 0);
+                }
             }
-        }
 
-        color /= 25.0; // Æò±Õ°ª °è»ê
-        return lerp(_MainTex.SampleLevel(sampler_MainTex, uv, 0), color, _Strength);
+            int kernalLength = _KernelSize * 2 + 1;
+            int kernalPixelCount = kernalLength * kernalLength;
+            color /= kernalPixelCount; // í‰ê· ê°’ ê³„ì‚°
+            return lerp(_MainTex.SampleLevel(sampler_MainTex, uv, 0), color, _Strength);
+        }
+        else {
+            float4 color = _MainTex.SampleLevel(sampler_MainTex, uv, 0);
+
+            return color;
+        }
     }
     ENDHLSL
 
