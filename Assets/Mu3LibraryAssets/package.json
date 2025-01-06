@@ -1,6 +1,6 @@
 {
     "name": "com.doqltl179.mu3libraryassets",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "displayName": "Mu3 Library Assets",
     "description": "Library assets for Mu3",
     "dependencies": {
@@ -11,22 +11,22 @@
         {
             "displayName": "Sample_Attribute",
             "description": "Attribute Sample",
-            "path": "_Demos/Sample_Attribute"
+            "path": "Samples~/Sample_Attribute"
         },
         {
             "displayName": "Sample_CustomUI",
             "description": "Custom UI Sample",
-            "path": "_Demos/Sample_CustomUI"
+            "path": "Samples~/Sample_CustomUI"
         },
         {
             "displayName": "Sample_PostEffect",
             "description": "Custom Post Effect Sample",
-            "path": "_Demos/Sample_PostEffect"
+            "path": "Samples~/Sample_PostEffect"
         }, 
         {
             "displayName": "Sample_UtilWindow",
             "description": "Custom Window Sample",
-            "path": "_Demos/Sample_UtilWindow"
+            "path": "Samples~/Sample_UtilWindow"
         }
     ]
 }
