@@ -71,6 +71,8 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
             if (abs(depthCenter - depthNeighbor) > 0.01)
             {
                 isEdge = 1.0;
+
+                break;
             }
         }
     
