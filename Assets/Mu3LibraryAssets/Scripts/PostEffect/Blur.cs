@@ -5,14 +5,14 @@ using UnityEngine.Rendering.PostProcessing;
 
 namespace Mu3Library.PostEffect {
     [System.Serializable]
-    [PostProcess(typeof(BlurEffectEffect), PostProcessEvent.AfterStack, "Mu3Library/Blur")]
+    [PostProcess(typeof(BlurEffect), PostProcessEvent.AfterStack, "Mu3Library/Blur")]
     public sealed class Blur : PostProcessEffectSettings {
         [Range(0, 10)] public FloatParameter blurAmount = new FloatParameter { value = 5.0f };
         [Range(0, 1)] public FloatParameter blurStrength = new FloatParameter { value = 1.0f };
         [Range(1, 10)] public IntParameter blurKernelSize = new IntParameter { value = 2 };
     }
 
-    public class BlurEffectEffect : PostProcessEffectRenderer<Blur> {
+    public class BlurEffect : PostProcessEffectRenderer<Blur> {
         private Shader shader;
 
         public override void Init() {
