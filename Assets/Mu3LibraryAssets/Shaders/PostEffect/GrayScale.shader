@@ -7,12 +7,15 @@ Shader "Mu3Library/PostEffect/GrayScale"
     HLSLINCLUDE
     #include "UnityCG.cginc"
 
-    UNITY_DECLARE_TEX2D(_MainTex);
+    struct appdata
+    {
+        float3 vertex : POSITION;
+    };
 
-    struct VaryingsDefault
+    struct v2f
     {
         float4 vertex : SV_POSITION;
-        float2 texcoord : TEXCOORD0;
+        float2 uv : TEXCOORD0;
     };
 
     float2 TransformTriangleVertexToUV(float2 vertex)
@@ -21,29 +24,26 @@ Shader "Mu3Library/PostEffect/GrayScale"
         return uv;
     }
 
-    struct AttributesDefault
+    v2f vert(appdata v)
     {
-        float3 vertex : POSITION;
-    };
-
-    VaryingsDefault VertDefault(AttributesDefault v)
-    {
-        VaryingsDefault o;
+        v2f o;
         o.vertex = float4(v.vertex, 1.0);
         
-        o.texcoord = TransformTriangleVertexToUV(v.vertex.xy);
+        o.uv = TransformTriangleVertexToUV(v.vertex.xy);
     #if UNITY_UV_STARTS_AT_TOP
-        o.texcoord = o.texcoord * float2(1.0, -1.0) + float2(0.0, 1.0);
+        o.uv = o.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
     #endif
 
         return o;
     }
 
+    UNITY_DECLARE_TEX2D(_MainTex);
+
     float _Strength;
 
-    float4 Frag(VaryingsDefault i) : SV_Target
+    float4 frag(v2f i) : SV_Target
     {
-        float2 uv = i.texcoord;
+        float2 uv = i.uv;
         float4 color = _MainTex.SampleLevel(sampler_MainTex, uv, 0);
 
         float grayScale = (color.x + color.y + color.z) / 3.0;
@@ -63,8 +63,8 @@ Shader "Mu3Library/PostEffect/GrayScale"
         Pass
         {
             HLSLPROGRAM
-                #pragma vertex VertDefault
-                #pragma fragment Frag
+                #pragma vertex vert
+                #pragma fragment frag
             ENDHLSL
         }
     }

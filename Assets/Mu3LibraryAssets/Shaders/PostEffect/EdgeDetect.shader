@@ -9,13 +9,15 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
     HLSLINCLUDE
     #include "UnityCG.cginc"
 
-    UNITY_DECLARE_TEX2D(_MainTex);
-    UNITY_DECLARE_TEX2D(_CameraDepthTexture);
+    struct appdata
+    {
+        float3 vertex : POSITION;
+    };
 
-    struct VaryingsDefault
+    struct v2f
     {
         float4 vertex : SV_POSITION;
-        float2 texcoord : TEXCOORD0;
+        float2 uv : TEXCOORD0;
     };
 
     float2 TransformTriangleVertexToUV(float2 vertex)
@@ -24,31 +26,29 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
         return uv;
     }
 
-    struct AttributesDefault
+    v2f vert(appdata v)
     {
-        float3 vertex : POSITION;
-    };
+        v2f o;
+        o.vertex = float4(v.vertex.xyz, 1.0);
 
-    VaryingsDefault VertDefault(AttributesDefault v)
-    {
-        VaryingsDefault o;
-        o.vertex = float4(v.vertex, 1.0);
-
-        o.texcoord = TransformTriangleVertexToUV(v.vertex.xy);
+        o.uv = TransformTriangleVertexToUV(v.vertex.xy);
     #if UNITY_UV_STARTS_AT_TOP
-        o.texcoord = o.texcoord * float2(1.0, -1.0) + float2(0.0, 1.0);
+        o.uv = o.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
     #endif
 
         return o;
     }
 
+    UNITY_DECLARE_TEX2D(_MainTex);
+    UNITY_DECLARE_TEX2D(_CameraDepthTexture);
+
     float4 _EdgeColor;
     float _EdgeThickness;
 
-    float4 Frag(VaryingsDefault i) : SV_Target
+    float4 frag(v2f i) : SV_Target
     {
-        float2 uv = i.texcoord;
-        float depthCenter = _CameraDepthTexture.Sample(sampler_CameraDepthTexture, uv).r;
+        float2 uv = i.uv;
+        float depthCenter = _CameraDepthTexture.Sample(sampler_CameraDepthTexture, uv, 0).r;
     
         // 8방향 오프셋 정의: 상하좌우 + 대각선
         float2 offsets[8] = {
@@ -67,7 +67,7 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
         // 8방향 샘플링
         for (int k = 0; k < 8; k++)
         {
-            float depthNeighbor = _CameraDepthTexture.Sample(sampler_CameraDepthTexture, uv + offsets[k]).r;
+            float depthNeighbor = _CameraDepthTexture.Sample(sampler_CameraDepthTexture, uv + offsets[k], 0).r;
             if (abs(depthCenter - depthNeighbor) > 0.01)
             {
                 isEdge = 1.0;
@@ -81,7 +81,7 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
         }
         else
         {
-            return _MainTex.Sample(sampler_MainTex, uv);
+            return _MainTex.Sample(sampler_MainTex, uv, 0);
         }
     }
     ENDHLSL
@@ -93,8 +93,8 @@ Shader "Mu3Library/PostEffect/EdgeDetect"
         {
             Cull Off ZWrite Off ZTest Always
             HLSLPROGRAM
-                #pragma vertex VertDefault
-                #pragma fragment Frag
+                #pragma vertex vert
+                #pragma fragment frag
             ENDHLSL
         }
     }
