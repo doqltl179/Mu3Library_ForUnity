@@ -3,54 +3,6 @@ using UnityEngine;
 
 namespace Mu3Library.Utility {
     public class GenericSingleton<T> : MonoBehaviour where T : MonoBehaviour {
-        //private static Dictionary<string, T> instances = new Dictionary<string, T>();
-        //public static T Instance {
-        //    get {
-        //        lock(lockObject) {
-        //            inst = null;
-        //            componentName = typeof(T).Name;
-
-        //            if(instances.ContainsKey(componentName)) {
-        //                inst = instances[componentName];
-        //                if(inst == null || inst.gameObject == null) {
-        //                    instances.Remove(componentName);
-
-        //                    inst = null;
-        //                }
-        //            }
-
-        //            if(inst == null) {
-        //                T[] temps = FindObjectsOfType<T>();
-        //                T instance = null;
-        //                if(temps.Length > 0) {
-        //                    if(temps.Length > 1) {
-        //                        Debug.LogWarning($"Multiple instances of singleton '{componentName}' found. Using the first instance found and destroying others.");
-        //                        for(int i = 1; i < temps.Length; i++) {
-        //                            Destroy(temps[i].gameObject);
-        //                        }
-        //                    }
-        //                    instance = temps[0];
-        //                }
-        //                else {
-        //                    GameObject go = new GameObject(componentName);
-        //                    instance = go.AddComponent<T>();
-        //                }
-
-        //                DontDestroyOnLoad(instance.gameObject);
-        //                instances.Add(componentName, instance);
-        //                inst = instance;
-        //            }
-
-        //            return inst;
-        //        }
-        //    }
-        //}
-
-        //private static T inst = null;
-        //private static string componentName = "";
-
-        //private static readonly object lockObject = new object();
-
         public static T Instance {
             get {
                 if(instance == null) {
@@ -66,6 +18,7 @@ namespace Mu3Library.Utility {
                         else if(instances.Length > 1) {
                             Debug.LogWarning($"'{typeof(T).Name}' already exist more than one.");
 
+                            // instance가 두 개 이상이라면 하나만 제외하고 전부 삭제한다.
                             for(int i = 1; i < instances.Length; i++) {
                                 Destroy(instances[i].gameObject);
                             }
@@ -85,7 +38,7 @@ namespace Mu3Library.Utility {
 
 
 
-        private void OnDestroy() {
+        protected virtual void OnDestroy() {
             Debug.LogWarning($"GenericSingleton Destroyed. type: {typeof(T).Name}");
 
             instance = null;

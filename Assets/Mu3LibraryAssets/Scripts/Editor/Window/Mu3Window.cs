@@ -394,8 +394,6 @@ namespace Mu3Library.Editor.Window {
                 EditorGUILayout.LabelField($"windowRect -> pos: ({windowRect.x:F2}, {windowRect.y:F2}), size: ({windowRect.width:F2}, {windowRect.height:F2})");
             }
 
-            GUILayout.Space(20);
-
             currentWindowProperty.Foldout_Debug = foldout_debug;
         }
         #endregion

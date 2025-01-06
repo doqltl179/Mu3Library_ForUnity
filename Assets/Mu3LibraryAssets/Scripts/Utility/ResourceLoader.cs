@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Utility {
+    /// <summary>
+    /// Resource를 캐싱하여 관리하기 위해 만듬
+    /// </summary>
     public static class ResourceLoader {
         private static Dictionary<string, UnityEngine.Object> resources = new Dictionary<string, UnityEngine.Object>();
 
