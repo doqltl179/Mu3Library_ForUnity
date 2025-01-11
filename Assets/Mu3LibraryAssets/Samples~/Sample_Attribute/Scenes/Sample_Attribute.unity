@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 2007494516}
   - component: {fileID: 2007494515}
   m_Layer: 0
-  m_Name: SampleAttribute
+  m_Name: SceneController
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

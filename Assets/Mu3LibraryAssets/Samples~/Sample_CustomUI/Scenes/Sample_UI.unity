@@ -123,6 +123,53 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &18500134
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 18500136}
+  - component: {fileID: 18500135}
+  m_Layer: 0
+  m_Name: SceneController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &18500135
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18500134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 930e6b374aceb034296bdca5238aaa6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  intSlider: {fileID: 1356771164}
+  intSliderValueText: {fileID: 947970723}
+  datePicker: {fileID: 132681651}
+--- !u!4 &18500136
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18500134}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &36295987
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4217,7 +4264,6 @@ GameObject:
   - component: {fileID: 1029308327}
   - component: {fileID: 1029308326}
   - component: {fileID: 1029308325}
-  - component: {fileID: 1029308329}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -4310,21 +4356,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &1029308329
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1029308324}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 930e6b374aceb034296bdca5238aaa6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  intSlider: {fileID: 1356771164}
-  intSliderValueText: {fileID: 947970723}
-  datePicker: {fileID: 132681651}
 --- !u!1001 &1029699729
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8690,7 +8721,7 @@ PrefabInstance:
     - target: {fileID: 5646860132074666945, guid: f08294fb623193d4898ffcfbd992f72e, type: 3}
       propertyPath: OnIntValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
-      objectReference: {fileID: 1029308329}
+      objectReference: {fileID: 18500135}
     - target: {fileID: 5646860132074666945, guid: f08294fb623193d4898ffcfbd992f72e, type: 3}
       propertyPath: OnIntValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
       value: 2
@@ -8701,7 +8732,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5646860132074666945, guid: f08294fb623193d4898ffcfbd992f72e, type: 3}
       propertyPath: OnIntValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Mu3Library.Demo.Sample_UI.SampleSceneUIController, Assembly-CSharp
+      value: Mu3Library.Demo.UI.SampleSceneUIController, Assembly-CSharp
       objectReference: {fileID: 0}
     - target: {fileID: 5646860132074666945, guid: f08294fb623193d4898ffcfbd992f72e, type: 3}
       propertyPath: OnIntValueChanged.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
@@ -8720,6 +8751,7 @@ PrefabInstance:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 18500136}
   - {fileID: 1074719348}
   - {fileID: 1589655421}
   - {fileID: 61223959}
