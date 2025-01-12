@@ -19,33 +19,33 @@ namespace Mu3Library.Demo.CommandBuffer {
         [SerializeField] private Light bufferLight;
         [SerializeField] private GameObject[] cubes;
 
-        private CameraBuffer grayScaleBuffer;
-        [Space(20), SerializeField] private CameraEvent grayScaleCameraEvent = CameraEvent.AfterEverything;
-        [SerializeField, Range(0.0f, 1.0f)] private float grayScaleStrength = 1.0f;
+        private CameraGrayScaleBuffer cameraGrayScaleBuffer;
+        [Space(20), SerializeField] private CameraEvent cameraGrayScaleEvent = CameraEvent.AfterEverything;
+        [SerializeField, Range(0.0f, 1.0f)] private float cameraGrayScaleStrength = 1.0f;
 
-        private CameraBuffer blurBuffer;
-        [Space(20), SerializeField] private CameraEvent blurCameraEvent = CameraEvent.AfterEverything;
-        [SerializeField, Range(0.0f, 1.0f)] private float blurStrength = 1.0f;
-        [SerializeField, Range(0.0f, 10.0f)] private float blurAmount = 5.0f;
-        [SerializeField, Range(0, 10)] private int blurKernelSize = 2;
+        private CameraBlurBuffer cameraBlurBuffer;
+        [Space(20), SerializeField] private CameraEvent cameraBlurEvent = CameraEvent.AfterEverything;
+        [SerializeField, Range(0.0f, 1.0f)] private float cameraBlurStrength = 1.0f;
+        [SerializeField, Range(0.0f, 10.0f)] private float cameraBlurAmount = 5.0f;
+        [SerializeField, Range(0, 10)] private int cameraBlurKernelSize = 2;
 
-        private CameraBuffer edgeDetectBuffer;
-        [Space(20), SerializeField] private CameraEvent edgeDetectCameraEvent = CameraEvent.AfterEverything;
-        [SerializeField] private Color edgeDetectEdgeColor = Color.black;
-        [SerializeField, Range(0.0f, 1.0f)] private float edgeDetectFactor = 0.1f;
-        [SerializeField, Range(0.0f, 10.0f)] private float edgeDetectEdgeThickness = 2.0f;
+        private CameraEdgeDetectBuffer caneraEdgeDetectBuffer;
+        [Space(20), SerializeField] private CameraEvent cameraEdgeDetectEvent = CameraEvent.AfterEverything;
+        [SerializeField] private Color cameraEdgeDetectEdgeColor = Color.black;
+        [SerializeField, Range(0.0f, 1.0f)] private float cameraEdgeDetectFactor = 0.1f;
+        [SerializeField, Range(0.0f, 10.0f)] private float cameraEdgeDetectEdgeThickness = 2.0f;
 
 
 
         private void OnDestroy() {
-            if(grayScaleBuffer != null) {
-                grayScaleBuffer.Clear();
+            if(cameraGrayScaleBuffer != null) {
+                cameraGrayScaleBuffer.Clear();
             }
-            if(blurBuffer != null) {
-                blurBuffer.Clear();
+            if(cameraBlurBuffer != null) {
+                cameraBlurBuffer.Clear();
             }
-            if(edgeDetectBuffer != null) {
-                edgeDetectBuffer.Clear();
+            if(caneraEdgeDetectBuffer != null) {
+                caneraEdgeDetectBuffer.Clear();
             }
         }
 
@@ -55,45 +55,48 @@ namespace Mu3Library.Demo.CommandBuffer {
             }
 
             if(Input.GetKeyDown(KeyCode.Q)) {
-                if(grayScaleBuffer == null) {
-                    grayScaleBuffer = new CameraBuffer("GrayScale", bufferCamera, grayScaleCameraEvent, Shader.Find("Mu3Library/PostEffect/CommandBufferEffect/GrayScale"));
+                if(cameraGrayScaleBuffer == null) {
+                    cameraGrayScaleBuffer = new CameraGrayScaleBuffer();
+                    cameraGrayScaleBuffer.Init(bufferCamera, cameraGrayScaleEvent);
                 }
                 else {
-                    grayScaleBuffer.Clear();
-                    grayScaleBuffer = null;
+                    cameraGrayScaleBuffer.Clear();
+                    cameraGrayScaleBuffer = null;
                 }
             }
             if(Input.GetKeyDown(KeyCode.W)) {
-                if(blurBuffer == null) {
-                    blurBuffer = new CameraBuffer("Blur", bufferCamera, blurCameraEvent, Shader.Find("Mu3Library/PostEffect/CommandBufferEffect/Blur"));
+                if(cameraBlurBuffer == null) {
+                    cameraBlurBuffer = new CameraBlurBuffer();
+                    cameraBlurBuffer.Init(bufferCamera, cameraBlurEvent);
                 }
                 else {
-                    blurBuffer.Clear();
-                    blurBuffer = null;
+                    cameraBlurBuffer.Clear();
+                    cameraBlurBuffer = null;
                 }
             }
             if(Input.GetKeyDown(KeyCode.E)) {
-                if(edgeDetectBuffer == null) {
-                    edgeDetectBuffer = new CameraBuffer("Edge Detect", bufferCamera, edgeDetectCameraEvent, Shader.Find("Mu3Library/PostEffect/CommandBufferEffect/EdgeDetect"));
+                if(caneraEdgeDetectBuffer == null) {
+                    caneraEdgeDetectBuffer = new CameraEdgeDetectBuffer();
+                    caneraEdgeDetectBuffer.Init(bufferCamera, cameraEdgeDetectEvent);
                 }
                 else {
-                    edgeDetectBuffer.Clear();
-                    edgeDetectBuffer = null;
+                    caneraEdgeDetectBuffer.Clear();
+                    caneraEdgeDetectBuffer = null;
                 }
             }
 
-            if(grayScaleBuffer != null) {
-                grayScaleBuffer.ChangeProperty("_Strength", grayScaleStrength);
+            if(cameraGrayScaleBuffer != null) {
+                cameraGrayScaleBuffer.ChangeStrength(cameraGrayScaleStrength);
             }
-            if(blurBuffer != null) {
-                blurBuffer.ChangeProperty("_Strength", blurStrength);
-                blurBuffer.ChangeProperty("_BlurAmount", blurAmount);
-                blurBuffer.ChangeProperty("_KernelSize", blurKernelSize);
+            if(cameraBlurBuffer != null) {
+                cameraBlurBuffer.ChangeStrength(cameraBlurStrength);
+                cameraBlurBuffer.ChangeAmount(cameraBlurAmount);
+                cameraBlurBuffer.ChangeKernelSize(cameraBlurKernelSize);
             }
-            if(edgeDetectBuffer != null) {
-                edgeDetectBuffer.ChangeProperty("_EdgeColor", edgeDetectEdgeColor);
-                edgeDetectBuffer.ChangeProperty("_EdgeFactor", edgeDetectFactor);
-                edgeDetectBuffer.ChangeProperty("_EdgeThickness", edgeDetectEdgeThickness);
+            if(caneraEdgeDetectBuffer != null) {
+                caneraEdgeDetectBuffer.ChangeColor(cameraEdgeDetectEdgeColor);
+                caneraEdgeDetectBuffer.ChangeFactor(cameraEdgeDetectFactor);
+                caneraEdgeDetectBuffer.ChangeThickness(cameraEdgeDetectEdgeThickness);
             }
         }
     }
