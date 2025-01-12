@@ -1,4 +1,4 @@
-Shader "Mu3Library/PostEffect/EdgeDetect"
+Shader "Mu3Library/PostEffect/PostProcessEffect/EdgeDetect"
 {
     Properties
     {

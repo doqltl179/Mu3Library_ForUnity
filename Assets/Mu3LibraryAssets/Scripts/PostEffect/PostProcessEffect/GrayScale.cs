@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
-namespace Mu3Library.PostEffect {
+namespace Mu3Library.PostEffect.PostProcessEffect {
     [System.Serializable]
     [PostProcess(typeof(GrayScaleEffect), PostProcessEvent.AfterStack, "Mu3Library/GrayScale")]
     public sealed class GrayScale : PostProcessEffectSettings {
@@ -14,7 +14,7 @@ namespace Mu3Library.PostEffect {
         private Shader shader;
 
         public override void Init() {
-            shader = Shader.Find("Mu3Library/PostEffect/GrayScale");
+            shader = Shader.Find("Mu3Library/PostEffect/PostProcessEffect/GrayScale");
         }
 
         public override void Render(PostProcessRenderContext context) {

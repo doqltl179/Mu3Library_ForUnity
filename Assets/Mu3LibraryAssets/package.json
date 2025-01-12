@@ -19,9 +19,14 @@
             "path": "Samples~/Sample_CustomUI"
         },
         {
-            "displayName": "Sample_PostEffect",
-            "description": "Custom Post Effect Sample",
-            "path": "Samples~/Sample_PostEffect"
+            "displayName": "Sample_PostProcessEffect",
+            "description": "Custom Post Process Effect Sample",
+            "path": "Samples~/Sample_PostProcessEffect"
+        }, 
+        {
+            "displayName": "Sample_CommandBufferEffect",
+            "description": "Custom Command Buffer Effect Sample",
+            "path": "Samples~/Sample_CommandBufferEffect"
         }, 
         {
             "displayName": "Sample_UtilWindow",

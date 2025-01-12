@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
-namespace Mu3Library.PostEffect {
+namespace Mu3Library.PostEffect.PostProcessEffect {
     [System.Serializable]
     [PostProcess(typeof(BlurEffect), PostProcessEvent.AfterStack, "Mu3Library/Blur")]
     public sealed class Blur : PostProcessEffectSettings {
@@ -16,7 +16,7 @@ namespace Mu3Library.PostEffect {
         private Shader shader;
 
         public override void Init() {
-            shader = Shader.Find("Mu3Library/PostEffect/Blur");
+            shader = Shader.Find("Mu3Library/PostEffect/PostProcessEffect/Blur");
         }
 
         public override void Render(PostProcessRenderContext context) {

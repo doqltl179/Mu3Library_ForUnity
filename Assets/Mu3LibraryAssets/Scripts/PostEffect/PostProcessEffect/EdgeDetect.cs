@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
-namespace Mu3Library.PostEffect {
+namespace Mu3Library.PostEffect.PostProcessEffect {
     [System.Serializable]
     [PostProcess(typeof(EdgeDetectEffect), PostProcessEvent.AfterStack, "Mu3Library/EdgeDetect")]
     public sealed class EdgeDetect : PostProcessEffectSettings {
@@ -15,7 +15,7 @@ namespace Mu3Library.PostEffect {
         private Shader shader;
 
         public override void Init() {
-            shader = Shader.Find("Mu3Library/PostEffect/EdgeDetect");
+            shader = Shader.Find("Mu3Library/PostEffect/PostProcessEffect/EdgeDetect");
         }
 
         public override void Render(PostProcessRenderContext context) {

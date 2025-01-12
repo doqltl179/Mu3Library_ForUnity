@@ -1,9 +1,7 @@
-Shader "Mu3Library/PostEffect/Blur"
+Shader "Mu3Library/PostEffect/PostProcessEffect/GrayScale"
 {
     Properties {
-        _BlurAmount("Blur Amount", Range(0, 10)) = 5.0
-        _Strength("Blur Strength", Range(0, 1)) = 1.0
-        _KernelSize("Blur Kernel Size", Range(1, 10)) = 2
+        _Strength("GrayScale Strength", Range(0, 1)) = 1.0
     }
 
     HLSLINCLUDE
@@ -29,8 +27,8 @@ Shader "Mu3Library/PostEffect/Blur"
     v2f vert(appdata v)
     {
         v2f o;
-        o.vertex = float4(v.vertex.xy, 0.0, 1.0);
-
+        o.vertex = float4(v.vertex, 1.0);
+        
         o.uv = TransformTriangleVertexToUV(v.vertex.xy);
     #if UNITY_UV_STARTS_AT_TOP
         o.uv = o.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
@@ -41,28 +39,17 @@ Shader "Mu3Library/PostEffect/Blur"
 
     UNITY_DECLARE_TEX2D(_MainTex);
 
-    float _BlurAmount;
     float _Strength;
-    int _KernelSize;
 
     float4 frag(v2f i) : SV_Target
     {
         float2 uv = i.uv;
-        float4 color = float4(0, 0, 0, 0);
-        float2 offset = float2(1.0 / _ScreenParams.x, 1.0 / _ScreenParams.y) * _BlurAmount;
+        float4 color = _MainTex.SampleLevel(sampler_MainTex, uv, 0);
 
-        for (int x = -_KernelSize; x <= _KernelSize; x++)
-        {
-            for (int y = -_KernelSize; y <= _KernelSize; y++)
-            {
-                color += _MainTex.SampleLevel(sampler_MainTex, uv + float2(x, y) * offset, 0);
-            }
-        }
+        float grayScale = (color.x + color.y + color.z) / 3.0;
+        float3 grayColor = float3(grayScale, grayScale, grayScale);
 
-        int kernalLength = _KernelSize * 2 + 1;
-        int kernalPixelCount = kernalLength * kernalLength;
-        color /= kernalPixelCount; // 평균값 계산
-        return lerp(_MainTex.SampleLevel(sampler_MainTex, uv, 0), color, _Strength);
+        return float4(lerp(color.xyz, grayColor, _Strength), color.w);
     }
     ENDHLSL
 
