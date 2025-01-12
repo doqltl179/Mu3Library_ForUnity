@@ -35,6 +35,12 @@ namespace Mu3Library.Demo.CommandBuffer {
         [SerializeField, Range(0.0f, 1.0f)] private float cameraEdgeDetectFactor = 0.1f;
         [SerializeField, Range(0.0f, 10.0f)] private float cameraEdgeDetectEdgeThickness = 2.0f;
 
+        private CameraToonBuffer cameraToonBuffer;
+        [Space(20), SerializeField] private CameraEvent cameraToonEvent = CameraEvent.BeforeForwardOpaque;
+
+        private LightToonBuffer lightToonBuffer;
+        [Space(20), SerializeField] private LightEvent lightToonEvent = LightEvent.AfterShadowMap;
+
 
 
         private void OnDestroy() {
@@ -46,6 +52,13 @@ namespace Mu3Library.Demo.CommandBuffer {
             }
             if(caneraEdgeDetectBuffer != null) {
                 caneraEdgeDetectBuffer.Clear();
+            }
+            if(cameraToonBuffer != null) {
+                cameraToonBuffer.Clear();
+            }
+
+            if(lightToonBuffer != null) {
+                lightToonBuffer.Clear();
             }
         }
 
@@ -84,6 +97,27 @@ namespace Mu3Library.Demo.CommandBuffer {
                     caneraEdgeDetectBuffer = null;
                 }
             }
+            if(Input.GetKeyDown(KeyCode.R)) {
+                if(cameraToonBuffer == null) {
+                    cameraToonBuffer = new CameraToonBuffer();
+                    cameraToonBuffer.Init(bufferCamera, cameraToonEvent);
+                }
+                else {
+                    cameraToonBuffer.Clear();
+                    cameraToonBuffer = null;
+                }
+            }
+
+            if(Input.GetKeyDown(KeyCode.A)) {
+                if(lightToonBuffer == null) {
+                    lightToonBuffer = new LightToonBuffer();
+                    lightToonBuffer.Init(bufferLight, lightToonEvent);
+                }
+                else {
+                    lightToonBuffer.Clear();
+                    lightToonBuffer = null;
+                }
+            }
 
             if(cameraGrayScaleBuffer != null) {
                 cameraGrayScaleBuffer.ChangeStrength(cameraGrayScaleStrength);
@@ -97,6 +131,13 @@ namespace Mu3Library.Demo.CommandBuffer {
                 caneraEdgeDetectBuffer.ChangeColor(cameraEdgeDetectEdgeColor);
                 caneraEdgeDetectBuffer.ChangeFactor(cameraEdgeDetectFactor);
                 caneraEdgeDetectBuffer.ChangeThickness(cameraEdgeDetectEdgeThickness);
+            }
+            if(cameraToonBuffer != null) {
+
+            }
+
+            if(lightToonBuffer != null) {
+
             }
         }
     }
