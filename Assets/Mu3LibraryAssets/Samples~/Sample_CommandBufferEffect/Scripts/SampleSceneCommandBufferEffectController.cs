@@ -15,7 +15,8 @@ namespace Mu3Library.Demo.CommandBuffer {
     5. OnRenderImage: 카메라의 렌더 타겟에 대한 후처리가 필요한 경우 호출.
     */
     public class SampleSceneCommandBufferController : MonoBehaviour {
-        [SerializeField] Camera bufferCamera;
+        [SerializeField] private Camera bufferCamera;
+        [SerializeField] private Light bufferLight;
         [SerializeField] private GameObject[] cubes;
 
         private CameraBuffer grayScaleBuffer;

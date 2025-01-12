@@ -690,6 +690,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bufferCamera: {fileID: 1362651312}
+  bufferLight: {fileID: 1569639587}
   cubes:
   - {fileID: 341622091}
   - {fileID: 677952785}
@@ -705,6 +706,8 @@ MonoBehaviour:
   edgeDetectEdgeColor: {r: 0, g: 0, b: 0, a: 1}
   edgeDetectFactor: 0.1
   edgeDetectEdgeThickness: 2
+  testLightEvent: 1
+  testLightStrength: 1
 --- !u!1 &793769388
 GameObject:
   m_ObjectHideFlags: 0
