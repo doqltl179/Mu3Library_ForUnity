@@ -1,6 +1,6 @@
 {
     "name": "com.doqltl179.mu3libraryassets",
-    "version": "0.0.10",
+    "version": "0.0.11",
     "displayName": "Mu3 Library Assets",
     "description": "Library assets for Mu3",
     "dependencies": {
@@ -27,6 +27,11 @@
             "displayName": "Sample_CommandBufferEffect",
             "description": "Custom Command Buffer Effect Sample",
             "path": "Samples~/Sample_CommandBufferEffect"
+        }, 
+        {
+            "displayName": "Sample_RenderingPipeline",
+            "description": "Rendering Pipeline Effect Sample",
+            "path": "Samples~/Sample_RenderingPipeline"
         }, 
         {
             "displayName": "Sample_UtilWindow",
