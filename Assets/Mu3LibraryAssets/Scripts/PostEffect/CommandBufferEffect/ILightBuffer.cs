@@ -5,7 +5,7 @@ using UnityEngine.Rendering;
 
 namespace Mu3Library.PostEffect.CommandBufferEffect {
     public interface ILightBuffer {
-        public void Init(Light bufferCamera, LightEvent bufferEvent);
+        public void Init(Light bufferLight, LightEvent bufferEvent);
         public void Clear();
     }
 }

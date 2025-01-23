@@ -37,9 +37,9 @@ namespace Mu3Library.PostEffect.CommandBufferEffect {
             int tempRT = Shader.PropertyToID("_TempRT");
             // 임시 텍스처 생성
             cb.GetTemporaryRT(tempRT, Screen.width, Screen.height, 0, FilterMode.Bilinear);
-            // 'tempRT'에 'BuiltinRenderTextureType.CameraTarget'을 복사
+            // 'tempRT'에 'BuiltinRenderTextureType'을 복사
             cb.Blit(BuiltinRenderTextureType.CameraTarget, tempRT);
-            // 'BuiltinRenderTextureType.CameraTarget'에 'tempRT'를 'blurMaterial'을 적용해서 복사
+            // 'BuiltinRenderTextureType'에 'tempRT'를 'blurMaterial'을 적용해서 복사
             cb.Blit(tempRT, BuiltinRenderTextureType.CameraTarget, blurMaterial);
             // 'tempRT' 해제
             cb.ReleaseTemporaryRT(tempRT);

@@ -20,24 +20,29 @@ namespace Mu3Library.Demo.CommandBuffer {
         [SerializeField, Range(0.0f, 10.0f)] private float cameraBlurAmount = 5.0f;
         [SerializeField, Range(0, 10)] private int cameraBlurKernelSize = 2;
 
-        private CameraEdgeDetectBuffer caneraEdgeDetectBuffer;
+        private CameraEdgeDetectBuffer cameraEdgeDetectBuffer;
         [Space(20), SerializeField] private CameraEvent cameraEdgeDetectEvent = CameraEvent.AfterEverything;
         [SerializeField] private Color cameraEdgeDetectEdgeColor = Color.black;
         [SerializeField, Range(0.0f, 1.0f)] private float cameraEdgeDetectFactor = 0.1f;
         [SerializeField, Range(0.0f, 10.0f)] private float cameraEdgeDetectEdgeThickness = 2.0f;
 
+        private CameraToonBuffer cameraToonBuffer;
+        [Space(20), SerializeField] private CameraEvent cameraToonEvent = CameraEvent.AfterGBuffer;
+        [SerializeField, Range(0, 5)] private float cameraToonShadingStep = 2;
+
+        private LightToonBuffer lightToonBuffer;
+        [Space(20), SerializeField] private LightEvent lightToonEvent = LightEvent.AfterShadowMap;
+        [SerializeField, Range(0, 5)] private float lightToonShadingStep = 2;
+
 
 
         private void OnDestroy() {
-            if(cameraGrayScaleBuffer != null) {
-                cameraGrayScaleBuffer.Clear();
-            }
-            if(cameraBlurBuffer != null) {
-                cameraBlurBuffer.Clear();
-            }
-            if(caneraEdgeDetectBuffer != null) {
-                caneraEdgeDetectBuffer.Clear();
-            }
+            ClearCameraBuffer(cameraGrayScaleBuffer);
+            ClearCameraBuffer(cameraBlurBuffer);
+            ClearCameraBuffer(cameraEdgeDetectBuffer);
+            ClearCameraBuffer(cameraToonBuffer);
+
+            ClearLightBuffer(lightToonBuffer);
         }
 
         private void Update() {
@@ -66,13 +71,34 @@ namespace Mu3Library.Demo.CommandBuffer {
                 }
             }
             if(Input.GetKeyDown(KeyCode.E)) {
-                if(caneraEdgeDetectBuffer == null) {
-                    caneraEdgeDetectBuffer = new CameraEdgeDetectBuffer();
-                    caneraEdgeDetectBuffer.Init(bufferCamera, cameraEdgeDetectEvent);
+                if(cameraEdgeDetectBuffer == null) {
+                    cameraEdgeDetectBuffer = new CameraEdgeDetectBuffer();
+                    cameraEdgeDetectBuffer.Init(bufferCamera, cameraEdgeDetectEvent);
                 }
                 else {
-                    caneraEdgeDetectBuffer.Clear();
-                    caneraEdgeDetectBuffer = null;
+                    cameraEdgeDetectBuffer.Clear();
+                    cameraEdgeDetectBuffer = null;
+                }
+            }
+            if(Input.GetKeyDown(KeyCode.R)) {
+                if(cameraToonBuffer == null) {
+                    cameraToonBuffer = new CameraToonBuffer();
+                    cameraToonBuffer.Init(bufferCamera, cameraToonEvent);
+                }
+                else {
+                    cameraToonBuffer.Clear();
+                    cameraToonBuffer = null;
+                }
+            }
+
+            if(Input.GetKeyDown(KeyCode.F)) {
+                if(lightToonBuffer == null) {
+                    lightToonBuffer = new LightToonBuffer();
+                    lightToonBuffer.Init(bufferLight, lightToonEvent);
+                }
+                else {
+                    lightToonBuffer.Clear();
+                    lightToonBuffer = null;
                 }
             }
 
@@ -84,10 +110,29 @@ namespace Mu3Library.Demo.CommandBuffer {
                 cameraBlurBuffer.ChangeAmount(cameraBlurAmount);
                 cameraBlurBuffer.ChangeKernelSize(cameraBlurKernelSize);
             }
-            if(caneraEdgeDetectBuffer != null) {
-                caneraEdgeDetectBuffer.ChangeColor(cameraEdgeDetectEdgeColor);
-                caneraEdgeDetectBuffer.ChangeFactor(cameraEdgeDetectFactor);
-                caneraEdgeDetectBuffer.ChangeThickness(cameraEdgeDetectEdgeThickness);
+            if(cameraEdgeDetectBuffer != null) {
+                cameraEdgeDetectBuffer.ChangeColor(cameraEdgeDetectEdgeColor);
+                cameraEdgeDetectBuffer.ChangeFactor(cameraEdgeDetectFactor);
+                cameraEdgeDetectBuffer.ChangeThickness(cameraEdgeDetectEdgeThickness);
+            }
+            if(cameraToonBuffer != null) {
+                cameraToonBuffer.ChangeShadingStep(cameraToonShadingStep);
+            }
+
+            if(lightToonBuffer != null) {
+                lightToonBuffer.ChangeShadingStep(lightToonShadingStep);
+            }
+        }
+
+        private void ClearCameraBuffer(CameraBuffer buffer) {
+            if(buffer != null) {
+                buffer.Clear();
+            }
+        }
+
+        private void ClearLightBuffer(LightBuffer buffer) {
+            if(buffer != null) {
+                buffer.Clear();
             }
         }
     }
