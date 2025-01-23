@@ -706,8 +706,6 @@ MonoBehaviour:
   cameraEdgeDetectEdgeColor: {r: 0, g: 0, b: 0, a: 1}
   cameraEdgeDetectFactor: 0.1
   cameraEdgeDetectEdgeThickness: 2
-  cameraToonEvent: 7
-  cameraToonShadingStep: 2
 --- !u!1 &793769388
 GameObject:
   m_ObjectHideFlags: 0
