@@ -73,3 +73,5 @@ crashlytics-build.properties
 
 # My ignores
 # **/[Ss]amples~/
+[Aa]ssets/[Ss]amples
+[Aa]ssets/[Ss]amples.meta

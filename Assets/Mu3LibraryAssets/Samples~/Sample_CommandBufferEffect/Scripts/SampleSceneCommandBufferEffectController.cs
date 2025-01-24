@@ -26,12 +26,18 @@ namespace Mu3Library.Demo.CommandBuffer {
         [SerializeField, Range(0.0f, 1.0f)] private float cameraEdgeDetectFactor = 0.1f;
         [SerializeField, Range(0.0f, 10.0f)] private float cameraEdgeDetectEdgeThickness = 2.0f;
 
+        private LightToonBuffer lightToonBuffer;
+        [Space(20), SerializeField] private LightEvent lightToonEvent = LightEvent.AfterShadowMapPass;
+        [SerializeField, Range(0.0f, 5.0f)] private float lightToonShadingStep = 2.8f;
+
 
 
         private void OnDestroy() {
             ClearCameraBuffer(cameraGrayScaleBuffer);
             ClearCameraBuffer(cameraBlurBuffer);
             ClearCameraBuffer(cameraEdgeDetectBuffer);
+
+            ClearLightBuffer(lightToonBuffer);
         }
 
         private void Update() {
@@ -70,6 +76,17 @@ namespace Mu3Library.Demo.CommandBuffer {
                 }
             }
 
+            if(Input.GetKeyDown(KeyCode.F)) {
+                if(lightToonBuffer == null) {
+                    lightToonBuffer = new LightToonBuffer();
+                    lightToonBuffer.Init(bufferLight, lightToonEvent);
+                }
+                else {
+                    lightToonBuffer.Clear();
+                    lightToonBuffer = null;
+                }
+            }
+
             if(cameraGrayScaleBuffer != null) {
                 cameraGrayScaleBuffer.ChangeStrength(cameraGrayScaleStrength);
             }
@@ -82,6 +99,10 @@ namespace Mu3Library.Demo.CommandBuffer {
                 cameraEdgeDetectBuffer.ChangeColor(cameraEdgeDetectEdgeColor);
                 cameraEdgeDetectBuffer.ChangeFactor(cameraEdgeDetectFactor);
                 cameraEdgeDetectBuffer.ChangeThickness(cameraEdgeDetectEdgeThickness);
+            }
+
+            if(lightToonBuffer != null) {
+                lightToonBuffer.ChangeShadingStep(lightToonShadingStep);
             }
         }
 

@@ -46,6 +46,13 @@ namespace Mu3Library.Demo.UtilWindow {
             currentWindowProperty.Foldout_SceneList = foldout_sceneList;
 
             if(foldout_sceneList) {
+                // 플레이 중에는 Scene 이동을 막는다.
+                if(EditorApplication.isPlaying) {
+                    GUILayout.Label("When editor is playing, you can't move to other scene.");
+
+                    return;
+                }
+
                 DrawHorizontal(() => {
                     if(GUILayout.Button("Add Scene Directory", GUILayout.Width(136), normalButtonHeight)) {
                         // 폴더의 절대 경로
