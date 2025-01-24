@@ -3,8 +3,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.Attribute;
-using Mu3Library.Editor.Window;
-using Mu3Library.Editor.FileUtil;
+using Mu3Library.EditorOnly.Window;
+using Mu3Library.EditorOnly.FileUtil;
 
 namespace Mu3Library.Demo.UtilWindow {
     /// <summary>

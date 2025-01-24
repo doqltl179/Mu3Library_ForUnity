@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Editor.FileUtil {
+namespace Mu3Library.EditorOnly.FileUtil {
     public static class FileFinder {
 
 

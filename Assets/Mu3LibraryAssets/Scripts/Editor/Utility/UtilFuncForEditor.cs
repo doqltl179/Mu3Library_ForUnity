@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using UnityEngine;
 
-namespace Mu3Library.Editor {
+namespace Mu3Library.EditorOnly {
     public static class UtilFuncForEditor {
 
 

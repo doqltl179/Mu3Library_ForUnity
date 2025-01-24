@@ -16,7 +16,7 @@ namespace Mu3Library.Demo.RenderingPipeline {
     /*
     "OnRenderImage"는 카메라에 추가된 스크립트에서만 작동한다.
     */
-    public class SampleSceneRenderingPipeline : MonoBehaviour {
+    public class SampleSceneRenderingPipelineController : MonoBehaviour {
         [SerializeField] private GameObject[] cubes;
 
         [Title("Debug")]

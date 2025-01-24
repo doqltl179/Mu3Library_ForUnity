@@ -1,6 +1,6 @@
 #if UNITY_EDITOR
-using Mu3Library.Editor.FileUtil;
-using Mu3Library.Editor.Window;
+using Mu3Library.EditorOnly.FileUtil;
+using Mu3Library.EditorOnly.Window;
 using Mu3Library.Utility;
 using System;
 using System.IO;

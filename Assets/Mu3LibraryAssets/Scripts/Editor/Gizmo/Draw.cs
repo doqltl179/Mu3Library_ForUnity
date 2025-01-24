@@ -2,7 +2,7 @@
 using UnityEngine;
 
 
-namespace Mu3Library.Editor.Gizmo {
+namespace Mu3Library.EditorOnly.Gizmo {
     public static class Draw {
         private static Vector3 m_p1, m_p2;
         private static float m_angle1, m_angle2;

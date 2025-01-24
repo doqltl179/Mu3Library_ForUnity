@@ -2,7 +2,7 @@
 
 using UnityEngine;
 
-namespace Mu3Library.Editor.FileUtil {
+namespace Mu3Library.EditorOnly.FileUtil {
     public static class FilePathConvertor {
         /// <summary>
         /// "Assets" 폴더의 상대 경로

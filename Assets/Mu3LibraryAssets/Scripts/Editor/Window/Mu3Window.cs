@@ -1,15 +1,14 @@
-using Mu3Library.Editor.FileUtil;
+using Mu3Library.EditorOnly.FileUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
 
 using Object = UnityEngine.Object;
 
-namespace Mu3Library.Editor.Window {
+namespace Mu3Library.EditorOnly.Window {
     public abstract class Mu3Window<T> : EditorWindow where T : Mu3WindowProperty {
         protected T currentWindowProperty = null;
 
