@@ -14,7 +14,8 @@ Shader "Mu3Library/Grid"
         LOD 200
 
         CGPROGRAM
-        #pragma surface surf NoLighting noambient noshadow novertexlights nolightmap noforwardadd nometa
+        #pragma surface surf Standard fullforwardshadows
+        // #pragma surface surf NoLighting noambient noshadow novertexlights nolightmap noforwardadd nometa
         #pragma target 3.0
 
         sampler2D _MainTex;
@@ -30,15 +31,16 @@ Shader "Mu3Library/Grid"
         fixed4 _GridColor;
         float _GridDist;
 
-        fixed4 LightingNoLighting(SurfaceOutput s, fixed3 lightDir, fixed atten) {
-            return fixed4(s.Albedo, s.Alpha);
-        }
+        // fixed4 LightingNoLighting(SurfaceOutput s, fixed3 lightDir, fixed atten) {
+        //     return fixed4(s.Albedo, s.Alpha);
+        // }
 
         float inverseLerp(float from, float to, float value) {
             return (value - from) / (to - from);
         }
 
-        void surf (Input IN, inout SurfaceOutput o)
+        void surf (Input IN, inout SurfaceOutputStandard o)
+        // void surf (Input IN, inout SurfaceOutput o)
         {
             fixed4 c = tex2D (_MainTex, IN.uv_MainTex);
 
