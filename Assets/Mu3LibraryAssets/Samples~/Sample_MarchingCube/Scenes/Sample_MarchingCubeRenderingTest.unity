@@ -382,6 +382,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   generator: {fileID: 227136690}
+  cubeWidth: 10
+  cubeHeight: 10
+  cubeDepth: 10
 --- !u!4 &1389239281
 Transform:
   m_ObjectHideFlags: 0
