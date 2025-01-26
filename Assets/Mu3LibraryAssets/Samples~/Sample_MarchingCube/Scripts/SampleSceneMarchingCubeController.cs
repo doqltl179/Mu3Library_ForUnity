@@ -8,7 +8,6 @@ namespace Mu3Library.Demo.MarchingCube {
      */
     public class SampleSceneMarchingCubeController : MonoBehaviour {
         [SerializeField] private MarchingCubeGenerator generator;
-        [SerializeField] private bool setRandomHeight = true;
 
         [Space(20)]
         [SerializeField, Range(MarchingCubeGenerator.CubeWidthMin, MarchingCubeGenerator.CubeWidthMax)] private int cubeWidth = 8;
@@ -62,13 +61,16 @@ namespace Mu3Library.Demo.MarchingCube {
 
             yield return null;
 
-            generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth, setRandomHeight);
+            generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth);
+            generator.SetShapeToCube();
         }
 
         private void Update() {
             if(Input.GetKeyDown(KeyCode.Space)) {
                 generator.Clear();
-                generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth, setRandomHeight);
+
+                generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth);
+                generator.SetShapeToCube();
             }
 
             if(Input.GetKeyDown(KeyCode.Tab)) {
@@ -120,7 +122,7 @@ namespace Mu3Library.Demo.MarchingCube {
             }
 
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            editGuideRadius = Mathf.Clamp(editGuideRadius + scroll * Time.deltaTime * 5.0f, 0.01f, 5.0f);
+            editGuideRadius = Mathf.Clamp(editGuideRadius + scroll * Time.deltaTime * 20.0f, 0.01f, 5.0f);
 
             mouseScreenRay = camera.ScreenPointToRay(Input.mousePosition);
             bool isHitMarchingCube = false;

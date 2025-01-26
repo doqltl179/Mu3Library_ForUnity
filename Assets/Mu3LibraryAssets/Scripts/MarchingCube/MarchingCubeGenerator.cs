@@ -100,14 +100,14 @@ namespace Mu3Library.MarchingCube {
 
         #region Utility
         public void Clear() {
-            if(meshFilter == null || meshFilter.sharedMesh == null) {
+            if(meshFilter == null || meshFilter.mesh == null) {
                 return;
             }
 
-            meshFilter.sharedMesh.Clear();
+            meshFilter.mesh.Clear();
         }
 
-        public void GenerateMarchingCube(int width, int height, int depth, bool setRandomHeight = false) {
+        public void GenerateMarchingCube(int width, int height, int depth) {
             ComponentSetting();
 
             if(width < CubeWidthMin) width = CubeWidthMin;
@@ -129,10 +129,6 @@ namespace Mu3Library.MarchingCube {
                         Vector3Int id = new Vector3Int(w, h, d);
 
                         points[w, h, d] = new CubePoint(id);
-
-                        if(setRandomHeight) {
-                            points[w, h, d].SetRandomHeight();
-                        }
                     }
                 }
             }
@@ -164,10 +160,26 @@ namespace Mu3Library.MarchingCube {
             pointCountWidth = pointCountW;
             pointCountHeight = pointCountH;
             pointCountDepth = pointCountD;
+        }
 
-            if(setRandomHeight) {
-                UpdateCubes();
+        /// <summary>
+        /// MarchingCube를 Cube 형태로 만들기 위해 CubePoint의 Height 값을 조정한다.
+        /// </summary>
+        public void SetShapeToCube() {
+            for(int d = 0; d < pointCountDepth; d++) {
+                for(int h = 0; h < pointCountHeight; h++) {
+                    for(int w = 0; w < pointCountWidth; w++) {
+                        if(w == 0 || h == 0 || d == 0 || w == cubeWidth || h == cubeHeight || d == cubeDepth) {
+                            points[w, h, d].HeightToMax();
+                        }
+                        else {
+                            points[w, h, d].HeightToMin();
+                        }
+                    }
+                }
             }
+
+            UpdateCubes();
         }
 
         /// <summary>
@@ -279,14 +291,14 @@ namespace Mu3Library.MarchingCube {
                 }
             }
 
-            meshFilter.sharedMesh.Clear();
+            meshFilter.mesh.Clear();
             if(vertices.Count >= 3 && triangles.Count >= 3) {
-                meshFilter.sharedMesh.SetVertices(vertices);
-                meshFilter.sharedMesh.SetTriangles(triangles, 0);
+                meshFilter.mesh.SetVertices(vertices);
+                meshFilter.mesh.SetTriangles(triangles, 0);
 
-                meshFilter.sharedMesh.RecalculateNormals();
-                meshFilter.sharedMesh.RecalculateTangents();
-                meshFilter.sharedMesh.RecalculateBounds();
+                meshFilter.mesh.RecalculateNormals();
+                meshFilter.mesh.RecalculateTangents();
+                meshFilter.mesh.RecalculateBounds();
 
                 // Mesh의 충돌 데이터가 바로 업데이트 되지 않음. (원인 파악 X)
                 // 그렇기 때문에 임시조치로 아래의 코드를 작성함.
@@ -334,12 +346,18 @@ namespace Mu3Library.MarchingCube {
             for(int z = boundaryIdxMin.z; z <= boundaryMax.z; z++) {
                 for(int y = boundaryIdxMin.y; y <= boundaryMax.y; y++) {
                     for(int x = boundaryIdxMin.x; x <= boundaryMax.x; x++) {
-                        boundaryPoints.Add(points[x, y, z]);
+                        if(IsPointInRange(x, y, z)) {
+                            boundaryPoints.Add(points[x, y, z]);
+                        }
                     }
                 }
             }
 
             return boundaryPoints;
+        }
+
+        private bool IsPointInRange(int x, int y, int z) {
+            return x >= 0 && y >= 0 && z >= 0 && x < pointCountWidth && y < pointCountHeight && z < pointCountDepth;
         }
 
         private void ComponentSetting() {
@@ -375,7 +393,7 @@ namespace Mu3Library.MarchingCube {
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
 
-            meshFilter.sharedMesh = mesh;
+            meshFilter.mesh = mesh;
 
             if(meshCollider == null) {
                 meshCollider = GetComponent<MeshCollider>();
@@ -383,7 +401,7 @@ namespace Mu3Library.MarchingCube {
                     meshCollider = gameObject.AddComponent<MeshCollider>();
                 }
             }
-            meshCollider.sharedMesh = meshFilter.sharedMesh;
+            meshCollider.sharedMesh = meshFilter.mesh;
         }
     }
 }

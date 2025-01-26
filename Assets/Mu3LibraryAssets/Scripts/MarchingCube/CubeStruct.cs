@@ -27,34 +27,50 @@ namespace Mu3Library.MarchingCube {
         /// </summary>
         private List<int> triangles = new List<int>();
 
+        private float[] cornerHeights = null;
+
 
 
         public CubeStruct(Vector3Int id, CubePoint[] cornerPoints) {
             this.id = id;
 
             corners = cornerPoints;
+            cornerHeights = new float[cornerPoints.Length];
         }
 
         #region Utility
         public void UpdateTriangles(float threshold) {
-            vertices.Clear();
-            triangles.Clear();
+            bool isHeightChanged = false;
+            for(int i = 0; i < corners.Length; i++) {
+                if(corners[i].Height != cornerHeights[i]) {
+                    isHeightChanged = true;
 
-            int triIdx = GetConfigIndex(threshold);
+                    break;
+                }
+            }
 
-            for(int i = 0; MarchingTable.Triangles[triIdx, i] != -1; i++) {
-                int edgeIdx = MarchingTable.Triangles[triIdx, i];
+            if(isHeightChanged) {
+                vertices.Clear();
+                triangles.Clear();
 
-                int startCornerIdx = MarchingTable.Edges[edgeIdx, 0];
-                int endCornerIdx = MarchingTable.Edges[edgeIdx, 1];
+                int triIdx = GetConfigIndex(threshold);
 
-                CubePoint startPoint = corners[startCornerIdx];
-                CubePoint endPoint = corners[endCornerIdx];
+                for(int i = 0; MarchingTable.Triangles[triIdx, i] != -1; i++) {
+                    int edgeIdx = MarchingTable.Triangles[triIdx, i];
 
-                Vector3 vertPos = InterpolateVertex(startPoint, endPoint, threshold);
+                    int startCornerIdx = MarchingTable.Edges[edgeIdx, 0];
+                    int endCornerIdx = MarchingTable.Edges[edgeIdx, 1];
 
-                vertices.Add(vertPos);
-                triangles.Add(vertices.Count - 1);
+                    CubePoint startPoint = corners[startCornerIdx];
+                    CubePoint endPoint = corners[endCornerIdx];
+
+                    Vector3 vertPos = InterpolateVertex(startPoint, endPoint, threshold);
+
+                    vertices.Add(vertPos);
+                    triangles.Add(vertices.Count - 1);
+                }
+
+                cornerHeights = corners.Select(t => t.Height).ToArray();
             }
         }
 
@@ -79,15 +95,19 @@ namespace Mu3Library.MarchingCube {
         }
 
         public void AddVertices(ref List<Vector3> vertexList) {
-            vertexList.AddRange(vertices);
+            if(vertices.Count > 0) {
+                vertexList.AddRange(vertices);
+            }
         }
 
         public void AddTriangles(ref List<int> triangleList, int offset = 0) {
-            if(offset == 0) {
-                triangleList.AddRange(triangles);
-            }
-            else {
-                triangleList.AddRange(triangles.Select(t => t + offset));
+            if(triangles.Count > 0) {
+                if(offset == 0) {
+                    triangleList.AddRange(triangles);
+                }
+                else {
+                    triangleList.AddRange(triangles.Select(t => t + offset));
+                }
             }
         }
         #endregion

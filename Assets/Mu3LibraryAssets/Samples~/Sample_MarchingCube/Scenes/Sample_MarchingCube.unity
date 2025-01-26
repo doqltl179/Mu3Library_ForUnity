@@ -294,7 +294,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   generator: {fileID: 948674869}
-  setRandomHeight: 1
   cubeWidth: 8
   cubeHeight: 8
   cubeDepth: 8

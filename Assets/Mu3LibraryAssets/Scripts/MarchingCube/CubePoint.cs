@@ -43,6 +43,10 @@ namespace Mu3Library.MarchingCube {
             height = Mathf.Clamp(value, HeightMin, HeightMax);
         }
 
+        public void HeightToMin() {
+            height = HeightMin;
+        }
+
         public void HeightToMax() {
             height = HeightMax;
         }
