@@ -115,7 +115,7 @@ namespace Mu3Library.MarchingCube {
 
         #region Utility
         public void Clear() {
-            if(meshFilter == null || meshFilter.mesh == null) {
+            if(meshFilter == null || meshFilter.mesh == null || points == null || cubes == null) {
                 return;
             }
 
@@ -132,6 +132,7 @@ namespace Mu3Library.MarchingCube {
         /// </summary>
         public void GenerateMarchingCube(int width, int height, int depth) {
             ComponentSetting();
+            Clear();
 
             if(width < CubeWidthMin) width = CubeWidthMin;
             else if(width > CubeWidthMax) width = CubeWidthMax;
