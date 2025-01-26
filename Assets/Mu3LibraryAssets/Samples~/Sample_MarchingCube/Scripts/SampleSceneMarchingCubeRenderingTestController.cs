@@ -1,8 +1,6 @@
 using Mu3Library.MarchingCube;
 using UnityEngine;
 
-
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -11,9 +9,9 @@ namespace Mu3Library.Demo.MarchingCube {
     public class SampleSceneMarchingCubeRenderingTestController : MonoBehaviour {
         [SerializeField] private MarchingCubeGenerator generator;
 
-        [SerializeField, Range(1, 10)] private int cubeWidth = 1;
-        [SerializeField, Range(1, 10)] private int cubeHeight = 1;
-        [SerializeField, Range(1, 10)] private int cubeDepth = 1;
+        private const int cubeWidth = 1;
+        private const int cubeHeight = 1;
+        private const int cubeDepth = 1;
 
         private int pointCountWidth = 0;
         private int pointCountHeight = 0;
@@ -43,6 +41,7 @@ namespace Mu3Library.Demo.MarchingCube {
 
 
                             Handles.Label(spheres[w, h, d].transform.position + Vector3.right * 0.15f, $"({w}, {h}, {d})", textStyle);
+                            Handles.Label(spheres[w, h, d].transform.position + Vector3.right * 0.15f + Vector3.up * 0.05f, $"{generator.GetPointHeight(w, h, d)}");
                         }
                     }
                 }
@@ -127,8 +126,12 @@ namespace Mu3Library.Demo.MarchingCube {
 
                     Debug.Log($"Clicked Sphere. ({w}, {h}, {d})");
 
-                    bool isSelected = generator.TurnPointSelected(w, h, d);
-                    hit.collider.GetComponent<MeshRenderer>().sharedMaterial.color = isSelected ? Color.green : Color.red;
+                    //bool isSelected = generator.TurnPointSelected(w, h, d);
+                    //hit.collider.GetComponent<MeshRenderer>().sharedMaterial.color = isSelected ? Color.green : Color.red;
+
+                    generator.TurnPointSelected(w, h, d);
+                    float t = generator.GetPointHeightRatio(w, h, d);
+                    hit.collider.GetComponent<MeshRenderer>().sharedMaterial.color = Color.Lerp(Color.red, Color.green, t);
                 }
             }
         }
@@ -141,9 +144,11 @@ namespace Mu3Library.Demo.MarchingCube {
             for(int d = 0; d < pointCountDepth; d++) {
                 for(int h = 0; h < pointCountHeight; h++) {
                     for(int w = 0; w < pointCountWidth; w++) {
-                        bool isSelected = generator.IsPointSelected(w, h, d);
+                        //bool isSelected = generator.IsPointSelected(w, h, d);
+                        //spheres[w, h, d].GetComponent<MeshRenderer>().sharedMaterial.color = isSelected ? Color.green : Color.red;
 
-                        spheres[w, h, d].GetComponent<MeshRenderer>().sharedMaterial.color = isSelected ? Color.green : Color.red;
+                        float t = generator.GetPointHeightRatio(w, h, d);
+                        spheres[w, h, d].GetComponent<MeshRenderer>().sharedMaterial.color = Color.Lerp(Color.red, Color.green, t);
                     }
                 }
             }
