@@ -27,6 +27,9 @@ namespace Mu3Library.MarchingCube {
         /// </summary>
         private List<int> triangles = new List<int>();
 
+        /// <summary>
+        /// Height 캐싱
+        /// </summary>
         private float[] cornerHeights = null;
 
 
