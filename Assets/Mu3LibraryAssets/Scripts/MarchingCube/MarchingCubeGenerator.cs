@@ -3,9 +3,24 @@ using System.Collections.Generic;
 
 namespace Mu3Library.MarchingCube {
     /// <summary>
-    /// [ 전제 조건 ]
+    /// <br/> -
+    /// <br/> [ 전제 조건 ]
     /// <br/> Cube를 생성할 때, Point는 반드시 거리가 1씩 배치된다.
     /// <br/> 만약 Point의 거리를 조절해서 Cube의 사이즈를 조절하고 싶다면 'transform.localScale'을 조절하자.
+    /// <br/>
+    /// <br/> [ ComponentSetting ]
+    /// <br/> MarchingCube에 필요한 최소한의 컴포넌트를 불러온다.
+    /// <br/>
+    /// <br/> [ GenerateMarchingCube ]
+    /// <br/> MarchingCube에 필요한 데이터를 생성한다.
+    /// <br/>
+    /// <br/> [ UpdateCubes ]
+    /// <br/> 생성(혹은 수정)된 데이터를 바탕으로 MarchingCube를 재구성한다.
+    /// <br/>
+    /// <br/> [ Clear ]
+    /// <br/> 생성된 MarchingCube의 데이터를 제거한다.
+    /// <br/>
+    /// <br/> -
     /// </summary>
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
@@ -105,6 +120,11 @@ namespace Mu3Library.MarchingCube {
             }
 
             meshFilter.mesh.Clear();
+
+            vertices.Clear();
+            triangles.Clear();
+            points = null;
+            cubes = null;
         }
 
         /// <summary>
