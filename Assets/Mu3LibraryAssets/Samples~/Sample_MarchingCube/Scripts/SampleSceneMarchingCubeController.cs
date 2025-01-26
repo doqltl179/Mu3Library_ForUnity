@@ -67,7 +67,7 @@ namespace Mu3Library.Demo.MarchingCube {
 
         private void Update() {
             if(Input.GetKeyDown(KeyCode.Space)) {
-                generator.Clear();
+                //generator.Clear();
 
                 generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth);
                 generator.SetShapeToCube();

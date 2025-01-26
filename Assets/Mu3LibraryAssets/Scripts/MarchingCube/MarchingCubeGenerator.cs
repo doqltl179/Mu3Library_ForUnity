@@ -50,33 +50,33 @@ namespace Mu3Library.MarchingCube {
         /// x축의 길이
         /// </summary>
         public int CubeWidth => cubeWidth;
-        private int cubeWidth = 0;
+        private int cubeWidth = -1;
         /// <summary>
         /// y축의 길이
         /// </summary>
         public int CubeHeight => cubeHeight;
-        private int cubeHeight = 0;
+        private int cubeHeight = -1;
         /// <summary>
         /// z축의 길이
         /// </summary>
         public int CubeDepth => cubeDepth;
-        private int cubeDepth = 0;
+        private int cubeDepth = -1;
 
         /// <summary>
         /// x축 point의 개수
         /// </summary>
         public int PointCountWidth => pointCountWidth;
-        private int pointCountWidth = 0;
+        private int pointCountWidth = -1;
         /// <summary>
         /// y축 point의 개수
         /// </summary>
         public int PointCountHeight => pointCountHeight;
-        private int pointCountHeight = 0;
+        private int pointCountHeight = -1;
         /// <summary>
         /// z축 point의 개수
         /// </summary>
         public int PointCountDepth => pointCountDepth;
-        private int pointCountDepth = 0;
+        private int pointCountDepth = -1;
 
         public int PointCount => pointCountWidth + pointCountHeight + pointCountDepth;
 
@@ -125,12 +125,25 @@ namespace Mu3Library.MarchingCube {
             triangles.Clear();
             points = null;
             cubes = null;
+
+            cubeWidth = -1;
+            cubeHeight = -1;
+            cubeDepth = -1;
+
+            pointCountWidth = -1;
+            pointCountHeight = -1;
+            pointCountDepth = -1;
         }
 
         /// <summary>
         /// 처음 초기화 할 때만 사용하며 빈번히 사용하지 않는다.
         /// </summary>
         public void GenerateMarchingCube(int width, int height, int depth) {
+            // MarchingCube의 사이즈가 변하지 않았기 때문에 초기화하지 않는다.
+            if(width == cubeWidth && height == cubeHeight && depth == cubeDepth) {
+                return;
+            }
+
             ComponentSetting();
             Clear();
 
