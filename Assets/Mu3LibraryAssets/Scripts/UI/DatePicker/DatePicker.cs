@@ -6,6 +6,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using Mu3Library.EditorOnly;
+
 
 #if UNITY_EDITOR
 
@@ -80,7 +82,7 @@ namespace Mu3Library.UI {
                 if(invisibleBackgroundButton != null) {
                     invisibleBackgroundButton.image.color = Vector4.zero;
 
-                    UtilFunc.RemoveAllListener(ref invisibleBackgroundButton);
+                    UtilFuncForEditor.RemoveAllListener(ref invisibleBackgroundButton);
                     UnityAction unityAction = new UnityAction(OnClickedInvisibleBackground);
                     UnityEventTools.AddPersistentListener(invisibleBackgroundButton.onClick, unityAction);
                 }
@@ -131,7 +133,7 @@ namespace Mu3Library.UI {
                 if(monthMinusOneButton == null) {
                     SetChildButtonProperties("MonthMinusOneButton", out monthMinusOneButton, leftButtonsRect, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f));
 
-                    UtilFunc.RemoveAllListener(ref monthMinusOneButton);
+                    UtilFuncForEditor.RemoveAllListener(ref monthMinusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(monthMinusOneButton.onClick, unityAction, -1);
 
@@ -139,7 +141,7 @@ namespace Mu3Library.UI {
                 if(yearMinusOneButton == null) {
                     SetChildButtonProperties("YearMinusOneButton", out yearMinusOneButton, leftButtonsRect, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f));
 
-                    UtilFunc.RemoveAllListener(ref yearMinusOneButton);
+                    UtilFuncForEditor.RemoveAllListener(ref yearMinusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(yearMinusOneButton.onClick, unityAction, -12);
                 }
@@ -160,14 +162,14 @@ namespace Mu3Library.UI {
                 if(monthPlusOneButton == null) {
                     SetChildButtonProperties("MonthPlusOneButton", out monthPlusOneButton, rightButtonsRect, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f));
 
-                    UtilFunc.RemoveAllListener(ref monthPlusOneButton);
+                    UtilFuncForEditor.RemoveAllListener(ref monthPlusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(monthPlusOneButton.onClick, unityAction, 1);
                 }
                 if(yearPlusOneButton == null) {
                     SetChildButtonProperties("YearPlusOneButton", out yearPlusOneButton, rightButtonsRect, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f));
 
-                    UtilFunc.RemoveAllListener(ref yearPlusOneButton);
+                    UtilFuncForEditor.RemoveAllListener(ref yearPlusOneButton);
                     UnityAction<int> unityAction = new UnityAction<int>(MoveMonth);
                     UnityEventTools.AddIntPersistentListener(yearPlusOneButton.onClick, unityAction, 12);
                 }

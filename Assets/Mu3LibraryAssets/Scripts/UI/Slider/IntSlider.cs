@@ -1,4 +1,3 @@
-using Mu3Library.Utility;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -160,8 +159,27 @@ namespace Mu3Library.UI {
             return Mathf.FloorToInt((value + sliderSplitValue * 0.5f) / sliderSplitValue);
         }
 
+        /// <summary>
+        /// Vector3의 InverseLerp
+        /// </summary>
         private float PointerToSliderValue(Vector3 pointer) {
-            return UtilFunc.InverseLerp(worldCornerLB, worldCornerRT, pointer);
+            Vector3 ab = worldCornerRT - worldCornerLB;
+            if(ab.magnitude == 0f) {
+                return 0f;
+            }
+
+            Vector3 av = pointer - worldCornerLB;
+            return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
+        }
+
+        public static float InverseLerp(Vector3 from, Vector3 to, Vector3 a) {
+            Vector3 ab = to - from;
+            if(ab.magnitude == 0f) {
+                return 0f;
+            }
+
+            Vector3 av = a - from;
+            return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
         }
 
         private void ChangeSliderValue() {
