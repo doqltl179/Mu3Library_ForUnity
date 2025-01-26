@@ -107,6 +107,9 @@ namespace Mu3Library.MarchingCube {
             meshFilter.mesh.Clear();
         }
 
+        /// <summary>
+        /// 처음 초기화 할 때만 사용하며 빈번히 사용하지 않는다.
+        /// </summary>
         public void GenerateMarchingCube(int width, int height, int depth) {
             ComponentSetting();
 

@@ -73,7 +73,9 @@ namespace Mu3Library.MarchingCube {
                     triangles.Add(vertices.Count - 1);
                 }
 
-                cornerHeights = corners.Select(t => t.Height).ToArray();
+                for(int i = 0; i < cornerHeights.Length; i++) {
+                    cornerHeights[i] = corners[i].Height;
+                }
             }
         }
 
