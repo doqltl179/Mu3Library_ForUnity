@@ -32,6 +32,9 @@ namespace Mu3Library.MarchingCube {
         /// </summary>
         private float[] cornerHeights = null;
 
+        public int TriangleConfigIndex => triangleConfigIndex;
+        private int triangleConfigIndex = -1;
+
 
 
         public CubeStruct(Vector3Int id, CubePoint[] cornerPoints) {
@@ -56,10 +59,10 @@ namespace Mu3Library.MarchingCube {
                 vertices.Clear();
                 triangles.Clear();
 
-                int triIdx = GetConfigIndex(threshold);
+                triangleConfigIndex = GetConfigIndex(threshold);
 
-                for(int i = 0; MarchingTable.Triangles[triIdx, i] != -1; i++) {
-                    int edgeIdx = MarchingTable.Triangles[triIdx, i];
+                for(int i = 0; MarchingTable.Triangles[triangleConfigIndex, i] != -1; i++) {
+                    int edgeIdx = MarchingTable.Triangles[triangleConfigIndex, i];
 
                     int startCornerIdx = MarchingTable.Edges[edgeIdx, 0];
                     int endCornerIdx = MarchingTable.Edges[edgeIdx, 1];

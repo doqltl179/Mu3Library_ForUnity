@@ -324,6 +324,8 @@ namespace Mu3Library.MarchingCube {
                         // vertex를 먼저 추가하면 triangle의 index값에 문제가 생긴다.
                         currentCube.AddTriangles(ref triangles, vertices.Count);
                         currentCube.AddVertices(ref vertices);
+
+                        //Debug.Log($"index: {(z * cubeHeight * cubeWidth) + (y * cubeWidth) + x}, TriangleConfigIndex: {currentCube.TriangleConfigIndex}");
                     }
                 }
             }

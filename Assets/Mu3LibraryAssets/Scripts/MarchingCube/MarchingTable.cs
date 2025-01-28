@@ -55,6 +55,9 @@ namespace Mu3Library.MarchingCube {
         //	{ new Vector3(0, 1, 0), new Vector3(0, 1, 1) }
         //};
 
+		/// <summary>
+		/// <br/> Length(1): 16
+		/// </summary>
         public static int[,] Triangles = new int[,] {
 			{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 			{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

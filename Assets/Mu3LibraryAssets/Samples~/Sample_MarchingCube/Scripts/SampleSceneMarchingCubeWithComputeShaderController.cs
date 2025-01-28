@@ -1,23 +1,19 @@
 using Mu3Library.MarchingCube;
-using System.Collections;
 using UnityEngine;
 
 namespace Mu3Library.Demo.MarchingCube {
-    /*
-     * 싱글 스레드로 생성할 때는 Cube의 사이즈가 (16, 16, 16) 정도만 되도 엄청 버벅인다.
-     */
-    public class SampleSceneMarchingCubeController : MonoBehaviour {
-        [SerializeField] private MarchingCubeGenerator generator;
+    public class SampleSceneMarchingCubeWithCSController : MonoBehaviour {
+        [SerializeField] private MarchingCubeGeneratorWithCS generator;
 
         [Space(20)]
-        [SerializeField, Range(MarchingCubeGenerator.CubeWidthMin, 16)] private int cubeWidth = 8;
-        [SerializeField, Range(MarchingCubeGenerator.CubeHeightMin, 16)] private int cubeHeight = 8;
-        [SerializeField, Range(MarchingCubeGenerator.CubeDepthMin, 16)] private int cubeDepth = 8;
+        [SerializeField, Range(MarchingCubeGeneratorWithCS.CubeWidthMin, MarchingCubeGeneratorWithCS.CubeWidthMax)] private int cubeWidth = 8;
+        [SerializeField, Range(MarchingCubeGeneratorWithCS.CubeHeightMin, MarchingCubeGeneratorWithCS.CubeHeightMax)] private int cubeHeight = 8;
+        [SerializeField, Range(MarchingCubeGeneratorWithCS.CubeDepthMin, MarchingCubeGeneratorWithCS.CubeDepthMax)] private int cubeDepth = 8;
 
         private enum CubeEditMode {
             None = 0,
-            Increase = 1, 
-            Decrease = 2, 
+            Increase = 1,
+            Decrease = 2,
         }
         [Space(20)]
         [SerializeField] private CubeEditMode editMode = CubeEditMode.None;
@@ -34,12 +30,12 @@ namespace Mu3Library.Demo.MarchingCube {
 
 
 
-        private IEnumerator Start() {
+        private void Start() {
             if(generator == null) {
-                GameObject go = new GameObject(typeof(MarchingCubeGenerator).Name);
+                GameObject go = new GameObject(typeof(MarchingCubeGeneratorWithCS).Name);
                 go.transform.position = Vector3.zero;
 
-                generator = go.AddComponent<MarchingCubeGenerator>();
+                generator = go.AddComponent<MarchingCubeGeneratorWithCS>();
             }
 
             if(editGuideBall == null) {
@@ -47,7 +43,7 @@ namespace Mu3Library.Demo.MarchingCube {
 
                 enabled = false;
 
-                yield break;
+                return;
             }
 
             if(camera == null) {
@@ -58,8 +54,6 @@ namespace Mu3Library.Demo.MarchingCube {
                     enabled = false;
                 }
             }
-
-            yield return null;
 
             generator.GenerateMarchingCube(cubeWidth, cubeHeight, cubeDepth);
             generator.SetShapeToCube();
@@ -153,10 +147,10 @@ namespace Mu3Library.Demo.MarchingCube {
 
         private void EditMarchingCube() {
             if(editMode == CubeEditMode.Increase) {
-                generator.IncreasePointHeight(editGuideBall.transform.position, editGuideRadius);
+                //generator.IncreasePointHeight(editGuideBall.transform.position, editGuideRadius);
             }
             else if(editMode == CubeEditMode.Decrease) {
-                generator.DecreasePointHeight(editGuideBall.transform.position, editGuideRadius);
+                //generator.DecreasePointHeight(editGuideBall.transform.position, editGuideRadius);
             }
         }
     }

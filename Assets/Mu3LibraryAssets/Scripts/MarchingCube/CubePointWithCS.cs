@@ -1,12 +1,12 @@
 using UnityEngine;
 
 namespace Mu3Library.MarchingCube {
-    public class CubePoint {
+    public class CubePointWithCS {
         /// <summary>
         /// 전체 point의 Index
         /// </summary>
-        public Vector3Int ID => id;
-        private Vector3Int id = Vector3Int.one * -1;
+        public int ID => id;
+        private int id = -1;
 
         public const float HeightMax = 1.0f;
         public const float HeightMin = -1.0f;
@@ -20,7 +20,7 @@ namespace Mu3Library.MarchingCube {
 
 
 
-        public CubePoint(Vector3Int id, float height = HeightMin) {
+        public CubePointWithCS(int id, float height = HeightMin) {
             this.id = id;
             this.height = height;
         }
