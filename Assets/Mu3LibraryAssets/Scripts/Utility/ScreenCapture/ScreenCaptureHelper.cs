@@ -6,7 +6,6 @@ using UnityEngine;
 
 namespace Mu3Library.Utility {
     public static class ScreenCaptureHelper {
-        private static bool isScreenCaptureRunning = false;
 
 
 
