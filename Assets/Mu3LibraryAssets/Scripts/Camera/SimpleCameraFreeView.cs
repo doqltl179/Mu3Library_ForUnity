@@ -3,6 +3,7 @@ using UnityEngine;
 namespace Mu3Library.CameraUtil {
     public class SimpleCameraFreeView : MonoBehaviour {
         [SerializeField] private Camera camera;
+        [SerializeField] private KeyCode keySwitchCursorVisible = KeyCode.Escape;
 
         [Space(20)]
         [SerializeField] private KeyCode keyMoveL = KeyCode.A;
@@ -43,11 +44,25 @@ namespace Mu3Library.CameraUtil {
                     enabled = false;
                 }
             }
+
+            // 시작하자마자 커서를 숨긴다.
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
         }
 
         private void Update() {
             if(camera == null) {
                 return;
+            }
+
+            if(Input.GetKeyDown(keySwitchCursorVisible)) {
+                Cursor.visible = !Cursor.visible;
+                if(Cursor.visible) {
+                    Cursor.lockState = CursorLockMode.Locked;
+                }
+                else {
+                    Cursor.lockState = CursorLockMode.None;
+                }
             }
 
             Rotate();
@@ -58,7 +73,7 @@ namespace Mu3Library.CameraUtil {
             if(!Input.GetKey(KeyCode.Mouse1)) {
                 return;
             }
-
+            
             float mouseX = Mathf.Clamp(Input.GetAxis("Mouse X"), -1, 1);
             float mouseY = Mathf.Clamp(Input.GetAxis("Mouse Y"), -1, 1);
             if(inverseRotate) {
