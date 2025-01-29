@@ -119,7 +119,7 @@ namespace Mu3Library.Demo.UtilWindow {
         #region Utility
         public void RefreshScenePaths() {
             string typeString = "Scene";
-            string[] sceneFilePaths = FileFinder.GetAssetPaths(directory, "", typeString, "");
+            string[] sceneFilePaths = FileFinder.GetAssetsPath(directory, "", typeString, "");
             if(sceneFilePaths.Length == 0) {
                 Debug.LogWarning($"Scene Files not found. directory: {directory}");
             }

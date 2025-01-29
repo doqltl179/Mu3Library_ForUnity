@@ -97,14 +97,14 @@ namespace Mu3Library.EditorOnly.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
-        public static string[] GetAssetPaths(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        public static string[] GetAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string[] guids = FindAssets(directory, name, typeString, assetlabel);
             string[] relativePaths = guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
 
             return relativePaths;
         }
 
-        public static string[] GetAssetGuids(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        public static string[] GetAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string[] guids = FindAssets(directory, name, typeString, assetlabel);
 
             return guids;
