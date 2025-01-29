@@ -180,10 +180,10 @@ MonoBehaviour:
 
     Tab: Change Edit Mode
 
-    Mouse Click Left: Edit Mode
+    Mouse Hold Left: Edit Mode
     Event
 
-    Mouse Click Right: Rotate Camera View
+    Mouse Hold Right: Rotate Camera View
 
 '
   m_isRightToLeft: 0
@@ -823,6 +823,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   camera: {fileID: 1605137427}
+  keySwitchCursorVisible: 27
   keyMoveL: 97
   keyMoveR: 100
   keyMoveF: 119
