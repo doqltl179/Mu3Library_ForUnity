@@ -40,6 +40,9 @@ namespace Mu3Library.MarchingCubes {
         [SerializeField, Range(0.01f, 10.0f)] private float pointWeightSensitive = 1.0f;
 
         [Space(20)]
+        [SerializeField] private Material chunkMaterial = null;
+
+        [Space(20)]
         [SerializeField] private bool usePlayerBoundary = false;
 
         [ConditionalHide(nameof(usePlayerBoundary), true)]
@@ -76,7 +79,7 @@ namespace Mu3Library.MarchingCubes {
         /// <summary>
         /// <br/> chunkCount: 한 변에 들어가는 chunk의 개수
         /// </summary>
-        public void CreateChunks(int chunkCount) {
+        public void CreateChunks(int chunkCount, bool useCollider = false) {
             if(this.chunkCount == chunkCount) {
                 return;
             }
@@ -99,7 +102,7 @@ namespace Mu3Library.MarchingCubes {
                         }
                         chunk.gameObject.name = $"Chunk_{x}_{y}_{z}";
 
-                        chunk.Init(x, y, z, chunkSize);
+                        chunk.Init(x, y, z, chunkSize, useCollider, chunkMaterial);
                         chunk.transform.position = new Vector3(x, y, z) * chunkSize;
 
                         chunks[x, y, z] = chunk;

@@ -71,7 +71,7 @@ namespace Mu3Library.MarchingCubes {
             Debug.Log($"Chunk Mesh Updated. Coord: {coord}, vertCount: {vertices.Length}");
         }
 
-        public void Init(int coordX, int coordY, int coordZ, int size, bool useCollider = true, Material mat = null) {
+        public void Init(int coordX, int coordY, int coordZ, int size, bool useCollider = false, Material mat = null) {
             void GetOrAddComponent<T>(ref T component) where T : Component {
                 if(component == null) {
                     component = GetComponent<T>();

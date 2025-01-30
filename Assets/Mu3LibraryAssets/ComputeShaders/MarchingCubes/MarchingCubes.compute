@@ -36,12 +36,6 @@ AppendStructuredBuffer<Triangle> triangles;
 
 float3 interpolateVerts(float3 v1, float3 v2, float w1, float w2)
 {
-    // weight 값이 같으면 중앙점 반환
-    if (w1 == w2)
-    {
-        return (v1 + v2) * 0.5;
-    }
-
     // 선형 보간 계산
     float t = (pointWeightThreshold - w1) / (w2 - w1);
     return lerp(v1, v2, t); // Lerp를 활용해 보간
