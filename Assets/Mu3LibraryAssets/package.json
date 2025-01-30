@@ -1,6 +1,6 @@
 {
     "name": "com.doqltl179.mu3libraryassets",
-    "version": "0.0.14",
+    "version": "0.0.15",
     "displayName": "Mu3 Library Assets",
     "description": "Library assets for Mu3",
     "dependencies": {
@@ -31,11 +31,6 @@
             "displayName": "Sample_RenderingPipeline",
             "description": "Rendering Pipeline Effect Sample",
             "path": "Samples~/Sample_RenderingPipeline"
-        }, 
-        {
-            "displayName": "Sample_MarchingCube",
-            "description": "MarchingCube Sample",
-            "path": "Samples~/Sample_MarchingCube"
         }, 
         {
             "displayName": "Sample_UtilWindow",
