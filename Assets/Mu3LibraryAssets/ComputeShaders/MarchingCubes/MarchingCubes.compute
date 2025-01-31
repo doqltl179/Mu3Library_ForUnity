@@ -1,10 +1,12 @@
-#pragma kernel March
-#pragma kernel ShapeToCube
+#pragma kernel March                // 'triangles' 변수를 계산하기 위한 kernel
+#pragma kernel ShapeToCube          // 'pointsWeight' 변수를 Cube 모양으로 만들기 위한 kernel
+#pragma kernel ShapeToSphere        // 'pointsWeight' 변수를 Sphere 모양으로 만들기 위한 kernel
+#pragma kernel EditPointsWeight     // 'pointsWeight'의 값을 수정한다.
 
 #define TableCornerCount 8
 
 #include "MarchTables.compute"
-#include "UtilFunc.compute"
+#include "MarchingCubesUtilFunc.compute"
 
 static const int numThreads = 8;
 
@@ -22,11 +24,18 @@ uint chunkSize;
 // triangle을 형성하는 point의 weight 경계값
 float pointWeightThreshold;
 
+// 'EditPointsWeight'에서 weight 값이 변경되는 정도
+float pointWeightEditValue;
+// 'EditPointsWeight'에서 weight 값이 변경되는 범위의 중심점
+float3 editPoint;
+// 'EditPointsWeight'에서 weight 값이 변경되는 범위
+float editRadius;
+
 struct Triangle
 {
-    float3 vertexA;
-    float3 vertexB;
     float3 vertexC;
+    float3 vertexB;
+    float3 vertexA;
 };
 
 RWStructuredBuffer<float> pointsWeight; // 반환되는 weight 값의 배열
@@ -105,6 +114,34 @@ void March(uint3 id : SV_DispatchThreadID)
 
 
 [numthreads(numThreads, numThreads, numThreads)]
+void EditPointsWeight(uint3 id : SV_DispatchThreadID)
+{
+    uint pointCount = chunkSize + 1;
+    // cubeSize 변수를 그대로 사용해도 되지만 코드 이해를 돕기위해 의도적으로 선언
+    uint pointIndexMax = chunkSize;
+    if (id.x > pointIndexMax || id.y > pointIndexMax || id.z > pointIndexMax)
+    {
+        return;
+    }
+    
+    // MarchingCubes의 전체 길이
+    // 가로 == 세로 == 높이
+    uint marchingCubesSize = chunkCount * chunkSize;
+    
+    // 전체 chunk를 기준으로 한 point의 index
+    float3 idPos = chunkSize * chunkIndex + id;
+    bool inArea = distance(editPoint, idPos) < editRadius;
+    
+    if (inArea)
+    {
+        uint pointIndex = idToPointIndex(id, pointCount);
+    
+        float currentWeight = pointsWeight[pointIndex];
+        pointsWeight[pointIndex] = currentWeight + pointWeightEditValue;
+    }
+}
+
+[numthreads(numThreads, numThreads, numThreads)]
 void ShapeToCube(uint3 id : SV_DispatchThreadID)
 {
     uint pointCount = chunkSize + 1;
@@ -116,7 +153,7 @@ void ShapeToCube(uint3 id : SV_DispatchThreadID)
     }
     
     uint pointIndex = idToPointIndex(id, pointCount);
-    float weight = 0;
+    float weight = 1;
     
     if (chunkCount == 1)
     {
@@ -127,7 +164,7 @@ void ShapeToCube(uint3 id : SV_DispatchThreadID)
             id.y == pointIndexMax ||
             id.z == pointIndexMax)
         {
-            weight = 1;
+            weight = 0;
         }
     }
     else
@@ -140,8 +177,41 @@ void ShapeToCube(uint3 id : SV_DispatchThreadID)
             (chunkIndex.y == chunkIndexMax && id.y == pointIndexMax) ||
             (chunkIndex.z == chunkIndexMax && id.z == pointIndexMax))
         {
-            weight = 1;
+            weight = 0;
         }
+    }
+    
+    pointsWeight[pointIndex] = weight;
+}
+
+[numthreads(numThreads, numThreads, numThreads)]
+void ShapeToSphere(uint3 id : SV_DispatchThreadID)
+{
+    uint pointCount = chunkSize + 1;
+    // cubeSize 변수를 그대로 사용해도 되지만 코드 이해를 돕기위해 의도적으로 선언
+    uint pointIndexMax = chunkSize;
+    if (id.x > pointIndexMax || id.y > pointIndexMax || id.z > pointIndexMax)
+    {
+        return;
+    }
+    
+    uint pointIndex = idToPointIndex(id, pointCount);
+    float weight = 1;
+    
+    // MarchingCubes의 전체 길이
+    // 가로 == 세로 == 높이
+    uint marchingCubesSize = chunkCount * chunkSize;
+    
+    float sphereRadius = (marchingCubesSize - 1) * 0.5;
+    float3 middlePos = float3(marchingCubesSize, marchingCubesSize, marchingCubesSize) * 0.5;
+    
+    // 전체 chunk를 기준으로 한 point의 index
+    float3 idPos = chunkSize * chunkIndex + id;
+    bool outOfRadius = distance(middlePos, idPos) > sphereRadius;
+    
+    if (outOfRadius)
+    {
+        weight = 0;
     }
     
     pointsWeight[pointIndex] = weight;

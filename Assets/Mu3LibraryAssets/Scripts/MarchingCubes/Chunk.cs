@@ -20,39 +20,49 @@ namespace Mu3Library.MarchingCubes {
         private int size = -1;
 
         /// <summary>
-        /// 각 값의 범위를 (0 ~ 1)로 한다.
+        /// <br/> 각 값의 범위를 (0 ~ 1)로 한다.
+        /// <br/> Buffer에서 가져오는 배열을 그대로 사용하기 위해 1차원 배열로 선언한다.
         /// </summary>
-        private float[,,] pointsWeight = null;
+        private float[] pointsWeight = null;
+
+        private ComputeBuffer pointsWeightBuffer = null;
 
 
+
+        private void OnDestroy() {
+            pointsWeightBuffer?.Release();
+        }
 
         #region Utility
-        public void ForceUpdatePointsWeight(float[] weights) {
-            int pointCount = size + 1;
-            int pointCountAll = pointCount * pointCount * pointCount;
-            if(weights.Length != pointCountAll) {
-                Debug.LogError($"Not same count. current: {pointCountAll}, change: {weights.Length}");
+        public void ForceUpdatePointsWeight() {
+            if(pointsWeight == null || pointsWeightBuffer == null) {
+                Debug.LogError("Force Update Failed.");
 
                 return;
             }
 
-            int tweDimensionPointCount = pointCount * pointCount;
-            int x = 0;
-            int y = 0;
-            int z = 0;
-            for(int i = 0; i < weights.Length; i++) {
-                pointsWeight[x, y, z] = weights[i];
+            if(pointsWeightBuffer.count != pointsWeight.Length) {
+                Debug.LogError("Force Update Failed.");
 
-                x++;
-                if(x >= pointCount) {
-                    x = 0;
-                    y++;
-                    if(y >= pointCount) {
-                        y = 0;
-                        z++;
-                    }
-                }
+                return;
             }
+
+            // Set Weight
+            pointsWeightBuffer.GetData(pointsWeight);
+        }
+
+        /// <summary>
+        /// <br/> 'pointsWeightBuffer'는 'MarchingCubesGenerator.cs'에서 계산해준다.
+        /// <br/> 그렇기 때문에 이 함수에서는 현재 chunk가 가지고 있는 'pointsWeightBuffer'를 'CS'에 세팅해준다.
+        /// </summary>
+        public void SetPointsWeightBuffer(ComputeShader CS, int kernelIndex, string name) {
+            if(pointsWeightBuffer == null) {
+                Debug.LogError("Buffer is NULL.");
+
+                return;
+            }
+
+            CS.SetBuffer(kernelIndex, name, pointsWeightBuffer);
         }
 
         public void UpdateMesh(Vector3[] vertices, int[] triangles) {
@@ -63,10 +73,18 @@ namespace Mu3Library.MarchingCubes {
             }
 
             Mesh mesh = meshFilter.sharedMesh;
+            mesh.Clear();
+
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
 
             mesh.RecalculateNormals();
+
+            if(meshCollider != null) {
+                // Force Update
+                meshCollider.enabled = false;
+                meshCollider.enabled = true;
+            }
 
             Debug.Log($"Chunk Mesh Updated. Coord: {coord}, vertCount: {vertices.Length}");
         }
@@ -94,10 +112,6 @@ namespace Mu3Library.MarchingCubes {
 
             if(meshCollider != null && meshCollider.sharedMesh == null) {
                 meshCollider.sharedMesh = meshFilter.sharedMesh;
-
-                // Force Update
-                meshCollider.enabled = false;
-                meshCollider.enabled = true;
             }
 
             if(mat != null) {
@@ -107,7 +121,13 @@ namespace Mu3Library.MarchingCubes {
             if(this.size != size) {
                 int pointCount = size + 1;
 
-                pointsWeight = new float[pointCount, pointCount, pointCount];
+                pointsWeight = new float[pointCount * pointCount * pointCount];
+
+                // size가 달라졌을 때에만 Buffer를 다시 만들어준다.
+                if(pointsWeightBuffer != null) {
+                    pointsWeightBuffer.Release();
+                }
+                pointsWeightBuffer = new ComputeBuffer(pointsWeight.Length, sizeof(float));
             }
 
             coord = new Vector3Int(coordX, coordY, coordZ);
