@@ -3,7 +3,6 @@ using UnityEngine;
 namespace Mu3Library.CameraUtil {
     public class SimpleCameraFreeView : MonoBehaviour {
         [SerializeField] private Camera camera;
-        [SerializeField] private KeyCode keySwitchCursorVisible = KeyCode.Escape;
 
         [Space(20)]
         [SerializeField] private KeyCode keyMoveL = KeyCode.A;
@@ -13,27 +12,22 @@ namespace Mu3Library.CameraUtil {
         [SerializeField] private KeyCode keyRun = KeyCode.LeftShift;
 
         [Space(20)]
+        [SerializeField] private KeyCode keyRotate = KeyCode.Mouse1;
+
+        [Space(20)]
         [SerializeField] private bool inverseRotate;
 
         [Space(20)]
-        [SerializeField, Range(0.1f, 10.0f)] private float moveSpeed = 1.0f;
-        [SerializeField, Range(0.1f, 360.0f)] private float rotateSpeed = 60.0f;
+        [SerializeField, Range(0.1f, 100.0f)] private float moveSpeed = 1.0f;
+        [SerializeField, Range(0.1f, 360.0f)] private float rotateSpeed = 30.0f;
 
         private readonly Vector3 CameraDirUp = Vector3.up;
 
+        // 화면 밖에 나갔다가 다시 포커싱이 되면 'Input.mousePositionDelta' 값이 이상하게 나오기 때문에
+        // 한 프레임을 건너 뛰어 'Input.mousePositionDelta' 값을 정상화 한다.
+        private bool skipOneFrame = false;
 
 
-        /// <summary>
-        /// 카메라 위치 파악용
-        /// </summary>
-        private void OnDrawGizmos() {
-            if(camera == null) {
-                return;
-            }
-
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(camera.transform.position, 0.25f);
-        }
 
         private void Start() {
             if(camera == null) {
@@ -45,24 +39,36 @@ namespace Mu3Library.CameraUtil {
                 }
             }
 
-            // 시작하자마자 커서를 숨긴다.
-            Cursor.visible = false;
-            Cursor.lockState = CursorLockMode.Locked;
+            Application.focusChanged += (focus) => {
+                if(!focus) {
+                    skipOneFrame = true;
+                }
+            };
         }
 
         private void Update() {
+            if(!Application.isFocused) {
+                return;
+            }
+            else {
+                if(skipOneFrame) {
+                    skipOneFrame = false;
+
+                    return;
+                }
+            }
+
             if(camera == null) {
                 return;
             }
 
-            if(Input.GetKeyDown(keySwitchCursorVisible)) {
-                Cursor.visible = !Cursor.visible;
-                if(Cursor.visible) {
-                    Cursor.lockState = CursorLockMode.Locked;
-                }
-                else {
-                    Cursor.lockState = CursorLockMode.None;
-                }
+            if(Input.GetKeyDown(keyRotate)) {
+                Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+            }
+            else if(Input.GetKeyUp(keyRotate)) {
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
             }
 
             Rotate();
@@ -70,12 +76,12 @@ namespace Mu3Library.CameraUtil {
         }
 
         private void Rotate() {
-            if(!Input.GetKey(KeyCode.Mouse1)) {
+            if(!Input.GetKey(keyRotate)) {
                 return;
             }
-            
-            float mouseX = Mathf.Clamp(Input.GetAxis("Mouse X"), -1, 1);
-            float mouseY = Mathf.Clamp(Input.GetAxis("Mouse Y"), -1, 1);
+
+            float mouseX = Input.mousePositionDelta.x / Screen.width * 1000f;
+            float mouseY = Input.mousePositionDelta.y / Screen.height * 1000f;
             if(inverseRotate) {
                 mouseX *= -1;
                 mouseY *= -1;
