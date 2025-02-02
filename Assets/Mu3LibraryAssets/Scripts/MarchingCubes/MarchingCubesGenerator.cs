@@ -29,6 +29,7 @@ namespace Mu3Library.MarchingCubes {
         private int kernelIndex_EditPointsWeight = -1;
         private int kernelIndex_ShapeToCube = -1;
         private int kernelIndex_ShapeToSphere = -1;
+        private int kernelIndex_ShapeToNoise = -1;
 
         /// <summary>
         /// <br/> MarchingCubes 한 변에 들어가는 chunk의 개수
@@ -46,7 +47,7 @@ namespace Mu3Library.MarchingCubes {
         private bool useCollider = false;
 
         [Space(20)]
-        [SerializeField, Range(0.01f, 1.0f)] private float pointWeightThreshold = 0.1f;
+        [SerializeField, Range(-1.0f, 1.0f)] private float pointWeightThreshold = 0.1f;
         [SerializeField, Range(0.01f, 10.0f)] private float pointWeightSensitive = 1.0f;
 
         [Space(20)]
@@ -118,6 +119,7 @@ namespace Mu3Library.MarchingCubes {
             switch(type) {
                 case ForceUpdateType.Cube: ForceUpdateMarchingCubesToCube(); break;
                 case ForceUpdateType.Sphere: ForceUpdateMarchingCubesToSphere(); break;
+                case ForceUpdateType.Noise: ForceUpdateMarchingCubesToNoise(); break;
 
                 default: {
                         Debug.LogWarning($"Undefined Type. type: {type}");
@@ -285,6 +287,31 @@ namespace Mu3Library.MarchingCubes {
             return result;
         }
 
+        private void ForceUpdateMarchingCubesToNoise() {
+            int pointCount = chunkSize + 1;
+            int threadGroup = Mathf.CeilToInt(pointCount / (float)numThreads);
+
+            Chunk currentChunk = null;
+            for(int z = 0; z < chunkCount; z++) {
+                for(int y = 0; y < chunkCount; y++) {
+                    for(int x = 0; x < chunkCount; x++) {
+                        currentChunk = chunks[x, y, z];
+                        if(currentChunk == null) {
+                            continue;
+                        }
+
+                        marchingCubesCS.SetInts("chunkIndex", x, y, z);
+
+                        // chunk의 weight만을 세팅
+                        SetPointsWeightShapeToNoise(currentChunk, threadGroup);
+
+                        // 위에서 계산된 weight로 triangle 생성
+                        SetChunkTriangles(currentChunk, threadGroup);
+                    }
+                }
+            }
+        }
+
         private void ForceUpdateMarchingCubesToSphere() {
             int pointCount = chunkSize + 1;
             int threadGroup = Mathf.CeilToInt(pointCount / (float)numThreads);
@@ -333,6 +360,20 @@ namespace Mu3Library.MarchingCubes {
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// MarchingCubes의 weight 값에 noise 값을 넣는다.
+        /// </summary>
+        private void SetPointsWeightShapeToNoise(Chunk chunk, int threadGroup) {
+            // weight 세팅 후에는 'SetChunkTriangles'가 불리기 때문에 
+            // 'kernelIndex_March'에도 Buffer를 세팅해서 사용 가능하게 만들어준다.
+            chunk.SetPointsWeightBuffer(marchingCubesCS, kernelIndex_March, "pointsWeight");
+            chunk.SetPointsWeightBuffer(marchingCubesCS, kernelIndex_ShapeToNoise, "pointsWeight");
+
+            marchingCubesCS.Dispatch(kernelIndex_ShapeToNoise, threadGroup, threadGroup, threadGroup);
+
+            chunk.ForceUpdatePointsWeight();
         }
 
         /// <summary>
@@ -420,6 +461,12 @@ namespace Mu3Library.MarchingCubes {
             kernelIndex_ShapeToSphere = marchingCubesCS.FindKernel(kernelName_ShapeToSphere);
             if(kernelIndex_ShapeToSphere < 0) {
                 Debug.LogError($"Kernel not found. CS: {marchingCubesCS.name}, kernel: {kernelName_ShapeToSphere}");
+            }
+
+            const string kernelName_ShapeToNoise = "ShapeToNoise";
+            kernelIndex_ShapeToNoise = marchingCubesCS.FindKernel(kernelName_ShapeToNoise);
+            if(kernelIndex_ShapeToNoise < 0) {
+                Debug.LogError($"Kernel not found. CS: {marchingCubesCS.name}, kernel: {kernelName_ShapeToNoise}");
             }
         }
 

@@ -822,10 +822,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   marchingCubes: {fileID: 1168290212}
-  chunkCount: 8
+  chunkCount: 1
   chunkSize: 10
   useCollider: 1
-  marchingCubesForceUpdateType: 0
+  marchingCubesForceUpdateType: 2
   marchingCubesEditMode: 1
   camera: {fileID: 2075297881}
   editSphereRenderer: {fileID: 2118448768}

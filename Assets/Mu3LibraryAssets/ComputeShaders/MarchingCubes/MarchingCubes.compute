@@ -1,12 +1,15 @@
 #pragma kernel March                // 'triangles' 변수를 계산하기 위한 kernel
 #pragma kernel ShapeToCube          // 'pointsWeight' 변수를 Cube 모양으로 만들기 위한 kernel
 #pragma kernel ShapeToSphere        // 'pointsWeight' 변수를 Sphere 모양으로 만들기 위한 kernel
+#pragma kernel ShapeToNoise         // 'pointsWeight' 변수에 noise 값을 넣는 kernel
 #pragma kernel EditPointsWeight     // 'pointsWeight'의 값을 수정한다.
 
 #define TableCornerCount 8
 
 #include "MarchTables.compute"
 #include "MarchingCubesUtilFunc.compute"
+
+#include "../PerlinNoise.compute"
 
 static const int numThreads = 8;
 
@@ -137,6 +140,15 @@ void EditPointsWeight(uint3 id : SV_DispatchThreadID)
         uint pointIndex = idToPointIndex(id, pointCount);
     
         float currentWeight = pointsWeight[pointIndex];
+        float newWeight = currentWeight + pointWeightEditValue;
+        if (newWeight < -1)
+        {
+            newWeight = -1;
+        }
+        else if(newWeight > 1)
+        {
+            newWeight = 1;
+        }
         pointsWeight[pointIndex] = currentWeight + pointWeightEditValue;
     }
 }
@@ -164,7 +176,7 @@ void ShapeToCube(uint3 id : SV_DispatchThreadID)
             id.y == pointIndexMax ||
             id.z == pointIndexMax)
         {
-            weight = 0;
+            weight = -1;
         }
     }
     else
@@ -177,7 +189,7 @@ void ShapeToCube(uint3 id : SV_DispatchThreadID)
             (chunkIndex.y == chunkIndexMax && id.y == pointIndexMax) ||
             (chunkIndex.z == chunkIndexMax && id.z == pointIndexMax))
         {
-            weight = 0;
+            weight = -1;
         }
     }
     
@@ -211,8 +223,28 @@ void ShapeToSphere(uint3 id : SV_DispatchThreadID)
     
     if (outOfRadius)
     {
-        weight = 0;
+        weight = -1;
     }
+    
+    pointsWeight[pointIndex] = weight;
+}
+
+[numthreads(numThreads, numThreads, numThreads)]
+void ShapeToNoise(uint3 id : SV_DispatchThreadID)
+{
+    uint pointCount = chunkSize + 1;
+    // cubeSize 변수를 그대로 사용해도 되지만 코드 이해를 돕기위해 의도적으로 선언
+    uint pointIndexMax = chunkSize;
+    if (id.x > pointIndexMax || id.y > pointIndexMax || id.z > pointIndexMax)
+    {
+        return;
+    }
+    
+    uint pointIndex = idToPointIndex(id, pointCount);
+    
+    // 전체 chunk를 기준으로 한 point의 index
+    float3 idPos = chunkSize * chunkIndex + id;
+    float weight = perlinNoise3D(idPos / (chunkCount * (float) chunkSize) * 5);
     
     pointsWeight[pointIndex] = weight;
 }

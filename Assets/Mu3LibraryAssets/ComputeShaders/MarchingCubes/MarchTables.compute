@@ -14,7 +14,7 @@ static const uint3 CornersTable[8] = {
 	uint3(0, 1, 1)  // 7
 };
 
-static uint EdgesTable[12][2] = {
+static const uint EdgesTable[12][2] = {
 	{ 0, 1 },
 	{ 1, 2 },
 	{ 3, 2 },

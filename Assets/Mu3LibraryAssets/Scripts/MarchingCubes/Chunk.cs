@@ -20,7 +20,7 @@ namespace Mu3Library.MarchingCubes {
         private int size = -1;
 
         /// <summary>
-        /// <br/> 각 값의 범위를 (0 ~ 1)로 한다.
+        /// <br/> 각 값의 범위를 (-1 ~ 1)로 한다.
         /// <br/> Buffer에서 가져오는 배열을 그대로 사용하기 위해 1차원 배열로 선언한다.
         /// </summary>
         private float[] pointsWeight = null;
