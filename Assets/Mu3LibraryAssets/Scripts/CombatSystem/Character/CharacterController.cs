@@ -42,6 +42,11 @@ namespace Mu3Library.CombatSystem {
         /// Head Tracking을 위한 변수
         /// </summary>
         protected Transform lookTarget = null;
+        /// <summary>
+        /// <br/> 'lookTarget'을 바라보는 위치값 offset
+        /// <br/> offset 값은 'lookTarget'의 로컬 위치값으로 적용한다.
+        /// </summary>
+        protected Vector3 lookTargetLocalPosOffset = Vector3.zero;
         
         #region Public Get Properties
 
@@ -112,7 +117,7 @@ namespace Mu3Library.CombatSystem {
         /// <br/> Animator Controller의 Layer에 'IK Pass'가 체크되어 있어야 한다.
         /// <br/> 매 프레임마다 호출됨
         /// </summary>
-        private void OnAnimatorIK(int layerIndex) {
+        protected virtual void OnAnimatorIK(int layerIndex) {
             if(animator == null) {
                 return;
             }
@@ -131,7 +136,8 @@ namespace Mu3Library.CombatSystem {
             }
 
             Vector3 headPosition = headTransform.position;
-            Vector3 targetPosition = lookTarget.position;
+            //Vector3 targetPosition = lookTarget.position;
+            Vector3 targetPosition = lookTarget.TransformPoint(lookTargetLocalPosOffset);
             Vector3 headToTarget = (targetPosition - headPosition);
 
             // 만약 범위(Radius)도 지정해주고 싶으면 여기에 코드를 작성하자.
@@ -152,8 +158,9 @@ namespace Mu3Library.CombatSystem {
             rigidbody.AddForce(force, mode);
         }
 
-        public void SetLookTarget(Transform target) {
+        public void SetLookTarget(Transform target, Vector3 localPosOffset) {
             lookTarget = target;
+            lookTargetLocalPosOffset = localPosOffset;
         }
 
         #region Animation Func
