@@ -30,6 +30,7 @@ namespace Mu3Library.CombatSystem {
 
 
 
+
         private void FixedUpdate() {
             if(player != null) {
                 player.FixedUpdateAction();

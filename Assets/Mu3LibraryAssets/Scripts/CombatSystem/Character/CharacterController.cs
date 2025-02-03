@@ -38,6 +38,11 @@ namespace Mu3Library.CombatSystem {
         }
         private bool isPlayer = false;
 
+        /// <summary>
+        /// Head Tracking을 위한 변수
+        /// </summary>
+        protected Transform lookTarget = null;
+        
         #region Public Get Properties
 
         public float Radius => collider.radius;
@@ -102,9 +107,53 @@ namespace Mu3Library.CombatSystem {
         /// </summary>
         protected abstract void InitProperties();
 
+        /// <summary>
+        /// <br/> Head Tracking을 위한 함수.
+        /// <br/> Animator Controller의 Layer에 'IK Pass'가 체크되어 있어야 한다.
+        /// <br/> 매 프레임마다 호출됨
+        /// </summary>
+        private void OnAnimatorIK(int layerIndex) {
+            if(animator == null) {
+                return;
+            }
+
+            // Test
+            if(lookTarget == null) {
+                lookTarget = Camera.main.transform;
+                if(lookTarget == null) {
+                    return;
+                }
+            }
+
+            Transform headTransform = animator.GetBoneTransform(HumanBodyBones.Head);
+            if(headTransform == null) {
+                return;
+            }
+
+            Vector3 headPosition = headTransform.position;
+            Vector3 targetPosition = lookTarget.position;
+            Vector3 headToTarget = (targetPosition - headPosition);
+
+            // 만약 범위(Radius)도 지정해주고 싶으면 여기에 코드를 작성하자.
+
+            float dot = Vector3.Dot(transform.forward, headToTarget.normalized);
+            const float trackingAngleDeg = 90.0f;
+            const float trackingAngleRad = trackingAngleDeg * Mathf.Deg2Rad;
+            if(dot < Mathf.Cos(trackingAngleRad)) {
+                return;
+            }
+
+            animator.SetLookAtWeight(dot);
+            animator.SetLookAtPosition(lookTarget.position);
+        }
+
         #region Utility
         public void AddForce(Vector3 force, ForceMode mode) {
             rigidbody.AddForce(force, mode);
+        }
+
+        public void SetLookTarget(Transform target) {
+            lookTarget = target;
         }
 
         #region Animation Func
@@ -224,6 +273,8 @@ namespace Mu3Library.CombatSystem {
                     standbyStates.Add(stateAction);
                 }
             }
+
+            lookTarget = null;
         }
 
         protected virtual bool InitScripts() {
