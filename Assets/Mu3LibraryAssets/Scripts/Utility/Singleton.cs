@@ -8,7 +8,7 @@ namespace Mu3Library.Utility {
             get {
                 if(instance == null) {
                     lock(lockObj) {
-                        T[] instances = FindObjectsOfType<T>();
+                        T[] instances = FindObjectsByType<T>(FindObjectsSortMode.None);
                         if(instances.Length == 0) {
                             Debug.LogWarning($"'{typeof(T).Name}' not exist.");
                         }
@@ -19,6 +19,9 @@ namespace Mu3Library.Utility {
                             for(int i = 1; i < instances.Length; i++) {
                                 Destroy(instances[i].gameObject);
                             }
+                            instance = instances[0];
+                        }
+                        else {
                             instance = instances[0];
                         }
                     }
