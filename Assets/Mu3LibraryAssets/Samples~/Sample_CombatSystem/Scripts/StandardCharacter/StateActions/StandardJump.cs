@@ -4,53 +4,48 @@ using UnityEngine;
 namespace Mu3Library.Demo.CombatSystem {
     public class StandardJump : ICharacterStateAction {
         private StandardCharacter controller;
+        private StandardCharacterProperties properties;
 
-        private const string InputAxes_Jump = "Jump";
-
-        /// <summary>
-        /// 점프 버튼이 눌렸는지 확인하는 변수
-        /// </summary>
-        private bool jumpInput = false;
         /// <summary>
         /// 점프를 했는지 확인하는 변수
         /// </summary>
         private bool isJump = false;
 
-        /// <summary>
-        /// 캐릭터가 바닥에 닿아있는지 확인하는 변수
-        /// </summary>
-        private bool isGrounded = false;
-        private int jumpCheckLayerMask;
-        private Ray jumpCheckRay;
-        private RaycastHit jumpCheckHit;
+        private bool isJumpingUp = false;
 
 
 
         public StandardJump(StandardCharacter controller) {
-            jumpCheckLayerMask = ~(1 << controller.Layer);
-            jumpCheckRay.direction = Vector3.down;
-
             this.controller = controller;
+            properties = controller.Properties;
         }
 
         public void Enter() {
-            controller.AddForce(Vector3.up * 5, ForceMode.Impulse);
+            Vector3 currentVelo = controller.LinearVelocity;
+            controller.AddForce(Vector3.up * properties.JumpForce, ForceMode.Impulse);
+            controller.AddForce(-new Vector3(currentVelo.x, 0, currentVelo.z), ForceMode.Impulse);
+
+            controller.ChangeAnimatorParameter_IsJump(true);
 
             isJump = true;
+            isJumpingUp = true;
         }
 
         public bool EnterCheck() {
-            return jumpInput && !isJump && isGrounded;
+            return properties.JumpInput && !isJump && !isJumpingUp && properties.IsGrounded;
         }
 
         public void Exit() {
+            Vector3 currentVelo = controller.LinearVelocity;
+            controller.AddForce(-new Vector3(currentVelo.x, 0, currentVelo.z), ForceMode.Impulse);
 
+            controller.ChangeAnimatorParameter_IsJump(false);
 
             isJump = false;
         }
 
         public bool ExitCheck() {
-            return isJump && isGrounded;
+            return isJump && !isJumpingUp && properties.IsGrounded;
         }
 
         public void FixedUpdate() {
@@ -62,16 +57,15 @@ namespace Mu3Library.Demo.CombatSystem {
         }
 
         public void Update() {
-
+            if(isJumpingUp) {
+                if(controller.LinearVelocity.y < -0.0001f) {
+                    isJumpingUp = false;
+                }
+            }
         }
 
         public void UpdateAlways() {
-            const float posOffsetY = 0.05f;
-            jumpCheckRay.origin = controller.transform.position + Vector3.up * posOffsetY;
 
-            isGrounded = Physics.Raycast(jumpCheckRay, out jumpCheckHit, posOffsetY * 2.0f, jumpCheckLayerMask);
-
-            jumpInput = Input.GetButtonDown(InputAxes_Jump);
         }
     }
 }

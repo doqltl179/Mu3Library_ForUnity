@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Mu3Library.CombatSystem {
     public enum CharacterType {
-        Standard = 0, 
+        GreatSword = 0, 
 
 
     }
@@ -56,6 +56,8 @@ namespace Mu3Library.CombatSystem {
             set => transform.rotation = value;
         }
 
+        public Vector3 LinearVelocity => rigidbody.linearVelocity;
+
         public Vector3 Forward => transform.forward;
         public Vector3 Right => transform.right;
 
@@ -69,11 +71,10 @@ namespace Mu3Library.CombatSystem {
 
         protected readonly string AnimParamName_MoveBlend = "MoveBlend";
 
-        public CharacterType Type => type;
-        [SerializeField] protected CharacterType type = CharacterType.Standard;
+        protected readonly string AnimParamName_IsJump = "IsJump";
 
-        public CharacterState State => state;
-        protected CharacterState state = CharacterState.None;
+        public CharacterType Type => type;
+        [SerializeField] protected CharacterType type = CharacterType.GreatSword;
 
         /// <summary>
         /// 사용할 상태를 체크하는 변수로, 절대로 런타임 중에 변경하지 않는다.
@@ -85,7 +86,21 @@ namespace Mu3Library.CombatSystem {
 
 
 
+        /// <summary>
+        /// 각 상태별 'ICharacterStateAction' class를 지정해준다.
+        /// </summary>
         protected abstract ICharacterStateAction GetDefinedStateAction(CharacterState s);
+
+        /// <summary>
+        /// 'CharacterController'에 사용되는 모든 property를 여기서 업데이트 하자.
+        /// </summary>
+        protected abstract void UpdateProperties();
+
+        /// <summary>
+        /// <br/> 'CharacterController.Init' 함수가 불릴 때 같이 불린다.
+        /// <br/> 'CharacterController'에 사용되는 모든 property를 여기서 초기화 하자.
+        /// </summary>
+        protected abstract void InitProperties();
 
         #region Utility
         public void AddForce(Vector3 force, ForceMode mode) {
@@ -95,6 +110,10 @@ namespace Mu3Library.CombatSystem {
         #region Animation Func
         public void ChangeAnimatorParameter_MoveBlend(float value) {
             animator.SetFloat(AnimParamName_MoveBlend, value);
+        }
+
+        public void ChangeAnimatorParameter_IsJump(bool value) {
+            animator.SetBool(AnimParamName_IsJump, value);
         }
         #endregion
 
@@ -112,6 +131,8 @@ namespace Mu3Library.CombatSystem {
         /// <br/> Update 함수에서 Character의 상태 변환을 시켜준다.
         /// </summary>
         public virtual void UpdateAction() {
+            UpdateProperties();
+
             // UpdateAlways
             foreach(ICharacterStateAction stateAction in activeStates) {
                 stateAction.UpdateAlways();
@@ -180,6 +201,8 @@ namespace Mu3Library.CombatSystem {
 
             // 상태 초기화
             InitStates();
+            // 프로퍼티 초기화
+            InitProperties();
 
             animator.SetInteger(AnimParamName_CharacterType, (int)type);
         }
