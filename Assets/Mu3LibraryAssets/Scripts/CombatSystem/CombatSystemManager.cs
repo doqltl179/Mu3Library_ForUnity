@@ -3,6 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.CombatSystem {
+    /*
+     * ------------------------------------------------------------------
+     * ┌---------------------┐
+     * | CombatSystemManager |
+     * └---------------------┘
+     *            |            \
+     * ┌---------------------┐   ┌---------------------┐
+     * | CameraSystemManager |   | CharacterController |
+     * └---------------------┘   └---------------------┘
+     * 
+     * 
+     * 
+     * 
+     * 
+     * 
+     * 
+     * ------------------------------------------------------------------
+     */
     public class CombatSystemManager : Singleton<CombatSystemManager> {
         [SerializeField] private CharacterController player;
         [SerializeField] private CameraSystemManager cameraSystem;
