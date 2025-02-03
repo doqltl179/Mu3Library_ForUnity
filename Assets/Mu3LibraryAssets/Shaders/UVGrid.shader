@@ -1,4 +1,4 @@
-Shader "Mu3Library/Grid"
+Shader "Mu3Library/UVGrid"
 {
     Properties
     {
