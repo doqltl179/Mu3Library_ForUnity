@@ -9,6 +9,7 @@ namespace Mu3Library.Demo.CombatSystem {
 
         private void Start() {
             CombatSystemManager.Instance.InitSystem();
+            CombatSystemManager.Instance.ChangeCameraStateToFollowPlayerCharacter(Camera.main);
         }
     }
 }

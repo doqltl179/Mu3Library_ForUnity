@@ -12,7 +12,7 @@ namespace Mu3Library.Demo.CombatSystem {
 
         protected override ICharacterStateAction GetDefinedStateAction(CharacterState s) {
             switch(s) {
-                case CharacterState.Move: return new StandardMove(this, CombatSystemManager.Instance.GetPlayerCamera());
+                case CharacterState.Move: return new StandardMove(this);
                 case CharacterState.Jump: return new StandardJump(this);
 
                 default: return null;

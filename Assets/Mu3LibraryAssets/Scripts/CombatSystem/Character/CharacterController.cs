@@ -38,6 +38,29 @@ namespace Mu3Library.CombatSystem {
         }
         private bool isPlayer = false;
 
+        #region Public Get Properties
+
+        public float Radius => collider.radius;
+        public float Height => collider.height;
+
+        public Vector3 Position {
+            get => transform.position;
+            set => transform.position = value;
+        }
+        public Vector3 EulerAngles {
+            get => transform.eulerAngles;
+            set => transform.eulerAngles = value;
+        }
+        public Quaternion Rotation {
+            get => transform.rotation;
+            set => transform.rotation = value;
+        }
+
+        public Vector3 Forward => transform.forward;
+        public Vector3 Right => transform.right;
+
+        #endregion
+
         public LayerMask Layer => layer;
         protected LayerMask layer = 0;
         protected const string LayerName_Character = "Character";
@@ -61,14 +84,34 @@ namespace Mu3Library.CombatSystem {
 
 
 
-        private void FixedUpdate() {
+
+        protected abstract ICharacterStateAction GetDefinedStateAction(CharacterState s);
+
+        #region Utility
+        public void AddForce(Vector3 force, ForceMode mode) {
+            rigidbody.AddForce(force, mode);
+        }
+
+        #region Animation Func
+        public void ChangeAnimatorParameter_MoveBlend(float value) {
+            animator.SetFloat(AnimParamName_MoveBlend, value);
+        }
+        #endregion
+
+        /// <summary>
+        /// "FixedUpdate"에서 불리는 함수
+        /// </summary>
+        public virtual void FixedUpdateAction() {
             foreach(ICharacterStateAction stateAction in activeStates) {
                 stateAction.FixedUpdate();
             }
         }
 
-        // Update 함수에서 Character의 상태 변환을 시켜준다.
-        private void Update() {
+        /// <summary>
+        /// <br/> "FixedUpdate"에서 불리는 함수
+        /// <br/> Update 함수에서 Character의 상태 변환을 시켜준다.
+        /// </summary>
+        public virtual void UpdateAction() {
             // UpdateAlways
             foreach(ICharacterStateAction stateAction in activeStates) {
                 stateAction.UpdateAlways();
@@ -108,17 +151,13 @@ namespace Mu3Library.CombatSystem {
             }
         }
 
-        private void LateUpdate() {
+        /// <summary>
+        /// "FixedUpdate"에서 불리는 함수
+        /// </summary>
+        public virtual void LateUpdateAction() {
             foreach(ICharacterStateAction stateAction in activeStates) {
                 stateAction.LateUpdate();
             }
-        }
-
-        protected abstract ICharacterStateAction GetDefinedStateAction(CharacterState s);
-
-        #region Utility
-        public void AddForce(Vector3 force, ForceMode mode) {
-            rigidbody.AddForce(force, mode);
         }
 
         public void Init() {

@@ -1,8 +1,6 @@
 using Mu3Library.CombatSystem;
 using UnityEngine;
 
-using CharacterController = Mu3Library.CombatSystem.CharacterController;
-
 namespace Mu3Library.Demo.CombatSystem {
     public class StandardJump : ICharacterStateAction {
         private StandardCharacter controller;
