@@ -90,7 +90,7 @@ namespace Mu3Library.Demo.CombatSystem {
 
             // 만약 오브젝트를 뚫어버리는 문제를 해결하고 싶다면 이곳에 추가 코드를 작성하자.
             Vector3 pivotToCamPos = camPos - pivotPos;
-            int castLayerMask = ~(1 << controller.Layer);
+            int castLayerMask = ~(1 << CharacterController.Layer);
             RaycastHit castHit;
             if(Physics.Raycast(pivotPos, pivotToCamPos.normalized, out castHit, pivotToCamPos.magnitude, castLayerMask)) {
                 camPos = castHit.point;

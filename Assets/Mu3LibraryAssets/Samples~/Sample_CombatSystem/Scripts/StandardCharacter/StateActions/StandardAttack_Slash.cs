@@ -7,6 +7,12 @@ namespace Mu3Library.Demo.CombatSystem {
         private StandardCharacterProperties properties;
 
         /// <summary>
+        /// <br/> Slash의 AttackIndex를 '0'으로 설정한다.
+        /// <br/> Animator에서도 똑같이 설정해주자.
+        /// </summary>
+        private const int attackIndex = 0;
+
+        /// <summary>
         /// Slash 애니메이션이 3분할로 되어 있다.
         /// </summary>
         private const int slashCount = 3;
@@ -34,21 +40,23 @@ namespace Mu3Library.Demo.CombatSystem {
             motionContinue = false;
             exit = false;
 
+            controller.SetAnimatorParameter_AttackIndex(attackIndex);
             controller.SetAnimatorParameter_AttackMotionIndex(motionIndex);
         }
 
         public bool EnterCheck() {
-            return properties.IsGrounded && properties.AttackInput;
+            return properties.IsGrounded && properties.AttackInput && !properties.IsHit;
         }
 
         public void Exit() {
             motionIndex = -1;
 
+            controller.SetAnimatorParameter_AttackIndex(-1);
             controller.SetAnimatorParameter_AttackMotionIndex(motionIndex);
         }
 
         public bool ExitCheck() {
-            return exit;
+            return exit || properties.IsHit;
         }
 
         public void FixedUpdate() {

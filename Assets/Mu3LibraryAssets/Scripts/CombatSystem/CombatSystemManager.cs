@@ -1,26 +1,12 @@
 using Mu3Library.Utility;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Mu3Library.CombatSystem {
-    /*
-     * ------------------------------------------------------------------
-     * ┌---------------------┐
-     * | CombatSystemManager |
-     * └---------------------┘
-     *            |            \
-     * ┌---------------------┐   ┌---------------------┐
-     * | CameraSystemManager |   | CharacterController |
-     * └---------------------┘   └---------------------┘
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * ------------------------------------------------------------------
-     */
+    /// <summary>
+    /// 해당 Combat System은 오픈 월드가 아닌 턴제, 혹은 단판 승부를 가리는 상황에서 사용하기에 적합하다.
+    /// </summary>
     public class CombatSystemManager : Singleton<CombatSystemManager> {
         [SerializeField] private CharacterController player;
         [SerializeField] private CameraSystemManager cameraSystem;
@@ -103,9 +89,45 @@ namespace Mu3Library.CombatSystem {
             cameraSystem.ChangeCameraStateToFollowCharacter(camera, player);
         }
 
+        public CharacterController GetMostNearCharacter(CharacterController from) {
+            bool isEnemySide = false;
+            if(enemyForces.Any(t => t == from)) {
+                isEnemySide = true;
+            }
+
+            CharacterController near = null;
+
+            if(isEnemySide) {
+                if(playerAllies.Count > 0) {
+                    near = playerAllies[0];
+                    for(int i = 1; i < playerAllies.Count; i++) {
+                        float currentDist = Vector3.Distance(from.Position, near.Position);
+                        float compareDist = Vector3.Distance(from.Position, playerAllies[i].Position);
+                        if(compareDist > currentDist) {
+                            near = playerAllies[i];
+                        }
+                    }
+                }
+            }
+            else {
+                if(enemyForces.Count > 0) {
+                    near = enemyForces[0];
+                    for(int i = 1; i < playerAllies.Count; i++) {
+                        float currentDist = Vector3.Distance(from.Position, near.Position);
+                        float compareDist = Vector3.Distance(from.Position, enemyForces[i].Position);
+                        if(compareDist > currentDist) {
+                            near = enemyForces[i];
+                        }
+                    }
+                }
+            }
+
+            return near;
+        }
+
         public void InitSystem() {
             if(player != null) {
-                player.Init();
+                player.Init(false);
                 player.IsPlayer = true;
             }
 
@@ -117,12 +139,12 @@ namespace Mu3Library.CombatSystem {
             }
 
             foreach(CharacterController ally in playerAllies) {
-                ally.Init();
+                ally.Init(true);
                 ally.IsPlayer = false;
             }
 
             foreach(CharacterController enemy in enemyForces) {
-                enemy.Init();
+                enemy.Init(true);
                 enemy.IsPlayer = false;
             }
         }

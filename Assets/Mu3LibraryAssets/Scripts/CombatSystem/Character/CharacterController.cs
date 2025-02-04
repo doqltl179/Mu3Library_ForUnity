@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Mu3Library.CombatSystem {
@@ -15,6 +16,14 @@ namespace Mu3Library.CombatSystem {
         Move = 1 << 0, 
         Jump = 1 << 1, 
         Attack = 1 << 2,
+        Hit = 1 << 3, 
+
+    }
+
+    public enum HitType {
+        None = 0, 
+
+        Normal, 
 
     }
 
@@ -38,6 +47,9 @@ namespace Mu3Library.CombatSystem {
             }
         }
         private bool isPlayer = false;
+
+        public bool IsAutoPlay => isAutoPlay;
+        private bool isAutoPlay = false;
 
         /// <summary>
         /// Head Tracking을 위한 변수
@@ -74,8 +86,8 @@ namespace Mu3Library.CombatSystem {
 
         #endregion
 
-        public LayerMask Layer => layer;
-        protected LayerMask layer = 0;
+        public static LayerMask Layer => layer;
+        protected static LayerMask layer = -1;
         protected const string LayerName_Character = "Character";
 
         protected readonly string AnimParamName_CharacterType = "CharacterType";
@@ -84,20 +96,30 @@ namespace Mu3Library.CombatSystem {
 
         protected readonly string AnimParamName_IsJump = "IsJump";
 
+        protected readonly string AnimParamName_AttackIndex = "AttackIndex";
         protected readonly string AnimParamName_AttackMotionIndex = "AttackMotionIndex";
+
+        protected readonly string AnimParamName_HitTrigger = "HitTrigger";
+        protected readonly string AnimParamName_ReturnToFirstAnimation = "ReturnToFirstAnimation";
 
         public CharacterType Type => type;
         [SerializeField] protected CharacterType type = CharacterType.GreatSword;
+        [SerializeField] protected Weapon currentWeapon;
 
         /// <summary>
         /// 사용할 상태를 체크하는 변수로, 절대로 런타임 중에 변경하지 않는다.
         /// </summary>
+        [Space(20)]
         [SerializeField] private CharacterState usingStates;
         private List<ICharacterStateAction> activeStates = new List<ICharacterStateAction>();
         private List<ICharacterStateAction> standbyStates = new List<ICharacterStateAction>();
 
 
 
+        /// <summary>
+        /// Hit 되었을 때의 동작을 각 CharacterController 별로 정의
+        /// </summary>
+        public abstract void GetHit(int damage, HitType type);
 
         /// <summary>
         /// 각 상태별 'ICharacterStateAction' class를 지정해준다.
@@ -157,6 +179,24 @@ namespace Mu3Library.CombatSystem {
         }
 
         #region Utility
+        public void ForceExitState(ICharacterStateAction stateAction) {
+            int idx = activeStates.FindIndex(t => t == stateAction);
+            if(idx >= 0) {
+                stateAction.Exit();
+                standbyStates.Add(stateAction);
+
+                standbyStates.RemoveAt(idx);
+            }
+        }
+
+        public bool CompareWithCurrentWeapon(Weapon w) {
+            if(currentWeapon == null) {
+                return false;
+            }
+
+            return currentWeapon == w;
+        }
+
         public void AddForce(Vector3 force, ForceMode mode) {
             rigidbody.AddForce(force, mode);
         }
@@ -167,6 +207,16 @@ namespace Mu3Library.CombatSystem {
         }
 
         #region Animation Func
+        public AnimatorClipInfo[] GetCurrentAnimatorClipInfo(int layer = 0) {
+            if(layer >= animator.layerCount || layer < 0) {
+                Debug.LogWarning($"Layer out of range. requested layer: {layer}, layerCount: {animator.layerCount}");
+
+                return new AnimatorClipInfo[0];
+            }
+
+            return animator.GetCurrentAnimatorClipInfo(layer);
+        }
+
         public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer = 0) {
             if(layer >= animator.layerCount || layer < 0) {
                 Debug.LogWarning($"Layer out of range. requested layer: {layer}, layerCount: {animator.layerCount}");
@@ -192,12 +242,33 @@ namespace Mu3Library.CombatSystem {
             animator.SetBool(AnimParamName_IsJump, value);
         }
 
+        public int GetAnimatorParameter_AttackIndex() {
+            return animator.GetInteger(AnimParamName_AttackIndex);
+        }
+        public void SetAnimatorParameter_AttackIndex(int value) {
+            animator.SetInteger(AnimParamName_AttackIndex, value);
+        }
+
         public int GetAnimatorParameter_AttackMotionIndex() {
             return animator.GetInteger(AnimParamName_AttackMotionIndex);
         }
         public void SetAnimatorParameter_AttackMotionIndex(int value) {
             animator.SetInteger(AnimParamName_AttackMotionIndex, value);
         }
+
+        public void SetAnimatorParameter_HitTrigger() {
+            animator.SetTrigger(AnimParamName_HitTrigger);
+        }
+
+        public void SetAnimatorParameter_ReturnToFirstAnimation() {
+            animator.SetTrigger(AnimParamName_ReturnToFirstAnimation);
+        }
+        #endregion
+
+        #region Animation Event Func
+
+        public abstract void AnimationEventWithCharacterState(CharacterState s);
+
         #endregion
 
         /// <summary>
@@ -264,13 +335,15 @@ namespace Mu3Library.CombatSystem {
             }
         }
 
-        public void Init() {
+        public void Init(bool isAutoPlay) {
             if(!InitScripts()) {
                 enabled = false;
 
                 return;
             }
-            
+
+            this.isAutoPlay = isAutoPlay;
+
             // 캐릭터 오브젝트의 모든 하위 오브젝트 레이어 변경
             void ChangeLayerAll(Transform t, int l) {
                 t.gameObject.layer = l;
@@ -282,10 +355,10 @@ namespace Mu3Library.CombatSystem {
             layer = LayerMask.NameToLayer(LayerName_Character);
             ChangeLayerAll(transform, layer);
 
-            // 상태 초기화
-            InitStates();
             // 프로퍼티 초기화
             InitProperties();
+            // 상태 초기화
+            InitStates();
 
             animator.SetInteger(AnimParamName_CharacterType, (int)type);
         }

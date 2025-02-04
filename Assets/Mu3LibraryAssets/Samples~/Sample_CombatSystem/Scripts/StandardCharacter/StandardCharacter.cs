@@ -16,6 +16,14 @@ namespace Mu3Library.Demo.CombatSystem {
         private const string InputAxes_Jump = "Jump";
         private const string InputAxes_Fire1 = "Fire1";
 
+        public int HpMax => hpMax;
+        [SerializeField, Range(1, 1000)] private int hpMax = 100;
+
+        public int CurrentHp => currentHp;
+        private int currentHp = -1;
+
+        public bool IsDead => currentHp <= 0;
+
         /// <summary>
         /// 캐릭터가 바닥에 닿아있는지 확인하는 변수
         /// </summary>
@@ -56,9 +64,30 @@ namespace Mu3Library.Demo.CombatSystem {
         public bool IsHit => isHit;
         private bool isHit = false;
 
+        public System.Action<HitType> OnHit = null;
+
 
 
         #region Utility
+        public void ForceChangeHitToFalse() {
+            isHit = false;
+        }
+
+        public void GetHit(int damage, HitType type) {
+            if(currentHp <= 0) {
+                return;
+            }
+
+            Debug.Log($"Get Hit! damage: {damage}, type: {type}");
+
+            currentHp -= damage;
+            currentHp = Mathf.Clamp(currentHp, 0, hpMax);
+
+            isHit = true;
+
+            OnHit?.Invoke(type);
+        }
+
         public void Update() {
             const float groundCastOffsetY = 0.05f;
             groundCheckRay.origin = controller.Position + Vector3.up * groundCastOffsetY;
@@ -69,42 +98,72 @@ namespace Mu3Library.Demo.CombatSystem {
                 isGrounded = false;
             }
 
-            #region State Move
+            if(controller.IsAutoPlay) {
+                #region State Move
 
-            moveAxis.x = Input.GetAxisRaw(InputAxes_Horizontal);
-            moveAxis.y = Input.GetAxisRaw(InputAxes_Vertical);
-            moveAxis = moveAxis.normalized;
+                CharacterController near = CombatSystemManager.Instance.GetMostNearCharacter(controller);
+                if(near != null) {
 
-            // 메인 카메라를 기준으로 움직인다.
-            Vector3 mainCameraForward = CombatSystemManager.Instance.MainCameraForward;
-            Vector3 forward = new Vector3(mainCameraForward.x, 0, mainCameraForward.z).normalized;
+                }
 
-            Vector3 mainCameraRight = CombatSystemManager.Instance.MainCameraRight;
-            Vector3 right = new Vector3(mainCameraRight.x, 0, mainCameraRight.z).normalized;
+                #endregion
 
-            moveDir = (forward * moveAxis.y + right * moveAxis.x).normalized;
+                #region State Jump
 
-            #endregion
 
-            #region State Jump
 
-            jumpInput = Input.GetButtonDown(InputAxes_Jump);
+                #endregion
 
-            #endregion
+                #region State Attack
 
-            #region State Attack
+                attackInput = true;
 
-            attackInput = Input.GetButtonDown(InputAxes_Fire1);
+                #endregion
+            }
+            else {
+                #region State Move
 
-            #endregion
+                moveAxis.x = Input.GetAxisRaw(InputAxes_Horizontal);
+                moveAxis.y = Input.GetAxisRaw(InputAxes_Vertical);
+                moveAxis = moveAxis.normalized;
+
+                // 메인 카메라를 기준으로 움직인다.
+                Vector3 mainCameraForward = CombatSystemManager.Instance.MainCameraForward;
+                Vector3 forward = new Vector3(mainCameraForward.x, 0, mainCameraForward.z).normalized;
+
+                Vector3 mainCameraRight = CombatSystemManager.Instance.MainCameraRight;
+                Vector3 right = new Vector3(mainCameraRight.x, 0, mainCameraRight.z).normalized;
+
+                moveDir = (forward * moveAxis.y + right * moveAxis.x).normalized;
+
+                #endregion
+
+                #region State Jump
+
+                jumpInput = Input.GetButtonDown(InputAxes_Jump);
+
+                #endregion
+
+                #region State Attack
+
+                attackInput = Input.GetButtonDown(InputAxes_Fire1);
+
+                #endregion
+            }
         }
 
         public void Init(StandardCharacter controller) {
             moveAxis = Vector2.zero;
             moveDir = Vector3.zero;
 
-            groundCheckLayerMask = ~(1 << controller.Layer);
+            groundCheckLayerMask = ~(1 << CharacterController.Layer);
             groundCheckRay.direction = Vector3.down;
+
+            currentHp = hpMax;
+
+            isHit = false;
+
+            OnHit = null;
 
             this.controller = controller;
         }
@@ -124,6 +183,7 @@ namespace Mu3Library.Demo.CombatSystem {
                 case CharacterState.Attack: {
                         return new StandardAttack_Slash(this);
                     }
+                case CharacterState.Hit: return new StandardHit(this);
 
                 default: return null;
             }
@@ -136,5 +196,33 @@ namespace Mu3Library.Demo.CombatSystem {
         protected override void UpdateProperties() {
             properties.Update();
         }
+
+        public override void GetHit(int damage, HitType type) {
+            properties.GetHit(damage, type);
+        }
+
+        #region Animation Event Func
+
+        public override void AnimationEventWithCharacterState(CharacterState s) {
+            switch(s) {
+                case CharacterState.Attack: {
+                        int attackIndex = GetAnimatorParameter_AttackIndex();
+                        if(attackIndex == 0) {
+                            currentWeapon.Attack(HitType.Normal);
+                        }
+                        else {
+                            Debug.Log($"Undefined Animation Event. state: {s}, attackIndex: {attackIndex}");
+                        }
+                    }
+                    break;
+
+                default: {
+                        Debug.Log($"Undefined Animation Event. state: {s}");
+                    }
+                    break;
+            }
+        }
+
+        #endregion
     }
 }

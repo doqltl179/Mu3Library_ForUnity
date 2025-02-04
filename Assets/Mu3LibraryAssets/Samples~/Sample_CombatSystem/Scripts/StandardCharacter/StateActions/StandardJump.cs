@@ -35,7 +35,8 @@ namespace Mu3Library.Demo.CombatSystem {
             return properties.JumpInput && 
                 !isJump && 
                 !isJumpingUp && 
-                properties.IsGrounded && 
+                properties.IsGrounded &&
+                !properties.IsHit && 
                 controller.GetAnimatorParameter_AttackMotionIndex() < 0 && 
                 !controller.IsAnimatorInTransition();
         }

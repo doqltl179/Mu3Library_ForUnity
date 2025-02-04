@@ -25,7 +25,8 @@ namespace Mu3Library.Demo.CombatSystem {
 
         public bool EnterCheck() {
             return (properties.MoveAxis.x != 0 || properties.MoveAxis.y != 0) &&
-                controller.GetAnimatorParameter_AttackMotionIndex() < 0;
+                controller.GetAnimatorParameter_AttackMotionIndex() < 0 && 
+                !properties.IsHit;
         }
 
         public void Exit() {
@@ -34,7 +35,8 @@ namespace Mu3Library.Demo.CombatSystem {
 
         public bool ExitCheck() {
             return (properties.MoveAxis.x == 0 && properties.MoveAxis.y == 0) ||
-                controller.GetAnimatorParameter_AttackMotionIndex() >= 0;
+                controller.GetAnimatorParameter_AttackMotionIndex() >= 0 ||
+                properties.IsHit;
         }
 
         public void FixedUpdate() {
@@ -45,8 +47,6 @@ namespace Mu3Library.Demo.CombatSystem {
 
         }
 
-        // property 값들은 우선 하드코딩한다.
-        // 코드 확장 시, serialize class 혹은 scriptableobject로 관리하자.
         public void Update() {
             RotateUpdate();
             MoveUpdate();
@@ -86,8 +86,14 @@ namespace Mu3Library.Demo.CombatSystem {
             controller.SetAnimatorParameter_MoveBlend(accelerationLerp);
         }
 
+        /// <summary>
+        /// <br/> 예외적인 상황을 위해 캐릭터가 Move 상태에 들어가지 않아도 회전을 시켜준다.
+        /// <br/> ex) 연속 공격의 Transition 상황
+        /// </summary>
         private void RotateUpdateAlways() {
-            if(controller.GetAnimatorParameter_AttackMotionIndex() >= 0 && controller.IsAnimatorInTransition()) {
+            if(controller.GetAnimatorParameter_AttackMotionIndex() >= 0 && 
+                controller.IsAnimatorInTransition() &&
+                properties.MoveDir.sqrMagnitude != 0) {
                 controller.Rotation = Quaternion.Lerp(controller.Rotation, Quaternion.LookRotation(properties.MoveDir, Vector3.up), Time.deltaTime * properties.RotateSpeed);
             }
         }
