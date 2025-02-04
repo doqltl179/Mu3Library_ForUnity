@@ -11,7 +11,10 @@ namespace Mu3Library.EditorOnly.Gizmo {
 
 
         public static void DrawCapsule(Transform origin, Vector3 localPosOffset, float radius, float height, int quality = 16) {
-            DrawCapsule(origin.position + origin.TransformPoint(localPosOffset), radius, height, origin.forward, origin.right, origin.up, quality);
+            Vector3 position = origin.position +
+                origin.forward * localPosOffset.z + origin.right * localPosOffset.x + origin.up * localPosOffset.y;
+
+            DrawCapsule(position, radius, height, origin.forward, origin.right, origin.up, quality);
         }
 
         public static void DrawCapsule(Vector3 position, float radius, float height, 
