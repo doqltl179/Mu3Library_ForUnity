@@ -24,7 +24,8 @@ namespace Mu3Library.Demo.CombatSystem {
         }
 
         public bool EnterCheck() {
-            return properties.MoveAxis.x != 0 || properties.MoveAxis.y != 0;
+            return (properties.MoveAxis.x != 0 || properties.MoveAxis.y != 0) &&
+                controller.GetAnimatorParameter_AttackMotionIndex() < 0;
         }
 
         public void Exit() {
@@ -32,7 +33,8 @@ namespace Mu3Library.Demo.CombatSystem {
         }
 
         public bool ExitCheck() {
-            return properties.MoveAxis.x == 0 && properties.MoveAxis.y == 0;
+            return (properties.MoveAxis.x == 0 && properties.MoveAxis.y == 0) ||
+                controller.GetAnimatorParameter_AttackMotionIndex() >= 0;
         }
 
         public void FixedUpdate() {
@@ -46,12 +48,13 @@ namespace Mu3Library.Demo.CombatSystem {
         // property 값들은 우선 하드코딩한다.
         // 코드 확장 시, serialize class 혹은 scriptableobject로 관리하자.
         public void Update() {
-            Rotate();
+            RotateUpdate();
             MoveUpdate();
         }
 
         public void UpdateAlways() {
             if(!isEntered) {
+                RotateUpdateAlways();
                 MoveUpdateAlways();
             }
         }
@@ -63,7 +66,7 @@ namespace Mu3Library.Demo.CombatSystem {
             accelerationLerp = Mathf.Lerp(accelerationLerp, acceleration, Time.deltaTime * properties.AccelerationLevel * 2);
 
             controller.Position += controller.Forward * Time.deltaTime * properties.MoveSpeed * accelerationLerp;
-            controller.ChangeAnimatorParameter_MoveBlend(accelerationLerp);
+            controller.SetAnimatorParameter_MoveBlend(accelerationLerp);
         }
 
         private void MoveUpdate() {
@@ -80,10 +83,16 @@ namespace Mu3Library.Demo.CombatSystem {
             accelerationLerp = Mathf.Lerp(accelerationLerp, acceleration, Time.deltaTime * properties.AccelerationLevel);
 
             controller.Position += properties.MoveDir * Time.deltaTime * properties.MoveSpeed * accelerationLerp;
-            controller.ChangeAnimatorParameter_MoveBlend(accelerationLerp);
+            controller.SetAnimatorParameter_MoveBlend(accelerationLerp);
         }
 
-        private void Rotate() {
+        private void RotateUpdateAlways() {
+            if(controller.GetAnimatorParameter_AttackMotionIndex() >= 0 && controller.IsAnimatorInTransition()) {
+                controller.Rotation = Quaternion.Lerp(controller.Rotation, Quaternion.LookRotation(properties.MoveDir, Vector3.up), Time.deltaTime * properties.RotateSpeed);
+            }
+        }
+
+        private void RotateUpdate() {
             controller.Rotation = Quaternion.Lerp(controller.Rotation, Quaternion.LookRotation(properties.MoveDir, Vector3.up), Time.deltaTime * properties.RotateSpeed);
         }
     }

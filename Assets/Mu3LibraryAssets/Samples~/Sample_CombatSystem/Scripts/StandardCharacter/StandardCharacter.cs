@@ -1,5 +1,6 @@
 using Mu3Library.Attribute;
 using Mu3Library.CombatSystem;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ namespace Mu3Library.Demo.CombatSystem {
         private const string InputAxes_Horizontal = "Horizontal";
         private const string InputAxes_Vertical = "Vertical";
         private const string InputAxes_Jump = "Jump";
+        private const string InputAxes_Fire1 = "Fire1";
 
         /// <summary>
         /// 캐릭터가 바닥에 닿아있는지 확인하는 변수
@@ -47,6 +49,12 @@ namespace Mu3Library.Demo.CombatSystem {
         /// </summary>
         public bool JumpInput => jumpInput;
         private bool jumpInput = false;
+
+        public bool AttackInput => attackInput;
+        private bool attackInput = false;
+
+        public bool IsHit => isHit;
+        private bool isHit = false;
 
 
 
@@ -83,6 +91,12 @@ namespace Mu3Library.Demo.CombatSystem {
             jumpInput = Input.GetButtonDown(InputAxes_Jump);
 
             #endregion
+
+            #region State Attack
+
+            attackInput = Input.GetButtonDown(InputAxes_Fire1);
+
+            #endregion
         }
 
         public void Init(StandardCharacter controller) {
@@ -107,6 +121,9 @@ namespace Mu3Library.Demo.CombatSystem {
             switch(s) {
                 case CharacterState.Move: return new StandardMove(this);
                 case CharacterState.Jump: return new StandardJump(this);
+                case CharacterState.Attack: {
+                        return new StandardAttack_Slash(this);
+                    }
 
                 default: return null;
             }

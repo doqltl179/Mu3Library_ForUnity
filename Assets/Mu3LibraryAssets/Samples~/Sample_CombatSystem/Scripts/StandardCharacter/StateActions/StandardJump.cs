@@ -25,21 +25,26 @@ namespace Mu3Library.Demo.CombatSystem {
             controller.AddForce(Vector3.up * properties.JumpForce, ForceMode.Impulse);
             controller.AddForce(-new Vector3(currentVelo.x, 0, currentVelo.z), ForceMode.Impulse);
 
-            controller.ChangeAnimatorParameter_IsJump(true);
+            controller.SetAnimatorParameter_IsJump(true);
 
             isJump = true;
             isJumpingUp = true;
         }
 
         public bool EnterCheck() {
-            return properties.JumpInput && !isJump && !isJumpingUp && properties.IsGrounded;
+            return properties.JumpInput && 
+                !isJump && 
+                !isJumpingUp && 
+                properties.IsGrounded && 
+                controller.GetAnimatorParameter_AttackMotionIndex() < 0 && 
+                !controller.IsAnimatorInTransition();
         }
 
         public void Exit() {
             Vector3 currentVelo = controller.LinearVelocity;
             controller.AddForce(-new Vector3(currentVelo.x, 0, currentVelo.z), ForceMode.Impulse);
 
-            controller.ChangeAnimatorParameter_IsJump(false);
+            controller.SetAnimatorParameter_IsJump(false);
 
             isJump = false;
         }

@@ -14,6 +14,7 @@ namespace Mu3Library.CombatSystem {
 
         Move = 1 << 0, 
         Jump = 1 << 1, 
+        Attack = 1 << 2,
 
     }
 
@@ -82,6 +83,8 @@ namespace Mu3Library.CombatSystem {
         protected readonly string AnimParamName_MoveBlend = "MoveBlend";
 
         protected readonly string AnimParamName_IsJump = "IsJump";
+
+        protected readonly string AnimParamName_AttackMotionIndex = "AttackMotionIndex";
 
         public CharacterType Type => type;
         [SerializeField] protected CharacterType type = CharacterType.GreatSword;
@@ -164,12 +167,36 @@ namespace Mu3Library.CombatSystem {
         }
 
         #region Animation Func
-        public void ChangeAnimatorParameter_MoveBlend(float value) {
+        public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer = 0) {
+            if(layer >= animator.layerCount || layer < 0) {
+                Debug.LogWarning($"Layer out of range. requested layer: {layer}, layerCount: {animator.layerCount}");
+
+                return new AnimatorStateInfo();
+            }
+
+            return animator.GetCurrentAnimatorStateInfo(layer);
+        }
+
+        public bool IsAnimatorInTransition(int layer = 0) {
+            return animator.IsInTransition(layer);
+        }
+
+        public void SetAnimatorParameter_MoveBlend(float value) {
             animator.SetFloat(AnimParamName_MoveBlend, value);
         }
 
-        public void ChangeAnimatorParameter_IsJump(bool value) {
+        public void GetAnimatorParameter_IsJump() {
+            animator.GetBool(AnimParamName_IsJump);
+        }
+        public void SetAnimatorParameter_IsJump(bool value) {
             animator.SetBool(AnimParamName_IsJump, value);
+        }
+
+        public int GetAnimatorParameter_AttackMotionIndex() {
+            return animator.GetInteger(AnimParamName_AttackMotionIndex);
+        }
+        public void SetAnimatorParameter_AttackMotionIndex(int value) {
+            animator.SetInteger(AnimParamName_AttackMotionIndex, value);
         }
         #endregion
 
@@ -269,7 +296,7 @@ namespace Mu3Library.CombatSystem {
             standbyStates.Clear();
 
             foreach(CharacterState s in System.Enum.GetValues(typeof(CharacterState))) {
-                if(usingStates.HasFlag(s)) {
+                if(s != CharacterState.None && usingStates.HasFlag(s)) {
                     ICharacterStateAction stateAction = GetDefinedStateAction(s);
                     if(stateAction == null) {
                         Debug.LogWarning($"Using State Checked. But, State Action is not defined. character: {this.name}, state: {s}");
