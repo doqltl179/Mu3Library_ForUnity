@@ -3,18 +3,18 @@ using UnityEngine;
 
 
 namespace Mu3Library.EditorOnly.Gizmo {
-    public static class Draw {
+    public static class ShapeUtil {
         private static Vector3 m_p1, m_p2;
         private static float m_angle1, m_angle2;
         private static Vector3 m_bottomSphereOrigin, m_topSphereOrigin;
 
 
 
-        public static void WireCapsule(Transform orogin, float radius, float height, int quality = 16) {
-            WireCapsule(orogin.position, radius, height, orogin.forward, orogin.right, orogin.up, quality);
+        public static void DrawCapsule(Transform origin, Vector3 localPosOffset, float radius, float height, int quality = 16) {
+            DrawCapsule(origin.position + origin.TransformPoint(localPosOffset), radius, height, origin.forward, origin.right, origin.up, quality);
         }
 
-        public static void WireCapsule(Vector3 position, float radius, float height,
+        public static void DrawCapsule(Vector3 position, float radius, float height, 
             Vector3 forward, Vector3 right, Vector3 up, int quality = 16) {
             m_bottomSphereOrigin = position + up * radius;
             m_topSphereOrigin = position + up * (height - radius);
