@@ -80,7 +80,7 @@ namespace Mu3Library.MarchingCubes {
 
             mesh.RecalculateNormals();
 
-            if(meshCollider != null) {
+            if(meshCollider != null && vertices.Length >= 3) {
                 // Force Update
                 meshCollider.enabled = false;
                 meshCollider.enabled = true;
