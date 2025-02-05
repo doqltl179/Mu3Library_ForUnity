@@ -80,7 +80,7 @@ namespace Mu3Library.MarchingCubes {
                 return;
             }
 
-            List<Chunk> areaChunks = GetChunksIndexInArea(worldPoint, radius);
+            List<Chunk> areaChunks = GetChunksInArea(worldPoint, radius);
             if(areaChunks.Count == 0) {
                 return;
             }
@@ -247,7 +247,7 @@ namespace Mu3Library.MarchingCubes {
             chunk.ForceUpdatePointsWeight();
         }
 
-        private List<Chunk> GetChunksIndexInArea(Vector3 worldPoint, float radius) {
+        private List<Chunk> GetChunksInArea(Vector3 worldPoint, float radius) {
             List<Chunk> result = new List<Chunk>();
 
             if(!useCollider) {
