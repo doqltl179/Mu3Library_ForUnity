@@ -7,5 +7,10 @@ namespace Mu3Library.Demo.Attribute {
     public class SampleSceneAttributeSample : MonoBehaviour {
         [Title("Title Attribute")]
         [SerializeField] private int testTitleProperty = 0;
+
+        [Title("Conditional Hide Attribute")]
+        [SerializeField] private bool testConditionProperty = false;
+        [ConditionalHide(nameof(testConditionProperty), true)]
+        [SerializeField] private string testConditionHideProperty = "";
     }
 }
