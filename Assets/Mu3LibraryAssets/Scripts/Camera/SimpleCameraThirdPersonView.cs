@@ -1,6 +1,11 @@
+using Mu3Library.EditorOnly;
 using UnityEngine;
 
 namespace Mu3Library.CameraUtil {
+    /*
+     * 'height'는 'upDirection'을 기준으로 이동하고,
+     * 'localPositionOffset.y'는 'target.up'을 기준으로 이동한다.
+     */
     public class SimpleCameraThirdPersonView : MonoBehaviour {
         private Camera camera;
         private Transform target;
@@ -221,17 +226,20 @@ namespace Mu3Library.CameraUtil {
 
         private void Start() {
             Application.focusChanged += (focus) => {
-                if(!focus) {
+                //if(!focus) {
+                //    skipOneFrame = true;
+                //}
+                if(focus) {
                     skipOneFrame = true;
                 }
             };
         }
 
         private void Update() {
-            if(!Application.isFocused) {
+            /*if(!Application.isFocused) {
                 return;
             }
-            else if(skipOneFrame) {
+            else */if(skipOneFrame) {
                 skipOneFrame = false;
 
                 return;
@@ -272,6 +280,8 @@ namespace Mu3Library.CameraUtil {
 
             camera.transform.position = camPos;
             camera.transform.LookAt(newPivotPos, upDirection);
+
+            DebugShape.DebugDrawSphere(newPivotPos, 0.2f, Vector3.forward, Vector3.right, Vector3.up, Color.red);
         }
 
         #region Utility
