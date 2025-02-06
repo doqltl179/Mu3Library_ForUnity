@@ -3,8 +3,9 @@ using UnityEngine;
 
 using CharacterController = Mu3Library.CombatSystem.CharacterController;
 
+
 #if UNITY_EDITOR
-using Mu3Library.EditorOnly.Gizmo;
+using Mu3Library.EditorOnly;
 #endif
 
 namespace Mu3Library.Demo.CombatSystem {
@@ -21,7 +22,7 @@ namespace Mu3Library.Demo.CombatSystem {
         private void OnDrawGizmos() {
             Gizmos.color = Color.red;
 
-            ShapeUtil.DrawCapsule(transform, hitLocalPosOffset, attackRadius, attackRange);
+            DebugShape.GizmoDrawCapsule(transform, hitLocalPosOffset, attackRadius, attackRange);
         }
 #endif
 
