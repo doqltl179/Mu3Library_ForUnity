@@ -133,14 +133,16 @@ void EditPointsWeight(uint3 id : SV_DispatchThreadID)
     
     // 전체 chunk를 기준으로 한 point의 index
     float3 idPos = chunkSize * chunkIndex + id;
-    bool inArea = distance(editPoint, idPos) < editRadius;
+    float dist = distance(editPoint, idPos);
+    bool inArea = dist < editRadius;
     
     if (inArea)
     {
         uint pointIndex = idToPointIndex(id, pointCount);
     
         float currentWeight = pointsWeight[pointIndex];
-        float newWeight = currentWeight + pointWeightEditValue;
+        float distRatio = dist / editRadius;
+        float newWeight = currentWeight + pointWeightEditValue * distRatio;
         if (newWeight < -1)
         {
             newWeight = -1;
