@@ -211,6 +211,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &598083619
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 598083621}
+  - component: {fileID: 598083620}
+  m_Layer: 0
+  m_Name: SimpleCameraFreeView
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &598083620
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 598083619}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61dcba9aea891ca408c7ee3fc97c41b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  keyMoveL: 97
+  keyMoveR: 100
+  keyMoveF: 119
+  keyMoveB: 115
+  keyRun: 304
+  keyRotate: 324
+  inverseRotate: 1
+  moveSpeed: 5
+  rotateSpeed: 1
+--- !u!4 &598083621
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 598083619}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &651047605
 GameObject:
   m_ObjectHideFlags: 0
@@ -240,19 +293,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 773ea8dd7401d304eb0a703b0f197bd6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyRotate: 324
+  inverseRotate: 1
   height: 0
   radiusMin: 1
   radiusMax: 10
   localPositionOffset: {x: 0, y: 0, z: 0}
   upDirection: {x: 0, y: 1, z: 0}
+  upRotation: {x: 0, y: 0, z: 0, w: 1}
   verticalAngleDegMin: -45
   verticalAngleDegMax: 60
-  zoomWeight: 0.04
+  zoomWeight: 0.94
   zoomSpeed: 3
-  rotateWeight: 0.04
+  rotateWeight: 0.94
   rotateSpeed: 2
-  moveWeight: 0.04
-  moveSpeed: 5
+  lookWeight: 1
   check_radiusMin: 1
   check_radiusMax: 10
   check_upDirection: {x: 0, y: 1, z: 0}
@@ -519,6 +574,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2327420c0735c29448108efe58493221, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  freeView: {fileID: 598083620}
   thirdPersonView: {fileID: 651047606}
   thirdPersonTarget: {fileID: 1345033080}
 --- !u!4 &1636043833
@@ -640,6 +696,7 @@ SceneRoots:
   - {fileID: 1636043833}
   - {fileID: 183715272}
   - {fileID: 1679993701}
+  - {fileID: 598083621}
   - {fileID: 651047607}
   - {fileID: 1345033080}
   - {fileID: 1086662757}

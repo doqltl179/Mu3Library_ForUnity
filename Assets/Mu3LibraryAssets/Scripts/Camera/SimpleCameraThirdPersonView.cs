@@ -10,10 +10,18 @@ namespace Mu3Library.CameraUtil {
         private Camera camera;
         private Transform target;
 
+        [SerializeField] private KeyCode keyRotate = KeyCode.Mouse1;
+        public bool InverseRotate {
+            get => inverseRotate;
+            set => inverseRotate = value;
+        }
+        [SerializeField] private bool inverseRotate;
+
         public float Height {
             get => height;
             set => height = value;
         }
+        [Space(20)]
         [SerializeField] private float height = 0;
 
         public float RadiusMin {
@@ -62,7 +70,7 @@ namespace Mu3Library.CameraUtil {
             }
         }
         [SerializeField] private Vector3 upDirection = Vector3.up;
-        private Quaternion upRotation = Quaternion.identity;
+        [SerializeField, HideInInspector] private Quaternion upRotation = Quaternion.identity;
 
         public float VerticalAngleDegMin {
             get => verticalAngleDegMin;
@@ -100,12 +108,15 @@ namespace Mu3Library.CameraUtil {
                 if(value < 0) {
                     value = 0;
                 }
+                else if(value > 1) {
+                    value = 1;
+                }
 
                 zoomWeight = value;
             }
         }
         [Space(20)]
-        [SerializeField, Range(0, 1)] private float zoomWeight = 0.04f;
+        [SerializeField, Range(0, 1)] private float zoomWeight = 0.94f;
         public float ZoomSpeed {
             get => zoomSpeed;
             set {
@@ -124,11 +135,14 @@ namespace Mu3Library.CameraUtil {
                 if(value < 0) {
                     value = 0;
                 }
+                else if(value > 1) {
+                    value = 1;
+                }
 
                 rotateWeight = value;
             }
         }
-        [SerializeField, Range(0, 1)] private float rotateWeight = 0.04f;
+        [SerializeField, Range(0, 1)] private float rotateWeight = 0.94f;
         public float RotateSpeed {
             get => rotateSpeed;
             set {
@@ -141,28 +155,20 @@ namespace Mu3Library.CameraUtil {
         }
         [SerializeField] private float rotateSpeed = 2f;
 
-        public float MoveWeight {
-            get => moveWeight;
+        public float LookWeight {
+            get => lookWeight;
             set {
                 if(value < 0) {
                     value = 0;
                 }
-
-                moveWeight = value;
-            }
-        }
-        [SerializeField, Range(0, 1)] private float moveWeight = 0.04f;
-        public float MoveSpeed {
-            get => moveSpeed;
-            set {
-                if(value < 0) {
-                    value = 0;
+                else if(value > 1) {
+                    value = 1;
                 }
 
-                moveSpeed = value;
+                lookWeight = value;
             }
         }
-        [SerializeField] private float moveSpeed = 5f;
+        [SerializeField, Range(0, 1)] private float lookWeight = 1f;
 
         private float currentHorizontalAngleDeg;
         private float currentHorizontalAngleDegLerp;
@@ -199,6 +205,8 @@ namespace Mu3Library.CameraUtil {
             if(upDirection != check_upDirection) {
                 upDirection = upDirection.normalized;
                 check_upDirection = upDirection;
+
+                upRotation = Quaternion.FromToRotation(Vector3.up, upDirection);
             }
 
             if(verticalAngleDegMin != check_verticalAngleDegMin) {
@@ -224,15 +232,18 @@ namespace Mu3Library.CameraUtil {
         }
 #endif
 
-        private void Start() {
-            Application.focusChanged += (focus) => {
-                //if(!focus) {
-                //    skipOneFrame = true;
-                //}
-                if(focus) {
-                    skipOneFrame = true;
-                }
-            };
+        private void OnEnable() {
+            Application.focusChanged += OnFocusChanged;
+        }
+
+        private void OnDestroy() {
+            Application.focusChanged -= OnFocusChanged;
+        }
+
+        private void OnFocusChanged(bool focus) {
+            if(focus) {
+                skipOneFrame = true;
+            }
         }
 
         private void Update() {
@@ -249,21 +260,39 @@ namespace Mu3Library.CameraUtil {
                 return;
             }
 
+            if(Input.GetKeyDown(keyRotate)) {
+                Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+            }
+            else if(Input.GetKeyUp(keyRotate)) {
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
+            }
+
+            const float lerpSmoothing = Mathf.PI;
+
             currentRadius += -Input.mouseScrollDelta.y * zoomSpeed;
             currentRadius = Mathf.Clamp(currentRadius, radiusMin, radiusMax);
-            currentRadiusLerp = Mathf.Lerp(currentRadiusLerp, currentRadius, zoomWeight);
+            float radiusLerpT = 1.0f - Mathf.Pow(1.0f - zoomWeight, Time.deltaTime * lerpSmoothing);
+            currentRadiusLerp = Mathf.Lerp(currentRadiusLerp, currentRadius, radiusLerpT);
 
-            if(Input.GetKey(KeyCode.Mouse1)) {
-                float deltaX = -Input.mousePositionDelta.x / Screen.width;
+            if(Input.GetKey(keyRotate)) {
+                float deltaX = Input.mousePositionDelta.x / Screen.width;
+                float deltaY = Input.mousePositionDelta.y / Screen.height;
+                if(inverseRotate) {
+                    deltaX *= -1;
+                    deltaY *= -1;
+                }
+
                 currentHorizontalAngleDeg += deltaX * rotateSpeed * 360;
 
-                float deltaY = -Input.mousePositionDelta.y / Screen.height;
                 currentVerticalAngleDeg += deltaY * rotateSpeed * 360;
                 currentVerticalAngleDeg = Mathf.Clamp(currentVerticalAngleDeg, verticalAngleDegMin, verticalAngleDegMax);
             }
 
-            currentHorizontalAngleDegLerp = Mathf.Lerp(currentHorizontalAngleDegLerp, currentHorizontalAngleDeg, rotateWeight);
-            currentVerticalAngleDegLerp = Mathf.Lerp(currentVerticalAngleDegLerp, currentVerticalAngleDeg, rotateWeight);
+            float rotateLerpT = 1.0f - Mathf.Pow(1.0f - rotateWeight, Time.deltaTime * lerpSmoothing);
+            currentHorizontalAngleDegLerp = Mathf.Lerp(currentHorizontalAngleDegLerp, currentHorizontalAngleDeg, rotateLerpT);
+            currentVerticalAngleDegLerp = Mathf.Lerp(currentVerticalAngleDegLerp, currentVerticalAngleDeg, rotateLerpT);
 
             Vector3 worldPosOffset =
                 transform.forward * localPositionOffset.z +
@@ -277,11 +306,11 @@ namespace Mu3Library.CameraUtil {
 
             Vector3 newPivotPos = pivotPos + upDirection * height;
             Vector3 camPos = newPivotPos + recalVec;
-
             camera.transform.position = camPos;
-            camera.transform.LookAt(newPivotPos, upDirection);
 
-            DebugShape.DebugDrawSphere(newPivotPos, 0.2f, Vector3.forward, Vector3.right, Vector3.up, Color.red);
+            Quaternion lookRotation = Quaternion.LookRotation((newPivotPos - camPos).normalized);
+            float lookRotationLerpT = 1.0f - Mathf.Pow(1.0f - lookWeight, Time.deltaTime * lerpSmoothing);
+            camera.transform.rotation = Quaternion.Lerp(camera.transform.rotation, lookRotation, lookRotationLerpT);
         }
 
         #region Utility
@@ -289,10 +318,6 @@ namespace Mu3Library.CameraUtil {
         /// 카메라가 즉시 옮겨진다.
         /// </summary>
         public void SetCameraBehindTargetImmediately(bool initVerticalAngle = true, bool initRadius = true) {
-            if(camera == null || target == null) {
-                return;
-            }
-
             SetCameraBehindTarget(initVerticalAngle, initRadius);
 
             currentHorizontalAngleDegLerp = currentHorizontalAngleDeg;
@@ -308,43 +333,56 @@ namespace Mu3Library.CameraUtil {
         /// 카메라가 자연스럽게 이동한다.
         /// </summary>
         public void SetCameraBehindTarget(bool initVerticalAngle = true, bool initRadius = true) {
-            if(camera == null || target == null) {
-                return;
-            }
+            Vector3 forward = upRotation * Vector3.forward;
+            Vector3 right = upRotation * Vector3.right;
 
-            Vector3 forward = target.forward;
-            Vector3 back = new Vector3(-forward.x, forward.y, -forward.z);
-            float horizontalAngleDeg = Mathf.Atan2(back.z, back.x);
+            Vector3 worldPosOffset =
+                transform.forward * localPositionOffset.z +
+                transform.right * localPositionOffset.x +
+                transform.up * localPositionOffset.y;
+            Vector3 pivotPos = target.position + worldPosOffset;
+            Vector3 pivotToCam = camera.transform.position - pivotPos;
+
+            Vector3 proj = Vector3.ProjectOnPlane(pivotToCam, upDirection).normalized;
+
+            float dotForward = Vector3.Dot(proj, forward);
+            float dotRight = Vector3.Dot(proj, right);
+            float horizontalAngleDeg = Mathf.Atan2(dotForward, dotRight) * Mathf.Rad2Deg;
             currentHorizontalAngleDeg = horizontalAngleDeg;
 
             if(initVerticalAngle) {
                 currentVerticalAngleDeg = Mathf.Lerp(verticalAngleDegMin, verticalAngleDegMax, 0.75f);
             }
+            else {
+                //currentVerticalAngleDegLerp = 
+            }
+
             if(initRadius) {
                 currentRadius = Mathf.Lerp(radiusMin, radiusMax, 0.5f);
             }
+            else {
+                currentRadiusLerp = Vector3.Distance(camera.transform.position, target.position);
+            }
         }
 
-        public void Init(Camera camera, Transform target, bool initParams) {
-            if(initParams) {
-                height = 0;
-                radiusMin = 1;
-                radiusMax = 10;
-                localPositionOffset = Vector3.zero;
-                upDirection = Vector3.up;
-                upRotation = Quaternion.identity;
+        public void Init(Camera camera, Transform target) {
+            if(camera == null) {
+                Debug.LogError($"Camera is NULL.");
 
-                verticalAngleDegMin = -45f;
-                verticalAngleDegMax = 60f;
-
-                zoomWeight = 0.04f;
-                zoomSpeed = 3.0f;
-
-                rotateWeight = 0.04f;
-                rotateSpeed = 2f;
-                moveWeight = 0.04f;
-                moveSpeed = 5f;
+                return;
             }
+            else if(target == null) {
+                Debug.LogError($"Target is NULL.");
+
+                return;
+            }
+
+            Vector3 targetToCam = camera.transform.position - target.position;
+            Vector3 targetToCamDir = targetToCam.normalized;
+            currentHorizontalAngleDeg = Mathf.Atan2(targetToCamDir.z, targetToCamDir.x) * Mathf.Rad2Deg;
+            currentHorizontalAngleDegLerp = currentHorizontalAngleDeg;
+
+            currentRadiusLerp = targetToCam.magnitude;
 
             this.camera = camera;
             this.target = target;

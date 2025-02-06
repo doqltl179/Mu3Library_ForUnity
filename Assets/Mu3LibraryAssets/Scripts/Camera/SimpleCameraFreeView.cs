@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace Mu3Library.CameraUtil {
     public class SimpleCameraFreeView : MonoBehaviour {
-        [SerializeField] private Camera camera;
+        //[SerializeField] private Camera camera;
+        private Camera camera;
 
         [Space(20)]
         [SerializeField] private KeyCode keyMoveL = KeyCode.A;
@@ -13,13 +14,36 @@ namespace Mu3Library.CameraUtil {
 
         [Space(20)]
         [SerializeField] private KeyCode keyRotate = KeyCode.Mouse1;
-
-        [Space(20)]
+        public bool InverseRotate {
+            get => inverseRotate;
+            set => inverseRotate = value;
+        }
         [SerializeField] private bool inverseRotate;
 
+
+        public float MoveSpeed {
+            get => moveSpeed;
+            set {
+                if(value < 0) {
+                    value = 0;
+                }
+
+                moveSpeed = value;
+            }
+        }
         [Space(20)]
-        [SerializeField, Range(0.1f, 100.0f)] private float moveSpeed = 1.0f;
-        [SerializeField, Range(0.1f, 360.0f)] private float rotateSpeed = 30.0f;
+        [SerializeField] private float moveSpeed = 3.0f;
+        public float RotateSpeed {
+            get => rotateSpeed;
+            set {
+                if(value < 0) {
+                    value = 0;
+                }
+
+                rotateSpeed = value;
+            }
+        }
+        [SerializeField] private float rotateSpeed = 2f;
 
         private readonly Vector3 CameraDirUp = Vector3.up;
 
@@ -29,33 +53,28 @@ namespace Mu3Library.CameraUtil {
 
 
 
-        private void Start() {
-            if(camera == null) {
-                camera = Camera.main;
-                if(camera == null) {
-                    Debug.Log("Camera not found.");
+        private void OnEnable() {
+            Application.focusChanged += OnFocusChanged;
+        }
 
-                    enabled = false;
-                }
+        private void OnDestroy() {
+            Application.focusChanged -= OnFocusChanged;
+        }
+
+        private void OnFocusChanged(bool focus) {
+            if(focus) {
+                skipOneFrame = true;
             }
-
-            Application.focusChanged += (focus) => {
-                if(!focus) {
-                    skipOneFrame = true;
-                }
-            };
         }
 
         private void Update() {
-            if(!Application.isFocused) {
+            /*if(!Application.isFocused) {
                 return;
             }
-            else {
-                if(skipOneFrame) {
-                    skipOneFrame = false;
+            else */if(skipOneFrame) {
+                skipOneFrame = false;
 
-                    return;
-                }
+                return;
             }
 
             if(camera == null) {
@@ -80,15 +99,15 @@ namespace Mu3Library.CameraUtil {
                 return;
             }
 
-            float mouseX = Input.mousePositionDelta.x / Screen.width * 1000f;
-            float mouseY = Input.mousePositionDelta.y / Screen.height * 1000f;
+            float mouseX = Input.mousePositionDelta.x / Screen.width;
+            float mouseY = Input.mousePositionDelta.y / Screen.height;
             if(inverseRotate) {
                 mouseX *= -1;
                 mouseY *= -1;
             }
 
-            float rotateAngleDegHorizontal = mouseY * rotateSpeed * Time.deltaTime;
-            float rotateAngleDegVertical = -mouseX * rotateSpeed * Time.deltaTime;
+            float rotateAngleDegHorizontal = mouseY * rotateSpeed * 360;
+            float rotateAngleDegVertical = -mouseX * rotateSpeed * 360;
 
             // 새로운 회전값 계산
             Quaternion horizontalRotation = Quaternion.AngleAxis(rotateAngleDegHorizontal, camera.transform.right);
@@ -117,5 +136,13 @@ namespace Mu3Library.CameraUtil {
 
             camera.transform.position += moveDir * moveSpeed * runSpeed * Time.deltaTime;
         }
+
+        #region Utility
+        public void Init(Camera camera) {
+
+
+            this.camera = camera;
+        }
+        #endregion
     }
 }
