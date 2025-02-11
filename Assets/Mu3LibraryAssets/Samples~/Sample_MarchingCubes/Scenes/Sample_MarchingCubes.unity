@@ -767,7 +767,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61dcba9aea891ca408c7ee3fc97c41b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  camera: {fileID: 2075297881}
   keyMoveL: 97
   keyMoveR: 100
   keyMoveF: 119
@@ -776,7 +775,7 @@ MonoBehaviour:
   keyRotate: 324
   inverseRotate: 1
   moveSpeed: 50
-  rotateSpeed: 10
+  rotateSpeed: 1
 --- !u!4 &1442712296
 Transform:
   m_ObjectHideFlags: 0
@@ -822,11 +821,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   marchingCubes: {fileID: 1168290212}
-  chunkCount: 1
-  chunkSize: 10
+  chunkCount: 5
+  chunkSize: 30
   useCollider: 1
-  marchingCubesForceUpdateType: 2
+  marchingCubesForceUpdateType: 0
   marchingCubesEditMode: 1
+  cameraFreeView: {fileID: 1442712295}
   camera: {fileID: 2075297881}
   editSphereRenderer: {fileID: 2118448768}
   editSphereRadius: 5

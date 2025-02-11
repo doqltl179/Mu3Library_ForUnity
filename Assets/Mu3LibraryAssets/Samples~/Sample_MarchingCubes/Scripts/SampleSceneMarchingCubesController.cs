@@ -3,6 +3,7 @@
  --------------------------------------------------------------------------*/
 
 using Mu3Library.Attribute;
+using Mu3Library.CameraUtil;
 using Mu3Library.MarchingCubes;
 using System.Collections.Generic;
 using UnityEngine;
@@ -17,6 +18,7 @@ namespace Mu3Library.Demo.MarchingCubes {
         [SerializeField] private PointWeightEditMode marchingCubesEditMode = PointWeightEditMode.Increase;
 
         [Title("Edit Settings")]
+        [SerializeField] private SimpleCameraFreeView cameraFreeView;
         [SerializeField] private Camera camera;
         [SerializeField] private MeshRenderer editSphereRenderer;
         private Ray camRay;
@@ -34,6 +36,11 @@ namespace Mu3Library.Demo.MarchingCubes {
             marchingCubes.CreateChunks(chunkCount, chunkSize, useCollider);
 
             marchingCubes.ForceUpdateMarchingCubes(marchingCubesForceUpdateType);
+
+            if(camera == null) {
+                camera = Camera.main;
+            }
+            cameraFreeView.Init(camera);
         }
 
         private void Update() {
