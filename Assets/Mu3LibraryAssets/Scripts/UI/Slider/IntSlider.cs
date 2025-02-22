@@ -16,20 +16,23 @@ namespace Mu3Library.UI {
         [Space(20), SerializeField] private int intValueMin = 0;
         public int IntValueMax => intValueMax;
         [SerializeField] private int intValueMax = 10;
+
         private float minMaxDiff = 10 - 0;
         private float sliderSplitValue = 1.0f / (10 - 0);
 
         public int IntValue {
             get => intValue;
             set {
-                int clampValue = value;
-                if(clampValue < intValueMin) clampValue = intValueMin;
-                else if(clampValue > intValueMax) clampValue = intValueMax;
+                if(value < intValueMin || intValueMax < value) {
+                    value = (intValueMin + intValueMax) / 2;
 
-                if(intValue != clampValue) {
-                    intValue = clampValue;
+                    Debug.LogWarning("'value' force changed to middle between 'intValueMin' and 'intValueMax'");
+                }
 
-                    OnIntValueChanged?.Invoke(clampValue);
+                if(intValue != value) {
+                    intValue = value;
+
+                    OnIntValueChanged?.Invoke(value);
 
                     ChangeSliderValue();
                 }
@@ -111,6 +114,17 @@ namespace Mu3Library.UI {
         public void SetMinMaxValue(int min, int max, int defaultValue) {
             //UpdateCorner();
 
+            if(max < min) {
+                max = min;
+
+                Debug.LogWarning("'max` force changed to 'min'");
+            }
+            if(defaultValue < min || max < defaultValue) {
+                defaultValue = (min + max) / 2;
+
+                Debug.LogWarning("'defaultValue' force changed to middle between 'min' and 'max'");
+            }
+
             intValueMin = min;
             intValueMax = max;
             intValue = defaultValue;
@@ -156,7 +170,7 @@ namespace Mu3Library.UI {
         #endregion
 
         private int SliderValueToIntValue(float value) {
-            return Mathf.FloorToInt((value + sliderSplitValue * 0.5f) / sliderSplitValue);
+            return (int)Mathf.Lerp(intValueMin, intValueMax, value);
         }
 
         /// <summary>
@@ -169,16 +183,6 @@ namespace Mu3Library.UI {
             }
 
             Vector3 av = pointer - worldCornerLB;
-            return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
-        }
-
-        public static float InverseLerp(Vector3 from, Vector3 to, Vector3 a) {
-            Vector3 ab = to - from;
-            if(ab.magnitude == 0f) {
-                return 0f;
-            }
-
-            Vector3 av = a - from;
             return Vector3.Dot(av, ab) / (ab.magnitude * ab.magnitude);
         }
 
