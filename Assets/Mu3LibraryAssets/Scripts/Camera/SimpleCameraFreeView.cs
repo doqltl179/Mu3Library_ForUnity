@@ -4,6 +4,7 @@ namespace Mu3Library.CameraUtil {
     public class SimpleCameraFreeView : MonoBehaviour {
         //[SerializeField] private Camera camera;
         private Camera camera;
+        [SerializeField] private bool startWithMainCamera = true;
 
         [Space(20)]
         [SerializeField] private KeyCode keyMoveL = KeyCode.A;
@@ -18,7 +19,7 @@ namespace Mu3Library.CameraUtil {
             get => inverseRotate;
             set => inverseRotate = value;
         }
-        [SerializeField] private bool inverseRotate;
+        [SerializeField] private bool inverseRotate = true;
 
 
         public float MoveSpeed {
@@ -52,6 +53,12 @@ namespace Mu3Library.CameraUtil {
         private bool skipOneFrame = false;
 
 
+
+        private void Awake() {
+            if(startWithMainCamera) {
+                camera = Camera.main;
+            }
+        }
 
         private void OnEnable() {
             Application.focusChanged += OnFocusChanged;
