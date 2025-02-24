@@ -1,3 +1,8 @@
+/*
+ * [ 참고 링크 ]
+ * https://youtu.be/M3iI2l0ltbE?si=3iL8gFXowwWe3jxA
+ */
+
 using Mu3Library.Attribute;
 using System.Collections;
 using System.Collections.Generic;
