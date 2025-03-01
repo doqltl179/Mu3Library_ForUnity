@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Utility {
@@ -7,7 +6,7 @@ namespace Mu3Library.Utility {
             get {
                 if(instance == null) {
                     lock(lockObj) {
-                        T[] instances = FindObjectsOfType<T>();
+                        T[] instances = FindObjectsByType<T>(FindObjectsSortMode.None);
                         if(instances.Length == 0) {
                             GameObject go = new GameObject(typeof(T).Name);
                             instance = go.AddComponent<T>();
