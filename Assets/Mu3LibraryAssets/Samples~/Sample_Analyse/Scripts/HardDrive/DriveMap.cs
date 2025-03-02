@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Windows;
 
 namespace Mu3Library.Demo.Analyse {
     public class DriveMap {
@@ -44,9 +46,7 @@ namespace Mu3Library.Demo.Analyse {
             CancellationToken token = tokenSource.Token;
 
             currentDriveInfo = new DirInfo(0, null, currentDrive.RootDirectory);
-            await Task.Run(async () => {
-                await currentDriveInfo.LoadInfos(tokenSource);
-            });
+            await currentDriveInfo.LoadInfos(tokenSource);
 
             DateTime endTime = DateTime.Now;
             Debug.Log($"Loaded All Directories. Root: {currentDrive.RootDirectory}, time: {(endTime - startTime).TotalMilliseconds / 1000f:F2}s");
@@ -104,7 +104,9 @@ namespace Mu3Library.Demo.Analyse {
 
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        static extern uint GetCompressedFileSize(string lpFileName, out uint lpFileSizeHigh);
+        private static extern uint GetCompressedFileSize(string lpFileName, out uint lpFileSizeHigh);
+
+
 
         public DirInfo(int depth, DirInfo parent, DirectoryInfo directory) {
             this.parent = parent;
@@ -118,23 +120,31 @@ namespace Mu3Library.Demo.Analyse {
             size = 0;
             compressedSize = 0;
 
+            Task[] fTasks = null;
+            Task[] dTasks = null;
+
             // 파일 읽기 테스트
             try {
                 files = currentDirectory.GetFiles();
                 if(files.Length > 0) {
-                    Parallel.ForEach(files, fi => {
-                        if(tokenSource.Token.IsCancellationRequested) {
-                            tokenSource.Token.ThrowIfCancellationRequested();
-                        }
+                    if(tokenSource.Token.IsCancellationRequested) {
+                        tokenSource.Token.ThrowIfCancellationRequested();
+                    }
 
-                        size += (ulong)fi.Length;
+                    fTasks = new Task[files.Length];
+                    for(int i = 0; i < files.Length; i++) {
+                        FileInfo fi = files[i];
 
-                        uint high;
-                        uint low = GetCompressedFileSize(fi.FullName, out high);
-                        if(low != 0xFFFFFFFF) {
-                            compressedSize += (ulong)(((long)high << 32) + low);
-                        }
-                    });
+                        fTasks[i] = Task.Run(() => {
+                            size += (ulong)fi.Length;
+
+                            uint high;
+                            uint low = GetCompressedFileSize(fi.FullName, out high);
+                            if(low != 0xFFFFFFFF) {
+                                compressedSize += (ulong)(((long)high << 32) + low);
+                            }
+                        });
+                    }
                 }
             }
             catch {
@@ -146,28 +156,41 @@ namespace Mu3Library.Demo.Analyse {
                 DirectoryInfo[] directories = currentDirectory.GetDirectories();
                 dirs = new DirInfo[directories.Length];
                 if(dirs.Length > 0) {
-                    Parallel.For(0, dirs.Length, async (idx) => {
-                        if(tokenSource.Token.IsCancellationRequested) {
-                            tokenSource.Token.ThrowIfCancellationRequested();
-                        }
+                    if(tokenSource.Token.IsCancellationRequested) {
+                        tokenSource.Token.ThrowIfCancellationRequested();
+                    }
 
-                        try {
-                            DirInfo newInfo = new DirInfo(depth + 1, this, directories[idx]);
-                            await newInfo.LoadInfos(tokenSource);
+                    dTasks = new Task[directories.Length];
+                    for(int i = 0; i < directories.Length; i++) {
+                        int idx = i;
+                        DirectoryInfo di = directories[idx];
 
-                            size += newInfo.Size;
-                            compressedSize += newInfo.CompressedSize;
+                        dTasks[i] = Task.Run(async () => {
+                            try {
+                                DirInfo newInfo = new DirInfo(depth + 1, this, di);
+                                await newInfo.LoadInfos(tokenSource);
 
-                            dirs[idx] = newInfo;
-                        }
-                        catch {
+                                size += newInfo.Size;
+                                compressedSize += newInfo.CompressedSize;
 
-                        }
-                    });
+                                dirs[idx] = newInfo;
+                            }
+                            catch {
+
+                            }
+                        });
+                    }
                 }
             }
             catch {
                 isReadable = false;
+            }
+
+            if(fTasks != null) {
+                await Task.WhenAll(fTasks);
+            }
+            if(dTasks != null) {
+                await Task.WhenAll(dTasks);
             }
         }
     }

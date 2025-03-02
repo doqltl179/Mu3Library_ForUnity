@@ -12,6 +12,7 @@ namespace Mu3Library.Demo.Analyse {
         [Space(20)]
         [SerializeField] private HardDriveDirectoryInfoStruct directoryInfoObj;
         private List<HardDriveDirectoryInfoStruct> directoryInfos = new List<HardDriveDirectoryInfoStruct>();
+        private Queue<HardDriveDirectoryInfoStruct> diQueue = new Queue<HardDriveDirectoryInfoStruct>();
 
         [Space(20)]
         [SerializeField] private Button backButton;
@@ -77,7 +78,8 @@ namespace Mu3Library.Demo.Analyse {
         private void SetData() {
             if(directoryInfos.Count > 0) {
                 foreach(HardDriveDirectoryInfoStruct obj in directoryInfos) {
-                    Destroy(obj.gameObject);
+                    obj.gameObject.SetActive(false);
+                    diQueue.Enqueue(obj);
                 }
                 directoryInfos.Clear();
             }
@@ -95,7 +97,9 @@ namespace Mu3Library.Demo.Analyse {
                     continue;
                 }
 
-                HardDriveDirectoryInfoStruct obj = Instantiate(directoryInfoObj, directoryInfoObj.transform.parent);
+                HardDriveDirectoryInfoStruct obj = diQueue.Count > 0 ? 
+                    diQueue.Dequeue() :
+                    Instantiate(directoryInfoObj, directoryInfoObj.transform.parent);
                 obj.gameObject.SetActive(true);
 
                 obj.SetInfo(directory, (info) => {
