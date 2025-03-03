@@ -22,7 +22,7 @@ namespace Mu3Library.CameraUtil {
             get => inverseRotate;
             set => inverseRotate = value;
         }
-        [SerializeField] private bool inverseRotate;
+        [SerializeField] private bool inverseRotate = true;
 
         public float Height {
             get => height;
