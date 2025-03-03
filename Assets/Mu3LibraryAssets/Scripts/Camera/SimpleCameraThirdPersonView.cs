@@ -7,9 +7,16 @@ namespace Mu3Library.CameraUtil {
      * 'localPositionOffset.y'는 'target.up'을 기준으로 이동한다.
      */
     public class SimpleCameraThirdPersonView : MonoBehaviour {
+        public UpdateFunc UpdateExecution {
+            get => updateExecution;
+            set => updateExecution = value;
+        }
+        [SerializeField] private UpdateFunc updateExecution;
+
         private Camera camera;
         private Transform target;
 
+        [Space(20)]
         [SerializeField] private KeyCode keyRotate = KeyCode.Mouse1;
         public bool InverseRotate {
             get => inverseRotate;
@@ -191,6 +198,12 @@ namespace Mu3Library.CameraUtil {
         [SerializeField, HideInInspector] private float check_verticalAngleDegMax;
 
         private void OnValidate() {
+            if(updateExecution == UpdateFunc.FixedUpdate) {
+                Debug.LogError("'Update Execution' can not be FixedUpdate.");
+
+                updateExecution = UpdateFunc.Update;
+            }
+
             if(radiusMin != check_radiusMin) {
                 radiusMin = Mathf.Max(radiusMin, 0);
                 ClampToMinimum(radiusMin, ref radiusMax);
@@ -246,11 +259,29 @@ namespace Mu3Library.CameraUtil {
             }
         }
 
+        // "FixedUpdate"는 무시한다.
+        //private void FixedUpdate() {
+
+        //}
+
         private void Update() {
+            if(updateExecution == UpdateFunc.Update) {
+                UpdateFunction();
+            }
+        }
+
+        private void LateUpdate() {
+            if(updateExecution == UpdateFunc.LateUpdate) {
+                UpdateFunction();
+            }
+        }
+
+        private void UpdateFunction() {
             /*if(!Application.isFocused) {
                 return;
             }
-            else */if(skipOneFrame) {
+            else */
+            if(skipOneFrame) {
                 skipOneFrame = false;
 
                 return;

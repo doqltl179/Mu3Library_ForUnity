@@ -2,8 +2,14 @@ using UnityEngine;
 
 namespace Mu3Library.CameraUtil {
     public class SimpleCameraFreeView : MonoBehaviour {
-        //[SerializeField] private Camera camera;
+        public UpdateFunc UpdateExecution {
+            get => updateExecution;
+            set => updateExecution = value;
+        }
+        [SerializeField] private UpdateFunc updateExecution;
+
         private Camera camera;
+        [Space(20)]
         [SerializeField] private bool startWithMainCamera = true;
 
         [Space(20)]
@@ -54,6 +60,16 @@ namespace Mu3Library.CameraUtil {
 
 
 
+#if UNITY_EDITOR
+        private void OnValidate() {
+            if(updateExecution == UpdateFunc.FixedUpdate) {
+                Debug.LogError("'Update Execution' can not be FixedUpdate.");
+
+                updateExecution = UpdateFunc.Update;
+            }
+        }
+#endif
+
         private void Awake() {
             if(startWithMainCamera) {
                 camera = Camera.main;
@@ -74,11 +90,29 @@ namespace Mu3Library.CameraUtil {
             }
         }
 
+        // "FixedUpdate"는 무시한다.
+        //private void FixedUpdate() {
+
+        //}
+
         private void Update() {
+            if(updateExecution == UpdateFunc.Update) {
+                UpdateFunction();
+            }
+        }
+
+        private void LateUpdate() {
+            if(updateExecution == UpdateFunc.LateUpdate) {
+                UpdateFunction();
+            }
+        }
+
+        private void UpdateFunction() {
             /*if(!Application.isFocused) {
                 return;
             }
-            else */if(skipOneFrame) {
+            else */
+            if(skipOneFrame) {
                 skipOneFrame = false;
 
                 return;
