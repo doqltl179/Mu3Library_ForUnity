@@ -31,7 +31,7 @@ namespace Mu3Library.CameraUtil {
         [SerializeField] private float height = 0;
 
         /// <summary>
-        /// "currentRadius"의 값이 0이 되면 카메라 회전에 되지 않는 현상이 있어 이를 막아주기 위해 사용한다.
+        /// "currentRadius"의 값이 0이 되면 카메라가 회전하지 않는 현상이 있어 이를 막아주기 위해 사용한다.
         /// </summary>
         private const float radiusLimitMin = 0.0001f;
         public float RadiusMin {
