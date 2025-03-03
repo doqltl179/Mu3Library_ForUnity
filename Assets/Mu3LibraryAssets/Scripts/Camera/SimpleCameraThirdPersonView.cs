@@ -1,4 +1,3 @@
-using Mu3Library.EditorOnly;
 using UnityEngine;
 
 namespace Mu3Library.CameraUtil {
@@ -31,11 +30,15 @@ namespace Mu3Library.CameraUtil {
         [Space(20)]
         [SerializeField] private float height = 0;
 
+        /// <summary>
+        /// "currentRadius"의 값이 0이 되면 카메라 회전에 되지 않는 현상이 있어 이를 막아주기 위해 사용한다.
+        /// </summary>
+        private const float radiusLimitMin = 0.0001f;
         public float RadiusMin {
             get => radiusMin;
             set {
-                if(value < 0) {
-                    value = 0;
+                if(value < radiusLimitMin) {
+                    value = radiusLimitMin;
                 }
                 else if(value > radiusMax) {
                     value = radiusMax;
@@ -48,8 +51,8 @@ namespace Mu3Library.CameraUtil {
         public float RadiusMax {
             get => radiusMax;
             set {
-                if(value < 0) {
-                    value = 0;
+                if(value < radiusLimitMin) {
+                    value = radiusLimitMin;
                 }
                 else if(value < radiusMin) {
                     value = radiusMin;
@@ -205,12 +208,12 @@ namespace Mu3Library.CameraUtil {
             }
 
             if(radiusMin != check_radiusMin) {
-                radiusMin = Mathf.Max(radiusMin, 0);
+                radiusMin = Mathf.Max(radiusMin, radiusLimitMin);
                 ClampToMinimum(radiusMin, ref radiusMax);
                 check_radiusMin = radiusMin;
             }
             if(radiusMax != check_radiusMax) {
-                radiusMax = Mathf.Max(radiusMax, 0);
+                radiusMax = Mathf.Max(radiusMax, radiusLimitMin);
                 ClampToMaximum(radiusMax, ref radiusMin);
                 check_radiusMax = radiusMax;
             }
