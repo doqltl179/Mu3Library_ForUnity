@@ -256,9 +256,9 @@ namespace Mu3Library.CameraUtil {
             currentVerticalAngleDegLerp = Mathf.Lerp(currentVerticalAngleDegLerp, currentVerticalAngleDeg, rotateLerpT);
 
             Vector3 worldPosOffset =
-                transform.forward * localPositionOffset.z +
-                transform.right * localPositionOffset.x +
-                transform.up * localPositionOffset.y;
+                target.forward * localPositionOffset.z +
+                target.right * localPositionOffset.x +
+                target.up * localPositionOffset.y;
             Vector3 pivotPos = target.position + worldPosOffset;
             Vector3 anglePos = GetAnglePos(pivotPos, currentHorizontalAngleDegLerp, currentVerticalAngleDegLerp, currentRadiusLerp);
 
@@ -298,9 +298,9 @@ namespace Mu3Library.CameraUtil {
             Vector3 right = upRotation * Vector3.right;
 
             Vector3 worldPosOffset =
-                transform.forward * localPositionOffset.z +
-                transform.right * localPositionOffset.x +
-                transform.up * localPositionOffset.y;
+                target.forward * localPositionOffset.z +
+                target.right * localPositionOffset.x +
+                target.up * localPositionOffset.y;
             Vector3 pivotPos = target.position + worldPosOffset;
             Vector3 pivotToCam = camera.transform.position - pivotPos;
 
