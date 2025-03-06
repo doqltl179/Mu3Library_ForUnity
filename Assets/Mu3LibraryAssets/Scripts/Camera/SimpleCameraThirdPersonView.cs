@@ -255,21 +255,12 @@ namespace Mu3Library.CameraUtil {
             currentHorizontalAngleDegLerp = Mathf.Lerp(currentHorizontalAngleDegLerp, currentHorizontalAngleDeg, rotateLerpT);
             currentVerticalAngleDegLerp = Mathf.Lerp(currentVerticalAngleDegLerp, currentVerticalAngleDeg, rotateLerpT);
 
-            Vector3 worldPosOffset =
-                target.forward * localPositionOffset.z +
-                target.right * localPositionOffset.x +
-                target.up * localPositionOffset.y;
-            Vector3 pivotPos = target.position + worldPosOffset;
-            Vector3 anglePos = GetAnglePos(pivotPos, currentHorizontalAngleDegLerp, currentVerticalAngleDegLerp, currentRadiusLerp);
-
-            Vector3 pivotToAnglePos = anglePos - pivotPos;
-            Vector3 recalVec = upRotation * pivotToAnglePos;
-
-            Vector3 newPivotPos = pivotPos + upDirection * height;
-            Vector3 camPos = newPivotPos + recalVec;
+            Vector3 pivotPos = target.position + upDirection * height;
+            Vector3 anglePos = GetAnglePos(currentHorizontalAngleDegLerp, currentVerticalAngleDegLerp) * currentRadiusLerp;
+            Vector3 camPos = pivotPos + upRotation * anglePos;
             camera.transform.position = camPos;
 
-            Quaternion lookRotation = Quaternion.LookRotation((newPivotPos - camPos).normalized);
+            Quaternion lookRotation = Quaternion.LookRotation((pivotPos - camPos).normalized);
             float lookRotationLerpT = 1.0f - Mathf.Pow(1.0f - lookWeight, Time.deltaTime * lerpSmoothing);
             camera.transform.rotation = Quaternion.Lerp(camera.transform.rotation, lookRotation, lookRotationLerpT);
         }
@@ -294,28 +285,14 @@ namespace Mu3Library.CameraUtil {
         /// 카메라가 자연스럽게 이동한다.
         /// </summary>
         public void SetCameraBehindTarget(bool initVerticalAngle = true, bool initRadius = true) {
-            Vector3 forward = upRotation * Vector3.forward;
-            Vector3 right = upRotation * Vector3.right;
-
-            Vector3 worldPosOffset =
-                target.forward * localPositionOffset.z +
-                target.right * localPositionOffset.x +
-                target.up * localPositionOffset.y;
-            Vector3 pivotPos = target.position + worldPosOffset;
-            Vector3 pivotToCam = camera.transform.position - pivotPos;
-
-            Vector3 proj = Vector3.ProjectOnPlane(pivotToCam, upDirection).normalized;
-
-            float dotForward = Vector3.Dot(proj, forward);
-            float dotRight = Vector3.Dot(proj, right);
-            float horizontalAngleDeg = Mathf.Atan2(dotForward, dotRight) * Mathf.Rad2Deg;
-            currentHorizontalAngleDeg = horizontalAngleDeg;
+            Vector3 rotatedForward = upRotation * -target.forward;
+            currentHorizontalAngleDeg = Mathf.Atan2(rotatedForward.z, rotatedForward.x) * Mathf.Rad2Deg;
 
             if(initVerticalAngle) {
                 currentVerticalAngleDeg = Mathf.Lerp(verticalAngleDegMin, verticalAngleDegMax, 0.75f);
             }
             else {
-                //currentVerticalAngleDegLerp = 
+
             }
 
             if(initRadius) {
@@ -350,18 +327,17 @@ namespace Mu3Library.CameraUtil {
         }
         #endregion
 
-        private Vector3 GetAnglePos(Vector3 pivot, float horizontalAngleDeg, float verticalAngleDeg, float radius) {
+        private Vector3 GetAnglePos(float horizontalAngleDeg, float verticalAngleDeg) {
             // 도(degree) → 라디안(radian) 변환
             float theta = horizontalAngleDeg * Mathf.Deg2Rad; // 수평 각도
             float phi = verticalAngleDeg * Mathf.Deg2Rad;     // 수직 각도
 
             // 구면 좌표계 변환 공식
-            float x = radius * Mathf.Cos(theta) * Mathf.Cos(phi);
-            float y = radius * Mathf.Sin(phi);
-            float z = radius * Mathf.Sin(theta) * Mathf.Cos(phi);
+            float x = Mathf.Cos(theta) * Mathf.Cos(phi);
+            float y = Mathf.Sin(phi);
+            float z = Mathf.Sin(theta) * Mathf.Cos(phi);
 
-            // 회전 중심점(pivot)에 좌표를 더함
-            return pivot + new Vector3(x, y, z);
+            return new Vector3(x, y, z);
         }
     }
 }
