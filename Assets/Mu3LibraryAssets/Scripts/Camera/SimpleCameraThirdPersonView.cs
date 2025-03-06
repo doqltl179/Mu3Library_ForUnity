@@ -37,28 +37,16 @@ namespace Mu3Library.CameraUtil {
         public float RadiusMin {
             get => radiusMin;
             set {
-                if(value < radiusLimitMin) {
-                    value = radiusLimitMin;
-                }
-                else if(value > radiusMax) {
-                    value = radiusMax;
-                }
-
-                radiusMin = value;
+                radiusMin = Mathf.Max(radiusLimitMin, value);
+                radiusMax = Mathf.Max(radiusMin, radiusMax);
             }
         }
         [SerializeField] private float radiusMin = 1;
         public float RadiusMax {
             get => radiusMax;
             set {
-                if(value < radiusLimitMin) {
-                    value = radiusLimitMin;
-                }
-                else if(value < radiusMin) {
-                    value = radiusMin;
-                }
-
-                radiusMax = value;
+                radiusMax = Mathf.Max(radiusLimitMin, value);
+                radiusMin = Mathf.Min(radiusMin, radiusMax);
             }
         }
         [SerializeField] private float radiusMax = 10;
@@ -85,14 +73,8 @@ namespace Mu3Library.CameraUtil {
         public float VerticalAngleDegMin {
             get => verticalAngleDegMin;
             set {
-                if(value < -89) {
-                    value = -89;
-                }
-                else if(value > verticalAngleDegMax) {
-                    value = verticalAngleDegMax;
-                }
-
-                verticalAngleDegMin = value;
+                verticalAngleDegMin = Mathf.Max(-89, value);
+                verticalAngleDegMax = Mathf.Max(verticalAngleDegMin, verticalAngleDegMax);
             }
         }
         [Space(20)]
@@ -100,83 +82,38 @@ namespace Mu3Library.CameraUtil {
         public float VerticlaAngleDegMax {
             get => verticalAngleDegMax;
             set {
-                if(value > 89) {
-                    value = 89;
-                }
-                else if(value < verticalAngleDegMin) {
-                    value = verticalAngleDegMin;
-                }
-
-                verticalAngleDegMax = value;
+                verticalAngleDegMax = Mathf.Min(89, value);
+                verticalAngleDegMin = Mathf.Min(verticalAngleDegMin, verticalAngleDegMax);
             }
         }
         [SerializeField, Range(-89, 89)] private float verticalAngleDegMax = 60f;
 
         public float ZoomWeight {
             get => zoomWeight;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-                else if(value > 1) {
-                    value = 1;
-                }
-
-                zoomWeight = value;
-            }
+            set => zoomWeight = Mathf.Clamp01(value);
         }
         [Space(20)]
         [SerializeField, Range(0, 1)] private float zoomWeight = 0.94f;
         public float ZoomSpeed {
             get => zoomSpeed;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-
-                zoomSpeed = value;
-            }
+            set => zoomSpeed = Mathf.Max(0, value);
         }
         [SerializeField] private float zoomSpeed = 3.0f;
 
         public float RotateWeight {
             get => rotateWeight;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-                else if(value > 1) {
-                    value = 1;
-                }
-
-                rotateWeight = value;
-            }
+            set => rotateWeight = Mathf.Clamp01(value);
         }
         [SerializeField, Range(0, 1)] private float rotateWeight = 0.94f;
         public float RotateSpeed {
             get => rotateSpeed;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-
-                rotateSpeed = value;
-            }
+            set => rotateSpeed = Mathf.Max(0, value);
         }
         [SerializeField] private float rotateSpeed = 2f;
 
         public float LookWeight {
             get => lookWeight;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-                else if(value > 1) {
-                    value = 1;
-                }
-
-                lookWeight = value;
-            }
+            set => lookWeight = Mathf.Clamp01(value);
         }
         [SerializeField, Range(0, 1)] private float lookWeight = 1f;
 
@@ -209,13 +146,15 @@ namespace Mu3Library.CameraUtil {
 
             if(radiusMin != check_radiusMin) {
                 radiusMin = Mathf.Max(radiusMin, radiusLimitMin);
-                ClampToMinimum(radiusMin, ref radiusMax);
                 check_radiusMin = radiusMin;
+
+                radiusMax = Mathf.Max(radiusMin, radiusMax);
             }
             if(radiusMax != check_radiusMax) {
                 radiusMax = Mathf.Max(radiusMax, radiusLimitMin);
-                ClampToMaximum(radiusMax, ref radiusMin);
                 check_radiusMax = radiusMax;
+
+                radiusMin = Mathf.Min(radiusMin, radiusMax);
             }
 
             if(upDirection != check_upDirection) {
@@ -226,24 +165,12 @@ namespace Mu3Library.CameraUtil {
             }
 
             if(verticalAngleDegMin != check_verticalAngleDegMin) {
-                ClampToMinimum(verticalAngleDegMin, ref verticalAngleDegMax);
                 check_verticalAngleDegMin = verticalAngleDegMin;
+                verticalAngleDegMax = Mathf.Max(verticalAngleDegMin, verticalAngleDegMax);
             }
             if(verticalAngleDegMax != check_verticalAngleDegMax) {
-                ClampToMaximum(verticalAngleDegMax, ref verticalAngleDegMin);
                 check_verticalAngleDegMax = verticalAngleDegMax;
-            }
-        }
-
-        private void ClampToMaximum(float compare, ref float value) {
-            if(value > compare) {
-                value = compare;
-            }
-        }
-
-        private void ClampToMinimum(float compare, ref float value) {
-            if(value < compare) {
-                value = compare;
+                verticalAngleDegMin = Mathf.Min(verticalAngleDegMin, verticalAngleDegMax);
             }
         }
 #endif
