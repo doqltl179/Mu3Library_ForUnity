@@ -42,13 +42,7 @@ namespace Mu3Library.CameraUtil {
         [SerializeField] private float moveSpeed = 3.0f;
         public float RotateSpeed {
             get => rotateSpeed;
-            set {
-                if(value < 0) {
-                    value = 0;
-                }
-
-                rotateSpeed = value;
-            }
+            set => rotateSpeed = Mathf.Max(0, value);
         }
         [SerializeField] private float rotateSpeed = 2f;
 
