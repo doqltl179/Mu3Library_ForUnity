@@ -202,41 +202,15 @@ namespace Mu3Library.CameraUtil {
         }
 
         #region Utility
-        /// <summary>
-        /// 카메라가 즉시 옮겨진다.
-        /// </summary>
-        public void SetCameraForwardTargetImmediately(bool initVerticalAngle = true, bool initRadius = true) {
-            SetCameraForwardTarget(initVerticalAngle, initRadius);
+        public void SetCameraForwardTarget(bool immediately) {
+            currentHorizontalAngleDeg = 90;
+            currentVerticalAngleDeg = 0;
 
-            currentHorizontalAngleDegLerp = currentHorizontalAngleDeg;
-            if(initVerticalAngle) {
+            if(immediately) {
+                currentHorizontalAngleDegLerp = currentHorizontalAngleDeg;
                 currentVerticalAngleDegLerp = currentVerticalAngleDeg;
-            }
-            if(initRadius) {
+
                 currentRadius = radius;
-            }
-        }
-
-        /// <summary>
-        /// 카메라가 자연스럽게 이동한다.
-        /// </summary>
-        public void SetCameraForwardTarget(bool initVerticalAngle = true, bool initRadius = true) {
-            Quaternion upRotation = Quaternion.FromToRotation(target.up, Vector3.up);
-            Vector3 rotatedForward = upRotation * target.forward;
-            currentHorizontalAngleDeg = Mathf.Atan2(rotatedForward.z, rotatedForward.x) * Mathf.Rad2Deg;
-
-            if(initVerticalAngle) {
-                currentVerticalAngleDeg = 0;
-            }
-            else {
-
-            }
-
-            if(initRadius) {
-                currentRadius = radius;
-            }
-            else {
-                currentRadius = Vector3.Distance(camera.transform.position, target.position);
             }
         }
 
@@ -252,17 +226,36 @@ namespace Mu3Library.CameraUtil {
                 return;
             }
 
-            Vector3 targetToCam = camera.transform.position - target.position;
-            Vector3 targetToCamDir = targetToCam.normalized;
-            currentHorizontalAngleDeg = Mathf.Atan2(targetToCamDir.z, targetToCamDir.x) * Mathf.Rad2Deg;
-            currentHorizontalAngleDegLerp = currentHorizontalAngleDeg;
-
-            currentRadius = targetToCam.magnitude;
-
             this.camera = camera;
             this.target = target;
+
+            CalculateCurrentProperties();
         }
         #endregion
+
+        /// <summary>
+        /// <br/> Camera의 현재 위치를 반영한다.
+        /// </summary>
+        private void CalculateCurrentProperties() {
+            Vector3 pivotPos = target.position + target.up * height;
+            Vector3 pivotToCam = camera.transform.position - pivotPos;
+            Vector3 projectPivotToCamWithUpDir = Vector3.ProjectOnPlane(pivotToCam, target.up);
+
+            float rightDotPivotToCam = Vector3.Dot(target.right, projectPivotToCamWithUpDir.normalized);
+            currentHorizontalAngleDeg = Mathf.Acos(rightDotPivotToCam) * Mathf.Rad2Deg;
+
+            Vector3 cross = Vector3.Cross(target.right, projectPivotToCamWithUpDir.normalized);
+            float crossDotUpDir = Vector3.Dot(cross, target.up);
+            if(crossDotUpDir > 0) {
+                currentHorizontalAngleDeg *= -1;
+            }
+
+            float upDotPivotToCam = Vector3.Dot(target.up, pivotToCam.normalized);
+            currentVerticalAngleDeg = -(Mathf.Acos(upDotPivotToCam) * Mathf.Rad2Deg - 90);
+            currentVerticalAngleDeg = Mathf.Clamp(currentVerticalAngleDeg, verticalAngleDegMin, verticalAngleDegMax);
+
+            currentRadius = pivotToCam.magnitude;
+        }
 
         private Vector3 GetAnglePos(float horizontalAngleDeg, float verticalAngleDeg) {
             // 도(degree) → 라디안(radian) 변환

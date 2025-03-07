@@ -8,10 +8,12 @@ namespace Mu3Library.Demo.CameraView {
 
             FreeView = 1, 
             ThirdPersonView = 2,
+            FirstPersonView = 3,
         }
 
         [SerializeField] private SimpleCameraFreeView freeView;
         [SerializeField] private SimpleCameraThirdPersonView thirdPersonView;
+        [SerializeField] private SimpleCameraFirstPersonView firstPersonView;
 
         [Space(20)]
         [SerializeField] private Transform thirdPersonTarget;
@@ -23,6 +25,7 @@ namespace Mu3Library.Demo.CameraView {
         private void Start() {
             freeView.gameObject.SetActive(false);
             thirdPersonView.gameObject.SetActive(false);
+            firstPersonView.gameObject.SetActive(false);
 
             ActivateView(currentViewState);
         }
@@ -45,6 +48,12 @@ namespace Mu3Library.Demo.CameraView {
                 currentViewState = ViewState.ThirdPersonView;
                 ActivateView(currentViewState);
             }
+            else if(Input.GetKeyDown(KeyCode.Alpha3)) {
+                if(currentViewState == ViewState.FirstPersonView) return;
+                DeactivateView(currentViewState);
+                currentViewState = ViewState.FirstPersonView;
+                ActivateView(currentViewState);
+            }
         }
 
         private void ActivateView(ViewState state) {
@@ -59,7 +68,14 @@ namespace Mu3Library.Demo.CameraView {
                         thirdPersonView.gameObject.SetActive(true);
 
                         thirdPersonView.Init(Camera.main, thirdPersonTarget);
-                        thirdPersonView.SetCameraBehindTarget(true, false);
+                        thirdPersonView.SetCameraBehindTarget(false);
+                    }
+                    break;
+                case ViewState.FirstPersonView: {
+                        firstPersonView.gameObject.SetActive(true);
+
+                        firstPersonView.Init(Camera.main, thirdPersonTarget);
+                        firstPersonView.SetCameraForwardTarget(false);
                     }
                     break;
             }
@@ -69,6 +85,7 @@ namespace Mu3Library.Demo.CameraView {
             switch(state) {
                 case ViewState.FreeView: freeView.gameObject.SetActive(false); break;
                 case ViewState.ThirdPersonView: thirdPersonView.gameObject.SetActive(false); break;
+                case ViewState.FirstPersonView: firstPersonView.gameObject.SetActive(false); break;
             }
         }
     }
