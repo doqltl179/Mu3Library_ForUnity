@@ -196,7 +196,7 @@ namespace Mu3Library.CameraUtil {
             Vector3 camPos = pivotPos + Quaternion.FromToRotation(Vector3.up, target.up) * anglePos;
             camera.transform.position = camPos;
 
-            Quaternion lookRotation = Quaternion.LookRotation((camPos - pivotPos).normalized);
+            Quaternion lookRotation = Quaternion.LookRotation((camPos - pivotPos).normalized, target.up);
             float lookRotationLerpT = 1.0f - Mathf.Pow(1.0f - lookWeight, Time.deltaTime * lerpSmoothing);
             camera.transform.rotation = Quaternion.Lerp(camera.transform.rotation, lookRotation, lookRotationLerpT);
         }
