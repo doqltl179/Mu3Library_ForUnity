@@ -1,9 +1,11 @@
 #if UNITY_EDITOR
+using Codice.Utils;
 using Mu3Library.EditorOnly.FileUtil;
 using Mu3Library.EditorOnly.Window;
 using Mu3Library.Utility;
 using System;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -19,6 +21,19 @@ namespace Mu3Library.Demo.UtilWindow {
         private int screenCaptureSuperSize = 1;
         private string captureSaveDirectory = "";
 
+        /// <summary>
+        /// Input
+        /// </summary>
+        private Texture2D imageToBase64Texture = null;
+        /// <summary>
+        /// Test Output
+        /// </summary>
+        private Texture2D base64ToImageTexture = null;
+        /// <summary>
+        /// If you want to check base64 converted correctly.
+        /// </summary>
+        private bool checkBase64ToImage = false;
+
 
 
         [MenuItem(WindowName_MyCustomWindow)]
@@ -32,6 +47,7 @@ namespace Mu3Library.Demo.UtilWindow {
             GUILayoutOption normalButtonHeight = GUILayout.Height(30);
 
             SceneListDrawFunc();
+            ImageToBase64DrawFunc();
             ScreenCaptureDrawFunc();
         }
 
@@ -214,6 +230,123 @@ namespace Mu3Library.Demo.UtilWindow {
             string filePath = $"{directory}/{fileName}.png";
             File.WriteAllBytes(filePath, bytes);
             MonoBehaviour.DestroyImmediate(tex);
+        }
+        #endregion
+
+        #region Image to Base64
+        private void ImageToBase64DrawFunc() {
+            GUILayoutOption normalButtonHeight = GUILayout.Height(30);
+
+            bool foldout_imageToBase64 = currentWindowProperty.Foldout_ImageToBase64;
+            DrawFoldoutHeader1("Image to Base64", ref foldout_imageToBase64);
+            currentWindowProperty.Foldout_ImageToBase64 = foldout_imageToBase64;
+
+            if(foldout_imageToBase64) {
+                DrawHorizontal(() => {
+                    DrawObjectAreaForProjectObject(ref imageToBase64Texture, 80);
+                    if(imageToBase64Texture != null) {
+                        if(!imageToBase64Texture.isReadable) {
+                            Selection.activeObject = imageToBase64Texture;
+                            EditorGUIUtility.PingObject(Selection.activeObject);
+
+                            imageToBase64Texture = null;
+
+                            Debug.LogError($"This Texture is not readable. Please check 'Read/Write' in this Texture.");
+
+                            return;
+                        }
+
+                        DrawVertical(() => {
+                            checkBase64ToImage = GUILayout.Toggle(checkBase64ToImage, "Check Base64 to Image");
+
+                            if(GUILayout.Button("To Base64 and Copy", GUILayout.Width(160), normalButtonHeight)) {
+                                byte[] data = null;
+
+                                string texPath = FileFinder.GetAssetPath(imageToBase64Texture);
+                                string extension = texPath.Split('.').Last();
+                                if(!EncodeTexture(imageToBase64Texture, extension, ref data)) {
+                                    imageToBase64Texture = null;
+
+                                    return;
+                                }
+
+                                // 이미지 파일의 확장자는 정의되어 있으나, byte[]로 변환하지 못하는 경우가 있다.
+                                if(data == null) {
+                                    Texture2D copyTex = new Texture2D(imageToBase64Texture.width, imageToBase64Texture.height, TextureFormat.RGBA32, false);
+                                    copyTex.SetPixels(imageToBase64Texture.GetPixels());
+                                    copyTex.Apply();
+
+                                    if(!EncodeTexture(copyTex, extension, ref data)) {
+                                        Debug.LogError("Encode Failed.");
+                                    }
+                                    DestroyImmediate(copyTex);
+                                }
+
+                                if(data != null) {
+                                    string base64String = Convert.ToBase64String(data);
+                                    GUIUtility.systemCopyBuffer = base64String;
+                                    Debug.Log($"Copy base64String.");
+
+                                    if(base64ToImageTexture != null) {
+                                        DestroyImmediate(base64ToImageTexture);
+                                    }
+
+                                    if(checkBase64ToImage) {
+                                        base64ToImageTexture = Base64ToImage(base64String);
+                                    }
+
+                                    // 변환된 Texture를 별도의 프로퍼티 창에서 보여준다.
+                                    //EditorUtility.OpenPropertyEditor(base64ToImageTexture);
+                                }
+                            }
+                        }, 0, 0);
+                    }
+
+                    GUILayout.FlexibleSpace();
+
+                    if(base64ToImageTexture != null) {
+                        // 읽기 전용
+                        GUI.enabled = false;
+                        DrawObjectAreaForProjectObject(ref base64ToImageTexture, 80);
+                        GUI.enabled = true;
+                    }
+                }, 20, 20);
+            }
+        }
+
+        private Texture2D Base64ToImage(string base64String) {
+            byte[] data = Convert.FromBase64String(base64String);
+            Texture2D tex = new Texture2D(2, 2);
+            tex.LoadImage(data);
+
+            tex.alphaIsTransparency = true;
+            tex.Apply();
+
+            return tex;
+        }
+
+        private bool EncodeTexture(Texture2D tex, string extension, ref byte[] data) {
+            data = null;
+
+            if(extension == "jpg" || extension == "jpeg") {
+                data = tex.EncodeToJPG();
+            }
+            else if(extension == "png") {
+                data = tex.EncodeToPNG();
+            }
+            else if(extension == "exr") {
+                data = tex.EncodeToEXR();
+            }
+            else if(extension == "tga") {
+                data = tex.EncodeToTGA();
+            }
+            else {
+                Debug.LogError($"Not defined extension. extension: {extension}");
+
+                return false;
+            }
+
+            return true;
         }
         #endregion
 

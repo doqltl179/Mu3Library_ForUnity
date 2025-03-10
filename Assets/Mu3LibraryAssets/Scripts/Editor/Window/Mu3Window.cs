@@ -242,6 +242,10 @@ namespace Mu3Library.EditorOnly.Window {
             toggle = EditorGUILayout.ToggleLeft(label, toggle);
         }
 
+        protected void DrawObjectAreaForProjectObject<Obj>(ref Obj obj, float size) where Obj : Object {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), false, GUILayout.Width(size), GUILayout.Height(size)) as Obj;
+        }
+
         protected void DrawObjectAreaForProjectObject<Obj>(ref Obj obj) where Obj : Object {
             obj = EditorGUILayout.ObjectField(obj, typeof(Obj), false) as Obj;
         }

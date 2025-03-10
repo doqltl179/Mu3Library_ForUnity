@@ -37,6 +37,15 @@ namespace Mu3Library.Demo.UtilWindow {
         [SerializeField] private bool foldout_screenCapture = true;
         #endregion
 
+        #region Image to Base64
+        public bool Foldout_ImageToBase64 {
+            get => foldout_imageToBase64;
+            set => foldout_imageToBase64 = value;
+        }
+        [Title("Image to Base64 Properties")]
+        [SerializeField] private bool foldout_imageToBase64 = true;
+        #endregion
+
 
 
         /// <summary>

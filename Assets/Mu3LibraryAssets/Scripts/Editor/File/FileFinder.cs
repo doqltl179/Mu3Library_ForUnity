@@ -97,6 +97,19 @@ namespace Mu3Library.EditorOnly.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
+        public static string GetAssetPath<T>(T obj) where T : Object {
+            if(obj == null) {
+                Debug.LogError("MonoBehaviour is NULL.");
+
+                return "";
+            }
+
+            return AssetDatabase.GetAssetPath(obj);
+        }
+
+        /// <summary>
+        /// 에셋 파일의 상대 경로를 반환한다.
+        /// </summary>
         public static string[] GetAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string[] guids = FindAssets(directory, name, typeString, assetlabel);
             string[] relativePaths = guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
