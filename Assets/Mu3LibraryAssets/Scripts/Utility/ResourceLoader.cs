@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Utility {
+namespace Mu3Library {
     /// <summary>
     /// Resource를 캐싱하여 관리하기 위해 만듬
     /// </summary>

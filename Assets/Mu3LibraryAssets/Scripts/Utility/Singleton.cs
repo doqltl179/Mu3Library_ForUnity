@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Mu3Library.Utility {
+namespace Mu3Library {
     public class Singleton<T> : MonoBehaviour where T : MonoBehaviour {
         public static T Instance {
             get {
