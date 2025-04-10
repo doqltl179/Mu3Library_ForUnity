@@ -4,7 +4,7 @@
     "displayName": "Mu3 Library Assets",
     "description": "Library assets for Mu3",
     "dependencies": {
-        
+        "com.unity.inputsystem": "1.13.1"
     }, 
     "samples": [
         {
