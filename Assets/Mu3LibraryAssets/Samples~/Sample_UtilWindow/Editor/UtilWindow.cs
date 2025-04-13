@@ -26,13 +26,17 @@ namespace Mu3Library.Demo.UtilWindow {
         /// </summary>
         private Texture2D imageToBase64Texture = null;
         /// <summary>
-        /// Test Output
+        /// 'imageToBase64Texture'를 변환하여 얻은 base64로 다시 만든 Texture
         /// </summary>
         private Texture2D base64ToImageTexture = null;
         /// <summary>
+        /// Output Material
+        /// </summary>
+        private Material base64ToImageMaterial = null;
+        /// <summary>
         /// If you want to check base64 converted correctly.
         /// </summary>
-        private bool checkBase64ToImage = false;
+        private bool showBase64Image = false;
 
 
 
@@ -257,7 +261,7 @@ namespace Mu3Library.Demo.UtilWindow {
                         }
 
                         DrawVertical(() => {
-                            checkBase64ToImage = GUILayout.Toggle(checkBase64ToImage, "Check Base64 to Image");
+                            showBase64Image = GUILayout.Toggle(showBase64Image, "Show Copied Base64 Image (To Right Side)");
 
                             if(GUILayout.Button("To Base64 and Copy", GUILayout.Width(160), normalButtonHeight)) {
                                 byte[] data = null;
@@ -291,7 +295,7 @@ namespace Mu3Library.Demo.UtilWindow {
                                         DestroyImmediate(base64ToImageTexture);
                                     }
 
-                                    if(checkBase64ToImage) {
+                                    if(showBase64Image) {
                                         base64ToImageTexture = Base64ToImage(base64String);
                                     }
 
@@ -305,10 +309,25 @@ namespace Mu3Library.Demo.UtilWindow {
                     GUILayout.FlexibleSpace();
 
                     if(base64ToImageTexture != null) {
+                        if(base64ToImageMaterial == null) {
+                            const string shaderPath = "Unlit/Transparent";
+                            Shader shader = Shader.Find(shaderPath);
+                            if(shader == null) {
+                                Debug.Log($"Shader not Found. path: {shaderPath}");
+
+                                return;
+                            }
+
+                            base64ToImageMaterial = new Material(shader);
+                        }
+
+                        Rect texRect = GUILayoutUtility.GetRect(80, 80);
+                        EditorGUI.DrawPreviewTexture(texRect, base64ToImageTexture, base64ToImageMaterial);
+
                         // 읽기 전용
-                        GUI.enabled = false;
-                        DrawObjectAreaForProjectObject(ref base64ToImageTexture, 80);
-                        GUI.enabled = true;
+                        //GUI.enabled = false;
+                        //DrawObjectAreaForProjectObject(ref base64ToImageTexture, 80);
+                        //GUI.enabled = true;
                     }
                 }, 20, 20);
             }
