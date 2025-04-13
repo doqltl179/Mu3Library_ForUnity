@@ -312,17 +312,18 @@ namespace Mu3Library.Demo.UtilWindow {
                         if(base64ToImageMaterial == null) {
                             const string shaderPath = "Unlit/Transparent";
                             Shader shader = Shader.Find(shaderPath);
-                            if(shader == null) {
-                                Debug.Log($"Shader not Found. path: {shaderPath}");
-
-                                return;
+                            if(shader != null) {
+                                base64ToImageMaterial = new Material(shader);
                             }
-
-                            base64ToImageMaterial = new Material(shader);
+                            else {
+                                Debug.LogWarning($"Shader not Found. path: {shaderPath}");
+                            }
                         }
 
-                        Rect texRect = GUILayoutUtility.GetRect(80, 80);
-                        EditorGUI.DrawPreviewTexture(texRect, base64ToImageTexture, base64ToImageMaterial);
+                        if(base64ToImageMaterial != null) {
+                            Rect texRect = GUILayoutUtility.GetRect(80, 80);
+                            EditorGUI.DrawPreviewTexture(texRect, base64ToImageTexture, base64ToImageMaterial);
+                        }
 
                         // 읽기 전용
                         //GUI.enabled = false;
