@@ -214,7 +214,7 @@ namespace Mu3Library.MarchingCubes {
             // pool에 있는 모든 chunk 제거
             if(chunkPool.Count > 0) {
                 Chunk currentChunk = null;
-                while(chunkPool.Count == 0) {
+                while(chunkPool.Count > 0) {
                     currentChunk = chunkPool.Dequeue();
                     if(currentChunk != null) {
                         Destroy(currentChunk.gameObject);

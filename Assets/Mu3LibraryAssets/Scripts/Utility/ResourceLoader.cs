@@ -21,7 +21,7 @@ namespace Mu3Library {
             else {
                 resource = Resources.Load<T>(path);
                 if(resource == null) {
-                    Debug.LogError(string.Format("Object not found in resources folder. path: ", path));
+                    Debug.LogError($"Object not found in resources folder. path: {path}");
 
                     return null;
                 }
