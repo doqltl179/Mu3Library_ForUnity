@@ -42,7 +42,7 @@ namespace Mu3Library.CameraUtil {
         }
         [Space(20)]
         [SerializeField, Range(-89, 89)] private float verticalAngleDegMin = -45f;
-        public float VerticlaAngleDegMax {
+        public float VerticalAngleDegMax {
             get => verticalAngleDegMax;
             set {
                 verticalAngleDegMax = Mathf.Min(89, value);
