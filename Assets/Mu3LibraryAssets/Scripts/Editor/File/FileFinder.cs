@@ -12,6 +12,21 @@ namespace Mu3Library.Editor.FileUtil {
 
         #region Utility
         /// <summary>
+        /// 가장 먼저 찾은 파일을 반환한다.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
+        /// <returns></returns>
+        public static T FindPrefab<T>(string directory = "", string fileName = "", string assetlabel = "") where T : Object {
+            string[] relativePaths = GetAssetsPath(directory, fileName, "Prefab", assetlabel);
+            if(relativePaths.Length == 0) {
+                return null;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<T>(relativePaths[0]);
+        }
+
+        /// <summary>
         /// 
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -31,8 +46,7 @@ namespace Mu3Library.Editor.FileUtil {
         /// <param name="assetlabel"></param>
         /// <returns></returns>
         public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string typeString = "", string assetlabel = "") where T : Object {
-            string[] guids = FindAssets(directory, name, typeString, assetlabel);
-            string[] relativePaths = guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
+            string[] relativePaths = GetAssetsPath(directory, name, typeString, assetlabel);
 
             List<T> objs = new List<T>();
             foreach(string path in relativePaths) {
@@ -65,10 +79,7 @@ namespace Mu3Library.Editor.FileUtil {
                 return "";
             }
 
-            // 상대 경로 반환
-            string assetPath = AssetDatabase.GetAssetPath(scriptObj);
-
-            return assetPath;
+            return AssetDatabase.GetAssetPath(scriptObj);
         }
 
         /// <summary>
@@ -88,10 +99,7 @@ namespace Mu3Library.Editor.FileUtil {
                 return "";
             }
 
-            // 상대 경로 반환
-            string assetPath = AssetDatabase.GetAssetPath(scriptObj);
-
-            return assetPath;
+            return AssetDatabase.GetAssetPath(scriptObj);
         }
 
         /// <summary>
@@ -111,23 +119,27 @@ namespace Mu3Library.Editor.FileUtil {
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
         public static string[] GetAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
-            string[] guids = FindAssets(directory, name, typeString, assetlabel);
-            string[] relativePaths = guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
-
-            return relativePaths;
+            return FindAssetsPath(directory, name, typeString, assetlabel);
         }
 
         public static string[] GetAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
-            string[] guids = FindAssets(directory, name, typeString, assetlabel);
-
-            return guids;
+            return FindAssetsGuid(directory, name, typeString, assetlabel);
         }
         #endregion
 
         /// <summary>
         /// 에셋 파일의 Guid를 반환한다.
         /// </summary>
-        private static string[] FindAssets(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        private static string[] FindAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+            string[] guids = FindAssetsGuid(directory, name, typeString, assetlabel);
+
+            return guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
+        }
+
+        /// <summary>
+        /// 에셋 파일의 Guid를 반환한다.
+        /// </summary>
+        private static string[] FindAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
             string optionString = GetOptionString(name, typeString, assetlabel);
 
             if(string.IsNullOrEmpty(directory)) {

@@ -5,13 +5,14 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using Mu3Library.Editor;
-
 
 #if UNITY_EDITOR
 
 using UnityEditor;
 using UnityEditor.Events;
+
+using Mu3Library.Editor;
+using Mu3Library.Editor.FileUtil;
 
 #endif
 
@@ -77,9 +78,12 @@ namespace Mu3Library.UI {
 
         private void InitComponent() {
             if(invisibleBackgroundButton == null) {
-                SetChildButtonProperties("InvisibleBackgroundButton", out invisibleBackgroundButton, transform.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+                SetChildButtonProperties("InvisibleBackgroundButton", out invisibleBackgroundButton, transform.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
                 if(invisibleBackgroundButton != null) {
                     invisibleBackgroundButton.image.color = Vector4.zero;
+                    invisibleBackgroundButton.image.rectTransform.anchoredPosition = Vector2.zero;
+                    invisibleBackgroundButton.image.rectTransform.sizeDelta = new Vector2(4096, 4096);
+                    invisibleBackgroundButton.transform.SetAsFirstSibling();
 
                     UtilFuncForEditor.RemoveAllListener(ref invisibleBackgroundButton);
                     UnityAction unityAction = new UnityAction(OnClickedInvisibleBackground);
@@ -270,14 +274,7 @@ namespace Mu3Library.UI {
 
             if(dateLines != null && dateLines.Length > 0) {
                 if(datePickerItemObj == null) {
-                    string prefabName = typeof(DatePickerItem).Name;
-                    string[] guids = AssetDatabase.FindAssets(prefabName + " t:Prefab");
-                    if(guids.Length > 0) {
-                        string path = AssetDatabase.GUIDToAssetPath(guids[0]);
-                        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-
-                        datePickerItemObj = prefab.GetComponent<DatePickerItem>();
-                    }
+                    datePickerItemObj = FileFinder.FindPrefab<DatePickerItem>("", "", "");
                 }
 
                 if(datePickerItemObj != null) {
