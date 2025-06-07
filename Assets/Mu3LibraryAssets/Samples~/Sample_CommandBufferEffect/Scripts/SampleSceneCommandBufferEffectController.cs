@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Mu3Library.Demo.CommandBuffer {
+namespace Mu3Library.Sample.CommandBuffer {
     public class SampleSceneCommandBufferController : MonoBehaviour {
         [SerializeField] private Camera bufferCamera;
         [SerializeField] private Light bufferLight;

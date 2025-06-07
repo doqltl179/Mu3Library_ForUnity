@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class LayerHardDrives : AnalyseLayer {
         [SerializeField] private HardDriveInfoStruct hdInfoObj;
         private List<HardDriveInfoStruct> hdInfos = new List<HardDriveInfoStruct>();

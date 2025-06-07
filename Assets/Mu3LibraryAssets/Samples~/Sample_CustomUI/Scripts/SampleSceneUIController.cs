@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Demo.UI {
+namespace Mu3Library.Sample.UI {
     public class SampleSceneUIController : MonoBehaviour {
         [Title("Int Slider")]
         [SerializeField] private IntSlider intSlider;

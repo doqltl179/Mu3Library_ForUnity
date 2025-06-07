@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Demo.RenderingPipeline {
+namespace Mu3Library.Sample.RenderingPipeline {
     /*
     [ 렌더링 파이프라인 순서 ]
 

@@ -1,7 +1,7 @@
 using Mu3Library.UI;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     [RequireComponent(typeof(FadeHelper))]
     public abstract class AnalyseCanvas : MonoBehaviour {
         public FadeHelper FadeHelper {

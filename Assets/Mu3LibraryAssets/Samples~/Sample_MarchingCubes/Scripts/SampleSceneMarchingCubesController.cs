@@ -8,7 +8,7 @@ using Mu3Library.MarchingCubes;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Demo.MarchingCubes {
+namespace Mu3Library.Sample.MarchingCubes {
     public class SampleSceneMarchingCubesController : MonoBehaviour {
         [SerializeField] private MarchingCubesGenerator marchingCubes;
         [SerializeField, Range(1, 16)] private int chunkCount = 1;

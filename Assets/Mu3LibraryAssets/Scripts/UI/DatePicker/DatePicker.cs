@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using Mu3Library.EditorOnly;
+using Mu3Library.Editor;
 
 
 #if UNITY_EDITOR

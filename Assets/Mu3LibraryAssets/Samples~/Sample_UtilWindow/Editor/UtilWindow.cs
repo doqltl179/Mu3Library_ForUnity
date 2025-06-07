@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using Codice.Utils;
-using Mu3Library.EditorOnly.FileUtil;
-using Mu3Library.EditorOnly.Window;
+using Mu3Library.Editor.FileUtil;
+using Mu3Library.Editor.Window;
 using Mu3Library.Utility;
 using System;
 using System.IO;
@@ -12,7 +12,7 @@ using UnityEngine;
 
 using Object = UnityEngine.Object;
 
-namespace Mu3Library.Demo.UtilWindow {
+namespace Mu3Library.Sample.UtilWindow {
     public class UtilWindow : Mu3Window<UtilWindowProperty> {
         private const string WindowsMenuName = "Mu3Library/Windows";
 

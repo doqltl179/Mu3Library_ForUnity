@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Attribute {
+namespace Mu3Library.Sample.Attribute {
     public class SampleSceneAttributeSample : MonoBehaviour {
         [Title("Title Attribute")]
         [SerializeField] private int testTitleProperty = 0;

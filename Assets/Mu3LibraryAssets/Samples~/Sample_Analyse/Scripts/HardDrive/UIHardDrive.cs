@@ -8,7 +8,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class UIHardDrive : AnalyseCanvas {
         [SerializeField] private LayerHardDrives layerHardDrives;
         [SerializeField] private LayerHardDriveInfos layerHardDriveInfos;

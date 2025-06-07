@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class SampleSceneAnalyseController : MonoBehaviour {
         [SerializeField] private UIHardDrive uiHardDrive;
 

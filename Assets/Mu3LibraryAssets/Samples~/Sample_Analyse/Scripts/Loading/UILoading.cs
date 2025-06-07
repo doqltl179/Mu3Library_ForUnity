@@ -2,7 +2,7 @@ using Mu3Library.UI;
 using Mu3Library.Utility;
 using UnityEngine;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     [RequireComponent(typeof(FadeHelper))]
     public class UILoading : Singleton<UILoading> {
         public FadeHelper FadeHelper {

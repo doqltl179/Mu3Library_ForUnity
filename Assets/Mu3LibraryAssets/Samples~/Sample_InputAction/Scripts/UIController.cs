@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Demo.InputAction {
+namespace Mu3Library.Sample.InputAction {
     public class UIController : MonoBehaviour {
         [SerializeField] private GameObject menu;
         [SerializeField] private Button menuButtonSrc;

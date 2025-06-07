@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Windows;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class DriveMap {
         public DriveInfo CurrentDrive => currentDrive;
         private DriveInfo currentDrive;

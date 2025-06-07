@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class LayerHardDriveInfos : AnalyseLayer {
         [SerializeField] private TextMeshProUGUI header;
 

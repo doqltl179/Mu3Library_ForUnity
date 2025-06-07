@@ -4,7 +4,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-namespace Mu3Library.Demo.Analyse {
+namespace Mu3Library.Sample.Analyse {
     public class HardDriveDirectoryInfoStruct : MonoBehaviour {
         [SerializeField] private TextMeshProUGUI header;
         [SerializeField] private TextMeshProUGUI info;
