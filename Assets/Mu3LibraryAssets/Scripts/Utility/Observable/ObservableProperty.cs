@@ -2,7 +2,7 @@ namespace Mu3Library.Utility
 {
     public abstract class ObservableProperty<T>
     {
-        protected T _value;
+        [UnityEngine.SerializeField] protected T _value;
         public T Value => _value;
 
         protected System.Action<T> _callback;
@@ -12,7 +12,7 @@ namespace Mu3Library.Utility
         #region Utility
         public void Set(T value)
         {
-            if (_value.Equals(value))
+            if (!_value.Equals(value))
             {
                 _value = value;
                 _callback?.Invoke(value);
