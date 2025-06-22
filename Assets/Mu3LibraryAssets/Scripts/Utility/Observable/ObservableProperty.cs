@@ -19,6 +19,11 @@ namespace Mu3Library.Utility
             }
         }
 
+        public void SetWithoutEvent(T value)
+        {
+            _value = value;
+        }
+
         public void AddEvent(System.Action<T> callback)
         {
             if (callback == null)
