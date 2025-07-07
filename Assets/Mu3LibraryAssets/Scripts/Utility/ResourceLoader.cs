@@ -21,6 +21,8 @@ namespace Mu3Library
         /// </summary>
         public static T GetResource<T>(string path) where T : Object
         {
+            path = ReplacePath(path);
+
             T resource = GetLoadedObject<T>(path);
             if (resource == null)
             {
@@ -46,6 +48,35 @@ namespace Mu3Library
         }
 
         /// <summary>
+        /// <br/> path: 폴더 경로
+        /// <br/> 하위 폴더는 탐색에 포함되지 않는다.
+        /// </summary>
+        public static T[] GetAllResources<T>(string path) where T : Object
+        {
+            path = ReplacePath(path);
+            Type type = typeof(T);
+
+            T[] result = Resources.LoadAll<T>(path);
+            foreach (T resource in result)
+            {
+                string filePath = $"path/{resource.name}";
+                if (GetLoadedObject<T>(filePath) == null)
+                {
+                    Dictionary<Type, Object> pathResources = null;
+                    if (!_resources.TryGetValue(filePath, out pathResources))
+                    {
+                        pathResources = new Dictionary<Type, Object>();
+                        _resources.Add(filePath, pathResources);
+                    }
+
+                    pathResources.Add(type, resource);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// path: 파일 경로
         /// </summary>
         private static T GetLoadedObject<T>(string path) where T : Object
@@ -62,6 +93,11 @@ namespace Mu3Library
             }
 
             return (T)_resources[path][type];
+        }
+
+        private static string ReplacePath(string path)
+        {
+            return path.Replace('\\', '/');
         }
     }
 }
