@@ -18,9 +18,9 @@ namespace Mu3Library.Sample.MVP
 
 
 
-        public override void Init<TModel>(TModel model)
+        public override void OnLoad<TModel>(TModel model)
         {
-            base.Init(model);
+            base.OnLoad(model);
 
             if (model is TestPopupModel testPopupModel)
             {
@@ -31,9 +31,9 @@ namespace Mu3Library.Sample.MVP
             }
         }
 
-        public override void Destroyed()
+        public override void OnUnload()
         {
-            base.Destroyed();
+            base.OnUnload();
 
             if (_model is TestPopupModel testPopupModel)
             {

@@ -65,14 +65,14 @@ namespace Mu3Library.UI.DesignPattern.MPV
         }
 #endif
 
-        public virtual void Init<TModel>(TModel model) where TModel : Model
+        public virtual void OnLoad<TModel>(TModel model) where TModel : Model
         {
             _canvasGroup.interactable = false;
 
             _model = model;
         }
 
-        public virtual void Destroyed()
+        public virtual void OnUnload()
         {
 
         }

@@ -13,10 +13,10 @@ namespace Mu3Library.UI.DesignPattern.MPV
         public string SortingLayerName { get; }
         public int SortingOrder { get; }
 
-        public void Init<TModel>(TModel model) where TModel : Model;
+        public void OnLoad<TModel>(TModel model) where TModel : Model;
         public void Open();
         public void Close();
-        public void Destroyed();
+        public void OnUnload();
 
         public void SetActive(bool value);
         public void ChangeSortingOrder(int value);

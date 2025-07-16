@@ -9,18 +9,18 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
 
 
-        public virtual void Init<TModel, TView>(TModel model, TView view)
+        public virtual void OnLoad<TModel, TView>(TModel model, TView view)
             where TModel : Model
             where TView : View
         {
-            view.Init(model);
+            view.OnLoad(model);
 
             _view = view;
         }
 
-        public virtual void Destroyed()
+        public virtual void OnUnload()
         {
-            _view.Destroyed();
+            _view.OnUnload();
         }
 
         public virtual void Open()

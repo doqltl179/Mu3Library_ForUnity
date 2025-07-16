@@ -6,11 +6,11 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
         public bool IsViewOpeningOrClosing { get; }
 
-        public void Init<TModel, TView>(TModel model, TView view)
+        public void OnLoad<TModel, TView>(TModel model, TView view)
             where TModel : Model
             where TView : View;
         public void Open();
         public void Close();
-        public void Destroyed();
+        public void OnUnload();
     }
 }

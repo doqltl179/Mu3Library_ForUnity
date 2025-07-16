@@ -46,6 +46,8 @@ namespace Mu3Library.Sample.MVP
         private Dictionary<string, View> _viewResources = null;
         private const string VIEW_RESOURCE_PATH = "UIView";
 
+        private Dictionary<string, Queue<View>> _viewPool = null;
+
         /// <summary>
         /// 예약된 Open
         /// </summary>
@@ -72,6 +74,7 @@ namespace Mu3Library.Sample.MVP
         private void Awake()
         {
             FillViewResources();
+            ResetPool();
         }
 
         private void Update()
@@ -85,7 +88,7 @@ namespace Mu3Library.Sample.MVP
                     if (!scheduleData.Presenter.View.IsOpened)
                     {
                         View view = scheduleData.Presenter.View as View;
-                        view.Destroyed();
+                        view.OnUnload();
 
                         Destroy(view.gameObject);
 
@@ -191,7 +194,7 @@ namespace Mu3Library.Sample.MVP
             }
 
             TPresenter presenter = new TPresenter();
-            presenter.Init(param.Model, view);
+            presenter.OnLoad(param.Model, view);
 
             _scheduledOpen.Enqueue(new ScheduleData()
             {
@@ -339,6 +342,26 @@ namespace Mu3Library.Sample.MVP
                     _viewResources.Add($"{folder}/{resourceName}", view);
                 }
             }
+        }
+
+        private void ResetPool()
+        {
+            if (_viewPool != null)
+            {
+                foreach (var pool in _viewPool.Values)
+                {
+                    if (pool.Count > 0)
+                    {
+                        while (pool.Count > 0)
+                        {
+                            var view = pool.Dequeue();
+                            Destroy(view.gameObject);
+                        }
+                    }
+                }
+            }
+
+            _viewPool = new Dictionary<string, Queue<View>>();
         }
     }
 }
