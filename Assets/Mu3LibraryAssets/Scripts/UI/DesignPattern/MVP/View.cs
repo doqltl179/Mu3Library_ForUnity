@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Mu3Library.Attribute;
 using UnityEngine;
@@ -6,15 +7,25 @@ using UnityEngine.UI;
 
 namespace Mu3Library.UI.DesignPattern.MPV
 {
+    public enum ViewState
+    {
+        None = 0,
+
+        Loaded = 1,
+        Opening = 2,
+        Opened = 3,
+        Closing = 4,
+        Closed = 5,
+        Unloaded = 6,
+    }
+
     [RequireComponent(typeof(CanvasGroup))]
     public abstract class View : MonoBehaviour, IView
     {
         protected Model _model = null;
 
-        private bool _isOpened = false;
-        public bool IsOpened { get => _isOpened; }
-
-        public bool IsOpeningOrClosing { get => _openCloseCoroutine != null; }
+        protected ViewState _viewState = ViewState.None;
+        public ViewState ViewState { get => _viewState; }
 
         [Title("Parent Properties")]
         [SerializeField] protected Canvas _canvas;
@@ -39,8 +50,8 @@ namespace Mu3Library.UI.DesignPattern.MPV
             get => _canvas.sortingOrder;
         }
 
-        protected delegate bool Trigger();
-        protected Trigger _animationTrigger = null;
+        private delegate bool Trigger();
+        private Trigger _animationTrigger = null;
 
         private IEnumerator _openCloseCoroutine = null;
 
@@ -65,23 +76,30 @@ namespace Mu3Library.UI.DesignPattern.MPV
         }
 #endif
 
-        public virtual void OnLoad<TModel>(TModel model) where TModel : Model
+        public void OnLoad<TModel>(TModel model) where TModel : Model
         {
             _canvasGroup.interactable = false;
 
+            OnLoadFunc(model);
+
             _model = model;
-        }
 
-        public virtual void OnUnload()
+            _viewState = ViewState.Loaded;
+        }
+        protected virtual void OnLoadFunc<TModel>(TModel model) where TModel : Model { }
+
+        public void OnUnload()
         {
+            OnUnloadFunc();
 
+            _viewState = ViewState.Unloaded;
         }
+        protected virtual void OnUnloadFunc() { }
 
         public void Open()
         {
             if (_openCloseCoroutine != null)
             {
-                Debug.LogError($"Logic Error!");
                 return;
             }
 
@@ -93,6 +111,10 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
         private IEnumerator OpenCoroutine()
         {
+            _viewState = ViewState.Opening;
+
+            OpenFunc();
+
             while (!_animationTrigger())
             {
                 yield return null;
@@ -101,17 +123,18 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
             _canvasGroup.interactable = true;
 
-            _isOpened = true;
             _openCloseCoroutine = null;
+            
+            _viewState = ViewState.Opened;
         }
-
+        protected virtual void OpenFunc() { }
         protected virtual bool OpenAnimationTrigger() { return true; }
+
 
         public void Close()
         {
             if (_openCloseCoroutine != null)
             {
-                Debug.LogError($"Logic Error!");
                 return;
             }
 
@@ -123,7 +146,11 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
         private IEnumerator CloseCoroutine()
         {
+            _viewState = ViewState.Closing;
+
             _canvasGroup.interactable = false;
+
+            CloseFunc();
 
             while (!_animationTrigger())
             {
@@ -131,11 +158,31 @@ namespace Mu3Library.UI.DesignPattern.MPV
             }
             _animationTrigger = null;
 
-            _isOpened = false;
             _openCloseCoroutine = null;
-        }
 
+            _viewState = ViewState.Closed;
+        }
+        protected virtual void CloseFunc() { }
         protected virtual bool CloseAnimationTrigger() { return true; }
+
+        public void CloseImmediately()
+        {
+            _canvasGroup.interactable = false;
+
+            if (_openCloseCoroutine != null)
+            {
+                StopCoroutine(_openCloseCoroutine);
+                _openCloseCoroutine = null;
+            }
+
+            if (_viewState == ViewState.Opening ||
+                _viewState == ViewState.Opened)
+            {
+                CloseFunc();
+            }
+
+            _viewState = ViewState.Closed;
+        }
 
         public void SetActive(bool value) => gameObject.SetActive(value);
 
@@ -221,6 +268,7 @@ namespace Mu3Library.UI.DesignPattern.MPV
         public void SetRenderModeToOverlay(string sortingLayerName = "Default", int sortingOrder = 0)
         {
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _canvas.overrideSorting = true;
             _canvas.sortingLayerName = sortingLayerName;
             _canvas.sortingOrder = sortingOrder;
         }

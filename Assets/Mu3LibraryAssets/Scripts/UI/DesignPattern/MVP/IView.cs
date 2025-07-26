@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -5,8 +6,7 @@ namespace Mu3Library.UI.DesignPattern.MPV
 {
     public interface IView
     {
-        public bool IsOpened { get; }
-        public bool IsOpeningOrClosing { get; }
+        public ViewState ViewState { get; }
 
         public RenderMode RenderMode { get; }
         public Camera RenderCamera { get; }
@@ -16,6 +16,7 @@ namespace Mu3Library.UI.DesignPattern.MPV
         public void OnLoad<TModel>(TModel model) where TModel : Model;
         public void Open();
         public void Close();
+        public void CloseImmediately();
         public void OnUnload();
 
         public void SetActive(bool value);
@@ -29,5 +30,10 @@ namespace Mu3Library.UI.DesignPattern.MPV
 
         public void AddCancelEvent(UnityAction onClick);
         public void RemoveCancelEvent(UnityAction onClick);
+
+        public void SetRenderModeToDefault(RenderMode mode);
+        public void SetRenderModeToWorld(string sortingLayerName = "Default", int sortingOrder = 0, Camera eventCamera = null);
+        public void SetRenderModeToCamera(string sortingLayerName = "Default", int sortingOrder = 0, Camera eventCamera = null, float cameraDistance = 100f);
+        public void SetRenderModeToOverlay(string sortingLayerName = "Default", int sortingOrder = 0);
     }
 }
