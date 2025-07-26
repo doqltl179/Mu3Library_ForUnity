@@ -18,10 +18,8 @@ namespace Mu3Library.Sample.MVP
 
 
 
-        public override void OnLoad<TModel>(TModel model)
+        protected override void OnLoadFunc<TModel>(TModel model)
         {
-            base.OnLoad(model);
-
             if (model is TestPopupModel testPopupModel)
             {
                 _text.text = testPopupModel.Message;
@@ -31,10 +29,8 @@ namespace Mu3Library.Sample.MVP
             }
         }
 
-        public override void OnUnload()
+        protected override void OnUnloadFunc()
         {
-            base.OnUnload();
-
             if (_model is TestPopupModel testPopupModel)
             {
                 RemoveConfirmEvent(testPopupModel.OnClickConfirm);

@@ -16,56 +16,38 @@ namespace Mu3Library.Sample.MVP
         SystemPopup = 10000,
     }
 
-    public enum BackgroundInteractType
-    {
-        None = 0,
-        Confirm = 1,
-        Cancel = 2,
-    }
-
-    /// <summary>
-    /// 예시 Paramerter로, 필요에 맞게 수정하여 사용하자.
-    /// </summary>
-    public class WindowParams
-    {
-        public Model Model;
-
-        public Color BackgroundColor = new Color(0, 0, 0, 180 / 255f);
-        public BackgroundInteractType BackgroundInteractType = BackgroundInteractType.None;
-    }
-
     public class MVPManager : GenericSingleton<MVPManager>
     {
-        private class ScheduleData
-        {
-            public SortingLayer Layer;
-            public IPresenter Presenter;
-            public WindowParams Param;
-        }
-
+        /// <summary>
+        /// <br/> string: View resource path
+        /// </summary>
         private Dictionary<string, View> _viewResources = null;
+        /// <summary>
+        /// <br/> string: View name
+        /// </summary>
+        private Dictionary<string, SortingLayer> _viewLayerMap = null;
         private const string VIEW_RESOURCE_PATH = "UIView";
 
-        private Dictionary<string, Queue<View>> _viewPool = null;
+        private Dictionary<string, List<IPresenter>> _presenterPool = null;
 
         /// <summary>
         /// 예약된 Open
         /// </summary>
-        private Queue<ScheduleData> _scheduledOpen = new Queue<ScheduleData>();
+        private Queue<MVPScheduleData> _scheduledOpen = new Queue<MVPScheduleData>();
         /// <summary>
         /// Open된 Presenter
         /// </summary>
-        private List<ScheduleData> _opened = new List<ScheduleData>();
+        private List<MVPScheduleData> _opens = new List<MVPScheduleData>();
         /// <summary>
         /// 예약된 Close
         /// </summary>
-        private Queue<ScheduleData> _scheduledClose = new Queue<ScheduleData>();
+        private Queue<MVPScheduleData> _scheduledClose = new Queue<MVPScheduleData>();
         /// <summary>
         /// 예약된 View 삭제
         /// </summary>
-        private List<ScheduleData> _scheduledDestroy = new List<ScheduleData>();
+        private List<MVPScheduleData> _scheduledPool = new List<MVPScheduleData>();
 
-        private ScheduleData _mostFrontData = null;
+        private MVPScheduleData _mostFrontData = null;
 
         private BackgroundBlock _backgroundBlock = null;
 
@@ -79,20 +61,17 @@ namespace Mu3Library.Sample.MVP
 
         private void Update()
         {
-            // Destroy Schedule
-            if (_scheduledDestroy.Count > 0)
+            // Pool Schedule
+            if (_scheduledPool.Count > 0)
             {
-                for (int i = 0; i < _scheduledDestroy.Count; i++)
+                for (int i = 0; i < _scheduledPool.Count; i++)
                 {
-                    ScheduleData scheduleData = _scheduledDestroy[i];
-                    if (!scheduleData.Presenter.View.IsOpened)
+                    MVPScheduleData scheduleData = _scheduledPool[i];
+                    if (scheduleData.Presenter.ViewState == ViewState.Closed)
                     {
-                        View view = scheduleData.Presenter.View as View;
-                        view.OnUnload();
+                        ExcuteSchedulePool(scheduleData);
 
-                        Destroy(view.gameObject);
-
-                        _scheduledDestroy.RemoveAt(i);
+                        _scheduledPool.RemoveAt(i);
                         i--;
                     }
                 }
@@ -105,15 +84,9 @@ namespace Mu3Library.Sample.MVP
             {
                 while (_scheduledClose.Count > 0)
                 {
-                    ScheduleData scheduleData = _scheduledClose.Dequeue();
-
-                    IPresenter presenter = scheduleData.Presenter;
-                    presenter.Close();
-
-                    _scheduledDestroy.Add(scheduleData);
-                    _opened.Remove(scheduleData);
+                    MVPScheduleData scheduleData = _scheduledClose.Dequeue();
+                    ExcuteScheduleClose(scheduleData);
                 }
-
                 isViewChanged = true;
             }
             // Open Schedule
@@ -121,23 +94,9 @@ namespace Mu3Library.Sample.MVP
             {
                 while (_scheduledOpen.Count > 0)
                 {
-                    ScheduleData scheduleData = _scheduledOpen.Dequeue();
-
-                    IPresenter presenter = scheduleData.Presenter;
-                    presenter.View.SetActive(true);
-                    presenter.Open();
-
-                    // SortingOrder 설정
-                    int maxSortingOrder = _opened
-                        .Where(t => t.Layer == scheduleData.Layer)
-                        .Select(t => t.Presenter.View.SortingOrder)
-                        .DefaultIfEmpty(-1)
-                        .Max();
-                    presenter.View.ChangeSortingOrder(maxSortingOrder + 1);
-
-                    _opened.Add(scheduleData);
+                    MVPScheduleData scheduleData = _scheduledOpen.Dequeue();
+                    ExcuteScheduleOpen(scheduleData);
                 }
-
                 isViewChanged = true;
             }
 
@@ -148,12 +107,100 @@ namespace Mu3Library.Sample.MVP
             }
         }
 
-        #region Utility
-        public void Close(IView view)
+        private void ExcuteSchedulePool(MVPScheduleData scheduleData)
         {
-            ScheduleData data = _opened.Where(t => t.Presenter.View == view).LastOrDefault();
+            IPresenter presenter = scheduleData.Presenter;
+            presenter.OnUnload();
 
-            if (data == null || data.Presenter.View.IsOpeningOrClosing)
+            string mvpName = GetMVPFullNameWithPresenter(presenter);
+            List<IPresenter> pool = null;
+            if (!_presenterPool.TryGetValue(mvpName, out pool))
+            {
+                pool = new List<IPresenter>();
+                _presenterPool.Add(mvpName, pool);
+            }
+
+            pool.Add(presenter);
+        }
+
+        private void ExcuteScheduleClose(MVPScheduleData scheduleData)
+        {
+            IPresenter presenter = scheduleData.Presenter;
+            presenter.Close();
+
+            _opens.Remove(scheduleData);
+
+            _scheduledPool.Add(scheduleData);
+        }
+
+        private void ExcuteScheduleOpen(MVPScheduleData scheduleData)
+        {
+            IPresenter presenter = scheduleData.Presenter;
+            presenter.Open();
+
+            // SortingOrder 설정
+            // 같은 LayerName을 갖는 View에서 가장 큰 Order값을 반환한다.
+            string currentLayerName = scheduleData.Presenter.ViewSortingLayerName;
+            int maxSortingOrder = _opens
+                .Where(t => t.Presenter.ViewSortingLayerName == currentLayerName)
+                .Select(t => t.Presenter.ViewSortingOrder)
+                .DefaultIfEmpty(-1)
+                .Max();
+            presenter.ChangeViewSortingOrder(maxSortingOrder + 1);
+
+            _opens.Add(scheduleData);
+        }
+
+        #region Utility
+        public void CloseAllImmediately(SortingLayer layer)
+        {
+            AddScheduleData(layer, _opens, _scheduledClose);
+            AddScheduleData(layer, _scheduledOpen, _scheduledClose);
+
+            while (_scheduledClose.Count > 0)
+            {
+                MVPScheduleData scheduleData = _scheduledClose.Dequeue();
+                scheduleData.Presenter.CloseImmediately();
+
+                _scheduledPool.Add(scheduleData);
+            }
+            
+            UpdateMostFrontData();
+        }
+
+        public void CloseAllImmediately()
+        {
+            foreach (MVPScheduleData scheduleData in _opens)
+            {
+                _scheduledClose.Enqueue(scheduleData);
+            }
+            _opens.Clear();
+
+            while (_scheduledOpen.Count > 0)
+            {
+                MVPScheduleData scheduleData = _scheduledOpen.Dequeue();
+                _scheduledClose.Enqueue(scheduleData);
+            }
+
+            while (_scheduledClose.Count > 0)
+            {
+                MVPScheduleData scheduleData = _scheduledClose.Dequeue();
+                scheduleData.Presenter.CloseImmediately();
+
+                _scheduledPool.Add(scheduleData);
+            }
+
+            UpdateMostFrontData();
+        }
+
+        public void Close<TPresenter>(TPresenter presenter) where TPresenter : IPresenter
+        {
+            IPresenter compare = presenter;
+            MVPScheduleData data = _opens.Where(t => t.Presenter == compare).LastOrDefault();
+
+            if (data == null ||
+                data.Presenter.ViewState == ViewState.Opening ||
+                data.Presenter.ViewState == ViewState.Closing)
             {
                 return;
             }
@@ -161,62 +208,146 @@ namespace Mu3Library.Sample.MVP
             _scheduledClose.Enqueue(data);
         }
 
-        public void Open<TView, TPresenter>(SortingLayer layer, WindowParams param)
-            where TView : View
-            where TPresenter : Presenter, new()
+        public void Open<TPresenter>(WindowParams param) where TPresenter : IPresenter, new()
         {
-            string resourcePath = $"{VIEW_RESOURCE_PATH}/{layer}/{typeof(TView).Name}";
-            if (!_viewResources.TryGetValue(resourcePath, out View resource))
+            string mvpName = GetMVPFullNameWithPresenter<TPresenter>();
+            if (string.IsNullOrEmpty(mvpName))
             {
-                Debug.LogError($"View not found. resourcePath: {resourcePath}");
                 return;
             }
 
-            TView view = Instantiate(resource as TView, transform);
-            view.SetActive(false);
-
-            // 임의로 설정한 코드이며, 필요하다면 수정하자.
-            switch (layer)
+            IPresenter presenter = null;
+            if (_presenterPool.TryGetValue(mvpName, out List<IPresenter> pool))
             {
-                case SortingLayer.Default:
-                case SortingLayer.Popup:
-                    view.SetRenderModeToCamera($"{layer}");
-                    break;
-
-                case SortingLayer.SystemPopup:
-                    view.SetRenderModeToOverlay($"{layer}");
-                    break;
-
-                    // Not Defined.
-                    // case RenderMode.:
-                    //     view.SetRenderModeToWorld($"{layer}");
-                    //     break;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    IPresenter p = pool[i];
+                    if (p.ViewState == ViewState.Unloaded)
+                    {
+                        presenter = p;
+                        pool.RemoveAt(i);
+                        break;
+                    }
+                }
             }
 
-            TPresenter presenter = new TPresenter();
-            presenter.OnLoad(param.Model, view);
-
-            _scheduledOpen.Enqueue(new ScheduleData()
+            if (presenter == null)
             {
-                Layer = layer,
+                if (!_viewLayerMap.TryGetValue(mvpName, out var layer))
+                {
+                    Debug.LogError($"Layer not found. mvpName: {mvpName}");
+                    return;
+                }
+
+                if (!_viewResources.TryGetValue(mvpName, out View resource))
+                {
+                    Debug.LogError($"View Resource not found. mvpName: {mvpName}");
+                    return;
+                }
+
+                presenter = new TPresenter();
+                presenter.CreateView(resource, transform);
+
+                // 임의로 설정한 코드이며, 필요하다면 수정하자.
+                const RenderMode renderMode = RenderMode.ScreenSpaceCamera;
+                switch (renderMode)
+                {
+                    case RenderMode.ScreenSpaceCamera:
+                        presenter.View.SetRenderModeToCamera($"{layer}");
+                        break;
+                    case RenderMode.ScreenSpaceOverlay:
+                        presenter.View.SetRenderModeToOverlay($"{layer}");
+                        break;
+
+                    default:
+                        presenter.View.SetRenderModeToDefault(RenderMode.ScreenSpaceCamera);
+                        break;
+                }
+            }
+
+            presenter.OnLoad(param.Model);
+
+            _scheduledOpen.Enqueue(new MVPScheduleData()
+            {
                 Presenter = presenter,
                 Param = param
             });
         }
+
+        public void ResetPool()
+        {
+            if (_presenterPool != null)
+            {
+                foreach (List<IPresenter> pool in _presenterPool.Values)
+                {
+                    foreach (IPresenter presenter in pool)
+                    {
+                        presenter.DestroyView();
+                    }
+                }
+            }
+
+            _presenterPool = new Dictionary<string, List<IPresenter>>();
+        }
         #endregion
+
+        private void AddScheduleData(SortingLayer compareLayer, Queue<MVPScheduleData> from, Queue<MVPScheduleData> to)
+        {
+            if (from == null || from.Count == 0)
+            {
+                return;
+            }
+            string layerName = $"{compareLayer}";
+
+            List<MVPScheduleData> scheduledOpenList = from.ToList();
+            for (int i = 0; i < scheduledOpenList.Count; i++)
+            {
+                MVPScheduleData scheduleData = scheduledOpenList[i];
+                if (scheduleData.Presenter.ViewSortingLayerName == layerName)
+                {
+                    to.Enqueue(scheduleData);
+
+                    scheduledOpenList.RemoveAt(i);
+                    i--;
+                }
+            }
+
+            from.Clear();
+            foreach (MVPScheduleData scheduleData in scheduledOpenList)
+            {
+                from.Enqueue(scheduleData);
+            }
+        }
+
+        private void AddScheduleData(SortingLayer compareLayer, List<MVPScheduleData> from, Queue<MVPScheduleData> to)
+        {
+            string layerName = $"{compareLayer}";
+            for (int i = 0; i < from.Count; i++)
+            {
+                MVPScheduleData scheduleData = from[i];
+                if (scheduleData.Presenter.ViewSortingLayerName == layerName)
+                {
+                    to.Enqueue(scheduleData);
+
+                    from.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
 
         private void UpdateMostFrontData()
         {
-            ScheduleData frontData = null;
+            MVPScheduleData frontData = null;
 
-            if (_opened.Count > 0)
+            if (_opens.Count > 0)
             {
                 SortingLayer[] layers = Enum.GetValues(typeof(SortingLayer)) as SortingLayer[];
                 for (int i = layers.Length - 1; i >= 0; i--)
                 {
                     SortingLayer layer = layers[i];
+                    string layerName = layer.ToString();
 
-                    ScheduleData data = _opened.Where(t => t.Layer == layer).LastOrDefault();
+                    MVPScheduleData data = _opens.Where(t => t.Presenter.ViewSortingLayerName == layerName).LastOrDefault();
                     if (data != null)
                     {
                         frontData = data;
@@ -287,6 +418,7 @@ namespace Mu3Library.Sample.MVP
                 }
 
                 BackgroundBlock block = Instantiate(resource, transform);
+                block.gameObject.SetActive(true);
                 block.transform.SetAsFirstSibling();
 
                 _backgroundBlock = block;
@@ -306,7 +438,9 @@ namespace Mu3Library.Sample.MVP
             {
                 return;
             }
+
             _viewResources = new Dictionary<string, View>();
+            _viewLayerMap = new Dictionary<string, SortingLayer>();
 
             foreach (SortingLayer layer in Enum.GetValues(typeof(SortingLayer)))
             {
@@ -322,46 +456,78 @@ namespace Mu3Library.Sample.MVP
                         continue;
                     }
 
-                    // 2. resourceName과 같은 이름의 View 타입이 존재해야 한다.
-                    string viewTypeName = $"Mu3Library.Sample.MVP.{resourceName}";
-                    Type viewType = Type.GetType(viewTypeName);
-                    if (viewType == null)
+                    // 2. Resource는 View 컴포넌트를 가지고 있어야 한다.
+                    View viewComponent = resource.GetComponent<View>();
+                    if (viewComponent == null)
                     {
-                        Debug.Log($"View Type not found. name: {viewTypeName}");
+                        Debug.Log($"View Component not found. resourceName: {resourceName}");
                         continue;
                     }
 
-                    // 3. Resource 오브젝트가 View를 가지고 있어야 한다.
-                    View view = resource.GetComponent(viewType) as View;
-                    if (view == null)
+                    // 3. View 타입과 대응되는 Presenter 타입이 존재해야 한다.
+                    string mvpName = GetMVPFullNameWithView(viewComponent);
+                    string presenterTypeString = $"{mvpName}Presenter";
+                    Type presenterType = Type.GetType(presenterTypeString);
+                    if (presenterType == null)
                     {
-                        Debug.Log($"View component not found in this object. name: {resourceName}");
+                        Debug.Log($"Presenter Type not found. mvpName: {mvpName}");
                         continue;
                     }
 
-                    _viewResources.Add($"{folder}/{resourceName}", view);
+                    _viewResources.Add(mvpName, viewComponent);
+                    _viewLayerMap.Add(mvpName, layer);
+
+                    Debug.Log($"Found View Resource. mvpName: {mvpName}");
                 }
             }
         }
 
-        private void ResetPool()
+        private string GetMVPFullNameWithView<TView>(TView view) where TView : IView
         {
-            if (_viewPool != null)
-            {
-                foreach (var pool in _viewPool.Values)
-                {
-                    if (pool.Count > 0)
-                    {
-                        while (pool.Count > 0)
-                        {
-                            var view = pool.Dequeue();
-                            Destroy(view.gameObject);
-                        }
-                    }
-                }
-            }
+            return GetMVPFullNameWithView(view.GetType().FullName);
+        }
 
-            _viewPool = new Dictionary<string, Queue<View>>();
+        private string GetMVPFullNameWithView<TView>() where TView : IView
+        {
+            return GetMVPFullNameWithView(typeof(TView).FullName);
+        }
+
+        private string GetMVPFullNameWithView(string fullName)
+        {
+            const string removeString = "View";
+            if (fullName.EndsWith(removeString))
+            {
+                return fullName[0..(fullName.Length - removeString.Length)];
+            }
+            else
+            {
+                Debug.LogError($"'removeString' not found in full name. fullName: {fullName}");
+                return "";
+            }
+        }
+
+        private string GetMVPFullNameWithPresenter<TPresenter>(TPresenter presenter) where TPresenter : IPresenter
+        {
+            return GetMVPFullNameWithPresenter(presenter.GetType().FullName);
+        }
+
+        private string GetMVPFullNameWithPresenter<TPresenter>() where TPresenter : IPresenter
+        {
+            return GetMVPFullNameWithPresenter(typeof(TPresenter).FullName);
+        }
+
+        private string GetMVPFullNameWithPresenter(string fullName)
+        {
+            const string removeString = "Presenter";
+            if (fullName.EndsWith(removeString))
+            {
+                return fullName[0..(fullName.Length - removeString.Length)];
+            }
+            else
+            {
+                Debug.LogError($"'removeString' not found in full name. fullName: {fullName}");
+                return "";
+            }
         }
     }
 }

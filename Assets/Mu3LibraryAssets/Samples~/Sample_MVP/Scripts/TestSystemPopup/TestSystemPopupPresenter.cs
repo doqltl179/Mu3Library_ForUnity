@@ -2,35 +2,35 @@ using Mu3Library.UI.DesignPattern.MPV;
 
 namespace Mu3Library.Sample.MVP
 {
-    public class TestSystemPopupPresenter : Presenter
+    public class TestSystemPopupPresenter : Presenter<TestSystemPopupView>
     {
 
 
 
-        public override void Open()
+        protected override void OnLoadFunc<TModel>(TModel model)
         {
-            base.Open();
+            base.OnLoadFunc(model);
 
-            _view.AddConfirmEvent(OnClickConfirm);
-            _view.AddCancelEvent(OnClickCancel);
+            _view.AddConfirmEvent(OnConfirm);
+            _view.AddCancelEvent(OnCancel);
         }
 
-        public override void Close()
+        protected override void OnUnloadFunc()
         {
-            base.Close();
+            base.OnUnloadFunc();
 
-            _view.RemoveConfirmEvent(OnClickConfirm);
-            _view.RemoveCancelEvent(OnClickCancel);
+            _view.RemoveConfirmEvent(OnConfirm);
+            _view.RemoveCancelEvent(OnCancel);
         }
 
-        private void OnClickConfirm()
+        private void OnConfirm()
         {
-            MVPManager.Instance.Close(_view);
+            MVPManager.Instance.Close(this);
         }
 
-        private void OnClickCancel()
+        private void OnCancel()
         {
-            MVPManager.Instance.Close(_view);
+            MVPManager.Instance.Close(this);
         }
     }
 }

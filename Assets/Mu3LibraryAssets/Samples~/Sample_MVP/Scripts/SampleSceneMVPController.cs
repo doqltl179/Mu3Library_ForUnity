@@ -17,11 +17,7 @@ namespace Mu3Library.Sample.MVP
                 },
                 BackgroundColor = new Color(0, 0, 0, 0),
             };
-            MVPManager.Instance.Open<TestDefaultView, TestDefaultPresenter>
-            (
-                SortingLayer.Default,
-                param
-            );
+            MVPManager.Instance.Open<TestDefaultPresenter>(param);
         }
 
         void Update()
@@ -40,11 +36,7 @@ namespace Mu3Library.Sample.MVP
                     },
                     BackgroundInteractType = BackgroundInteractType.Confirm,
                 };
-                MVPManager.Instance.Open<TestPopupView, TestPopupPresenter>
-                (
-                    SortingLayer.Popup,
-                    param
-                );
+                MVPManager.Instance.Open<TestPopupPresenter>(param);
             }
             else if (Input.GetKeyDown(KeyCode.W))
             {
@@ -65,11 +57,27 @@ namespace Mu3Library.Sample.MVP
                     BackgroundColor = new Color(0, 0, 0, 235 / 255f),
                     BackgroundInteractType = BackgroundInteractType.Cancel,
                 };
-                MVPManager.Instance.Open<TestSystemPopupView, TestSystemPopupPresenter>
-                (
-                    SortingLayer.SystemPopup,
-                    param
-                );
+                MVPManager.Instance.Open<TestSystemPopupPresenter>(param);
+            }
+            else if (Input.GetKeyDown(KeyCode.R))
+            {
+                MVPManager.Instance.ResetPool();
+            }
+            else if (Input.GetKeyDown(KeyCode.A))
+            {
+                MVPManager.Instance.CloseAllImmediately();
+            }
+            else if (Input.GetKeyDown(KeyCode.S))
+            {
+                MVPManager.Instance.CloseAllImmediately(SortingLayer.Default);
+            }
+            else if (Input.GetKeyDown(KeyCode.D))
+            {
+                MVPManager.Instance.CloseAllImmediately(SortingLayer.Popup);
+            }
+            else if (Input.GetKeyDown(KeyCode.F))
+            {
+                MVPManager.Instance.CloseAllImmediately(SortingLayer.SystemPopup);
             }
         }
     }
