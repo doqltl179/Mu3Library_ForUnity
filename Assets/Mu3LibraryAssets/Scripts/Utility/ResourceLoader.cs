@@ -59,7 +59,7 @@ namespace Mu3Library
             T[] result = Resources.LoadAll<T>(path);
             foreach (T resource in result)
             {
-                string filePath = $"path/{resource.name}";
+                string filePath = $"{path}/{resource.name}";
                 if (GetLoadedObject<T>(filePath) == null)
                 {
                     Dictionary<Type, Object> pathResources = null;
