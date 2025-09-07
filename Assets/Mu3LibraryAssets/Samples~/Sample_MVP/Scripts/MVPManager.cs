@@ -164,7 +164,7 @@ namespace Mu3Library.Base.Sample.MVP
 
                 _scheduledPool.Add(scheduleData);
             }
-            
+
             UpdateMostFrontData();
         }
 
@@ -248,6 +248,7 @@ namespace Mu3Library.Base.Sample.MVP
                 presenter = new TPresenter();
                 presenter.CreateView(resource, transform);
 
+#pragma warning disable 0162 // "Unreachable code detected" 경고 번호
                 // 임의로 설정한 코드이며, 필요하다면 수정하자.
                 const RenderMode renderMode = RenderMode.ScreenSpaceCamera;
                 switch (renderMode)
@@ -263,6 +264,7 @@ namespace Mu3Library.Base.Sample.MVP
                         presenter.View.SetRenderModeToDefault(RenderMode.ScreenSpaceCamera);
                         break;
                 }
+#pragma warning restore 0162
             }
 
             presenter.OnLoad(param.Model);
