@@ -1,8 +1,12 @@
 {
-    "name": "com.doqltl179.mu3libraryassets.base",
+    "name": "com.github.doqltl179.mu3libraryassets.base",
     "version": "0.0.20",
     "displayName": "Mu3 Library Assets",
     "description": "Library assets for Mu3",
+    "unity": "6000.0.50f1",
+    "author": {
+      "name": "Mu3"
+    },
     "dependencies": {
         "com.unity.inputsystem": "1.13.1"
     }, 
