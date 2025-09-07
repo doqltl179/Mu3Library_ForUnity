@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Mu3Library.Attribute {
+namespace Mu3Library.Base.Attribute {
     [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
     public class TitleAttribute : PropertyAttribute {
         public string TitleText => titleText;

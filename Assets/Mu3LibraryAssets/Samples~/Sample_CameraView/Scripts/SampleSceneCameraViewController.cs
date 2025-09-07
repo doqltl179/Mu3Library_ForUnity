@@ -1,7 +1,7 @@
-using Mu3Library.CameraUtil;
+using Mu3Library.Base.CameraUtil;
 using UnityEngine;
 
-namespace Mu3Library.Sample.CameraView {
+namespace Mu3Library.Base.Sample.CameraView {
     public class SampleSceneCameraViewController : MonoBehaviour {
         enum ViewState {
             None = 0, 

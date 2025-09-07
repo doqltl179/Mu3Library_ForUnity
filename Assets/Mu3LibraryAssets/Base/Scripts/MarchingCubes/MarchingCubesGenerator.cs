@@ -3,12 +3,12 @@
  * https://youtu.be/M3iI2l0ltbE?si=3iL8gFXowwWe3jxA
  */
 
-using Mu3Library.Attribute;
+using Mu3Library.Base.Attribute;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.MarchingCubes {
+namespace Mu3Library.Base.MarchingCubes {
     public enum ForceUpdateType {
         Cube = 0, 
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Mu3Library.PostEffect.CommandBufferEffect {
+namespace Mu3Library.Base.PostEffect.CommandBufferEffect {
     public abstract class LightBuffer : ILightBuffer {
         protected Light light = null;
         protected CommandBuffer buffer = null;

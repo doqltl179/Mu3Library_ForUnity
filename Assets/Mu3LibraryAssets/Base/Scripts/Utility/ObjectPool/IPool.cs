@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 
-namespace Mu3Library.Utility.ObjectPool
+namespace Mu3Library.Base.Utility.ObjectPool
 {
     public interface IPool<T>
     {

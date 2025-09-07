@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace Mu3Library.UI {
+namespace Mu3Library.Base.UI {
     public class FadeHelper : MonoBehaviour {
         private CanvasGroup cg = null;
         public bool Interactable {

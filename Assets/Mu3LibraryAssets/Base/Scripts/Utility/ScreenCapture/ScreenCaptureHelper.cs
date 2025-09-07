@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace Mu3Library.Utility {
+namespace Mu3Library.Base.Utility {
     public static class ScreenCaptureHelper {
 
 

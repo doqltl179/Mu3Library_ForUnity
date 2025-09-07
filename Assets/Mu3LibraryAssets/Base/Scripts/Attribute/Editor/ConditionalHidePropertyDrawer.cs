@@ -6,7 +6,7 @@ using System.Collections.Generic;
 //Original version of the ConditionalHideAttribute created by Brecht Lecluyse (www.brechtos.com)
 //Modified by: Sebastian Lague
 
-namespace Mu3Library.Attribute {
+namespace Mu3Library.Base.Attribute {
     [CustomPropertyDrawer(typeof(ConditionalHideAttribute))]
     public class ConditionalHidePropertyDrawer : PropertyDrawer {
 

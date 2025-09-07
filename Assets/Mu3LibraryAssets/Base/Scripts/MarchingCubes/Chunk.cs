@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Mu3Library.MarchingCubes {
+namespace Mu3Library.Base.MarchingCubes {
     public class Chunk : MonoBehaviour {
         private MeshFilter meshFilter = null;
         private MeshRenderer meshRenderer = null;

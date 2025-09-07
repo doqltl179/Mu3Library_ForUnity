@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Sample.MVP
+namespace Mu3Library.Base.Sample.MVP
 {
     public class BackgroundBlock : MonoBehaviour
     {

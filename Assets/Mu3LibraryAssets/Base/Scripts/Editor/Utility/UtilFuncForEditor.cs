@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Editor {
+namespace Mu3Library.Base.Editor {
     public static class UtilFuncForEditor {
 
 

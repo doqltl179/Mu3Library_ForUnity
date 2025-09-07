@@ -1,10 +1,10 @@
-using Mu3Library.PostEffect.CommandBufferEffect;
+using Mu3Library.Base.PostEffect.CommandBufferEffect;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Mu3Library.Sample.CommandBuffer {
+namespace Mu3Library.Base.Sample.CommandBuffer {
     public class SampleSceneCommandBufferController : MonoBehaviour {
         [SerializeField] private Camera bufferCamera;
         [SerializeField] private Light bufferLight;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Mu3Library.PostEffect.CommandBufferEffect {
+namespace Mu3Library.Base.PostEffect.CommandBufferEffect {
     /// <summary>
     /// 지금 정상 동작 안함
     /// </summary>

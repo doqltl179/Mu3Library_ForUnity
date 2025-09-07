@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
-using Mu3Library.Attribute;
+using Mu3Library.Base.Attribute;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Mu3Library.UI.DesignPattern.MPV
+namespace Mu3Library.Base.UI.DesignPattern.MPV
 {
     public enum ViewState
     {

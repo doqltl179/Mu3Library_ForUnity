@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Mu3Library.CameraUtil {
+namespace Mu3Library.Base.CameraUtil {
     public class SimpleCameraThirdPersonView : MonoBehaviour {
         public UpdateFunc UpdateExecution {
             get => updateExecution;

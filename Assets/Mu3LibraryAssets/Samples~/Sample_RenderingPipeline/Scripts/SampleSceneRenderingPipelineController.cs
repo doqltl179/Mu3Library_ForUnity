@@ -1,9 +1,9 @@
-using Mu3Library.Attribute;
+using Mu3Library.Base.Attribute;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Sample.RenderingPipeline {
+namespace Mu3Library.Base.Sample.RenderingPipeline {
     /*
     [ 렌더링 파이프라인 순서 ]
 

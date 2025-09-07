@@ -2,13 +2,13 @@
  * Do not set properties 'chunkCount', 'chunkSize' to max at same time!!
  --------------------------------------------------------------------------*/
 
-using Mu3Library.Attribute;
-using Mu3Library.CameraUtil;
-using Mu3Library.MarchingCubes;
+using Mu3Library.Base.Attribute;
+using Mu3Library.Base.CameraUtil;
+using Mu3Library.Base.MarchingCubes;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Mu3Library.Sample.MarchingCubes {
+namespace Mu3Library.Base.Sample.MarchingCubes {
     public class SampleSceneMarchingCubesController : MonoBehaviour {
         [SerializeField] private MarchingCubesGenerator marchingCubes;
         [SerializeField, Range(1, 16)] private int chunkCount = 1;

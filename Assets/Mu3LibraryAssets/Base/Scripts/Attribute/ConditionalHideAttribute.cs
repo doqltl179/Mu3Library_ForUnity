@@ -4,7 +4,7 @@ using System;
 //Original version of the ConditionalHideAttribute created by Brecht Lecluyse (www.brechtos.com)
 //Modified by: Sebastian Lague
 
-namespace Mu3Library.Attribute {
+namespace Mu3Library.Base.Attribute {
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property |
         AttributeTargets.Class | AttributeTargets.Struct, Inherited = true)]
     public class ConditionalHideAttribute : PropertyAttribute {
