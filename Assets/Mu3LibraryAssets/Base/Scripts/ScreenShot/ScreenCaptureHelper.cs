@@ -1,16 +1,17 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace Mu3Library.Base.Utility {
-    public static class ScreenCaptureHelper {
+namespace Mu3Library.Base.ScreenShot
+{
+    public static class ScreenCaptureHelper
+    {
 
 
 
         #region Utility
-        public static void ScreenShot(string directory, int superSize) {
+        public static void ScreenShot(string directory, int superSize)
+        {
             RecalculateSuperSize(ref superSize);
 
             string fileName = GetFileName();
@@ -20,8 +21,10 @@ namespace Mu3Library.Base.Utility {
             Debug.Log($"Screen Capture. path: {filePath}");
         }
 
-        public static void ScreenShot(string directory, int superSize, Action<Texture2D> callback) {
-            if(!Application.isPlaying) {
+        public static void ScreenShot(string directory, int superSize, Action<Texture2D> callback)
+        {
+            if (!Application.isPlaying)
+            {
                 Debug.LogError($"Current mode is not PlayMode.");
 
                 return;
@@ -32,8 +35,10 @@ namespace Mu3Library.Base.Utility {
 
             RecalculateSuperSize(ref superSize);
 
-            scObj.ScreenShot(superSize, (tex) => {
-                if(tex != null) {
+            scObj.ScreenShot(superSize, (tex) =>
+            {
+                if (tex != null)
+                {
                     string fileName = GetFileName();
                     string filePath = $"{directory}/{fileName}.png";
                     byte[] bytes = tex.EncodeToPNG();
@@ -44,33 +49,39 @@ namespace Mu3Library.Base.Utility {
 
                 callback?.Invoke(tex);
 
-                if(go != null) {
+                if (go != null)
+                {
                     MonoBehaviour.Destroy(go);
                 }
             });
         }
         #endregion
 
-        private static void RecalculateSuperSize(ref int superSize) {
-            if(superSize <= 0) {
+        private static void RecalculateSuperSize(ref int superSize)
+        {
+            if (superSize <= 0)
+            {
                 // 기본 해상도로 설정
                 superSize = 1;
             }
-            else {
+            else
+            {
                 // 최대 해상도 설정
                 const int widthMax = 7680;
                 const int heightMax = 4320;
 
                 int width = Screen.width;
                 int height = Screen.height;
-                if(Camera.main != null) {
+                if (Camera.main != null)
+                {
                     width = Camera.main.scaledPixelWidth;
                     height = Camera.main.scaledPixelHeight;
                 }
 
                 int superSizeWidth = width * superSize;
                 int superSizeHeight = height * superSize;
-                if(superSizeWidth > widthMax || superSizeHeight > heightMax) {
+                if (superSizeWidth > widthMax || superSizeHeight > heightMax)
+                {
                     int widthDiff = superSizeWidth - widthMax;
                     int heightDiff = superSizeHeight - heightMax;
 
@@ -78,7 +89,8 @@ namespace Mu3Library.Base.Utility {
                     int ceilHeight = Mathf.CeilToInt((float)heightDiff / height);
 
                     superSize -= Mathf.Max(ceilWidth, ceilHeight);
-                    if(superSize <= 0) {
+                    if (superSize <= 0)
+                    {
                         superSize = 1;
                     }
 
@@ -89,7 +101,8 @@ namespace Mu3Library.Base.Utility {
             }
         }
 
-        private static string GetFileName() {
+        private static string GetFileName()
+        {
             return $"ScreenCapture_{DateTime.Now.ToString("yyyyMMdd_HHmmss_fffffff")}";
         }
     }

@@ -1,8 +1,7 @@
 #if UNITY_EDITOR
-using Codice.Utils;
 using Mu3Library.Base.Editor.FileUtil;
 using Mu3Library.Base.Editor.Window;
-using Mu3Library.Base.Utility;
+using Mu3Library.Base.ScreenShot;
 using System;
 using System.IO;
 using System.Linq;
