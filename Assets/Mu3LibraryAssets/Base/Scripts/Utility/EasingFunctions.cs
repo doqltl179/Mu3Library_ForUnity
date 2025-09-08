@@ -61,7 +61,7 @@
 
 using UnityEngine;
 
-namespace Mu3Library {
+namespace Mu3Library.Base.Utility {
     public static class EasingFunction {
         public enum Ease {
             //Custom = -1,      // Custom은 제외한다.
