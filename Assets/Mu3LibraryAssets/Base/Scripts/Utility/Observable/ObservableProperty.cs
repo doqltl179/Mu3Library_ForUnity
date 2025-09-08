@@ -1,4 +1,4 @@
-namespace Mu3Library.Base.Utility
+namespace Mu3Library.Base.Observable
 {
     public abstract class ObservableProperty<T>
     {
