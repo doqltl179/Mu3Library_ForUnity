@@ -1,9 +1,7 @@
-using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 using System;
 
-namespace Mu3Library.Base.Utility.ObjectPool
+namespace Mu3Library.Base.ObjectPool
 {
     public interface IPool<T>
     {

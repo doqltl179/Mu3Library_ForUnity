@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 
-namespace Mu3Library.Base.Utility.ObjectPool
+namespace Mu3Library.Base.ObjectPool
 {
     public static class PoolManager
     {
