@@ -1,7 +1,7 @@
-using Mu3Library.Base.Attribute;
+using Mu3Library.Attribute;
 using UnityEngine;
 
-namespace Mu3Library.Base.Sample.Attribute
+namespace Mu3Library.Sample.Attribute
 {
     public class SampleSceneAttributeSample : MonoBehaviour
     {

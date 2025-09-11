@@ -6,7 +6,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Base.Editor.FileUtil {
+namespace Mu3Library.Editor.FileUtil {
     public static class FileCreator {
 
 

@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Base.Observable
+namespace Mu3Library.Observable
 {
     public abstract class ObservablePropertyDrawer<T> : PropertyDrawer
     {

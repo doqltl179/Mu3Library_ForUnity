@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Mu3Library.Base.UI.DesignPattern.MPV
+namespace Mu3Library.UI.DesignPattern.MPV
 {
     public interface IView
     {

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Mu3Library.Base.Sample.MVP
+namespace Mu3Library.Sample.MVP
 {
     public class SampleSceneMVPController : MonoBehaviour
     {

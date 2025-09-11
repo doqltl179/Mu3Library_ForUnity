@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 
-namespace Mu3Library.Base.ObjectPool
+namespace Mu3Library.ObjectPool
 {
     public class MonoPool<T> : IPool<T> where T : MonoBehaviour
     {

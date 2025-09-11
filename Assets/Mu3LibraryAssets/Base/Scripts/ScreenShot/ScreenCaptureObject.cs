@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-namespace Mu3Library.Base.ScreenShot {
+namespace Mu3Library.ScreenShot {
     /// <summary>
     /// ScreenCapture를 할 때 Coroutine을 사용하기 위함.
     /// </summary>

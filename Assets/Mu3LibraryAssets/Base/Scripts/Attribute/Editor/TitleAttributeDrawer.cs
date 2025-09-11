@@ -3,7 +3,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Base.Attribute {
+namespace Mu3Library.Attribute {
     [CustomPropertyDrawer(typeof(TitleAttribute))]
     public class TitleDecoratorDrawer : DecoratorDrawer {
         private const int fontSize = 18;

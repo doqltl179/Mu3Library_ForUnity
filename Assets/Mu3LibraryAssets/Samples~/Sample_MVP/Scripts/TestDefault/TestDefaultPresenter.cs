@@ -1,6 +1,6 @@
-using Mu3Library.Base.UI.DesignPattern.MPV;
+using Mu3Library.UI.DesignPattern.MPV;
 
-namespace Mu3Library.Base.Sample.MVP
+namespace Mu3Library.Sample.MVP
 {
     public class TestDefaultPresenter : Presenter<TestDefaultView>
     {

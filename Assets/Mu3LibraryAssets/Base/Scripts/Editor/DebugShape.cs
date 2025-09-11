@@ -2,7 +2,7 @@
 using UnityEngine;
 
 
-namespace Mu3Library.Base.Editor {
+namespace Mu3Library.Editor {
     public static class DebugShape {
 
 

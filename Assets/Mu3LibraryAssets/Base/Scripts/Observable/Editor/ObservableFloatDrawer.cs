@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Base.Observable
+namespace Mu3Library.Observable
 {
     [CustomPropertyDrawer(typeof(ObservableFloat))]
     public class ObservableFloatDrawer : ObservablePropertyDrawer<float>

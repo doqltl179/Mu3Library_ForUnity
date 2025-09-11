@@ -1,6 +1,6 @@
 {
     "name": "Mu3LibraryAssembly.Base",
-    "rootNamespace": "Mu3Library.Base",
+    "rootNamespace": "Mu3Library",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

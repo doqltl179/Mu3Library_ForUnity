@@ -4,7 +4,7 @@ using UnityEngine;
 
 using Object = UnityEngine.Object;
 
-namespace Mu3Library.Base.Utility
+namespace Mu3Library.Utility
 {
     /// <summary>
     /// <br/> Resource를 캐싱하여 관리하기 위해 만듬

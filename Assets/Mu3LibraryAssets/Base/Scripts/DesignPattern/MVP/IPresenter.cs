@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Mu3Library.Base.UI.DesignPattern.MPV
+namespace Mu3Library.UI.DesignPattern.MPV
 {
     public interface IPresenter
     {

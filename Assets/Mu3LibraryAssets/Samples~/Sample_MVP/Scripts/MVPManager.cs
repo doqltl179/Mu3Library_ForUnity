@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mu3Library.Base.UI.DesignPattern.MPV;
-using Mu3Library.Base.Utility;
+using Mu3Library.UI.DesignPattern.MPV;
+using Mu3Library.Utility;
 using UnityEngine;
 
-namespace Mu3Library.Base.Sample.MVP
+namespace Mu3Library.Sample.MVP
 {
     /// <summary>
     /// 예시 enum으로, 실제 사용 시에는 프로젝트 세팅에 맞게 고쳐 쓰자.

@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
-using Mu3Library.Base.Editor.FileUtil;
-using Mu3Library.Base.Editor.Window;
-using Mu3Library.Base.ScreenShot;
+using Mu3Library.Editor.FileUtil;
+using Mu3Library.Editor.Window;
+using Mu3Library.ScreenShot;
 using System;
 using System.IO;
 using System.Linq;
@@ -11,7 +11,7 @@ using UnityEngine;
 
 using Object = UnityEngine.Object;
 
-namespace Mu3Library.Base.Sample.UtilWindow {
+namespace Mu3Library.Sample.UtilWindow {
     public class UtilWindow : Mu3Window<UtilWindowProperty> {
         private const string WindowsMenuName = "Mu3Library/Windows";
 

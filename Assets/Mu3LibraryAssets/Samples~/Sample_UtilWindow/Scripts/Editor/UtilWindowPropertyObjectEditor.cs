@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Base.Sample.UtilWindow {
+namespace Mu3Library.Sample.UtilWindow {
     [CustomEditor(typeof(UtilWindowProperty))]
     public class UtilWindowPropertyObjectEditor : UnityEditor.Editor {
 

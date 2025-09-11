@@ -1,9 +1,9 @@
 using UnityEngine;
-using Mu3Library.Base.UI.DesignPattern.MPV;
-using Mu3Library.Base.Attribute;
+using Mu3Library.UI.DesignPattern.MPV;
+using Mu3Library.Attribute;
 using TMPro;
 
-namespace Mu3Library.Base.Sample.MVP
+namespace Mu3Library.Sample.MVP
 {
     public class TestPopupView : View
     {

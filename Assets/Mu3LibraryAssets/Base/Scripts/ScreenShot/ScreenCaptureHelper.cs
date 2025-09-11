@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 
-namespace Mu3Library.Base.ScreenShot
+namespace Mu3Library.ScreenShot
 {
     public static class ScreenCaptureHelper
     {
