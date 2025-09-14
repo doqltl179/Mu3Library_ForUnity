@@ -1,0 +1,26 @@
+{
+    "name": "com.github.doqltl179.mu3libraryassets.base",
+    "version": "0.0.20",
+    "displayName": "Mu3 Library Assets",
+    "description": "Library assets for Mu3",
+    "unity": "6000.0.50f1",
+    "author": {
+      "name": "Mu3",
+      "url": "https://github.com/doqltl179"
+    },
+    "keywords": [
+      "Mu3Library"
+    ],
+    "samples": [
+        {
+            "displayName": "Sample_Attribute",
+            "description": "Attribute Sample",
+            "path": "Samples~/Sample_Attribute"
+        },
+        {
+            "displayName": "Sample_UtilWindow",
+            "description": "Custom Window Sample",
+            "path": "Samples~/Sample_UtilWindow"
+        }
+    ]
+}

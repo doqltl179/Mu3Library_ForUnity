@@ -1,5 +1,5 @@
 {
-    "name": "Mu3LibraryAssembly.Base",
+    "name": "Mu3Library",
     "rootNamespace": "Mu3Library",
     "references": [],
     "includePlatforms": [],
@@ -9,6 +9,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        }
+    ],
     "noEngineReferences": false
 }
