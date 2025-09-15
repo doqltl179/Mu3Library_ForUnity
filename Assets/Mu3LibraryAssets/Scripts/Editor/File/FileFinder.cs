@@ -45,21 +45,12 @@ namespace Mu3Library.Editor.FileUtil {
         /// <param name="typeString"></param>
         /// <param name="assetlabel"></param>
         /// <returns></returns>
-        public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string typeString = "", string assetlabel = "") where T : Object {
-            string[] relativePaths = GetAssetsPath(directory, name, typeString, assetlabel);
-
-            List<T> objs = new List<T>();
-            foreach(string path in relativePaths) {
-                T obj = AssetDatabase.LoadAssetAtPath<T>(path);
-                if(obj != null) {
-                    objs.Add(obj);
-                }
-                else {
-                    Debug.LogWarning($"Object not found. path: {path}");
-                }
-            }
-
-            return objs;
+        public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string typeString = "", string assetlabel = "") where T : Object
+        {
+            return GetAssetsPath(directory, name, typeString, assetlabel)
+                .Select(path => AssetDatabase.LoadAssetAtPath<T>(path))
+                .Where(obj => obj != null)
+                .ToList();
         }
 
         /// <summary>
