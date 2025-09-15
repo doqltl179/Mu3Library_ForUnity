@@ -137,7 +137,7 @@ namespace Mu3Library.Sample.UtilWindow {
                                         string directory = "";
                                         string fileName = "";
                                         string extension = "";
-                                        FilePathConvertor.SplitPathToDirectoryAndFileNameAndExtension(scenePath, out directory, out fileName, out extension);
+                                        FilePathConvertor.SplitPath(scenePath, out directory, out fileName, out extension);
 
                                         string sceneButtonName = $"{directory.Replace(sceneStruct.Directory, "")}/{fileName}";
                                         if(GUILayout.Button($"{sceneButtonName}", normalButtonHeight)) {

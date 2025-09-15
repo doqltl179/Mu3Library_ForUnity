@@ -77,7 +77,7 @@ namespace Mu3Library.Editor.Window {
                     string directory = "";
                     string fileName = "";
                     string extension = "";
-                    FilePathConvertor.SplitPathToDirectoryAndFileNameAndExtension(windowScriptAssetPath, out directory, out fileName, out extension);
+                    FilePathConvertor.SplitPath(windowScriptAssetPath, out directory, out fileName, out extension);
 
                     // cs 파일 확인
                     if(!string.IsNullOrEmpty(directory) && extension == "cs") {
