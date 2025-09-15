@@ -22,7 +22,7 @@ namespace Mu3Library.Editor.FileUtil {
 
 
         #region Utility
-        public static void SplitPathToDirectoryAndFileNameAndExtension(string path, out string directory, out string fileName, out string extension) {
+        public static void SplitPath(string path, out string directory, out string fileName, out string extension) {
             directory = "";
             fileName = "";
             extension = "";
