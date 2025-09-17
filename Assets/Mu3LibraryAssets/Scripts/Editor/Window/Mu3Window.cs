@@ -81,9 +81,7 @@ namespace Mu3Library.Editor.Window {
 
                     // cs 파일 확인
                     if(!string.IsNullOrEmpty(directory) && extension == "cs") {
-                        string propertyTypeString = typeof(T).Name;
-
-                        List<T> propertyObjs = FileFinder.LoadAllAssetsAtPath<T>(directory, "", propertyTypeString, "");
+                        List<T> propertyObjs = FileFinder.LoadAllAssetsAtPath<T>(directory);
                         // PropertyObject가 존재하지 않으면 생성한다.
                         if(propertyObjs.Count == 0) {
                             //Debug.Log($"Property Object not found. directory: {directory}");
