@@ -12,14 +12,28 @@ namespace Mu3Library.Editor.FileUtil {
 
         #region Utility
         /// <summary>
+        /// Return all folders path
+        /// </summary>
+        /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
+        /// <param name="name"></param>
+        /// <param name="assetlabel"></param>
+        /// <returns></returns>
+        public static List<string> FindAllFolders(string directory = "", string name = "", string assetlabel = "")
+        {
+            return GetAssetsPath(directory, name, "Folder", assetlabel).ToList();
+        }
+
+        /// <summary>
         /// 가장 먼저 찾은 파일을 반환한다.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
         /// <returns></returns>
-        public static T FindPrefab<T>(string directory = "", string fileName = "", string assetlabel = "") where T : Object {
+        public static T FindPrefab<T>(string directory = "", string fileName = "", string assetlabel = "") where T : Object
+        {
             string[] relativePaths = GetAssetsPath(directory, fileName, "Prefab", assetlabel);
-            if(relativePaths.Length == 0) {
+            if (relativePaths.Length == 0)
+            {
                 return null;
             }
 
@@ -42,12 +56,11 @@ namespace Mu3Library.Editor.FileUtil {
         /// <typeparam name="T"></typeparam>
         /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
         /// <param name="name"></param>
-        /// <param name="typeString"></param>
         /// <param name="assetlabel"></param>
         /// <returns></returns>
-        public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string typeString = "", string assetlabel = "") where T : Object
+        public static List<T> LoadAllAssetsAtPath<T>(string directory = "", string name = "", string assetlabel = "") where T : Object
         {
-            return GetAssetsPath(directory, name, typeString, assetlabel)
+            return GetAssetsPath(directory, name, typeof(T).Name, assetlabel)
                 .Select(path => AssetDatabase.LoadAssetAtPath<T>(path))
                 .Where(obj => obj != null)
                 .ToList();
