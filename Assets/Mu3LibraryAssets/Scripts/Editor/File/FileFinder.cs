@@ -111,7 +111,7 @@ namespace Mu3Library.Editor.FileUtil {
         /// </summary>
         public static string GetAssetPath<T>(T obj) where T : Object {
             if(obj == null) {
-                Debug.LogError("MonoBehaviour is NULL.");
+                Debug.LogError("Object is NULL.");
 
                 return "";
             }
