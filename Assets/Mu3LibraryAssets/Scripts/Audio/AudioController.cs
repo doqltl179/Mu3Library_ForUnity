@@ -1,18 +1,34 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
 namespace Mu3Library.Audio
 {
     [RequireComponent(typeof(AudioSource))]
-    public class AudioController : MonoBehaviour
+    public abstract class AudioController : MonoBehaviour
     {
         private AudioSource _source;
-        public AudioSource Source => _source;
 
         private float _clipVolume = 1.0f;
         public float ClipVolume => _clipVolume;
 
+        protected abstract float _categoryVolume { get; }
+        public float CategoryVolume => _categoryVolume;
+
+        protected float _masterVolume => AudioManager.Instance.MasterVolume;
+        public float MasterVolume => _masterVolume;
+
+        private float _fadeVolume = 1.0f;
+        public float FadeVolume
+        {
+            get => _fadeVolume;
+            set => _fadeVolume = value;
+        }
+
         public bool IsPlaying => _source.isPlaying;
+
+        private bool _isPaused = false;
+        public bool IsPaused => _isPaused;
 
         public float NormalizedTime => _source.time / _source.clip.length;
 
@@ -20,7 +36,7 @@ namespace Mu3Library.Audio
 
 
 
-        private void Awake()
+        protected virtual void Awake()
         {
             if (_source == null)
             {
@@ -28,27 +44,37 @@ namespace Mu3Library.Audio
             }
         }
 
+        protected virtual void OnDisable()
+        {
+            StopFade();
+        }
+
         #region Utility
-        public void FadeOut(float fadeTime = 1.0f)
+        public void FadeOut(float fadeTime = 1.0f, Action callback = null)
         {
+            StopFade();
 
+            _fadeCoroutine = FadeOutCoroutine(fadeTime, callback);
+            StartCoroutine(_fadeCoroutine);
         }
 
-        public void FadeIn(float fadeTime = 1.0f)
+        public void FadeIn(float fadeTime = 1.0f, Action callback = null)
         {
+            StopFade();
 
+            _fadeCoroutine = FadeInCoroutine(fadeTime, callback);
+            StartCoroutine(_fadeCoroutine);
         }
 
-        public void SetVolume(float clipVolume, float offset)
+        public void SetVolume(float clipVolume)
         {
-            _source.volume = clipVolume * offset;
-
             _clipVolume = clipVolume;
+            CalculateVolume();
         }
 
-        public void RecalculateVolume(float offset)
+        public void RecalculateVolume()
         {
-            _source.volume = _clipVolume * offset;
+            CalculateVolume();
         }
 
         public void SetClip(AudioClip clip)
@@ -56,10 +82,28 @@ namespace Mu3Library.Audio
             _source.clip = clip;
         }
 
-        public void Play() => _source.Play();
-        public void Stop() => _source.Stop();
-        public void Pause() => _source.Pause();
-        public void UnPause() => _source.UnPause();
+        public void Play() {
+            _isPaused = false;
+            _source.Play();
+        }
+
+        public void Stop()
+        {
+            _isPaused = false;
+            _source.Stop();
+        }
+
+        public void Pause()
+        {
+            _isPaused = true;
+            _source.Pause();
+        }
+
+        public void UnPause()
+        {
+            _isPaused = false;
+            _source.UnPause();
+        }
 
         public void SetAudioParameters(AudioBaseParameters parameters)
         {
@@ -95,10 +139,72 @@ namespace Mu3Library.Audio
             _source.maxDistance = parameters.MaxDistance;
         }
 
+        public bool IsSameClip(AudioClip clip)
+        {
+            return _source == null || _source.clip == null ? false : _source.clip == clip;
+        }
+
         public void SetActive(bool value)
         {
             _source.gameObject.SetActive(value);
         }
         #endregion
+
+        private void StopFade()
+        {
+            if (_fadeCoroutine != null)
+            {
+                StopCoroutine(_fadeCoroutine);
+                _fadeCoroutine = null;
+            }
+        }
+
+        private IEnumerator FadeInCoroutine(float fadeTime = 1.0f, Action callback = null)
+        {
+            float timer = fadeTime * _fadeVolume;
+            while (timer < fadeTime)
+            {
+                timer += Time.deltaTime;
+
+                _fadeVolume = Mathf.Clamp01(timer / fadeTime);
+                CalculateVolume();
+
+                yield return null;
+            }
+            CalculateVolume();
+
+            _fadeCoroutine = null;
+
+            callback?.Invoke();
+        }
+
+        private IEnumerator FadeOutCoroutine(float fadeTime = 1.0f, Action callback = null)
+        {
+            float timer = fadeTime * (1.0f - _fadeVolume);
+            while (timer < fadeTime)
+            {
+                timer += Time.deltaTime;
+
+                _fadeVolume = Mathf.Clamp01(1.0f - (timer / fadeTime));
+                CalculateVolume();
+
+                yield return null;
+            }
+            CalculateVolume();
+
+            _fadeCoroutine = null;
+
+            callback?.Invoke();
+        }
+
+        private void CalculateVolume()
+        {
+            _source.volume = GetCalculatedVolume();
+        }
+
+        private float GetCalculatedVolume()
+        {
+            return _clipVolume * _categoryVolume * _masterVolume * _fadeVolume;
+        }
     }
 }
