@@ -1,5 +1,3 @@
-#if UNITY_EDITOR
-
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -216,6 +214,21 @@ namespace Mu3Library.Editor.FileUtil
             return result;
         }
 
+        public static void PingObject(Object obj, bool selectObject = false)
+        {
+            if (obj == null)
+            {
+                return;
+            }
+            
+            EditorGUIUtility.PingObject(obj);
+            
+            if(selectObject)
+            {
+                Selection.activeObject = obj;
+            }
+        }
+
         public static bool IsValidFolder(Object obj)
         {
             if (obj == null)
@@ -228,5 +241,3 @@ namespace Mu3Library.Editor.FileUtil
         }
     }
 }
-
-#endif
