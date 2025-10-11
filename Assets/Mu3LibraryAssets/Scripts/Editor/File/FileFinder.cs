@@ -5,8 +5,10 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Mu3Library.Editor.FileUtil {
-    public static class FileFinder {
+namespace Mu3Library.Editor.FileUtil
+{
+    public static class FileFinder
+    {
 
 
 
@@ -46,7 +48,8 @@ namespace Mu3Library.Editor.FileUtil {
         /// <typeparam name="T"></typeparam>
         /// <param name="filePath"> Assets 폴더를 기준으로 한 상대 경로 </param>
         /// <returns></returns>
-        public static T LoadAssetAtPath<T>(string filePath) where T : Object {
+        public static T LoadAssetAtPath<T>(string filePath) where T : Object
+        {
             return AssetDatabase.LoadAssetAtPath<T>(filePath);
         }
 
@@ -69,15 +72,18 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
-        public static string GetAssetPathFromMonoBehaviour<T>(T obj) where T : MonoBehaviour {
-            if(obj == null) {
+        public static string GetAssetPathFromMonoBehaviour<T>(T obj) where T : MonoBehaviour
+        {
+            if (obj == null)
+            {
                 Debug.LogError("MonoBehaviour is NULL.");
 
                 return "";
             }
 
             MonoScript scriptObj = MonoScript.FromMonoBehaviour(obj);
-            if(scriptObj == null) {
+            if (scriptObj == null)
+            {
                 Debug.LogError($"MonoScript not found. type: {typeof(T).Name}");
 
                 return "";
@@ -89,15 +95,18 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
-        public static string GetAssetPathFromScriptableObject<T>(T obj) where T : ScriptableObject {
-            if(obj == null) {
+        public static string GetAssetPathFromScriptableObject<T>(T obj) where T : ScriptableObject
+        {
+            if (obj == null)
+            {
                 Debug.LogError("ScriptableObject is NULL.");
 
                 return "";
             }
 
             MonoScript scriptObj = MonoScript.FromScriptableObject(obj);
-            if(scriptObj == null) {
+            if (scriptObj == null)
+            {
                 Debug.LogError($"MonoScript not found. type: {typeof(T).Name}");
 
                 return "";
@@ -109,8 +118,10 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
-        public static string GetAssetPath<T>(T obj) where T : Object {
-            if(obj == null) {
+        public static string GetAssetPath<T>(T obj) where T : Object
+        {
+            if (obj == null)
+            {
                 Debug.LogError("Object is NULL.");
 
                 return "";
@@ -122,11 +133,13 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 상대 경로를 반환한다.
         /// </summary>
-        public static string[] GetAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        public static string[] GetAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "")
+        {
             return FindAssetsPath(directory, name, typeString, assetlabel);
         }
 
-        public static string[] GetAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        public static string[] GetAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "")
+        {
             return FindAssetsGuid(directory, name, typeString, assetlabel);
         }
         #endregion
@@ -134,7 +147,8 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 Guid를 반환한다.
         /// </summary>
-        private static string[] FindAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        private static string[] FindAssetsPath(string directory = "", string name = "", string typeString = "", string assetlabel = "")
+        {
             string[] guids = FindAssetsGuid(directory, name, typeString, assetlabel);
 
             return guids.Select(g => AssetDatabase.GUIDToAssetPath(g)).ToArray();
@@ -143,13 +157,16 @@ namespace Mu3Library.Editor.FileUtil {
         /// <summary>
         /// 에셋 파일의 Guid를 반환한다.
         /// </summary>
-        private static string[] FindAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "") {
+        private static string[] FindAssetsGuid(string directory = "", string name = "", string typeString = "", string assetlabel = "")
+        {
             string optionString = GetOptionString(name, typeString, assetlabel);
 
-            if(string.IsNullOrEmpty(directory)) {
+            if (string.IsNullOrEmpty(directory))
+            {
                 return AssetDatabase.FindAssets(optionString);
             }
-            else {
+            else
+            {
                 return AssetDatabase.FindAssets(optionString, new string[] { directory });
             }
         }
@@ -171,27 +188,43 @@ namespace Mu3Library.Editor.FileUtil {
         /// <br/> 편의상 't:type'와 'l:assetlabel'만을 사용한다.
         /// </summary>
         /// <returns></returns>
-        private static string GetOptionString(string name, string typeString, string assetlabel) {
+        private static string GetOptionString(string name, string typeString, string assetlabel)
+        {
             string result = "";
 
-            if(!string.IsNullOrEmpty(name)) {
+            if (!string.IsNullOrEmpty(name))
+            {
                 result += $"{name}";
             }
             // 첫 시작 띄어쓰기
-            if(!string.IsNullOrEmpty(typeString)) {
+            if (!string.IsNullOrEmpty(typeString))
+            {
                 result += $" t:{typeString}";
             }
             // 첫 시작 띄어쓰기
-            if(!string.IsNullOrEmpty(assetlabel)) {
+            if (!string.IsNullOrEmpty(assetlabel))
+            {
                 result += $" l:{assetlabel}";
             }
 
             // filter의 시작이 공백이라면 해당 공백을 제거한다.
-            if(!string.IsNullOrEmpty(result) && result[0] == ' ') {
+            if (!string.IsNullOrEmpty(result) && result[0] == ' ')
+            {
                 result = result.TrimStart();
             }
 
             return result;
+        }
+
+        public static bool IsValidFolder(Object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+            
+            string assetPath = GetAssetPath(obj);
+            return AssetDatabase.IsValidFolder(assetPath);
         }
     }
 }
