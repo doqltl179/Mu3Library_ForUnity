@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace Mu3Library.Extension
+namespace Mu3Library.Extensions
 {
-    public static class GameObjectExtension
+    public static class GameObjectExtensions
     {
         public static T GetOrAddComponent<T>(this GameObject go)where T : Component
         {

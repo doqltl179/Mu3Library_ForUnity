@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace Mu3Library.Extension
+namespace Mu3Library.Extensions
 {
-    public static class RectTransformExtension
+    public static class RectTransformExtensions
     {
         public static void Stretch(this RectTransform rt)
         {

@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace Mu3Library.Extension
+namespace Mu3Library.Extensions
 {
-    public static class TransformExtension
+    public static class TransformExtensions
     {
         public static void LocalToOrigin(this Transform transform)
         {
