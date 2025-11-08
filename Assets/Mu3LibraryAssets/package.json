@@ -21,6 +21,11 @@
             "displayName": "Sample_UtilWindow",
             "description": "Custom Window Sample",
             "path": "Samples~/Sample_UtilWindow"
+        },
+        {
+            "displayName": "Sample_MVP",
+            "description": "MVP Sample",
+            "path": "Samples~/Sample_MVP"
         }
     ]
 }
