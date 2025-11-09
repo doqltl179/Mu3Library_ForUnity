@@ -44,7 +44,7 @@ TagManager:
   - name: Popup
     uniqueID: 4210745935
     locked: 0
-  - name: SystemPopup
+  - name: Modal
     uniqueID: 2834791959
     locked: 0
   m_RenderingLayers:
