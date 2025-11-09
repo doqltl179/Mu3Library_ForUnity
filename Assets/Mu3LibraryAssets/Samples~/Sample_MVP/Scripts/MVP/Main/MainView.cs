@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Mu3Library.UI.MVP;
 using UnityEngine;
@@ -11,6 +10,13 @@ namespace Mu3Library.Sample.MVP
         private readonly List<MainKeyDescription> _descriptions = new();
 
 
+
+        protected override void LoadFunc()
+        {
+            base.LoadFunc();
+
+            _keyDescriptionResource.gameObject.SetActive(false);
+        }
 
         #region Utility
         public void AddKeyDescription(KeyCode keyCode, string description)
