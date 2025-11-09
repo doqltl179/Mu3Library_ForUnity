@@ -114,6 +114,12 @@ namespace Mu3Library.UI.MVP
             }
 
             View resource = _viewResourceMap[viewType];
+            if(resource == null)
+            {
+                Debug.LogError($"Resource view is NULL. type: {viewType}");
+                return null;
+            }
+
             View inst = Instantiate(resource);
 
             CanvasUtil.Overwrite(rootCanvas, inst.Canvas, true, true);
@@ -136,25 +142,30 @@ namespace Mu3Library.UI.MVP
             return _viewLayerMap[viewType];
         }
 
+        public void AddViewResource(View view)
+        {
+            Type type = view.GetType();
+            if (!_viewResourceMap.ContainsKey(type))
+            {
+                _viewResourceMap.Add(type, view);
+
+                Canvas canvas = view.GetComponent<Canvas>();
+                _viewLayerMap.Add(
+                    type,
+                    canvas != null ? canvas.sortingLayerName : CanvasUtil.SortingLayers[0]);
+            }
+            else
+            {
+                Debug.LogWarning($"View type already exist. type: {type}");
+            }
+        }
+
         public void FillViewResources(string resourcesPath)
         {
             var viewResources = Resources.LoadAll<View>(resourcesPath);
             foreach (var view in viewResources)
             {
-                Type type = view.GetType();
-                if (!_viewResourceMap.ContainsKey(type))
-                {
-                    _viewResourceMap.Add(type, view);
-
-                    Canvas canvas = view.GetComponent<Canvas>();
-                    _viewLayerMap.Add(
-                        type,
-                        canvas != null ? canvas.sortingLayerName : CanvasUtil.SortingLayers[0]);
-                }
-                else
-                {
-                    Debug.LogWarning($"View type already exist. type: {type}");
-                }
+                AddViewResource(view);
             }
         }
         #endregion
