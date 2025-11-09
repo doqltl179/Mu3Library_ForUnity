@@ -286,7 +286,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
+      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -353,3 +353,47 @@ MonoBehaviour:
   - {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
   - {fileID: 102900000, guid: f3e3aa4a812a1ba4b94ffe0060636056, type: 3}
   - {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
+  - {fileID: 102900000, guid: 4fc14fe9c8f43d64ab348561dd09ded9, type: 3}
+  _scenes:
+  - Folder: {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Attribute
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: 5f3ed4ffceb083f45b321458ad95a889, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Attribute/Scenes/Sample_Attribute.unity
+  - Folder: {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Audio
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: ed318079f8026514681d83df78a413dd, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Audio/Scenes/Sample_Audio.unity
+  - Folder: {fileID: 102900000, guid: f3e3aa4a812a1ba4b94ffe0060636056, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Game
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: f187744e5526b1142aec9da92d278cb8, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Additive01.unity
+    - SceneAsset: {fileID: 102900000, guid: fdc1fc39ad770f64080d4217182ea533, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Additive02.unity
+    - SceneAsset: {fileID: 102900000, guid: dff2bc8ee00660846b056f4580e8e6a0, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Additive03.unity
+    - SceneAsset: {fileID: 102900000, guid: 1416569b433a94e4693fe664d2a1a03a, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Game.unity
+    - SceneAsset: {fileID: 102900000, guid: 19d869756ac89894e84ca8e4ccad8033, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Main.unity
+    - SceneAsset: {fileID: 102900000, guid: 877ed364309ff0c4783699838d70ba6b, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Game/Scenes/Title.unity
+  - Folder: {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_MVP
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_MVP/Scenes/Sample_MVP.unity
+  - Folder: {fileID: 102900000, guid: 4fc14fe9c8f43d64ab348561dd09ded9, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Shader
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: 61aaec9761940a240810a4a44b0a0e5f, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Shader/Scenes/Sample_CustomShadowComponent.unity
+    - SceneAsset: {fileID: 102900000, guid: 54a0229ecc6416c42bf873ea2bcc4990, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Shader/Scenes/Sample_UICustomDefault.unity
