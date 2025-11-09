@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Mu3Library.Audio
 {
+    [System.Serializable]
     public struct AudioParameters
     {
         public float Volume;
@@ -9,6 +10,7 @@ namespace Mu3Library.Audio
         public Audio3dSoundSettings SoundSettings;
     }
 
+    [System.Serializable]
     public struct AudioBaseParameters
     {
         public int Priority;
@@ -18,6 +20,7 @@ namespace Mu3Library.Audio
         public float ReverbZoneMix;
     }
 
+    [System.Serializable]
     public struct Audio3dSoundSettings
     {
         public float DopplerLevel;
