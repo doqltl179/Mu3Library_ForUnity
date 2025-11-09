@@ -18,6 +18,11 @@
             "path": "Samples~/Sample_Attribute"
         },
         {
+            "displayName": "Sample_Audio",
+            "description": "Audio Sample",
+            "path": "Samples~/Sample_Audio"
+        },
+        {
             "displayName": "Sample_UtilWindow",
             "description": "Custom Window Sample",
             "path": "Samples~/Sample_UtilWindow"
