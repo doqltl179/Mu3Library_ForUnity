@@ -152,8 +152,8 @@ namespace Mu3Library.UI.MVP
         }
 
         protected virtual void CloseStart() { }
-        protected virtual bool WaitCloseUntil() { return true; }
-        protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitCloseUntil); }
+        protected virtual bool WaitClosingUntil() { return true; }
+        protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitClosingUntil); }
         protected virtual void CloseEnd() { }
 
         public void Unload()
