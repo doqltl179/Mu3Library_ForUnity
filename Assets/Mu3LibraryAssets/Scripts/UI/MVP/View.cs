@@ -60,9 +60,6 @@ namespace Mu3Library.UI.MVP
         }
         public Canvas Canvas => _canvas;
 
-        public string LayerName => _canvas.sortingLayerName;
-        public int SortingOrder => _canvas.sortingOrder;
-
         private CanvasGroup m_canvasGroup = null;
         private CanvasGroup _canvasGroup
         {
@@ -75,6 +72,15 @@ namespace Mu3Library.UI.MVP
 
                 return m_canvasGroup;
             }
+        }
+        public CanvasGroup CanvasGroup => _canvasGroup;
+
+        public string LayerName => _canvas.sortingLayerName;
+        public int SortingOrder => _canvas.sortingOrder;
+        public float Alpha
+        {
+            get => _canvasGroup.alpha;
+            set => _canvasGroup.alpha = value;
         }
 
         private IEnumerator _lifeCycleCoroutine = null;
