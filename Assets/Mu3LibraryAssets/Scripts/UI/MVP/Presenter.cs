@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Mu3Library.UI.MVP
 {
-    public abstract class Presenter<TView, TModel, TArgs> : IPresenter
+    public abstract class Presenter<TView, TModel, TArgs> : IPresenter, IPresenterInitialize, ILifecycle
         where TView : View
         where TModel : Model<TArgs>, new()
         where TArgs : Arguments
@@ -22,6 +22,7 @@ namespace Mu3Library.UI.MVP
         public bool IsViewExist => _view != null;
         public ViewState ViewState => _view.ViewState;
 
+        public RectTransform RectTransform => _view.RectTransform;
         public Canvas ViewCanvas => _view.Canvas;
         public string LayerName => _view.LayerName;
         public int SortingOrder => _view.SortingOrder;
@@ -60,7 +61,7 @@ namespace Mu3Library.UI.MVP
             {
                 return;
             }
-            
+
             _view.transform.SetAsLastSibling();
             _view.transform.LocalToOrigin();
             _view.Stretch();

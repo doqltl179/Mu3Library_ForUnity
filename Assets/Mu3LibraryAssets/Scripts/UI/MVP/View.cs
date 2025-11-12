@@ -21,7 +21,7 @@ namespace Mu3Library.UI.MVP
     [RequireComponent(typeof(CanvasScaler))]
     [RequireComponent(typeof(GraphicRaycaster))]
     [RequireComponent(typeof(CanvasGroup))]
-    public abstract class View : MonoBehaviour, IView
+    public abstract class View : MonoBehaviour, IView, ILifecycle
     {
         private ViewState _viewState = ViewState.None;
         public ViewState ViewState => _viewState;
@@ -117,7 +117,8 @@ namespace Mu3Library.UI.MVP
         }
 
         protected virtual void OpenStart() { }
-        protected virtual IEnumerator WaitOpening() { yield break; }
+        protected virtual bool WaitOpeningUntil() { return true; }
+        protected virtual IEnumerator WaitOpening() { yield return new WaitUntil(WaitOpeningUntil); }
         protected virtual void OpenEnd() { }
 
         public void Close()
@@ -145,7 +146,8 @@ namespace Mu3Library.UI.MVP
         }
 
         protected virtual void CloseStart() { }
-        protected virtual IEnumerator WaitClosing() { yield break; }
+        protected virtual bool WaitCloseUntil() { return true; }
+        protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitCloseUntil); }
         protected virtual void CloseEnd() { }
 
         public void Unload()
@@ -164,6 +166,12 @@ namespace Mu3Library.UI.MVP
 
         public void DestroySelf()
         {
+            if(_lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+
             Destroy(gameObject);
         }
 

@@ -57,6 +57,23 @@ namespace Mu3Library.UI
         }
         public static string[] SortingLayers => _sortingLayers;
 
+        private static readonly Dictionary<string, int> m_sortingLayerOrderMap = new();
+        private static Dictionary<string, int> _sortingLayerOrderMap
+        {
+            get
+            {
+                if (m_sortingLayerOrderMap.Count == 0)
+                {
+                    for (int i = 0; i < _sortingLayers.Length; i++)
+                    {
+                        m_sortingLayerOrderMap.Add(_sortingLayers[i], i);
+                    }
+                }
+
+                return m_sortingLayerOrderMap;
+            }
+        }
+
 
 
         public static Canvas GetOrAddDefaultScreenOverlayCanvasComponent(
@@ -233,7 +250,11 @@ namespace Mu3Library.UI
 
         public static int GetSortingLayerOrder(string layerName)
         {
-            return Array.IndexOf(_sortingLayers, layerName);
+            if (_sortingLayerOrderMap.TryGetValue(layerName, out int order))
+            {
+                return order;
+            }
+            return -1;
         }
     }
 }

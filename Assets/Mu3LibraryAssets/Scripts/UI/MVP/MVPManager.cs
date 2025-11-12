@@ -45,74 +45,92 @@ namespace Mu3Library.UI.MVP
 
         private OutPanel _outPanel = null;
 
+        public event Action<IPresenter> OnWindowLoaded;
+        public event Action<IPresenter> OnWindowOpened;
+        public event Action<IPresenter> OnWindowClosed;
+        public event Action<IPresenter> OnWindowUnloaded;
+
 
 
         private void Update()
         {
-            for (int i = 0; i < _presenterLoadChecker.Count; i++)
-            {
-                if (_presenterLoadChecker[i].Presenter.ViewState == ViewState.Loaded)
-                {
-                    PresenterParams param = _presenterLoadChecker[i];
+            CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
+            CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
+            CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
+            CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
+        }
 
-                    _presenterLoadChecker.RemoveAt(i);
+        private void CheckLifecycle(List<PresenterParams> list, ViewState checkState, Action<PresenterParams> callback = null)
+        {
+            bool isViewDestroyed = false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                PresenterParams param = list[i];
+                if (!param.Presenter.IsViewExist)
+                {
+                    Debug.LogWarning($"View descroyed. checkState: {checkState}, presenter: {param.Presenter.GetType()}");
+                    list.RemoveAt(i);
                     i--;
 
-                    param.Presenter.Open();
+                    isViewDestroyed = true;
+                }
+                else if (param.Presenter.ViewState == checkState)
+                {
+                    list.RemoveAt(i);
+                    i--;
 
-                    _presenterOpenChecker.Add(param);
-
-                    UpdateFocus();
+                    callback?.Invoke(param);
                 }
             }
 
-            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            if(isViewDestroyed)
             {
-                if (_presenterOpenChecker[i].Presenter.ViewState == ViewState.Opened)
-                {
-                    PresenterParams param = _presenterOpenChecker[i];
+                UpdateFocus();
+            }
+        }
 
-                    _presenterOpenChecker.RemoveAt(i);
-                    i--;
-
-                    _openedPresenters.Add(param);
-                }
+        private void WindowLoadedEvent(PresenterParams param)
+        {
+            if (param.Presenter is ILifecycle lifecycle)
+            {
+                lifecycle.Open();
             }
 
-            for (int i = 0; i < _presenterCloseChecker.Count; i++)
+            _presenterOpenChecker.Add(param);
+
+            UpdateFocus();
+
+            OnWindowLoaded?.Invoke(param.Presenter);
+        }
+
+        private void WindowOpenedEvent(PresenterParams param)
+        {
+            _openedPresenters.Add(param);
+
+            OnWindowOpened?.Invoke(param.Presenter);
+        }
+
+        private void WindowClosedEvent(PresenterParams param)
+        {
+            if (param.Presenter is ILifecycle lifecycle)
             {
-                if (_presenterCloseChecker[i].Presenter.ViewState == ViewState.Closed)
-                {
-                    PresenterParams param = _presenterCloseChecker[i];
-
-                    _presenterCloseChecker.RemoveAt(i);
-                    i--;
-
-                    param.Presenter.Unload();
-
-                    _presenterUnloadChecker.Add(param);
-
-                    UpdateFocus();
-                }
+                lifecycle.Unload();
             }
 
-            for (int i = 0; i < _presenterUnloadChecker.Count; i++)
-            {
-                if (_presenterUnloadChecker[i].Presenter.ViewState == ViewState.Unloaded)
-                {
-                    PresenterParams param = _presenterUnloadChecker[i];
+            _presenterUnloadChecker.Add(param);
 
-                    _presenterUnloadChecker.RemoveAt(i);
-                    i--;
+            UpdateFocus();
 
-                    if (param.Presenter.IsViewExist)
-                    {
-                        param.Presenter.SetActiveView(false);
+            OnWindowClosed?.Invoke(param.Presenter);
+        }
 
-                        MVPFactory.Instance.PoolPrsenter(param.Presenter);
-                    }
-                }
-            }
+        private void WindowUnloadedEvent(PresenterParams param)
+        {
+            param.Presenter.SetActiveView(false);
+            MVPFactory.Instance.PoolPrsenter(param.Presenter);
+
+            OnWindowUnloaded?.Invoke(param.Presenter);
         }
 
         #region Utility
@@ -128,7 +146,10 @@ namespace Mu3Library.UI.MVP
 
             if (_openedPresenters.Remove(closeParam))
             {
-                closeParam.Presenter.Close();
+                if (closeParam.Presenter is ILifecycle lifecycle)
+                {
+                    lifecycle.Close();
+                }
 
                 _presenterCloseChecker.Add(closeParam);
             }
@@ -170,7 +191,10 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            param.Presenter.Close();
+            if (param.Presenter is ILifecycle lifecycle)
+            {
+                lifecycle.Close();
+            }
 
             _presenterCloseChecker.Add(param);
         }
@@ -178,6 +202,8 @@ namespace Mu3Library.UI.MVP
         public void Open<TPresenter>(Arguments args, OutPanelParams param = null) where TPresenter : class, IPresenter, new()
         {
             TPresenter presenter = MVPFactory.Instance.CreatePresenter<TPresenter>();
+            IPresenterInitialize initialize = presenter as IPresenterInitialize;
+            ILifecycle lifecycle = presenter as ILifecycle;
 
             if (args.GetType() != presenter.ArgumentType)
             {
@@ -203,18 +229,27 @@ namespace Mu3Library.UI.MVP
                     return;
                 }
 
-                presenter.Init(view, args);
+                if (initialize != null)
+                {
+                    initialize.Init(view, args);
+                }
             }
             else
             {
-                presenter.Init(args);
+                if (initialize != null)
+                {
+                    initialize.Init(args);
+                }
             }
 
             UpdateSortingOrderAsLast(presenter.View);
             presenter.OptimizeView();
             presenter.SetActiveView(true);
 
-            presenter.Load();
+            if (lifecycle != null)
+            {
+                lifecycle.Load();
+            }
 
             PresenterParams presenterParams = new PresenterParams()
             {
@@ -334,7 +369,8 @@ namespace Mu3Library.UI.MVP
             return Enumerable.Empty<PresenterParams>()
                 .Concat(_presenterCloseChecker)
                 .Concat(_openedPresenters)
-                .Concat(_presenterOpenChecker);
+                .Concat(_presenterOpenChecker)
+                .Where(param => param.Presenter.IsViewExist);
         }
     }
 }
