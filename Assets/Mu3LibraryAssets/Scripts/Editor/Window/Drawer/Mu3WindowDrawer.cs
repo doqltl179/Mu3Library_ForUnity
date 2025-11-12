@@ -9,7 +9,7 @@ namespace Mu3Library.Editor.Window.Drawer
     [Serializable]
     public abstract class Mu3WindowDrawer : ScriptableObject
     {
-        protected const string MenuRoot = "Mu3Library/Windows Drawer";
+        protected const string MenuRoot = "Mu3Library/Editor Window/Window Drawers";
 
         [SerializeField] protected bool _foldout = true;
         public bool Foldout => _foldout;
