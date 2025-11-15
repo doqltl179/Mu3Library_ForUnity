@@ -14,7 +14,8 @@ namespace Mu3Library.Extensions
         public static void LocalPositionToZero(this Transform transform) => transform.localPosition = Vector3.zero;
 
         public static void LocalEulerToZero(this Transform transform) => transform.localEulerAngles = Vector3.zero;
-        
+
         public static void ScaleToOne(this Transform transform) => transform.localScale = Vector3.one;
+        public static void ScaleToZero(this Transform transform) => transform.localScale = Vector3.zero;
     }
 }
