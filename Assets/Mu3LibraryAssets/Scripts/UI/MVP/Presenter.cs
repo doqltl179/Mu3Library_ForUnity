@@ -1,5 +1,4 @@
 using System;
-using Mu3Library.Extensions;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP
@@ -26,6 +25,9 @@ namespace Mu3Library.UI.MVP
         public Canvas ViewCanvas => _view.Canvas;
         public string LayerName => _view.LayerName;
         public int SortingOrder => _view.SortingOrder;
+
+        public CanvasGroup CanvasGroup => _view.CanvasGroup;
+        public bool Interactable => _view.Interactable;
 
 
 
@@ -63,7 +65,6 @@ namespace Mu3Library.UI.MVP
             }
 
             _view.transform.SetAsLastSibling();
-            _view.transform.LocalToOrigin();
             _view.Stretch();
         }
 

@@ -19,6 +19,9 @@ namespace Mu3Library.UI.MVP
         public string LayerName { get; }
         public int SortingOrder { get; }
 
+        public CanvasGroup CanvasGroup { get; }
+        public bool Interactable { get; }
+
 
 
         public void SetActiveView(bool active);

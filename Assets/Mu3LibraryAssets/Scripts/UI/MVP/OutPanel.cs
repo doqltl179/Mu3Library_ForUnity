@@ -28,6 +28,21 @@ namespace Mu3Library.UI.MVP
         }
         public Canvas Canvas => _canvas;
 
+        private CanvasGroup m_canvasGroup = null;
+        private CanvasGroup _canvasGroup
+        {
+            get
+            {
+                if (m_canvasGroup == null)
+                {
+                    m_canvasGroup = GetComponent<CanvasGroup>();
+                }
+
+                return m_canvasGroup;
+            }
+        }
+        public CanvasGroup CanvasGroup => m_canvasGroup;
+
         public string LayerName
         {
             get => _canvas.sortingLayerName;
@@ -37,6 +52,11 @@ namespace Mu3Library.UI.MVP
         {
             get => _canvas.sortingOrder;
             set => _canvas.sortingOrder = value;
+        }
+        public bool Interactable
+        {
+            get => _canvasGroup.interactable;
+            set => _canvasGroup.interactable = value;
         }
 
         [SerializeField] private Button _button;

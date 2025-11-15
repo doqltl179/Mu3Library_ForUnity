@@ -108,6 +108,8 @@ namespace Mu3Library.UI.MVP
         {
             _openedPresenters.Add(param);
 
+            UpdateFocus();
+
             OnWindowOpened?.Invoke(param.Presenter);
         }
 
@@ -129,6 +131,8 @@ namespace Mu3Library.UI.MVP
         {
             param.Presenter.SetActiveView(false);
             MVPFactory.Instance.PoolPrsenter(param.Presenter);
+
+            UpdateFocus();
 
             OnWindowUnloaded?.Invoke(param.Presenter);
         }
@@ -355,6 +359,8 @@ namespace Mu3Library.UI.MVP
                 }
 
                 _outPanel.SortingOrder = param.Presenter.SortingOrder - 1;
+
+                _outPanel.Interactable = param.Presenter.Interactable;
             }
         }
 

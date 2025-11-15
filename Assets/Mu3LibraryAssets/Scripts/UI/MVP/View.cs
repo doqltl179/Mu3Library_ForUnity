@@ -21,6 +21,7 @@ namespace Mu3Library.UI.MVP
     [RequireComponent(typeof(CanvasScaler))]
     [RequireComponent(typeof(GraphicRaycaster))]
     [RequireComponent(typeof(CanvasGroup))]
+    [DisallowMultipleComponent]
     public abstract class View : MonoBehaviour, IView, ILifecycle
     {
         private ViewState _viewState = ViewState.None;
@@ -60,6 +61,9 @@ namespace Mu3Library.UI.MVP
         }
         public Canvas Canvas => _canvas;
 
+        public string LayerName => _canvas.sortingLayerName;
+        public int SortingOrder => _canvas.sortingOrder;
+
         private CanvasGroup m_canvasGroup = null;
         private CanvasGroup _canvasGroup
         {
@@ -75,8 +79,11 @@ namespace Mu3Library.UI.MVP
         }
         public CanvasGroup CanvasGroup => _canvasGroup;
 
-        public string LayerName => _canvas.sortingLayerName;
-        public int SortingOrder => _canvas.sortingOrder;
+        public bool Interactable
+        {
+            get => _canvasGroup.interactable;
+            set => _canvasGroup.interactable = value;
+        }
         public float Alpha
         {
             get => _canvasGroup.alpha;

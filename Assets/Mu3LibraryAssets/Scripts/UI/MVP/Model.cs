@@ -5,6 +5,6 @@ namespace Mu3Library.UI.MVP
 
 
 
-        public abstract void Init(TArgs args);
+        public virtual void Init(TArgs args) { }
     }
 }

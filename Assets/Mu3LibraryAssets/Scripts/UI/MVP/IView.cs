@@ -8,10 +8,11 @@ namespace Mu3Library.UI.MVP
 
         public RectTransform RectTransform { get; }
         public Canvas Canvas { get; }
-        public CanvasGroup CanvasGroup { get; }
-
         public string LayerName { get; }
         public int SortingOrder { get; }
+
+        public CanvasGroup CanvasGroup { get; }
+        public bool Interactable { get; }
         public float Alpha { get; set; }
 
         
