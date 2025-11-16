@@ -10,6 +10,9 @@ namespace Mu3Library.Sample.MVP
 
         [SerializeField] private KeyCode _notificationOneButtonKey = KeyCode.Q;
         [SerializeField] private KeyCode _notificationTwoButtonKey = KeyCode.W;
+        [SerializeField] private KeyCode _oneCurveScaleAnimationPopupKey = KeyCode.E;
+        [SerializeField] private KeyCode _twoCurveScaleAnimationPopupKey = KeyCode.R;
+        [SerializeField] private KeyCode _bottomToMiddleAnimationPopupKey = KeyCode.A;
 
 
 
@@ -26,6 +29,9 @@ namespace Mu3Library.Sample.MVP
                 {
                     { _notificationOneButtonKey, "Open one button notification" },
                     { _notificationTwoButtonKey, "Open two button notification" },
+                    { _oneCurveScaleAnimationPopupKey, "Open one curve scale animation popup" },
+                    { _twoCurveScaleAnimationPopupKey, "Open two curve scale animation popup" },
+                    { _bottomToMiddleAnimationPopupKey, "Open bottom to middle animation popup" },
                 },
             };
             MVPManager.Instance.Open<MainPresenter>(args);
@@ -37,15 +43,27 @@ namespace Mu3Library.Sample.MVP
             {
                 OpenNotificationOneButton();
             }
-            else if(Input.GetKeyDown(_notificationTwoButtonKey))
+            else if (Input.GetKeyDown(_notificationTwoButtonKey))
             {
                 OpenNotificationTwoButton();
+            }
+            else if (Input.GetKeyDown(_oneCurveScaleAnimationPopupKey))
+            {
+                OpenOneCurveScaleAnimationPopup();
+            }
+            else if (Input.GetKeyDown(_twoCurveScaleAnimationPopupKey))
+            {
+                OpenTwoCurveScaleAnimationPopup();
+            }
+            else if (Input.GetKeyDown(_bottomToMiddleAnimationPopupKey))
+            {
+                OpenBottomToMiddleAnimationPopup();
             }
         }
 
         private void OpenNotificationOneButton()
         {
-            NotificationArguments args = new NotificationArguments()
+            NotificationArguments args = new()
             {
                 OnConfirm = () =>
                 {
@@ -58,7 +76,7 @@ namespace Mu3Library.Sample.MVP
 
         private void OpenNotificationTwoButton()
         {
-            NotificationArguments args = new NotificationArguments()
+            NotificationArguments args = new()
             {
                 OnConfirm = () =>
                 {
@@ -72,6 +90,33 @@ namespace Mu3Library.Sample.MVP
                 },
             };
             MVPManager.Instance.Open<NotificationPresenter>(args, _defaultOutPanelParams);
+        }
+
+        private void OpenOneCurveScaleAnimationPopup()
+        {
+            OneCurveScaleAnimationPopupArguments args = new()
+            {
+
+            };
+            MVPManager.Instance.Open<OneCurveScaleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+        }
+
+        private void OpenTwoCurveScaleAnimationPopup()
+        {
+            TwoCurveScaleAnimationPopupArguments args = new()
+            {
+
+            };
+            MVPManager.Instance.Open<TwoCurveScaleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+        }
+
+        private void OpenBottomToMiddleAnimationPopup()
+        {
+            BottomToMiddleAnimationPopupArguments args = new()
+            {
+
+            };
+            MVPManager.Instance.Open<BottomToMiddleAnimationPopupPresenter>(args, _defaultOutPanelParams);
         }
     }
 }

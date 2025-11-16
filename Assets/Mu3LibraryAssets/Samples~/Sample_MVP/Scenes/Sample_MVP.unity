@@ -150,6 +150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _notificationOneButtonKey: 113
   _notificationTwoButtonKey: 119
+  _animationPopupButtonKey: 101
 --- !u!4 &605107371
 Transform:
   m_ObjectHideFlags: 0
