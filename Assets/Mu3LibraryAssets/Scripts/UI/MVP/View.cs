@@ -94,6 +94,15 @@ namespace Mu3Library.UI.MVP
 
 
 
+        protected virtual void OnDisable()
+        {
+            if (_lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+        }
+
         public void Load()
         {
             _canvasGroup.interactable = false;
@@ -179,7 +188,7 @@ namespace Mu3Library.UI.MVP
 
         public void DestroySelf()
         {
-            if(_lifeCycleCoroutine != null)
+            if (_lifeCycleCoroutine != null)
             {
                 StopCoroutine(_lifeCycleCoroutine);
                 _lifeCycleCoroutine = null;
