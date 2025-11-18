@@ -196,7 +196,7 @@ namespace Mu3Library.Scene
 
         private IEnumerator UnloadAdditiveSceneCoroutine(string sceneName)
         {
-            AsyncOperation ao = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
+            AsyncOperation ao = SceneManager.UnloadSceneAsync(sceneName);
             ao.allowSceneActivation = false;
 
             yield return StartCoroutine(UnloadProcessCoroutine(ao));
