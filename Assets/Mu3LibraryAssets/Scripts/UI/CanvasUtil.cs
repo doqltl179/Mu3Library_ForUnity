@@ -74,6 +74,13 @@ namespace Mu3Library.UI
             }
         }
 
+        private static Vector2 _defaultResolution = new Vector2(1920, 1080);
+        public static Vector2 DefaultResolution
+        {
+            get => _defaultResolution;
+            set => _defaultResolution = value;
+        }
+
 
 
         public static Canvas GetOrAddDefaultScreenOverlayCanvasComponent(
@@ -138,7 +145,7 @@ namespace Mu3Library.UI
         {
             CanvasScaler component = go.GetOrAddComponent<CanvasScaler>();
             component.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            component.referenceResolution = resolution != default ? resolution : new Vector2(1920, 1080);
+            component.referenceResolution = resolution != default ? resolution : _defaultResolution;
             component.screenMatchMode = screenMatchMode;
             component.matchWidthOrHeight = matchFactor;
 
