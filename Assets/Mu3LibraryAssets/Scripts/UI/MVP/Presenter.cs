@@ -1,4 +1,5 @@
 using System;
+using Mu3Library.Extensions;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP
@@ -44,7 +45,7 @@ namespace Mu3Library.UI.MVP
 
         public virtual void Load() => _view.Load();
         public virtual void Open() => _view.Open();
-        public virtual void Close() => _view.Close();
+        public virtual void Close(bool forceClose = false) => _view.Close(forceClose);
         public virtual void Unload() => _view.Unload();
 
         public void SetActiveView(bool active)

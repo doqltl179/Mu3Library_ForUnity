@@ -143,8 +143,14 @@ namespace Mu3Library.UI.MVP
         protected virtual IEnumerator WaitOpening() { yield return new WaitUntil(WaitOpeningUntil); }
         protected virtual void OpenEnd() { }
 
-        public void Close()
+        public void Close(bool forceClose = false)
         {
+            if(forceClose && _lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+
             if (_lifeCycleCoroutine == null)
             {
                 _lifeCycleCoroutine = CloseCoroutine();

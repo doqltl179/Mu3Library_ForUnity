@@ -66,7 +66,7 @@ namespace Mu3Library.UI.MVP
             set => _button.enabled = value;
         }
 
-        public event Action OnClick;
+        private IPresenter _matchedPresenter;
 
 
         private void Awake()
@@ -96,6 +96,25 @@ namespace Mu3Library.UI.MVP
         }
 
         #region Utility
+        public void UpdateOutPanel(IPresenter presenter, OutPanelParams param)
+        {
+            _button.image.color = param.Color;
+            _button.enabled = param.InteractAsClose;
+
+            Canvas overwriteCanvas = presenter.ViewCanvas;
+            if(!overwriteCanvas.overrideSorting && !overwriteCanvas.isRootCanvas)
+            {
+                overwriteCanvas = overwriteCanvas.rootCanvas;
+            }
+
+            CanvasUtil.Overwrite(overwriteCanvas, _canvas, true, true);
+            _canvas.sortingOrder = presenter.SortingOrder - 1;
+
+            _canvasGroup.interactable = presenter.Interactable;
+
+            _matchedPresenter = presenter;
+        }
+
         public void Overwrite(IView view) => view.OverwriteInto(_canvas);
 
         public void Overwrite(Canvas source)
@@ -121,7 +140,10 @@ namespace Mu3Library.UI.MVP
 
         private void OnClickEvent()
         {
-            OnClick?.Invoke();
+            if(MVPManager.Instance.Close(_matchedPresenter))
+            {
+                _matchedPresenter = null;
+            }
         }
     }
 }

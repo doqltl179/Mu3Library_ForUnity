@@ -14,6 +14,13 @@ namespace Mu3Library.UI.MVP
 
         public int ViewResourceCount => _viewResourceMap.Count;
 
+        private Vector2 _defaultResolution = new Vector2(1920, 1080);
+        public Vector2 DefaultResolution
+        {
+            get => _defaultResolution;
+            set => _defaultResolution = value;
+        }
+
 
 
         #region Utility
@@ -27,7 +34,7 @@ namespace Mu3Library.UI.MVP
             return go.GetComponent<OutPanel>();
         }
 
-        public Canvas CreateLayerDefaultCanvas(string layerName, Transform parent = null, Camera renderCamera = null, bool isPortrait = false)
+        public Canvas CreateLayerDefaultCanvas(string layerName, Transform parent = null, Camera renderCamera = null)
         {
             GameObject go = new GameObject(
                 $"Canvas_{layerName}",
@@ -35,16 +42,7 @@ namespace Mu3Library.UI.MVP
             go.transform.SetParent(parent);
 
             Canvas result = CanvasUtil.GetOrAddDefaultScreenCameraCanvasComponent(go, renderCamera);
-
-            if (isPortrait)
-            {
-                CanvasUtil.GetOrAddDefaultCanvasScaleSizeScalerComponent(go, new Vector2(1080, 1920));
-            }
-            else
-            {
-                CanvasUtil.GetOrAddDefaultCanvasScaleSizeScalerComponent(go);
-            }
-
+            CanvasUtil.GetOrAddDefaultCanvasScaleSizeScalerComponent(go, _defaultResolution);
             CanvasUtil.GetOrAddDefaultGraphicRaycasterComponent(go);
 
             result.sortingLayerName = layerName;
@@ -99,13 +97,13 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
-        public TView CreateView<TView>(Canvas rootCanvas = null) where TView : View
+        public TView CreateView<TView>(Canvas rootCanvas) where TView : View
         {
             Type viewType = typeof(TView);
             return CreateView(viewType, rootCanvas) as TView;
         }
 
-        public View CreateView(Type viewType, Canvas rootCanvas = null)
+        public View CreateView(Type viewType, Canvas rootCanvas)
         {
             if (!_viewResourceMap.ContainsKey(viewType))
             {
@@ -120,12 +118,11 @@ namespace Mu3Library.UI.MVP
                 return null;
             }
 
-            View inst = Instantiate(resource);
+            View inst = Instantiate(resource, rootCanvas.transform);
 
             CanvasUtil.Overwrite(rootCanvas, inst.Canvas, true, true);
+            inst.Canvas.overrideSorting = true;
             inst.SetSortingOrder(resource.SortingOrder);
-
-            inst.transform.SetParent(rootCanvas.transform);
 
             return inst;
         }

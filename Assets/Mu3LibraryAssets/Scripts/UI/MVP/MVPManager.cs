@@ -84,7 +84,7 @@ namespace Mu3Library.UI.MVP
                 }
             }
 
-            if(isViewDestroyed)
+            if (isViewDestroyed)
             {
                 UpdateFocus();
             }
@@ -138,7 +138,17 @@ namespace Mu3Library.UI.MVP
         }
 
         #region Utility
-        public void CloseFocused()
+        public void CloseAll(bool forceClose = false)
+        {
+            var paramList = Enumerable.Empty<PresenterParams>()
+                .Concat(_openedPresenters)
+                .Concat(_presenterOpenChecker)
+                .ToArray();
+
+            CloseAll(paramList, forceClose);
+        }
+
+        public void CloseFocused(bool forceClose = false)
         {
             if (_focused == null || _focused.Presenter == null)
             {
@@ -148,71 +158,71 @@ namespace Mu3Library.UI.MVP
             PresenterParams closeParam = _focused;
             _focused = null;
 
-            if (_openedPresenters.Remove(closeParam))
-            {
-                if (closeParam.Presenter is ILifecycle lifecycle)
-                {
-                    lifecycle.Close();
-                }
+            bool canClose = _openedPresenters.Remove(closeParam) ||
+                (forceClose && _presenterOpenChecker.Remove(closeParam));
 
+            if (canClose)
+            {
+                GetInterface(closeParam.Presenter, out var lifecycle);
+
+                lifecycle.Close(forceClose);
                 _presenterCloseChecker.Add(closeParam);
             }
             else
             {
-                Debug.LogWarning("Focused not found.");
-
-                if (closeParam.Presenter.IsViewExist)
-                {
-                    closeParam.Presenter.ForceDestroyView();
-                }
+                _focused = closeParam;
             }
         }
 
-        public void Close<TPresenter>() where TPresenter : IPresenter
+        public bool Close(IPresenter presenter, bool forceClose = false)
         {
-            Type presenterType = typeof(TPresenter);
-
-            PresenterParams param = null;
-            for (int i = 0; i < _openedPresenters.Count; i++)
+            if (presenter == null)
             {
-                param = _openedPresenters[i];
+                return false;
+            }
 
-                if (param.Presenter == null)
+            PresenterParams param = _openedPresenters
+                .Where(t => t.Presenter == presenter)
+                .LastOrDefault();
+
+            if (param != null)
+            {
+                _openedPresenters.Remove(param);
+            }
+            else if (forceClose)
+            {
+                param = _presenterOpenChecker
+                    .Where(t => t.Presenter == presenter)
+                    .LastOrDefault();
+
+                if (param != null)
                 {
-                    _openedPresenters.RemoveAt(i);
-                    i--;
-                }
-                else if (param.Presenter.GetType() == presenterType)
-                {
-                    _openedPresenters.RemoveAt(i);
-                    break;
+                    _presenterOpenChecker.Remove(param);
                 }
             }
 
-            if (param == null || param.Presenter == null)
+            if (param == null)
             {
-                Debug.LogWarning($"Presenter not found. type: {presenterType}");
-                return;
+                return false;
             }
 
-            if (param.Presenter is ILifecycle lifecycle)
-            {
-                lifecycle.Close();
-            }
+            GetInterface(param.Presenter, out var lifecycle);
 
+            lifecycle.Close(forceClose);
             _presenterCloseChecker.Add(param);
+
+            return true;
         }
 
-        public void Open<TPresenter>(Arguments args, OutPanelParams param = null) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelParams param = null) where TPresenter : class, IPresenter, new()
         {
             TPresenter presenter = MVPFactory.Instance.CreatePresenter<TPresenter>();
-            IPresenterInitialize initialize = presenter as IPresenterInitialize;
-            ILifecycle lifecycle = presenter as ILifecycle;
+            GetInterface(presenter, out var initialize, out var lifecycle);
 
             if (args.GetType() != presenter.ArgumentType)
             {
                 Debug.LogError($"Undefined argument type. requested presenter: {presenter.GetType()}, requested argument: {args.GetType()}");
-                return;
+                return null;
             }
 
             Type viewType = presenter.ViewType;
@@ -230,30 +240,21 @@ namespace Mu3Library.UI.MVP
                 View view = MVPFactory.Instance.CreateView(viewType, layerCanvas);
                 if (view == null)
                 {
-                    return;
+                    return null;
                 }
 
-                if (initialize != null)
-                {
-                    initialize.Init(view, args);
-                }
+                initialize.Init(view, args);
             }
             else
             {
-                if (initialize != null)
-                {
-                    initialize.Init(args);
-                }
+                initialize.Init(args);
             }
 
             UpdateSortingOrderAsLast(presenter.View);
             presenter.OptimizeView();
             presenter.SetActiveView(true);
 
-            if (lifecycle != null)
-            {
-                lifecycle.Load();
-            }
+            lifecycle.Load();
 
             PresenterParams presenterParams = new PresenterParams()
             {
@@ -261,12 +262,35 @@ namespace Mu3Library.UI.MVP
                 OutPanelParams = param,
             };
             _presenterLoadChecker.Add(presenterParams);
+
+            return presenter;
         }
         #endregion
 
+        private void CloseAll(PresenterParams[] paramList, bool forceClose = false)
+        {
+            bool isCloseExcuted = false;
+
+            foreach (var param in paramList)
+            {
+                if (Close(param.Presenter, forceClose))
+                {
+                    isCloseExcuted = true;
+                }
+            }
+
+            if (isCloseExcuted)
+            {
+                UpdateFocus();
+            }
+        }
+
         private void UpdateFocus()
         {
-            IEnumerable<PresenterParams> paramList = RunningPresenterParams();
+            IEnumerable<PresenterParams> paramList = RunningPresenterParams()
+                .Where(t =>
+                    t.OutPanelParams != null &&
+                    t.OutPanelParams.InteractAsClose);
             PresenterParams mostFront = null;
 
             foreach (PresenterParams param in paramList)
@@ -329,10 +353,6 @@ namespace Mu3Library.UI.MVP
             if (_outPanel == null)
             {
                 OutPanel panel = MVPFactory.Instance.CreateOutPanel(transform);
-                panel.OnClick += () =>
-                {
-                    CloseFocused();
-                };
 
                 _outPanel = panel;
             }
@@ -345,29 +365,19 @@ namespace Mu3Library.UI.MVP
             {
                 _outPanel.gameObject.SetActive(true);
 
-                _outPanel.SetColor(param.OutPanelParams.Color);
-                _outPanel.ButtonEnabled = param.OutPanelParams.InteractAsClose;
-
-                if (_layerCanvases.TryGetValue(param.Presenter.LayerName, out Canvas rootCanvas))
-                {
-                    Canvas viewCanvas = param.Presenter.ViewCanvas;
-                    _outPanel.Overwrite(viewCanvas.overrideSorting ? viewCanvas : rootCanvas);
-                }
-                else
-                {
-                    _outPanel.LayerName = param.Presenter.LayerName;
-                }
-
-                _outPanel.SortingOrder = param.Presenter.SortingOrder - 1;
-
-                _outPanel.Interactable = param.Presenter.Interactable;
+                _outPanel.UpdateOutPanel(param.Presenter, param.OutPanelParams);
             }
         }
 
-        private int GetRunningCount<TPresenter>() where TPresenter : IPresenter
+        private void GetInterface(IPresenter presenter, out IPresenterInitialize initialize, out ILifecycle lifecycle)
         {
-            Type presenterType = typeof(TPresenter);
-            return RunningPresenterParams().Count(t => t.Presenter.GetType() == presenterType);
+            initialize = presenter as IPresenterInitialize;
+            lifecycle = presenter as ILifecycle;
+        }
+
+        private void GetInterface(IPresenter presenter, out ILifecycle lifecycle)
+        {
+            lifecycle = presenter as ILifecycle;
         }
 
         private IEnumerable<PresenterParams> RunningPresenterParams()

@@ -4,7 +4,7 @@ namespace Mu3Library.UI.MVP
     {
         public void Load();
         public void Open();
-        public void Close();
+        public void Close(bool forceClose = false);
         public void Unload();
     }
 }
