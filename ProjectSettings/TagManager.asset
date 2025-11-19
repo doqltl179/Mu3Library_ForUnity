@@ -47,5 +47,8 @@ TagManager:
   - name: Modal
     uniqueID: 2834791959
     locked: 0
+  - name: Loading
+    uniqueID: 695372001
+    locked: 0
   m_RenderingLayers:
   - Default
