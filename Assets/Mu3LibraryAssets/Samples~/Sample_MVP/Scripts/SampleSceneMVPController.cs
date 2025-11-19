@@ -14,6 +14,15 @@ namespace Mu3Library.Sample.MVP
         [SerializeField] private KeyCode _twoCurveScaleAnimationPopupKey = KeyCode.R;
         [SerializeField] private KeyCode _bottomToMiddleAnimationPopupKey = KeyCode.A;
 
+        [Space(20)]
+        [SerializeField] private KeyCode _loadingScreenOpenKey = KeyCode.G;
+        [SerializeField] private KeyCode _loadingScreenCloseKey = KeyCode.H;
+
+        [Space(20)]
+        [SerializeField] private KeyCode _closeAllKey = KeyCode.Z;
+
+        private IPresenter _loadingScreenPresenter = null;
+
 
 
         private void Awake()
@@ -32,6 +41,11 @@ namespace Mu3Library.Sample.MVP
                     { _oneCurveScaleAnimationPopupKey, "Open one curve scale animation popup" },
                     { _twoCurveScaleAnimationPopupKey, "Open two curve scale animation popup" },
                     { _bottomToMiddleAnimationPopupKey, "Open bottom to middle animation popup" },
+
+                    { _loadingScreenOpenKey, "Open loading screen" },
+                    { _loadingScreenCloseKey, "Close loading screen" },
+
+                    { _closeAllKey, "Close All" },
                 },
             };
             MVPManager.Instance.Open<MainPresenter>(args);
@@ -58,6 +72,20 @@ namespace Mu3Library.Sample.MVP
             else if (Input.GetKeyDown(_bottomToMiddleAnimationPopupKey))
             {
                 OpenBottomToMiddleAnimationPopup();
+            }
+
+            else if (Input.GetKeyDown(_loadingScreenOpenKey))
+            {
+                OpenLoadingScreen();
+            }
+            else if (Input.GetKeyDown(_loadingScreenCloseKey))
+            {
+                CloseLoadingScreen();
+            }
+
+            else if (Input.GetKeyDown(_closeAllKey))
+            {
+                MVPManager.Instance.CloseAll();
             }
         }
 
@@ -117,6 +145,27 @@ namespace Mu3Library.Sample.MVP
 
             };
             MVPManager.Instance.Open<BottomToMiddleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+        }
+
+        private void OpenLoadingScreen()
+        {
+            if(_loadingScreenPresenter == null ||
+                _loadingScreenPresenter.ViewState == ViewState.Unloaded)
+            {
+                LoadingScreenArguments args = new()
+                {
+
+                };
+                _loadingScreenPresenter = MVPManager.Instance.Open<LoadingScreenPresenter>(args);
+            }
+        }
+
+        private void CloseLoadingScreen()
+        {
+            if(MVPManager.Instance.Close(_loadingScreenPresenter))
+            {
+                _loadingScreenPresenter = null;
+            }
         }
     }
 }
