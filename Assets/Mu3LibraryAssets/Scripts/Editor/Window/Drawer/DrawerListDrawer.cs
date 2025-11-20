@@ -16,8 +16,33 @@ namespace Mu3Library.Editor.Window.Drawer
         [SerializeField, HideInInspector] private List<Mu3WindowDrawer> _drawers = new();
         public List<Mu3WindowDrawer> Drawers => _drawers;
 
-        private SerializedObject _serializedObject = null;
-        private SerializedProperty _drawersProperties = null;
+        private SerializedObject m_serializedObject;
+        private SerializedObject _serializedObject
+        {
+            get
+            {
+                if (m_serializedObject == null)
+                {
+                    m_serializedObject = new SerializedObject(this);
+                }
+
+                return m_serializedObject;
+            }
+        }
+
+        private SerializedProperty m_serializedProperties;
+        private SerializedProperty _serializedProperties
+        {
+            get
+            {
+                if (m_serializedProperties == null)
+                {
+                    m_serializedProperties = _serializedObject.FindProperty(nameof(_drawers));
+                }
+
+                return m_serializedProperties;
+            }
+        }
 
 
 
@@ -36,77 +61,48 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void DrawDrawerList()
         {
-            if (_serializedObject == null)
-            {
-                _serializedObject = new SerializedObject(this);
-            }
-            if (_drawersProperties == null && _serializedObject != null)
-            {
-                _drawersProperties = _serializedObject.FindProperty(nameof(_drawers));
-            }
+            _serializedObject.Update();
 
-            if (_serializedObject != null && _drawersProperties != null)
-            {
-                EditorGUILayout.PropertyField(_drawersProperties, true);
-                _serializedObject.ApplyModifiedProperties();
+            EditorGUILayout.PropertyField(_serializedProperties, true);
 
-                RefreshDrawerProperties();
-            }
-        }
-
-        private void RefreshDrawerProperties()
-        {
-            bool initiate = RemoveUnusableDrawers();
-            
-            if (!initiate)
-            {
-                initiate = _drawers.Count != _drawersProperties.arraySize;
-            }
-
-            if(!initiate)
+            if (!_serializedObject.ApplyModifiedProperties())
             {
                 return;
             }
 
-            _serializedObject = new SerializedObject(this);
-            _drawersProperties = _serializedObject.FindProperty(nameof(_drawers));
+            RemoveOverlappedDrawers();
         }
 
-        private bool RemoveUnusableDrawers()
+        private void RemoveOverlappedDrawers()
         {
-            bool isChanged = false;
+            bool drawerPropertyChanged = false;
 
-            for (int i = 0; i < _drawers.Count - 1; i++)
+            HashSet<Mu3WindowDrawer> drawers = new HashSet<Mu3WindowDrawer>();
+            for (int i = 0; i < _drawers.Count; i++)
             {
-                Mu3WindowDrawer currentDrawer = _drawers[i];
+                Mu3WindowDrawer drawer = _drawers[i];
 
-                // Remove empty
-                if (_drawers[i] == null)
+                if (drawer == null)
                 {
-                    _drawers.RemoveAt(i);
-                    i--;
-                    isChanged = true;
                     continue;
                 }
 
-                // Remove overlap
-                for (int j = i + 1; j < _drawers.Count; j++)
+                if (drawers.Contains(drawer))
                 {
-                    Mu3WindowDrawer compareDrawer = _drawers[j];
-                    if (currentDrawer == compareDrawer)
-                    {
-                        string folderPath = FileFinder.GetAssetPath(compareDrawer);
-                        Debug.LogWarning($"Drawer overlapped. path: {folderPath}");
+                    _drawers[i] = null;
 
-                        FileFinder.PingObject(compareDrawer);
-                        _drawers.RemoveAt(j);
-                        j--;
-                        isChanged = true;
-                    }
+                    drawerPropertyChanged = true;
+                }
+                else
+                {
+                    drawers.Add(drawer);
                 }
             }
 
-            return isChanged;
+            if (drawerPropertyChanged)
+            {
+                _serializedObject.ApplyModifiedProperties();
+            }
         }
     }
 }
