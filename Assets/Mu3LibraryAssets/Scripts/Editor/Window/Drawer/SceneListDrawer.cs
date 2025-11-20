@@ -33,17 +33,39 @@ namespace Mu3Library.Editor.Window.Drawer
         // Dictionary를 SerializeField로 사용할 수 없어서 List를 사용함
         [SerializeField, HideInInspector] private List<SceneFolderStruct> _scenes = new();
 
-        private SerializedObject _serializedObject = null;
-        private SerializedProperty _sceneFoldersProperties = null;
-
-
-
-        private void OnValidate()
+        private SerializedObject m_sceneFoldersObject;
+        private SerializedObject _sceneFoldersObject
         {
-            if(_serializedObject != null && _sceneFoldersProperties != null)
+            get
             {
-                RefreshSceneProperties();
+                if (m_sceneFoldersObject == null)
+                {
+                    m_sceneFoldersObject = new SerializedObject(this);
+                }
+
+                return m_sceneFoldersObject;
             }
+        }
+
+        private SerializedProperty m_sceneFoldersProperties;
+        private SerializedProperty _sceneFoldersProperties
+        {
+            get
+            {
+                if (m_sceneFoldersProperties == null)
+                {
+                    m_sceneFoldersProperties = _sceneFoldersObject.FindProperty(nameof(_sceneFolders));
+                }
+
+                return m_sceneFoldersProperties;
+            }
+        }
+
+
+
+        private void OnEnable()
+        {
+            SyncSceneAssets();
         }
 
         public override void OnGUIHeader()
@@ -63,6 +85,49 @@ namespace Mu3Library.Editor.Window.Drawer
             }, 20, 20, 0, 0);
         }
 
+        private void DrawSceneFolderList()
+        {
+            _sceneFoldersObject.Update();
+
+            EditorGUILayout.PropertyField(_sceneFoldersProperties, true);
+
+            if (!_sceneFoldersObject.ApplyModifiedProperties())
+            {
+                return;
+            }
+
+            bool folderPropertyChanged = false;
+
+            HashSet<DefaultAsset> folders = new HashSet<DefaultAsset>();
+            for (int i = 0; i < _sceneFolders.Count; i++)
+            {
+                DefaultAsset checkFolder = _sceneFolders[i];
+
+                if (checkFolder == null)
+                {
+                    continue;
+                }
+
+                if (folders.Contains(checkFolder))
+                {
+                    _sceneFolders[i] = null;
+
+                    folderPropertyChanged = true;
+                }
+                else
+                {
+                    folders.Add(checkFolder);
+                }
+            }
+
+            if (folderPropertyChanged)
+            {
+                _sceneFoldersObject.ApplyModifiedProperties();
+            }
+
+            SyncSceneAssets();
+        }
+
         private void DrawSceneList()
         {
             GUILayout.BeginHorizontal();
@@ -74,7 +139,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             if (GUILayout.Button("Foldout All", GUILayout.Width(80), GUILayout.Height(40)))
             {
-                foreach(SceneFolderStruct sceneFolderStruct in _scenes)
+                foreach (SceneFolderStruct sceneFolderStruct in _scenes)
                 {
                     sceneFolderStruct.Foldout = true;
                 }
@@ -82,7 +147,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             if (GUILayout.Button("Fold All", GUILayout.Width(80), GUILayout.Height(40)))
             {
-                foreach(SceneFolderStruct sceneFolderStruct in _scenes)
+                foreach (SceneFolderStruct sceneFolderStruct in _scenes)
                 {
                     sceneFolderStruct.Foldout = false;
                 }
@@ -101,7 +166,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
                 foreach (SceneAssetStruct sceneAssetStruct in sceneFolderStruct.SceneAssets)
                 {
-                    if(sceneAssetStruct.SceneAsset == null)
+                    if (sceneAssetStruct.SceneAsset == null)
                     {
                         continue;
                     }
@@ -120,23 +185,34 @@ namespace Mu3Library.Editor.Window.Drawer
                         "Add To Build Settings",
                         GUILayout.Width(160), GUILayout.Height(30)))
                     {
-                        List<EditorBuildSettingsScene> copyScenes = EditorBuildSettings.scenes.ToList();
-
-                        if (buildSceneIndex >= 0)
+                        if (EditorApplication.isPlayingOrWillChangePlaymode)
                         {
-                            copyScenes.RemoveAt(buildSceneIndex);
+                            Debug.LogWarning($"Can't edit editor during Playmode.");
                         }
                         else
                         {
-                            copyScenes.Add(new EditorBuildSettingsScene(sceneAssetStruct.AssetPath, true));
-                        }
+                            List<EditorBuildSettingsScene> copyScenes = EditorBuildSettings.scenes.ToList();
 
-                        EditorBuildSettings.scenes = copyScenes.ToArray();
+                            if (buildSceneIndex >= 0)
+                            {
+                                copyScenes.RemoveAt(buildSceneIndex);
+                            }
+                            else
+                            {
+                                copyScenes.Add(new EditorBuildSettingsScene(sceneAssetStruct.AssetPath, true));
+                            }
+
+                            EditorBuildSettings.scenes = copyScenes.ToArray();
+                        }
                     }
 
                     if (GUILayout.Button($"Open [ {sceneAssetStruct.SceneAsset.name} ]", GUILayout.Height(30)))
                     {
-                        if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                        if (EditorApplication.isPlayingOrWillChangePlaymode)
+                        {
+                            Debug.LogWarning($"Can't open editor during Playmode.");
+                        }
+                        else if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                         {
                             string scenePath = FileFinder.GetAssetPath(sceneAssetStruct.SceneAsset);
                             EditorSceneManager.OpenScene(scenePath);
@@ -148,85 +224,17 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        private void DrawSceneFolderList()
-        {
-            if (_serializedObject == null)
-            {
-                _serializedObject = new SerializedObject(this);
-            }
-            if (_sceneFoldersProperties == null && _serializedObject != null)
-            {
-                _sceneFoldersProperties = _serializedObject.FindProperty(nameof(_sceneFolders));
-            }
-
-            if (_serializedObject != null && _sceneFoldersProperties != null)
-            {
-                EditorGUILayout.PropertyField(_sceneFoldersProperties, true);
-                _serializedObject.ApplyModifiedProperties();
-
-                RefreshSceneProperties();
-            }
-
-            for (int i = 0; i < _sceneFolders.Count; i++)
-            {
-                DefaultAsset asset = _sceneFolders[i];
-
-                if (asset == null)
-                {
-                    _sceneFolders.RemoveAt(i);
-                    i--;
-                    continue;
-                }
-
-                if (!FileFinder.IsValidFolder(asset))
-                {
-                    Debug.LogWarning($"This asset is not a folder. name: {asset.name}");
-
-                    _sceneFolders.RemoveAt(i);
-                    i--;
-                }
-            }
-        }
-
-        private void RefreshSceneProperties()
-        {
-            bool initiate = RemoveUnusableFolders();
-
-            if (!initiate)
-            {
-                initiate = _sceneFolders.Count != _sceneFoldersProperties.arraySize ||
-                    _sceneFolders.Count != _scenes.Count;
-            }
-            
-            if (!initiate)
-            {
-                for(int i = 0; i < _sceneFolders.Count; i++)
-                {
-                    if(_sceneFolders[i] != _scenes[i].Folder)
-                    {
-                        initiate = true;
-                        break;
-                    }
-                }
-            }
-
-            if(!initiate)
-            {
-                return;
-            }
-
-            _serializedObject = new SerializedObject(this);
-            _sceneFoldersProperties = _serializedObject.FindProperty(nameof(_sceneFolders));
-
-            SyncSceneAssets();
-        }
-
         private void SyncSceneAssets()
         {
             _scenes.Clear();
 
             foreach (DefaultAsset folder in _sceneFolders)
             {
+                if (folder == null)
+                {
+                    continue;
+                }
+
                 string path = FileFinder.GetAssetPath(folder);
                 if (string.IsNullOrEmpty(path))
                 {
@@ -253,43 +261,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 };
                 _scenes.Add(sceneAssetStruct);
             }
-        }
-
-        private bool RemoveUnusableFolders()
-        {
-            bool isChanged = false;
-
-            for (int i = 0; i < _sceneFolders.Count - 1; i++)
-            {
-                DefaultAsset currentFolder = _sceneFolders[i];
-
-                // Remove empty
-                if (currentFolder == null)
-                {
-                    _sceneFolders.RemoveAt(i);
-                    i--;
-                    isChanged = true;
-                    continue;
-                }
-
-                // Remove overlap
-                for (int j = i + 1; j < _sceneFolders.Count; j++)
-                {
-                    DefaultAsset compareFolder = _sceneFolders[j];
-                    if (currentFolder == compareFolder)
-                    {
-                        string folderPath = FileFinder.GetAssetPath(compareFolder);
-                        Debug.LogWarning($"Folder overlapped. path: {folderPath}");
-
-                        FileFinder.PingObject(compareFolder);
-                        _sceneFolders.RemoveAt(j);
-                        j--;
-                        isChanged = true;
-                    }
-                }
-            }
-
-            return isChanged;
         }
     }
 }
