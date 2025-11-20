@@ -119,13 +119,12 @@ namespace Mu3Library.Editor.FileUtil {
         }
 
         private static bool IsAssetPath(string assetPath) {
-            bool result = false;
-
-            if(assetPath.StartsWith(relativePathOfAssetsFolder)) {
-                result = true;
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return false;
             }
 
-            return result;
+            return assetPath == "Assets" || assetPath.StartsWith("Assets/");
         }
     }
 }
