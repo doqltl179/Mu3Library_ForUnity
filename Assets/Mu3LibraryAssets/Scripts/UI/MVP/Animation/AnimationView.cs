@@ -1,5 +1,3 @@
-using System.Collections;
-
 namespace Mu3Library.UI.MVP.Animation
 {
     public enum AnimationState
@@ -34,24 +32,44 @@ namespace Mu3Library.UI.MVP.Animation
         {
             base.OpenStart();
 
-            _animationHandler.Open();
+            if (_animationHandler != null)
+            {
+                _animationHandler.Open();
+            }
         }
 
         protected override bool WaitOpeningUntil()
         {
-            return _animationHandler.State == AnimationState.Opened;
+            if (_animationHandler != null)
+            {
+                return _animationHandler.State == AnimationState.Opened;
+            }
+            else
+            {
+                return true;
+            }
         }
 
         protected override void CloseStart()
         {
             base.CloseStart();
 
-            _animationHandler.Close();
+            if (_animationHandler != null)
+            {
+                _animationHandler.Close();
+            }
         }
 
         protected override bool WaitClosingUntil()
         {
-            return _animationHandler.State == AnimationState.Closed;
+            if (_animationHandler != null)
+            {
+                return _animationHandler.State == AnimationState.Closed;
+            }
+            else
+            {
+                return true;
+            }
         }
     }
 }
