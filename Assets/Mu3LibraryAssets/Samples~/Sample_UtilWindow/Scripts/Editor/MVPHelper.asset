@@ -9,8 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d76c92c706690fb428451d24cd00ab09, type: 3}
-  m_Name: DrawerList
+  m_Script: {fileID: 11500000, guid: 8d60dbc2cf88ee04cbde8acb6cfb3b2d, type: 3}
+  m_Name: MVPHelper
   m_EditorClassIdentifier: 
   _foldout: 1
   _header1Style:
@@ -192,7 +192,7 @@ MonoBehaviour:
       m_Top: 0
       m_Bottom: 0
     m_Padding:
-      m_Left: 0
+      m_Left: 11
       m_Right: 11
       m_Top: 5
       m_Bottom: 5
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
+      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,7 +348,8 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _drawers:
-  - {fileID: 11400000, guid: f8fdb7f97c9774f42bd66468c4cba6bf, type: 2}
-  - {fileID: 11400000, guid: 1649e8994ac37e54ebbb120f7cc128f7, type: 2}
-  - {fileID: 11400000, guid: 9314dd47f45cdd64990e407d5e1077e1, type: 2}
+  _scriptSaveFolder: {fileID: 102900000, guid: c5876924d11ea5143af23e078452eb14, type: 3}
+  _scriptNamespace: Mu3Library.Sample.MVP
+  _scriptName: LoadingScreen
+  _scriptSpaces: 4
+  _applyAnimationView: 0
