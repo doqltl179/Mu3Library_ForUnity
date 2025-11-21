@@ -1,5 +1,4 @@
 using System;
-using Mu3Library.Extensions;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP
