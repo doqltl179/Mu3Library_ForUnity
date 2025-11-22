@@ -9,7 +9,7 @@ namespace Mu3Library.UI.MVP
     public class MVPManager : GenericSingleton<MVPManager>
     {
         private Camera m_renderCamera = null;
-        private Camera _renderCamera
+        protected Camera _renderCamera
         {
             get
             {
@@ -43,7 +43,7 @@ namespace Mu3Library.UI.MVP
 
         private PresenterParams _focused = null;
 
-        private OutPanel _outPanel = null;
+        protected OutPanel _outPanel = null;
 
         public event Action<IPresenter> OnWindowLoaded;
         public event Action<IPresenter> OnWindowOpened;
