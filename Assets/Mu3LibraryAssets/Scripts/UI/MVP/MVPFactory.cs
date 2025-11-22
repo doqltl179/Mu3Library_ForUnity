@@ -14,12 +14,93 @@ namespace Mu3Library.UI.MVP
 
         public int ViewResourceCount => _viewResourceMap.Count;
 
+        #region Default Properties
+
+        private RenderMode _defaultRenderMode = RenderMode.ScreenSpaceCamera;
+        public RenderMode DefaultRenderMode
+        {
+            get => _defaultRenderMode;
+            set => _defaultRenderMode = value;
+        }
+
+        private string _defaultSortingLayerName = "Default";
+        public string DefaultSortingLayerName
+        {
+            get => _defaultSortingLayerName;
+            set => _defaultSortingLayerName = value;
+        }
+
+        private int _defaultSortingOrder = 0;
+        public int DefaultSortingOrder
+        {
+            get => _defaultSortingOrder;
+            set => _defaultSortingOrder = value;
+        }
+
+        private float _defaultPlaneDistance = 0;
+        public float DefaultPlaneDistance
+        {
+            get => _defaultPlaneDistance;
+            set => _defaultPlaneDistance = value;
+        }
+
+        private CanvasScaler.ScaleMode _defaultUIScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        public CanvasScaler.ScaleMode DefaultUIScaleMode
+        {
+            get => _defaultUIScaleMode;
+            set => _defaultUIScaleMode = value;
+        }
+
         private Vector2 _defaultResolution = new Vector2(1920, 1080);
         public Vector2 DefaultResolution
         {
             get => _defaultResolution;
             set => _defaultResolution = value;
         }
+
+        private CanvasScaler.ScreenMatchMode _defaultScreenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        public CanvasScaler.ScreenMatchMode DefaultScreenMatchMode
+        {
+            get => _defaultScreenMatchMode;
+            set => _defaultScreenMatchMode = value;
+        }
+
+        private float _defaultMatchWidthOrHeight = 0.0f;
+        public float DefaultMatchWidthOrHeight
+        {
+            get => _defaultMatchWidthOrHeight;
+            set => _defaultMatchWidthOrHeight = value;
+        }
+
+        private CanvasScaler.Unit _defaultPhysicalUnit = CanvasScaler.Unit.Points;
+        public CanvasScaler.Unit DefaultPhysicalUnit
+        {
+            get => _defaultPhysicalUnit;
+            set => _defaultPhysicalUnit = value;
+        }
+
+        private float _defaultFallbackScreenDPI = 96.0f;
+        public float DefaultFallbackScreenDPI
+        {
+            get => _defaultFallbackScreenDPI;
+            set => _defaultFallbackScreenDPI = value;
+        }
+
+        private float _defaultSpriteDPI = 96.0f;
+        public float DefaultSpriteDPI
+        {
+            get => _defaultSpriteDPI;
+            set => _defaultSpriteDPI = value;
+        }
+
+        private float _defaultScaleFactor = 1.0f;
+        public float DefaultScaleFactor
+        {
+            get => _defaultScaleFactor;
+            set => _defaultScaleFactor = value;
+        }
+
+        #endregion
 
 
 
@@ -41,9 +122,67 @@ namespace Mu3Library.UI.MVP
                 new Type[] { typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster) });
             go.transform.SetParent(parent);
 
-            Canvas result = CanvasUtil.GetOrAddDefaultScreenCameraCanvasComponent(go, renderCamera);
-            CanvasUtil.GetOrAddDefaultCanvasScaleSizeScalerComponent(go, _defaultResolution);
-            CanvasUtil.GetOrAddDefaultGraphicRaycasterComponent(go);
+            Canvas result = null;
+            switch (_defaultRenderMode)
+            {
+                case RenderMode.ScreenSpaceCamera:
+                    {
+                        result = CanvasUtil.GetOrAddScreenCameraCanvasComponent(
+                            go,
+                            renderCamera,
+                            _defaultPlaneDistance,
+                            _defaultSortingLayerName,
+                            _defaultSortingOrder);
+                    }
+                    break;
+                case RenderMode.ScreenSpaceOverlay:
+                    {
+                        result = CanvasUtil.GetOrAddScreenOverlayCanvasComponent(
+                            go,
+                            _defaultSortingOrder);
+                    }
+                    break;
+                case RenderMode.WorldSpace:
+                    {
+                        result = CanvasUtil.GetOrAddWorldCanvasComponent(
+                            go,
+                            renderCamera,
+                            _defaultSortingLayerName,
+                            _defaultSortingOrder);
+                    }
+                    break;
+            }
+
+            switch (_defaultUIScaleMode)
+            {
+                case CanvasScaler.ScaleMode.ConstantPhysicalSize:
+                    {
+                        CanvasUtil.GetOrAddCanvasPhysicalSizeScalerComponent(
+                            go,
+                            _defaultPhysicalUnit,
+                            _defaultFallbackScreenDPI,
+                            _defaultSpriteDPI);
+                    }
+                    break;
+                case CanvasScaler.ScaleMode.ConstantPixelSize:
+                    {
+                        CanvasUtil.GetOrAddCanvasPixelSizeScalerComponent(
+                            go,
+                            _defaultScaleFactor);
+                    }
+                    break;
+                case CanvasScaler.ScaleMode.ScaleWithScreenSize:
+                    {
+                        CanvasUtil.GetOrAddCanvasScaleSizeScalerComponent(
+                            go,
+                            _defaultResolution,
+                            _defaultScreenMatchMode,
+                            _defaultMatchWidthOrHeight);
+                    }
+                    break;
+            }
+
+            CanvasUtil.GetOrAddGraphicRaycasterComponent(go);
 
             result.sortingLayerName = layerName;
 
@@ -81,7 +220,7 @@ namespace Mu3Library.UI.MVP
                     inst = pool.Dequeue();
                 }
 
-                if(pool.Count == 0)
+                if (pool.Count == 0)
                 {
                     _presenterPool.Remove(presenterType);
                 }
@@ -112,7 +251,7 @@ namespace Mu3Library.UI.MVP
             }
 
             View resource = _viewResourceMap[viewType];
-            if(resource == null)
+            if (resource == null)
             {
                 Debug.LogError($"Resource view is NULL. type: {viewType}");
                 return null;

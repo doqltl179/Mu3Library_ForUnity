@@ -83,7 +83,7 @@ namespace Mu3Library.UI
 
 
 
-        public static Canvas GetOrAddDefaultScreenOverlayCanvasComponent(
+        public static Canvas GetOrAddScreenOverlayCanvasComponent(
             GameObject go,
             int sortingOrder = 0)
         {
@@ -94,7 +94,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static Canvas GetOrAddDefaultScreenCameraCanvasComponent(
+        public static Canvas GetOrAddScreenCameraCanvasComponent(
             GameObject go,
             Camera renderCamera = null,
             float plainDistance = 100f,
@@ -111,7 +111,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static Canvas GetOrAddDefaultWorldCanvasComponent(
+        public static Canvas GetOrAddWorldCanvasComponent(
             GameObject go,
             Camera renderCamera = null,
             string layerName = "Default",
@@ -126,7 +126,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static CanvasScaler GetOrAddDefaultCanvasPixelSizeScalerComponent(
+        public static CanvasScaler GetOrAddCanvasPixelSizeScalerComponent(
             GameObject go,
             float scaleFactor = 1.0f)
         {
@@ -137,7 +137,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static CanvasScaler GetOrAddDefaultCanvasScaleSizeScalerComponent(
+        public static CanvasScaler GetOrAddCanvasScaleSizeScalerComponent(
             GameObject go,
             Vector2 resolution = default,
             CanvasScaler.ScreenMatchMode screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight,
@@ -152,7 +152,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static CanvasScaler GetOrAddDefaultCanvasPhysicalSizeScalerComponent(
+        public static CanvasScaler GetOrAddCanvasPhysicalSizeScalerComponent(
             GameObject go,
             CanvasScaler.Unit unit = CanvasScaler.Unit.Points,
             float fallbackScreenDPI = 96f,
@@ -167,7 +167,7 @@ namespace Mu3Library.UI
             return component;
         }
 
-        public static GraphicRaycaster GetOrAddDefaultGraphicRaycasterComponent(GameObject go)
+        public static GraphicRaycaster GetOrAddGraphicRaycasterComponent(GameObject go)
         {
             GraphicRaycaster component = go.GetOrAddComponent<GraphicRaycaster>();
 
