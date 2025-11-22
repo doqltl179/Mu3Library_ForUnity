@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Mu3Library.Editor.FileUtil;
@@ -207,46 +208,48 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "";
             }
 
-            StringBuilder sb = new StringBuilder();
-            string s = "".PadRight(spaces, ' ');
+            ScriptBuilder.CodeBlock classBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"public class {className} : Presenter<{viewClassName}, {modelClassName}, {argumentsClassName}>",
+                Content = new List<object>
+                {
+                    new ScriptBuilder.CodeBlock()
+                    {
+                        Header = $"public override void Load()",
+                        Content = new List<object> { "base.Load();\r\n\r\n" }
+                    },
+                    new ScriptBuilder.CodeBlock()
+                    {
+                        Header = $"public override void Open()",
+                        Content = new List<object> { "base.Open();\r\n\r\n" }
+                    },
+                    new ScriptBuilder.CodeBlock()
+                    {
+                        Header = $"public override void Close(bool forceClose = false)",
+                        Content = new List<object> { "base.Close(forceClose);\r\n\r\n" }
+                    },
+                    new ScriptBuilder.CodeBlock()
+                    {
+                        Header = $"public override void Unload()",
+                        Content = new List<object> { "base.Unload();\r\n\r\n" }
+                    },
+                }
+            };
+            ScriptBuilder.CodeBlock namespaceBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"namespace {scriptNamespace}",
+                Content = new List<object> { classBlock },
+            };
+            ScriptBuilder.CodeBlock usingBlock = new ScriptBuilder.CodeBlock()
+            {
+                Content = new List<object> { "using Mu3Library.UI.MVP;", "" },
+            };
 
-            sb.AppendLine("using Mu3Library.UI.MVP;");
-            sb.AppendLine();
-            sb.AppendLine($"namespace {scriptNamespace}");
-            sb.AppendLine("{");
-            sb.Append(s).AppendLine($"public class {className} : Presenter<{viewClassName}, {modelClassName}, {argumentsClassName}>");
-            sb.Append(s).AppendLine("{");
-            sb.Append(s).Append(s).AppendLine($"public override void Load()");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.Append(s).Append(s).Append(s).AppendLine("base.Load();");
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"public override void Open()");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.Append(s).Append(s).Append(s).AppendLine("base.Open();");
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"public override void Close(bool forceClose = false)");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.Append(s).Append(s).Append(s).AppendLine("base.Close(forceClose);");
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"public override void Unload()");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.Append(s).Append(s).Append(s).AppendLine("base.Unload();");
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.Append(s).AppendLine("}");
-            sb.AppendLine("}");
-
-            return sb.ToString();
+            return ScriptBuilder.Build(spaces, new ScriptBuilder.CodeBlock[]
+            {
+                usingBlock,
+                namespaceBlock
+            });
         }
 
         private string GetViewBody(string scriptNamespace, string className, int spaces, bool ignoreTypeOverlap, bool applyAnimationView)
@@ -260,9 +263,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "";
             }
 
-            StringBuilder sb = new StringBuilder();
-            string s = "".PadRight(spaces, ' ');
-
             string usingString = applyAnimationView ?
                 "using Mu3Library.UI.MVP.Animation;" :
                 "using Mu3Library.UI.MVP;";
@@ -270,45 +270,54 @@ namespace Mu3Library.Editor.Window.Drawer
                 "AnimationView" :
                 "View";
 
-            sb.AppendLine($"{usingString}");
-            sb.AppendLine();
-            sb.AppendLine($"namespace {scriptNamespace}");
-            sb.AppendLine("{");
-            sb.Append(s).AppendLine($"public class {className} : {parentViewString}");
-            sb.Append(s).AppendLine("{");
-            sb.Append(s).Append(s).AppendLine($"protected override void LoadFunc()");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"protected override void OpenStart()");
-            sb.Append(s).Append(s).AppendLine("{");
-            if(applyAnimationView)
-            {
-                sb.Append(s).Append(s).Append(s).AppendLine("base.OpenStart();");
-                sb.AppendLine();
-            }
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"protected override void CloseStart()");
-            sb.Append(s).Append(s).AppendLine("{");
-            if (applyAnimationView)
-            {
-                sb.Append(s).Append(s).Append(s).AppendLine("base.CloseStart();");
-                sb.AppendLine();
-            }
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine($"protected override void UnloadFunc()");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.Append(s).AppendLine("}");
-            sb.AppendLine("}");
+            List<object> openStartContent = new List<object>();
+            if (applyAnimationView) openStartContent.Add("base.OpenStart();\r\n");
+            openStartContent.Add("");
 
-            return sb.ToString();
+            List<object> closeStartContent = new List<object>();
+            if (applyAnimationView) closeStartContent.Add("base.CloseStart();\r\n");
+            closeStartContent.Add("");
+
+            ScriptBuilder.CodeBlock classBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"public class {className} : {parentViewString}",
+                Content = new List<object>()
+            };
+            classBlock.Content.Add(new ScriptBuilder.CodeBlock()
+            {
+                Header = $"protected override void LoadFunc()",
+                Content = new List<object> { "" }
+            });
+            classBlock.Content.Add(new ScriptBuilder.CodeBlock()
+            {
+                Header = $"protected override void OpenStart()",
+                Content = openStartContent
+            });
+            classBlock.Content.Add(new ScriptBuilder.CodeBlock()
+            {
+                Header = $"protected override void CloseStart()",
+                Content = closeStartContent
+            });
+            classBlock.Content.Add(new ScriptBuilder.CodeBlock()
+            {
+                Header = $"protected override void UnloadFunc()",
+                Content = new List<object> { "" }
+            });
+            ScriptBuilder.CodeBlock namespaceBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"namespace {scriptNamespace}",
+                Content = new List<object> { classBlock },
+            };
+            ScriptBuilder.CodeBlock usingBlock = new ScriptBuilder.CodeBlock()
+            {
+                Content = new List<object> { $"{usingString}", "" },
+            };
+
+            return ScriptBuilder.Build(spaces, new ScriptBuilder.CodeBlock[]
+            {
+                usingBlock,
+                namespaceBlock
+            });
         }
 
         private string GetModelBody(string scriptNamespace, string className, string argumentsClassName, int spaces, bool ignoreTypeOverlap)
@@ -322,24 +331,34 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "";
             }
 
-            StringBuilder sb = new StringBuilder();
-            string s = "".PadRight(spaces, ' ');
+            ScriptBuilder.CodeBlock classBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"public class {className} : Model<{argumentsClassName}>",
+                Content = new List<object>
+                {
+                    "// You can use this function for create Model.",
+                    new ScriptBuilder.CodeBlock()
+                    {
+                        Header = $"public override void Init({argumentsClassName} args)",
+                        Content = new List<object> { "" }
+                    },
+                }
+            };
+            ScriptBuilder.CodeBlock namespaceBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"namespace {scriptNamespace}",
+                Content = new List<object> { classBlock },
+            };
+            ScriptBuilder.CodeBlock usingBlock = new ScriptBuilder.CodeBlock()
+            {
+                Content = new List<object> { "using Mu3Library.UI.MVP;", "" },
+            };
 
-            sb.AppendLine("using Mu3Library.UI.MVP;");
-            sb.AppendLine();
-            sb.AppendLine($"namespace {scriptNamespace}");
-            sb.AppendLine("{");
-            sb.Append(s).AppendLine($"public class {className} : Model<{argumentsClassName}>");
-            sb.Append(s).AppendLine("{");
-            sb.Append(s).Append(s).AppendLine("// You can use this function for create Model.");
-            sb.Append(s).Append(s).AppendLine($"public override void Init({argumentsClassName} args)");
-            sb.Append(s).Append(s).AppendLine("{");
-            sb.AppendLine();
-            sb.Append(s).Append(s).AppendLine("}");
-            sb.Append(s).AppendLine("}");
-            sb.AppendLine("}");
-
-            return sb.ToString();
+            return ScriptBuilder.Build(spaces, new ScriptBuilder.CodeBlock[]
+            {
+                usingBlock,
+                namespaceBlock
+            });
         }
 
         private string GetArgumentsBody(string scriptNamespace, string className, int spaces, bool ignoreTypeOverlap)
@@ -353,20 +372,38 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "";
             }
 
-            StringBuilder sb = new StringBuilder();
-            string s = "".PadRight(spaces, ' ');
+            ScriptBuilder.CodeBlock classBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"public class {className} : Arguments",
+                Content = new List<object> { "" }
+            };
+            ScriptBuilder.CodeBlock namespaceBlock = new ScriptBuilder.CodeBlock()
+            {
+                Header = $"namespace {scriptNamespace}",
+                Content = new List<object> { classBlock },
+            };
+            ScriptBuilder.CodeBlock usingBlock = new ScriptBuilder.CodeBlock()
+            {
+                Content = new List<object> { "using Mu3Library.UI.MVP;", "" },
+            };
 
-            sb.AppendLine("using Mu3Library.UI.MVP;");
-            sb.AppendLine();
-            sb.AppendLine($"namespace {scriptNamespace}");
-            sb.AppendLine("{");
-            sb.Append(s).AppendLine($"public class {className} : Arguments");
-            sb.Append(s).AppendLine("{");
-            sb.AppendLine();
-            sb.Append(s).AppendLine("}");
-            sb.AppendLine("}");
+            return ScriptBuilder.Build(spaces, new ScriptBuilder.CodeBlock[]
+            {
+                usingBlock,
+                namespaceBlock
+            });
+        }
 
-            return sb.ToString();
+        private void AppendLine(StringBuilder sb, string code = "", int spaceCount = 0)
+        {
+            if (spaceCount > 0)
+            {
+                sb.Append(' ', spaceCount).AppendLine(code);
+            }
+            else
+            {
+                sb.AppendLine(code);
+            }
         }
 
         private bool IsTypeExist(string fullName)
