@@ -3,6 +3,8 @@ using Mu3Library.Utility;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -35,7 +37,11 @@ namespace Mu3Library.Scene
             set => _fakeLoadingTime = value;
         }
 
-        private SceneLoadEventHelper _sceneLoadEventHelper = new();
+        private float _sceneLoadProgress = 0.0f;
+        public float SceneLoadProgress => _sceneLoadProgress;
+
+        public event Action<string> OnSceneLoadStart;
+        public event Action<string> OnSceneLoadEnd;
 
         private IEnumerator _loadSingleSceneCoroutine = null;
         /// <summary>
@@ -57,15 +63,6 @@ namespace Mu3Library.Scene
         }
 
         #region Utility
-
-        public void AddSceneLoadStartListener(string sceneName, SceneVoidEventHandler callback) => _sceneLoadEventHelper.AddSceneLoadStartListener(sceneName, callback);
-        public void RemoveSceneLoadStartListener(string sceneName, SceneVoidEventHandler callback) => _sceneLoadEventHelper.RemoveSceneLoadStartListener(sceneName, callback);
-
-        public void AddSceneLoadEndListener(string sceneName, SceneVoidEventHandler callback) => _sceneLoadEventHelper.AddSceneLoadEndListener(sceneName, callback);
-        public void RemoveSceneLoadEndListener(string sceneName, SceneVoidEventHandler callback) => _sceneLoadEventHelper.RemoveSceneLoadEndListener(sceneName, callback);
-
-        public void AddSceneLoadProgressListener(string sceneName, SceneFloatEventHandler callback) => _sceneLoadEventHelper.AddSceneLoadProgressListener(sceneName, callback);
-        public void RemoveSceneLoadProgressListener(string sceneName, SceneFloatEventHandler callback) => _sceneLoadEventHelper.RemoveSceneLoadProgressListener(sceneName, callback);
 
         public bool IsSceneLoadedAsAdditive(string sceneName)
         {
@@ -108,14 +105,14 @@ namespace Mu3Library.Scene
         {
             _loadingCount++;
 
-            _sceneLoadEventHelper.CallSceneLoadStartEvents(sceneName);
+            OnSceneLoadStart?.Invoke(sceneName);
 
             AsyncOperation ao = SceneManager.LoadSceneAsync(sceneName);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(sceneName, ao));
+            yield return StartCoroutine(LoadProcessCoroutine(ao));
 
-            _sceneLoadEventHelper.CallSceneLoadEndEvents(sceneName);
+            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -156,14 +153,14 @@ namespace Mu3Library.Scene
         {
             _loadingCount++;
 
-            _sceneLoadEventHelper.CallSceneLoadStartEvents(sceneName);
+            OnSceneLoadStart?.Invoke(sceneName);
 
             AsyncOperation ao = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(sceneName, ao));
+            yield return StartCoroutine(LoadProcessCoroutine(ao));
 
-            _sceneLoadEventHelper.CallSceneLoadEndEvents(sceneName);
+            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -241,16 +238,16 @@ namespace Mu3Library.Scene
             string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
 
             _loadingCount++;
-            _sceneLoadEventHelper.CallSceneLoadStartEvents(sceneName);
+            OnSceneLoadStart?.Invoke(sceneName);
 
             LoadSceneParameters parameters = new LoadSceneParameters(LoadSceneMode.Single, physicsMode);
             AsyncOperation ao = EditorSceneManager.LoadSceneAsyncInPlayMode(assetPath, parameters);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(sceneName, ao));
+            yield return StartCoroutine(LoadProcessCoroutine(ao));
 
             _loadingCount--;
-            _sceneLoadEventHelper.CallSceneLoadEndEvents(sceneName);
+            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -293,16 +290,16 @@ namespace Mu3Library.Scene
             string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
 
             _loadingCount++;
-            _sceneLoadEventHelper.CallSceneLoadStartEvents(sceneName);
+            OnSceneLoadStart?.Invoke(sceneName);
 
             LoadSceneParameters parameters = new LoadSceneParameters(LoadSceneMode.Additive, physicsMode);
             AsyncOperation ao = EditorSceneManager.LoadSceneAsyncInPlayMode(assetPath, parameters);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(sceneName, ao));
+            yield return StartCoroutine(LoadProcessCoroutine(ao));
 
             _loadingCount--;
-            _sceneLoadEventHelper.CallSceneLoadEndEvents(sceneName);
+            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -356,12 +353,12 @@ namespace Mu3Library.Scene
         }
 #endif
 
-        private IEnumerator LoadProcessCoroutine(string sceneName, AsyncOperation ao)
+        private IEnumerator LoadProcessCoroutine(AsyncOperation ao)
         {
             // Wait Scene Loading
             while (ao.progress < 0.9f)
             {
-                _sceneLoadEventHelper.CallSceneLoadProgressEvents(sceneName, ao.progress);
+                _sceneLoadProgress = ao.progress;
                 yield return null;
             }
 
@@ -372,14 +369,12 @@ namespace Mu3Library.Scene
                 while (timer < _fakeLoadingTime)
                 {
                     timer += Time.deltaTime;
-                    _sceneLoadEventHelper.CallSceneLoadProgressEvents(sceneName, Mathf.Lerp(0.9f, 1.0f, timer / _fakeLoadingTime));
+                    _sceneLoadProgress = Mathf.Lerp(0.9f, 1.0f, timer / _fakeLoadingTime);
                     yield return null;
                 }
             }
-            else
-            {
-                _sceneLoadEventHelper.CallSceneLoadProgressEvents(sceneName, 1.0f);
-            }
+
+            _sceneLoadProgress = 1.0f;
         }
 
         private IEnumerator UnloadProcessCoroutine(AsyncOperation ao)
