@@ -265,6 +265,40 @@ namespace Mu3Library.UI.MVP
 
             return presenter;
         }
+
+        public void RemoveCullingMask(string layerName)
+        {
+            int layerIndex = LayerMask.NameToLayer(layerName);
+            if (layerIndex >= 0)
+            {
+                _renderCamera.cullingMask &= ~(1 << layerIndex);
+            }
+        }
+
+        public void AddCullingMask(string layerName)
+        {
+            int layerIndex = LayerMask.NameToLayer(layerName);
+            if (layerIndex >= 0)
+            {
+                _renderCamera.cullingMask |= 1 << layerIndex;
+            }
+        }
+
+        public void SetCullingMask(params string[] layerNames)
+        {
+            int mask = 0;
+
+            foreach (var layerName in layerNames)
+            {
+                int layerIndex = LayerMask.NameToLayer(layerName);
+                if (layerIndex >= 0)
+                {
+                    mask |= 1 << layerIndex;
+                }
+            }
+
+            _renderCamera.cullingMask = mask;
+        }
         #endregion
 
         private void CloseAll(PresenterParams[] paramList, bool forceClose = false)
