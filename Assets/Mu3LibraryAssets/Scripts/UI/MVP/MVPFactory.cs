@@ -37,7 +37,7 @@ namespace Mu3Library.UI.MVP
             set => _defaultSortingOrder = value;
         }
 
-        private float _defaultPlaneDistance = 0;
+        private float _defaultPlaneDistance = 10.0f;
         public float DefaultPlaneDistance
         {
             get => _defaultPlaneDistance;
