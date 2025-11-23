@@ -43,7 +43,7 @@ namespace Mu3Library.UI.MVP
         public RectTransform RectTransform => _rectTransform;
 
         private Canvas m_canvas = null;
-        private Canvas _canvas
+        protected Canvas _canvas
         {
             get
             {
@@ -65,7 +65,7 @@ namespace Mu3Library.UI.MVP
         public int SortingOrder => _canvas.sortingOrder;
 
         private CanvasGroup m_canvasGroup = null;
-        private CanvasGroup _canvasGroup
+        protected CanvasGroup _canvasGroup
         {
             get
             {
