@@ -112,8 +112,6 @@ namespace Mu3Library.Scene
 
             yield return StartCoroutine(LoadProcessCoroutine(ao));
 
-            OnSceneLoadEnd?.Invoke(sceneName);
-
             ao.allowSceneActivation = true;
             // Wait other process
             while (!ao.isDone)
@@ -126,6 +124,8 @@ namespace Mu3Library.Scene
 
             _loadingCount--;
             _loadSingleSceneCoroutine = null;
+
+            OnSceneLoadEnd?.Invoke(sceneName);
         }
 
         public void LoadAdditiveScene(string sceneName)
@@ -160,8 +160,6 @@ namespace Mu3Library.Scene
 
             yield return StartCoroutine(LoadProcessCoroutine(ao));
 
-            OnSceneLoadEnd?.Invoke(sceneName);
-
             ao.allowSceneActivation = true;
             // Wait other process
             while (!ao.isDone)
@@ -173,6 +171,8 @@ namespace Mu3Library.Scene
 
             _loadingCount--;
             _loadAdditiveSceneCoroutines.Remove(sceneName);
+
+            OnSceneLoadEnd?.Invoke(sceneName);
         }
 
         public void UnloadAdditiveScene(string sceneName)
@@ -247,7 +247,6 @@ namespace Mu3Library.Scene
             yield return StartCoroutine(LoadProcessCoroutine(ao));
 
             _loadingCount--;
-            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -260,6 +259,8 @@ namespace Mu3Library.Scene
             _currentAdditiveScenes.Clear();
 
             _loadSingleSceneCoroutine = null;
+
+            OnSceneLoadEnd?.Invoke(sceneName);
         }
 
         public void LoadAdditiveSceneWithAssetPath(string assetPath, LocalPhysicsMode physicsMode = LocalPhysicsMode.None)
@@ -299,7 +300,6 @@ namespace Mu3Library.Scene
             yield return StartCoroutine(LoadProcessCoroutine(ao));
 
             _loadingCount--;
-            OnSceneLoadEnd?.Invoke(sceneName);
 
             ao.allowSceneActivation = true;
             // Wait other process
@@ -311,6 +311,8 @@ namespace Mu3Library.Scene
             _currentAdditiveScenes.Add(sceneName);
 
             _loadAdditiveSceneCoroutines.Remove(sceneName);
+
+            OnSceneLoadEnd?.Invoke(sceneName);
         }
 
         public void UnloadAdditiveSceneWithAssetPath(string assetPath)
