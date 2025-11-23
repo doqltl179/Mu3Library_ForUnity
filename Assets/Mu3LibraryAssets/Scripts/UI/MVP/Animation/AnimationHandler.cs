@@ -43,12 +43,16 @@ namespace Mu3Library.UI.MVP.Animation
 
         public void Open()
         {
-            Animation(0.0f, 1.0f, AnimationState.Opening, AnimationState.Opened, _animationConfigs.Select(t => t.AnimateOpen()));
+            Animation(0.0f, 1.0f, AnimationState.Opening, AnimationState.Opened, _animationConfigs
+                .Where(t => t != null)
+                .Select(t => t.AnimateOpen()));
         }
 
         public void Close()
         {
-            Animation(1.0f, 0.0f, AnimationState.Closing, AnimationState.Closed, _animationConfigs.Select(t => t.AnimateClose()));
+            Animation(1.0f, 0.0f, AnimationState.Closing, AnimationState.Closed, _animationConfigs
+                .Where(t => t != null)
+                .Select(t => t.AnimateClose()));
         }
 
         public void Stop()
