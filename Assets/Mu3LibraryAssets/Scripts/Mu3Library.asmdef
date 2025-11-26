@@ -2,9 +2,11 @@
     "name": "Mu3Library",
     "rootNamespace": "Mu3Library",
     "references": [
+        "GUID:84651a3751eca9349aac36a66bba901b",
         "GUID:75469ad4d38634e559750d17036d5f7c",
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "GUID:5c01796d064528144a599661eaab93a6"
+        "GUID:5c01796d064528144a599661eaab93a6",
+        "GUID:eec0964c48f6f4e40bc3ec2257ccf8c5"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -23,6 +25,11 @@
             "name": "com.unity.inputsystem",
             "expression": "",
             "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
         }
     ],
     "noEngineReferences": false
