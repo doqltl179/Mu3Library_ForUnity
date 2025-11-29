@@ -73,9 +73,14 @@ crashlytics-build.properties
 
 # My ignores
 # **/[Ss]amples~/
-[Aa]ssets/[Ss]amples
+[Aa]ssets/[Aa]ddressableAssetsData
+[Aa]ssets/[Aa]ddressableAssetsData.meta
 [Aa]ssets/[Ss]amples.meta
 [Aa]ssets/TextMesh Pro
 [Aa]ssets/TextMesh Pro.meta
 [Aa]ssets/builtin_shaders
 [Aa]ssets/builtin_shaders.meta
+[Aa]ssets/Mu3LibraryAssets/Samples~/Sample_Localization
+[Aa]ssets/Mu3LibraryAssets/Samples~/Sample_Localization.meta
+[Aa]ssets/Mu3LibraryAssets/Samples~/Sample_Addressable
+[Aa]ssets/Mu3LibraryAssets/Samples~/Sample_Addressable.meta
