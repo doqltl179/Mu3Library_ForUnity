@@ -1,0 +1,16 @@
+{
+    "name": "Mu3Library.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
