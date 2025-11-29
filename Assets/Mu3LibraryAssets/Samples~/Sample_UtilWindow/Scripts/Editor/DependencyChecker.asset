@@ -351,33 +351,9 @@ MonoBehaviour:
   _objectList:
   - {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
   - {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
-  - {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
-  _dependencies:
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSans-Bold SDF.asset
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSans-Bold.ttf
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansJP-Bold SDF.asset
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansJP-Bold.ttf
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansKR-Bold SDF.asset
-  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansKR-Bold.ttf
-  - Assets/Mu3LibrarySamples/Sample_Localization/Scenes/Sample_Localization.unity
-  - Assets/Mu3LibrarySamples/Sample_Localization/Scripts/SampleSceneLocalizationController.cs
-  - Assets/Mu3LibrarySamples/Sample_MVP/Scenes/Sample_MVP.unity
-  - Assets/Mu3LibrarySamples/Sample_MVP/Scripts/SampleSceneMVPController.cs
-  - Assets/TextMesh Pro/Shaders/TMP_SDF.shader
-  - Packages/com.unity.inputsystem/InputSystem/Actions/InputActionAsset.cs
-  - Packages/com.unity.inputsystem/InputSystem/Actions/InputActionReference.cs
-  - Packages/com.unity.inputsystem/InputSystem/Editor/AssetImporter/InputActionImporter.cs
-  - Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputSystemUIInputModule@64.png
-  - Packages/com.unity.inputsystem/InputSystem/Plugins/PlayerInput/DefaultInputActions.inputactions
-  - Packages/com.unity.inputsystem/InputSystem/Plugins/UI/InputSystemUIInputModule.cs
-  - Packages/com.unity.localization/Editor/Icons/Localize String Component/LocalizeStringComponent.png
-  - Packages/com.unity.localization/Runtime/Component Localizers/LocalizeStringEvent.cs
-  - Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Font Asset Icon.psd
-  - Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Text Component Icon.psd
-  - Packages/com.unity.ugui/Runtime/TMP/TextMeshProUGUI.cs
-  - Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs
-  - Packages/com.unity.ugui/Runtime/UGUI/EventSystem/EventSystem.cs
-  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/GraphicRaycaster.cs
-  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs
-  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/Layout/CanvasScaler.cs
+  _excludePackages: 0
   _recursive: 1
+  _searchWithExtensions: 1
+  _searchExtensions:
+  - png
+  - asset
