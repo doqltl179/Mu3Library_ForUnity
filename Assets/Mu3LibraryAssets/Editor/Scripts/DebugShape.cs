@@ -1,6 +1,4 @@
-#if UNITY_EDITOR
 using UnityEngine;
-
 
 namespace Mu3Library.Editor {
     public static class DebugShape {
@@ -87,4 +85,3 @@ namespace Mu3Library.Editor {
         #endregion
     }
 }
-#endif
