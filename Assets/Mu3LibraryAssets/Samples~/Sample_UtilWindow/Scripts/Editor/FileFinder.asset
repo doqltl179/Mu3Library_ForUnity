@@ -9,8 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc1435628cb20144880f1a24e60afcd8, type: 3}
-  m_Name: SceneList
+  m_Script: {fileID: 11500000, guid: 0263dd0c90875954992126dffaa99eb7, type: 3}
+  m_Name: FileFinder
   m_EditorClassIdentifier: 
   _foldout: 1
   _header1Style:
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -286,7 +286,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,33 +348,5 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _sceneFolders:
-  - {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
-  - {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
-  - {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
-  - {fileID: 102900000, guid: c816684f28b4db6419ee58c3d111c863, type: 3}
-  _scenes:
-  - Folder: {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Attribute
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: 5f3ed4ffceb083f45b321458ad95a889, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Attribute/Scenes/Sample_Attribute.unity
-  - Folder: {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Audio
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: ed318079f8026514681d83df78a413dd, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Audio/Scenes/Sample_Audio.unity
-  - Folder: {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_MVP
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_MVP/Scenes/Sample_MVP.unity
-  - Folder: {fileID: 102900000, guid: c816684f28b4db6419ee58c3d111c863, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Localization
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Localization/Scenes/Sample_Localization.unity
+  _sceneFolders: []
+  _scenes: []

@@ -40,6 +40,17 @@ namespace Mu3Library.Editor.FileUtil
             return AssetDatabase.LoadAssetAtPath<T>(relativePaths[0]);
         }
 
+        public static Object LoadAssetAtGUID(string guid)
+        {
+            return LoadAssetAtGUID<Object>(guid);
+        }
+
+        public static T LoadAssetAtGUID<T>(string guid) where T : Object
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            return LoadAssetAtPath<T>(assetPath);
+        }
+
         /// <summary>
         /// 
         /// </summary>
