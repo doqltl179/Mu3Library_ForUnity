@@ -9,8 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d76c92c706690fb428451d24cd00ab09, type: 3}
-  m_Name: DrawerList
+  m_Script: {fileID: 11500000, guid: 67be5c1e21bd70b49afa7d3ce553e580, type: 3}
+  m_Name: DependencyChecker
   m_EditorClassIdentifier: 
   _foldout: 1
   _header1Style:
@@ -192,7 +192,7 @@ MonoBehaviour:
       m_Top: 0
       m_Bottom: 0
     m_Padding:
-      m_Left: 0
+      m_Left: 11
       m_Right: 11
       m_Top: 5
       m_Bottom: 5
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
+      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,9 +348,36 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _drawers:
-  - {fileID: 11400000, guid: f8fdb7f97c9774f42bd66468c4cba6bf, type: 2}
-  - {fileID: 11400000, guid: 46a19a6500cd5e1469056f25de4627e1, type: 2}
-  - {fileID: 11400000, guid: 6f73377d6164572478600f96aaef16b9, type: 2}
-  - {fileID: 11400000, guid: 1649e8994ac37e54ebbb120f7cc128f7, type: 2}
-  - {fileID: 11400000, guid: 9314dd47f45cdd64990e407d5e1077e1, type: 2}
+  _objectList:
+  - {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
+  - {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
+  - {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
+  _dependencies:
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSans-Bold SDF.asset
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSans-Bold.ttf
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansJP-Bold SDF.asset
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansJP-Bold.ttf
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansKR-Bold SDF.asset
+  - Assets/Mu3LibrarySamples/Sample_Localization/Fonts/NotoSansKR-Bold.ttf
+  - Assets/Mu3LibrarySamples/Sample_Localization/Scenes/Sample_Localization.unity
+  - Assets/Mu3LibrarySamples/Sample_Localization/Scripts/SampleSceneLocalizationController.cs
+  - Assets/Mu3LibrarySamples/Sample_MVP/Scenes/Sample_MVP.unity
+  - Assets/Mu3LibrarySamples/Sample_MVP/Scripts/SampleSceneMVPController.cs
+  - Assets/TextMesh Pro/Shaders/TMP_SDF.shader
+  - Packages/com.unity.inputsystem/InputSystem/Actions/InputActionAsset.cs
+  - Packages/com.unity.inputsystem/InputSystem/Actions/InputActionReference.cs
+  - Packages/com.unity.inputsystem/InputSystem/Editor/AssetImporter/InputActionImporter.cs
+  - Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputSystemUIInputModule@64.png
+  - Packages/com.unity.inputsystem/InputSystem/Plugins/PlayerInput/DefaultInputActions.inputactions
+  - Packages/com.unity.inputsystem/InputSystem/Plugins/UI/InputSystemUIInputModule.cs
+  - Packages/com.unity.localization/Editor/Icons/Localize String Component/LocalizeStringComponent.png
+  - Packages/com.unity.localization/Runtime/Component Localizers/LocalizeStringEvent.cs
+  - Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Font Asset Icon.psd
+  - Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Text Component Icon.psd
+  - Packages/com.unity.ugui/Runtime/TMP/TextMeshProUGUI.cs
+  - Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs
+  - Packages/com.unity.ugui/Runtime/UGUI/EventSystem/EventSystem.cs
+  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/GraphicRaycaster.cs
+  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs
+  - Packages/com.unity.ugui/Runtime/UGUI/UI/Core/Layout/CanvasScaler.cs
+  _recursive: 1

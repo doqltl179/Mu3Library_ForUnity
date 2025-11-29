@@ -12,6 +12,43 @@ namespace Mu3Library.Editor.FileUtil
 
         #region Utility
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="assetPath"></param>
+        /// <param name="recursive"> 재귀적으로 모든 하위 오브젝트를 탐색 </param>
+        /// <returns> Asset Path </returns>
+        public static string[] GetDependencies(List<Object> objs, bool recursive = true)
+        {
+            if (objs == null || objs.Count == 0)
+            {
+                return new string[0];
+            }
+
+            string[] assetPaths = objs
+                .Where(t => t != null)
+                .Select(t => GetAssetPath(t))
+                .ToArray();
+            return AssetDatabase.GetDependencies(assetPaths, recursive);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="assetPath"></param>
+        /// <param name="recursive"> 재귀적으로 모든 하위 오브젝트를 탐색 </param>
+        /// <returns> Asset Path </returns>
+        public static string[] GetDependencies(Object obj, bool recursive = true)
+        {
+            if(obj == null)
+            {
+                return new string[0];
+            }
+
+            string assetPath = GetAssetPath(obj);
+            return AssetDatabase.GetDependencies(assetPath, recursive);
+        }
+
+        /// <summary>
         /// Return all folders path
         /// </summary>
         /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
@@ -49,6 +86,17 @@ namespace Mu3Library.Editor.FileUtil
         {
             string assetPath = AssetDatabase.GUIDToAssetPath(guid);
             return LoadAssetAtPath<T>(assetPath);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="filePath"> Assets 폴더를 기준으로 한 상대 경로 </param>
+        /// <returns></returns>
+        public static Object LoadAssetAtPath(string filePath)
+        {
+            return AssetDatabase.LoadAssetAtPath<Object>(filePath);
         }
 
         /// <summary>
@@ -151,7 +199,55 @@ namespace Mu3Library.Editor.FileUtil
         {
             return FindAssetsGuid(directory, name, typeString, assetlabel);
         }
+
+        public static void PingObject(Object obj, bool selectObject = false)
+        {
+            if (obj == null)
+            {
+                return;
+            }
+
+            EditorGUIUtility.PingObject(obj);
+
+            if (selectObject)
+            {
+                Selection.activeObject = obj;
+            }
+        }
+
+        public static bool IsValidFolder(Object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            string assetPath = GetAssetPath(obj);
+            return AssetDatabase.IsValidFolder(assetPath);
+        }
         #endregion
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="assetPath"></param>
+        /// <param name="recursive"> 재귀적으로 모든 하위 오브젝트를 탐색 </param>
+        /// <returns> Asset Path </returns>
+        private static string[] GetDependencies(string[] assetPaths, bool recursive = true)
+        {
+            return AssetDatabase.GetDependencies(assetPaths, recursive);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="assetPath"></param>
+        /// <param name="recursive"> 재귀적으로 모든 하위 오브젝트를 탐색 </param>
+        /// <returns> Asset Path </returns>
+        private static string[] GetDependencies(string assetPath, bool recursive = true)
+        {
+            return AssetDatabase.GetDependencies(assetPath, recursive);
+        }
 
         /// <summary>
         /// 에셋 파일의 Guid를 반환한다.
@@ -223,32 +319,6 @@ namespace Mu3Library.Editor.FileUtil
             }
 
             return result;
-        }
-
-        public static void PingObject(Object obj, bool selectObject = false)
-        {
-            if (obj == null)
-            {
-                return;
-            }
-            
-            EditorGUIUtility.PingObject(obj);
-            
-            if(selectObject)
-            {
-                Selection.activeObject = obj;
-            }
-        }
-
-        public static bool IsValidFolder(Object obj)
-        {
-            if (obj == null)
-            {
-                return false;
-            }
-            
-            string assetPath = GetAssetPath(obj);
-            return AssetDatabase.IsValidFolder(assetPath);
         }
     }
 }
