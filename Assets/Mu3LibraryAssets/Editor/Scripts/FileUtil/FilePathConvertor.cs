@@ -1,5 +1,3 @@
-#if UNITY_EDITOR
-
 using UnityEngine;
 
 namespace Mu3Library.Editor.FileUtil {
@@ -128,5 +126,3 @@ namespace Mu3Library.Editor.FileUtil {
         }
     }
 }
-
-#endif
