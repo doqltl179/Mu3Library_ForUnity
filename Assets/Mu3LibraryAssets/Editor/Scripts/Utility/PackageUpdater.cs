@@ -28,6 +28,8 @@ namespace Mu3Library.Editor.Utility
                 return;
             }
 
+            _isUpdating = true;
+
             _listRequest = Client.List(true, false);
             EditorApplication.update += ListProgress;
         }
@@ -50,6 +52,11 @@ namespace Mu3Library.Editor.Utility
                 {
                     _updateRequest = Client.Add(packageName);
                     EditorApplication.update += UpdateProgress;
+                }
+                else
+                {
+                    Debug.LogError("Package not found");
+                    _isUpdating = false;
                 }
             }
             else
