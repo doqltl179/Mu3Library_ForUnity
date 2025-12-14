@@ -20,6 +20,7 @@ namespace Mu3Library.Sample.MVP
 
         [Space(20)]
         [SerializeField] private KeyCode _closeAllKey = KeyCode.Z;
+        [SerializeField] private KeyCode _closeAllWithoutDefaultKey = KeyCode.X;
 
         private IPresenter _loadingScreenPresenter = null;
 
@@ -45,7 +46,8 @@ namespace Mu3Library.Sample.MVP
                     { _loadingScreenOpenKey, "Open loading screen" },
                     { _loadingScreenCloseKey, "Close loading screen" },
 
-                    { _closeAllKey, "Close All" },
+                    { _closeAllKey, "Close all" },
+                    { _closeAllWithoutDefaultKey, "Close all without default" },
                 },
             };
             MVPManager.Instance.Open<MainPresenter>(args);
@@ -87,6 +89,10 @@ namespace Mu3Library.Sample.MVP
             {
                 MVPManager.Instance.CloseAll();
             }
+            else if(Input.GetKeyDown(_closeAllWithoutDefaultKey))
+            {
+                MVPManager.Instance.CloseAllWithoutDefault();
+            }
         }
 
         private void OpenNotificationOneButton()
@@ -122,29 +128,17 @@ namespace Mu3Library.Sample.MVP
 
         private void OpenOneCurveScaleAnimationPopup()
         {
-            OneCurveScaleAnimationPopupArguments args = new()
-            {
-
-            };
-            MVPManager.Instance.Open<OneCurveScaleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+            MVPManager.Instance.Open<OneCurveScaleAnimationPopupPresenter>(_defaultOutPanelParams);
         }
 
         private void OpenTwoCurveScaleAnimationPopup()
         {
-            TwoCurveScaleAnimationPopupArguments args = new()
-            {
-
-            };
-            MVPManager.Instance.Open<TwoCurveScaleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+            MVPManager.Instance.Open<TwoCurveScaleAnimationPopupPresenter>(_defaultOutPanelParams);
         }
 
         private void OpenBottomToMiddleAnimationPopup()
         {
-            BottomToMiddleAnimationPopupArguments args = new()
-            {
-
-            };
-            MVPManager.Instance.Open<BottomToMiddleAnimationPopupPresenter>(args, _defaultOutPanelParams);
+            MVPManager.Instance.Open<BottomToMiddleAnimationPopupPresenter>(_defaultOutPanelParams);
         }
 
         private void OpenLoadingScreen()
@@ -152,11 +146,7 @@ namespace Mu3Library.Sample.MVP
             if(_loadingScreenPresenter == null ||
                 _loadingScreenPresenter.ViewState == ViewState.Unloaded)
             {
-                LoadingScreenArguments args = new()
-                {
-
-                };
-                _loadingScreenPresenter = MVPManager.Instance.Open<LoadingScreenPresenter>(args);
+                _loadingScreenPresenter = MVPManager.Instance.Open<LoadingScreenPresenter>();
             }
         }
 

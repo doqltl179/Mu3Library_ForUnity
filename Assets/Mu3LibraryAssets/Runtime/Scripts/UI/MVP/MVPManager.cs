@@ -138,6 +138,17 @@ namespace Mu3Library.UI.MVP
         }
 
         #region Utility
+        public void CloseAllWithoutDefault(bool forceClose = false)
+        {
+            var paramList = Enumerable.Empty<PresenterParams>()
+                .Concat(_openedPresenters)
+                .Concat(_presenterOpenChecker)
+                .Where(t => t.Presenter.LayerName != "Default")
+                .ToArray();
+
+            CloseAll(paramList, forceClose);
+        }
+
         public void CloseAll(bool forceClose = false)
         {
             var paramList = Enumerable.Empty<PresenterParams>()
@@ -214,16 +225,16 @@ namespace Mu3Library.UI.MVP
             return true;
         }
 
-        public IPresenter Open<TPresenter>(Arguments args, OutPanelParams param = null) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>() where TPresenter : class, IPresenter, new() => Open<TPresenter>(null, null);
+
+        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : class, IPresenter, new() => Open<TPresenter>(args, null);
+
+        public IPresenter Open<TPresenter>(OutPanelParams param) where TPresenter : class, IPresenter, new() => Open<TPresenter>(null, param);
+
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelParams param) where TPresenter : class, IPresenter, new()
         {
             TPresenter presenter = MVPFactory.Instance.CreatePresenter<TPresenter>();
             GetInterface(presenter, out var initialize, out var lifecycle);
-
-            if (args.GetType() != presenter.ArgumentType)
-            {
-                Debug.LogError($"Undefined argument type. requested presenter: {presenter.GetType()}, requested argument: {args.GetType()}");
-                return null;
-            }
 
             Type viewType = presenter.ViewType;
             string viewLayerName = MVPFactory.Instance.GetLayerName(viewType);
