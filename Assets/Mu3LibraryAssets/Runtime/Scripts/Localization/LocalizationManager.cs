@@ -86,10 +86,15 @@ namespace Mu3Library.Localization
             }
         }
         #endregion
-        
+
         private IEnumerator GetStringAsyncCoroutine(string tableName, string key, Action<string> callback = null)
         {
             LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
+            if(stringDatabase == null)
+            {
+                callback?.Invoke("");
+                yield break;
+            }
 
             AsyncOperationHandle<StringTable> handle = stringDatabase.GetTableAsync(tableName);
             yield return handle;
@@ -119,7 +124,7 @@ namespace Mu3Library.Localization
             }
             else
             {
-                Debug.LogError("Localization initialize failed.");
+                Debug.LogError($"Localization initialize failed.\r\n{handle.OperationException?.Message}");
             }
 
             _initializeCoroutine = null;
