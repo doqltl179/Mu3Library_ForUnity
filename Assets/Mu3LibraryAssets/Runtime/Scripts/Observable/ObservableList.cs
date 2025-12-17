@@ -44,6 +44,38 @@ namespace Mu3Library.Observable
             Notify();
         }
 
+        public void AddRange(IEnumerable<T> items)
+        {
+            if (items == null)
+            {
+                throw new ArgumentNullException(nameof(items));
+            }
+
+            if (items is ICollection<T> collection)
+            {
+                if (collection.Count == 0)
+                {
+                    return;
+                }
+
+                _list.AddRange(collection);
+                Notify();
+                return;
+            }
+
+            bool addedAny = false;
+            foreach (T item in items)
+            {
+                _list.Add(item);
+                addedAny = true;
+            }
+
+            if (addedAny)
+            {
+                Notify();
+            }
+        }
+
         public void Clear()
         {
             if (_list.Count == 0)
