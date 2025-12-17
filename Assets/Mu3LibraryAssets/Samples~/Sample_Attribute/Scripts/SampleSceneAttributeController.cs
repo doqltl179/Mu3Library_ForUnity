@@ -1,4 +1,6 @@
 using Mu3Library.Attribute;
+using Mu3Library.Observable;
+using TMPro;
 using UnityEngine;
 
 namespace Mu3Library.Sample.Attribute
@@ -13,6 +15,27 @@ namespace Mu3Library.Sample.Attribute
         [SerializeField] private bool testConditionProperty = false;
         [ConditionalHide(nameof(testConditionProperty), true)]
         [SerializeField] private string testConditionHideProperty = "";
+
+        [Title("Observable")]
+        [SerializeField] private TextMeshProUGUI _observableFloatText;
+        [SerializeField] private ObservableFloat _observableFloat;
 #pragma warning restore 0414
+
+
+
+        private void OnEnable()
+        {
+            _observableFloat.AddEvent(OnObservableFloatChanged);
+        }
+
+        private void OnDisable()
+        {
+            _observableFloat.RemoveEvent(OnObservableFloatChanged);
+        }
+
+        private void OnObservableFloatChanged(float value)
+        {
+            _observableFloatText.text = $"{value:F3}";
+        }
     }
 }

@@ -12,7 +12,7 @@ namespace Mu3Library.Observable
         #region Utility
         public void Set(T value)
         {
-            if (_value.Equals(value))
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(_value, value))
             {
                 return;
             }
@@ -22,6 +22,8 @@ namespace Mu3Library.Observable
         }
 
         public void SetWithoutEvent(T value) => _value = value;
+
+        public void Notify() => _callback?.Invoke(_value);
 
         public void AddEvent(System.Action<T> callback) => _callback += callback;
         public void RemoveEvent(System.Action<T> callback) => _callback -= callback;
