@@ -15,11 +15,11 @@ namespace Mu3Library.Sample.Attribute
         [SerializeField] private bool testConditionProperty = false;
         [ConditionalHide(nameof(testConditionProperty), true)]
         [SerializeField] private string testConditionHideProperty = "";
+#pragma warning restore 0414
 
         [Title("Observable")]
         [SerializeField] private TextMeshProUGUI _observableFloatText;
         [SerializeField] private ObservableFloat _observableFloat;
-#pragma warning restore 0414
 
 
 
