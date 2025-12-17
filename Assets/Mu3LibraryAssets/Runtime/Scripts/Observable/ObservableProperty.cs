@@ -12,35 +12,19 @@ namespace Mu3Library.Observable
         #region Utility
         public void Set(T value)
         {
-            if (!_value.Equals(value))
+            if (_value.Equals(value))
             {
-                _value = value;
-                _callback?.Invoke(value);
+                return;
             }
-        }
 
-        public void SetWithoutEvent(T value)
-        {
             _value = value;
+            _callback?.Invoke(value);
         }
 
-        public void AddEvent(System.Action<T> callback)
-        {
-            if (callback == null)
-            {
-                return;
-            }
-            _callback += callback;
-        }
+        public void SetWithoutEvent(T value) => _value = value;
 
-        public void RemoveEvent(System.Action<T> callback)
-        {
-            if (callback == null)
-            {
-                return;
-            }
-            _callback -= callback;
-        }
+        public void AddEvent(System.Action<T> callback) => _callback += callback;
+        public void RemoveEvent(System.Action<T> callback) => _callback -= callback;
         #endregion
     }
 }

@@ -12,7 +12,7 @@ namespace Mu3Library.Editor.Observable
             EditorGUI.BeginProperty(position, label, valueProp);
 
             float oldValue = valueProp.floatValue;
-            float newValue = EditorGUI.FloatField(position, label, oldValue);
+            float newValue = EditorGUI.FloatField(position, $"[Observable] {label}", oldValue);
 
             if (oldValue != newValue)
             {
