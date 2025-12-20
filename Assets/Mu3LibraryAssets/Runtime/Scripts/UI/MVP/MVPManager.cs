@@ -332,10 +332,7 @@ namespace Mu3Library.UI.MVP
 
         private void UpdateFocus()
         {
-            IEnumerable<PresenterParams> paramList = RunningPresenterParams()
-                .Where(t =>
-                    t.OutPanelParams != null &&
-                    t.OutPanelParams.InteractAsClose);
+            IEnumerable<PresenterParams> paramList = RunningPresenterParams();
             PresenterParams mostFront = null;
 
             foreach (PresenterParams param in paramList)
