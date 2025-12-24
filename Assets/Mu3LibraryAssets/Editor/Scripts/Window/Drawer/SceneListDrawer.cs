@@ -32,6 +32,11 @@ namespace Mu3Library.Editor.Window.Drawer
         }
         // Dictionary를 SerializeField로 사용할 수 없어서 List를 사용함
         [SerializeField, HideInInspector] private List<SceneFolderStruct> _scenes = new();
+        private SceneAsset _playModeStartScene
+        {
+            get => EditorSceneManager.playModeStartScene;
+            set => EditorSceneManager.playModeStartScene = value;
+        }
 
         private SerializedObject m_sceneFoldersObject;
         private SerializedObject _sceneFoldersObject
@@ -157,71 +162,110 @@ namespace Mu3Library.Editor.Window.Drawer
 
             foreach (SceneFolderStruct sceneFolderStruct in _scenes)
             {
-                DrawFoldoutHeader2(sceneFolderStruct.FolderPath, ref sceneFolderStruct.Foldout);
+                DrawSceneFolderStruct(sceneFolderStruct);
+            }
+        }
 
-                if (!sceneFolderStruct.Foldout)
+        private void DrawSceneFolderStruct(SceneFolderStruct sceneFolderStruct)
+        {
+            DrawFoldoutHeader2(sceneFolderStruct.FolderPath, ref sceneFolderStruct.Foldout);
+
+            if (!sceneFolderStruct.Foldout)
+            {
+                return;
+            }
+
+            foreach (SceneAssetStruct sceneAssetStruct in sceneFolderStruct.SceneAssets)
+            {
+                DrawSceneAssetStruct(sceneAssetStruct);
+            }
+        }
+
+        private void DrawSceneAssetStruct(SceneAssetStruct sceneAssetStruct)
+        {
+            if (sceneAssetStruct.SceneAsset == null)
+            {
+                return;
+            }
+
+            GUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Find", GUILayout.Width(60), GUILayout.Height(30)))
+            {
+                FileFinder.PingObject(sceneAssetStruct.SceneAsset);
+            }
+
+            int buildSceneIndex = System.Array.FindIndex(EditorBuildSettings.scenes,
+                t => t.path == sceneAssetStruct.AssetPath);
+            if (GUILayout.Button(
+                buildSceneIndex >= 0 ?
+                    "Remove In Build Settings" :
+                    "Add To Build Settings",
+                GUILayout.Width(160),
+                GUILayout.Height(30)))
+            {
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
                 {
-                    continue;
+                    Debug.LogWarning($"Can't edit editor during Playmode.");
                 }
-
-                foreach (SceneAssetStruct sceneAssetStruct in sceneFolderStruct.SceneAssets)
+                else
                 {
-                    if (sceneAssetStruct.SceneAsset == null)
+                    List<EditorBuildSettingsScene> copyScenes = EditorBuildSettings.scenes.ToList();
+
+                    if (buildSceneIndex >= 0)
                     {
-                        continue;
+                        copyScenes.RemoveAt(buildSceneIndex);
+                    }
+                    else
+                    {
+                        copyScenes.Add(new EditorBuildSettingsScene(sceneAssetStruct.AssetPath, true));
                     }
 
-                    GUILayout.BeginHorizontal();
-
-                    if (GUILayout.Button("Find", GUILayout.Width(60), GUILayout.Height(30)))
-                    {
-                        FileFinder.PingObject(sceneAssetStruct.SceneAsset);
-                    }
-
-                    int buildSceneIndex = System.Array.FindIndex(EditorBuildSettings.scenes,
-                        t => t.path == sceneAssetStruct.AssetPath);
-                    if (GUILayout.Button(buildSceneIndex >= 0 ?
-                        "Remove In Build Settings" :
-                        "Add To Build Settings",
-                        GUILayout.Width(160), GUILayout.Height(30)))
-                    {
-                        if (EditorApplication.isPlayingOrWillChangePlaymode)
-                        {
-                            Debug.LogWarning($"Can't edit editor during Playmode.");
-                        }
-                        else
-                        {
-                            List<EditorBuildSettingsScene> copyScenes = EditorBuildSettings.scenes.ToList();
-
-                            if (buildSceneIndex >= 0)
-                            {
-                                copyScenes.RemoveAt(buildSceneIndex);
-                            }
-                            else
-                            {
-                                copyScenes.Add(new EditorBuildSettingsScene(sceneAssetStruct.AssetPath, true));
-                            }
-
-                            EditorBuildSettings.scenes = copyScenes.ToArray();
-                        }
-                    }
-
-                    if (GUILayout.Button($"Open [ {sceneAssetStruct.SceneAsset.name} ]", GUILayout.Height(30)))
-                    {
-                        if (EditorApplication.isPlayingOrWillChangePlaymode)
-                        {
-                            Debug.LogWarning($"Can't open editor during Playmode.");
-                        }
-                        else if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
-                        {
-                            string scenePath = FileFinder.GetAssetPath(sceneAssetStruct.SceneAsset);
-                            EditorSceneManager.OpenScene(scenePath);
-                        }
-                    }
-
-                    GUILayout.EndHorizontal();
+                    EditorBuildSettings.scenes = copyScenes.ToArray();
                 }
             }
+
+            if (GUILayout.Button($"Open [ {sceneAssetStruct.SceneAsset.name} ]", GUILayout.Height(30)))
+            {
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
+                {
+                    Debug.LogWarning($"Can't open editor during Playmode.");
+                }
+                else if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                {
+                    string scenePath = FileFinder.GetAssetPath(sceneAssetStruct.SceneAsset);
+                    EditorSceneManager.OpenScene(scenePath);
+                }
+            }
+
+            bool isSameScene = _playModeStartScene == sceneAssetStruct.SceneAsset;
+            Color prevContentColor = GUI.contentColor;
+
+            if(isSameScene)
+            {
+                GUI.contentColor = Color.green;
+            }
+
+            if (GUILayout.Button(
+                isSameScene ?
+                    "Unset From Play Mode Start Scene" :
+                    "Set To Play Mode Start Scene",
+                GUILayout.Width(220),
+                GUILayout.Height(30)))
+            {
+                if (isSameScene)
+                {
+                    _playModeStartScene = null;
+                }
+                else
+                {
+                    _playModeStartScene = sceneAssetStruct.SceneAsset;
+                }
+            }
+
+            GUI.contentColor = prevContentColor;
+
+            GUILayout.EndHorizontal();
         }
 
         private void SyncSceneAssets()
