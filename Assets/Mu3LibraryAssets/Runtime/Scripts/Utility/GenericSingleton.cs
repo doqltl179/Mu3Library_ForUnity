@@ -49,6 +49,11 @@ namespace Mu3Library.Utility
 
         protected virtual void OnDestroy()
         {
+            if(this == null || gameObject == null)
+            {
+                return;
+            }
+
             instance = null;
         }
     }
