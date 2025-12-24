@@ -1,6 +1,6 @@
 {
     "name": "Mu3Library.Editor",
-    "rootNamespace": "",
+    "rootNamespace": "Mu3Library.Editor",
     "references": [
         "GUID:f4e0cdb7fec9e6a40b6c416ba823166b"
     ],
