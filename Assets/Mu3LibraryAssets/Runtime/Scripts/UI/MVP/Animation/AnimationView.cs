@@ -10,6 +10,7 @@ namespace Mu3Library.UI.MVP.Animation
         Closed = 4,
     }
 
+    [UnityEngine.RequireComponent(typeof(AnimationHandler))]
     public abstract class AnimationView : View
     {
         private AnimationHandler m_animationHandler;
