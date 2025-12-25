@@ -199,7 +199,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 t => t.path == sceneAssetStruct.AssetPath);
             if (GUILayout.Button(
                 buildSceneIndex >= 0 ?
-                    "Remove In Build Settings" :
+                    "Remove From Build Settings" :
                     "Add To Build Settings",
                 GUILayout.Width(160),
                 GUILayout.Height(30)))
