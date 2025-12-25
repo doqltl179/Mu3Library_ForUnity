@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using System;
+using Mu3Library.Observable;
+
 
 
 #if UNITY_EDITOR
@@ -37,7 +39,7 @@ namespace Mu3Library.Scene
             set => _fakeLoadingTime = value;
         }
 
-        private float _sceneLoadProgress = 0.0f;
+        private readonly ObservableFloat _sceneLoadProgress = new();
         public float SceneLoadProgress => _sceneLoadProgress;
 
         public event Action<string> OnSceneLoadStart;
@@ -76,6 +78,16 @@ namespace Mu3Library.Scene
             return _currentAdditiveScenes.Contains(sceneName);
         }
 #endif
+
+        public void RemoveProgressEvent(Action<float> callback)
+        {
+            _sceneLoadProgress.RemoveEvent(callback);
+        }
+
+        public void AddProgressEvent(Action<float> callback)
+        {
+            _sceneLoadProgress.AddEvent(callback);
+        }
 
         #endregion
 
@@ -357,10 +369,12 @@ namespace Mu3Library.Scene
 
         private IEnumerator LoadProcessCoroutine(AsyncOperation ao)
         {
+            _sceneLoadProgress.Set(0f);
+
             // Wait Scene Loading
             while (ao.progress < 0.9f)
             {
-                _sceneLoadProgress = ao.progress;
+                _sceneLoadProgress.Set(ao.progress);
                 yield return null;
             }
 
@@ -371,12 +385,12 @@ namespace Mu3Library.Scene
                 while (timer < _fakeLoadingTime)
                 {
                     timer += Time.deltaTime;
-                    _sceneLoadProgress = Mathf.Lerp(0.9f, 1.0f, timer / _fakeLoadingTime);
+                    _sceneLoadProgress.Set(Mathf.Lerp(0.9f, 1.0f, timer / _fakeLoadingTime));
                     yield return null;
                 }
             }
 
-            _sceneLoadProgress = 1.0f;
+            _sceneLoadProgress.Set(1.0f);
         }
 
         private IEnumerator UnloadProcessCoroutine(AsyncOperation ao)
