@@ -32,6 +32,7 @@ namespace Mu3Library.Editor.Window.Drawer
         }
         // Dictionary를 SerializeField로 사용할 수 없어서 List를 사용함
         [SerializeField, HideInInspector] private List<SceneFolderStruct> _scenes = new();
+
         private SceneAsset _playModeStartScene
         {
             get => EditorSceneManager.playModeStartScene;
@@ -191,6 +192,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
+            Color prevContentColor = GUI.contentColor;
+
             GUILayout.Label($"{sceneAssetStruct.AssetPath}");
 
             GUILayout.BeginHorizontal();
@@ -209,7 +212,7 @@ namespace Mu3Library.Editor.Window.Drawer
             {
                 if (EditorApplication.isPlayingOrWillChangePlaymode)
                 {
-                    Debug.LogWarning($"Can't edit editor during Playmode.");
+                    Debug.LogWarning($"Action unavailable while Editor is in Play Mode.");
                 }
                 else
                 {
@@ -228,33 +231,69 @@ namespace Mu3Library.Editor.Window.Drawer
                 }
             }
 
-            if (GUILayout.Button($"Open [ {sceneAssetStruct.SceneAsset.name} ]", GUILayout.Height(30)))
+            bool openSingleSceneButton = GUILayout.Button($"Open [{sceneAssetStruct.SceneAsset.name}]", GUILayout.Height(30));
+            if (openSingleSceneButton)
             {
                 if (EditorApplication.isPlayingOrWillChangePlaymode)
                 {
-                    Debug.LogWarning($"Can't open editor during Playmode.");
+                    Debug.LogWarning($"Action unavailable while Editor is in Play Mode.");
                 }
                 else if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 {
-                    string scenePath = FileFinder.GetAssetPath(sceneAssetStruct.SceneAsset);
+                    string scenePath = sceneAssetStruct.AssetPath;
                     EditorSceneManager.OpenScene(scenePath);
                 }
             }
 
-            bool isSameScene = _playModeStartScene == sceneAssetStruct.SceneAsset;
-            Color prevContentColor = GUI.contentColor;
+            bool isMainScene = EditorSceneManager.GetActiveScene().path == sceneAssetStruct.AssetPath;
+            var currentScene = EditorSceneManager.GetSceneByPath(sceneAssetStruct.AssetPath);
+            bool isOpenedAsAdditiveScene = currentScene.IsValid();
 
-            if(isSameScene)
+            GUI.contentColor = isMainScene ?
+                Color.gray :
+                isOpenedAsAdditiveScene ?
+                    Color.red :
+                    Color.green;
+
+            bool openAdditiveSceneButton = isOpenedAsAdditiveScene ?
+                GUILayout.Button($"Remove", GUILayout.Width(80), GUILayout.Height(30)) :
+                GUILayout.Button($"Add", GUILayout.Width(60), GUILayout.Height(30));
+            if (openAdditiveSceneButton)
             {
-                GUI.contentColor = Color.green;
+                if (EditorApplication.isPlayingOrWillChangePlaymode)
+                {
+                    Debug.LogWarning($"Action canceled. Editor is in Play Mode.");
+                }
+                else if (isMainScene)
+                {
+                    Debug.LogWarning($"Can't change scene state for '{sceneAssetStruct.SceneAsset.name}'. It's already the main scene.");
+                }
+                else if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                {
+                    if (isOpenedAsAdditiveScene)
+                    {
+                        EditorSceneManager.CloseScene(currentScene, true);
+                    }
+                    else
+                    {
+                        string scenePath = sceneAssetStruct.AssetPath;
+                        EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+                    }
+                }
             }
 
-            bool playModeSceneButton = isSameScene ?
+            GUI.contentColor = prevContentColor;
+
+            bool isPlayModeSceneScene = _playModeStartScene == sceneAssetStruct.SceneAsset;
+
+            GUI.contentColor = isPlayModeSceneScene ? Color.green : prevContentColor;
+
+            bool playModeSceneButton = isPlayModeSceneScene ?
                 GUILayout.Button("Unset From Play Mode Start Scene", GUILayout.Width(220), GUILayout.Height(30)) :
                 GUILayout.Button("Set To Play Mode Start Scene", GUILayout.Width(200), GUILayout.Height(30));
             if (playModeSceneButton)
             {
-                _playModeStartScene = isSameScene ?
+                _playModeStartScene = isPlayModeSceneScene ?
                     null :
                     sceneAssetStruct.SceneAsset;
             }
