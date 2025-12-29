@@ -236,13 +236,38 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
+        protected void DrawHorizontal(Action content) => DrawHorizontal(content, 0, 0);
+        protected void DrawHorizontal(Action content, float beginSpace) => DrawHorizontal(content, beginSpace, 0);
+        protected void DrawHorizontal(Action content, float beginSpace, float endSpace)
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
+
+            GUILayout.EndHorizontal();
+        }
+
+        protected void DrawVertical(Action content) => DrawVertical(content, 0, 0);
+        protected void DrawVertical(Action content, float beginSpace) => DrawVertical(content, beginSpace, 0);
+        protected void DrawVertical(Action content, float beginSpace, float endSpace)
+        {
+            GUILayout.BeginVertical();
+
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
+
+            GUILayout.EndVertical();
+        }
+
+        protected void DrawStruct(Action content) => DrawStruct(content, 0, 0, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace) => DrawStruct(content, leftSpace, 0, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace) => DrawStruct(content, leftSpace, rightSpace, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace, float upSpace) => DrawStruct(content, leftSpace, rightSpace, upSpace, 0);
         protected void DrawStruct(Action content, float leftSpace, float rightSpace, float upSpace, float downSpace)
         {
-            if (content == null)
-            {
-                return;
-            }
-
             GUILayout.BeginHorizontal();
 
             GUILayout.Space(leftSpace);
@@ -256,38 +281,6 @@ namespace Mu3Library.Editor.Window.Drawer
             GUILayout.EndVertical();
 
             GUILayout.Space(rightSpace);
-
-            GUILayout.EndHorizontal();
-        }
-
-        protected void DrawVertical(Action content, float beginSpace, float endSpace)
-        {
-            if (content == null)
-            {
-                return;
-            }
-
-            GUILayout.BeginVertical();
-
-            GUILayout.Space(beginSpace);
-            content?.Invoke();
-            GUILayout.Space(endSpace);
-
-            GUILayout.EndVertical();
-        }
-
-        protected void DrawHorizontal(Action content, float beginSpace, float endSpace)
-        {
-            if (content == null)
-            {
-                return;
-            }
-
-            GUILayout.BeginHorizontal();
-
-            GUILayout.Space(beginSpace);
-            content?.Invoke();
-            GUILayout.Space(endSpace);
 
             GUILayout.EndHorizontal();
         }

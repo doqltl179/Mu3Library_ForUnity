@@ -87,7 +87,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 GUILayout.Space(20);
 
                 DrawSceneList();
-            }, 20, 20, 0, 0);
+            }, 20, 20);
         }
 
         private void DrawSceneFolderList()
@@ -175,10 +175,13 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
-            foreach (SceneAssetStruct sceneAssetStruct in sceneFolderStruct.SceneAssets)
+            DrawStruct(() =>
             {
-                DrawSceneAssetStruct(sceneAssetStruct);
-            }
+                foreach (SceneAssetStruct sceneAssetStruct in sceneFolderStruct.SceneAssets)
+                {
+                    DrawSceneAssetStruct(sceneAssetStruct);
+                }
+            }, 20, 20);
         }
 
         private void DrawSceneAssetStruct(SceneAssetStruct sceneAssetStruct)
@@ -187,6 +190,8 @@ namespace Mu3Library.Editor.Window.Drawer
             {
                 return;
             }
+
+            GUILayout.Label($"{sceneAssetStruct.AssetPath}");
 
             GUILayout.BeginHorizontal();
 
@@ -197,12 +202,10 @@ namespace Mu3Library.Editor.Window.Drawer
 
             int buildSceneIndex = System.Array.FindIndex(EditorBuildSettings.scenes,
                 t => t.path == sceneAssetStruct.AssetPath);
-            if (GUILayout.Button(
-                buildSceneIndex >= 0 ?
-                    "Remove From Build Settings" :
-                    "Add To Build Settings",
-                GUILayout.Width(160),
-                GUILayout.Height(30)))
+            bool buildSettingsButton = buildSceneIndex >= 0 ?
+                GUILayout.Button("Remove From Build Settings", GUILayout.Width(190), GUILayout.Height(30)) :
+                GUILayout.Button("Add To Build Settings", GUILayout.Width(160), GUILayout.Height(30));
+            if (buildSettingsButton)
             {
                 if (EditorApplication.isPlayingOrWillChangePlaymode)
                 {
@@ -246,21 +249,14 @@ namespace Mu3Library.Editor.Window.Drawer
                 GUI.contentColor = Color.green;
             }
 
-            if (GUILayout.Button(
-                isSameScene ?
-                    "Unset From Play Mode Start Scene" :
-                    "Set To Play Mode Start Scene",
-                GUILayout.Width(220),
-                GUILayout.Height(30)))
+            bool playModeSceneButton = isSameScene ?
+                GUILayout.Button("Unset From Play Mode Start Scene", GUILayout.Width(220), GUILayout.Height(30)) :
+                GUILayout.Button("Set To Play Mode Start Scene", GUILayout.Width(200), GUILayout.Height(30));
+            if (playModeSceneButton)
             {
-                if (isSameScene)
-                {
-                    _playModeStartScene = null;
-                }
-                else
-                {
-                    _playModeStartScene = sceneAssetStruct.SceneAsset;
-                }
+                _playModeStartScene = isSameScene ?
+                    null :
+                    sceneAssetStruct.SceneAsset;
             }
 
             GUI.contentColor = prevContentColor;
@@ -270,6 +266,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void SyncSceneAssets()
         {
+            var scenesCopy = _scenes.ToList();
             _scenes.Clear();
 
             foreach (DefaultAsset folder in _sceneFolders)
@@ -285,6 +282,8 @@ namespace Mu3Library.Editor.Window.Drawer
                     continue;
                 }
 
+                var oldData = scenesCopy.Where(t => t.Folder == folder).FirstOrDefault();
+
                 List<SceneAsset> sceneAssets = FileFinder.LoadAllAssetsAtPath<SceneAsset>(path);
                 List<SceneAssetStruct> sceneAssetStructs = sceneAssets.Select(t =>
                 {
@@ -296,14 +295,14 @@ namespace Mu3Library.Editor.Window.Drawer
                     };
                 }).ToList();
 
-                SceneFolderStruct sceneAssetStruct = new SceneFolderStruct()
+                SceneFolderStruct sceneFolderStruct = new SceneFolderStruct()
                 {
                     Folder = folder,
                     FolderPath = path,
-                    Foldout = true,
+                    Foldout = oldData != null ? oldData.Foldout : true,
                     SceneAssets = sceneAssetStructs,
                 };
-                _scenes.Add(sceneAssetStruct);
+                _scenes.Add(sceneFolderStruct);
             }
         }
     }
