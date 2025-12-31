@@ -1,4 +1,4 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using Mu3Library.Utility;
 using UnityEngine;
@@ -13,26 +13,33 @@ namespace Mu3Library.Audio
         private AudioController _bgmMainController = null;
         private AudioController _bgmSubController = null;
 
-        private float _masterVolume = 0.8f;
+        private const float DefaultMasterVolume = 0.8f;
+        private float _masterVolume = DefaultMasterVolume;
         public float MasterVolume
         {
             get => _masterVolume;
             set => SetMasterVolume(value);
         }
 
-        private float _bgmVolume = 0.8f;
+        private const float DefaultBgmVolume = 0.8f;
+        private float _bgmVolume = DefaultBgmVolume;
         public float BgmVolume
         {
             get => _bgmVolume;
             set => SetBgmVolume(value);
         }
+        private float _calculatedBgmVolume = DefaultBgmVolume;
+        public float CalculatedBgmVolume => _calculatedBgmVolume;
 
-        private float _sfxVolume = 1.0f;
+        private const float DefaultSfxVolume = 1.0f;
+        private float _sfxVolume = DefaultSfxVolume;
         public float SfxVolume
         {
             get => _sfxVolume;
             set => SetSfxVolume(value);
         }
+        private float _calculatedSfxVolume = DefaultSfxVolume;
+        public float CalculatedSfxVolume => _calculatedSfxVolume;
 
         private int _sfxSourceCountMax = 5;
         /// <summary>
@@ -70,6 +77,10 @@ namespace Mu3Library.Audio
             MaxDistance = 500.0f,
         };
 
+        public event Action<float> OnMasterVolumeChanged;
+        public event Action<float> OnBgmVolumeChanged;
+        public event Action<float> OnSfxVolumeChanged;
+
 
 
         private void Update()
@@ -90,6 +101,28 @@ namespace Mu3Library.Audio
         }
 
         #region Utility
+        public void ResetVolumeAll()
+        {
+            SetMasterVolume(DefaultMasterVolume);
+            SetBgmVolume(DefaultBgmVolume);
+            SetSfxVolume(DefaultSfxVolume);
+        }
+
+        public void ResetMasterVolume()
+        {
+            SetMasterVolume(DefaultMasterVolume);
+        }
+
+        public void ResetBgmVolume()
+        {
+            SetBgmVolume(DefaultBgmVolume);
+        }
+
+        public void ResetSfxVolume()
+        {
+            SetSfxVolume(DefaultSfxVolume);
+        }
+
         public void FadeInBgm(float fadeTime = 1.0f)
         {
             if (_bgmMainController == null)
@@ -313,17 +346,31 @@ namespace Mu3Library.Audio
 
         private void SetSfxVolume(float value)
         {
+            if (_sfxVolume == value)
+            {
+                return;
+            }
+
             _sfxVolume = value;
+            _calculatedSfxVolume = _masterVolume * value;
 
             foreach (AudioController controller in _sfxControllers)
             {
                 controller.RecalculateVolume();
             }
+
+            OnSfxVolumeChanged?.Invoke(value);
         }
 
         private void SetBgmVolume(float value)
         {
+            if(_bgmVolume == value)
+            {
+                return;
+            }
+
             _bgmVolume = value;
+            _calculatedBgmVolume = _masterVolume * value;
 
             if (_bgmMainController != null)
             {
@@ -333,11 +380,20 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
+
+            OnBgmVolumeChanged?.Invoke(value);
         }
 
         private void SetMasterVolume(float value)
         {
+            if(_masterVolume == value)
+            {
+                return;
+            }
+
             _masterVolume = value;
+            _calculatedBgmVolume = value * _bgmVolume;
+            _calculatedSfxVolume = value * _sfxVolume;
 
             foreach (AudioController controller in _sfxControllers)
             {
@@ -352,6 +408,8 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
+
+            OnMasterVolumeChanged?.Invoke(value);
         }
 
         private AudioSource CreateSfxSource()
