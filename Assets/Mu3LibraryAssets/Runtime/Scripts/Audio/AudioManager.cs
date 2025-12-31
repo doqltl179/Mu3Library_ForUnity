@@ -28,7 +28,7 @@ namespace Mu3Library.Audio
             get => _bgmVolume;
             set => SetBgmVolume(value);
         }
-        private float _calculatedBgmVolume = DefaultBgmVolume;
+        private float _calculatedBgmVolume = DefaultMasterVolume * DefaultBgmVolume;
         public float CalculatedBgmVolume => _calculatedBgmVolume;
 
         private const float DefaultSfxVolume = 1.0f;
@@ -38,7 +38,7 @@ namespace Mu3Library.Audio
             get => _sfxVolume;
             set => SetSfxVolume(value);
         }
-        private float _calculatedSfxVolume = DefaultSfxVolume;
+        private float _calculatedSfxVolume = DefaultMasterVolume * DefaultSfxVolume;
         public float CalculatedSfxVolume => _calculatedSfxVolume;
 
         private int _sfxSourceCountMax = 5;
