@@ -52,12 +52,13 @@ namespace Mu3Library.Audio
             set => _sfxSourceCountMax = Mathf.Min(Mathf.Max(value, 1), 10);
         }
 
-        private readonly AudioParameters _standardParameters = new()
+        private static readonly AudioParameters _standardParameters = new()
         {
             Volume = 1.0f,
             Base = _standardBaseParameters,
             SoundSettings = _standard3dSoundSettings,
         };
+        public AudioParameters StandardParameters => _standardParameters;
 
         private static readonly AudioBaseParameters _standardBaseParameters = new()
         {
@@ -67,6 +68,7 @@ namespace Mu3Library.Audio
             SpatialBlend = 0.0f,
             ReverbZoneMix = 1.0f,
         };
+        public AudioBaseParameters StandardBaseParameters => _standardBaseParameters;
 
         private static readonly Audio3dSoundSettings _standard3dSoundSettings = new()
         {
@@ -76,6 +78,7 @@ namespace Mu3Library.Audio
             MinDistance = 1.0f,
             MaxDistance = 500.0f,
         };
+        public Audio3dSoundSettings Standard3dSoundSettings => _standard3dSoundSettings;
 
         public event Action<float> OnMasterVolumeChanged;
         public event Action<float> OnBgmVolumeChanged;
@@ -261,43 +264,10 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void PlaySfx(AudioClip clip, AudioParameters? parameters = null)
-        {
-            if (clip == null)
-            {
-                Debug.LogError($"SFX clip is NULL.");
-                return;
-            }
-
-            AudioController controller = null;
-
-            if (_sfxControllers.Count < _sfxSourceCountMax)
-            {
-                if (_sfxPool.Count > 0)
-                {
-                    controller = _sfxPool.Dequeue();
-                    InitializeAudioController(controller, clip, parameters);
-                }
-                else
-                {
-                    AudioSource source = CreateSfxSource();
-                    controller = CreateAudioController<SfxController>(source, clip, parameters);
-                }
-            }
-            else
-            {
-                controller = _sfxControllers[0];
-                _sfxControllers.RemoveAt(0);
-
-                InitializeAudioController(controller, clip, parameters);
-            }
-
-            controller.SetActive(true);
-
-            controller.Play();
-
-            _sfxControllers.Add(controller);
-        }
+        public void PlaySfx(AudioClip clip) => PlaySfxInternal(clip);
+        public void PlaySfx(AudioClip clip, AudioParameters parameters) => PlaySfxInternal(clip, parameters);
+        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfxInternal(clip, null, position);
+        public void PlaySfx(AudioClip clip, AudioParameters parameters, Vector3 position) => PlaySfxInternal(clip, parameters, position);
 
         public void StopSfxAll()
         {
@@ -337,12 +307,48 @@ namespace Mu3Library.Audio
             UnPauseSfxAll();
             UnPauseBgm();
         }
-
-        public AudioParameters GetAudioStandardParameters()
-        {
-            return _standardParameters;
-        }
         #endregion
+
+        private void PlaySfxInternal(AudioClip clip, AudioParameters? parameters = null, Vector3? position = null)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"SFX clip is NULL.");
+                return;
+            }
+
+            AudioController controller = null;
+
+            if (_sfxControllers.Count < _sfxSourceCountMax)
+            {
+                if (_sfxPool.TryDequeue(out controller))
+                {
+                    InitializeAudioController(controller, clip, parameters);
+                }
+                else
+                {
+                    AudioSource source = CreateSfxSource();
+                    controller = CreateAudioController<SfxController>(source, clip, parameters);
+                }
+            }
+            else
+            {
+                controller = _sfxControllers[0];
+                _sfxControllers.RemoveAt(0);
+
+                InitializeAudioController(controller, clip, parameters);
+            }
+
+            controller.SetActive(true);
+            if(position != null)
+            {
+                controller.Position = position.Value;
+            }
+
+            controller.Play();
+
+            _sfxControllers.Add(controller);
+        }
 
         private void SetSfxVolume(float value)
         {

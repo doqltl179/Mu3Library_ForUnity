@@ -7,7 +7,25 @@ namespace Mu3Library.Audio
     [RequireComponent(typeof(AudioSource))]
     public abstract class AudioController : MonoBehaviour
     {
-        private AudioSource _source;
+        private AudioSource m_source;
+        private AudioSource _source
+        {
+            get
+            {
+                if (m_source == null)
+                {
+                    m_source = GetComponent<AudioSource>();
+                }
+
+                return m_source;
+            }
+        }
+
+        public Vector3 Position
+        {
+            get => _source.transform.position;
+            set => _source.transform.position = value;
+        }
 
         private float _clipVolume = 1.0f;
         public float ClipVolume => _clipVolume;
@@ -35,14 +53,6 @@ namespace Mu3Library.Audio
         private IEnumerator _fadeCoroutine = null;
 
 
-
-        protected virtual void Awake()
-        {
-            if (_source == null)
-            {
-                _source = GetComponent<AudioSource>();
-            }
-        }
 
         protected virtual void OnDisable()
         {

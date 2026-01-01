@@ -8,6 +8,18 @@ namespace Mu3Library.Audio
         public float Volume;
         public AudioBaseParameters Base;
         public Audio3dSoundSettings SoundSettings;
+
+        public void Set(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            Volume = source.volume;
+            Base.Set(source);
+            SoundSettings.Set(source);
+        }
     }
 
     [System.Serializable]
@@ -18,6 +30,20 @@ namespace Mu3Library.Audio
         public float StereoPan;
         public float SpatialBlend;
         public float ReverbZoneMix;
+
+        public void Set(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            Priority = source.priority;
+            Pitch = source.pitch;
+            StereoPan = source.panStereo;
+            SpatialBlend = source.spatialBlend;
+            ReverbZoneMix = source.reverbZoneMix;
+        }
     }
 
     [System.Serializable]
@@ -30,5 +56,31 @@ namespace Mu3Library.Audio
         public AnimationCurve AudioSourceCurve;
         public float MinDistance;
         public float MaxDistance;
+
+        public void Set(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            DopplerLevel = source.dopplerLevel;
+            Spread = source.spread;
+            AudioRolloffMode = source.rolloffMode;
+
+            if (source.rolloffMode == AudioRolloffMode.Custom)
+            {
+                AudioSourceCurveType = UnityEngine.AudioSourceCurveType.CustomRolloff;
+                AudioSourceCurve = source.GetCustomCurve(UnityEngine.AudioSourceCurveType.CustomRolloff);
+            }
+            else
+            {
+                AudioSourceCurveType = null;
+                AudioSourceCurve = null;
+            }
+
+            MinDistance = source.minDistance;
+            MaxDistance = source.maxDistance;
+        }
     }
 }
