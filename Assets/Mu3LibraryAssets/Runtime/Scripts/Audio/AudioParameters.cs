@@ -9,7 +9,7 @@ namespace Mu3Library.Audio
         public AudioBaseParameters Base;
         public Audio3dSoundSettings SoundSettings;
 
-        public void Set(AudioSource source)
+        public void ReadFromSource(AudioSource source)
         {
             if (source == null)
             {
@@ -17,8 +17,8 @@ namespace Mu3Library.Audio
             }
 
             Volume = source.volume;
-            Base.Set(source);
-            SoundSettings.Set(source);
+            Base.ReadFromSource(source);
+            SoundSettings.ReadFromSource(source);
         }
     }
 
@@ -31,7 +31,7 @@ namespace Mu3Library.Audio
         public float SpatialBlend;
         public float ReverbZoneMix;
 
-        public void Set(AudioSource source)
+        public void ReadFromSource(AudioSource source)
         {
             if (source == null)
             {
@@ -57,7 +57,7 @@ namespace Mu3Library.Audio
         public float MinDistance;
         public float MaxDistance;
 
-        public void Set(AudioSource source)
+        public void ReadFromSource(AudioSource source)
         {
             if (source == null)
             {
@@ -84,3 +84,4 @@ namespace Mu3Library.Audio
         }
     }
 }
+
