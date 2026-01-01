@@ -269,6 +269,26 @@ namespace Mu3Library.Audio
         public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfxInternal(clip, null, position);
         public void PlaySfx(AudioClip clip, AudioParameters parameters, Vector3 position) => PlaySfxInternal(clip, parameters, position);
 
+        public void StopFirstSfx(AudioClip clip)
+        {
+            if(clip == null)
+            {
+                return;
+            }
+
+            for(int i = 0; i < _sfxControllers.Count; i++)
+            {
+                var controller = _sfxControllers[i];
+                if(controller.IsPlaying && controller.IsSameClip(clip))
+                {
+                    PoolController(_sfxPool, controller);
+
+                    _sfxControllers.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
         public void StopSfxAll()
         {
             PoolSfxAll();
