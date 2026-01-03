@@ -80,10 +80,6 @@ namespace Mu3Library.Audio
         };
         public Audio3dSoundSettings Standard3dSoundSettings => _standard3dSoundSettings;
 
-        public event Action<float> OnMasterVolumeChanged;
-        public event Action<float> OnBgmVolumeChanged;
-        public event Action<float> OnSfxVolumeChanged;
-
 
 
         private void Update()
@@ -384,8 +380,6 @@ namespace Mu3Library.Audio
             {
                 controller.RecalculateVolume();
             }
-
-            OnSfxVolumeChanged?.Invoke(value);
         }
 
         private void SetBgmVolume(float value)
@@ -406,8 +400,6 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
-
-            OnBgmVolumeChanged?.Invoke(value);
         }
 
         private void SetMasterVolume(float value)
@@ -434,8 +426,6 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
-
-            OnMasterVolumeChanged?.Invoke(value);
         }
 
         private AudioSource CreateSfxSource()
