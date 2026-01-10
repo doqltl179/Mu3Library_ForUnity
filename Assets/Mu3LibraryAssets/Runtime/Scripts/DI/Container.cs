@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+using IDisposable = Mu3Library.DI.IDisposable;
+
 #if MU3LIBRARY_UNITASK_SUPPORT
 using Cysharp.Threading.Tasks;
 #endif

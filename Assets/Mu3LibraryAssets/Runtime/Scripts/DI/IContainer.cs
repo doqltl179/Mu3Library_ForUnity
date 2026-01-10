@@ -1,5 +1,3 @@
-using System;
-
 #if MU3LIBRARY_UNITASK_SUPPORT
 using Cysharp.Threading.Tasks;
 #endif
@@ -20,9 +18,9 @@ namespace Mu3Library.DI
         public void Initialze();
 
         public void RemoveInterfaceIgnoreType<T>();
-        public void RemoveInterfaceIgnoreType(Type type);
+        public void RemoveInterfaceIgnoreType(System.Type type);
         public void AddInterfaceIgnoreType<T>();
-        public void AddInterfaceIgnoreType(Type type);
+        public void AddInterfaceIgnoreType(System.Type type);
 
         public void Register<T>() where T : class, new();
     }
