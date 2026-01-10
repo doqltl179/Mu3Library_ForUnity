@@ -7,11 +7,21 @@ namespace Mu3Library.DI
     public sealed class CoreRoot : MonoBehaviour
     {
         private readonly Dictionary<Type, CoreBase> _cores = new();
+        internal event Action<Type> OnCoreAdded;
 
 
 
         private void Awake()
         {
+            int instanceCount = FindObjectsByType<CoreRoot>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+            if (instanceCount > 1)
+            {
+                Debug.LogWarning("Multiple instances of CoreRoot detected. There should only be one CoreRoot in the project.");
+
+                Destroy(gameObject);
+                return;
+            }
+
             DontDestroyOnLoad(gameObject);
         }
 
@@ -46,18 +56,32 @@ namespace Mu3Library.DI
         }
 
         #region Utility
-        public T Get<TCore, T>()
+        internal T Get<TCore, T>()
             where TCore : CoreBase
             where T : class
         {
             Type coreType = typeof(TCore);
             if (!_cores.TryGetValue(coreType, out CoreBase core))
             {
-                Debug.LogError($"Core not found. type: {coreType.FullName}");
+                Debug.LogError($"Core not found. type: {coreType.Name}");
                 return null;
             }
 
             return core.Get<T>();
+        }
+
+        internal bool TryGetCore<TCore>(out TCore core)
+            where TCore : CoreBase
+        {
+            core = null;
+            
+            if (_cores.TryGetValue(typeof(TCore), out CoreBase coreBase))
+            {
+                core = coreBase as TCore;
+                return core != null;
+            }
+
+            return false;
         }
 
 #if MU3LIBRARY_UNITASK_SUPPORT
@@ -95,7 +119,7 @@ namespace Mu3Library.DI
             Type type = core.GetType();
             if (!_cores.TryAdd(type, core))
             {
-                Debug.LogError($"Core is already exist. type: {type.FullName}");
+                Debug.LogError($"Core is already exist. type: {type.Name}");
                 return;
             }
 
@@ -103,6 +127,8 @@ namespace Mu3Library.DI
 #if MU3LIBRARY_UNITASK_SUPPORT
             await core.InitializeCoreAsync();
 #endif
+
+            OnCoreAdded?.Invoke(type);
         }
         #endregion
 
