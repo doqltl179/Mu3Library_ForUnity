@@ -1,11 +1,10 @@
-using System;
 using System.Collections.Generic;
-using Mu3Library.Utility;
 using UnityEngine;
+using Mu3Library.DI;
 
 namespace Mu3Library.Audio
 {
-    public class AudioManager : GenericSingleton<AudioManager>
+    public class AudioManager : IAudioManager, IAudioVolumeSettings, IUpdatable, IDisposable
     {
         private List<AudioController> _sfxControllers = new();
         private Queue<AudioController> _sfxPool = new();
@@ -52,14 +51,6 @@ namespace Mu3Library.Audio
             set => _sfxSourceCountMax = Mathf.Min(Mathf.Max(value, 1), 10);
         }
 
-        private static readonly AudioParameters _standardParameters = new()
-        {
-            Volume = 1.0f,
-            Base = _standardBaseParameters,
-            SoundSettings = _standard3dSoundSettings,
-        };
-        public AudioParameters StandardParameters => _standardParameters;
-
         private static readonly AudioBaseParameters _standardBaseParameters = new()
         {
             Priority = 128,
@@ -80,15 +71,42 @@ namespace Mu3Library.Audio
         };
         public Audio3dSoundSettings Standard3dSoundSettings => _standard3dSoundSettings;
 
+        private static readonly AudioParameters _standardParameters = new()
+        {
+            Volume = 1.0f,
+            Base = _standardBaseParameters,
+            SoundSettings = _standard3dSoundSettings,
+        };
+        public AudioParameters StandardParameters => _standardParameters;
+
+        public event System.Action<float> OnMasterVolumeChanged;
+        public event System.Action<float> OnBgmVolumeChanged;
+        public event System.Action<float> OnSfxVolumeChanged;
 
 
-        private void Update()
+
+        public void Dispose()
+        {
+            Stop();
+            PoolSfxAll();
+            _sfxPool.Clear();
+        }
+
+        public void Update()
         {
             if (_sfxControllers.Count > 0)
             {
                 for (int i = 0; i < _sfxControllers.Count; i++)
                 {
                     AudioController controller = _sfxControllers[i];
+
+                    if (controller == null)
+                    {
+                        _sfxControllers.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+
                     if (controller.NormalizedTime >= 0.97f)
                     {
                         PoolController(_sfxPool, controller);
@@ -147,10 +165,14 @@ namespace Mu3Library.Audio
                 return;
             }
 
-            _bgmMainController.FadeOut(fadeTime, () => _bgmMainController.Pause());
+            _bgmMainController.FadeOut(fadeTime, _bgmMainController.Pause);
         }
 
-        public void TransitionBgm(AudioClip clip, float transitionTime = 1.0f, AudioParameters? parameters = null)
+        public void TransitionBgm(AudioClip clip) => TransitionBgm(clip, 1.0f, _standardParameters);
+
+        public void TransitionBgm(AudioClip clip, float transitionTime) => TransitionBgm(clip, transitionTime, _standardParameters);
+
+        public void TransitionBgm(AudioClip clip, float transitionTime, AudioParameters parameters)
         {
             if (clip == null)
             {
@@ -161,7 +183,7 @@ namespace Mu3Library.Audio
             AudioController from = _bgmMainController;
             if (from != null)
             {
-                from.FadeOut(transitionTime, () => from.Stop());
+                from.FadeOut(transitionTime, from.Stop);
             }
 
             AudioController to = _bgmSubController;
@@ -185,7 +207,9 @@ namespace Mu3Library.Audio
             _bgmSubController = from;
         }
 
-        public void PlayBgmForce(AudioClip clip, AudioParameters? parameters = null)
+        public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, _standardParameters);
+
+        public void PlayBgmForce(AudioClip clip, AudioParameters parameters)
         {
             if (_bgmMainController != null && _bgmMainController.IsPlaying)
             {
@@ -195,7 +219,9 @@ namespace Mu3Library.Audio
             PlayBgm(clip, parameters);
         }
 
-        public void PlayBgm(AudioClip clip, AudioParameters? parameters = null)
+        public void PlayBgm(AudioClip clip) => PlayBgm(clip, _standardParameters);
+
+        public void PlayBgm(AudioClip clip, AudioParameters parameters)
         {
             if (clip == null)
             {
@@ -260,10 +286,49 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void PlaySfx(AudioClip clip) => PlaySfxInternal(clip);
-        public void PlaySfx(AudioClip clip, AudioParameters parameters) => PlaySfxInternal(clip, parameters);
-        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfxInternal(clip, null, position);
-        public void PlaySfx(AudioClip clip, AudioParameters parameters, Vector3 position) => PlaySfxInternal(clip, parameters, position);
+        public void PlaySfx(AudioClip clip) => PlaySfx(clip, _standardParameters, Vector3.zero);
+
+        public void PlaySfx(AudioClip clip, AudioParameters parameters) => PlaySfx(clip, parameters, Vector3.zero);
+
+        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfx(clip, _standardParameters, position);
+
+        public void PlaySfx(AudioClip clip, AudioParameters parameters, Vector3 position)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"SFX clip is NULL.");
+                return;
+            }
+
+            AudioController controller = null;
+
+            if (_sfxControllers.Count < _sfxSourceCountMax)
+            {
+                if (_sfxPool.TryDequeue(out controller))
+                {
+                    InitializeAudioController(controller, clip, parameters);
+                }
+                else
+                {
+                    AudioSource source = CreateSfxSource();
+                    controller = CreateAudioController<SfxController>(source, clip, parameters);
+                }
+            }
+            else
+            {
+                controller = _sfxControllers[0];
+                _sfxControllers.RemoveAt(0);
+
+                InitializeAudioController(controller, clip, parameters);
+            }
+
+            controller.SetActive(true);
+            controller.Position = position;
+
+            controller.Play();
+
+            _sfxControllers.Add(controller);
+        }
 
         public void StopFirstSfx(AudioClip clip)
         {
@@ -274,7 +339,15 @@ namespace Mu3Library.Audio
 
             for(int i = 0; i < _sfxControllers.Count; i++)
             {
-                var controller = _sfxControllers[i];
+                AudioController controller = _sfxControllers[i];
+
+                if(controller == null)
+                {
+                    _sfxControllers.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
                 if(controller.IsPlaying && controller.IsSameClip(clip))
                 {
                     PoolController(_sfxPool, controller);
@@ -325,47 +398,6 @@ namespace Mu3Library.Audio
         }
         #endregion
 
-        private void PlaySfxInternal(AudioClip clip, AudioParameters? parameters = null, Vector3? position = null)
-        {
-            if (clip == null)
-            {
-                Debug.LogError($"SFX clip is NULL.");
-                return;
-            }
-
-            AudioController controller = null;
-
-            if (_sfxControllers.Count < _sfxSourceCountMax)
-            {
-                if (_sfxPool.TryDequeue(out controller))
-                {
-                    InitializeAudioController(controller, clip, parameters);
-                }
-                else
-                {
-                    AudioSource source = CreateSfxSource();
-                    controller = CreateAudioController<SfxController>(source, clip, parameters);
-                }
-            }
-            else
-            {
-                controller = _sfxControllers[0];
-                _sfxControllers.RemoveAt(0);
-
-                InitializeAudioController(controller, clip, parameters);
-            }
-
-            controller.SetActive(true);
-            if(position != null)
-            {
-                controller.Position = position.Value;
-            }
-
-            controller.Play();
-
-            _sfxControllers.Add(controller);
-        }
-
         private void SetSfxVolume(float value)
         {
             if (_sfxVolume == value)
@@ -380,6 +412,8 @@ namespace Mu3Library.Audio
             {
                 controller.RecalculateVolume();
             }
+
+            OnSfxVolumeChanged?.Invoke(_sfxVolume);
         }
 
         private void SetBgmVolume(float value)
@@ -400,6 +434,8 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
+
+            OnBgmVolumeChanged?.Invoke(_bgmVolume);
         }
 
         private void SetMasterVolume(float value)
@@ -426,12 +462,14 @@ namespace Mu3Library.Audio
             {
                 _bgmSubController.RecalculateVolume();
             }
+
+            OnMasterVolumeChanged?.Invoke(_masterVolume);
         }
 
         private AudioSource CreateSfxSource()
         {
             GameObject instance = new GameObject("SfxSource");
-            instance.transform.SetParent(transform);
+            // Set parent if you need
 
             AudioSource source = instance.AddComponent<AudioSource>();
             source.playOnAwake = false;
@@ -442,6 +480,11 @@ namespace Mu3Library.Audio
 
         private void PoolController(Queue<AudioController> pool, AudioController controller)
         {
+            if(controller == null)
+            {
+                return;
+            }
+
             if (controller.IsPlaying)
             {
                 controller.Stop();
@@ -464,7 +507,7 @@ namespace Mu3Library.Audio
         private AudioSource CreateBgmSource()
         {
             GameObject instance = new GameObject("BgmSource");
-            instance.transform.SetParent(transform);
+            // Set parent if you need
 
             AudioSource source = instance.AddComponent<AudioSource>();
             source.playOnAwake = false;
@@ -473,26 +516,23 @@ namespace Mu3Library.Audio
             return source;
         }
 
-        private void InitializeAudioController(AudioController controller, AudioClip clip, AudioParameters? parameters = null)
+        private void InitializeAudioController(AudioController controller, AudioClip clip, AudioParameters parameters)
         {
             if (controller.IsPlaying)
             {
                 controller.Stop();
             }
 
-            if (parameters == null)
-            {
-                parameters = _standardParameters;
-            }
-            AudioParameters p = parameters.Value;
+            AudioParameters p = parameters;
 
+            controller.SetVolumeSettings(this);
             controller.SetClip(clip);
-            controller.SetVolume(p.Volume);
+            controller.SetClipVolume(p.Volume);
             controller.SetAudioParameters(p.Base);
             controller.SetAudioParameters(p.SoundSettings);
         }
 
-        private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioParameters? parameters = null) where T : AudioController
+        private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioParameters parameters) where T : AudioController
         {
             if (source == null || clip == null)
             {
@@ -500,11 +540,7 @@ namespace Mu3Library.Audio
                 return null;
             }
 
-            if (parameters == null)
-            {
-                parameters = _standardParameters;
-            }
-            AudioParameters p = parameters.Value;
+            AudioParameters p = parameters;
 
             AudioController controller = source.gameObject.GetComponent<T>();
             if (controller == null)
@@ -512,8 +548,9 @@ namespace Mu3Library.Audio
                 controller = source.gameObject.AddComponent<T>();
             }
 
+            controller.SetVolumeSettings(this);
             controller.SetClip(clip);
-            controller.SetVolume(p.Volume);
+            controller.SetClipVolume(p.Volume);
             controller.SetAudioParameters(p.Base);
             controller.SetAudioParameters(p.SoundSettings);
 

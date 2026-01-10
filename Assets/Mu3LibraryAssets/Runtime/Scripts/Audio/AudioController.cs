@@ -7,6 +7,8 @@ namespace Mu3Library.Audio
     [RequireComponent(typeof(AudioSource))]
     public abstract class AudioController : MonoBehaviour
     {
+        protected IAudioVolumeSettings _audioVolumeSettings;
+
         private AudioSource m_source;
         private AudioSource _source
         {
@@ -33,7 +35,7 @@ namespace Mu3Library.Audio
         protected abstract float _categoryVolume { get; }
         public float CategoryVolume => _categoryVolume;
 
-        protected float _masterVolume => AudioManager.Instance.MasterVolume;
+        protected float _masterVolume => _audioVolumeSettings != null ? _audioVolumeSettings.MasterVolume : 1.0f;
         public float MasterVolume => _masterVolume;
 
         private float _fadeVolume = 1.0f;
@@ -60,6 +62,11 @@ namespace Mu3Library.Audio
         }
 
         #region Utility
+        internal void SetVolumeSettings(IAudioVolumeSettings audioVolumeSettings)
+        {
+            _audioVolumeSettings = audioVolumeSettings;
+        }
+
         public void FadeOut(float fadeTime = 1.0f, Action callback = null)
         {
             StopFade();
@@ -76,7 +83,7 @@ namespace Mu3Library.Audio
             StartCoroutine(_fadeCoroutine);
         }
 
-        public void SetVolume(float clipVolume)
+        public void SetClipVolume(float clipVolume)
         {
             _clipVolume = clipVolume;
             CalculateVolume();
