@@ -373,8 +373,10 @@ MonoBehaviour:
   _setAsGlobal: 0
   _sceneEntryResource: {fileID: 1043551554}
   _sampleSceneInfos:
-  - Title: AudioManager
-    SceneName: Sample_Audio
+  - SceneName: Sample_Audio
+    Title: AudioManager
+  - SceneName: Sample_MVP
+    Title: MVPManager
 --- !u!1 &509335871
 GameObject:
   m_ObjectHideFlags: 0
