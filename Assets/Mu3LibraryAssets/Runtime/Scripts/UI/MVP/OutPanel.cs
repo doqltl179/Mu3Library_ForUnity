@@ -66,6 +66,7 @@ namespace Mu3Library.UI.MVP
             set => _button.enabled = value;
         }
 
+        private IMVPManager _manager;
         private IPresenter _matchedPresenter;
 
 
@@ -96,10 +97,10 @@ namespace Mu3Library.UI.MVP
         }
 
         #region Utility
-        public void UpdateOutPanel(IPresenter presenter, OutPanelParams param)
+        public void UpdateOutPanel(IPresenter presenter, OutPanelSettings settings)
         {
-            _button.image.color = param.Color;
-            _button.enabled = param.InteractAsClose;
+            _button.image.color = settings.Color;
+            _button.enabled = settings.InteractAsClose;
 
             Canvas overwriteCanvas = presenter.ViewCanvas;
             if(!overwriteCanvas.overrideSorting && !overwriteCanvas.isRootCanvas)
@@ -113,6 +114,11 @@ namespace Mu3Library.UI.MVP
             _canvasGroup.interactable = presenter.Interactable;
 
             _matchedPresenter = presenter;
+        }
+
+        public void SetManager(IMVPManager manager)
+        {
+            _manager = manager;
         }
 
         public void Overwrite(IView view) => view.OverwriteInto(_canvas);
@@ -140,7 +146,7 @@ namespace Mu3Library.UI.MVP
 
         private void OnClickEvent()
         {
-            if(MVPManager.Instance.Close(_matchedPresenter))
+            if (_manager != null && _manager.Close(_matchedPresenter))
             {
                 _matchedPresenter = null;
             }

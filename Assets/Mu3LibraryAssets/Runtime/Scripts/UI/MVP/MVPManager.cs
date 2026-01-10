@@ -1,13 +1,40 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mu3Library.Utility;
+using Mu3Library.DI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Mu3Library.UI.MVP
 {
-    public class MVPManager : GenericSingleton<MVPManager>
+    public class MVPManager : IMVPManager, IUpdatable, IDisposable
     {
+        private GameObject m_root;
+        private GameObject _root
+        {
+            get
+            {
+                if (m_root == null)
+                {
+                    m_root = new GameObject("MVPManagerRoot");
+                    Object.DontDestroyOnLoad(m_root);
+                }
+
+                return m_root;
+            }
+        }
+
+        private Transform _rootTransform => _root.transform;
+
+        private readonly Dictionary<System.Type, View> _viewResourceMap = new();
+        private readonly Dictionary<System.Type, string> _viewLayerMap = new();
+        private readonly Dictionary<System.Type, Queue<IPresenter>> _presenterPool = new();
+        private MVPCanvasSettings _canvasSettings = MVPCanvasSettings.Standard;
+        public MVPCanvasSettings CanvasSettings
+        {
+            get => _canvasSettings;
+            set => _canvasSettings = value;
+        }
+
         private Camera m_renderCamera = null;
         private Camera _renderCamera
         {
@@ -16,9 +43,13 @@ namespace Mu3Library.UI.MVP
                 if (m_renderCamera == null)
                 {
                     GameObject go = new GameObject("RenderCamera");
-                    go.transform.SetParent(transform);
+                    go.transform.SetParent(_rootTransform);
 
-                    m_renderCamera = go.AddComponent<Camera>();
+                    Camera camera = go.AddComponent<Camera>();
+                    camera.cullingMask = LayerMask.GetMask("UI");
+                    camera.clearFlags = CameraClearFlags.Depth;
+
+                    m_renderCamera = camera;
                 }
 
                 return m_renderCamera;
@@ -31,7 +62,7 @@ namespace Mu3Library.UI.MVP
         private class PresenterParams
         {
             public IPresenter Presenter;
-            public OutPanelParams OutPanelParams;
+            public OutPanelSettings OutPanelSettings;
         }
 
         private readonly List<PresenterParams> _openedPresenters = new();
@@ -45,14 +76,34 @@ namespace Mu3Library.UI.MVP
 
         private OutPanel _outPanel = null;
 
-        public event Action<IPresenter> OnWindowLoaded;
-        public event Action<IPresenter> OnWindowOpened;
-        public event Action<IPresenter> OnWindowClosed;
-        public event Action<IPresenter> OnWindowUnloaded;
+        public event System.Action<IPresenter> OnWindowLoaded;
+        public event System.Action<IPresenter> OnWindowOpened;
+        public event System.Action<IPresenter> OnWindowClosed;
+        public event System.Action<IPresenter> OnWindowUnloaded;
 
 
 
-        private void Update()
+        public void Dispose()
+        {
+            _layerCanvases.Clear();
+            _viewResourceMap.Clear();
+            _viewLayerMap.Clear();
+            _presenterPool.Clear();
+            _openedPresenters.Clear();
+            _presenterLoadChecker.Clear();
+            _presenterOpenChecker.Clear();
+            _presenterCloseChecker.Clear();
+            _presenterUnloadChecker.Clear();
+
+            _focused = null;
+
+            if (_root != null)
+            {
+                Object.Destroy(_root);
+            }
+        }
+
+        public void Update()
         {
             CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
             CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
@@ -60,7 +111,7 @@ namespace Mu3Library.UI.MVP
             CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
         }
 
-        private void CheckLifecycle(List<PresenterParams> list, ViewState checkState, Action<PresenterParams> callback = null)
+        private void CheckLifecycle(List<PresenterParams> list, ViewState checkState, System.Action<PresenterParams> callback = null)
         {
             bool isViewDestroyed = false;
 
@@ -130,7 +181,7 @@ namespace Mu3Library.UI.MVP
         private void WindowUnloadedEvent(PresenterParams param)
         {
             param.Presenter.SetActiveView(false);
-            MVPFactory.Instance.PoolPrsenter(param.Presenter);
+            PoolPresenter(param.Presenter);
 
             UpdateFocus();
 
@@ -225,30 +276,33 @@ namespace Mu3Library.UI.MVP
             return true;
         }
 
-        public IPresenter Open<TPresenter>() where TPresenter : class, IPresenter, new() => Open<TPresenter>(null, null);
+        public IPresenter Open<TPresenter>() where TPresenter : class, IPresenter, new()
+            => Open<TPresenter>(null, OutPanelSettings.Disabled);
 
-        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : class, IPresenter, new() => Open<TPresenter>(args, null);
+        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : class, IPresenter, new()
+            => Open<TPresenter>(args, OutPanelSettings.Disabled);
 
-        public IPresenter Open<TPresenter>(OutPanelParams param) where TPresenter : class, IPresenter, new() => Open<TPresenter>(null, param);
+        public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : class, IPresenter, new()
+            => Open<TPresenter>(null, settings);
 
-        public IPresenter Open<TPresenter>(Arguments args, OutPanelParams param) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : class, IPresenter, new()
         {
-            TPresenter presenter = MVPFactory.Instance.CreatePresenter<TPresenter>();
+            TPresenter presenter = CreatePresenter<TPresenter>();
             GetInterface(presenter, out var initialize, out var lifecycle);
 
-            Type viewType = presenter.ViewType;
-            string viewLayerName = MVPFactory.Instance.GetLayerName(viewType);
+            System.Type viewType = presenter.ViewType;
+            string viewLayerName = GetLayerName(viewType);
 
             if (!_layerCanvases.TryGetValue(viewLayerName, out Canvas layerCanvas))
             {
-                layerCanvas = MVPFactory.Instance.CreateLayerDefaultCanvas(viewLayerName, transform, _renderCamera);
+                layerCanvas = CreateLayerCanvas(viewLayerName);
 
                 _layerCanvases.Add(viewLayerName, layerCanvas);
             }
 
             if (!presenter.IsViewExist)
             {
-                View view = MVPFactory.Instance.CreateView(viewType, layerCanvas);
+                View view = CreateView(viewType, layerCanvas);
                 if (view == null)
                 {
                     return null;
@@ -270,7 +324,7 @@ namespace Mu3Library.UI.MVP
             PresenterParams presenterParams = new PresenterParams()
             {
                 Presenter = presenter,
-                OutPanelParams = param,
+                OutPanelSettings = settings,
             };
             _presenterLoadChecker.Add(presenterParams);
 
@@ -308,7 +362,7 @@ namespace Mu3Library.UI.MVP
                 }
             }
 
-            _renderCamera.cullingMask = mask;
+            RenderCamera.cullingMask = mask;
         }
         #endregion
 
@@ -373,7 +427,7 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            Type viewType = view.GetType();
+            System.Type viewType = view.GetType();
             IEnumerable<IView> sameViews = RunningPresenterParams()
                 .Where(t => t.Presenter.ViewType == viewType)
                 .Select(t => t.Presenter.View);
@@ -394,12 +448,13 @@ namespace Mu3Library.UI.MVP
         {
             if (_outPanel == null)
             {
-                OutPanel panel = MVPFactory.Instance.CreateOutPanel(transform);
+                OutPanel panel = CreateOutPanel(_rootTransform);
 
                 _outPanel = panel;
+                _outPanel.SetManager(this);
             }
 
-            if (param == null || param.OutPanelParams == null)
+            if (param == null || !param.OutPanelSettings.UseOutPanel)
             {
                 _outPanel.gameObject.SetActive(false);
             }
@@ -407,7 +462,7 @@ namespace Mu3Library.UI.MVP
             {
                 _outPanel.gameObject.SetActive(true);
 
-                _outPanel.UpdateOutPanel(param.Presenter, param.OutPanelParams);
+                _outPanel.UpdateOutPanel(param.Presenter, param.OutPanelSettings);
             }
         }
 
@@ -430,5 +485,200 @@ namespace Mu3Library.UI.MVP
                 .Concat(_presenterOpenChecker)
                 .Where(param => param.Presenter.IsViewExist);
         }
+
+        #region Factory Methods
+        private OutPanel CreateOutPanel(Transform parent = null)
+        {
+            GameObject go = new GameObject(
+                "OutPanel",
+                new System.Type[] { typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(OutPanel) });
+            go.transform.SetParent(parent);
+
+            return go.GetComponent<OutPanel>();
+        }
+
+        private Canvas CreateLayerCanvas(string layerName)
+        {
+            GameObject go = new GameObject(
+                $"Canvas_{layerName}",
+                new System.Type[] { typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster) });
+            go.transform.SetParent(_rootTransform);
+
+            Canvas result = null;
+            switch (_canvasSettings.RenderMode)
+            {
+                case RenderMode.ScreenSpaceCamera:
+                    result = CanvasUtil.GetOrAddScreenCameraCanvasComponent(
+                        go,
+                        _renderCamera,
+                        _canvasSettings.PlaneDistance,
+                        _canvasSettings.SortingLayerName,
+                        _canvasSettings.SortingOrder);
+                    break;
+                case RenderMode.ScreenSpaceOverlay:
+                    result = CanvasUtil.GetOrAddScreenOverlayCanvasComponent(
+                        go,
+                        _canvasSettings.SortingOrder);
+                    break;
+                case RenderMode.WorldSpace:
+                    result = CanvasUtil.GetOrAddWorldCanvasComponent(
+                        go,
+                        _renderCamera,
+                        _canvasSettings.SortingLayerName,
+                        _canvasSettings.SortingOrder);
+                    break;
+            }
+
+            switch (_canvasSettings.UIScaleMode)
+            {
+                case CanvasScaler.ScaleMode.ConstantPhysicalSize:
+                    CanvasUtil.GetOrAddCanvasPhysicalSizeScalerComponent(
+                        go,
+                        _canvasSettings.PhysicalUnit,
+                        _canvasSettings.FallbackScreenDPI,
+                        _canvasSettings.SpriteDPI);
+                    break;
+                case CanvasScaler.ScaleMode.ConstantPixelSize:
+                    CanvasUtil.GetOrAddCanvasPixelSizeScalerComponent(
+                        go,
+                        _canvasSettings.ScaleFactor);
+                    break;
+                case CanvasScaler.ScaleMode.ScaleWithScreenSize:
+                    CanvasUtil.GetOrAddCanvasScaleSizeScalerComponent(
+                        go,
+                        _canvasSettings.Resolution,
+                        _canvasSettings.ScreenMatchMode,
+                        _canvasSettings.MatchWidthOrHeight);
+                    break;
+            }
+
+            CanvasUtil.GetOrAddGraphicRaycasterComponent(go);
+
+            result.sortingLayerName = layerName;
+
+            return result;
+        }
+
+        private void PoolPresenter<TPresenter>(TPresenter presenter) where TPresenter : IPresenter
+        {
+            if (presenter == null || !presenter.IsViewExist)
+            {
+                return;
+            }
+
+            System.Type presenterType = presenter.GetType();
+            if (!_presenterPool.TryGetValue(presenterType, out var pool))
+            {
+                pool = new Queue<IPresenter>();
+                _presenterPool.Add(presenterType, pool);
+            }
+
+            pool.Enqueue(presenter);
+        }
+
+        private TPresenter CreatePresenter<TPresenter>() where TPresenter : class, IPresenter, new()
+        {
+            TPresenter presenter = null;
+
+            System.Type presenterType = typeof(TPresenter);
+            if (_presenterPool.TryGetValue(presenterType, out Queue<IPresenter> pool) && pool.Count > 0)
+            {
+                IPresenter inst = null;
+
+                while (inst == null && pool.Count > 0)
+                {
+                    inst = pool.Dequeue();
+                }
+
+                if (pool.Count == 0)
+                {
+                    _presenterPool.Remove(presenterType);
+                }
+
+                presenter = inst as TPresenter;
+            }
+
+            if (presenter == null)
+            {
+                presenter = new TPresenter();
+            }
+
+            return presenter;
+        }
+
+        private TView CreateView<TView>(Canvas rootCanvas) where TView : View
+        {
+            System.Type viewType = typeof(TView);
+            return CreateView(viewType, rootCanvas) as TView;
+        }
+
+        private View CreateView(System.Type viewType, Canvas rootCanvas)
+        {
+            if (!_viewResourceMap.ContainsKey(viewType))
+            {
+                Debug.LogError($"View not found. type: {viewType}");
+                return null;
+            }
+
+            View resource = _viewResourceMap[viewType];
+            if (resource == null)
+            {
+                Debug.LogError($"Resource view is NULL. type: {viewType}");
+                return null;
+            }
+
+            View inst = Object.Instantiate(resource, rootCanvas.transform);
+
+            CanvasUtil.Overwrite(rootCanvas, inst.Canvas, true, true);
+            inst.Canvas.overrideSorting = true;
+            inst.SetSortingOrder(resource.SortingOrder);
+
+            return inst;
+        }
+
+        private string GetLayerName<TView>() where TView : View => GetLayerName(typeof(TView));
+
+        private string GetLayerName(System.Type viewType)
+        {
+            if (!_viewLayerMap.ContainsKey(viewType))
+            {
+                return "";
+            }
+
+            return _viewLayerMap[viewType];
+        }
+
+        public void RegisterViewResource(View viewResource)
+        {
+            if(viewResource == null)
+            {
+                Debug.LogWarning("View resource is null.");
+                return;
+            }
+
+            System.Type type = viewResource.GetType();
+            if (!_viewResourceMap.ContainsKey(type))
+            {
+                _viewResourceMap.Add(type, viewResource);
+
+                Canvas canvas = viewResource.GetComponent<Canvas>();
+                _viewLayerMap.Add(
+                    type,
+                    canvas != null ? canvas.sortingLayerName : CanvasUtil.SortingLayers[0]);
+            }
+            else
+            {
+                Debug.LogWarning($"View type already exist. type: {type}");
+            }
+        }
+
+        public void RegisterViewResources(IEnumerable<View> viewResources)
+        {
+            foreach (var view in viewResources)
+            {
+                RegisterViewResource(view);
+            }
+        }
+        #endregion
     }
 }
