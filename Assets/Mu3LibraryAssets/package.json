@@ -13,14 +13,14 @@
     ],
     "samples": [
         {
+            "displayName": "Sample_Template",
+            "description": "Template Sample",
+            "path": "Samples~/Sample_Template"
+        },
+        {
             "displayName": "Sample_Attribute",
             "description": "Attribute Sample",
             "path": "Samples~/Sample_Attribute"
-        },
-        {
-            "displayName": "Sample_Audio",
-            "description": "Audio Sample",
-            "path": "Samples~/Sample_Audio"
         },
         {
             "displayName": "Sample_UtilWindow",
