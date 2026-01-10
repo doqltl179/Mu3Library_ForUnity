@@ -31,7 +31,7 @@ namespace Mu3Library.Editor.Attribute {
 
         }
 
-        bool GetConditionalHideAttributeResult(ConditionalHideAttribute condHAtt, SerializedProperty property) {
+        private bool GetConditionalHideAttributeResult(ConditionalHideAttribute condHAtt, SerializedProperty property) {
             SerializedProperty sourcePropertyValue = null;
 
             //Get the full relative property path of the sourcefield so we can have nested hiding.Use old method when dealing with arrays
@@ -51,7 +51,6 @@ namespace Mu3Library.Editor.Attribute {
                 sourcePropertyValue = property.serializedObject.FindProperty(condHAtt.conditionalSourceField);
             }
 
-
             if(sourcePropertyValue != null) {
                 return CheckPropertyType(condHAtt, sourcePropertyValue);
             }
@@ -59,15 +58,24 @@ namespace Mu3Library.Editor.Attribute {
             return true;
         }
 
-        bool CheckPropertyType(ConditionalHideAttribute condHAtt, SerializedProperty sourcePropertyValue) {
+        private bool CheckPropertyType(ConditionalHideAttribute condHAtt, SerializedProperty sourcePropertyValue) {
+            SerializedProperty valueProp = sourcePropertyValue;
+
+            if(sourcePropertyValue.propertyType == SerializedPropertyType.Generic) {
+                SerializedProperty nestedValue = sourcePropertyValue.FindPropertyRelative("_value");
+                if(nestedValue != null) {
+                    valueProp = nestedValue;
+                }
+            }
+
             //Note: add others for custom handling if desired
-            switch(sourcePropertyValue.propertyType) {
+            switch(valueProp.propertyType) {
                 case SerializedPropertyType.Boolean:
-                    return sourcePropertyValue.boolValue;
+                    return valueProp.boolValue;
                 case SerializedPropertyType.Enum:
-                    return sourcePropertyValue.enumValueIndex == condHAtt.enumIndex;
+                    return valueProp.enumValueIndex == condHAtt.enumIndex;
                 default:
-                    Debug.LogError("Data type of the property used for conditional hiding [" + sourcePropertyValue.propertyType + "] is currently not supported");
+                    Debug.LogError("Data type of the property used for conditional hiding [" + valueProp.propertyType + "] is currently not supported");
                     return true;
             }
         }
