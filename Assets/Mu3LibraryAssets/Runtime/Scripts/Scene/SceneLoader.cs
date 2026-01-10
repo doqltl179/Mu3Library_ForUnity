@@ -6,12 +6,7 @@ using UnityEngine.SceneManagement;
 
 namespace Mu3Library.Scene
 {
-    public partial class SceneLoader : IUpdatable
-#if UNITY_EDITOR
-        , IEditorSceneLoader
-#else
-        , ISceneLoader
-#endif
+    public partial class SceneLoader : IUpdatable, ISceneLoader
     {
         private class SceneOperation
         {

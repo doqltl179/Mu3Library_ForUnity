@@ -11,11 +11,7 @@ namespace Mu3Library.Sample.Template
     {
         private IAudioManager _audioManager;
         private IAudioVolumeSettings _audioVolumeSettings;
-#if UNITY_EDITOR
-        private IEditorSceneLoader _sceneLoader;
-#else
         private ISceneLoader _sceneLoader;
-#endif
 
         [Header("Volume")]
         [SerializeField] private Slider _masterVolumeSlider;
@@ -77,12 +73,7 @@ namespace Mu3Library.Sample.Template
             _audioManager = GetFromCore<CommonCore, IAudioManager>();
             _audioVolumeSettings = GetFromCore<CommonCore, IAudioVolumeSettings>();
 
-            _sceneLoader =
-#if UNITY_EDITOR
-                GetFromCore<CommonCore, IEditorSceneLoader>();
-#else
-                GetFromCore<CommonCore, ISceneLoader>();
-#endif
+            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
 
             if (_audioVolumeSettings == null)
             {

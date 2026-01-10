@@ -9,11 +9,7 @@ namespace Mu3Library.Sample.Template.Main
 {
     public class MainCore : CoreBase
     {
-#if UNITY_EDITOR
-        private IEditorSceneLoader _sceneLoader;
-#else
         private ISceneLoader _sceneLoader;
-#endif
 
         [Space(20)]
         [SerializeField] private SampleSceneEntry _sceneEntryResource;
@@ -33,12 +29,7 @@ namespace Mu3Library.Sample.Template.Main
         {
             base.Start();
 
-            _sceneLoader =
-#if UNITY_EDITOR
-                GetFromCore<CommonCore, IEditorSceneLoader>();
-#else
-                GetFromCore<CommonCore, ISceneLoader>();
-#endif
+            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
 
             _sceneEntryResource.gameObject.SetActive(false);
 

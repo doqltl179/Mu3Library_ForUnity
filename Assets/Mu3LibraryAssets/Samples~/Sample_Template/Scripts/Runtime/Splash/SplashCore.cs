@@ -8,14 +8,10 @@ namespace Mu3Library.Sample.Template.Splash
 {
     public class SplashCore : CoreBase
     {
-#if UNITY_EDITOR
+        private ISceneLoader _sceneLoader;
+
         [Space(20)]
         [SerializeField] private SplashUIAnimation _splashAnimation;
-
-        private IEditorSceneLoader _sceneLoader;
-#else
-        private ISceneLoader _sceneLoader;
-#endif
 
 
         protected override void Start()
@@ -36,12 +32,7 @@ namespace Mu3Library.Sample.Template.Splash
 
         private void OnCommonCoreAdded(CommonCore core)
         {
-            _sceneLoader =
-#if UNITY_EDITOR
-                GetFromCore<CommonCore, IEditorSceneLoader>();
-#else
-                GetFromCore<CommonCore, ISceneLoader>();
-#endif
+            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
 
             LoadLoadingScene();
         }
