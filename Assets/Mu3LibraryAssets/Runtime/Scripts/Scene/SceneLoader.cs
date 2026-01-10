@@ -1,29 +1,37 @@
-using System.Collections;
-using Mu3Library.Utility;
+using System;
+using System.Collections.Generic;
+using Mu3Library.DI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Collections.Generic;
-using System;
-using Mu3Library.Observable;
-
-
-
-#if UNITY_EDITOR
-using UnityEditor;
-using UnityEditor.SceneManagement;
-#endif
 
 namespace Mu3Library.Scene
 {
-    public class SceneLoader : GenericSingleton<SceneLoader>
+    public partial class SceneLoader : IUpdatable
+#if UNITY_EDITOR
+        , IEditorSceneLoader
+#else
+        , ISceneLoader
+#endif
     {
+        private class SceneOperation
+        {
+            public string SceneName;
+            public AsyncOperation Operation;
+            public bool IsAdditive;
+            public bool IsUnload;
+            public float FakeTimer;
+            public float FakeDuration;
+            public bool UseFakeLoading;
+            public bool ActivationRequested;
+        }
+
         private int _loadingCount = 0;
         public bool IsLoading => _loadingCount > 0;
 
         private string _currentSceneName = "";
         public string CurrentSceneName => _currentSceneName;
 
-        private HashSet<string> _currentAdditiveScenes = new();
+        private readonly HashSet<string> _currentAdditiveScenes = new();
 
         private bool _useFakeLoading = true;
         public bool UseFakeLoading
@@ -39,27 +47,16 @@ namespace Mu3Library.Scene
             set => _fakeLoadingTime = value;
         }
 
-        private readonly ObservableFloat _sceneLoadProgress = new();
-        public float SceneLoadProgress => _sceneLoadProgress;
-
         public event Action<string> OnSceneLoadStart;
         public event Action<string> OnSceneLoadEnd;
 
-        private IEnumerator _loadSingleSceneCoroutine = null;
-        /// <summary>
-        /// <br/> string: scene name
-        /// <br/> IEnumerator: scene load process coroutine
-        /// </summary>
-        private Dictionary<string, IEnumerator> _loadAdditiveSceneCoroutines = new();
-        /// <summary>
-        /// <br/> string: scene name
-        /// <br/> IEnumerator: scene unload process coroutine
-        /// </summary>
-        private Dictionary<string, IEnumerator> _unloadAdditiveSceneCoroutines = new();
+        private SceneOperation _singleSceneOperation = null;
+        private readonly Dictionary<string, SceneOperation> _loadAdditiveSceneOperations = new();
+        private readonly Dictionary<string, SceneOperation> _unloadAdditiveSceneOperations = new();
 
 
 
-        private void Awake()
+        public SceneLoader()
         {
             _currentSceneName = SceneManager.GetActiveScene().name;
         }
@@ -71,27 +68,9 @@ namespace Mu3Library.Scene
             return _currentAdditiveScenes.Contains(sceneName);
         }
 
-#if UNITY_EDITOR
-        public bool IsSceneLoadedAsAdditiveWithAssetPath(string assetPath)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-            return _currentAdditiveScenes.Contains(sceneName);
-        }
-#endif
-
-        public void RemoveProgressEvent(Action<float> callback)
-        {
-            _sceneLoadProgress.RemoveEvent(callback);
-        }
-
-        public void AddProgressEvent(Action<float> callback)
-        {
-            _sceneLoadProgress.AddEvent(callback);
-        }
-
         #endregion
 
-        #region Coroutine
+        #region Load
 
         public void LoadSingleScene(string sceneName)
         {
@@ -106,38 +85,20 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (_loadSingleSceneCoroutine == null)
+            if (_singleSceneOperation != null)
             {
-                _loadSingleSceneCoroutine = LoadSingleSceneCoroutine(sceneName);
-                StartCoroutine(_loadSingleSceneCoroutine);
+                return;
             }
-        }
 
-        private IEnumerator LoadSingleSceneCoroutine(string sceneName)
-        {
+            Debug.Log($"Load single scene start. sceneName: {sceneName}");
+
             _loadingCount++;
-
             OnSceneLoadStart?.Invoke(sceneName);
 
             AsyncOperation ao = SceneManager.LoadSceneAsync(sceneName);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(ao));
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentSceneName = sceneName;
-            _currentAdditiveScenes.Clear();
-
-            _loadingCount--;
-            _loadSingleSceneCoroutine = null;
-
-            OnSceneLoadEnd?.Invoke(sceneName);
+            _singleSceneOperation = CreateLoadOperation(sceneName, ao, isAdditive: false);
         }
 
         public void LoadAdditiveScene(string sceneName)
@@ -153,38 +114,20 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (!_loadAdditiveSceneCoroutines.ContainsKey(sceneName))
+            if (_loadAdditiveSceneOperations.ContainsKey(sceneName))
             {
-                IEnumerator process = LoadAdditiveSceneCoroutine(sceneName);
-                _loadAdditiveSceneCoroutines.Add(sceneName, process);
-                StartCoroutine(process);
+                return;
             }
-        }
 
-        private IEnumerator LoadAdditiveSceneCoroutine(string sceneName)
-        {
+            Debug.Log($"Load additive scene start. sceneName: {sceneName}");
+
             _loadingCount++;
-
             OnSceneLoadStart?.Invoke(sceneName);
 
             AsyncOperation ao = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(LoadProcessCoroutine(ao));
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentAdditiveScenes.Add(sceneName);
-
-            _loadingCount--;
-            _loadAdditiveSceneCoroutines.Remove(sceneName);
-
-            OnSceneLoadEnd?.Invoke(sceneName);
+            _loadAdditiveSceneOperations.Add(sceneName, CreateLoadOperation(sceneName, ao, isAdditive: true));
         }
 
         public void UnloadAdditiveScene(string sceneName)
@@ -195,214 +138,25 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (!_unloadAdditiveSceneCoroutines.ContainsKey(sceneName))
+            if (_unloadAdditiveSceneOperations.ContainsKey(sceneName))
             {
-                IEnumerator process = UnloadAdditiveSceneCoroutine(sceneName);
-                _unloadAdditiveSceneCoroutines.Add(sceneName, process);
-                StartCoroutine(process);
+                return;
             }
-        }
 
-        private IEnumerator UnloadAdditiveSceneCoroutine(string sceneName)
-        {
             AsyncOperation ao = SceneManager.UnloadSceneAsync(sceneName);
             ao.allowSceneActivation = false;
 
-            yield return StartCoroutine(UnloadProcessCoroutine(ao));
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentAdditiveScenes.Remove(sceneName);
-
-            _unloadAdditiveSceneCoroutines.Remove(sceneName);
-        }
-
-#if UNITY_EDITOR
-        public void LoadSingleSceneWithAssetPath(string assetPath, LocalPhysicsMode physicsMode = LocalPhysicsMode.None)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-            if (_currentSceneName == sceneName)
-            {
-                return;
-            }
-
-            SceneAsset sceneAsset = LoadSceneAsset(assetPath);
-            if (sceneAsset == null)
-            {
-                Debug.LogError($"SceneAsset not found. assetPath: {assetPath}");
-                return;
-            }
-
-            if (_loadSingleSceneCoroutine == null)
-            {
-                _loadSingleSceneCoroutine = LoadSingleSceneCoroutineWithAssetPath(assetPath, physicsMode);
-                StartCoroutine(_loadSingleSceneCoroutine);
-            }
-        }
-
-        private IEnumerator LoadSingleSceneCoroutineWithAssetPath(string assetPath, LocalPhysicsMode physicsMode = LocalPhysicsMode.None)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-
-            _loadingCount++;
-            OnSceneLoadStart?.Invoke(sceneName);
-
-            LoadSceneParameters parameters = new LoadSceneParameters(LoadSceneMode.Single, physicsMode);
-            AsyncOperation ao = EditorSceneManager.LoadSceneAsyncInPlayMode(assetPath, parameters);
-            ao.allowSceneActivation = false;
-
-            yield return StartCoroutine(LoadProcessCoroutine(ao));
-
-            _loadingCount--;
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentSceneName = sceneName;
-            _currentAdditiveScenes.Clear();
-
-            _loadSingleSceneCoroutine = null;
-
-            OnSceneLoadEnd?.Invoke(sceneName);
-        }
-
-        public void LoadAdditiveSceneWithAssetPath(string assetPath, LocalPhysicsMode physicsMode = LocalPhysicsMode.None)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-            if (_currentAdditiveScenes.Contains(sceneName))
-            {
-                return;
-            }
-
-            SceneAsset sceneAsset = LoadSceneAsset(assetPath);
-            if (sceneAsset == null)
-            {
-                Debug.LogError($"SceneAsset not found. assetPath: {assetPath}");
-                return;
-            }
-
-            if (!_loadAdditiveSceneCoroutines.ContainsKey(sceneName))
-            {
-                IEnumerator process = LoadAdditiveSceneCoroutineWithAssetPath(assetPath, physicsMode);
-                _loadAdditiveSceneCoroutines.Add(sceneName, process);
-                StartCoroutine(process);
-            }
-        }
-
-        private IEnumerator LoadAdditiveSceneCoroutineWithAssetPath(string assetPath, LocalPhysicsMode physicsMode = LocalPhysicsMode.None)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-
-            _loadingCount++;
-            OnSceneLoadStart?.Invoke(sceneName);
-
-            LoadSceneParameters parameters = new LoadSceneParameters(LoadSceneMode.Additive, physicsMode);
-            AsyncOperation ao = EditorSceneManager.LoadSceneAsyncInPlayMode(assetPath, parameters);
-            ao.allowSceneActivation = false;
-
-            yield return StartCoroutine(LoadProcessCoroutine(ao));
-
-            _loadingCount--;
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentAdditiveScenes.Add(sceneName);
-
-            _loadAdditiveSceneCoroutines.Remove(sceneName);
-
-            OnSceneLoadEnd?.Invoke(sceneName);
-        }
-
-        public void UnloadAdditiveSceneWithAssetPath(string assetPath)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-
-            if (!_currentAdditiveScenes.Contains(sceneName))
-            {
-                Debug.LogWarning($"Scene is not loaded. sceneName: {sceneName}");
-                return;
-            }
-
-            if (!_unloadAdditiveSceneCoroutines.ContainsKey(sceneName))
-            {
-                IEnumerator process = UnloadAdditiveSceneCoroutineWithAssetPath(assetPath);
-                _unloadAdditiveSceneCoroutines.Add(sceneName, process);
-                StartCoroutine(process);
-            }
-        }
-
-        private IEnumerator UnloadAdditiveSceneCoroutineWithAssetPath(string assetPath)
-        {
-            string sceneName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
-
-            AsyncOperation ao = EditorSceneManager.UnloadSceneAsync(sceneName);
-            ao.allowSceneActivation = false;
-
-            yield return StartCoroutine(UnloadProcessCoroutine(ao));
-
-            ao.allowSceneActivation = true;
-            // Wait other process
-            while (!ao.isDone)
-            {
-                yield return null;
-            }
-
-            _currentAdditiveScenes.Remove(sceneName);
-
-            _unloadAdditiveSceneCoroutines.Remove(sceneName);
-        }
-#endif
-
-        private IEnumerator LoadProcessCoroutine(AsyncOperation ao)
-        {
-            _sceneLoadProgress.Set(0f);
-
-            // Wait Scene Loading
-            while (ao.progress < 0.9f)
-            {
-                _sceneLoadProgress.Set(ao.progress);
-                yield return null;
-            }
-
-            // Fake Loading
-            if (_useFakeLoading && _fakeLoadingTime > 0)
-            {
-                float timer = 0.0f;
-                while (timer < _fakeLoadingTime)
-                {
-                    timer += Time.deltaTime;
-                    _sceneLoadProgress.Set(Mathf.Lerp(0.9f, 1.0f, timer / _fakeLoadingTime));
-                    yield return null;
-                }
-            }
-
-            _sceneLoadProgress.Set(1.0f);
-        }
-
-        private IEnumerator UnloadProcessCoroutine(AsyncOperation ao)
-        {
-            // Wait Scene Unloading
-            while (ao.progress < 0.9f)
-            {
-                yield return null;
-            }
+            _unloadAdditiveSceneOperations.Add(sceneName, CreateUnloadOperation(sceneName, ao));
         }
 
         #endregion
+
+        public void Update()
+        {
+            UpdateSingleSceneOperation();
+            UpdateLoadAdditiveOperations();
+            UpdateUnloadAdditiveOperations();
+        }
 
         private bool IsSceneInBuild(string sceneName)
         {
@@ -421,13 +175,162 @@ namespace Mu3Library.Scene
             return false;
         }
 
-#if UNITY_EDITOR
-        private SceneAsset LoadSceneAsset(string assetPath)
+        private SceneOperation CreateLoadOperation(string sceneName, AsyncOperation operation, bool isAdditive)
         {
-            return !string.IsNullOrEmpty(assetPath) ?
-                AssetDatabase.LoadAssetAtPath<SceneAsset>(assetPath) :
-                null;
+            return new SceneOperation
+            {
+                SceneName = sceneName,
+                Operation = operation,
+                IsAdditive = isAdditive,
+                IsUnload = false,
+                FakeDuration = _fakeLoadingTime,
+                UseFakeLoading = _useFakeLoading,
+                ActivationRequested = false
+            };
         }
-#endif
+
+        private SceneOperation CreateUnloadOperation(string sceneName, AsyncOperation operation)
+        {
+            return new SceneOperation
+            {
+                SceneName = sceneName,
+                Operation = operation,
+                IsAdditive = true,
+                IsUnload = true,
+                UseFakeLoading = false,
+                ActivationRequested = false
+            };
+        }
+
+        private void UpdateSingleSceneOperation()
+        {
+            if (_singleSceneOperation == null)
+            {
+                return;
+            }
+
+            if (!UpdateOperation(_singleSceneOperation))
+            {
+                return;
+            }
+
+            string sceneName = _singleSceneOperation.SceneName;
+            Debug.Log($"Load single scene end. sceneName: {sceneName}");
+
+            _currentSceneName = sceneName;
+            _currentAdditiveScenes.Clear();
+
+            _loadingCount--;
+            OnSceneLoadEnd?.Invoke(sceneName);
+
+            _singleSceneOperation = null;
+        }
+
+        private void UpdateLoadAdditiveOperations()
+        {
+            if (_loadAdditiveSceneOperations.Count == 0)
+            {
+                return;
+            }
+
+            List<string> completed = null;
+            foreach (var pair in _loadAdditiveSceneOperations)
+            {
+                if (!UpdateOperation(pair.Value))
+                {
+                    continue;
+                }
+
+                string sceneName = pair.Value.SceneName;
+                Debug.Log($"Load additive scene end. sceneName: {sceneName}");
+
+                _currentAdditiveScenes.Add(sceneName);
+                _loadingCount--;
+                OnSceneLoadEnd?.Invoke(sceneName);
+
+                completed ??= new List<string>();
+                completed.Add(pair.Key);
+            }
+
+            if (completed == null)
+            {
+                return;
+            }
+
+            foreach (string sceneName in completed)
+            {
+                _loadAdditiveSceneOperations.Remove(sceneName);
+            }
+        }
+
+        private void UpdateUnloadAdditiveOperations()
+        {
+            if (_unloadAdditiveSceneOperations.Count == 0)
+            {
+                return;
+            }
+
+            List<string> completed = null;
+            foreach (var pair in _unloadAdditiveSceneOperations)
+            {
+                if (!UpdateOperation(pair.Value))
+                {
+                    continue;
+                }
+
+                _currentAdditiveScenes.Remove(pair.Value.SceneName);
+
+                completed ??= new List<string>();
+                completed.Add(pair.Key);
+            }
+
+            if (completed == null)
+            {
+                return;
+            }
+
+            foreach (string sceneName in completed)
+            {
+                _unloadAdditiveSceneOperations.Remove(sceneName);
+            }
+        }
+
+        private bool UpdateOperation(SceneOperation operation)
+        {
+            if (operation.IsUnload)
+            {
+                if (operation.Operation.progress < 0.9f)
+                {
+                    return false;
+                }
+
+                if (!operation.ActivationRequested)
+                {
+                    operation.Operation.allowSceneActivation = true;
+                    operation.ActivationRequested = true;
+                }
+
+                return operation.Operation.isDone;
+            }
+
+            if (operation.Operation.progress < 0.9f)
+            {
+                return false;
+            }
+
+            if (operation.UseFakeLoading && operation.FakeDuration > 0f && operation.FakeTimer < operation.FakeDuration)
+            {
+                operation.FakeTimer += Time.deltaTime;
+                return false;
+            }
+
+            if (!operation.ActivationRequested)
+            {
+                operation.Operation.allowSceneActivation = true;
+                operation.ActivationRequested = true;
+            }
+
+            return operation.Operation.isDone;
+        }
     }
 }
