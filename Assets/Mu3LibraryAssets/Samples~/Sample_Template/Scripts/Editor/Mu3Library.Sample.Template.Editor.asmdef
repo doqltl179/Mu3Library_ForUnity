@@ -1,0 +1,24 @@
+{
+    "name": "Mu3Library.Sample.Template.Editor",
+    "rootNamespace": "Mu3Library.Sample.Template.Editor",
+    "references": [
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
+        "GUID:6391e8445d9411043ab0bbeae0fbab5b",
+        "GUID:40327756e5ec5a84d8caf301fabd0d3b",
+        "GUID:69448af7b92c7f342b298e06a37122aa",
+        "GUID:2e77701fe0ceda44fb763f03ee704c37",
+        "GUID:49818357e697641afb75d2f8acaf1861",
+        "GUID:6546d7765b4165b40850b3667f981c26"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
