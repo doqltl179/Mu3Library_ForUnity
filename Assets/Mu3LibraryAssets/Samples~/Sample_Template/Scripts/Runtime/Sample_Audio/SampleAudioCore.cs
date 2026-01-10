@@ -65,6 +65,13 @@ namespace Mu3Library.Sample.Template
             WaitForCore<CommonCore>(OnCommonCoreAdded);
         }
 
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            _audioManager?.Stop();
+        }
+
         private void OnCommonCoreAdded(CommonCore _)
         {
             _audioManager = GetFromCore<CommonCore, IAudioManager>();

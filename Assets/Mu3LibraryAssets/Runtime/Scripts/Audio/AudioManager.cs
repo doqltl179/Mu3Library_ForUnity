@@ -6,11 +6,45 @@ namespace Mu3Library.Audio
 {
     public class AudioManager : IAudioManager, IAudioVolumeSettings, IUpdatable, IDisposable
     {
+        private GameObject m_root;
+        private GameObject _root
+        {
+            get
+            {
+                if (m_root == null)
+                {
+                    m_root = new GameObject("AudioManagerRoot");
+                    Object.DontDestroyOnLoad(m_root);
+                }
+
+                return m_root;
+            }
+        }
+
+        private Transform _rootTransform => _root.transform;
+
         private List<AudioController> _sfxControllers = new();
         private Queue<AudioController> _sfxPool = new();
 
         private AudioController _bgmMainController = null;
         private AudioController _bgmSubController = null;
+
+        private AudioSourceSettings _sourceSettings = AudioSourceSettings.Standard;
+        public AudioSourceSettings SourceSettings
+        {
+            get => _sourceSettings;
+            set => _sourceSettings = value;
+        }
+        public AudioBaseSettings BaseSettings
+        {
+            get => _sourceSettings.BaseSettings;
+            set => _sourceSettings.BaseSettings = value;
+        }
+        public Audio3dSoundSettings SoundSettings
+        {
+            get => _sourceSettings.SoundSettings;
+            set => _sourceSettings.SoundSettings = value;
+        }
 
         private const float DefaultMasterVolume = 0.8f;
         private float _masterVolume = DefaultMasterVolume;
@@ -51,34 +85,6 @@ namespace Mu3Library.Audio
             set => _sfxSourceCountMax = Mathf.Min(Mathf.Max(value, 1), 10);
         }
 
-        private static readonly AudioBaseParameters _standardBaseParameters = new()
-        {
-            Priority = 128,
-            Pitch = 1.0f,
-            StereoPan = 0.0f,
-            SpatialBlend = 0.0f,
-            ReverbZoneMix = 1.0f,
-        };
-        public AudioBaseParameters StandardBaseParameters => _standardBaseParameters;
-
-        private static readonly Audio3dSoundSettings _standard3dSoundSettings = new()
-        {
-            DopplerLevel = 1.0f,
-            Spread = 0.0f,
-            AudioRolloffMode = AudioRolloffMode.Linear,
-            MinDistance = 1.0f,
-            MaxDistance = 500.0f,
-        };
-        public Audio3dSoundSettings Standard3dSoundSettings => _standard3dSoundSettings;
-
-        private static readonly AudioParameters _standardParameters = new()
-        {
-            Volume = 1.0f,
-            Base = _standardBaseParameters,
-            SoundSettings = _standard3dSoundSettings,
-        };
-        public AudioParameters StandardParameters => _standardParameters;
-
         public event System.Action<float> OnMasterVolumeChanged;
         public event System.Action<float> OnBgmVolumeChanged;
         public event System.Action<float> OnSfxVolumeChanged;
@@ -90,6 +96,11 @@ namespace Mu3Library.Audio
             Stop();
             PoolSfxAll();
             _sfxPool.Clear();
+
+            if(_root != null)
+            {
+                Object.Destroy(_root);
+            }
         }
 
         public void Update()
@@ -168,11 +179,11 @@ namespace Mu3Library.Audio
             _bgmMainController.FadeOut(fadeTime, _bgmMainController.Pause);
         }
 
-        public void TransitionBgm(AudioClip clip) => TransitionBgm(clip, 1.0f, _standardParameters);
+        public void TransitionBgm(AudioClip clip) => TransitionBgm(clip, 1.0f, _sourceSettings);
 
-        public void TransitionBgm(AudioClip clip, float transitionTime) => TransitionBgm(clip, transitionTime, _standardParameters);
+        public void TransitionBgm(AudioClip clip, float transitionTime) => TransitionBgm(clip, transitionTime, _sourceSettings);
 
-        public void TransitionBgm(AudioClip clip, float transitionTime, AudioParameters parameters)
+        public void TransitionBgm(AudioClip clip, float transitionTime, AudioSourceSettings settings)
         {
             if (clip == null)
             {
@@ -190,12 +201,12 @@ namespace Mu3Library.Audio
             if (to == null)
             {
                 AudioSource source = CreateBgmSource();
-                to = CreateAudioController<BgmController>(source, clip, parameters);
+                to = CreateAudioController<BgmController>(source, clip, settings);
             }
 
             if (!to.IsPlaying || !to.IsSameClip(clip))
             {
-                InitializeAudioController(to, clip, parameters);
+                InitializeAudioController(to, clip, settings);
                 to.FadeVolume = 0.0f;
                 to.RecalculateVolume();
                 to.Play();
@@ -207,21 +218,21 @@ namespace Mu3Library.Audio
             _bgmSubController = from;
         }
 
-        public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, _standardParameters);
+        public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, _sourceSettings);
 
-        public void PlayBgmForce(AudioClip clip, AudioParameters parameters)
+        public void PlayBgmForce(AudioClip clip, AudioSourceSettings settings)
         {
             if (_bgmMainController != null && _bgmMainController.IsPlaying)
             {
                 _bgmMainController.Stop();
             }
 
-            PlayBgm(clip, parameters);
+            PlayBgm(clip, settings);
         }
 
-        public void PlayBgm(AudioClip clip) => PlayBgm(clip, _standardParameters);
+        public void PlayBgm(AudioClip clip) => PlayBgm(clip, _sourceSettings);
 
-        public void PlayBgm(AudioClip clip, AudioParameters parameters)
+        public void PlayBgm(AudioClip clip, AudioSourceSettings settings)
         {
             if (clip == null)
             {
@@ -237,12 +248,12 @@ namespace Mu3Library.Audio
                     return;
                 }
 
-                InitializeAudioController(_bgmMainController, clip, parameters);
+                InitializeAudioController(_bgmMainController, clip, settings);
             }
             else
             {
                 AudioSource source = CreateBgmSource();
-                _bgmMainController = CreateAudioController<BgmController>(source, clip, parameters);
+                _bgmMainController = CreateAudioController<BgmController>(source, clip, settings);
             }
 
             _bgmMainController.FadeVolume = 1.0f;
@@ -286,13 +297,13 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void PlaySfx(AudioClip clip) => PlaySfx(clip, _standardParameters, Vector3.zero);
+        public void PlaySfx(AudioClip clip) => PlaySfx(clip, _sourceSettings, Vector3.zero);
 
-        public void PlaySfx(AudioClip clip, AudioParameters parameters) => PlaySfx(clip, parameters, Vector3.zero);
+        public void PlaySfx(AudioClip clip, AudioSourceSettings settings) => PlaySfx(clip, settings, Vector3.zero);
 
-        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfx(clip, _standardParameters, position);
+        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfx(clip, _sourceSettings, position);
 
-        public void PlaySfx(AudioClip clip, AudioParameters parameters, Vector3 position)
+        public void PlaySfx(AudioClip clip, AudioSourceSettings settings, Vector3 position)
         {
             if (clip == null)
             {
@@ -306,12 +317,12 @@ namespace Mu3Library.Audio
             {
                 if (_sfxPool.TryDequeue(out controller))
                 {
-                    InitializeAudioController(controller, clip, parameters);
+                    InitializeAudioController(controller, clip, settings);
                 }
                 else
                 {
                     AudioSource source = CreateSfxSource();
-                    controller = CreateAudioController<SfxController>(source, clip, parameters);
+                    controller = CreateAudioController<SfxController>(source, clip, settings);
                 }
             }
             else
@@ -319,7 +330,7 @@ namespace Mu3Library.Audio
                 controller = _sfxControllers[0];
                 _sfxControllers.RemoveAt(0);
 
-                InitializeAudioController(controller, clip, parameters);
+                InitializeAudioController(controller, clip, settings);
             }
 
             controller.SetActive(true);
@@ -469,7 +480,7 @@ namespace Mu3Library.Audio
         private AudioSource CreateSfxSource()
         {
             GameObject instance = new GameObject("SfxSource");
-            // Set parent if you need
+            instance.transform.SetParent(_rootTransform);
 
             AudioSource source = instance.AddComponent<AudioSource>();
             source.playOnAwake = false;
@@ -507,7 +518,7 @@ namespace Mu3Library.Audio
         private AudioSource CreateBgmSource()
         {
             GameObject instance = new GameObject("BgmSource");
-            // Set parent if you need
+            instance.transform.SetParent(_rootTransform);
 
             AudioSource source = instance.AddComponent<AudioSource>();
             source.playOnAwake = false;
@@ -516,23 +527,23 @@ namespace Mu3Library.Audio
             return source;
         }
 
-        private void InitializeAudioController(AudioController controller, AudioClip clip, AudioParameters parameters)
+        private void InitializeAudioController(AudioController controller, AudioClip clip, AudioSourceSettings settings)
         {
             if (controller.IsPlaying)
             {
                 controller.Stop();
             }
 
-            AudioParameters p = parameters;
+            AudioSourceSettings p = settings;
 
             controller.SetVolumeSettings(this);
             controller.SetClip(clip);
             controller.SetClipVolume(p.Volume);
-            controller.SetAudioParameters(p.Base);
+            controller.SetAudioParameters(p.BaseSettings);
             controller.SetAudioParameters(p.SoundSettings);
         }
 
-        private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioParameters parameters) where T : AudioController
+        private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioSourceSettings settings) where T : AudioController
         {
             if (source == null || clip == null)
             {
@@ -540,7 +551,7 @@ namespace Mu3Library.Audio
                 return null;
             }
 
-            AudioParameters p = parameters;
+            AudioSourceSettings p = settings;
 
             AudioController controller = source.gameObject.GetComponent<T>();
             if (controller == null)
@@ -551,7 +562,7 @@ namespace Mu3Library.Audio
             controller.SetVolumeSettings(this);
             controller.SetClip(clip);
             controller.SetClipVolume(p.Volume);
-            controller.SetAudioParameters(p.Base);
+            controller.SetAudioParameters(p.BaseSettings);
             controller.SetAudioParameters(p.SoundSettings);
 
             return controller;

@@ -3,11 +3,18 @@ using UnityEngine;
 namespace Mu3Library.Audio
 {
     [System.Serializable]
-    public struct AudioParameters
+    public struct AudioSourceSettings
     {
         public float Volume;
-        public AudioBaseParameters Base;
+        public AudioBaseSettings BaseSettings;
         public Audio3dSoundSettings SoundSettings;
+
+        public static readonly AudioSourceSettings Standard = new()
+        {
+            Volume = 1.0f,
+            BaseSettings = AudioBaseSettings.Standard,
+            SoundSettings = Audio3dSoundSettings.Standard,
+        };
 
         public void ReadFromSource(AudioSource source)
         {
@@ -17,19 +24,28 @@ namespace Mu3Library.Audio
             }
 
             Volume = source.volume;
-            Base.ReadFromSource(source);
+            BaseSettings.ReadFromSource(source);
             SoundSettings.ReadFromSource(source);
         }
     }
 
     [System.Serializable]
-    public struct AudioBaseParameters
+    public struct AudioBaseSettings
     {
         public int Priority;
         public float Pitch;
         public float StereoPan;
         public float SpatialBlend;
         public float ReverbZoneMix;
+
+        public static readonly AudioBaseSettings Standard = new()
+        {
+            Priority = 128,
+            Pitch = 1.0f,
+            StereoPan = 0.0f,
+            SpatialBlend = 0.0f,
+            ReverbZoneMix = 1.0f,
+        };
 
         public void ReadFromSource(AudioSource source)
         {
@@ -56,6 +72,15 @@ namespace Mu3Library.Audio
         public AnimationCurve AudioSourceCurve;
         public float MinDistance;
         public float MaxDistance;
+
+        public static readonly Audio3dSoundSettings Standard = new()
+        {
+            DopplerLevel = 1.0f,
+            Spread = 0.0f,
+            AudioRolloffMode = AudioRolloffMode.Linear,
+            MinDistance = 1.0f,
+            MaxDistance = 500.0f,
+        };
 
         public void ReadFromSource(AudioSource source)
         {

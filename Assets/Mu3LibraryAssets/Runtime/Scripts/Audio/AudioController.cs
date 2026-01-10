@@ -122,29 +122,29 @@ namespace Mu3Library.Audio
             _source.UnPause();
         }
 
-        public void SetAudioParameters(AudioBaseParameters parameters)
+        public void SetAudioParameters(AudioBaseSettings settings)
         {
-            _source.priority = parameters.Priority;
-            _source.pitch = parameters.Pitch;
-            _source.panStereo = parameters.StereoPan;
-            _source.spatialBlend = parameters.SpatialBlend;
-            _source.reverbZoneMix = parameters.ReverbZoneMix;
+            _source.priority = settings.Priority;
+            _source.pitch = settings.Pitch;
+            _source.panStereo = settings.StereoPan;
+            _source.spatialBlend = settings.SpatialBlend;
+            _source.reverbZoneMix = settings.ReverbZoneMix;
         }
 
-        public void SetAudioParameters(Audio3dSoundSettings parameters)
+        public void SetAudioParameters(Audio3dSoundSettings settings)
         {
-            _source.dopplerLevel = parameters.DopplerLevel;
-            _source.spread = parameters.Spread;
+            _source.dopplerLevel = settings.DopplerLevel;
+            _source.spread = settings.Spread;
 
-            if (parameters.AudioSourceCurveType != null && parameters.AudioSourceCurve != null)
+            if (settings.AudioSourceCurveType != null && settings.AudioSourceCurve != null)
             {
-                _source.SetCustomCurve(parameters.AudioSourceCurveType.Value, parameters.AudioSourceCurve);
+                _source.SetCustomCurve(settings.AudioSourceCurveType.Value, settings.AudioSourceCurve);
             }
             else
             {
-                if (parameters.AudioSourceCurve != null)
+                if (settings.AudioSourceCurve != null)
                 {
-                    _source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, parameters.AudioSourceCurve);
+                    _source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, settings.AudioSourceCurve);
                 }
                 else
                 {
@@ -152,8 +152,8 @@ namespace Mu3Library.Audio
                 }
             }
 
-            _source.minDistance = parameters.MinDistance;
-            _source.maxDistance = parameters.MaxDistance;
+            _source.minDistance = settings.MinDistance;
+            _source.maxDistance = settings.MaxDistance;
         }
 
         public bool IsSameClip(AudioClip clip)
