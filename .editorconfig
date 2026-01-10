@@ -1,14 +1,14 @@
 # top-most EditorConfig file
 root = true
 
-# C# 파일 설정
+# C# files
 [*.cs]
 charset = utf-8
 
-# Compute Shader 파일 설정
+# Compute shader files
 [*.compute]
 charset = utf-8
 
-# Shader 파일 설정
+# Shader files
 [*.shader]
 charset = utf-8
