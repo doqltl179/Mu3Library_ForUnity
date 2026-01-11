@@ -23,7 +23,8 @@ namespace Mu3Library.UI.MVP
 
         public RectTransform RectTransform => _view.RectTransform;
         public Canvas ViewCanvas => _view.Canvas;
-        public string LayerName => _view.LayerName;
+        public string ObjectLayerName => _view.ObjectLayerName;
+        public string CanvasLayerName => _view.CanvasLayerName;
         public int SortingOrder => _view.SortingOrder;
 
         public CanvasGroup CanvasGroup => _view.CanvasGroup;

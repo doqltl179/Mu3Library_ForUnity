@@ -16,7 +16,8 @@ namespace Mu3Library.UI.MVP
         
         public RectTransform RectTransform { get; }
         public Canvas ViewCanvas { get; }
-        public string LayerName { get; }
+        public string ObjectLayerName { get; }
+        public string CanvasLayerName { get; }
         public int SortingOrder { get; }
 
         public CanvasGroup CanvasGroup { get; }

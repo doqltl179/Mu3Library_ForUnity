@@ -61,7 +61,8 @@ namespace Mu3Library.UI.MVP
         }
         public Canvas Canvas => _canvas;
 
-        public string LayerName => _canvas.sortingLayerName;
+        public string ObjectLayerName => LayerMask.LayerToName(gameObject.layer);
+        public string CanvasLayerName => _canvas.sortingLayerName;
         public int SortingOrder => _canvas.sortingOrder;
 
         private CanvasGroup m_canvasGroup = null;
@@ -216,7 +217,7 @@ namespace Mu3Library.UI.MVP
 
         public void OverwriteInto(Canvas target)
         {
-            CanvasUtil.Overwrite(_canvas, target, true, true);
+            MVPCanvasUtil.Overwrite(_canvas, target, true, true);
         }
 
         public void Stretch() => _rectTransform.Stretch();

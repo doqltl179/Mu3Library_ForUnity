@@ -43,12 +43,18 @@ namespace Mu3Library.UI.MVP
         }
         public CanvasGroup CanvasGroup => m_canvasGroup;
 
-        public string LayerName
+        public string ObjectLayerName
+        {
+            get => LayerMask.LayerToName(gameObject.layer);
+            set => gameObject.layer = LayerMask.NameToLayer(value);
+        }
+
+        public string CanvasLayerName
         {
             get => _canvas.sortingLayerName;
             set => _canvas.sortingLayerName = value;
         }
-        public int SortingOrder
+        public int  SortingOrder
         {
             get => _canvas.sortingOrder;
             set => _canvas.sortingOrder = value;
@@ -108,7 +114,7 @@ namespace Mu3Library.UI.MVP
                 overwriteCanvas = overwriteCanvas.rootCanvas;
             }
 
-            CanvasUtil.Overwrite(overwriteCanvas, _canvas, true, true);
+            MVPCanvasUtil.Overwrite(overwriteCanvas, _canvas, true, true);
             _canvas.sortingOrder = presenter.SortingOrder - 1;
 
             _canvasGroup.interactable = presenter.Interactable;
@@ -130,7 +136,7 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            CanvasUtil.Overwrite(source, _canvas, true, true);
+            MVPCanvasUtil.Overwrite(source, _canvas, true, true);
         }
 
         public void SetColor(Color color)

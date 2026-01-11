@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace Mu3Library.UI.MVP
 {
-    public class MVPManager : IMVPManager, IUpdatable, IDisposable
+    public partial class MVPManager : IMVPManager, IUpdatable, IDisposable
     {
         private GameObject m_root;
         private GameObject _root
@@ -25,39 +25,7 @@ namespace Mu3Library.UI.MVP
 
         private Transform _rootTransform => _root.transform;
 
-        private readonly Dictionary<System.Type, View> _viewResourceMap = new();
-        private readonly Dictionary<System.Type, string> _viewLayerMap = new();
         private readonly Dictionary<System.Type, Queue<IPresenter>> _presenterPool = new();
-        private MVPCanvasSettings _canvasSettings = MVPCanvasSettings.Standard;
-        public MVPCanvasSettings CanvasSettings
-        {
-            get => _canvasSettings;
-            set => _canvasSettings = value;
-        }
-
-        private Camera m_renderCamera = null;
-        private Camera _renderCamera
-        {
-            get
-            {
-                if (m_renderCamera == null)
-                {
-                    GameObject go = new GameObject("RenderCamera");
-                    go.transform.SetParent(_rootTransform);
-
-                    Camera camera = go.AddComponent<Camera>();
-                    camera.cullingMask = LayerMask.GetMask("UI");
-                    camera.clearFlags = CameraClearFlags.Depth;
-
-                    m_renderCamera = camera;
-                }
-
-                return m_renderCamera;
-            }
-        }
-        public Camera RenderCamera => _renderCamera;
-
-        private readonly Dictionary<string, Canvas> _layerCanvases = new();
 
         private class PresenterParams
         {
@@ -194,7 +162,7 @@ namespace Mu3Library.UI.MVP
             var paramList = Enumerable.Empty<PresenterParams>()
                 .Concat(_openedPresenters)
                 .Concat(_presenterOpenChecker)
-                .Where(t => t.Presenter.LayerName != "Default")
+                .Where(t => t.Presenter.CanvasLayerName != "Default")
                 .ToArray();
 
             CloseAll(paramList, forceClose);
@@ -295,7 +263,7 @@ namespace Mu3Library.UI.MVP
 
             if (!_layerCanvases.TryGetValue(viewLayerName, out Canvas layerCanvas))
             {
-                layerCanvas = CreateLayerCanvas(viewLayerName);
+                layerCanvas = CreateLayerCanvas(viewLayerName, MVPCanvasSettings.Standard);
 
                 _layerCanvases.Add(viewLayerName, layerCanvas);
             }
@@ -331,39 +299,6 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
-        public void RemoveCullingMask(string layerName)
-        {
-            int layerIndex = LayerMask.NameToLayer(layerName);
-            if (layerIndex >= 0)
-            {
-                _renderCamera.cullingMask &= ~(1 << layerIndex);
-            }
-        }
-
-        public void AddCullingMask(string layerName)
-        {
-            int layerIndex = LayerMask.NameToLayer(layerName);
-            if (layerIndex >= 0)
-            {
-                _renderCamera.cullingMask |= 1 << layerIndex;
-            }
-        }
-
-        public void SetCullingMask(params string[] layerNames)
-        {
-            int mask = 0;
-
-            foreach (var layerName in layerNames)
-            {
-                int layerIndex = LayerMask.NameToLayer(layerName);
-                if (layerIndex >= 0)
-                {
-                    mask |= 1 << layerIndex;
-                }
-            }
-
-            RenderCamera.cullingMask = mask;
-        }
         #endregion
 
         private void CloseAll(PresenterParams[] paramList, bool forceClose = false)
@@ -397,8 +332,8 @@ namespace Mu3Library.UI.MVP
                     continue;
                 }
 
-                int frontLayerOrder = CanvasUtil.GetSortingLayerOrder(mostFront.Presenter.LayerName);
-                int compareLayerOrder = CanvasUtil.GetSortingLayerOrder(param.Presenter.LayerName);
+                int frontLayerOrder = MVPCanvasUtil.GetSortingLayerOrder(mostFront.Presenter.CanvasLayerName);
+                int compareLayerOrder = MVPCanvasUtil.GetSortingLayerOrder(param.Presenter.CanvasLayerName);
                 if (frontLayerOrder < compareLayerOrder)
                 {
                     mostFront = param;
@@ -462,6 +397,7 @@ namespace Mu3Library.UI.MVP
             {
                 _outPanel.gameObject.SetActive(true);
 
+                _outPanel.ObjectLayerName = param.Presenter.ObjectLayerName;
                 _outPanel.UpdateOutPanel(param.Presenter, param.OutPanelSettings);
             }
         }
@@ -486,7 +422,6 @@ namespace Mu3Library.UI.MVP
                 .Where(param => param.Presenter.IsViewExist);
         }
 
-        #region Factory Methods
         private OutPanel CreateOutPanel(Transform parent = null)
         {
             GameObject go = new GameObject(
@@ -495,68 +430,6 @@ namespace Mu3Library.UI.MVP
             go.transform.SetParent(parent);
 
             return go.GetComponent<OutPanel>();
-        }
-
-        private Canvas CreateLayerCanvas(string layerName)
-        {
-            GameObject go = new GameObject(
-                $"Canvas_{layerName}",
-                new System.Type[] { typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster) });
-            go.transform.SetParent(_rootTransform);
-
-            Canvas result = null;
-            switch (_canvasSettings.RenderMode)
-            {
-                case RenderMode.ScreenSpaceCamera:
-                    result = CanvasUtil.GetOrAddScreenCameraCanvasComponent(
-                        go,
-                        _renderCamera,
-                        _canvasSettings.PlaneDistance,
-                        _canvasSettings.SortingLayerName,
-                        _canvasSettings.SortingOrder);
-                    break;
-                case RenderMode.ScreenSpaceOverlay:
-                    result = CanvasUtil.GetOrAddScreenOverlayCanvasComponent(
-                        go,
-                        _canvasSettings.SortingOrder);
-                    break;
-                case RenderMode.WorldSpace:
-                    result = CanvasUtil.GetOrAddWorldCanvasComponent(
-                        go,
-                        _renderCamera,
-                        _canvasSettings.SortingLayerName,
-                        _canvasSettings.SortingOrder);
-                    break;
-            }
-
-            switch (_canvasSettings.UIScaleMode)
-            {
-                case CanvasScaler.ScaleMode.ConstantPhysicalSize:
-                    CanvasUtil.GetOrAddCanvasPhysicalSizeScalerComponent(
-                        go,
-                        _canvasSettings.PhysicalUnit,
-                        _canvasSettings.FallbackScreenDPI,
-                        _canvasSettings.SpriteDPI);
-                    break;
-                case CanvasScaler.ScaleMode.ConstantPixelSize:
-                    CanvasUtil.GetOrAddCanvasPixelSizeScalerComponent(
-                        go,
-                        _canvasSettings.ScaleFactor);
-                    break;
-                case CanvasScaler.ScaleMode.ScaleWithScreenSize:
-                    CanvasUtil.GetOrAddCanvasScaleSizeScalerComponent(
-                        go,
-                        _canvasSettings.Resolution,
-                        _canvasSettings.ScreenMatchMode,
-                        _canvasSettings.MatchWidthOrHeight);
-                    break;
-            }
-
-            CanvasUtil.GetOrAddGraphicRaycasterComponent(go);
-
-            result.sortingLayerName = layerName;
-
-            return result;
         }
 
         private void PoolPresenter<TPresenter>(TPresenter presenter) where TPresenter : IPresenter
@@ -606,79 +479,5 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
-        private TView CreateView<TView>(Canvas rootCanvas) where TView : View
-        {
-            System.Type viewType = typeof(TView);
-            return CreateView(viewType, rootCanvas) as TView;
-        }
-
-        private View CreateView(System.Type viewType, Canvas rootCanvas)
-        {
-            if (!_viewResourceMap.ContainsKey(viewType))
-            {
-                Debug.LogError($"View not found. type: {viewType}");
-                return null;
-            }
-
-            View resource = _viewResourceMap[viewType];
-            if (resource == null)
-            {
-                Debug.LogError($"Resource view is NULL. type: {viewType}");
-                return null;
-            }
-
-            View inst = Object.Instantiate(resource, rootCanvas.transform);
-
-            CanvasUtil.Overwrite(rootCanvas, inst.Canvas, true, true);
-            inst.Canvas.overrideSorting = true;
-            inst.SetSortingOrder(resource.SortingOrder);
-
-            return inst;
-        }
-
-        private string GetLayerName<TView>() where TView : View => GetLayerName(typeof(TView));
-
-        private string GetLayerName(System.Type viewType)
-        {
-            if (!_viewLayerMap.ContainsKey(viewType))
-            {
-                return "";
-            }
-
-            return _viewLayerMap[viewType];
-        }
-
-        public void RegisterViewResource(View viewResource)
-        {
-            if(viewResource == null)
-            {
-                Debug.LogWarning("View resource is null.");
-                return;
-            }
-
-            System.Type type = viewResource.GetType();
-            if (!_viewResourceMap.ContainsKey(type))
-            {
-                _viewResourceMap.Add(type, viewResource);
-
-                Canvas canvas = viewResource.GetComponent<Canvas>();
-                _viewLayerMap.Add(
-                    type,
-                    canvas != null ? canvas.sortingLayerName : CanvasUtil.SortingLayers[0]);
-            }
-            else
-            {
-                Debug.LogWarning($"View type already exist. type: {type}");
-            }
-        }
-
-        public void RegisterViewResources(IEnumerable<View> viewResources)
-        {
-            foreach (var view in viewResources)
-            {
-                RegisterViewResource(view);
-            }
-        }
-        #endregion
     }
 }
