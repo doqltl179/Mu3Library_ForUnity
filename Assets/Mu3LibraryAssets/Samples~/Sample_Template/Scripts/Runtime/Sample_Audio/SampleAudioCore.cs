@@ -5,7 +5,7 @@ using Mu3Library.Scene;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Sample.Template
+namespace Mu3Library.Sample.Template.Audio
 {
     public class SampleAudioCore : CoreBase
     {

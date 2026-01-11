@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.UI;
 
-namespace Mu3Library.Sample.Template
+namespace Mu3Library.Sample.Template.Localization
 {
     public class SampleLocalizationCore : CoreBase
     {
