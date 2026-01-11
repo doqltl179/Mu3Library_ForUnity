@@ -1,9 +1,8 @@
 #if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Mu3Library.Utility;
+using Mu3Library.DI;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -12,21 +11,113 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public class LocalizationManager : GenericSingleton<LocalizationManager>
+    public class LocalizationManager : ILocalizationManager, IInitializable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
 
-        public Locale CurrentLocale => LocalizationSettings.SelectedLocale;
-
-        private IEnumerator _initializeCoroutine = null;
-
-
-
-        #region Utilitiy
-        public void GetStringAsync(string tableName, string key, Action<string> callback = null)
+        private Locale m_defaultLocale;
+        private Locale _defaultLocale
         {
-            StartCoroutine(GetStringAsyncCoroutine(tableName, key, callback));
+            get
+            {
+                if (m_defaultLocale == null)
+                {
+                    IReadOnlyList<Locale> locales = LocalizationSettings.AvailableLocales?.Locales;
+                    Locale fromSettings = locales?
+                        .FirstOrDefault(t => t.Identifier.CultureInfo.TwoLetterISOLanguageName == "en");
+                    if (fromSettings == null && locales != null && locales.Count > 0)
+                    {
+                        fromSettings = locales[0];
+                    }
+
+                    m_defaultLocale = fromSettings ?? CreateEnglishFallbackLocale();
+                }
+
+                return m_defaultLocale;
+            }
+        }
+
+        private Locale _currentLocale;
+        public Locale CurrentLocale
+        {
+            get
+            {
+                if (_currentLocale == null)
+                {
+                    return _defaultLocale;
+                }
+
+                return _currentLocale;
+            }
+        }
+
+        private bool _isInitializing = false;
+
+        private readonly List<Action> _initializeCallbacks = new();
+
+
+
+        public void Initialize()
+        {
+            Initialize(null);
+        }
+
+        #region Utility
+        public void Initialize(Action callback = null)
+        {
+            if (_isInitialized)
+            {
+                callback?.Invoke();
+                return;
+            }
+
+            if (callback != null)
+            {
+                _initializeCallbacks.Add(callback);
+            }
+
+            if (_isInitializing)
+            {
+                return;
+            }
+
+            _isInitializing = true;
+
+            AsyncOperationHandle<LocalizationSettings> handle = LocalizationSettings.InitializationOperation;
+            if (handle.IsDone)
+            {
+                OnInitializeCompleted(handle);
+                return;
+            }
+
+            handle.Completed += OnInitializeCompleted;
+        }
+
+        public void GetStringAsync(string tableName, string key, Action<string> callback)
+        {
+            LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
+            if (stringDatabase == null)
+            {
+                callback?.Invoke("");
+                return;
+            }
+
+            AsyncOperationHandle<StringTable> handle = stringDatabase.GetTableAsync(tableName);
+            handle.Completed += operation =>
+            {
+                if (operation.Status == AsyncOperationStatus.Succeeded)
+                {
+                    StringTable table = operation.Result;
+                    StringTableEntry entry = table != null ? table.GetEntry(key) : null;
+                    string value = entry != null ? entry.LocalizedValue : "";
+                    callback?.Invoke(value);
+                }
+                else
+                {
+                    callback?.Invoke("");
+                }
+            };
         }
 
         public string GetString(string tableName, string key)
@@ -59,6 +150,7 @@ namespace Mu3Library.Localization
                 return;
             }
 
+            _currentLocale = locale;
             LocalizationSettings.SelectedLocale = locale;
         }
 
@@ -76,47 +168,10 @@ namespace Mu3Library.Localization
         {
             LocalizationSettings.SelectedLocaleChanged += action;
         }
-
-        public void Initialize(Action callback = null)
-        {
-            if (_initializeCoroutine == null)
-            {
-                _initializeCoroutine = InitializeCoroutine(callback);
-                StartCoroutine(_initializeCoroutine);
-            }
-        }
         #endregion
 
-        private IEnumerator GetStringAsyncCoroutine(string tableName, string key, Action<string> callback = null)
+        private void OnInitializeCompleted(AsyncOperationHandle<LocalizationSettings> handle)
         {
-            LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
-            if(stringDatabase == null)
-            {
-                callback?.Invoke("");
-                yield break;
-            }
-
-            AsyncOperationHandle<StringTable> handle = stringDatabase.GetTableAsync(tableName);
-            yield return handle;
-
-            if (handle.Status == AsyncOperationStatus.Succeeded)
-            {
-                StringTable table = handle.Result;
-                StringTableEntry entry = table != null ? table.GetEntry(key) : null;
-                string value = entry != null ? entry.LocalizedValue : "";
-                callback?.Invoke(value);
-            }
-            else
-            {
-                callback?.Invoke("");
-            }
-        }
-
-        private IEnumerator InitializeCoroutine(Action callback = null)
-        {
-            AsyncOperationHandle handle = LocalizationSettings.InitializationOperation;
-            yield return handle;
-
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
                 _isInitialized = true;
@@ -127,9 +182,39 @@ namespace Mu3Library.Localization
                 Debug.LogError($"Localization initialize failed.\r\n{handle.OperationException?.Message}");
             }
 
-            _initializeCoroutine = null;
+            var settings = handle.Result;
+            if(settings != null)
+            {
+                _currentLocale = settings.GetSelectedLocale();
+            }
 
-            callback?.Invoke();
+            _isInitializing = false;
+
+            if (_initializeCallbacks.Count == 0)
+            {
+                return;
+            }
+
+            Action[] callbacks = _initializeCallbacks.ToArray();
+            _initializeCallbacks.Clear();
+
+            foreach (Action cb in callbacks)
+            {
+                cb?.Invoke();
+            }
+        }
+
+        private Locale CreateEnglishFallbackLocale()
+        {
+            Locale locale = Locale.CreateLocale("en");
+            if (locale != null)
+            {
+                return locale;
+            }
+
+            locale = ScriptableObject.CreateInstance<Locale>();
+            locale.Identifier = new LocaleIdentifier("en");
+            return locale;
         }
     }
 }
