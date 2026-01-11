@@ -377,6 +377,8 @@ MonoBehaviour:
     Title: AudioManager
   - SceneName: Sample_MVP
     Title: MVPManager
+  - SceneName: Sample_Localization
+    Title: LocalizationManager
 --- !u!1 &509335871
 GameObject:
   m_ObjectHideFlags: 0
