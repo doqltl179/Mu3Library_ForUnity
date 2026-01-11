@@ -379,6 +379,8 @@ MonoBehaviour:
     Title: MVPManager
   - SceneName: Sample_Localization
     Title: LocalizationManager
+  - SceneName: Sample_Addressables
+    Title: AddressablesManager
 --- !u!1 &509335871
 GameObject:
   m_ObjectHideFlags: 0
@@ -1738,8 +1740,8 @@ CanvasRenderer:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 406895022}
   - {fileID: 384704890}
   - {fileID: 1213213926}
-  - {fileID: 406895022}
   - {fileID: 1243625511}
   - {fileID: 358424848}

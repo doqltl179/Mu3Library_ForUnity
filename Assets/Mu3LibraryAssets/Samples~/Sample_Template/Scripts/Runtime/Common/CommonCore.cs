@@ -1,3 +1,4 @@
+using Mu3Library.Addressable;
 using Mu3Library.Audio;
 using Mu3Library.DI;
 using Mu3Library.Localization;
@@ -21,6 +22,7 @@ namespace Mu3Library.Sample.Template.Common
             _container.Register<MVPManager>();
             _container.Register<ResourceLoader>();
             _container.Register<LocalizationManager>();
+            _container.Register<AddressablesManager>();
 
             DontDestroyOnLoad(gameObject);
         }

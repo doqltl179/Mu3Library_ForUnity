@@ -10,12 +10,14 @@ namespace Mu3Library.Sample.Template.Common
         public const string SampleAudio = "Sample_Audio";
         public const string SampleMVP = "Sample_MVP";
         public const string SampleLocalization = "Sample_Localization";
+        public const string SampleAddressables = "Sample_Addressables";
 
         private readonly static string[] _sampleSceneNames =
         {
             SampleAudio,
             SampleMVP,
             SampleLocalization,
+            SampleAddressables,
         };
         public static IEnumerable<string> SampleSceneNames => _sampleSceneNames;
 
