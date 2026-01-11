@@ -381,6 +381,8 @@ MonoBehaviour:
     Title: LocalizationManager
   - SceneName: Sample_Addressables
     Title: AddressablesManager
+  - SceneName: Sample_WebRequest
+    Title: WebRequestManager
 --- !u!1 &509335871
 GameObject:
   m_ObjectHideFlags: 0
