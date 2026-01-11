@@ -1,4 +1,3 @@
-using Mu3Library.Attribute;
 using Mu3Library.DI;
 using Mu3Library.Sample.Template.Common;
 using Mu3Library.Scene;
