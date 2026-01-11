@@ -349,11 +349,10 @@ MonoBehaviour:
     m_StretchWidth: 1
     m_StretchHeight: 0
   _objectList:
-  - {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
-  - {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
-  _excludePackages: 0
+  - {fileID: 102900000, guid: c43e154e2f9bde64d8c3b7cac4561f0b, type: 3}
+  _excludePackages: 1
   _recursive: 1
-  _searchWithExtensions: 1
+  _searchWithExtensions: 0
   _searchExtensions:
   - png
   - asset

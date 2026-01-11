@@ -349,32 +349,38 @@ MonoBehaviour:
     m_StretchWidth: 1
     m_StretchHeight: 0
   _sceneFolders:
+  - {fileID: 102900000, guid: f899c8f89cf358d4f842d3b24f540a61, type: 3}
   - {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
-  - {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
-  - {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
   - {fileID: 102900000, guid: c816684f28b4db6419ee58c3d111c863, type: 3}
+  - {fileID: 102900000, guid: 27c7473c7de1900418d161919de4a527, type: 3}
   _scenes:
+  - Folder: {fileID: 102900000, guid: f899c8f89cf358d4f842d3b24f540a61, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Template
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: 23feaabc584fd5c4ebfae0670fe81b87, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Main.unity
+    - SceneAsset: {fileID: 102900000, guid: 495ff91d90a7cbe4196b1993308fe7c2, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Audio.unity
+    - SceneAsset: {fileID: 102900000, guid: 570a335a17cde3c43b1c0a7e5927d6e8, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_MVP.unity
+    - SceneAsset: {fileID: 102900000, guid: 516c7071ff169f445a7331d3508b4327, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Splash.unity
   - Folder: {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
     FolderPath: Assets/Mu3LibrarySamples/Sample_Attribute
     Foldout: 1
     SceneAssets:
     - SceneAsset: {fileID: 102900000, guid: 5f3ed4ffceb083f45b321458ad95a889, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Attribute/Scenes/Sample_Attribute.unity
-  - Folder: {fileID: 102900000, guid: 6a4a3efbe0dc2a7489c2043930287c0e, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Audio
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: ed318079f8026514681d83df78a413dd, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Audio/Scenes/Sample_Audio.unity
-  - Folder: {fileID: 102900000, guid: a1c975038eecc934eb538cf69dd7008f, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_MVP
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: 89844063d636d8840bf2260c704fc695, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_MVP/Scenes/Sample_MVP.unity
   - Folder: {fileID: 102900000, guid: c816684f28b4db6419ee58c3d111c863, type: 3}
     FolderPath: Assets/Mu3LibrarySamples/Sample_Localization
     Foldout: 1
     SceneAssets:
     - SceneAsset: {fileID: 102900000, guid: b468f07c31ebcb04f93ae9d02a8b7cef, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Localization/Scenes/Sample_Localization.unity
+  - Folder: {fileID: 102900000, guid: 27c7473c7de1900418d161919de4a527, type: 3}
+    FolderPath: Assets/Mu3LibrarySamples/Sample_Addressables
+    Foldout: 1
+    SceneAssets:
+    - SceneAsset: {fileID: 102900000, guid: c43e154e2f9bde64d8c3b7cac4561f0b, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Addressables/Scenes/Sample_Addressables.unity
