@@ -17,7 +17,6 @@ Unity용 Mu3Library 패키지와 샘플 프로젝트 모음입니다.
   - Observable
   - Resource
   - Scene
-  - ScreenShot
   - UI
   - Utility
   - WebRequest
@@ -55,27 +54,20 @@ Sample_Template 주요 구성:
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab/AnimationConfig
 
-## Recent Updates (0.1.5)
+## Recent Updates (0.1.6)
 Runtime
-- AddressablesManager / IAddressablesManager 추가 (캐시, 다운로드 사이즈/의존성, 카탈로그 업데이트, 진행률 이벤트)
-- LocalizationManager / ILocalizationManager 추가 (초기화, 문자열 조회, 로케일 변경)
-- WebRequestManager / IWebRequestManager 추가 (GET/POST/HEAD, JSON/텍스처/바이너리 지원, UniTask API)
-- ResourceLoader / IResourceLoader 추가 및 경로 이동 (Utility → Resource)
-- SceneLoader 인터페이스 분리: ISceneLoader.Editor (에디터 전용 로드/언로드 API)
-- UI/MVP 리팩토링: IMVPManager 분리, MVPCanvasSettings/OutPanelSettings 추가, MVPCanvasUtil로 정리
-- Audio 구조 개선: AudioSourceSettings 통합 및 AudioManager 루트 오브젝트 관리
-- ObservableBool 및 전용 Drawer 추가
+- ScreenShot 런타임 헬퍼 정리 (ScreenCaptureHelper/ScreenCaptureObject 제거)
 
 Editor
-- ConditionalHidePropertyDrawer가 Generic(Observable 등) 필드의 _value를 인식하도록 개선
+- Util Window에 Screen Capture Drawer 추가 (Game/Scene View 캡처, 파일명/폴더/타임스탬프 옵션)
+- Sample_UtilWindow Drawer 프로퍼티 정리
 
 Samples / Assets
-- Sample_MVP 샘플을 Sample_Template로 이관 및 정리
-- Addressables/Localization/WebRequest 샘플 씬 추가
-- 샘플용 폰트/이미지/로컬라이제이션 테이블/프리팹 추가
-- 기본 텍스처 네이밍 정리 및 1px 텍스처 추가
+- Sample_Template에 Optional Packages용 Version Define 추가 (TEMPLATE_ADDRESSABLES_SUPPORT/TEMPLATE_LOCALIZATION_SUPPORT 등)
+- Sample_Template 씬 썸네일 이미지 추가
+- Utility용 원형 InnerShadow 텍스처 추가
 
 ## Metadata
 - Package name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.5`
+- Version: `0.1.6`
 - Author: Mu3 (https://github.com/doqltl179)
