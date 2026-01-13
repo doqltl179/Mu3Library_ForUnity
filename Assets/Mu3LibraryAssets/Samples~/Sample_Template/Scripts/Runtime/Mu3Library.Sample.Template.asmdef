@@ -27,6 +27,21 @@
             "name": "com.cysharp.unitask",
             "expression": "",
             "define": "TEMPLATE_UNITASK_SUPPORT"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "TEMPLATE_INPUTSYSTEM_SUPPORT"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "TEMPLATE_LOCALIZATION_SUPPORT"
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "",
+            "define": "TEMPLATE_ADDRESSABLES_SUPPORT"
         }
     ],
     "noEngineReferences": false
