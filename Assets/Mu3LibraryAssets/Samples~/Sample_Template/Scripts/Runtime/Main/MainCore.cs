@@ -3,7 +3,9 @@ using System.Linq;
 using Mu3Library.DI;
 using Mu3Library.Sample.Template.Common;
 using Mu3Library.Scene;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Mu3Library.Sample.Template.Main
 {
@@ -15,12 +17,21 @@ namespace Mu3Library.Sample.Template.Main
         [SerializeField] private SampleSceneEntry _sceneEntryResource;
         private readonly List<SampleSceneEntry> _sceneEntries = new();
 
+        [SerializeField] private Image _thumbnailImage;
+        [SerializeField] private TextMeshProUGUI _descriptionText;
+
+        private SampleSceneEntry _currentHighlightedEntry;
+
         [System.Serializable]
         private class SampleSceneInfo
         {
             public string SceneName;
             public string Title;
+
+            public Sprite Thumbnail;
+            [TextArea] public string Description;
         }
+        [Space(20)]
         [SerializeField] private List<SampleSceneInfo> _sampleSceneInfos = new();
 
 
@@ -33,6 +44,7 @@ namespace Mu3Library.Sample.Template.Main
 
             _sceneEntryResource.gameObject.SetActive(false);
 
+            UpdateInfoPanel();
             CreateSceneEntries();
         }
 
@@ -58,17 +70,71 @@ namespace Mu3Library.Sample.Template.Main
                 ? info.Title
                 : info.SceneName;
             entry.SetTitle(title);
+            entry.SetSceneName(info.SceneName);
+            entry.SetActiveHighlight(false);
 
-            entry.ApplyOnClickListener(() =>
-            {
-#if UNITY_EDITOR
-                _sceneLoader.LoadSingleSceneWithAssetPath(SceneNames.GetSceneAssetPath(info.SceneName));
-#else
-                _sceneLoader.LoadSingleScene(info.SceneName);
-#endif
-            });
+            entry.ApplyOnClickListener(OnClickListener);
+            entry.ApplyOnPointerEntered(OnPointerEntered);
+            entry.ApplyOnPointerExited(OnPointerExited);
 
             _sceneEntries.Add(entry);
+        }
+
+        private void OnClickListener(SampleSceneEntry entry)
+        {
+#if UNITY_EDITOR
+            _sceneLoader.LoadSingleSceneWithAssetPath(SceneNames.GetSceneAssetPath(entry.SceneName));
+#else
+            _sceneLoader.LoadSingleScene(entry.SceneName);
+#endif
+        }
+
+        private void OnPointerExited(SampleSceneEntry exitedEntry)
+        {
+            if (_currentHighlightedEntry == exitedEntry)
+            {
+                _currentHighlightedEntry.SetActiveHighlight(false);
+                _currentHighlightedEntry = null;
+
+                UpdateInfoPanel();
+            }
+        }
+
+        private void OnPointerEntered(SampleSceneEntry newEntry)
+        {
+            if (_currentHighlightedEntry != null)
+            {
+                _currentHighlightedEntry.SetActiveHighlight(false);
+            }
+
+            _currentHighlightedEntry = newEntry;
+
+            if (_currentHighlightedEntry != null)
+            {
+                _currentHighlightedEntry.SetActiveHighlight(true);
+            }
+
+            UpdateInfoPanel();
+        }
+
+        private void UpdateInfoPanel()
+        {
+            SampleSceneInfo info = _currentHighlightedEntry == null ?
+                null :
+                _sampleSceneInfos.Where(t => t.SceneName == _currentHighlightedEntry.SceneName).FirstOrDefault();
+
+            if (info == null)
+            {
+                _thumbnailImage.sprite = null;
+                _descriptionText.text = string.Empty;
+            }
+            else
+            {
+                _thumbnailImage.sprite = info.Thumbnail;
+                _descriptionText.text = info.Description;
+            }
+
+            _thumbnailImage.gameObject.SetActive(_thumbnailImage.sprite != null);
         }
     }
 }

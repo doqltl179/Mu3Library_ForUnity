@@ -1,19 +1,23 @@
-using System.Collections.Generic;
-using Mu3Library.Addressable;
 using Mu3Library.DI;
 using Mu3Library.Extensions;
 using Mu3Library.Sample.Template.Common;
 using Mu3Library.Scene;
 using TMPro;
 using UnityEngine;
-using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.UI;
+using System.Collections.Generic;
+#if TEMPLATE_ADDRESSABLES_SUPPORT
+using Mu3Library.Addressable;
+using UnityEngine.AddressableAssets.ResourceLocators;
+#endif
 
 namespace Mu3Library.Sample.Template.Addressables
 {
     public class SampleAddressablesCore : CoreBase
     {
+#if TEMPLATE_ADDRESSABLES_SUPPORT
         private IAddressablesManager _addressablesManager;
+#endif
         private ISceneLoader _sceneLoader;
 
         [Space(20)]
@@ -38,15 +42,21 @@ namespace Mu3Library.Sample.Template.Addressables
         {
             base.Start();
 
-            _addressablesManager = GetFromCore<CommonCore, IAddressablesManager>();
             _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
 
             SetProgress(0f);
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 
+#if TEMPLATE_ADDRESSABLES_SUPPORT
+            _addressablesManager = GetFromCore<CommonCore, IAddressablesManager>();
+
             _messageText.text = "Addressables Initializing...";
             _addressablesManager.Initialize(OnAddressablesInitialized);
+#else
+            _messageText.text = "Addressables is not installed.";
+            Debug.LogWarning("Addressables support is disabled. Define TEMPLATE_ADDRESSABLES_SUPPORT to enable this sample.");
+#endif
         }
 
         protected override void OnDestroy()
@@ -56,6 +66,7 @@ namespace Mu3Library.Sample.Template.Addressables
             _backButton.onClick.RemoveListener(OnBackButtonClicked);
         }
 
+#if TEMPLATE_ADDRESSABLES_SUPPORT
         private void OnAddressablesInitialized()
         {
             _messageText.text = "Addressables Initialized. Checking for Catalog Updates...";
@@ -110,6 +121,7 @@ namespace Mu3Library.Sample.Template.Addressables
             _messageText.text = "All Dependencies Downloaded.";
             SetProgress(1f);
         }
+#endif
 
         private void OnBackButtonClicked()
         {

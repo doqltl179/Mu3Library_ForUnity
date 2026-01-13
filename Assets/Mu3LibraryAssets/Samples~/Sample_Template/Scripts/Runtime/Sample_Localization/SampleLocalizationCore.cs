@@ -1,18 +1,22 @@
 using System.Collections.Generic;
 using Mu3Library.DI;
-using Mu3Library.Localization;
 using Mu3Library.Sample.Template.Common;
 using Mu3Library.Scene;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Localization;
 using UnityEngine.UI;
+#if TEMPLATE_LOCALIZATION_SUPPORT
+using Mu3Library.Localization;
+using UnityEngine.Localization;
+#endif
 
 namespace Mu3Library.Sample.Template.Localization
 {
     public class SampleLocalizationCore : CoreBase
     {
+#if TEMPLATE_LOCALIZATION_SUPPORT
         private ILocalizationManager _localizationManager;
+#endif
         private ISceneLoader _sceneLoader;
 
         [Space(20)]
@@ -29,30 +33,37 @@ namespace Mu3Library.Sample.Template.Localization
         {
             base.Start();
 
-            _localizationManager = GetFromCore<CommonCore, ILocalizationManager>();
             _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
 
             _localeDropdown.ClearOptions();
 
-            _localizationManager.AddLocaleChangedEvent(OnLocaleChanged);
-
             _backButton.onClick.AddListener(OnBackButtonClicked);
+#if TEMPLATE_LOCALIZATION_SUPPORT
+            _localizationManager = GetFromCore<CommonCore, ILocalizationManager>();
+            _localizationManager.AddLocaleChangedEvent(OnLocaleChanged);
             _localeDropdown.onValueChanged.AddListener(OnLocaleDropdownValueChanged);
 
             _textComponent.text = "Localization Initializing...";
             _localizationManager.Initialize(OnLocalizationInitialized);
+#else
+            _textComponent.text = "Localization is not installed.";
+            Debug.LogWarning("Localization support is disabled. Define TEMPLATE_LOCALIZATION_SUPPORT to enable this sample.");
+#endif
         }
 
         protected override void OnDestroy()
         {
             base.OnDestroy();
 
+#if TEMPLATE_LOCALIZATION_SUPPORT
             _localizationManager.RemoveLocaleChangedEvent(OnLocaleChanged);
 
-            _backButton.onClick.RemoveListener(OnBackButtonClicked);
             _localeDropdown.onValueChanged.RemoveListener(OnLocaleDropdownValueChanged);
+#endif
+            _backButton.onClick.RemoveListener(OnBackButtonClicked);
         }
 
+#if TEMPLATE_LOCALIZATION_SUPPORT
         private void OnLocaleChanged(Locale _)
         {
             SetTextToTestString();
@@ -79,6 +90,7 @@ namespace Mu3Library.Sample.Template.Localization
 
             _localizationManager.ChangeLocale(locales[index]);
         }
+#endif
 
         private void OnBackButtonClicked()
         {
@@ -91,6 +103,7 @@ namespace Mu3Library.Sample.Template.Localization
 
         private void SetTextToTestString()
         {
+#if TEMPLATE_LOCALIZATION_SUPPORT
             if (_getStringAsync)
             {
                 _textComponent.text = "Text Loading...";
@@ -109,10 +122,14 @@ namespace Mu3Library.Sample.Template.Localization
             {
                 _textComponent.text = _localizationManager.GetString("TestStringTable", "hello");
             }
+#else
+            _textComponent.text = "Localization is not installed.";
+#endif
         }
 
         private void SetDropdownOptions()
         {
+#if TEMPLATE_LOCALIZATION_SUPPORT
             _localeDropdown.ClearOptions();
 
             var locales = _localizationManager.GetAvailableLocales();
@@ -130,6 +147,7 @@ namespace Mu3Library.Sample.Template.Localization
 
             _localeDropdown.AddOptions(options);
             _localeDropdown.value = currentIndex;
+#endif
         }
     }
 }
