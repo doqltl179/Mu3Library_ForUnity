@@ -54,7 +54,7 @@ namespace Mu3Library.DI
             }
         }
 
-        public async UniTask InitializaAsync()
+        public async UniTask InitializeAsync()
         {
             foreach (var obj in _initializeAsyncMap.Values)
             {
@@ -87,7 +87,7 @@ namespace Mu3Library.DI
             }
         }
 
-        public void Initialze()
+        public void Initialize()
         {
             foreach (var obj in _initializeMap.Values)
             {

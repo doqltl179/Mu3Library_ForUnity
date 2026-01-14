@@ -10,12 +10,12 @@ namespace Mu3Library.DI
 
 #if MU3LIBRARY_UNITASK_SUPPORT
         public UniTask DisposeAsync();
-        public UniTask InitializaAsync();
+        public UniTask InitializeAsync();
 #endif
         public void LateUpdate();
         public void Update();
         public void Dispose();
-        public void Initialze();
+        public void Initialize();
 
         public void RemoveInterfaceIgnoreType<T>();
         public void RemoveInterfaceIgnoreType(System.Type type);

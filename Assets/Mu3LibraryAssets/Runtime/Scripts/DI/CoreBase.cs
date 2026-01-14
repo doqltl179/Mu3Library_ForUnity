@@ -109,7 +109,7 @@ namespace Mu3Library.DI
 
         internal void InitializeCore()
         {
-            _container?.Initialze();
+            _container?.Initialize();
         }
 
         internal void UpdateCore()
@@ -135,7 +135,7 @@ namespace Mu3Library.DI
                 return UniTask.CompletedTask;
             }
 
-            return _container.InitializaAsync();
+            return _container.InitializeAsync();
         }
 
         internal UniTask DisposeCoreAsync()
