@@ -1,4 +1,4 @@
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.UI.MVP;
 
 namespace Mu3Library.Sample.Template.MVP

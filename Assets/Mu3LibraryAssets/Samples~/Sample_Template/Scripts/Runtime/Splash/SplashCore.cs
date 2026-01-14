@@ -1,5 +1,5 @@
 using Mu3Library.DI;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using UnityEngine;
 
@@ -19,7 +19,7 @@ namespace Mu3Library.Sample.Template.Splash
 
             _splashAnimation.OnAnimationEnd += OnSplashAnimationEnd;
 
-            WaitForCore<CommonCore>(OnCommonCoreAdded);
+            WaitForCore<SceneCore>(OnSceneCoreAdded);
         }
 
         protected override void OnDestroy()
@@ -29,9 +29,9 @@ namespace Mu3Library.Sample.Template.Splash
             _splashAnimation.OnAnimationEnd -= OnSplashAnimationEnd;
         }
 
-        private void OnCommonCoreAdded(CommonCore core)
+        private void OnSceneCoreAdded(SceneCore core)
         {
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 
             LoadLoadingScene();
         }

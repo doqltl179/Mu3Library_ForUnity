@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using TMPro;
 using UnityEngine;
@@ -40,7 +40,7 @@ namespace Mu3Library.Sample.Template.Main
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 
             _sceneEntryResource.gameObject.SetActive(false);
 

@@ -1,6 +1,6 @@
 using Mu3Library.Audio;
 using Mu3Library.DI;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using UnityEngine;
 using UnityEngine.UI;
@@ -58,7 +58,8 @@ namespace Mu3Library.Sample.Template.Audio
         {
             base.Start();
 
-            WaitForCore<CommonCore>(OnCommonCoreAdded);
+            WaitForCore<AudioCore>(OnAudioCoreAdded);
+            WaitForCore<SceneCore>(OnSceneCoreAdded);
         }
 
         protected override void OnDestroy()
@@ -68,12 +69,10 @@ namespace Mu3Library.Sample.Template.Audio
             _audioManager?.Stop();
         }
 
-        private void OnCommonCoreAdded(CommonCore _)
+        private void OnAudioCoreAdded(AudioCore _)
         {
-            _audioManager = GetFromCore<CommonCore, IAudioManager>();
-            _audioVolumeSettings = GetFromCore<CommonCore, IAudioVolumeSettings>();
-
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _audioManager = GetFromCore<AudioCore, IAudioManager>();
+            _audioVolumeSettings = GetFromCore<AudioCore, IAudioVolumeSettings>();
 
             if (_audioVolumeSettings == null)
             {
@@ -83,6 +82,11 @@ namespace Mu3Library.Sample.Template.Audio
             _masterVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.MasterVolume);
             _bgmVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.BgmVolume);
             _sfxVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.SfxVolume);
+        }
+
+        private void OnSceneCoreAdded(SceneCore _)
+        {
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
         }
 
         private void RegisterUiEvents()

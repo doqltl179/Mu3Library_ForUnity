@@ -2,7 +2,7 @@ using Mu3Library.DI;
 using Mu3Library.UI.MVP;
 using UnityEngine;
 using System.Collections.Generic;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Resource;
 using Mu3Library.Attribute;
 using Mu3Library.Scene;
@@ -45,8 +45,8 @@ namespace Mu3Library.Sample.Template.MVP
         {
             base.Start();
 
-            _resourceLoader = GetFromCore<CommonCore, IResourceLoader>();
-            _mvpManager = GetFromCore<CommonCore, IMVPManager>();
+            _resourceLoader = GetFromCore<ResourceCore, IResourceLoader>();
+            _mvpManager = GetFromCore<UICore, IMVPManager>();
 
             RegisterViewResources();
             OpenDefaultWindow();
@@ -105,7 +105,7 @@ namespace Mu3Library.Sample.Template.MVP
         {
             MainArguments args = new MainArguments()
             {
-                SceneLoader = GetFromCore<CommonCore, ISceneLoader>(),
+                SceneLoader = GetFromCore<SceneCore, ISceneLoader>(),
                 KeyDescriptions = new Dictionary<KeyCode, string>()
                 {
                     { _notificationOneButtonKey, "Open one button notification" },

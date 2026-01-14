@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Mu3Library.DI;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using TMPro;
 using UnityEngine;
@@ -33,13 +33,13 @@ namespace Mu3Library.Sample.Template.Localization
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 
             _localeDropdown.ClearOptions();
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 #if TEMPLATE_LOCALIZATION_SUPPORT
-            _localizationManager = GetFromCore<CommonCore, ILocalizationManager>();
+            _localizationManager = GetFromCore<LocalizationCore, ILocalizationManager>();
             _localizationManager.AddLocaleChangedEvent(OnLocaleChanged);
             _localeDropdown.onValueChanged.AddListener(OnLocaleDropdownValueChanged);
 

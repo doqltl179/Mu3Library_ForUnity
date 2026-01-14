@@ -1,6 +1,6 @@
 using Mu3Library.DI;
 using Mu3Library.Extensions;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using Mu3Library.WebRequest;
 using TMPro;
@@ -35,8 +35,8 @@ namespace Mu3Library.Sample.Template.WebRequest
         {
             base.Start();
 
-            _webRequestManager = GetFromCore<CommonCore, IWebRequestManager>();
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _webRequestManager = GetFromCore<NetworkCore, IWebRequestManager>();
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 

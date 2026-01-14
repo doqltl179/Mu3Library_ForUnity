@@ -1,6 +1,6 @@
 using Mu3Library.DI;
 using Mu3Library.Extensions;
-using Mu3Library.Sample.Template.Common;
+using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using TMPro;
 using UnityEngine;
@@ -42,14 +42,14 @@ namespace Mu3Library.Sample.Template.Addressables
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<CommonCore, ISceneLoader>();
+            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 
             SetProgress(0f);
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 
 #if TEMPLATE_ADDRESSABLES_SUPPORT
-            _addressablesManager = GetFromCore<CommonCore, IAddressablesManager>();
+            _addressablesManager = GetFromCore<ResourceCore, IAddressablesManager>();
 
             _messageText.text = "Addressables Initializing...";
             _addressablesManager.Initialize(OnAddressablesInitialized);
