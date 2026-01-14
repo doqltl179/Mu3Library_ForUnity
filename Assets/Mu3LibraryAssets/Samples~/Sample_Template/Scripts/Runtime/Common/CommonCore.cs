@@ -40,8 +40,6 @@ namespace Mu3Library.Sample.Template.Common
             _container.Register<SceneLoader>();
             _container.Register<MVPManager>();
             _container.Register<WebRequestManager>();
-
-            DontDestroyOnLoad(gameObject);
         }
     }
 }
