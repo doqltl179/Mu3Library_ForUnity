@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Mu3Library.Sample.Template.Common
+namespace Mu3Library.Sample.Template.Global
 {
     public static class SceneNames
     {
