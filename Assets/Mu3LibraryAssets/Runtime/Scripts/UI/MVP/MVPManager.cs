@@ -172,6 +172,28 @@ namespace Mu3Library.UI.MVP
             CloseAll(paramList, forceClose);
         }
 
+        public void CloseAll(IEnumerable<string> layerNames, bool forceClose = false)
+        {
+            if (layerNames == null)
+            {
+                return;
+            }
+
+            var layerNameSet = new HashSet<string>(layerNames);
+            if (layerNameSet.Count == 0)
+            {
+                return;
+            }
+
+            var paramList = Enumerable.Empty<PresenterParams>()
+                .Concat(_openedPresenters)
+                .Concat(_presenterOpenChecker)
+                .Where(t => layerNameSet.Contains(t.Presenter.CanvasLayerName))
+                .ToArray();
+
+            CloseAll(paramList, forceClose);
+        }
+
         public void CloseFocused(bool forceClose = false)
         {
             if (_focused == null || _focused.Presenter == null)

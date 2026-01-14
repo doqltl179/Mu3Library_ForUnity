@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 namespace Mu3Library.UI.MVP
 {
     public partial interface IMVPManager
@@ -10,6 +11,7 @@ namespace Mu3Library.UI.MVP
 
         public void CloseAllWithoutDefault(bool forceClose = false);
         public void CloseAll(bool forceClose = false);
+        public void CloseAll(IEnumerable<string> layerNames, bool forceClose = false);
         public void CloseFocused(bool forceClose = false);
         public bool Close(IPresenter presenter, bool forceClose = false);
 
