@@ -34,8 +34,8 @@ namespace Mu3Library.Sample.Template.MVP
         [SerializeField] private KeyCode _loadingScreenCloseKey = KeyCode.H;
 
         [Space(20)]
-        [SerializeField] private KeyCode _closeAllKey = KeyCode.Z;
-        [SerializeField] private KeyCode _closeAllWithoutDefaultKey = KeyCode.X;
+        [SerializeField] private KeyCode _closeAllWithoutDefaultKey = KeyCode.Z;
+        [SerializeField] private KeyCode _closeAllWithoutDefaultForceKey = KeyCode.X;
 
         private IPresenter _loadingScreenPresenter = null;
 
@@ -91,13 +91,13 @@ namespace Mu3Library.Sample.Template.MVP
                 CloseLoadingScreen();
             }
 
-            else if (Input.GetKeyDown(_closeAllKey))
-            {
-                _mvpManager.CloseAll();
-            }
             else if (Input.GetKeyDown(_closeAllWithoutDefaultKey))
             {
                 _mvpManager.CloseAllWithoutDefault();
+            }
+            else if (Input.GetKeyDown(_closeAllWithoutDefaultForceKey))
+            {
+                _mvpManager.CloseAllWithoutDefault(true);
             }
         }
 
@@ -117,8 +117,8 @@ namespace Mu3Library.Sample.Template.MVP
                     { _loadingScreenOpenKey, "Open loading screen" },
                     { _loadingScreenCloseKey, "Close loading screen" },
 
-                    { _closeAllKey, "Close all" },
                     { _closeAllWithoutDefaultKey, "Close all without default" },
+                    { _closeAllWithoutDefaultForceKey, "Close all without default (force)" },
                 },
             };
             _mvpManager.Open<MainPresenter>(args);

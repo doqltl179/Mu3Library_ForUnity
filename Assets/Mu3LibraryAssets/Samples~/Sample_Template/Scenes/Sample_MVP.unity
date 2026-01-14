@@ -159,8 +159,8 @@ MonoBehaviour:
   _bottomToMiddleAnimationPopupKey: 97
   _loadingScreenOpenKey: 103
   _loadingScreenCloseKey: 104
-  _closeAllKey: 122
-  _closeAllWithoutDefaultKey: 120
+  _closeAllWithoutDefaultKey: 122
+  _closeAllWithoutDefaultForceKey: 120
 --- !u!4 &605107371
 Transform:
   m_ObjectHideFlags: 0
