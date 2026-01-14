@@ -8,26 +8,20 @@ namespace Mu3Library.Sample.Template.MVP
 
 
 
-        public override void Load()
+        protected override void LoadFunc()
         {
-            base.Load();
-
             _view.ClearAllKeyDescriptions();
 
             _view.OnBackButtonClick += OnBackButtonClick;
         }
 
-        public override void Unload()
+        protected override void UnloadFunc()
         {
-            base.Unload();
-
             _view.OnBackButtonClick -= OnBackButtonClick;
         }
 
-        public override void Open()
+        protected override void OpenFunc()
         {
-            base.Open();
-
             foreach (var pair in _model.KeyDescriptions)
             {
                 _view.AddKeyDescription(pair.Key, pair.Value);

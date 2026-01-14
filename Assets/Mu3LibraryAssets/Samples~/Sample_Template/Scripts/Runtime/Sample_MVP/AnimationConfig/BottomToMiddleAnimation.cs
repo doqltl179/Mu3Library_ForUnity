@@ -20,7 +20,7 @@ namespace Mu3Library.Sample.Template.MVP
 
         private void Animate(IView view, float timeFactor)
         {
-            view.RectTransform.anchoredPosition = Vector3.LerpUnclamped(
+            view.AnchoredPosition = Vector3.LerpUnclamped(
                 -Vector3.up * Screen.height, Vector3.one, _curve.Evaluate(timeFactor));
         }
     }

@@ -25,11 +25,11 @@ namespace Mu3Library.UI.MVP
 
         private Transform _rootTransform => _root.transform;
 
-        private readonly Dictionary<System.Type, Queue<IPresenter>> _presenterPool = new();
+        private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 
         private class PresenterParams
         {
-            public IPresenter Presenter;
+            public PresenterBase Presenter;
             public OutPanelSettings OutPanelSettings;
         }
 
@@ -111,10 +111,7 @@ namespace Mu3Library.UI.MVP
 
         private void WindowLoadedEvent(PresenterParams param)
         {
-            if (param.Presenter is ILifecycle lifecycle)
-            {
-                lifecycle.Open();
-            }
+            param.Presenter.Open();
 
             _presenterOpenChecker.Add(param);
 
@@ -134,10 +131,7 @@ namespace Mu3Library.UI.MVP
 
         private void WindowClosedEvent(PresenterParams param)
         {
-            if (param.Presenter is ILifecycle lifecycle)
-            {
-                lifecycle.Unload();
-            }
+            param.Presenter.Unload();
 
             _presenterUnloadChecker.Add(param);
 
@@ -193,9 +187,7 @@ namespace Mu3Library.UI.MVP
 
             if (canClose)
             {
-                GetInterface(closeParam.Presenter, out var lifecycle);
-
-                lifecycle.Close(forceClose);
+                closeParam.Presenter.Close(forceClose);
                 _presenterCloseChecker.Add(closeParam);
             }
             else
@@ -236,27 +228,24 @@ namespace Mu3Library.UI.MVP
                 return false;
             }
 
-            GetInterface(param.Presenter, out var lifecycle);
-
-            lifecycle.Close(forceClose);
+            param.Presenter.Close(forceClose);
             _presenterCloseChecker.Add(param);
 
             return true;
         }
 
-        public IPresenter Open<TPresenter>() where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>() where TPresenter : PresenterBase, new()
             => Open<TPresenter>(null, OutPanelSettings.Disabled);
 
-        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
             => Open<TPresenter>(args, OutPanelSettings.Disabled);
 
-        public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
             => Open<TPresenter>(null, settings);
 
-        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : class, IPresenter, new()
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
         {
             TPresenter presenter = CreatePresenter<TPresenter>();
-            GetInterface(presenter, out var initialize, out var lifecycle);
 
             System.Type viewType = presenter.ViewType;
             string viewLayerName = GetLayerName(viewType);
@@ -276,24 +265,25 @@ namespace Mu3Library.UI.MVP
                     return null;
                 }
 
-                initialize.Init(view, args);
+                presenter.Initialize(view, args);
             }
             else
             {
-                initialize.Init(args);
+                presenter.Initialize(args);
             }
-
-            UpdateSortingOrderAsLast(presenter.View);
-            presenter.OptimizeView();
-            presenter.SetActiveView(true);
-
-            lifecycle.Load();
 
             PresenterParams presenterParams = new PresenterParams()
             {
                 Presenter = presenter,
                 OutPanelSettings = settings,
             };
+
+            UpdateSortingOrderAsLast(presenterParams);
+            presenter.OptimizeView();
+            presenter.SetActiveView(true);
+
+            presenter.Load();
+
             _presenterLoadChecker.Add(presenterParams);
 
             return presenter;
@@ -343,10 +333,13 @@ namespace Mu3Library.UI.MVP
                 {
                     continue;
                 }
-                else if (mostFront.Presenter.SortingOrder <= param.Presenter.SortingOrder)
+                else
                 {
-                    mostFront = param;
-                    continue;
+                    if (mostFront.Presenter.SortingOrder <= param.Presenter.SortingOrder)
+                    {
+                        mostFront = param;
+                        continue;
+                    }
                 }
             }
 
@@ -355,26 +348,26 @@ namespace Mu3Library.UI.MVP
             _focused = mostFront;
         }
 
-        private void UpdateSortingOrderAsLast(IView view)
+        private void UpdateSortingOrderAsLast(PresenterParams presenterParam)
         {
-            if (view == null)
+            if (presenterParam == null || presenterParam.Presenter == null || !presenterParam.Presenter.IsViewExist)
             {
                 return;
             }
 
-            System.Type viewType = view.GetType();
-            IEnumerable<IView> sameViews = RunningPresenterParams()
+            System.Type viewType = presenterParam.Presenter.ViewType;
+            IEnumerable<int> sameViewSortingOrders = RunningPresenterParams()
                 .Where(t => t.Presenter.ViewType == viewType)
-                .Select(t => t.Presenter.View);
+                .Select(t => t.Presenter.SortingOrder);
 
-            if (sameViews.Any())
+            if (sameViewSortingOrders.Any())
             {
-                int maxSortingOrder = sameViews.Max(t => t.SortingOrder);
+                int maxSortingOrder = sameViewSortingOrders.Max();
                 // OutPanel에서 SortingOrder를 {view.SortingOrder - 1}로 설정하기 때문에
                 // View 간의 SortingOrder 간격은 2로 설정한다.
-                if (view.SortingOrder < maxSortingOrder + 2)
+                if (presenterParam.Presenter.SortingOrder < maxSortingOrder + 2)
                 {
-                    view.SetSortingOrder(maxSortingOrder + 2);
+                    presenterParam.Presenter.SetSortingOrder(maxSortingOrder + 2);
                 }
             }
         }
@@ -402,17 +395,6 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private void GetInterface(IPresenter presenter, out IPresenterInitialize initialize, out ILifecycle lifecycle)
-        {
-            initialize = presenter as IPresenterInitialize;
-            lifecycle = presenter as ILifecycle;
-        }
-
-        private void GetInterface(IPresenter presenter, out ILifecycle lifecycle)
-        {
-            lifecycle = presenter as ILifecycle;
-        }
-
         private IEnumerable<PresenterParams> RunningPresenterParams()
         {
             return Enumerable.Empty<PresenterParams>()
@@ -432,7 +414,7 @@ namespace Mu3Library.UI.MVP
             return go.GetComponent<OutPanel>();
         }
 
-        private void PoolPresenter<TPresenter>(TPresenter presenter) where TPresenter : IPresenter
+        private void PoolPresenter(PresenterBase presenter)
         {
             if (presenter == null || !presenter.IsViewExist)
             {
@@ -442,21 +424,21 @@ namespace Mu3Library.UI.MVP
             System.Type presenterType = presenter.GetType();
             if (!_presenterPool.TryGetValue(presenterType, out var pool))
             {
-                pool = new Queue<IPresenter>();
+                pool = new Queue<PresenterBase>();
                 _presenterPool.Add(presenterType, pool);
             }
 
             pool.Enqueue(presenter);
         }
 
-        private TPresenter CreatePresenter<TPresenter>() where TPresenter : class, IPresenter, new()
+        private TPresenter CreatePresenter<TPresenter>() where TPresenter : PresenterBase, new()
         {
             TPresenter presenter = null;
 
             System.Type presenterType = typeof(TPresenter);
-            if (_presenterPool.TryGetValue(presenterType, out Queue<IPresenter> pool) && pool.Count > 0)
+            if (_presenterPool.TryGetValue(presenterType, out Queue<PresenterBase> pool) && pool.Count > 0)
             {
-                IPresenter inst = null;
+                PresenterBase inst = null;
 
                 while (inst == null && pool.Count > 0)
                 {

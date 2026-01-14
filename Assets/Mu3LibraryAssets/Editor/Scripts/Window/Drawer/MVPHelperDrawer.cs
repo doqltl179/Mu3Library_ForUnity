@@ -214,23 +214,23 @@ namespace Mu3Library.Editor.Window.Drawer
                 {
                     new ScriptBuilder.CodeBlock()
                     {
-                        Header = $"public override void Load()",
-                        Content = new List<object> { "base.Load();\r\n\r\n" }
+                        Header = $"protected override void LoadFunc()",
+                        Content = new List<object> { "" }
                     },
                     new ScriptBuilder.CodeBlock()
                     {
-                        Header = $"public override void Open()",
-                        Content = new List<object> { "base.Open();\r\n\r\n" }
+                        Header = $"protected override void OpenFunc()",
+                        Content = new List<object> { "" }
                     },
                     new ScriptBuilder.CodeBlock()
                     {
-                        Header = $"public override void Close(bool forceClose = false)",
-                        Content = new List<object> { "base.Close(forceClose);\r\n\r\n" }
+                        Header = $"protected override void CloseFunc()",
+                        Content = new List<object> { "" }
                     },
                     new ScriptBuilder.CodeBlock()
                     {
-                        Header = $"public override void Unload()",
-                        Content = new List<object> { "base.Unload();\r\n\r\n" }
+                        Header = $"protected override void UnloadFunc()",
+                        Content = new List<object> { "" }
                     },
                 }
             };

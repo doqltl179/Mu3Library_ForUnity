@@ -103,7 +103,7 @@ namespace Mu3Library.UI.MVP
         }
 
         #region Utility
-        public void UpdateOutPanel(IPresenter presenter, OutPanelSettings settings)
+        internal void UpdateOutPanel(PresenterBase presenter, OutPanelSettings settings)
         {
             _button.image.color = settings.Color;
             _button.enabled = settings.InteractAsClose;
@@ -127,7 +127,7 @@ namespace Mu3Library.UI.MVP
             _manager = manager;
         }
 
-        public void Overwrite(IView view) => view.OverwriteInto(_canvas);
+        internal void Overwrite(View view) => view.OverwriteInto(_canvas);
 
         public void Overwrite(Canvas source)
         {

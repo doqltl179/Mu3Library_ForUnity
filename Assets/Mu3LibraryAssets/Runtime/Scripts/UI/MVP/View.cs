@@ -22,7 +22,7 @@ namespace Mu3Library.UI.MVP
     [RequireComponent(typeof(GraphicRaycaster))]
     [RequireComponent(typeof(CanvasGroup))]
     [DisallowMultipleComponent]
-    public abstract class View : MonoBehaviour, IView, ILifecycle
+    public abstract class View : MonoBehaviour, IView
     {
         private ViewState _viewState = ViewState.None;
         public ViewState ViewState => _viewState;
@@ -40,7 +40,7 @@ namespace Mu3Library.UI.MVP
                 return m_rectTransform;
             }
         }
-        public RectTransform RectTransform => _rectTransform;
+        internal RectTransform RectTransform => _rectTransform;
 
         private Canvas m_canvas = null;
         protected Canvas _canvas
@@ -59,7 +59,7 @@ namespace Mu3Library.UI.MVP
                 return m_canvas;
             }
         }
-        public Canvas Canvas => _canvas;
+        internal Canvas Canvas => _canvas;
 
         public string ObjectLayerName => LayerMask.LayerToName(gameObject.layer);
         public string CanvasLayerName => _canvas.sortingLayerName;
@@ -78,7 +78,7 @@ namespace Mu3Library.UI.MVP
                 return m_canvasGroup;
             }
         }
-        public CanvasGroup CanvasGroup => _canvasGroup;
+        internal CanvasGroup CanvasGroup => _canvasGroup;
 
         public bool Interactable
         {
@@ -89,6 +89,18 @@ namespace Mu3Library.UI.MVP
         {
             get => _canvasGroup.alpha;
             set => _canvasGroup.alpha = value;
+        }
+
+        public Vector2 AnchoredPosition
+        {
+            get => _rectTransform.anchoredPosition;
+            set => _rectTransform.anchoredPosition = value;
+        }
+
+        public Vector3 LocalScale
+        {
+            get => _rectTransform.localScale;
+            set => _rectTransform.localScale = value;
         }
 
         private IEnumerator _lifeCycleCoroutine = null;
@@ -104,7 +116,7 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        public void Load()
+        internal void Load()
         {
             _canvasGroup.interactable = false;
 
@@ -115,7 +127,7 @@ namespace Mu3Library.UI.MVP
 
         protected virtual void LoadFunc() { }
 
-        public void Open()
+        internal void Open()
         {
             if (_lifeCycleCoroutine == null)
             {
@@ -144,7 +156,7 @@ namespace Mu3Library.UI.MVP
         protected virtual IEnumerator WaitOpening() { yield return new WaitUntil(WaitOpeningUntil); }
         protected virtual void OpenEnd() { }
 
-        public void Close(bool forceClose = false)
+        internal void Close(bool forceClose = false)
         {
             if(forceClose && _lifeCycleCoroutine != null)
             {
@@ -179,7 +191,7 @@ namespace Mu3Library.UI.MVP
         protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitClosingUntil); }
         protected virtual void CloseEnd() { }
 
-        public void Unload()
+        internal void Unload()
         {
             UnloadFunc();
 
@@ -215,7 +227,7 @@ namespace Mu3Library.UI.MVP
             _canvas.sortingOrder = sortingOrder;
         }
 
-        public void OverwriteInto(Canvas target)
+        internal void OverwriteInto(Canvas target)
         {
             MVPCanvasUtil.Overwrite(_canvas, target, true, true);
         }

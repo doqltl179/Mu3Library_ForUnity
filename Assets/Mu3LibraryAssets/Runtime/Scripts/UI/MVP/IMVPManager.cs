@@ -13,9 +13,9 @@ namespace Mu3Library.UI.MVP
         public void CloseFocused(bool forceClose = false);
         public bool Close(IPresenter presenter, bool forceClose = false);
 
-        public IPresenter Open<TPresenter>() where TPresenter : class, IPresenter, new();
-        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : class, IPresenter, new();
-        public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : class, IPresenter, new();
-        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : class, IPresenter, new();
+        public IPresenter Open<TPresenter>() where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
     }
 }

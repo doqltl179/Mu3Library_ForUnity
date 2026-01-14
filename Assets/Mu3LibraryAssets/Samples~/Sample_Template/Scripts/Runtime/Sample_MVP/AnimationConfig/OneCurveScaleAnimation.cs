@@ -18,7 +18,7 @@ namespace Mu3Library.Sample.Template.MVP
 
         protected override void Animate(IView view, float timeFactor)
         {
-            view.RectTransform.localScale = Vector3.Lerp(Vector3.zero, Vector3.one, _curve.Evaluate(timeFactor));
+            view.LocalScale = Vector3.Lerp(Vector3.zero, Vector3.one, _curve.Evaluate(timeFactor));
         }
     }
 }

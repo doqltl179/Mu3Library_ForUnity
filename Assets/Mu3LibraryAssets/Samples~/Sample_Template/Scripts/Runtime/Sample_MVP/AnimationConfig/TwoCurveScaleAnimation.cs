@@ -19,7 +19,7 @@ namespace Mu3Library.Sample.Template.MVP
 
         private void Animate(IView view, float timeFactor, Vector3 startScale, Vector3 endScale, AnimationCurve curve)
         {
-            view.RectTransform.localScale = Vector3.Lerp(startScale, endScale, curve.Evaluate(timeFactor));
+            view.LocalScale = Vector3.Lerp(startScale, endScale, curve.Evaluate(timeFactor));
         }
     }
 }

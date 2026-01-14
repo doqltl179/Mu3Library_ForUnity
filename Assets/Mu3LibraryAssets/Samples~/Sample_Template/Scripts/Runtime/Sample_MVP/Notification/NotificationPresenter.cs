@@ -7,10 +7,8 @@ namespace Mu3Library.Sample.Template.MVP
 
 
 
-        public override void Open()
+        protected override void OpenFunc()
         {
-            base.Open();
-
             _view.SetMessage(_model.Message);
             _view.SetConfirmButton(_model.ConfirmText, _model.OnConfirm);
             if(_model.OnCancel != null)
