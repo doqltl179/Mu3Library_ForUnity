@@ -12,7 +12,7 @@ using IDisposable = Mu3Library.DI.IDisposable;
 
 namespace Mu3Library.Addressable
 {
-    public partial class AddressablesManager : IAddressablesManager, IInitializable, IUpdatable, IDisposable
+    public partial class AddressablesManager : IAddressablesManager, IUpdatable, IDisposable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;

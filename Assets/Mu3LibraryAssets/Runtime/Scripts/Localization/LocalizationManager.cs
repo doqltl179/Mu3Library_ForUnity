@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mu3Library.DI;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -11,7 +10,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public class LocalizationManager : ILocalizationManager, IInitializable
+    public class LocalizationManager : ILocalizationManager
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
