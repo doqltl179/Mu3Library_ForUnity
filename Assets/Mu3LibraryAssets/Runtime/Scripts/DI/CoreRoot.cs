@@ -74,7 +74,7 @@ namespace Mu3Library.DI
             where TCore : CoreBase
         {
             core = null;
-            
+
             if (_cores.TryGetValue(typeof(TCore), out CoreBase coreBase))
             {
                 core = coreBase as TCore;
@@ -106,9 +106,9 @@ namespace Mu3Library.DI
         }
 
 #if MU3LIBRARY_UNITASK_SUPPORT
-        public async void AddCore<T>(T core) where T : CoreBase
+        public async void RegisterCore<T>(T core) where T : CoreBase
 #else
-        public void AddCore<T>(T core) where T : CoreBase
+        public void RegisterCore<T>(T core) where T : CoreBase
 #endif
         {
             if (core == null)

@@ -54,7 +54,7 @@ namespace Mu3Library.DI
 
         protected virtual void Start()
         {
-            _coreRoot?.AddCore(this);
+            _coreRoot?.RegisterCore(this);
         }
 
         protected virtual void OnDestroy()
@@ -87,7 +87,7 @@ namespace Mu3Library.DI
                 if (_coreRoot.TryGetCore(out TCore readyCore))
                 {
                     _coreRoot.OnCoreAdded -= HandleCoreAdded;
-                    
+
                     onReady?.Invoke(readyCore);
                 }
             }
