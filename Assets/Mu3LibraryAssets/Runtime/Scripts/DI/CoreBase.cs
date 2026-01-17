@@ -21,7 +21,19 @@ namespace Mu3Library.DI
 
         [SerializeField] private bool _setAsGlobal = false;
 
-        protected readonly IContainer _container = new Container();
+        private Container m_container;
+        private Container _container
+        {
+            get
+            {
+                if (m_container == null)
+                {
+                    m_container = new Container(this);
+                }
+
+                return m_container;
+            }
+        }
 
 
 
@@ -59,6 +71,38 @@ namespace Mu3Library.DI
         }
 
         #region Utility
+        internal T Get<T>() where T : class
+        {
+            return _container?.Get<T>();
+        }
+
+        internal void InitializeCore()
+        {
+            _container?.Initialize();
+        }
+
+        internal void UpdateCore()
+        {
+            _container?.Update();
+        }
+
+        internal void LateUpdateCore()
+        {
+            _container?.LateUpdate();
+        }
+
+        internal void DisposeCore()
+        {
+            _container?.Dispose();
+        }
+        #endregion
+
+        protected void Register<T>()
+            where T : class, new()
+        {
+            _container.Register<T>();
+        }
+
         protected void WaitForCore<TCore>(Action<TCore> onReady)
             where TCore : CoreBase
         {
@@ -97,31 +141,5 @@ namespace Mu3Library.DI
         {
             return _coreRoot?.Get<TCore, T>();
         }
-
-        internal T Get<T>() where T : class
-        {
-            return _container?.Get<T>();
-        }
-
-        internal void InitializeCore()
-        {
-            _container?.Initialize();
-        }
-
-        internal void UpdateCore()
-        {
-            _container?.Update();
-        }
-
-        internal void LateUpdateCore()
-        {
-            _container?.LateUpdate();
-        }
-
-        internal void DisposeCore()
-        {
-            _container?.Dispose();
-        }
-        #endregion
     }
 }

@@ -13,7 +13,7 @@ namespace Mu3Library.Sample.Template.Global
             base.Awake();
 
 #if TEMPLATE_LOCALIZATION_SUPPORT
-            _container.Register<LocalizationManager>();
+            Register<LocalizationManager>();
 #else
             Debug.LogWarning("Localization is not installed.");
 #endif
