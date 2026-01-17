@@ -84,11 +84,7 @@ namespace Mu3Library.DI
             return false;
         }
 
-#if MU3LIBRARY_UNITASK_SUPPORT
-        public async void RemoveCore<T>(T core) where T : CoreBase
-#else
         public void RemoveCore<T>(T core) where T : CoreBase
-#endif
         {
             if (core == null)
             {
@@ -99,17 +95,10 @@ namespace Mu3Library.DI
             if (_cores.Remove(type))
             {
                 core.DisposeCore();
-#if MU3LIBRARY_UNITASK_SUPPORT
-                await core.DisposeCoreAsync();
-#endif
             }
         }
 
-#if MU3LIBRARY_UNITASK_SUPPORT
-        public async void RegisterCore<T>(T core) where T : CoreBase
-#else
         public void RegisterCore<T>(T core) where T : CoreBase
-#endif
         {
             if (core == null)
             {
@@ -124,9 +113,6 @@ namespace Mu3Library.DI
             }
 
             core.InitializeCore();
-#if MU3LIBRARY_UNITASK_SUPPORT
-            await core.InitializeCoreAsync();
-#endif
 
             OnCoreAdded?.Invoke(type);
         }

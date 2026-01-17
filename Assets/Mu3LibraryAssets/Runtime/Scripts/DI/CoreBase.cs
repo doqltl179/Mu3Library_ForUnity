@@ -1,10 +1,6 @@
 using UnityEngine;
 using System;
 
-#if MU3LIBRARY_UNITASK_SUPPORT
-using Cysharp.Threading.Tasks;
-#endif
-
 namespace Mu3Library.DI
 {
     public abstract class CoreBase : MonoBehaviour
@@ -126,28 +122,6 @@ namespace Mu3Library.DI
         {
             _container?.Dispose();
         }
-
-#if MU3LIBRARY_UNITASK_SUPPORT
-        internal UniTask InitializeCoreAsync()
-        {
-            if (_container == null)
-            {
-                return UniTask.CompletedTask;
-            }
-
-            return _container.InitializeAsync();
-        }
-
-        internal UniTask DisposeCoreAsync()
-        {
-            if (_container == null)
-            {
-                return UniTask.CompletedTask;
-            }
-
-            return _container.DisposeAsync();
-        }
-#endif
         #endregion
     }
 }

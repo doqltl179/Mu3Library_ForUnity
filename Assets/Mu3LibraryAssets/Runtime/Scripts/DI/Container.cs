@@ -2,12 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-using IDisposable = Mu3Library.DI.IDisposable;
-
-#if MU3LIBRARY_UNITASK_SUPPORT
-using Cysharp.Threading.Tasks;
-#endif
-
 namespace Mu3Library.DI
 {
     public class Container : IContainer
@@ -21,10 +15,6 @@ namespace Mu3Library.DI
             typeof(IDisposable),
             typeof(IUpdatable),
             typeof(ILateUpdatable),
-#if MU3LIBRARY_UNITASK_SUPPORT
-            typeof(IInitializableAsync),
-            typeof(IDisposableAsync),
-#endif
         };
 
         private readonly HashSet<Type> _interfaceIgnoreTypes = new()
@@ -36,32 +26,10 @@ namespace Mu3Library.DI
         private readonly Dictionary<Type, IDisposable> _disposeMap = new();
         private readonly Dictionary<Type, IUpdatable> _updateMap = new();
         private readonly Dictionary<Type, ILateUpdatable> _lateUpdateMap = new();
-#if MU3LIBRARY_UNITASK_SUPPORT
-        private readonly Dictionary<Type, IInitializableAsync> _initializeAsyncMap = new();
-        private readonly Dictionary<Type, IDisposableAsync> _disposeAsyncMap = new();
-#endif
 
 
 
         #region Utility
-
-#if MU3LIBRARY_UNITASK_SUPPORT
-        public async UniTask DisposeAsync()
-        {
-            foreach (var obj in _disposeAsyncMap.Values)
-            {
-                await obj.DisposeAsync();
-            }
-        }
-
-        public async UniTask InitializeAsync()
-        {
-            foreach (var obj in _initializeAsyncMap.Values)
-            {
-                await obj.InitializeAsync();
-            }
-        }
-#endif
 
         public void LateUpdate()
         {
@@ -189,16 +157,6 @@ namespace Mu3Library.DI
                 {
                     _lateUpdateMap[type] = instance as ILateUpdatable;
                 }
-#if MU3LIBRARY_UNITASK_SUPPORT
-                else if (iType == typeof(IInitializableAsync))
-                {
-                    _initializeAsyncMap[type] = instance as IInitializableAsync;
-                }
-                else if (iType == typeof(IDisposableAsync))
-                {
-                    _disposeAsyncMap[type] = instance as IDisposableAsync;
-                }
-#endif
                 else
                 {
                     _interfaceMap[iType] = instance;
