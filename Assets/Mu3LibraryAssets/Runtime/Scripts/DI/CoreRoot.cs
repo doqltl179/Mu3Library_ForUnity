@@ -25,6 +25,20 @@ namespace Mu3Library.DI
             DontDestroyOnLoad(gameObject);
         }
 
+        private void OnDestroy()
+        {
+            var cores = new List<CoreBase>(_cores.Values);
+            foreach (var core in cores)
+            {
+                if (core == null)
+                {
+                    continue;
+                }
+
+                RemoveCore(core);
+            }
+        }
+
         private void Update()
         {
             foreach (var core in _cores.Values)
@@ -38,20 +52,6 @@ namespace Mu3Library.DI
             foreach (var core in _cores.Values)
             {
                 core?.LateUpdateCore();
-            }
-        }
-
-        private void OnDestroy()
-        {
-            var cores = new List<CoreBase>(_cores.Values);
-            foreach (var core in cores)
-            {
-                if (core == null)
-                {
-                    continue;
-                }
-
-                RemoveCore(core);
             }
         }
 
