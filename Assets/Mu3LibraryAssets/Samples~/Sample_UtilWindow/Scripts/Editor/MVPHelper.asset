@@ -348,8 +348,9 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _scriptSaveFolder: {fileID: 102900000, guid: c5876924d11ea5143af23e078452eb14, type: 3}
-  _scriptNamespace: Mu3Library.Sample.MVP
-  _scriptName: LoadingScreen
+  _scriptSaveFolder: {fileID: 102900000, guid: ea61379a13fae124d9f88a4114516f68, type: 3}
+  _scriptNamespace: Mu3Library.Sample.Test
+  _scriptName: Test
   _scriptSpaces: 4
+  _ignoreTypeOverlap: 1
   _applyAnimationView: 0
