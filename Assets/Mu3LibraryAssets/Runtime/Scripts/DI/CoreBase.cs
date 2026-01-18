@@ -7,7 +7,7 @@ namespace Mu3Library.DI
     public abstract class CoreBase : MonoBehaviour
     {
         private CoreRoot m_coreRoot;
-        protected CoreRoot _coreRoot
+        private CoreRoot _coreRoot
         {
             get
             {
@@ -60,12 +60,6 @@ namespace Mu3Library.DI
             _coreRoot?.RemoveCore(this);
         }
 
-        #region Utility
-        internal T Get<T>() where T : class
-        {
-            return _container?.Get<T>();
-        }
-
         internal void InitializeCore()
         {
             _container?.Initialize();
@@ -85,9 +79,18 @@ namespace Mu3Library.DI
         {
             _container?.Dispose();
         }
+
+        #region Utility
+        internal T Get<T>() where T : class
+        {
+            return _container?.Get<T>();
+        }
         #endregion
 
-        protected void Register<T>()
+        /// <summary>
+        /// Register class to container
+        /// </summary>
+        protected void RegisterClass<T>()
             where T : class, new()
         {
             _container.Register<T>();
