@@ -58,8 +58,8 @@ namespace Mu3Library.Sample.Template.Audio
         {
             base.Start();
 
-            WaitForCore<AudioCore>(OnAudioCoreAdded);
-            WaitForCore<SceneCore>(OnSceneCoreAdded);
+            WaitForOtherCore<AudioCore>(OnAudioCoreAdded);
+            WaitForOtherCore<SceneCore>(OnSceneCoreAdded);
         }
 
         protected override void OnDestroy()
@@ -71,8 +71,8 @@ namespace Mu3Library.Sample.Template.Audio
 
         private void OnAudioCoreAdded()
         {
-            _audioManager = GetFromCore<AudioCore, IAudioManager>();
-            _audioVolumeSettings = GetFromCore<AudioCore, IAudioVolumeSettings>();
+            _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
+            _audioVolumeSettings = GetClassFromOtherCore<AudioCore, IAudioVolumeSettings>();
 
             if (_audioVolumeSettings == null)
             {
@@ -86,7 +86,7 @@ namespace Mu3Library.Sample.Template.Audio
 
         private void OnSceneCoreAdded()
         {
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
         }
 
         private void RegisterUiEvents()

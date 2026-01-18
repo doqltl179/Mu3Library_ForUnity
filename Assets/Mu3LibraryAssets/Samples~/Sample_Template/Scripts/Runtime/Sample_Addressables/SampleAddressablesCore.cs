@@ -42,14 +42,14 @@ namespace Mu3Library.Sample.Template.Addressables
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
 
             SetProgress(0f);
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 
 #if TEMPLATE_ADDRESSABLES_SUPPORT
-            _addressablesManager = GetFromCore<ResourceCore, IAddressablesManager>();
+            _addressablesManager = GetClassFromOtherCore<ResourceCore, IAddressablesManager>();
 
             _messageText.text = "Addressables Initializing...";
             _addressablesManager.Initialize(OnAddressablesInitialized);

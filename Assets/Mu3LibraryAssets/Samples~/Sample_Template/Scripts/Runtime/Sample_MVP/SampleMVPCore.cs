@@ -45,8 +45,8 @@ namespace Mu3Library.Sample.Template.MVP
         {
             base.Start();
 
-            _resourceLoader = GetFromCore<ResourceCore, IResourceLoader>();
-            _mvpManager = GetFromCore<UICore, IMVPManager>();
+            _resourceLoader = GetClassFromOtherCore<ResourceCore, IResourceLoader>();
+            _mvpManager = GetClassFromOtherCore<UICore, IMVPManager>();
 
             RegisterViewResources();
             OpenDefaultWindow();
@@ -105,7 +105,7 @@ namespace Mu3Library.Sample.Template.MVP
         {
             MainArguments args = new MainArguments()
             {
-                SceneLoader = GetFromCore<SceneCore, ISceneLoader>(),
+                SceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>(),
                 KeyDescriptions = new Dictionary<KeyCode, string>()
                 {
                     { _notificationOneButtonKey, "Open one button notification" },

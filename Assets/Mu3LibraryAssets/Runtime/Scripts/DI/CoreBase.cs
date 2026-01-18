@@ -81,13 +81,17 @@ namespace Mu3Library.DI
         }
 
         #region Utility
-        internal T Get<T>() where T : class
+        /// <summary>
+        /// Return class by container
+        /// </summary>
+        internal T GetClass<T>()
+            where T : class
         {
             return _container?.Get<T>();
         }
         #endregion
 
-        protected void WaitForCore<TCore>(Action onReady)
+        protected void WaitForOtherCore<TCore>(Action onReady)
             where TCore : CoreBase
         {
             if (_coreRoot == null)
@@ -119,7 +123,7 @@ namespace Mu3Library.DI
             _coreRoot.OnCoreAdded += HandleCoreAdded;
         }
 
-        protected T GetFromCore<TCore, T>()
+        protected T GetClassFromOtherCore<TCore, T>()
             where TCore : CoreBase
             where T : class
         {

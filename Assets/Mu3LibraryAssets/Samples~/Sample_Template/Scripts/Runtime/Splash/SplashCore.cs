@@ -19,7 +19,7 @@ namespace Mu3Library.Sample.Template.Splash
 
             _splashAnimation.OnAnimationEnd += OnSplashAnimationEnd;
 
-            WaitForCore<SceneCore>(OnSceneCoreAdded);
+            WaitForOtherCore<SceneCore>(OnSceneCoreAdded);
         }
 
         protected override void OnDestroy()
@@ -31,7 +31,7 @@ namespace Mu3Library.Sample.Template.Splash
 
         private void OnSceneCoreAdded()
         {
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
 
             LoadLoadingScene();
         }

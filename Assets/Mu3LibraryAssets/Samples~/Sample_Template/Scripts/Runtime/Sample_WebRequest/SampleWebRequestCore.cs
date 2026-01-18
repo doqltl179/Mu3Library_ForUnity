@@ -35,8 +35,8 @@ namespace Mu3Library.Sample.Template.WebRequest
         {
             base.Start();
 
-            _webRequestManager = GetFromCore<NetworkCore, IWebRequestManager>();
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _webRequestManager = GetClassFromOtherCore<NetworkCore, IWebRequestManager>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 

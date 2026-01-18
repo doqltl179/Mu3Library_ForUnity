@@ -40,7 +40,7 @@ namespace Mu3Library.Sample.Template.Main
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
 
             _sceneEntryResource.gameObject.SetActive(false);
 

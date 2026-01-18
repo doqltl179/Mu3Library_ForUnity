@@ -33,13 +33,13 @@ namespace Mu3Library.Sample.Template.Localization
         {
             base.Start();
 
-            _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
+            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
 
             _localeDropdown.ClearOptions();
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
 #if TEMPLATE_LOCALIZATION_SUPPORT
-            _localizationManager = GetFromCore<LocalizationCore, ILocalizationManager>();
+            _localizationManager = GetClassFromOtherCore<LocalizationCore, ILocalizationManager>();
             _localizationManager.AddLocaleChangedEvent(OnLocaleChanged);
             _localeDropdown.onValueChanged.AddListener(OnLocaleDropdownValueChanged);
 

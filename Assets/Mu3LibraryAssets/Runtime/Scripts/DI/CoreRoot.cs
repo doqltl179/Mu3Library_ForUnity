@@ -67,7 +67,7 @@ namespace Mu3Library.DI
                 return null;
             }
 
-            return core.Get<T>();
+            return core.GetClass<T>();
         }
 
         public bool HasCore<T>() where T : CoreBase
