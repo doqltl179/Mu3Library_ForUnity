@@ -6,8 +6,6 @@ namespace Mu3Library.DI
 {
     public class Container
     {
-        private CoreBase _owner;
-
         private readonly Dictionary<Type, object> _classMap = new();
         private readonly Dictionary<Type, object> _interfaceMap = new();
 
@@ -30,11 +28,6 @@ namespace Mu3Library.DI
         private readonly Dictionary<Type, ILateUpdatable> _lateUpdateMap = new();
 
 
-
-        internal Container(CoreBase owner = null)
-        {
-            _owner = owner;
-        }
 
         #region Utility
 

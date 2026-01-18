@@ -21,19 +21,7 @@ namespace Mu3Library.DI
 
         [SerializeField] private bool _setAsGlobal = false;
 
-        private Container m_container;
-        private Container _container
-        {
-            get
-            {
-                if (m_container == null)
-                {
-                    m_container = new Container(this);
-                }
-
-                return m_container;
-            }
-        }
+        private readonly Container _container = new Container();
 
 
 
