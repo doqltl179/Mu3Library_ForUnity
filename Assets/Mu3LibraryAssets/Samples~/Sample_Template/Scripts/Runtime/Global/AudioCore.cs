@@ -9,7 +9,7 @@ namespace Mu3Library.Sample.Template.Global
         {
             base.Awake();
 
-            Register<AudioManager>();
+            RegisterClass<AudioManager>();
         }
     }
 }

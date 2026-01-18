@@ -14,12 +14,12 @@ namespace Mu3Library.Sample.Template.Global
             base.Awake();
 
 #if TEMPLATE_ADDRESSABLES_SUPPORT
-            Register<AddressablesManager>();
+            RegisterClass<AddressablesManager>();
 #else
             Debug.LogWarning("Addressables is not installed.");
 #endif
 
-            Register<ResourceLoader>();
+            RegisterClass<ResourceLoader>();
         }
     }
 }
