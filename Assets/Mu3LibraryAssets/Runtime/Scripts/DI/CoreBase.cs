@@ -87,7 +87,7 @@ namespace Mu3Library.DI
         internal T GetClass<T>()
             where T : class
         {
-            return _container?.Get<T>();
+            return GetClassFromContainer<T>();
         }
         #endregion
 
@@ -127,7 +127,13 @@ namespace Mu3Library.DI
             where TCore : CoreBase
             where T : class
         {
-            return _coreRoot?.Get<TCore, T>();
+            return _coreRoot?.GetClass<TCore, T>();
+        }
+
+        protected T GetClassFromContainer<T>()
+            where T : class
+        {
+            return _container?.Get<T>();
         }
 
         /// <summary>

@@ -56,7 +56,7 @@ namespace Mu3Library.DI
         }
 
         #region Utility
-        internal T Get<TCore, T>()
+        internal T GetClass<TCore, T>()
             where TCore : CoreBase
             where T : class
         {
