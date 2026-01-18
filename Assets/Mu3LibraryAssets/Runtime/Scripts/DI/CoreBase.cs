@@ -84,10 +84,10 @@ namespace Mu3Library.DI
         /// <summary>
         /// Return class by container
         /// </summary>
-        internal T GetClass<T>()
+        internal T GetClassFromContainer<T>()
             where T : class
         {
-            return GetClassFromContainer<T>();
+            return GetClass<T>();
         }
         #endregion
 
@@ -130,7 +130,10 @@ namespace Mu3Library.DI
             return _coreRoot?.GetClass<TCore, T>();
         }
 
-        protected T GetClassFromContainer<T>()
+        /// <summary>
+        /// Return class by container
+        /// </summary>
+        protected T GetClass<T>()
             where T : class
         {
             return _container?.Get<T>();
