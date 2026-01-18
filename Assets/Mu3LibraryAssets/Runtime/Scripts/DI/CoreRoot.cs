@@ -35,7 +35,7 @@ namespace Mu3Library.DI
                     continue;
                 }
 
-                RemoveCore(core);
+                UnregisterCore(core);
             }
         }
 
@@ -76,7 +76,7 @@ namespace Mu3Library.DI
             return _cores.ContainsKey(type);
         }
 
-        public void RemoveCore<T>(T core) where T : CoreBase
+        public void UnregisterCore<T>(T core) where T : CoreBase
         {
             if (core == null)
             {

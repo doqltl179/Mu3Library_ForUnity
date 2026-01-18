@@ -57,7 +57,7 @@ namespace Mu3Library.DI
 
         protected virtual void OnDestroy()
         {
-            _coreRoot?.RemoveCore(this);
+            _coreRoot?.UnregisterCore(this);
         }
 
         internal void InitializeCore()
