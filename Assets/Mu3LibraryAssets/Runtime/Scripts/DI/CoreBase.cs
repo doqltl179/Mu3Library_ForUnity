@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using System;
 
 namespace Mu3Library.DI
@@ -19,7 +20,8 @@ namespace Mu3Library.DI
             }
         }
 
-        [SerializeField] private bool _setAsGlobal = false;
+        [FormerlySerializedAs("_setAsGlobal")]
+        [SerializeField] private bool _dontDestroyOnLoad = false;
 
         private readonly Container _container = new Container();
 
@@ -27,7 +29,7 @@ namespace Mu3Library.DI
 
         protected virtual void Awake()
         {
-            if (_setAsGlobal)
+            if (_dontDestroyOnLoad)
             {
                 Type instanceType = GetType();
                 int instanceCount = FindObjectsByType(instanceType, FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
