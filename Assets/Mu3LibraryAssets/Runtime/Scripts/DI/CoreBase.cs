@@ -87,16 +87,7 @@ namespace Mu3Library.DI
         }
         #endregion
 
-        /// <summary>
-        /// Register class to container
-        /// </summary>
-        protected void RegisterClass<T>()
-            where T : class, new()
-        {
-            _container.Register<T>();
-        }
-
-        protected void WaitForCore<TCore>(Action<TCore> onReady)
+        protected void WaitForCore<TCore>(Action onReady)
             where TCore : CoreBase
         {
             if (_coreRoot == null)
@@ -104,9 +95,9 @@ namespace Mu3Library.DI
                 return;
             }
 
-            if (_coreRoot.TryGetCore(out TCore core))
+            if (_coreRoot.HasCore<TCore>())
             {
-                onReady?.Invoke(core);
+                onReady?.Invoke();
                 return;
             }
 
@@ -117,11 +108,11 @@ namespace Mu3Library.DI
                     return;
                 }
 
-                if (_coreRoot.TryGetCore(out TCore readyCore))
+                if (_coreRoot.HasCore<TCore>())
                 {
                     _coreRoot.OnCoreAdded -= HandleCoreAdded;
 
-                    onReady?.Invoke(readyCore);
+                    onReady?.Invoke();
                 }
             }
 
@@ -133,6 +124,15 @@ namespace Mu3Library.DI
             where T : class
         {
             return _coreRoot?.Get<TCore, T>();
+        }
+
+        /// <summary>
+        /// Register class to container
+        /// </summary>
+        protected void RegisterClass<T>()
+            where T : class, new()
+        {
+            _container.Register<T>();
         }
     }
 }

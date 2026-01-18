@@ -69,7 +69,7 @@ namespace Mu3Library.Sample.Template.Audio
             _audioManager?.Stop();
         }
 
-        private void OnAudioCoreAdded(AudioCore _)
+        private void OnAudioCoreAdded()
         {
             _audioManager = GetFromCore<AudioCore, IAudioManager>();
             _audioVolumeSettings = GetFromCore<AudioCore, IAudioVolumeSettings>();
@@ -84,7 +84,7 @@ namespace Mu3Library.Sample.Template.Audio
             _sfxVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.SfxVolume);
         }
 
-        private void OnSceneCoreAdded(SceneCore _)
+        private void OnSceneCoreAdded()
         {
             _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
         }

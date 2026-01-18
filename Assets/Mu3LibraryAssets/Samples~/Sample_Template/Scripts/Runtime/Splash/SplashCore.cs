@@ -29,7 +29,7 @@ namespace Mu3Library.Sample.Template.Splash
             _splashAnimation.OnAnimationEnd -= OnSplashAnimationEnd;
         }
 
-        private void OnSceneCoreAdded(SceneCore core)
+        private void OnSceneCoreAdded()
         {
             _sceneLoader = GetFromCore<SceneCore, ISceneLoader>();
 

@@ -70,18 +70,10 @@ namespace Mu3Library.DI
             return core.Get<T>();
         }
 
-        internal bool TryGetCore<TCore>(out TCore core)
-            where TCore : CoreBase
+        public bool HasCore<T>() where T : CoreBase
         {
-            core = null;
-
-            if (_cores.TryGetValue(typeof(TCore), out CoreBase coreBase))
-            {
-                core = coreBase as TCore;
-                return core != null;
-            }
-
-            return false;
+            Type type = typeof(T);
+            return _cores.ContainsKey(type);
         }
 
         public void RemoveCore<T>(T core) where T : CoreBase
