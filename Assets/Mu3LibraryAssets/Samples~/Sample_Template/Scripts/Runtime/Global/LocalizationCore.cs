@@ -8,12 +8,10 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class LocalizationCore : CoreBase
     {
-        protected override void Awake()
+        protected override void ConfigureContainer(ContainerScope scope)
         {
-            base.Awake();
-
 #if TEMPLATE_LOCALIZATION_SUPPORT
-            RegisterClass<LocalizationManager>();
+            scope.Register<LocalizationManager>();
 #else
             Debug.LogWarning("Localization is not installed.");
 #endif

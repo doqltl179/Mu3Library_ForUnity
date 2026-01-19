@@ -5,11 +5,9 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class SceneCore : CoreBase
     {
-        protected override void Awake()
+        protected override void ConfigureContainer(ContainerScope scope)
         {
-            base.Awake();
-
-            RegisterClass<SceneLoader>();
+            scope.Register<SceneLoader>();
         }
     }
 }

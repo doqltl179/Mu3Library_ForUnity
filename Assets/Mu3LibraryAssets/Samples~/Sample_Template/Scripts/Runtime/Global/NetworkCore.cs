@@ -5,11 +5,9 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class NetworkCore : CoreBase
     {
-        protected override void Awake()
+        protected override void ConfigureContainer(ContainerScope scope)
         {
-            base.Awake();
-
-            RegisterClass<WebRequestManager>();
+            scope.Register<WebRequestManager>();
         }
     }
 }
