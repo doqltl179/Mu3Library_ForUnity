@@ -82,11 +82,18 @@ namespace Mu3Library.Sample.Template.Main
 
         private void OnClickListener(SampleSceneEntry entry)
         {
+            if (entry.SceneName == SceneNames.SampleAddressables)
+            {
+                _sceneLoader.LoadSingleSceneWithAddressables(entry.SceneName);
+            }
+            else
+            {
 #if UNITY_EDITOR
-            _sceneLoader.LoadSingleSceneWithAssetPath(SceneNames.GetSceneAssetPath(entry.SceneName));
+                _sceneLoader.LoadSingleSceneWithAssetPath(SceneNames.GetSceneAssetPath(entry.SceneName));
 #else
-            _sceneLoader.LoadSingleScene(entry.SceneName);
+                _sceneLoader.LoadSingleScene(entry.SceneName);
 #endif
+            }
         }
 
         private void OnPointerExited(SampleSceneEntry exitedEntry)

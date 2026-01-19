@@ -27,6 +27,7 @@ namespace Mu3Library.Sample.Template.Addressables
 
         [Space(20)]
         [SerializeField] private Button _backButton;
+        [SerializeField] private Button _additiveSceneLoadButton;
 
         private readonly string[] _allLabels = new string[]
         {
@@ -47,6 +48,7 @@ namespace Mu3Library.Sample.Template.Addressables
             SetProgress(0f);
 
             _backButton.onClick.AddListener(OnBackButtonClicked);
+            _additiveSceneLoadButton.onClick.AddListener(OnAdditiveSceneLoadButtonClicked);
 
 #if TEMPLATE_ADDRESSABLES_SUPPORT
             _addressablesManager = GetClassFromOtherCore<ResourceCore, IAddressablesManager>();
@@ -64,6 +66,7 @@ namespace Mu3Library.Sample.Template.Addressables
             base.OnDestroy();
 
             _backButton.onClick.RemoveListener(OnBackButtonClicked);
+            _additiveSceneLoadButton.onClick.RemoveListener(OnAdditiveSceneLoadButtonClicked);
         }
 
 #if TEMPLATE_ADDRESSABLES_SUPPORT
@@ -122,6 +125,11 @@ namespace Mu3Library.Sample.Template.Addressables
             SetProgress(1f);
         }
 #endif
+
+        private void OnAdditiveSceneLoadButtonClicked()
+        {
+            _sceneLoader.LoadAdditiveSceneWithAddressables(SceneNames.SampleAddressablesAdditive);
+        }
 
         private void OnBackButtonClicked()
         {

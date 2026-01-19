@@ -11,6 +11,7 @@ namespace Mu3Library.Sample.Template.Global
         public const string SampleMVP = "Sample_MVP";
         public const string SampleLocalization = "Sample_Localization";
         public const string SampleAddressables = "Sample_Addressables";
+        public const string SampleAddressablesAdditive = "Sample_AddressablesAdditive";
         public const string SampleWebRequest = "Sample_WebRequest";
 
         private readonly static string[] _sampleSceneNames =
