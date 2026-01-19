@@ -99,9 +99,9 @@ namespace Mu3Library.Audio
             PoolSfxAll();
             _sfxPool.Clear();
 
-            if (_root != null)
+            if (m_root != null)
             {
-                Object.Destroy(_root);
+                Object.Destroy(m_root);
             }
         }
 
@@ -313,6 +313,8 @@ namespace Mu3Library.Audio
                 return;
             }
 
+            CleanupSfxControllers();
+
             AudioController controller = null;
 
             if (_sfxControllers.Count < _sfxSourceCountMax)
@@ -380,6 +382,11 @@ namespace Mu3Library.Audio
         {
             foreach (AudioController controller in _sfxControllers)
             {
+                if (controller == null)
+                {
+                    continue;
+                }
+
                 controller.Pause();
             }
         }
@@ -388,6 +395,11 @@ namespace Mu3Library.Audio
         {
             foreach (AudioController controller in _sfxControllers)
             {
+                if (controller == null)
+                {
+                    continue;
+                }
+
                 controller.UnPause();
             }
         }
@@ -515,6 +527,20 @@ namespace Mu3Library.Audio
                 PoolController(_sfxPool, controller);
             }
             _sfxControllers.Clear();
+        }
+
+        private void CleanupSfxControllers()
+        {
+            for (int i = 0; i < _sfxControllers.Count; i++)
+            {
+                if (_sfxControllers[i] != null)
+                {
+                    continue;
+                }
+
+                _sfxControllers.RemoveAt(i);
+                i--;
+            }
         }
 
         private AudioSource CreateBgmSource()
