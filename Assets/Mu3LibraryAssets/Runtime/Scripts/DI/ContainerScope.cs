@@ -285,7 +285,9 @@ namespace Mu3Library.DI
         {
             if (descriptor.Factory != null)
             {
-                return descriptor.Factory(this);
+                object instance = descriptor.Factory(this);
+                InjectMembers(instance, chain);
+                return instance;
             }
 
             if (descriptor.ImplementationType == null)
@@ -306,14 +308,18 @@ namespace Mu3Library.DI
             ConstructorInfo[] constructors = implementationType.GetConstructors();
             if (constructors.Length == 0)
             {
-                return Activator.CreateInstance(implementationType);
+                object instance = Activator.CreateInstance(implementationType);
+                InjectMembers(instance, chain);
+                return instance;
             }
 
             foreach (ConstructorInfo ctor in constructors.OrderByDescending(t => t.GetParameters().Length))
             {
                 if (TryBuildParameters(ctor, chain, out object[] args))
                 {
-                    return ctor.Invoke(args);
+                    object instance = ctor.Invoke(args);
+                    InjectMembers(instance, chain);
+                    return instance;
                 }
             }
 
@@ -358,6 +364,61 @@ namespace Mu3Library.DI
             }
 
             return true;
+        }
+
+        private void InjectMembers(object instance, HashSet<Type> chain)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            Type type = instance.GetType();
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            foreach (FieldInfo field in type.GetFields(flags))
+            {
+                InjectAttribute attr = field.GetCustomAttribute<InjectAttribute>();
+                if (attr == null || field.IsInitOnly || field.IsStatic)
+                {
+                    continue;
+                }
+
+                object value = ResolveInternal(field.FieldType, attr.Key, chain, false);
+                if (value == null)
+                {
+                    if (attr.Required)
+                    {
+                        throw new InvalidOperationException($"Inject failed. field: {type.FullName}.{field.Name}");
+                    }
+
+                    continue;
+                }
+
+                field.SetValue(instance, value);
+            }
+
+            foreach (PropertyInfo property in type.GetProperties(flags))
+            {
+                InjectAttribute attr = property.GetCustomAttribute<InjectAttribute>();
+                if (attr == null || !property.CanWrite || property.GetIndexParameters().Length > 0)
+                {
+                    continue;
+                }
+
+                object value = ResolveInternal(property.PropertyType, attr.Key, chain, false);
+                if (value == null)
+                {
+                    if (attr.Required)
+                    {
+                        throw new InvalidOperationException($"Inject failed. property: {type.FullName}.{property.Name}");
+                    }
+
+                    continue;
+                }
+
+                property.SetValue(instance, value);
+            }
         }
 
         private void TrackLifecycle(object instance, ServiceLifetime lifetime)
