@@ -66,5 +66,7 @@
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj",
     },
-    "dotnet.defaultSolution": "Mu3Library_ForUnity.sln"
+    "dotnet.defaultSolution": "Mu3Library_ForUnity.sln",
+    "files.encoding": "utf8",
+    "files.autoGuessEncoding": false
 }
