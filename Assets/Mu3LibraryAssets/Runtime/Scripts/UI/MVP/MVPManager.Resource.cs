@@ -104,12 +104,15 @@ namespace Mu3Library.UI.MVP
 
         private string GetLayerName(System.Type viewType)
         {
-            if (!_viewLayerMap.ContainsKey(viewType))
+            if (!_viewLayerMap.TryGetValue(viewType, out string layerName))
             {
-                return "";
+                Debug.LogWarning($"View layer not registered. type: {viewType}");
+                return MVPCanvasUtil.SortingLayers.Length > 0
+                    ? MVPCanvasUtil.SortingLayers[0]
+                    : string.Empty;
             }
 
-            return _viewLayerMap[viewType];
+            return layerName;
         }
 
         private void SetCanvasSettings(Canvas canvas, MVPCanvasSettings settings, string sortingLayerNameOverride = null)

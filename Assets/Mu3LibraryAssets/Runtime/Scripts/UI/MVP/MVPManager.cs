@@ -67,14 +67,16 @@ namespace Mu3Library.UI.MVP
 
             _focused = null;
 
-            if (_root != null)
+            if (m_root != null)
             {
-                Object.Destroy(_root);
+                Object.Destroy(m_root);
             }
         }
 
         public void Update()
         {
+            CleanupDestroyedPresenters();
+
             CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
             CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
             CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
@@ -155,6 +157,8 @@ namespace Mu3Library.UI.MVP
         #region Utility
         public void CloseAllWithoutDefault(bool forceClose = false)
         {
+            CleanupDestroyedPresenters();
+
             var paramList = Enumerable.Empty<PresenterParams>()
                 .Concat(_openedPresenters)
                 .Concat(_presenterOpenChecker)
@@ -166,6 +170,8 @@ namespace Mu3Library.UI.MVP
 
         public void CloseAll(bool forceClose = false)
         {
+            CleanupDestroyedPresenters();
+
             var paramList = Enumerable.Empty<PresenterParams>()
                 .Concat(_openedPresenters)
                 .Concat(_presenterOpenChecker)
@@ -186,6 +192,8 @@ namespace Mu3Library.UI.MVP
             {
                 return;
             }
+
+            CleanupDestroyedPresenters();
 
             var paramList = Enumerable.Empty<PresenterParams>()
                 .Concat(_openedPresenters)
@@ -226,6 +234,8 @@ namespace Mu3Library.UI.MVP
             {
                 return false;
             }
+
+            CleanupDestroyedPresenters();
 
             PresenterParams param = _openedPresenters
                 .Where(t => t.Presenter == presenter)
@@ -273,6 +283,10 @@ namespace Mu3Library.UI.MVP
 
             System.Type viewType = presenter.ViewType;
             string viewLayerName = GetLayerName(viewType);
+            if (string.IsNullOrEmpty(viewLayerName))
+            {
+                Debug.LogWarning($"View layer name is empty. type: {viewType}");
+            }
 
             if (!_layerCanvases.TryGetValue(viewLayerName, out Canvas layerCanvas))
             {
@@ -370,6 +384,43 @@ namespace Mu3Library.UI.MVP
             UpdateOutPanel(mostFront);
 
             _focused = mostFront;
+        }
+
+        private void CleanupDestroyedPresenters()
+        {
+            bool removed = false;
+
+            removed |= RemoveDestroyedPresenters(_openedPresenters);
+            removed |= RemoveDestroyedPresenters(_presenterLoadChecker);
+            removed |= RemoveDestroyedPresenters(_presenterOpenChecker);
+            removed |= RemoveDestroyedPresenters(_presenterCloseChecker);
+            removed |= RemoveDestroyedPresenters(_presenterUnloadChecker);
+
+            if (removed)
+            {
+                UpdateFocus();
+            }
+        }
+
+        private static bool RemoveDestroyedPresenters(List<PresenterParams> list)
+        {
+            bool removed = false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                PresenterParams param = list[i];
+                if (param?.Presenter != null && param.Presenter.IsViewExist)
+                {
+                    continue;
+                }
+
+                list.RemoveAt(i);
+                i--;
+
+                removed = true;
+            }
+
+            return removed;
         }
 
         private void UpdateSortingOrderAsLast(PresenterParams presenterParam)
