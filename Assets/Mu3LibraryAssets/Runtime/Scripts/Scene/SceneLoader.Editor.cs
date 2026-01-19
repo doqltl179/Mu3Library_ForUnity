@@ -29,8 +29,15 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (_singleSceneOperation != null)
+            if (IsSingleSceneOperationInProgress())
             {
+                Debug.LogWarning($"Single scene load already in progress. reason=SingleInProgress sceneName: {sceneName}");
+                return;
+            }
+
+            if (IsAdditiveSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot load single scene while additive scene is loading/unloading. reason=AdditiveInProgress sceneName: {sceneName}");
                 return;
             }
 
@@ -61,8 +68,15 @@ namespace Mu3Library.Scene
                 return;
             }
 
+            if (IsSingleSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot load additive scene while single scene is loading/unloading. reason=SingleInProgress sceneName: {sceneName}");
+                return;
+            }
+
             if (_loadAdditiveSceneOperations.ContainsKey(sceneName))
             {
+                Debug.LogWarning($"Additive scene load already in progress. reason=AdditiveInProgress sceneName: {sceneName}");
                 return;
             }
 
@@ -84,12 +98,19 @@ namespace Mu3Library.Scene
 
             if (!_currentAdditiveScenes.Contains(sceneName))
             {
-                Debug.LogWarning($"Scene is not loaded. sceneName: {sceneName}");
+                Debug.LogWarning($"Scene is not loaded. reason=NotLoaded sceneName: {sceneName}");
+                return;
+            }
+
+            if (IsSingleSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot unload additive scene while single scene is loading/unloading. reason=SingleInProgress sceneName: {sceneName}");
                 return;
             }
 
             if (_unloadAdditiveSceneOperations.ContainsKey(sceneName))
             {
+                Debug.LogWarning($"Additive scene unload already in progress. reason=AdditiveInProgress sceneName: {sceneName}");
                 return;
             }
 

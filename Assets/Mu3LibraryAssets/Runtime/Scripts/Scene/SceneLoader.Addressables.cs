@@ -22,6 +22,8 @@ namespace Mu3Library.Scene
         private readonly Dictionary<string, SceneOperation> _unloadAdditiveAddressablesSceneOperations = new();
         private readonly Dictionary<string, AsyncOperationHandle<SceneInstance>> _loadedAddressableSceneHandles = new();
 
+
+
         public void LoadSingleSceneWithAddressables(string key)
         {
             if (string.IsNullOrEmpty(key))
@@ -29,8 +31,15 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (_singleSceneOperation != null || _singleAddressablesSceneOperation != null)
+            if (IsSingleSceneOperationInProgress())
             {
+                Debug.LogWarning($"Single scene load already in progress. reason=SingleInProgress key: {key}");
+                return;
+            }
+
+            if (IsAdditiveSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot load single scene while additive scene is loading/unloading. reason=AdditiveInProgress key: {key}");
                 return;
             }
 
@@ -60,8 +69,15 @@ namespace Mu3Library.Scene
                 return;
             }
 
+            if (IsSingleSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot load additive scene while single scene is loading/unloading. reason=SingleInProgress key: {key}");
+                return;
+            }
+
             if (_loadAdditiveAddressablesSceneOperations.ContainsKey(key))
             {
+                Debug.LogWarning($"Additive scene load already in progress. reason=AdditiveInProgress key: {key}");
                 return;
             }
 
@@ -83,18 +99,25 @@ namespace Mu3Library.Scene
 
             if (!_currentAdditiveScenes.Contains(key))
             {
-                Debug.LogWarning($"Scene is not loaded. key: {key}");
+                Debug.LogWarning($"Scene is not loaded. reason=NotLoaded key: {key}");
+                return;
+            }
+
+            if (IsSingleSceneOperationInProgress())
+            {
+                Debug.LogWarning($"Cannot unload additive scene while single scene is loading/unloading. reason=SingleInProgress key: {key}");
                 return;
             }
 
             if (_unloadAdditiveAddressablesSceneOperations.ContainsKey(key))
             {
+                Debug.LogWarning($"Additive scene unload already in progress. reason=AdditiveInProgress key: {key}");
                 return;
             }
 
             if (!_loadedAddressableSceneHandles.TryGetValue(key, out AsyncOperationHandle<SceneInstance> handle) || !handle.IsValid())
             {
-                Debug.LogWarning($"Addressable scene handle not found. key: {key}");
+                Debug.LogWarning($"Addressable scene handle not found. reason=HandleNotFound key: {key}");
                 return;
             }
 
