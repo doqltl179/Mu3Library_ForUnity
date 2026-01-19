@@ -387,8 +387,7 @@ namespace Mu3Library.UI.MVP
             if (sameViewSortingOrders.Any())
             {
                 int maxSortingOrder = sameViewSortingOrders.Max();
-                // OutPanel에서 SortingOrder를 {view.SortingOrder - 1}로 설정하기 때문에
-                // View 간의 SortingOrder 간격은 2로 설정한다.
+                // OutPanel uses sorting order {view.SortingOrder - 1}, so keep view gap at 2.
                 if (presenterParam.Presenter.SortingOrder < maxSortingOrder + 2)
                 {
                     presenterParam.Presenter.SetSortingOrder(maxSortingOrder + 2);
