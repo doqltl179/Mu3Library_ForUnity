@@ -57,11 +57,6 @@ namespace Mu3Library.Localization
 
 
 
-        public void Initialize()
-        {
-            Initialize(null);
-        }
-
         #region Utility
         public void Initialize(Action callback = null)
         {

@@ -38,11 +38,6 @@ namespace Mu3Library.Addressable
 
 
 
-        public void Initialize()
-        {
-            Initialize(null);
-        }
-
         public void Dispose()
         {
             if (_initializeHandle.IsValid())
