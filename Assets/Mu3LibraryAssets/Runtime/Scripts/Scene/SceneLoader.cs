@@ -8,16 +8,16 @@ namespace Mu3Library.Scene
 {
     public partial class SceneLoader : IUpdatable, ISceneLoader
     {
-        private class SceneOperation
+        private partial class SceneOperation
         {
             public string SceneName;
-            public AsyncOperation Operation;
             public bool IsAdditive;
             public bool IsUnload;
             public float FakeTimer;
             public float FakeDuration;
             public bool UseFakeLoading;
             public bool ActivationRequested;
+            public AsyncOperation Operation;
         }
 
         private int _loadingCount = 0;
@@ -152,6 +152,9 @@ namespace Mu3Library.Scene
             UpdateSingleSceneOperation();
             UpdateLoadAdditiveOperations();
             UpdateUnloadAdditiveOperations();
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            UpdateAddressablesOperations();
+#endif
         }
 
         private bool IsSceneInBuild(string sceneName)
@@ -197,6 +200,10 @@ namespace Mu3Library.Scene
                 ActivationRequested = false
             };
         }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+        partial void UpdateAddressablesOperations();
+#endif
 
         private void UpdateSingleSceneOperation()
         {
