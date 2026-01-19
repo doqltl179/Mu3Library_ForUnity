@@ -188,6 +188,11 @@ namespace Mu3Library.DI
             return ResolveInternal(serviceType, key, new HashSet<Type>(), throwIfMissing);
         }
 
+        internal object Resolve(Type serviceType, string key)
+        {
+            return ResolveInternal(serviceType, key, new HashSet<Type>(), false);
+        }
+
         private object ResolveInternal(Type serviceType, string key, HashSet<Type> chain, bool throwIfMissing)
         {
             if (serviceType == null || _disposed)
@@ -384,7 +389,9 @@ namespace Mu3Library.DI
                     continue;
                 }
 
-                object value = ResolveInternal(field.FieldType, attr.Key, chain, false);
+                object value = attr.CoreType == null
+                    ? ResolveInternal(field.FieldType, attr.Key, chain, false)
+                    : ResolveFromCore(attr.CoreType, field.FieldType, attr.Key);
                 if (value == null)
                 {
                     if (attr.Required)
@@ -406,7 +413,9 @@ namespace Mu3Library.DI
                     continue;
                 }
 
-                object value = ResolveInternal(property.PropertyType, attr.Key, chain, false);
+                object value = attr.CoreType == null
+                    ? ResolveInternal(property.PropertyType, attr.Key, chain, false)
+                    : ResolveFromCore(attr.CoreType, property.PropertyType, attr.Key);
                 if (value == null)
                 {
                     if (attr.Required)
@@ -419,6 +428,27 @@ namespace Mu3Library.DI
 
                 property.SetValue(instance, value);
             }
+        }
+
+        internal void InjectInto(object instance)
+        {
+            InjectMembers(instance, new HashSet<Type>());
+        }
+
+        private object ResolveFromCore(Type coreType, Type serviceType, string key)
+        {
+            if (coreType == null || serviceType == null)
+            {
+                return null;
+            }
+
+            if (!typeof(CoreBase).IsAssignableFrom(coreType))
+            {
+                UnityEngine.Debug.LogError($"InjectFromCore failed. coreType is not CoreBase. type: {coreType.FullName}");
+                return null;
+            }
+
+            return CoreRoot.Instance.GetClass(coreType, serviceType, key);
         }
 
         private void TrackLifecycle(object instance, ServiceLifetime lifetime)

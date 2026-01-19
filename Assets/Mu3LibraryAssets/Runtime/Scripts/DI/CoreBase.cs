@@ -9,26 +9,6 @@ namespace Mu3Library.DI
     /// </summary>
     public abstract class CoreBase : MonoBehaviour
     {
-        private CoreRoot m_coreRoot;
-        private CoreRoot _coreRoot
-        {
-            get
-            {
-                if (m_coreRoot == null)
-                {
-                    m_coreRoot = FindFirstObjectByType<CoreRoot>();
-
-                    if (m_coreRoot == null)
-                    {
-                        GameObject instance = new GameObject("CoreRoot");
-                        m_coreRoot = instance.AddComponent<CoreRoot>();
-                    }
-                }
-
-                return m_coreRoot;
-            }
-        }
-
         private ContainerScope m_scope;
         private ContainerScope _scope
         {
@@ -79,12 +59,13 @@ namespace Mu3Library.DI
 
         protected virtual void Start()
         {
-            _coreRoot.RegisterCore(this);
+            _scope.InjectInto(this);
+            CoreRoot.Instance?.RegisterCore(this);
         }
 
         protected virtual void OnDestroy()
         {
-            _coreRoot.UnregisterCore(this);
+            CoreRoot.Instance?.UnregisterCore(this);
         }
 
         internal void InitializeCore()
@@ -116,17 +97,22 @@ namespace Mu3Library.DI
         {
             return GetClass<T>();
         }
+
+        internal object GetClassFromContainer(Type serviceType, string key = null)
+        {
+            if (serviceType == null)
+            {
+                return null;
+            }
+
+            return _scope.Resolve(serviceType, key);
+        }
         #endregion
 
         protected void WaitForOtherCore<TCore>(Action onReady)
             where TCore : CoreBase
         {
-            if (_coreRoot == null)
-            {
-                return;
-            }
-
-            if (_coreRoot.HasCore<TCore>())
+            if (CoreRoot.Instance.HasCore<TCore>())
             {
                 onReady?.Invoke();
                 return;
@@ -139,22 +125,22 @@ namespace Mu3Library.DI
                     return;
                 }
 
-                if (_coreRoot.HasCore<TCore>())
+                if (CoreRoot.Instance.HasCore<TCore>())
                 {
-                    _coreRoot.OnCoreAdded -= HandleCoreAdded;
+                    CoreRoot.Instance.OnCoreAdded -= HandleCoreAdded;
 
                     onReady?.Invoke();
                 }
             }
 
-            _coreRoot.OnCoreAdded += HandleCoreAdded;
+            CoreRoot.Instance.OnCoreAdded += HandleCoreAdded;
         }
 
         protected T GetClassFromOtherCore<TCore, T>()
             where TCore : CoreBase
             where T : class
         {
-            return _coreRoot?.GetClass<TCore, T>();
+            return CoreRoot.Instance.GetClass<TCore, T>();
         }
 
         /// <summary>
