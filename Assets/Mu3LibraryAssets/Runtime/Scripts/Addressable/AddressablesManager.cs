@@ -8,8 +8,6 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-using IDisposable = Mu3Library.DI.IDisposable;
-
 namespace Mu3Library.Addressable
 {
     public partial class AddressablesManager : IAddressablesManager, IUpdatable, IDisposable
