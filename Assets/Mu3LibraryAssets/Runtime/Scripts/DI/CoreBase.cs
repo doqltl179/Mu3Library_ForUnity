@@ -178,8 +178,7 @@ namespace Mu3Library.DI
             }
 
             GameObject instance = new GameObject("CoreRoot");
-            instance.AddComponent<CoreRoot>();
-            m_coreRoot = instance.GetComponent<CoreRoot>();
+            m_coreRoot = instance.AddComponent<CoreRoot>();
         }
     }
 }
