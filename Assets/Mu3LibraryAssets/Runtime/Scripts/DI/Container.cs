@@ -5,6 +5,9 @@ using UnityEngine;
 
 namespace Mu3Library.DI
 {
+    /// <summary>
+    /// Root registry for service descriptors and singleton cache.
+    /// </summary>
     public class Container
     {
         private readonly List<ServiceDescriptor> _descriptors = new();
@@ -18,24 +21,36 @@ namespace Mu3Library.DI
             typeof(ILateUpdatable),
         };
 
+        /// <summary>
+        /// Create a new resolution scope bound to this container.
+        /// </summary>
         public ContainerScope CreateScope()
         {
             return new ContainerScope(this);
         }
 
         #region Registration
+        /// <summary>
+        /// Register service with explicit implementation type.
+        /// </summary>
         public void Register<TService, TImpl>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TImpl : class, TService
         {
             AddDescriptor(new ServiceDescriptor(typeof(TService), typeof(TImpl), lifetime, key));
         }
 
+        /// <summary>
+        /// Register a concrete type as itself and its interfaces.
+        /// </summary>
         public void Register<TService>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TService : class
         {
             RegisterSelfAndInterfaces(typeof(TService), lifetime, key);
         }
 
+        /// <summary>
+        /// Register an already created instance.
+        /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
         {
@@ -54,6 +69,9 @@ namespace Mu3Library.DI
             AddDescriptor(new ServiceDescriptor(typeof(TService), instance, key));
         }
 
+        /// <summary>
+        /// Register a factory method used to create the service.
+        /// </summary>
         public void RegisterFactory<TService>(Func<ContainerScope, TService> factory, ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TService : class
         {
@@ -83,6 +101,9 @@ namespace Mu3Library.DI
         }
         #endregion
 
+        /// <summary>
+        /// Get the last-registered descriptor for a service/key pair.
+        /// </summary>
         internal ServiceDescriptor GetDescriptor(Type serviceType, string key)
         {
             if (serviceType == null)
@@ -102,6 +123,9 @@ namespace Mu3Library.DI
             return null;
         }
 
+        /// <summary>
+        /// Get all descriptors for a service/key pair.
+        /// </summary>
         internal IReadOnlyList<ServiceDescriptor> GetDescriptors(Type serviceType, string key)
         {
             if (serviceType == null)
@@ -112,6 +136,9 @@ namespace Mu3Library.DI
             return _descriptors.Where(d => d.ServiceType == serviceType && d.Key == key).ToArray();
         }
 
+        /// <summary>
+        /// Get or create a singleton instance for the given key.
+        /// </summary>
         internal object GetOrCreateSingleton(ServiceKey key, Func<object> factory)
         {
             if (_singletons.TryGetValue(key, out object instance))

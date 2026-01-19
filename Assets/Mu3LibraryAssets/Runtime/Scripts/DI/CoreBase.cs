@@ -4,6 +4,9 @@ using System;
 
 namespace Mu3Library.DI
 {
+    /// <summary>
+    /// Base class for cores that own a DI scope and register services.
+    /// </summary>
     public abstract class CoreBase : MonoBehaviour
     {
         private CoreRoot m_coreRoot;
@@ -14,18 +17,44 @@ namespace Mu3Library.DI
                 if (m_coreRoot == null)
                 {
                     m_coreRoot = FindFirstObjectByType<CoreRoot>();
+
+                    if (m_coreRoot == null)
+                    {
+                        GameObject instance = new GameObject("CoreRoot");
+                        m_coreRoot = instance.AddComponent<CoreRoot>();
+                    }
                 }
 
                 return m_coreRoot;
             }
         }
 
+        private ContainerScope m_scope;
+        private ContainerScope _scope
+        {
+            get
+            {
+                if (m_scope == null)
+                {
+                    m_scope = _container.CreateScope();
+
+                    ConfigureContainer(m_scope);
+                }
+
+                return m_scope;
+            }
+        }
+
+        private readonly Container _container = new Container();
+
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;
 
-        private readonly Container _container = new Container();
-        private ContainerScope _scope;
 
+
+        /// <summary>
+        /// Override to register services for this core.
+        /// </summary>
         protected virtual void ConfigureContainer(ContainerScope scope)
         {
         }
@@ -46,19 +75,16 @@ namespace Mu3Library.DI
 
                 DontDestroyOnLoad(gameObject);
             }
-
-            EnsureScope();
-
         }
 
         protected virtual void Start()
         {
-            _coreRoot?.RegisterCore(this);
+            _coreRoot.RegisterCore(this);
         }
 
         protected virtual void OnDestroy()
         {
-            _coreRoot?.UnregisterCore(this);
+            _coreRoot.UnregisterCore(this);
         }
 
         internal void InitializeCore()
@@ -132,13 +158,11 @@ namespace Mu3Library.DI
         }
 
         /// <summary>
-        /// Return class by container
+        /// Resolve a service from this core's scope.
         /// </summary>
         protected T GetClass<T>()
             where T : class
         {
-            EnsureScope();
-
             if (_scope.TryResolve(out T instance))
             {
                 return instance;
@@ -148,37 +172,21 @@ namespace Mu3Library.DI
         }
 
         /// <summary>
-        /// Register class to container
+        /// Resolve a service from this core's scope with a key.
+        /// </summary>
+        protected T GetClass<T>(string key)
+            where T : class
+        {
+            return _scope.Resolve<T>(key);
+        }
+
+        /// <summary>
+        /// Register a concrete type as singleton (self + interfaces).
         /// </summary>
         protected void RegisterClass<T>()
             where T : class, new()
         {
-            EnsureScope();
             _scope.Register<T>(ServiceLifetime.Singleton);
-        }
-
-        private void EnsureScope()
-        {
-            if (_scope != null)
-            {
-                return;
-            }
-
-            EnsureCoreRoot();
-
-            _scope = _container.CreateScope();
-            ConfigureContainer(_scope);
-        }
-
-        private void EnsureCoreRoot()
-        {
-            if (_coreRoot != null)
-            {
-                return;
-            }
-
-            GameObject instance = new GameObject("CoreRoot");
-            m_coreRoot = instance.AddComponent<CoreRoot>();
         }
     }
 }

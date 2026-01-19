@@ -2,6 +2,9 @@ using System;
 
 namespace Mu3Library.DI
 {
+    /// <summary>
+    /// Cache key for singleton/scoped instances.
+    /// </summary>
     public readonly struct ServiceKey : IEquatable<ServiceKey>
     {
         public readonly Type ServiceType;

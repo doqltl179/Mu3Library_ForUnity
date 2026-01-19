@@ -2,6 +2,9 @@ using System;
 
 namespace Mu3Library.DI
 {
+    /// <summary>
+    /// Defines how a service is created and its lifetime.
+    /// </summary>
     public sealed class ServiceDescriptor
     {
         public Type ServiceType { get; }

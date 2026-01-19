@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
 
 namespace Mu3Library.DI
 {
+    /// <summary>
+    /// Resolution scope that owns scoped instances and lifecycle callbacks.
+    /// </summary>
     public sealed class ContainerScope : System.IDisposable
     {
         private readonly Container _container;
@@ -28,6 +30,9 @@ namespace Mu3Library.DI
         }
 
         #region Lifecycle
+        /// <summary>
+        /// Run IInitializable once for tracked instances.
+        /// </summary>
         public void Initialize()
         {
             if (_initialized || _disposed)
@@ -42,6 +47,9 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Call IUpdatable on tracked instances.
+        /// </summary>
         public void Update()
         {
             if (_disposed)
@@ -55,6 +63,9 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Call ILateUpdatable on tracked instances.
+        /// </summary>
         public void LateUpdate()
         {
             if (_disposed)
@@ -68,6 +79,9 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Dispose tracked instances in reverse order and clear scope cache.
+        /// </summary>
         public void Dispose()
         {
             if (_disposed)
@@ -92,34 +106,55 @@ namespace Mu3Library.DI
         #endregion
 
         #region Registration
+        /// <summary>
+        /// Register service with explicit implementation type.
+        /// </summary>
         public void Register<TService, TImpl>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TImpl : class, TService
             => _container.Register<TService, TImpl>(lifetime, key);
 
+        /// <summary>
+        /// Register a concrete type as itself and its interfaces.
+        /// </summary>
         public void Register<TService>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TService : class
             => _container.Register<TService>(lifetime, key);
 
+        /// <summary>
+        /// Register an already created instance.
+        /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
             => _container.RegisterInstance(instance, registerInterfaces, key);
 
+        /// <summary>
+        /// Register a factory method used to create the service.
+        /// </summary>
         public void RegisterFactory<TService>(Func<ContainerScope, TService> factory, ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
             where TService : class
             => _container.RegisterFactory(factory, lifetime, key);
         #endregion
 
         #region Resolve
+        /// <summary>
+        /// Resolve a single service instance.
+        /// </summary>
         public T Resolve<T>(string key = null) where T : class
         {
             return Resolve(typeof(T), key, true) as T;
         }
 
+        /// <summary>
+        /// Resolve all registered instances for a service.
+        /// </summary>
         public IEnumerable<T> ResolveAll<T>(string key = null) where T : class
         {
             return ResolveAll(typeof(T), key).Cast<T>();
         }
 
+        /// <summary>
+        /// Try resolve a service without throwing.
+        /// </summary>
         public bool TryResolve<T>(out T instance, string key = null) where T : class
         {
             object obj = Resolve(typeof(T), key, false);
