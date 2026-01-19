@@ -1,7 +1,8 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Mu3Library.DI;
+
+using IDisposable = System.IDisposable;
 
 namespace Mu3Library.Audio
 {
@@ -98,7 +99,7 @@ namespace Mu3Library.Audio
             PoolSfxAll();
             _sfxPool.Clear();
 
-            if(_root != null)
+            if (_root != null)
             {
                 Object.Destroy(_root);
             }
@@ -344,23 +345,23 @@ namespace Mu3Library.Audio
 
         public void StopFirstSfx(AudioClip clip)
         {
-            if(clip == null)
+            if (clip == null)
             {
                 return;
             }
 
-            for(int i = 0; i < _sfxControllers.Count; i++)
+            for (int i = 0; i < _sfxControllers.Count; i++)
             {
                 AudioController controller = _sfxControllers[i];
 
-                if(controller == null)
+                if (controller == null)
                 {
                     _sfxControllers.RemoveAt(i);
                     i--;
                     continue;
                 }
 
-                if(controller.IsPlaying && controller.IsSameClip(clip))
+                if (controller.IsPlaying && controller.IsSameClip(clip))
                 {
                     PoolController(_sfxPool, controller);
 
@@ -430,7 +431,7 @@ namespace Mu3Library.Audio
 
         private void SetBgmVolume(float value)
         {
-            if(_bgmVolume == value)
+            if (_bgmVolume == value)
             {
                 return;
             }
@@ -452,7 +453,7 @@ namespace Mu3Library.Audio
 
         private void SetMasterVolume(float value)
         {
-            if(_masterVolume == value)
+            if (_masterVolume == value)
             {
                 return;
             }
@@ -492,7 +493,7 @@ namespace Mu3Library.Audio
 
         private void PoolController(Queue<AudioController> pool, AudioController controller)
         {
-            if(controller == null)
+            if (controller == null)
             {
                 return;
             }
