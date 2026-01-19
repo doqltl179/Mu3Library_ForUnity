@@ -56,7 +56,7 @@ namespace Mu3Library.Sample.Template.MVP
         {
             base.OnDestroy();
 
-            _mvpManager.CloseAll();
+            _mvpManager.CloseAll(true);
         }
 
         private void Update()
