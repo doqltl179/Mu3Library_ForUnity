@@ -6,24 +6,50 @@ namespace Mu3Library.DI
 {
     public sealed class CoreRoot : MonoBehaviour
     {
+        private static CoreRoot _instance;
+        internal static CoreRoot Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    lock (_lockObj)
+                    {
+                        var instances = FindObjectsByType<CoreRoot>(FindObjectsSortMode.None);
+                        if (instances.Length == 0)
+                        {
+                            GameObject go = new GameObject(typeof(CoreRoot).Name);
+                            _instance = go.AddComponent<CoreRoot>();
+                        }
+                        else if (instances.Length == 1)
+                        {
+                            _instance = instances[0];
+                        }
+                        else if (instances.Length > 1)
+                        {
+                            Debug.LogWarning($"'{typeof(CoreRoot).Name}' already exist more than one.");
+
+                            for (int i = 1; i < instances.Length; i++)
+                            {
+                                Destroy(instances[i].gameObject);
+                            }
+                            _instance = instances[0];
+                        }
+
+                        DontDestroyOnLoad(_instance.gameObject);
+                    }
+                }
+
+                return _instance;
+            }
+        }
+
+        private static readonly object _lockObj = new object();
+
         private readonly Dictionary<Type, CoreBase> _cores = new();
         internal event Action<Type> OnCoreAdded;
 
 
-
-        private void Awake()
-        {
-            int instanceCount = FindObjectsByType<CoreRoot>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
-            if (instanceCount > 1)
-            {
-                Debug.LogWarning("Multiple instances of CoreRoot detected. There should only be one CoreRoot in the project.");
-
-                Destroy(gameObject);
-                return;
-            }
-
-            DontDestroyOnLoad(gameObject);
-        }
 
         private void OnDestroy()
         {
@@ -68,6 +94,22 @@ namespace Mu3Library.DI
             }
 
             return core.GetClassFromContainer<T>();
+        }
+
+        internal object GetClass(Type coreType, Type serviceType, string key)
+        {
+            if (coreType == null || serviceType == null)
+            {
+                return null;
+            }
+
+            if (!_cores.TryGetValue(coreType, out CoreBase core))
+            {
+                Debug.LogError($"Core not found. type: {coreType.Name}");
+                return null;
+            }
+
+            return core.GetClassFromContainer(serviceType, key);
         }
 
         public bool HasCore<T>() where T : CoreBase
