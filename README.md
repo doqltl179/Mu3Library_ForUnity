@@ -49,22 +49,20 @@ Package Manager의 Samples 탭에서 아래 샘플을 가져올 수 있습니다
 - Sample_UtilWindow
 
 Sample_Template 주요 구성:
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Splash
+- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_AddressablesAdditive, Sample_Localization, Sample_WebRequest, Sample_Audio, Splash
 - Fonts: NotoSans KR/JP/EN Bold (SDF 포함)
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab/AnimationConfig
 
-## Recent Updates (0.1.7)
+## Recent Updates (0.1.8)
 Runtime
-- DI 초기화 관련 오탈자 수정 (Initialize/InitializeAsync로 정리)
+- DI 컨테이너 구조 개편 (스코프 기반 라이프사이클, Inject 기반 멤버 주입, 등록 API 확장)
+- Scene 모듈에 Addressables 기반 씬 로드/언로드 지원 추가
 
 Samples / Assets
-- 등록 목록에서 존재하지 않는 Sample_MVP 제거
-
-Docs
-- README 인코딩 정리 및 문구 개선
+- Addressables Additive Load/Unload 샘플 추가 및 Sample_Addressables 데모 확장
 
 ## Metadata
 - Package name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.7`
+- Version: `0.1.8`
 - Author: Mu3 (https://github.com/doqltl179)
