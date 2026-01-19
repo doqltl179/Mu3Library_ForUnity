@@ -11,6 +11,7 @@ namespace Mu3Library.Scene
 
         public event Action<string> OnSceneLoadStart;
         public event Action<string> OnSceneLoadEnd;
+        public event Action<string, float> OnSceneLoadProgress;
 
         public bool IsSceneLoadedAsAdditive(string sceneName);
 

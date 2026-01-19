@@ -44,6 +44,7 @@ namespace Mu3Library.Scene
 
         public event Action<string> OnSceneLoadStart;
         public event Action<string> OnSceneLoadEnd;
+        public event Action<string, float> OnSceneLoadProgress;
 
         private SceneOperation _singleSceneOperation = null;
         private readonly Dictionary<string, SceneOperation> _loadAdditiveSceneOperations = new();
@@ -292,6 +293,8 @@ namespace Mu3Library.Scene
 
         private bool UpdateOperation(SceneOperation operation)
         {
+            OnSceneLoadProgress?.Invoke(operation.SceneName, GetOperationProgress(operation));
+
             if (operation.IsUnload)
             {
                 if (operation.Operation.progress < 0.9f)
@@ -326,6 +329,29 @@ namespace Mu3Library.Scene
             }
 
             return operation.Operation.isDone;
+        }
+
+        private float GetOperationProgress(SceneOperation operation)
+        {
+            float progress = operation.Operation.progress;
+            if (operation.IsUnload)
+            {
+                return Mathf.Clamp01(progress);
+            }
+
+            float normalized = Mathf.Clamp01(progress / 0.9f);
+            if (!operation.UseFakeLoading || operation.FakeDuration <= 0f)
+            {
+                return normalized;
+            }
+
+            if (normalized < 1f)
+            {
+                return normalized * 0.9f;
+            }
+
+            float fakeProgress = Mathf.Clamp01(operation.FakeTimer / operation.FakeDuration);
+            return 0.9f + (fakeProgress * 0.1f);
         }
     }
 }
