@@ -8,7 +8,7 @@ namespace Mu3Library.DI
     /// <summary>
     /// Resolution scope that owns scoped instances and lifecycle callbacks.
     /// </summary>
-    public sealed class ContainerScope : System.IDisposable
+    public sealed class ContainerScope : IDisposable
     {
         private readonly Container _container;
         private readonly Dictionary<ServiceKey, object> _scopedInstances = new();
@@ -17,7 +17,7 @@ namespace Mu3Library.DI
         private readonly List<IInitializable> _initializables = new();
         private readonly List<IUpdatable> _updatables = new();
         private readonly List<ILateUpdatable> _lateUpdatables = new();
-        private readonly List<System.IDisposable> _disposables = new();
+        private readonly List<IDisposable> _disposables = new();
 
         private bool _initialized = false;
         private bool _disposed = false;
@@ -455,7 +455,7 @@ namespace Mu3Library.DI
                 _lateUpdatables.Add(lateUpdatable);
             }
 
-            if (instance is System.IDisposable disposable)
+            if (instance is IDisposable disposable)
             {
                 _disposables.Add(disposable);
             }
