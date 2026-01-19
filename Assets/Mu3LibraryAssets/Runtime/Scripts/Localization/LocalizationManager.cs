@@ -148,6 +148,28 @@ namespace Mu3Library.Localization
             LocalizationSettings.SelectedLocale = locale;
         }
 
+        public void GetSelectedLocaleAsync(Action<Locale> callback)
+        {
+            void onCompleted(AsyncOperationHandle<Locale> handle)
+            {
+                LocalizationSettings.SelectedLocaleAsync.Completed -= onCompleted;
+
+                Locale locale = handle.Status == AsyncOperationStatus.Succeeded
+                    ? handle.Result
+                    : _defaultLocale;
+                callback?.Invoke(locale);
+            }
+
+            var handle = LocalizationSettings.SelectedLocaleAsync;
+            if(handle.IsDone)
+            {
+                onCompleted(handle);
+                return;
+            }
+
+            LocalizationSettings.SelectedLocaleAsync.Completed += onCompleted;
+        }
+
         public List<Locale> GetAvailableLocales()
         {
             return LocalizationSettings.AvailableLocales.Locales;
@@ -166,6 +188,8 @@ namespace Mu3Library.Localization
 
         private void OnInitializeCompleted(AsyncOperationHandle<LocalizationSettings> handle)
         {
+            handle.Completed -= OnInitializeCompleted;
+
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
                 _isInitialized = true;
