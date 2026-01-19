@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Mu3Library.DI
 {
     public class Container
     {
-        private readonly Dictionary<Type, object> _classMap = new();
-        private readonly Dictionary<Type, object> _interfaceMap = new();
+        private readonly List<ServiceDescriptor> _descriptors = new();
+        private readonly Dictionary<ServiceKey, object> _singletons = new();
 
-        private readonly HashSet<Type> _lifecycleTypes = new()
+        private readonly HashSet<Type> _interfaceIgnoreTypes = new()
         {
             typeof(IInitializable),
             typeof(IDisposable),
@@ -17,94 +18,52 @@ namespace Mu3Library.DI
             typeof(ILateUpdatable),
         };
 
-        private readonly HashSet<Type> _interfaceIgnoreTypes = new()
+        public ContainerScope CreateScope()
         {
-
-        };
-
-        private readonly Dictionary<Type, IInitializable> _initializeMap = new();
-        private readonly Dictionary<Type, IDisposable> _disposeMap = new();
-        private readonly Dictionary<Type, IUpdatable> _updateMap = new();
-        private readonly Dictionary<Type, ILateUpdatable> _lateUpdateMap = new();
-
-
-
-        #region Utility
-
-        public void LateUpdate()
-        {
-            foreach (var obj in _lateUpdateMap.Values)
-            {
-                obj.LateUpdate();
-            }
+            return new ContainerScope(this);
         }
 
-        public void Update()
+        #region Registration
+        public void Register<TService, TImpl>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
+            where TImpl : class, TService
         {
-            foreach (var obj in _updateMap.Values)
-            {
-                obj.Update();
-            }
+            AddDescriptor(new ServiceDescriptor(typeof(TService), typeof(TImpl), lifetime, key));
         }
 
-        public void Dispose()
+        public void Register<TService>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
+            where TService : class
         {
-            foreach (var obj in _disposeMap.Values)
-            {
-                obj.Dispose();
-            }
+            RegisterSelfAndInterfaces(typeof(TService), lifetime, key);
         }
 
-        public void Initialize()
+        public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
+            where TService : class
         {
-            foreach (var obj in _initializeMap.Values)
+            if (instance == null)
             {
-                obj.Initialize();
+                Debug.LogError("RegisterInstance failed. instance is null.");
+                return;
             }
+
+            Type type = instance.GetType();
+            if (registerInterfaces)
+            {
+                RegisterInterfaces(type, lifetime: ServiceLifetime.Singleton, key, instance);
+            }
+
+            AddDescriptor(new ServiceDescriptor(typeof(TService), instance, key));
         }
 
-        /// <summary>
-        /// Return interface by registered instance
-        /// </summary>
-        public T Get<T>()
-            where T : class
+        public void RegisterFactory<TService>(Func<ContainerScope, TService> factory, ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
+            where TService : class
         {
-            Type type = typeof(T);
-            if (!type.IsInterface)
+            if (factory == null)
             {
-                Debug.LogError($"Requested type is not interface. type: {type.FullName}");
-                return null;
+                Debug.LogError("RegisterFactory failed. factory is null.");
+                return;
             }
 
-            if (_interfaceMap.TryGetValue(type, out object obj))
-            {
-                return obj as T;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Register interface by T instance
-        /// </summary>
-        public void Register<T>()
-            where T : class, new()
-        {
-            Type type = typeof(T);
-
-            if (!_classMap.ContainsKey(type))
-            {
-                T instance = new T();
-                _classMap[type] = instance;
-
-                RegisterInterfaces(instance);
-            }
-            else
-            {
-                Debug.LogWarning($"Class is already registered.\ntype: {type.FullName}");
-            }
+            AddDescriptor(new ServiceDescriptor(typeof(TService), scope => factory(scope), lifetime, key));
         }
 
         public void RemoveInterfaceIgnoreType<T>()
@@ -124,44 +83,100 @@ namespace Mu3Library.DI
         }
         #endregion
 
-        private void RegisterInterfaces<T>(T instance)
+        internal ServiceDescriptor GetDescriptor(Type serviceType, string key)
         {
-            if (instance == null)
+            if (serviceType == null)
+            {
+                return null;
+            }
+
+            for (int i = _descriptors.Count - 1; i >= 0; i--)
+            {
+                ServiceDescriptor descriptor = _descriptors[i];
+                if (descriptor.ServiceType == serviceType && descriptor.Key == key)
+                {
+                    return descriptor;
+                }
+            }
+
+            return null;
+        }
+
+        internal IReadOnlyList<ServiceDescriptor> GetDescriptors(Type serviceType, string key)
+        {
+            if (serviceType == null)
+            {
+                return Array.Empty<ServiceDescriptor>();
+            }
+
+            return _descriptors.Where(d => d.ServiceType == serviceType && d.Key == key).ToArray();
+        }
+
+        internal object GetOrCreateSingleton(ServiceKey key, Func<object> factory)
+        {
+            if (_singletons.TryGetValue(key, out object instance))
+            {
+                return instance;
+            }
+
+            instance = factory();
+            _singletons[key] = instance;
+            return instance;
+        }
+
+        private void RegisterSelfAndInterfaces(Type implementationType, ServiceLifetime lifetime, string key)
+        {
+            if (implementationType == null)
             {
                 return;
             }
 
-            Type type = typeof(T);
+            AddDescriptor(new ServiceDescriptor(implementationType, implementationType, lifetime, key));
+            RegisterInterfaces(implementationType, lifetime, key, null);
+        }
 
-            var interfaces = type.GetInterfaces();
-            foreach (Type iType in interfaces)
+        private void RegisterInterfaces(Type implementationType, ServiceLifetime lifetime, string key, object instance)
+        {
+            if (implementationType == null)
+            {
+                return;
+            }
+
+            foreach (Type iType in implementationType.GetInterfaces())
             {
                 if (_interfaceIgnoreTypes.Contains(iType))
                 {
                     continue;
                 }
 
-                if (iType == typeof(IInitializable))
+                if (instance == null)
                 {
-                    _initializeMap[type] = instance as IInitializable;
-                }
-                else if (iType == typeof(IDisposable))
-                {
-                    _disposeMap[type] = instance as IDisposable;
-                }
-                else if (iType == typeof(IUpdatable))
-                {
-                    _updateMap[type] = instance as IUpdatable;
-                }
-                else if (iType == typeof(ILateUpdatable))
-                {
-                    _lateUpdateMap[type] = instance as ILateUpdatable;
+                    AddDescriptor(new ServiceDescriptor(iType, implementationType, lifetime, key));
                 }
                 else
                 {
-                    _interfaceMap[iType] = instance;
+                    AddDescriptor(new ServiceDescriptor(iType, instance, key));
                 }
             }
+        }
+
+        private void AddDescriptor(ServiceDescriptor descriptor)
+        {
+            if (descriptor == null || descriptor.ServiceType == null)
+            {
+                return;
+            }
+
+            if (_descriptors.Any(d =>
+                d.ServiceType == descriptor.ServiceType &&
+                d.ImplementationType == descriptor.ImplementationType &&
+                d.Instance == descriptor.Instance &&
+                d.Key == descriptor.Key))
+            {
+                return;
+            }
+
+            _descriptors.Add(descriptor);
         }
     }
 }

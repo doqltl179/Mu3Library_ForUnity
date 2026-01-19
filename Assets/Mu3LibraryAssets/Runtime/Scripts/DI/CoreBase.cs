@@ -24,8 +24,11 @@ namespace Mu3Library.DI
         [SerializeField] private bool _dontDestroyOnLoad = false;
 
         private readonly Container _container = new Container();
+        private ContainerScope _scope;
 
-
+        protected virtual void ConfigureContainer(ContainerScope scope)
+        {
+        }
 
         protected virtual void Awake()
         {
@@ -44,9 +47,7 @@ namespace Mu3Library.DI
                 DontDestroyOnLoad(gameObject);
             }
 
-            // Fill container ignore types
-
-            // Fill container classes
+            EnsureScope();
 
         }
 
@@ -62,22 +63,22 @@ namespace Mu3Library.DI
 
         internal void InitializeCore()
         {
-            _container?.Initialize();
+            _scope?.Initialize();
         }
 
         internal void UpdateCore()
         {
-            _container?.Update();
+            _scope?.Update();
         }
 
         internal void LateUpdateCore()
         {
-            _container?.LateUpdate();
+            _scope?.LateUpdate();
         }
 
         internal void DisposeCore()
         {
-            _container?.Dispose();
+            _scope?.Dispose();
         }
 
         #region Utility
@@ -136,7 +137,14 @@ namespace Mu3Library.DI
         protected T GetClass<T>()
             where T : class
         {
-            return _container?.Get<T>();
+            EnsureScope();
+
+            if (_scope.TryResolve(out T instance))
+            {
+                return instance;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -145,7 +153,33 @@ namespace Mu3Library.DI
         protected void RegisterClass<T>()
             where T : class, new()
         {
-            _container.Register<T>();
+            EnsureScope();
+            _scope.Register<T>(ServiceLifetime.Singleton);
+        }
+
+        private void EnsureScope()
+        {
+            if (_scope != null)
+            {
+                return;
+            }
+
+            EnsureCoreRoot();
+
+            _scope = _container.CreateScope();
+            ConfigureContainer(_scope);
+        }
+
+        private void EnsureCoreRoot()
+        {
+            if (_coreRoot != null)
+            {
+                return;
+            }
+
+            GameObject instance = new GameObject("CoreRoot");
+            instance.AddComponent<CoreRoot>();
+            m_coreRoot = instance.GetComponent<CoreRoot>();
         }
     }
 }
