@@ -17,7 +17,7 @@ namespace Mu3Library.Resource
             ReleaseAll();
         }
 
-        public bool IsCached<T>(string path) where T : class
+        public bool IsCached<T>(string path) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -25,10 +25,10 @@ namespace Mu3Library.Resource
             }
 
             path = NormalizePath(path);
-            return TryGetCached(path, typeof(T), out _);
+            return TryGetCached<T>(path, out _);
         }
 
-        public T Load<T>(string path) where T : class
+        public T Load<T>(string path) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -38,23 +38,25 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
 
-            if (TryGetCached(path, typeof(T), out Object cached))
+            if (TryGetCached<T>(path, out Object cached))
             {
                 return cached as T;
             }
 
-            Object loaded = Resources.Load(path, typeof(T));
-            if (loaded == null)
+            Object loaded = Resources.Load<T>(path);
+            T result = loaded as T;
+
+            if (result == null)
             {
                 Debug.LogError($"Object not found in resources folder. path: {path}");
                 return null;
             }
 
-            Cache(path, typeof(T), loaded);
-            return loaded as T;
+            Cache(path, result);
+            return result;
         }
 
-        public T[] LoadAll<T>(string path) where T : class
+        public T[] LoadAll<T>(string path) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -64,7 +66,7 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
 
-            Object[] loaded = Resources.LoadAll(path, typeof(T));
+            Object[] loaded = Resources.LoadAll<T>(path);
             if (loaded == null || loaded.Length == 0)
             {
                 return Array.Empty<T>();
@@ -74,19 +76,20 @@ namespace Mu3Library.Resource
             for (int i = 0; i < loaded.Length; i++)
             {
                 Object asset = loaded[i];
-                results[i] = asset as T;
+                T result = asset as T;
 
-                if (asset != null)
+                if (result != null)
                 {
-                    string filePath = $"{path}/{asset.name}";
-                    Cache(filePath, typeof(T), asset);
+                    results[i] = result;
+
+                    Cache(path, result);
                 }
             }
 
             return results;
         }
 
-        public void LoadAsync<T>(string path, Action<T> onLoaded) where T : class
+        public void LoadAsync<T>(string path, Action<T> onLoaded) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -97,29 +100,34 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
 
-            if (TryGetCached(path, typeof(T), out Object cached))
+            TryGetCached<T>(path, out Object cached);
+            T result = cached as T;
+
+            if (result != null)
             {
-                onLoaded?.Invoke(cached as T);
+                onLoaded?.Invoke(result);
                 return;
             }
 
-            ResourceRequest request = Resources.LoadAsync(path, typeof(T));
+            ResourceRequest request = Resources.LoadAsync<T>(path);
             request.completed += _ =>
             {
                 Object loaded = request.asset;
-                if (loaded == null)
+                result = loaded as T;
+
+                if (result == null)
                 {
                     Debug.LogError($"Object not found in resources folder. path: {path}");
                     onLoaded?.Invoke(null);
                     return;
                 }
 
-                Cache(path, typeof(T), loaded);
-                onLoaded?.Invoke(loaded as T);
+                Cache(path, result);
+                onLoaded?.Invoke(result);
             };
         }
 
-        public bool TryLoad<T>(string path, out T asset) where T : class
+        public bool TryLoad<T>(string path, out T asset) where T : Object
         {
             asset = null;
 
@@ -130,25 +138,27 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
 
-            if (TryGetCached(path, typeof(T), out Object cached))
+            TryGetCached<T>(path, out Object cached);
+            asset = cached as T;
+
+            if (asset != null)
             {
-                asset = cached as T;
-                return asset != null;
+                return true;
             }
 
-            Object loaded = Resources.Load(path, typeof(T));
-            if (loaded == null)
+            Object loaded = Resources.Load<T>(path);
+            asset = loaded as T;
+
+            if (asset == null)
             {
                 return false;
             }
 
-            Cache(path, typeof(T), loaded);
-            asset = loaded as T;
-
-            return asset != null;
+            Cache(path, asset);
+            return true;
         }
 
-        public bool Release<T>(string path) where T : class
+        public bool Release<T>(string path) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -220,6 +230,9 @@ namespace Mu3Library.Resource
             _resources.Clear();
         }
 
+        private bool TryGetCached<T>(string path, out Object cached) where T : Object
+            => TryGetCached(path, typeof(T), out cached);
+
         private bool TryGetCached(string path, Type type, out Object cached)
         {
             cached = null;
@@ -232,6 +245,9 @@ namespace Mu3Library.Resource
 
             return cached != null;
         }
+
+        private void Cache<T>(string path, T asset) where T : Object
+            => Cache(path, typeof(T), asset);
 
         private void Cache(string path, Type type, Object asset)
         {
