@@ -2138,10 +2138,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 619a941cdfdd7e9488764cee1ba3958e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 0
+  _dontDestroyOnLoad: 0
   _localeDropdown: {fileID: 1413657830}
   _textComponent: {fileID: 2122000708}
-  _getStringAsync: 0
+  _getStringAsync: 1
   _backButton: {fileID: 1416614695}
 --- !u!1 &2122000706
 GameObject:
@@ -2227,7 +2227,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 336.25
+  m_fontSize: 268.05
   m_fontSizeBase: 36
   m_fontWeight: 400
   m_enableAutoSizing: 1
