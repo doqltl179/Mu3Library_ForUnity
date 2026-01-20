@@ -19,6 +19,11 @@ namespace Mu3Library.DI
         private readonly List<ILateUpdatable> _lateUpdatables = new();
         private readonly List<IDisposable> _disposables = new();
 
+        // Reflection cache for performance optimization
+        private static readonly Dictionary<Type, FieldInfo[]> _injectableFieldsCache = new();
+        private static readonly Dictionary<Type, PropertyInfo[]> _injectablePropertiesCache = new();
+        private static readonly object _cacheLock = new object();
+
         private bool _initialized = false;
         private bool _disposed = false;
 
@@ -379,54 +384,107 @@ namespace Mu3Library.DI
             }
 
             Type type = instance.GetType();
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            foreach (FieldInfo field in type.GetFields(flags))
+            
+            // Get or cache injectable fields
+            FieldInfo[] injectableFields = GetInjectableFields(type);
+            foreach (FieldInfo field in injectableFields)
             {
                 InjectAttribute attr = field.GetCustomAttribute<InjectAttribute>();
-                if (attr == null || field.IsInitOnly || field.IsStatic)
-                {
-                    continue;
-                }
-
+                
                 object value = attr.CoreType == null
                     ? ResolveInternal(field.FieldType, attr.Key, chain, false)
                     : ResolveFromCore(attr.CoreType, field.FieldType, attr.Key);
+                    
                 if (value == null)
                 {
                     if (attr.Required)
                     {
                         throw new InvalidOperationException($"Inject failed. field: {type.FullName}.{field.Name}");
                     }
-
                     continue;
                 }
 
                 field.SetValue(instance, value);
             }
 
-            foreach (PropertyInfo property in type.GetProperties(flags))
+            // Get or cache injectable properties
+            PropertyInfo[] injectableProperties = GetInjectableProperties(type);
+            foreach (PropertyInfo property in injectableProperties)
             {
                 InjectAttribute attr = property.GetCustomAttribute<InjectAttribute>();
-                if (attr == null || !property.CanWrite || property.GetIndexParameters().Length > 0)
-                {
-                    continue;
-                }
-
+                
                 object value = attr.CoreType == null
                     ? ResolveInternal(property.PropertyType, attr.Key, chain, false)
                     : ResolveFromCore(attr.CoreType, property.PropertyType, attr.Key);
+                    
                 if (value == null)
                 {
                     if (attr.Required)
                     {
                         throw new InvalidOperationException($"Inject failed. property: {type.FullName}.{property.Name}");
                     }
-
                     continue;
                 }
 
                 property.SetValue(instance, value);
+            }
+        }
+
+        private static FieldInfo[] GetInjectableFields(Type type)
+        {
+            lock (_cacheLock)
+            {
+                if (_injectableFieldsCache.TryGetValue(type, out FieldInfo[] cached))
+                {
+                    return cached;
+                }
+
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                FieldInfo[] allFields = type.GetFields(flags);
+                List<FieldInfo> injectableFields = new List<FieldInfo>();
+
+                foreach (FieldInfo field in allFields)
+                {
+                    if (field.GetCustomAttribute<InjectAttribute>() != null && 
+                        !field.IsInitOnly && 
+                        !field.IsStatic)
+                    {
+                        injectableFields.Add(field);
+                    }
+                }
+
+                FieldInfo[] result = injectableFields.ToArray();
+                _injectableFieldsCache[type] = result;
+                return result;
+            }
+        }
+
+        private static PropertyInfo[] GetInjectableProperties(Type type)
+        {
+            lock (_cacheLock)
+            {
+                if (_injectablePropertiesCache.TryGetValue(type, out PropertyInfo[] cached))
+                {
+                    return cached;
+                }
+
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                PropertyInfo[] allProperties = type.GetProperties(flags);
+                List<PropertyInfo> injectableProperties = new List<PropertyInfo>();
+
+                foreach (PropertyInfo property in allProperties)
+                {
+                    if (property.GetCustomAttribute<InjectAttribute>() != null && 
+                        property.CanWrite && 
+                        property.GetIndexParameters().Length == 0)
+                    {
+                        injectableProperties.Add(property);
+                    }
+                }
+
+                PropertyInfo[] result = injectableProperties.ToArray();
+                _injectablePropertiesCache[type] = result;
+                return result;
             }
         }
 
