@@ -108,15 +108,15 @@ namespace Mu3Library.Sample.Template.Localization
             {
                 _textComponent.text = "Text Loading...";
 
-            _localizationManager.GetStringAsync("TestStringTable", "hello", (result) =>
-            {
-                if(this == null || gameObject == null)
+                _localizationManager.GetStringAsync("TestStringTable", "hello", (result) =>
                 {
-                    return;
-                }
+                    if (this == null || gameObject == null)
+                    {
+                        return;
+                    }
 
-                _textComponent.text = result;
-            });
+                    _textComponent.text = result;
+                });
             }
             else
             {
