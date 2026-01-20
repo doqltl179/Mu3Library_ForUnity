@@ -5,12 +5,21 @@ using UnityEngine.Networking;
 
 namespace Mu3Library.WebRequest
 {
+    /// <summary>
+    /// Manages HTTP requests using UnityWebRequest.
+    /// Supports GET, POST operations with type-safe response parsing.
+    /// </summary>
     public partial class WebRequestManager : IWebRequestManager
     {
 
 
 
         #region Utility
+        /// <summary>
+        /// Gets the download size of a resource at the specified URL using a HEAD request.
+        /// </summary>
+        /// <param name="url">The URL to query.</param>
+        /// <param name="callback">Callback with the size in bytes, or -1 if failed.</param>
         public void GetDownloadSize(string url, Action<long> callback = null)
         {
             if (string.IsNullOrEmpty(url))
@@ -25,6 +34,12 @@ namespace Mu3Library.WebRequest
             request.SendWebRequest().completed += _ => HandleDownloadSize(url, request, callback);
         }
 
+        /// <summary>
+        /// Sends a GET request to the specified URL.
+        /// </summary>
+        /// <typeparam name="T">Response type (string, byte[], Texture2D, or JSON-serializable type).</typeparam>
+        /// <param name="url">The URL to request.</param>
+        /// <param name="callback">Callback with the parsed response.</param>
         public void Get<T>(string url, Action<T> callback = null)
         {
             if (string.IsNullOrEmpty(url))
@@ -38,6 +53,15 @@ namespace Mu3Library.WebRequest
             request.SendWebRequest().completed += _ => HandleResponse(url, request, callback, "GET");
         }
 
+        /// <summary>
+        /// Sends a POST request with a JSON body to the specified URL.
+        /// </summary>
+        /// <typeparam name="TRequest">Request body type (will be JSON-serialized).</typeparam>
+        /// <typeparam name="TResponse">Response type.</typeparam>
+        /// <param name="url">The URL to post to.</param>
+        /// <param name="body">The request body.</param>
+        /// <param name="callback">Callback with the parsed response.</param>
+        /// <param name="contentType">Content-Type header (default: application/json).</param>
         public void Post<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback = null, string contentType = "application/json")
         {
             if (string.IsNullOrEmpty(url))

@@ -6,6 +6,10 @@ using IDisposable = System.IDisposable;
 
 namespace Mu3Library.Audio
 {
+    /// <summary>
+    /// Manages audio playback including BGM (Background Music) and SFX (Sound Effects).
+    /// Provides volume control, fading, and pooling for efficient audio management.
+    /// </summary>
     public class AudioManager : IAudioManager, IAudioVolumeSettings, IUpdatable, IDisposable
     {
         private GameObject m_root;
@@ -78,8 +82,8 @@ namespace Mu3Library.Audio
 
         private int _sfxSourceCountMax = 5;
         /// <summary>
-        /// <br/> min: 1
-        /// <br/> max: 10
+        /// Maximum number of concurrent SFX instances.
+        /// Min: 1, Max: 10
         /// </summary>
         public int SfxInstanceCountMax
         {

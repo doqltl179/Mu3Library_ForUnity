@@ -8,6 +8,10 @@ using IDisposable = System.IDisposable;
 
 namespace Mu3Library.UI.MVP
 {
+    /// <summary>
+    /// Manages the lifecycle of MVP (Model-View-Presenter) UI components.
+    /// Handles View loading, opening, closing, unloading, and layer management.
+    /// </summary>
     public partial class MVPManager : IMVPManager, IUpdatable, IDisposable
     {
         private GameObject m_root;
