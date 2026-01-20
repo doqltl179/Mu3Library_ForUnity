@@ -25,7 +25,19 @@ namespace Mu3Library.DI
             }
         }
 
-        private readonly Container _container = new Container();
+        private Container m_container;
+        private Container _container
+        {
+            get
+            {
+                if (m_container == null)
+                {
+                    m_container = new Container(this);
+                }
+
+                return m_container;
+            }
+        }
 
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;

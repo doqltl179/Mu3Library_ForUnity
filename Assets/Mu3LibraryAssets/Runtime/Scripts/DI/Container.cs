@@ -10,6 +10,8 @@ namespace Mu3Library.DI
     /// </summary>
     public class Container
     {
+        private readonly CoreBase _owner;
+
         private readonly List<ServiceDescriptor> _descriptors = new();
         private readonly Dictionary<ServiceKey, object> _singletons = new();
 
@@ -20,6 +22,13 @@ namespace Mu3Library.DI
             typeof(IUpdatable),
             typeof(ILateUpdatable),
         };
+
+
+
+        public Container(CoreBase owner)
+        {
+            _owner = owner;
+        }
 
         /// <summary>
         /// Create a new resolution scope bound to this container.
@@ -204,6 +213,12 @@ namespace Mu3Library.DI
             }
 
             _descriptors.Add(descriptor);
+
+            // Log registration
+            string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
+            string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
+            string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
+            Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
         }
     }
 }
