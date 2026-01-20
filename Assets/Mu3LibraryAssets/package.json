@@ -2,29 +2,42 @@
     "name": "com.github.doqltl179.mu3libraryassets.base",
     "version": "0.1.8",
     "displayName": "Mu3 Library Assets",
-    "description": "Library assets for Mu3",
+    "description": "A modular architecture framework for Unity featuring custom DI (Dependency Injection), MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more. Supports optional packages like UniTask, Addressables, and Localization.",
     "unity": "6000.0",
     "author": {
-      "name": "Mu3",
-      "url": "https://github.com/doqltl179"
+        "name": "Mu3",
+        "url": "https://github.com/doqltl179"
     },
     "keywords": [
-      "Mu3Library"
+        "Mu3Library",
+        "DI",
+        "Dependency Injection",
+        "MVP",
+        "UI Framework",
+        "Architecture",
+        "Audio Manager",
+        "WebRequest",
+        "Observable",
+        "ObjectPool",
+        "Scene Management",
+        "UniTask",
+        "Addressables"
     ],
+    "dependencies": {},
     "samples": [
         {
             "displayName": "Sample_Template",
-            "description": "Template Sample",
+            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization",
             "path": "Samples~/Sample_Template"
         },
         {
             "displayName": "Sample_Attribute",
-            "description": "Attribute Sample",
+            "description": "ConditionalHide attribute usage examples for Inspector customization",
             "path": "Samples~/Sample_Attribute"
         },
         {
             "displayName": "Sample_UtilWindow",
-            "description": "Custom Window Sample",
+            "description": "Custom Editor Window implementation examples",
             "path": "Samples~/Sample_UtilWindow"
         }
     ]
