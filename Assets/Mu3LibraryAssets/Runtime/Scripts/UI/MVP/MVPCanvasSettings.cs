@@ -27,7 +27,7 @@ namespace Mu3Library.UI.MVP
             UIScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize,
             Resolution = new Vector2(1920, 1080),
             ScreenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight,
-            MatchWidthOrHeight = 0.0f,
+            MatchWidthOrHeight = 1.0f,
             PhysicalUnit = CanvasScaler.Unit.Points,
             FallbackScreenDPI = 96.0f,
             SpriteDPI = 96.0f,
