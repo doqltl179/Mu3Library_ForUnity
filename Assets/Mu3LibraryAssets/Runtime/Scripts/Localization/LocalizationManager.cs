@@ -56,8 +56,7 @@ namespace Mu3Library.Localization
         private float _lastInitializeProgress = -1.0f;
         private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
 
-        private readonly List<Action> _initializeCallbacks = new();
-
+        public event Action OnInitialized;
         public event Action<float> OnInitializeProgress;
 
 
@@ -79,7 +78,7 @@ namespace Mu3Library.Localization
 
             if (callback != null)
             {
-                _initializeCallbacks.Add(callback);
+                OnInitialized += callback;
             }
 
             if (_isInitializing)
@@ -221,18 +220,7 @@ namespace Mu3Library.Localization
             _lastInitializeProgress = handle.PercentComplete;
             OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
-            if (_initializeCallbacks.Count == 0)
-            {
-                return;
-            }
-
-            Action[] callbacks = _initializeCallbacks.ToArray();
-            _initializeCallbacks.Clear();
-
-            foreach (Action cb in callbacks)
-            {
-                cb?.Invoke();
-            }
+            OnInitialized?.Invoke();
         }
 
         private Locale CreateEnglishFallbackLocale()

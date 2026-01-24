@@ -11,6 +11,7 @@ namespace Mu3Library.Addressable
     {
         public bool IsInitialized { get; }
 
+        public event Action OnInitialized;
         public event Action<float> OnInitializeProgress;
         public event Action<float> OnDownloadProgress;
 

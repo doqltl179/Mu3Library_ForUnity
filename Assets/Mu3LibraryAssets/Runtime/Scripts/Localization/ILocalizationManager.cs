@@ -10,6 +10,7 @@ namespace Mu3Library.Localization
         public bool IsInitialized { get; }
         public Locale CurrentLocale { get; }
 
+        public event Action OnInitialized;
         public event Action<float> OnInitializeProgress;
 
         public void Initialize(Action callback = null);

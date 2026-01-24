@@ -16,7 +16,6 @@ namespace Mu3Library.Addressable
         public bool IsInitialized => _isInitialized;
 
         private bool _isInitializing = false;
-        private readonly List<Action> _initializeCallbacks = new();
 
         private AsyncOperationHandle _initializeHandle;
         private float _lastInitializeProgress = -1.0f;
@@ -33,6 +32,7 @@ namespace Mu3Library.Addressable
         }
         private readonly List<DownloadTracker> _downloadTrackers = new();
 
+        public event Action OnInitialized;
         public event Action<float> OnInitializeProgress;
         public event Action<float> OnDownloadProgress;
 
@@ -47,13 +47,13 @@ namespace Mu3Library.Addressable
 
             ClearCache();
 
-            _initializeCallbacks.Clear();
             _downloadTrackers.Clear();
 
             _isInitialized = false;
             _isInitializing = false;
             _lastDownloadProgress = -1.0f;
 
+            OnInitialized = null;
             OnInitializeProgress = null;
             OnDownloadProgress = null;
         }
@@ -74,7 +74,7 @@ namespace Mu3Library.Addressable
 
             if (callback != null)
             {
-                _initializeCallbacks.Add(callback);
+                OnInitialized += callback;
             }
 
             if (_isInitializing)
@@ -110,18 +110,7 @@ namespace Mu3Library.Addressable
             _lastInitializeProgress = handle.PercentComplete;
             OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
-            if (_initializeCallbacks.Count == 0)
-            {
-                return;
-            }
-
-            Action[] callbacks = _initializeCallbacks.ToArray();
-            _initializeCallbacks.Clear();
-
-            foreach (Action cb in callbacks)
-            {
-                cb?.Invoke();
-            }
+            OnInitialized?.Invoke();
         }
 
         public void LoadAssetAsync<T>(object key, Action<T> callback = null) where T : class
