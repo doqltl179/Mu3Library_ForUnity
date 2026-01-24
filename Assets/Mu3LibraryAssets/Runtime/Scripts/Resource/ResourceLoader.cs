@@ -9,6 +9,7 @@ namespace Mu3Library.Resource
     public partial class ResourceLoader : IResourceLoader, IDisposable
     {
         private readonly Dictionary<string, Dictionary<Type, Object>> _resources = new();
+        private readonly Dictionary<string, Dictionary<Type, Object[]>> _resourceListCache = new();
 
 
 
@@ -66,27 +67,19 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
 
-            Object[] loaded = Resources.LoadAll<T>(path);
+            if (TryGetCachedAll(path, out T[] cached))
+            {
+                return cached;
+            }
+
+            T[] loaded = Resources.LoadAll<T>(path);
             if (loaded == null || loaded.Length == 0)
             {
                 return Array.Empty<T>();
             }
 
-            T[] results = new T[loaded.Length];
-            for (int i = 0; i < loaded.Length; i++)
-            {
-                Object asset = loaded[i];
-                T result = asset as T;
-
-                if (result != null)
-                {
-                    results[i] = result;
-
-                    Cache(path, result);
-                }
-            }
-
-            return results;
+            CacheAll(path, loaded);
+            return loaded;
         }
 
         public void LoadAsync<T>(string path, Action<T> onLoaded) where T : Object
@@ -167,51 +160,125 @@ namespace Mu3Library.Resource
 
             path = NormalizePath(path);
             Type type = typeof(T);
+            bool released = false;
 
-            if (!_resources.TryGetValue(path, out var pathResources) ||
-                !pathResources.TryGetValue(type, out Object asset))
+            if (_resources.TryGetValue(path, out Dictionary<Type, Object> pathResources) &&
+                pathResources.TryGetValue(type, out Object asset))
             {
-                return false;
+                pathResources.Remove(type);
+
+                if (asset != null)
+                {
+                    Resources.UnloadAsset(asset);
+                    released = true;
+                }
+
+                if (pathResources.Count == 0)
+                {
+                    _resources.Remove(path);
+                }
             }
 
-            pathResources.Remove(type);
-            if (asset != null)
+            if (_resourceListCache.TryGetValue(path, out Dictionary<Type, Object[]> listPathResources) &&
+                listPathResources.TryGetValue(type, out Object[] listAssets))
             {
-                Resources.UnloadAsset(asset);
+                listPathResources.Remove(type);
+
+                if (listAssets != null)
+                {
+                    for (int i = 0; i < listAssets.Length; i++)
+                    {
+                        Object listAsset = listAssets[i];
+                        if (listAsset != null)
+                        {
+                            Resources.UnloadAsset(listAsset);
+                        }
+                    }
+
+                    released = true;
+                }
+
+                if (listPathResources.Count == 0)
+                {
+                    _resourceListCache.Remove(path);
+                }
             }
 
-            if (pathResources.Count == 0)
-            {
-                _resources.Remove(path);
-            }
-
-            return true;
+            return released;
         }
 
         public void ReleaseAll(string path)
         {
-            if (!_resources.TryGetValue(path, out var pathResources))
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                Debug.LogWarning("Resource path is null or empty.");
+                return;
+            }
+
+            path = NormalizePath(path);
+
+            bool hasResources = _resources.TryGetValue(path, out Dictionary<Type, Object> pathResources);
+            bool hasListResources = _resourceListCache.TryGetValue(path, out Dictionary<Type, Object[]> listPathResources);
+            if (!hasResources && !hasListResources)
             {
                 Debug.LogWarning($"No cached resources found for path: {path}");
                 return;
             }
 
-            foreach (var entry in pathResources)
+            HashSet<Object> uniqueAssets = new HashSet<Object>();
+            if (hasResources)
             {
-                Object asset = entry.Value;
-                if (asset != null)
+                foreach (KeyValuePair<Type, Object> entry in pathResources)
                 {
-                    Resources.UnloadAsset(asset);
+                    Object asset = entry.Value;
+                    if (asset != null)
+                    {
+                        uniqueAssets.Add(asset);
+                    }
                 }
             }
 
-            _resources.Remove(path);
+            if (hasListResources)
+            {
+                foreach (KeyValuePair<Type, Object[]> entry in listPathResources)
+                {
+                    Object[] assets = entry.Value;
+                    if (assets == null)
+                    {
+                        continue;
+                    }
+
+                    for (int i = 0; i < assets.Length; i++)
+                    {
+                        Object asset = assets[i];
+                        if (asset != null)
+                        {
+                            uniqueAssets.Add(asset);
+                        }
+                    }
+                }
+            }
+
+            foreach (Object asset in uniqueAssets)
+            {
+                Resources.UnloadAsset(asset);
+            }
+
+            if (hasResources)
+            {
+                _resources.Remove(path);
+            }
+
+            if (hasListResources)
+            {
+                _resourceListCache.Remove(path);
+            }
         }
 
         public void ReleaseAll()
         {
             HashSet<Object> uniqueAssets = new HashSet<Object>();
-            foreach (var entry in _resources.Values)
+            foreach (Dictionary<Type, Object> entry in _resources.Values)
             {
                 foreach (Object asset in entry.Values)
                 {
@@ -222,22 +289,57 @@ namespace Mu3Library.Resource
                 }
             }
 
+            foreach (Dictionary<Type, Object[]> entry in _resourceListCache.Values)
+            {
+                foreach (Object[] assets in entry.Values)
+                {
+                    if (assets == null)
+                    {
+                        continue;
+                    }
+
+                    for (int i = 0; i < assets.Length; i++)
+                    {
+                        Object asset = assets[i];
+                        if (asset != null)
+                        {
+                            uniqueAssets.Add(asset);
+                        }
+                    }
+                }
+            }
+
             foreach (Object asset in uniqueAssets)
             {
                 Resources.UnloadAsset(asset);
             }
 
             _resources.Clear();
+            _resourceListCache.Clear();
         }
 
         private bool TryGetCached<T>(string path, out Object cached) where T : Object
             => TryGetCached(path, typeof(T), out cached);
 
+        private bool TryGetCachedAll<T>(string path, out T[] cached) where T : Object
+        {
+            cached = null;
+
+            if (!_resourceListCache.TryGetValue(path, out Dictionary<Type, Object[]> pathResources) ||
+                !pathResources.TryGetValue(typeof(T), out Object[] assets))
+            {
+                return false;
+            }
+
+            cached = assets as T[];
+            return cached != null;
+        }
+
         private bool TryGetCached(string path, Type type, out Object cached)
         {
             cached = null;
 
-            if (!_resources.TryGetValue(path, out var pathResources) ||
+            if (!_resources.TryGetValue(path, out Dictionary<Type, Object> pathResources) ||
                 !pathResources.TryGetValue(type, out cached))
             {
                 return false;
@@ -251,20 +353,42 @@ namespace Mu3Library.Resource
 
         private void Cache(string path, Type type, Object asset)
         {
-            if (!_resources.TryGetValue(path, out var pathResources))
+            if (!_resources.TryGetValue(path, out Dictionary<Type, Object> pathResources))
             {
                 pathResources = new Dictionary<Type, Object>();
                 _resources.Add(path, pathResources);
             }
 
-            if (!pathResources.TryGetValue(type, out Object cached) ||
-                cached == null)
+            if (pathResources.TryGetValue(type, out Object cached) &&
+                cached != null)
             {
-                pathResources[type] = asset;
+                Debug.LogWarning($"Resource already cached. path: {path}, type: {type}");
             }
+
+            pathResources[type] = asset;
         }
 
-        private static string NormalizePath(string path)
+        private void CacheAll<T>(string path, T[] assets) where T : Object
+            => CacheAll(path, typeof(T), assets);
+
+        private void CacheAll(string path, Type type, Object[] assets)
+        {
+            if (!_resourceListCache.TryGetValue(path, out Dictionary<Type, Object[]> pathResources))
+            {
+                pathResources = new Dictionary<Type, Object[]>();
+                _resourceListCache.Add(path, pathResources);
+            }
+
+            if (pathResources.TryGetValue(type, out Object[] cached) &&
+                cached != null)
+            {
+                Debug.LogWarning($"Resource list already cached. path: {path}, type: {type}");
+            }
+
+            pathResources[type] = assets;
+        }
+
+        private string NormalizePath(string path)
         {
             return path.Replace('\\', '/');
         }
