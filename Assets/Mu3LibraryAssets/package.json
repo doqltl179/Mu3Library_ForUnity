@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3libraryassets.base",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "displayName": "Mu3 Library Assets",
     "description": "A modular architecture framework for Unity featuring custom DI (Dependency Injection), MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more. Supports optional packages like UniTask, Addressables, and Localization.",
     "unity": "6000.0",

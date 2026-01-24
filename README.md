@@ -252,15 +252,12 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.1.8)
+## 📝 최근 업데이트 (v0.1.9)
 
 **Runtime:**
-- DI 컨테이너 구조 개편 (스코프 기반 라이프사이클, Inject 멤버 주입, 등록 API 확장)
-- Scene 모듈에 Addressables 기반 씬 로드/언로드 지원 추가
-
-**Samples:**
-- Addressables Additive Load/Unload 샘플 추가
-- Sample_Addressables 데모 확장
+- Addressables LoadAssets 캐시가 타입별로 분리되도록 개선
+- Localization 초기화 Progress 이벤트 및 UniTask API 추가
+- Resource LoadAll 캐시가 타입별로 분리되도록 개선
 
 ## 🤝 기여
 
@@ -282,7 +279,7 @@ protected override void Start()
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.8`
+- Version: `0.1.9`
 
 Made with ❤️ for Unity Developers
 
