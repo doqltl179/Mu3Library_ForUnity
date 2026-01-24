@@ -42,13 +42,13 @@ namespace Mu3Library.Scene
             set => _fakeLoadingTime = value;
         }
 
-        public event Action<string> OnSceneLoadStart;
-        public event Action<string> OnSceneLoadEnd;
-        public event Action<string, float> OnSceneLoadProgress;
-
         private SceneOperation _singleSceneOperation = null;
         private readonly Dictionary<string, SceneOperation> _loadAdditiveSceneOperations = new();
         private readonly Dictionary<string, SceneOperation> _unloadAdditiveSceneOperations = new();
+
+        public event Action<string> OnSceneLoadStart;
+        public event Action<string> OnSceneLoadEnd;
+        public event Action<string, float> OnSceneLoadProgress;
 
 
 
@@ -239,9 +239,9 @@ namespace Mu3Library.Scene
             _currentAdditiveScenes.Clear();
 
             _loadingCount--;
-            OnSceneLoadEnd?.Invoke(sceneName);
-
             _singleSceneOperation = null;
+
+            OnSceneLoadEnd?.Invoke(sceneName);
         }
 
         private void UpdateLoadAdditiveOperations()
@@ -264,7 +264,6 @@ namespace Mu3Library.Scene
 
                 _currentAdditiveScenes.Add(sceneName);
                 _loadingCount--;
-                OnSceneLoadEnd?.Invoke(sceneName);
 
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
@@ -278,6 +277,8 @@ namespace Mu3Library.Scene
             foreach (string sceneName in completed)
             {
                 _loadAdditiveSceneOperations.Remove(sceneName);
+
+                OnSceneLoadEnd?.Invoke(sceneName);
             }
         }
 
