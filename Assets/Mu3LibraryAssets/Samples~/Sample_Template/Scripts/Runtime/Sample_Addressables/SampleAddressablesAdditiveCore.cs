@@ -4,7 +4,7 @@ using Mu3Library.Scene;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Mu3Library.Sample.Template.Addressables
+namespace Mu3Library.Sample.Template.Addressable
 {
     public class SampleAddressablesAdditiveCore : CoreBase
     {

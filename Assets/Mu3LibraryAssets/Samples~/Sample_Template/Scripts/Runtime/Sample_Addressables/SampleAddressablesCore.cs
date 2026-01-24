@@ -12,7 +12,7 @@ using Mu3Library.Addressable;
 using UnityEngine.AddressableAssets.ResourceLocators;
 #endif
 
-namespace Mu3Library.Sample.Template.Addressables
+namespace Mu3Library.Sample.Template.Addressable
 {
     public class SampleAddressablesCore : CoreBase
     {
