@@ -124,7 +124,7 @@ namespace Mu3Library.Addressable
             return size;
         }
 
-        public async UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
+        public async UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode)
         {
             AsyncOperationHandle<IList<UnityEngine.ResourceManagement.ResourceLocations.IResourceLocation>> locationsHandle =
                 Addressables.LoadResourceLocationsAsync(keys, mergeMode, typeof(object));
@@ -168,7 +168,7 @@ namespace Mu3Library.Addressable
             }
         }
 
-        public async UniTask DownloadDependenciesAsync(IEnumerable keys, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
+        public async UniTask DownloadDependenciesAsync(IEnumerable keys, Addressables.MergeMode mergeMode, Action<float> progress = null, bool autoReleaseHandle = true)
         {
             AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(keys, mergeMode, autoReleaseHandle);
             TrackDownloadHandle(handle, progress);

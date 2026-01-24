@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+
 #if TEMPLATE_ADDRESSABLES_SUPPORT
 using Mu3Library.Addressable;
 using UnityEngine.AddressableAssets.ResourceLocators;
@@ -86,7 +87,7 @@ namespace Mu3Library.Sample.Template.Addressables
             else
             {
                 _messageText.text = "No Catalog Updates Found. Getting Download Size of Dependencies...";
-                _addressablesManager.GetDownloadSize(_allLabels, OnGetDownloadSizeCompleted);
+                _addressablesManager.GetDownloadSize(_allLabels, UnityEngine.AddressableAssets.Addressables.MergeMode.Union, OnGetDownloadSizeCompleted);
             }
         }
 
@@ -101,7 +102,7 @@ namespace Mu3Library.Sample.Template.Addressables
                 _messageText.text = "No Catalogs Updated. Getting Download Size of Dependencies...";
             }
 
-            _addressablesManager.GetDownloadSize(_allLabels, OnGetDownloadSizeCompleted);
+            _addressablesManager.GetDownloadSize(_allLabels, UnityEngine.AddressableAssets.Addressables.MergeMode.Union, OnGetDownloadSizeCompleted);
         }
 
         private void OnGetDownloadSizeCompleted(long size)
@@ -110,7 +111,7 @@ namespace Mu3Library.Sample.Template.Addressables
             {
                 _messageText.text = $"Downloading {size.BytesToKB():F3}KB of dependencies...";
 
-                _addressablesManager.DownloadDependencies(_allLabels, OnDownloadDependenciesCompleted, SetProgress);
+                _addressablesManager.DownloadDependencies(_allLabels, UnityEngine.AddressableAssets.Addressables.MergeMode.Union, SetProgress, OnDownloadDependenciesCompleted);
             }
             else
             {

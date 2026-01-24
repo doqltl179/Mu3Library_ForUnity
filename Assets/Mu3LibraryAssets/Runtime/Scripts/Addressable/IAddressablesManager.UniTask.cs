@@ -14,13 +14,13 @@ namespace Mu3Library.Addressable
         public UniTask<IList<T>> LoadAssetsAsync<T>(object key, Action<T> perAssetCallback = null);
 
         public UniTask<long> GetDownloadSizeAsync(object key);
-        public UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union);
+        public UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode);
 
         public UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true);
         public UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true);
 
         public UniTask DownloadDependenciesAsync(object key, Action<float> progress = null, bool autoReleaseHandle = true);
-        public UniTask DownloadDependenciesAsync(IEnumerable keys, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union);
+        public UniTask DownloadDependenciesAsync(IEnumerable keys, Addressables.MergeMode mergeMode, Action<float> progress = null, bool autoReleaseHandle = true);
 
         public UniTask InitializeAsync();
     }

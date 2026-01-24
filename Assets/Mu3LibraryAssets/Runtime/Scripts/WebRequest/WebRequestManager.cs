@@ -20,7 +20,7 @@ namespace Mu3Library.WebRequest
         /// </summary>
         /// <param name="url">The URL to query.</param>
         /// <param name="callback">Callback with the size in bytes, or -1 if failed.</param>
-        public void GetDownloadSize(string url, Action<long> callback = null)
+        public void GetDownloadSize(string url, Action<long> callback)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -40,7 +40,7 @@ namespace Mu3Library.WebRequest
         /// <typeparam name="T">Response type (string, byte[], Texture2D, or JSON-serializable type).</typeparam>
         /// <param name="url">The URL to request.</param>
         /// <param name="callback">Callback with the parsed response.</param>
-        public void Get<T>(string url, Action<T> callback = null)
+        public void Get<T>(string url, Action<T> callback)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -62,7 +62,7 @@ namespace Mu3Library.WebRequest
         /// <param name="body">The request body.</param>
         /// <param name="callback">Callback with the parsed response.</param>
         /// <param name="contentType">Content-Type header (default: application/json).</param>
-        public void Post<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback = null, string contentType = "application/json")
+        public void Post<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback, string contentType = "application/json")
         {
             if (string.IsNullOrEmpty(url))
             {
