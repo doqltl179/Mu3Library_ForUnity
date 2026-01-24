@@ -5,12 +5,12 @@ using UnityEngine.Localization;
 
 namespace Mu3Library.Localization
 {
-    public interface ILocalizationManager
+    public partial interface ILocalizationManager
     {
         public bool IsInitialized { get; }
         public Locale CurrentLocale { get; }
 
-        public void Initialize(Action callback = null);
+        public void Initialize(Action callback = null, Action<float> progress = null);
 
         public void GetStringAsync(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mu3Library.DI;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -10,7 +11,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public class LocalizationManager : ILocalizationManager
+    public class LocalizationManager : ILocalizationManager, IUpdatable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
@@ -52,16 +53,25 @@ namespace Mu3Library.Localization
         }
 
         private bool _isInitializing = false;
+        private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
+        private float _lastInitializeProgress = -1.0f;
 
         private readonly List<Action> _initializeCallbacks = new();
+        private readonly List<Action<float>> _initializeProgressCallbacks = new();
 
 
 
         #region Utility
-        public void Initialize(Action callback = null)
+        public void Update()
+        {
+            UpdateInitializeProgress();
+        }
+
+        public void Initialize(Action callback = null, Action<float> progress = null)
         {
             if (_isInitialized)
             {
+                progress?.Invoke(1.0f);
                 callback?.Invoke();
                 return;
             }
@@ -71,6 +81,11 @@ namespace Mu3Library.Localization
                 _initializeCallbacks.Add(callback);
             }
 
+            if (progress != null)
+            {
+                _initializeProgressCallbacks.Add(progress);
+            }
+
             if (_isInitializing)
             {
                 return;
@@ -78,14 +93,14 @@ namespace Mu3Library.Localization
 
             _isInitializing = true;
 
-            AsyncOperationHandle<LocalizationSettings> handle = LocalizationSettings.InitializationOperation;
-            if (handle.IsDone)
+            _initializeHandle = LocalizationSettings.InitializationOperation;
+            if (_initializeHandle.IsDone)
             {
-                OnInitializeCompleted(handle);
+                OnInitializeCompleted(_initializeHandle);
                 return;
             }
 
-            handle.Completed += OnInitializeCompleted;
+            _initializeHandle.Completed += OnInitializeCompleted;
         }
 
         public void GetStringAsync(string tableName, string key, Action<string> callback)
@@ -207,14 +222,18 @@ namespace Mu3Library.Localization
             }
 
             _isInitializing = false;
+            _lastInitializeProgress = handle.PercentComplete;
+            InvokeInitializeProgress(_lastInitializeProgress);
 
             if (_initializeCallbacks.Count == 0)
             {
+                _initializeProgressCallbacks.Clear();
                 return;
             }
 
             Action[] callbacks = _initializeCallbacks.ToArray();
             _initializeCallbacks.Clear();
+            _initializeProgressCallbacks.Clear();
 
             foreach (Action cb in callbacks)
             {
@@ -233,6 +252,31 @@ namespace Mu3Library.Localization
             locale = ScriptableObject.CreateInstance<Locale>();
             locale.Identifier = new LocaleIdentifier("en");
             return locale;
+        }
+
+        private void UpdateInitializeProgress()
+        {
+            if (!_isInitializing || !_initializeHandle.IsValid())
+            {
+                return;
+            }
+
+            float progress = _initializeHandle.PercentComplete;
+            if (Mathf.Approximately(progress, _lastInitializeProgress))
+            {
+                return;
+            }
+
+            _lastInitializeProgress = progress;
+            InvokeInitializeProgress(progress);
+        }
+
+        private void InvokeInitializeProgress(float progress)
+        {
+            for (int i = 0; i < _initializeProgressCallbacks.Count; i++)
+            {
+                _initializeProgressCallbacks[i]?.Invoke(progress);
+            }
         }
     }
 }
