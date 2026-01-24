@@ -16,8 +16,8 @@ namespace Mu3Library.Addressable
         public UniTask<long> GetDownloadSizeAsync(object key);
         public UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union);
 
-        public UniTask<IList<string>> CheckForCatalogUpdates(bool autoReleaseHandle = true);
-        public UniTask<IList<IResourceLocator>> UpdateCatalogs(bool autoReleaseHandle = true);
+        public UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true);
+        public UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true);
 
         public UniTask DownloadDependenciesAsync(object key, Action<float> progress = null, bool autoReleaseHandle = true);
         public UniTask DownloadDependenciesAsync(IEnumerable keys, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union);

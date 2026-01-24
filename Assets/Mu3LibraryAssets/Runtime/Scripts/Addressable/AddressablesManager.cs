@@ -113,7 +113,7 @@ namespace Mu3Library.Addressable
             OnInitialized?.Invoke();
         }
 
-        public void LoadAssetAsync<T>(object key, Action<T> callback = null) where T : class
+        public void LoadAsset<T>(object key, Action<T> callback = null) where T : class
         {
             if (TryGetCachedAsset(key, out T cached))
             {
@@ -178,7 +178,7 @@ namespace Mu3Library.Addressable
             };
         }
 
-        public void LoadAssetsAsync<T>(object key, Action<IList<T>> callback = null, Action<T> perAssetCallback = null)
+        public void LoadAssets<T>(object key, Action<IList<T>> callback = null, Action<T> perAssetCallback = null)
         {
             Type cacheType = typeof(T);
             ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
@@ -245,7 +245,7 @@ namespace Mu3Library.Addressable
             };
         }
 
-        public void GetDownloadSizeAsync(object key, Action<long> callback = null)
+        public void GetDownloadSize(object key, Action<long> callback = null)
         {
             AsyncOperationHandle<long> handle = Addressables.GetDownloadSizeAsync(key);
             handle.Completed += operation =>
@@ -260,7 +260,7 @@ namespace Mu3Library.Addressable
             };
         }
 
-        public void GetDownloadSizeAsync(IEnumerable keys, Action<long> callback = null, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
+        public void GetDownloadSize(IEnumerable keys, Action<long> callback = null, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
         {
             AsyncOperationHandle<IList<UnityEngine.ResourceManagement.ResourceLocations.IResourceLocation>> locationsHandle =
                 Addressables.LoadResourceLocationsAsync(keys, mergeMode, typeof(object));
@@ -295,7 +295,7 @@ namespace Mu3Library.Addressable
             };
         }
 
-        public void DownloadDependenciesAsync(object key, Action callback = null, Action<float> progress = null, bool autoReleaseHandle = true)
+        public void DownloadDependencies(object key, Action callback = null, Action<float> progress = null, bool autoReleaseHandle = true)
         {
             AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(key, autoReleaseHandle);
             TrackDownloadHandle(handle, progress);
@@ -313,7 +313,7 @@ namespace Mu3Library.Addressable
             };
         }
 
-        public void DownloadDependenciesAsync(IEnumerable keys, Action callback = null, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
+        public void DownloadDependencies(IEnumerable keys, Action callback = null, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union)
         {
             AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(keys, mergeMode, autoReleaseHandle);
             TrackDownloadHandle(handle, progress);

@@ -86,7 +86,7 @@ namespace Mu3Library.Sample.Template.Addressables
             else
             {
                 _messageText.text = "No Catalog Updates Found. Getting Download Size of Dependencies...";
-                _addressablesManager.GetDownloadSizeAsync(_allLabels, OnGetDownloadSizeAsyncCompleted);
+                _addressablesManager.GetDownloadSize(_allLabels, OnGetDownloadSizeCompleted);
             }
         }
 
@@ -101,16 +101,16 @@ namespace Mu3Library.Sample.Template.Addressables
                 _messageText.text = "No Catalogs Updated. Getting Download Size of Dependencies...";
             }
 
-            _addressablesManager.GetDownloadSizeAsync(_allLabels, OnGetDownloadSizeAsyncCompleted);
+            _addressablesManager.GetDownloadSize(_allLabels, OnGetDownloadSizeCompleted);
         }
 
-        private void OnGetDownloadSizeAsyncCompleted(long size)
+        private void OnGetDownloadSizeCompleted(long size)
         {
             if (size > 0)
             {
                 _messageText.text = $"Downloading {size.BytesToKB():F3}KB of dependencies...";
 
-                _addressablesManager.DownloadDependenciesAsync(_allLabels, OnDownloadDependenciesCompleted, SetProgress);
+                _addressablesManager.DownloadDependencies(_allLabels, OnDownloadDependenciesCompleted, SetProgress);
             }
             else
             {

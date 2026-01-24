@@ -180,7 +180,7 @@ namespace Mu3Library.Addressable
             }
         }
 
-        public async UniTask<IList<string>> CheckForCatalogUpdates(bool autoReleaseHandle = true)
+        public async UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
             await handle.ToUniTask();
@@ -194,7 +194,7 @@ namespace Mu3Library.Addressable
             return catalogs;
         }
 
-        public async UniTask<IList<IResourceLocator>> UpdateCatalogs(bool autoReleaseHandle = true)
+        public async UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<IResourceLocator>> handle = Addressables.UpdateCatalogs(autoReleaseHandle);
             await handle.ToUniTask();

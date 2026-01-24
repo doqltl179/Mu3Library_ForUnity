@@ -82,7 +82,7 @@ namespace Mu3Library.Resource
             return loaded;
         }
 
-        public void LoadAsync<T>(string path, Action<T> onLoaded) where T : Object
+        public void Load<T>(string path, Action<T> onLoaded) where T : Object
         {
             if (string.IsNullOrWhiteSpace(path))
             {

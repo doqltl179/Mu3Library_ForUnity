@@ -15,14 +15,14 @@ namespace Mu3Library.Localization
 
         public void Initialize(Action callback = null);
 
-        public void GetStringAsync(string tableName, string key, Action<string> callback);
+        public void GetString(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);
 
         public void ChangeLocaleToNative();
         public void ChangeLocaleWithEnglishName(string englishName);
         public void ChangeLocale(Locale locale);
 
-        public void GetSelectedLocaleAsync(Action<Locale> callback);
+        public void GetSelectedLocale(Action<Locale> callback);
         public List<Locale> GetAvailableLocales();
 
         public void RemoveLocaleChangedEvent(Action<Locale> action);

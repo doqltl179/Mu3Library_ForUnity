@@ -108,7 +108,7 @@ namespace Mu3Library.Sample.Template.Localization
             {
                 _textComponent.text = "Text Loading...";
 
-                _localizationManager.GetStringAsync("TestStringTable", "hello", (result) =>
+                _localizationManager.GetString("TestStringTable", "hello", (result) =>
                 {
                     if (this == null || gameObject == null)
                     {

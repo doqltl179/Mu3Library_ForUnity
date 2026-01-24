@@ -98,7 +98,7 @@ namespace Mu3Library.Localization
             _initializeHandle.Completed += OnInitializeCompleted;
         }
 
-        public void GetStringAsync(string tableName, string key, Action<string> callback)
+        public void GetString(string tableName, string key, Action<string> callback)
         {
             LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
             if (stringDatabase == null)
@@ -158,7 +158,7 @@ namespace Mu3Library.Localization
             LocalizationSettings.SelectedLocale = locale;
         }
 
-        public void GetSelectedLocaleAsync(Action<Locale> callback)
+        public void GetSelectedLocale(Action<Locale> callback)
         {
             void onCompleted(AsyncOperationHandle<Locale> handle)
             {
