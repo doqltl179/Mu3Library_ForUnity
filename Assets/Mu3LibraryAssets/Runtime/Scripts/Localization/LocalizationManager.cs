@@ -53,11 +53,12 @@ namespace Mu3Library.Localization
         }
 
         private bool _isInitializing = false;
-        private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
         private float _lastInitializeProgress = -1.0f;
+        private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
 
         private readonly List<Action> _initializeCallbacks = new();
-        private readonly List<Action<float>> _initializeProgressCallbacks = new();
+
+        public event Action<float> OnInitializeProgress;
 
 
 
@@ -67,11 +68,11 @@ namespace Mu3Library.Localization
             UpdateInitializeProgress();
         }
 
-        public void Initialize(Action callback = null, Action<float> progress = null)
+        public void Initialize(Action callback = null)
         {
             if (_isInitialized)
             {
-                progress?.Invoke(1.0f);
+                OnInitializeProgress?.Invoke(1.0f);
                 callback?.Invoke();
                 return;
             }
@@ -79,11 +80,6 @@ namespace Mu3Library.Localization
             if (callback != null)
             {
                 _initializeCallbacks.Add(callback);
-            }
-
-            if (progress != null)
-            {
-                _initializeProgressCallbacks.Add(progress);
             }
 
             if (_isInitializing)
@@ -223,17 +219,15 @@ namespace Mu3Library.Localization
 
             _isInitializing = false;
             _lastInitializeProgress = handle.PercentComplete;
-            InvokeInitializeProgress(_lastInitializeProgress);
+            OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
             if (_initializeCallbacks.Count == 0)
             {
-                _initializeProgressCallbacks.Clear();
                 return;
             }
 
             Action[] callbacks = _initializeCallbacks.ToArray();
             _initializeCallbacks.Clear();
-            _initializeProgressCallbacks.Clear();
 
             foreach (Action cb in callbacks)
             {
@@ -268,15 +262,7 @@ namespace Mu3Library.Localization
             }
 
             _lastInitializeProgress = progress;
-            InvokeInitializeProgress(progress);
-        }
-
-        private void InvokeInitializeProgress(float progress)
-        {
-            for (int i = 0; i < _initializeProgressCallbacks.Count; i++)
-            {
-                _initializeProgressCallbacks[i]?.Invoke(progress);
-            }
+            OnInitializeProgress?.Invoke(progress);
         }
     }
 }

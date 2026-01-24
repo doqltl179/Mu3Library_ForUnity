@@ -10,7 +10,9 @@ namespace Mu3Library.Localization
         public bool IsInitialized { get; }
         public Locale CurrentLocale { get; }
 
-        public void Initialize(Action callback = null, Action<float> progress = null);
+        public event Action<float> OnInitializeProgress;
+
+        public void Initialize(Action callback = null);
 
         public void GetStringAsync(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);

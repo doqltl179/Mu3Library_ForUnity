@@ -1,5 +1,4 @@
 #if MU3LIBRARY_LOCALIZATION_SUPPORT && MU3LIBRARY_UNITASK_SUPPORT
-using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -10,17 +9,12 @@ namespace Mu3Library.Localization
 {
     public partial class LocalizationManager
     {
-        public async UniTask InitializeAsync(Action<float> progress = null)
+        public async UniTask InitializeAsync()
         {
             if (_isInitialized)
             {
-                progress?.Invoke(1.0f);
+                OnInitializeProgress?.Invoke(1.0f);
                 return;
-            }
-
-            if (progress != null)
-            {
-                _initializeProgressCallbacks.Add(progress);
             }
 
             if (_isInitializing)
