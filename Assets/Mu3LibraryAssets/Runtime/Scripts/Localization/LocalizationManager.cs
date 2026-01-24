@@ -11,7 +11,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public class LocalizationManager : ILocalizationManager, IUpdatable
+    public partial class LocalizationManager : ILocalizationManager, IUpdatable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
@@ -176,7 +176,7 @@ namespace Mu3Library.Localization
             }
 
             var handle = LocalizationSettings.SelectedLocaleAsync;
-            if(handle.IsDone)
+            if (handle.IsDone)
             {
                 onCompleted(handle);
                 return;
@@ -216,7 +216,7 @@ namespace Mu3Library.Localization
             }
 
             var settings = handle.Result;
-            if(settings != null)
+            if (settings != null)
             {
                 _currentLocale = settings.GetSelectedLocale();
             }
