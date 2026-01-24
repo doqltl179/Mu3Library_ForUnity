@@ -24,13 +24,13 @@ namespace Mu3Library.Addressable
 
         private readonly Dictionary<object, object> _assetCache = new();
         private readonly Dictionary<object, AsyncOperationHandle> _assetHandleCache = new();
+
         private sealed class DownloadTracker
         {
             public AsyncOperationHandle Handle;
             public Action<float> Progress;
             public float LastProgress = -1.0f;
         }
-
         private readonly List<DownloadTracker> _downloadTrackers = new();
 
         public event Action<float> OnInitializeProgress;
@@ -48,12 +48,14 @@ namespace Mu3Library.Addressable
             ClearCache();
 
             _initializeCallbacks.Clear();
-            OnInitializeProgress = null;
-            OnDownloadProgress = null;
+            _downloadTrackers.Clear();
+
             _isInitialized = false;
             _isInitializing = false;
             _lastDownloadProgress = -1.0f;
-            _downloadTrackers.Clear();
+
+            OnInitializeProgress = null;
+            OnDownloadProgress = null;
         }
 
         public void Update()
@@ -189,24 +191,26 @@ namespace Mu3Library.Addressable
 
         public void LoadAssetsAsync<T>(object key, Action<IList<T>> callback = null, Action<T> perAssetCallback = null)
         {
-            if (TryGetCachedAsset(key, out IList<T> cached))
+            Type cacheType = typeof(T);
+            ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
+            if (TryGetCachedAsset(cacheKey, out IList<T> cached))
             {
                 callback?.Invoke(cached);
                 return;
             }
 
-            if (_assetHandleCache.TryGetValue(key, out AsyncOperationHandle existing) && existing.IsValid())
+            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
             {
                 if (existing.IsDone)
                 {
                     IList<T> existingAssets = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as IList<T> : null;
                     if (existingAssets != null)
                     {
-                        _assetCache[key] = existingAssets;
+                        _assetCache[cacheKey] = existingAssets;
                     }
                     else
                     {
-                        _assetHandleCache.Remove(key);
+                        _assetHandleCache.Remove(cacheKey);
                         Addressables.Release(existing);
                     }
 
@@ -219,11 +223,11 @@ namespace Mu3Library.Addressable
                     IList<T> existingAssets = op.Status == AsyncOperationStatus.Succeeded ? op.Result as IList<T> : null;
                     if (existingAssets != null)
                     {
-                        _assetCache[key] = existingAssets;
+                        _assetCache[cacheKey] = existingAssets;
                     }
                     else
                     {
-                        _assetHandleCache.Remove(key);
+                        _assetHandleCache.Remove(cacheKey);
                         Addressables.Release(op);
                     }
 
@@ -234,17 +238,17 @@ namespace Mu3Library.Addressable
             }
 
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
-            _assetHandleCache[key] = handle;
+            _assetHandleCache[cacheKey] = handle;
             handle.Completed += operation =>
             {
                 IList<T> assets = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
                 if (assets != null)
                 {
-                    _assetCache[key] = assets;
+                    _assetCache[cacheKey] = assets;
                 }
                 else
                 {
-                    _assetHandleCache.Remove(key);
+                    _assetHandleCache.Remove(cacheKey);
                     Addressables.Release(operation);
                 }
 

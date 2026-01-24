@@ -60,12 +60,14 @@ namespace Mu3Library.Addressable
 
         public async UniTask<IList<T>> LoadAssetsAsync<T>(object key, Action<T> perAssetCallback = null)
         {
-            if (TryGetCachedAsset(key, out IList<T> cached))
+            Type cacheType = typeof(T);
+            ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
+            if (TryGetCachedAsset(cacheKey, out IList<T> cached))
             {
                 return cached;
             }
 
-            if (_assetHandleCache.TryGetValue(key, out AsyncOperationHandle existing) && existing.IsValid())
+            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
             {
                 if (!existing.IsDone)
                 {
@@ -75,11 +77,11 @@ namespace Mu3Library.Addressable
                 IList<T> existingAssets = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as IList<T> : null;
                 if (existingAssets != null)
                 {
-                    _assetCache[key] = existingAssets;
+                    _assetCache[cacheKey] = existingAssets;
                 }
                 else
                 {
-                    _assetHandleCache.Remove(key);
+                    _assetHandleCache.Remove(cacheKey);
                     Addressables.Release(existing);
                 }
 
@@ -87,18 +89,18 @@ namespace Mu3Library.Addressable
             }
 
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
-            _assetHandleCache[key] = handle;
+            _assetHandleCache[cacheKey] = handle;
 
             await handle.ToUniTask();
 
             IList<T> assets = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
             if (assets != null)
             {
-                _assetCache[key] = assets;
+                _assetCache[cacheKey] = assets;
             }
             else
             {
-                _assetHandleCache.Remove(key);
+                _assetHandleCache.Remove(cacheKey);
                 Addressables.Release(handle);
             }
 
