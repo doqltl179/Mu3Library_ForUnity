@@ -21,6 +21,8 @@ namespace Mu3Library.Addressable
 
         public UniTask DownloadDependenciesAsync(object key, Action<float> progress = null, bool autoReleaseHandle = true);
         public UniTask DownloadDependenciesAsync(IEnumerable keys, Action<float> progress = null, bool autoReleaseHandle = true, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union);
+
+        public UniTask InitializeAsync();
     }
 }
 #endif

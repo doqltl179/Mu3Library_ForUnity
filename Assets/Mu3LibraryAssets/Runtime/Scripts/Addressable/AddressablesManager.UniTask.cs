@@ -11,6 +11,9 @@ namespace Mu3Library.Addressable
 {
     public partial class AddressablesManager
     {
+
+
+
         public async UniTask<T> LoadAssetAsync<T>(object key) where T : class
         {
             if (TryGetCachedAsset(key, out T cached))
@@ -203,6 +206,31 @@ namespace Mu3Library.Addressable
             }
 
             return locators;
+        }
+
+        public async UniTask InitializeAsync()
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            if (_isInitializing)
+            {
+                await _initializeHandle.ToUniTask();
+                return;
+            }
+
+            _isInitializing = true;
+            _initializeHandle = Addressables.InitializeAsync();
+            if (_initializeHandle.IsDone)
+            {
+                OnInitializeCompleted(_initializeHandle);
+                return;
+            }
+
+            await _initializeHandle.ToUniTask();
+            OnInitializeCompleted(_initializeHandle);
         }
     }
 }
