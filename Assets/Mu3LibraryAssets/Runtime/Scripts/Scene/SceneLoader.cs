@@ -21,6 +21,7 @@ namespace Mu3Library.Scene
         }
 
         private int _loadingCount = 0;
+        public int LoadingCount => _loadingCount;
         public bool IsLoading => _loadingCount > 0;
 
         private string _currentSceneName = "";

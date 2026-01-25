@@ -5,7 +5,9 @@ namespace Mu3Library.Scene
     public partial interface ISceneLoader
     {
         public bool IsLoading { get; }
+        public int LoadingCount { get; }
         public string CurrentSceneName { get; }
+
         public bool UseFakeLoading { get; set; }
         public float FakeLoadingTime { get; set; }
 
