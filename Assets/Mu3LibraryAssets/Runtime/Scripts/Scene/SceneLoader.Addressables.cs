@@ -192,9 +192,9 @@ namespace Mu3Library.Scene
             _currentAdditiveScenes.Clear();
 
             _loadingCount--;
-            OnSceneLoadEnd?.Invoke(key);
-
             _singleAddressablesSceneOperation = null;
+
+            OnSceneLoadEnd?.Invoke(key);
         }
 
         private void UpdateLoadAdditiveAddressablesOperations()
@@ -215,15 +215,13 @@ namespace Mu3Library.Scene
                 string key = pair.Value.SceneName;
                 Debug.Log($"Load addressable additive scene end. key: {key}");
 
-                _currentAdditiveScenes.Add(key);
-
                 if (pair.Value.AddressablesHandle.IsValid() && pair.Value.AddressablesHandle.Status == AsyncOperationStatus.Succeeded)
                 {
                     _loadedAddressableSceneHandles[key] = pair.Value.AddressablesHandle;
                 }
 
+                _currentAdditiveScenes.Add(key);
                 _loadingCount--;
-                OnSceneLoadEnd?.Invoke(key);
 
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
@@ -237,6 +235,8 @@ namespace Mu3Library.Scene
             foreach (string key in completed)
             {
                 _loadAdditiveAddressablesSceneOperations.Remove(key);
+
+                OnSceneLoadEnd?.Invoke(key);
             }
         }
 
