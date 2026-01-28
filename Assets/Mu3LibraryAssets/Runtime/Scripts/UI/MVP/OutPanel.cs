@@ -114,7 +114,7 @@ namespace Mu3Library.UI.MVP
                 overwriteCanvas = overwriteCanvas.rootCanvas;
             }
 
-            MVPCanvasUtil.Overwrite(overwriteCanvas, _canvas, true, true);
+            overwriteCanvas.CopyTo(_canvas, true, true);
             _canvas.sortingOrder = presenter.SortingOrder - 1;
 
             _canvasGroup.interactable = presenter.Interactable;
@@ -136,7 +136,7 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            MVPCanvasUtil.Overwrite(source, _canvas, true, true);
+            source.CopyTo(_canvas, true, true);
         }
 
         public void SetColor(Color color)

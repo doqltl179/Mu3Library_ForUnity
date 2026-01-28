@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Mu3Library.Extensions;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -93,7 +94,7 @@ namespace Mu3Library.UI.MVP
 
             View inst = Object.Instantiate(resource, layerCanvas.transform);
 
-            MVPCanvasUtil.Overwrite(layerCanvas, inst.Canvas, true, true);
+            layerCanvas.CopyTo(inst.Canvas, true, true);
             inst.Canvas.overrideSorting = true;
             inst.SetSortingOrder(resource.SortingOrder);
 

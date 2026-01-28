@@ -229,7 +229,7 @@ namespace Mu3Library.UI.MVP
 
         internal void OverwriteInto(Canvas target)
         {
-            MVPCanvasUtil.Overwrite(_canvas, target, true, true);
+            _canvas.CopyTo(target, true, true);
         }
 
         public void Stretch() => _rectTransform.Stretch();
