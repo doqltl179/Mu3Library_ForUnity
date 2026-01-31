@@ -15,6 +15,8 @@ namespace Mu3Library.DI
 
         private readonly List<ServiceDescriptor> _descriptors = new();
         private readonly Dictionary<ServiceKey, object> _singletons = new();
+        // Cache singletons by implementation type to ensure standard interfaces share the same instance
+        private readonly Dictionary<(Type, string), object> _implementationSingletons = new();
 
         private readonly HashSet<Type> _interfaceIgnoreTypes = new()
         {
@@ -156,8 +158,22 @@ namespace Mu3Library.DI
                 return instance;
             }
 
+            // Try to find existing singleton by implementation type
+            if (key.ImplementationType != null && 
+                _implementationSingletons.TryGetValue((key.ImplementationType, key.Key), out instance))
+            {
+                _singletons[key] = instance;
+                return instance;
+            }
+
             instance = factory();
             _singletons[key] = instance;
+
+            if (key.ImplementationType != null)
+            {
+                _implementationSingletons[(key.ImplementationType, key.Key)] = instance;
+            }
+
             return instance;
         }
 
