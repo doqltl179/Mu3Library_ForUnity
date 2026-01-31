@@ -261,6 +261,10 @@ namespace Mu3Library.DI
         {
             if (descriptor.Instance != null)
             {
+                if (!_trackedInstances.Contains(descriptor.Instance))
+                {
+                    InjectMembers(descriptor.Instance, chain);
+                }
                 TrackLifecycle(descriptor.Instance, ServiceLifetime.Singleton);
                 return descriptor.Instance;
             }
@@ -384,17 +388,17 @@ namespace Mu3Library.DI
             }
 
             Type type = instance.GetType();
-            
+
             // Get or cache injectable fields
             FieldInfo[] injectableFields = GetInjectableFields(type);
             foreach (FieldInfo field in injectableFields)
             {
                 InjectAttribute attr = field.GetCustomAttribute<InjectAttribute>();
-                
+
                 object value = attr.CoreType == null
                     ? ResolveInternal(field.FieldType, attr.Key, chain, false)
                     : ResolveFromCore(attr.CoreType, field.FieldType, attr.Key);
-                    
+
                 if (value == null)
                 {
                     if (attr.Required)
@@ -412,11 +416,11 @@ namespace Mu3Library.DI
             foreach (PropertyInfo property in injectableProperties)
             {
                 InjectAttribute attr = property.GetCustomAttribute<InjectAttribute>();
-                
+
                 object value = attr.CoreType == null
                     ? ResolveInternal(property.PropertyType, attr.Key, chain, false)
                     : ResolveFromCore(attr.CoreType, property.PropertyType, attr.Key);
-                    
+
                 if (value == null)
                 {
                     if (attr.Required)
@@ -445,8 +449,8 @@ namespace Mu3Library.DI
 
                 foreach (FieldInfo field in allFields)
                 {
-                    if (field.GetCustomAttribute<InjectAttribute>() != null && 
-                        !field.IsInitOnly && 
+                    if (field.GetCustomAttribute<InjectAttribute>() != null &&
+                        !field.IsInitOnly &&
                         !field.IsStatic)
                     {
                         injectableFields.Add(field);
@@ -474,8 +478,8 @@ namespace Mu3Library.DI
 
                 foreach (PropertyInfo property in allProperties)
                 {
-                    if (property.GetCustomAttribute<InjectAttribute>() != null && 
-                        property.CanWrite && 
+                    if (property.GetCustomAttribute<InjectAttribute>() != null &&
+                        property.CanWrite &&
                         property.GetIndexParameters().Length == 0)
                     {
                         injectableProperties.Add(property);
@@ -498,6 +502,12 @@ namespace Mu3Library.DI
             if (coreType == null || serviceType == null)
             {
                 return null;
+            }
+
+            CoreBase owner = _container?.Owner;
+            if (owner != null && owner.GetType() == coreType)
+            {
+                return owner.GetClassFromContainer(serviceType, key);
             }
 
             if (!typeof(CoreBase).IsAssignableFrom(coreType))

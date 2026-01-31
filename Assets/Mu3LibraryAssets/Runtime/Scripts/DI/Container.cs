@@ -11,6 +11,7 @@ namespace Mu3Library.DI
     public class Container
     {
         private readonly CoreBase _owner;
+        internal CoreBase Owner => _owner;
 
         private readonly List<ServiceDescriptor> _descriptors = new();
         private readonly Dictionary<ServiceKey, object> _singletons = new();
