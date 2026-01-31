@@ -9,15 +9,15 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class ResourceCore : CoreBase
     {
-        protected override void ConfigureContainer(ContainerScope scope)
+        protected override void ConfigureContainer()
         {
 #if TEMPLATE_ADDRESSABLES_SUPPORT
-            scope.Register<AddressablesManager>();
+            RegisterClass<AddressablesManager>();
 #else
             Debug.LogWarning("Addressables is not installed.");
 #endif
 
-            scope.Register<ResourceLoader>();
+            RegisterClass<ResourceLoader>();
         }
     }
 }

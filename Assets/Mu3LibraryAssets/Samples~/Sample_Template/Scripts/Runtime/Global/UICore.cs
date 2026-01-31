@@ -5,9 +5,9 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class UICore : CoreBase
     {
-        protected override void ConfigureContainer(ContainerScope scope)
+        protected override void ConfigureContainer()
         {
-            scope.Register<MVPManager>();
+            RegisterClass<MVPManager>();
         }
     }
 }

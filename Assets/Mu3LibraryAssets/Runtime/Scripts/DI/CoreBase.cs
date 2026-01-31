@@ -18,7 +18,7 @@ namespace Mu3Library.DI
                 {
                     m_scope = _container.CreateScope();
 
-                    ConfigureContainer(m_scope);
+                    ConfigureContainer();
                 }
 
                 return m_scope;
@@ -47,7 +47,7 @@ namespace Mu3Library.DI
         /// <summary>
         /// Override to register services for this core.
         /// </summary>
-        protected virtual void ConfigureContainer(ContainerScope scope)
+        protected virtual void ConfigureContainer()
         {
         }
 

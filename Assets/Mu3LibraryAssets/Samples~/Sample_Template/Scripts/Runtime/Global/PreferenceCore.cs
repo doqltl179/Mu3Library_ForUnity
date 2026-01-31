@@ -5,9 +5,9 @@ namespace Mu3Library.Sample.Template.Global
 {
     public class PreferenceCore : CoreBase
     {
-        protected override void ConfigureContainer(ContainerScope scope)
+        protected override void ConfigureContainer()
         {
-            scope.Register<PlayerPrefsLoader>();
+            RegisterClass<PlayerPrefsLoader>();
         }
     }
 }
