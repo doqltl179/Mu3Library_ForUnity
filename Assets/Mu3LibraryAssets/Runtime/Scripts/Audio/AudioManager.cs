@@ -29,8 +29,8 @@ namespace Mu3Library.Audio
 
         private Transform _rootTransform => _root.transform;
 
-        private List<AudioController> _sfxControllers = new();
-        private Queue<AudioController> _sfxPool = new();
+        private readonly List<AudioController> _sfxControllers = new();
+        private readonly Queue<AudioController> _sfxPool = new();
 
         private AudioController _bgmMainController = null;
         private AudioController _bgmSubController = null;
