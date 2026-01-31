@@ -1,0 +1,10 @@
+﻿<Solution>
+  <Project Path="Mu3Library.DI.csproj" />
+  <Project Path="Mu3Library.Editor.csproj" />
+  <Project Path="Mu3Library.Sample.Template.csproj" />
+  <Project Path="Mu3Library.csproj" />
+  <Project Path="com.IvanMurzak.Unity.MCP.Installer.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="com.IvanMurzak.Unity.MCP.Installer.Tests.csproj" />
+</Solution>
