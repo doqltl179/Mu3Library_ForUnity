@@ -1,0 +1,9 @@
+{
+  "logLevel": 3,
+  "tools": [],
+  "prompts": [],
+  "resources": [],
+  "host": "http://localhost:51409",
+  "timeoutMs": 10000,
+  "keepConnected": true
+}

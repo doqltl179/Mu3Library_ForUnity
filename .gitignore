@@ -73,6 +73,8 @@ crashlytics-build.properties
 
 # My ignores
 # **/[Ss]amples~/
+[Aa]ssets/[Cc]ustomPackages
+[Aa]ssets/[Cc]ustomPackages.meta
 [Aa]ssets/[Aa]ddressableAssetsData
 [Aa]ssets/[Aa]ddressableAssetsData.meta
 [Aa]ssets/[Ss]amples.meta
