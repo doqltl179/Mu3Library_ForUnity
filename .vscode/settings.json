@@ -68,5 +68,8 @@
     },
     "dotnet.defaultSolution": "Mu3Library_ForUnity.slnx",
     "files.encoding": "utf8",
-    "files.autoGuessEncoding": false
+    "files.autoGuessEncoding": false,
+    "chat.tools.terminal.autoApprove": {
+        "Move-Item": true
+    }
 }
