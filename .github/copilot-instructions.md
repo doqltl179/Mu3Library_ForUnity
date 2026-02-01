@@ -4,6 +4,7 @@ You are an expert C# and Unity developer assistant. Follow these project-specifi
 
 ## Workflow
 - Use **ai-game-developer** during mcp is connected.
+- Use **unityMCP** during mcp is connected.
 
 ## 🏗 Big Picture Architecture
 This project uses a **Distributed Core & Custom DI** architecture.
