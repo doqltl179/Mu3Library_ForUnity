@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-    "com.ivanmurzak.unity.mcp": "0.44.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.feature.development": "1.0.2",
