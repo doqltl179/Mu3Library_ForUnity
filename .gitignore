@@ -82,5 +82,7 @@ crashlytics-build.properties
 [Aa]ssets/TextMesh Pro.meta
 [Aa]ssets/builtin_shaders
 [Aa]ssets/builtin_shaders.meta
+[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
+[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 
 .vscode/mcp.json
