@@ -7,36 +7,49 @@ namespace Mu3Library.DI
     public sealed class CoreRoot : MonoBehaviour
     {
         private static CoreRoot _instance;
+        private static bool _isQuitting = false;
+
         internal static CoreRoot Instance
         {
             get
             {
+                if (_isQuitting)
+                {
+                    return null;
+                }
+
                 if (_instance == null)
                 {
                     lock (_lockObj)
                     {
-                        var instances = FindObjectsByType<CoreRoot>(FindObjectsSortMode.None);
-                        if (instances.Length == 0)
+                        // Double-checked locking
+                        if (_instance == null)
                         {
-                            GameObject go = new GameObject(typeof(CoreRoot).Name);
-                            _instance = go.AddComponent<CoreRoot>();
-                        }
-                        else if (instances.Length == 1)
-                        {
-                            _instance = instances[0];
-                        }
-                        else if (instances.Length > 1)
-                        {
-                            Debug.LogWarning($"'{typeof(CoreRoot).Name}' already exist more than one.");
-
-                            for (int i = 1; i < instances.Length; i++)
+                            var instances = FindObjectsByType<CoreRoot>(FindObjectsSortMode.None);
+                            if (instances.Length == 0)
                             {
-                                Destroy(instances[i].gameObject);
+                                GameObject go = new GameObject(typeof(CoreRoot).Name);
+                                _instance = go.AddComponent<CoreRoot>();
+                                DontDestroyOnLoad(_instance.gameObject);
                             }
-                            _instance = instances[0];
-                        }
+                            else if (instances.Length == 1)
+                            {
+                                _instance = instances[0];
+                                DontDestroyOnLoad(_instance.gameObject);
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"'{typeof(CoreRoot).Name}' already exist more than one. Cleaning up duplicates.");
 
-                        DontDestroyOnLoad(_instance.gameObject);
+                                _instance = instances[0];
+                                DontDestroyOnLoad(_instance.gameObject);
+
+                                for (int i = 1; i < instances.Length; i++)
+                                {
+                                    Destroy(instances[i].gameObject);
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -51,8 +64,18 @@ namespace Mu3Library.DI
 
 
 
+        private void OnApplicationQuit()
+        {
+            _isQuitting = true;
+        }
+
         private void OnDestroy()
         {
+            if (_instance == this)
+            {
+                _instance = null;
+            }
+
             var cores = new List<CoreBase>(_cores.Values);
             foreach (var core in cores)
             {
@@ -63,6 +86,8 @@ namespace Mu3Library.DI
 
                 UnregisterCore(core);
             }
+
+            _cores.Clear();
         }
 
         private void Update()

@@ -9,35 +9,10 @@ namespace Mu3Library.DI
     /// </summary>
     public abstract class CoreBase : MonoBehaviour
     {
-        private ContainerScope m_scope;
-        private ContainerScope _scope
-        {
-            get
-            {
-                if (m_scope == null)
-                {
-                    m_scope = _container.CreateScope();
+        private ContainerScope _scope;
+        private Container _container;
 
-                    ConfigureContainer();
-                }
-
-                return m_scope;
-            }
-        }
-
-        private Container m_container;
-        private Container _container
-        {
-            get
-            {
-                if (m_container == null)
-                {
-                    m_container = new Container(this);
-                }
-
-                return m_container;
-            }
-        }
+        private bool _isContainerConfigured = false;
 
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;
@@ -67,6 +42,23 @@ namespace Mu3Library.DI
 
                 DontDestroyOnLoad(gameObject);
             }
+
+            InitializeContainer();
+        }
+
+        private void InitializeContainer()
+        {
+            if (_isContainerConfigured)
+            {
+                return;
+            }
+
+            _container = new Container(this);
+            _scope = _container.CreateScope();
+
+            ConfigureContainer();
+
+            _isContainerConfigured = true;
         }
 
         protected virtual void Start()
@@ -112,7 +104,7 @@ namespace Mu3Library.DI
 
         internal object GetClassFromContainer(Type serviceType, string key = null)
         {
-            if (serviceType == null)
+            if (serviceType == null || _scope == null)
             {
                 return null;
             }

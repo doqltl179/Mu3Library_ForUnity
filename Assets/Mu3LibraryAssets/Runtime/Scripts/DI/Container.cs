@@ -14,9 +14,12 @@ namespace Mu3Library.DI
         internal CoreBase Owner => _owner;
 
         private readonly List<ServiceDescriptor> _descriptors = new();
+        // Index for fast descriptor lookup: (ServiceType, Key) -> List of indices
+        private readonly Dictionary<(Type, string), List<int>> _descriptorIndex = new();
+
         private readonly Dictionary<ServiceKey, object> _singletons = new();
-        // Cache singletons by implementation type to ensure standard interfaces share the same instance
-        private readonly Dictionary<(Type, string), object> _implementationSingletons = new();
+        // Cache singletons by implementation type to ensure all interfaces of same implementation share instance
+        private readonly Dictionary<Type, object> _implementationSingletons = new();
 
         private readonly HashSet<Type> _interfaceIgnoreTypes = new()
         {
@@ -123,13 +126,11 @@ namespace Mu3Library.DI
                 return null;
             }
 
-            for (int i = _descriptors.Count - 1; i >= 0; i--)
+            // Use index for fast lookup
+            if (_descriptorIndex.TryGetValue((serviceType, key), out List<int> indices) && indices.Count > 0)
             {
-                ServiceDescriptor descriptor = _descriptors[i];
-                if (descriptor.ServiceType == serviceType && descriptor.Key == key)
-                {
-                    return descriptor;
-                }
+                // Return the last registered (most recent)
+                return _descriptors[indices[indices.Count - 1]];
             }
 
             return null;
@@ -145,33 +146,55 @@ namespace Mu3Library.DI
                 return Array.Empty<ServiceDescriptor>();
             }
 
-            return _descriptors.Where(d => d.ServiceType == serviceType && d.Key == key).ToArray();
+            // Use index for fast lookup
+            if (_descriptorIndex.TryGetValue((serviceType, key), out List<int> indices) && indices.Count > 0)
+            {
+                ServiceDescriptor[] result = new ServiceDescriptor[indices.Count];
+                for (int i = 0; i < indices.Count; i++)
+                {
+                    result[i] = _descriptors[indices[i]];
+                }
+                return result;
+            }
+
+            return Array.Empty<ServiceDescriptor>();
         }
 
         /// <summary>
         /// Get or create a singleton instance for the given key.
+        /// Ensures that all interfaces of the same implementation type share the same instance.
         /// </summary>
         internal object GetOrCreateSingleton(ServiceKey key, Func<object> factory)
         {
+            // Fast path: check exact service/key combination first
             if (_singletons.TryGetValue(key, out object instance))
             {
                 return instance;
             }
 
-            // Try to find existing singleton by implementation type
-            if (key.ImplementationType != null && 
-                _implementationSingletons.TryGetValue((key.ImplementationType, key.Key), out instance))
+            // For default key (null/empty), check if implementation type already has an instance
+            // This ensures all interfaces of same implementation share the same singleton
+            bool hasImplementationType = key.ImplementationType != null;
+            bool isDefaultKey = string.IsNullOrEmpty(key.Key);
+
+            if (hasImplementationType && isDefaultKey)
             {
-                _singletons[key] = instance;
-                return instance;
+                if (_implementationSingletons.TryGetValue(key.ImplementationType, out instance))
+                {
+                    // Reuse existing instance and cache this service type mapping
+                    _singletons[key] = instance;
+                    return instance;
+                }
             }
 
+            // No existing instance found - create new one
             instance = factory();
-            _singletons[key] = instance;
 
-            if (key.ImplementationType != null)
+            // Cache in both dictionaries for default key
+            _singletons[key] = instance;
+            if (hasImplementationType && isDefaultKey)
             {
-                _implementationSingletons[(key.ImplementationType, key.Key)] = instance;
+                _implementationSingletons[key.ImplementationType] = instance;
             }
 
             return instance;
@@ -220,22 +243,42 @@ namespace Mu3Library.DI
                 return;
             }
 
-            if (_descriptors.Any(d =>
-                d.ServiceType == descriptor.ServiceType &&
-                d.ImplementationType == descriptor.ImplementationType &&
-                d.Instance == descriptor.Instance &&
-                d.Key == descriptor.Key))
+            // Check for exact duplicate
+            var indexKey = (descriptor.ServiceType, descriptor.Key);
+            if (_descriptorIndex.TryGetValue(indexKey, out List<int> existingIndices))
             {
-                return;
+                // Check if this exact descriptor already exists
+                foreach (int idx in existingIndices)
+                {
+                    ServiceDescriptor existing = _descriptors[idx];
+                    if (existing.ImplementationType == descriptor.ImplementationType &&
+                        existing.Instance == descriptor.Instance)
+                    {
+                        return; // Duplicate found, skip
+                    }
+                }
             }
 
+            // Add descriptor and update index
+            int newIndex = _descriptors.Count;
             _descriptors.Add(descriptor);
 
-            // Log registration
+            if (existingIndices == null)
+            {
+                _descriptorIndex[indexKey] = new List<int> { newIndex };
+            }
+            else
+            {
+                existingIndices.Add(newIndex);
+            }
+
+            // Log registration (optional, can be disabled for production)
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
             string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
             string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
             Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
+#endif
         }
     }
 }

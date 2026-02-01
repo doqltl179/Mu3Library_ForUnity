@@ -32,14 +32,7 @@ namespace Mu3Library.DI
 
         public override int GetHashCode()
         {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + (ServiceType != null ? ServiceType.GetHashCode() : 0);
-                hash = hash * 31 + (ImplementationType != null ? ImplementationType.GetHashCode() : 0);
-                hash = hash * 31 + (Key != null ? Key.GetHashCode() : 0);
-                return hash;
-            }
+            return HashCode.Combine(ServiceType, ImplementationType, Key);
         }
     }
 }

@@ -22,6 +22,8 @@ namespace Mu3Library.DI
         // Reflection cache for performance optimization
         private static readonly Dictionary<Type, FieldInfo[]> _injectableFieldsCache = new();
         private static readonly Dictionary<Type, PropertyInfo[]> _injectablePropertiesCache = new();
+        private static readonly Dictionary<Type, ConstructorInfo> _constructorCache = new();
+        private static readonly Dictionary<Type, bool> _isInstantiableCache = new();
         private static readonly object _cacheLock = new object();
 
         private bool _initialized = false;
@@ -207,7 +209,8 @@ namespace Mu3Library.DI
 
             if (chain.Contains(serviceType))
             {
-                throw new InvalidOperationException($"Circular dependency detected. type: {serviceType.FullName}");
+                string chainStr = string.Join(" -> ", chain.Select(t => t.Name));
+                throw new InvalidOperationException($"Circular dependency detected: {chainStr} -> {serviceType.Name}. Check your service registrations to break the cycle.");
             }
 
             chain.Add(serviceType);
@@ -246,7 +249,9 @@ namespace Mu3Library.DI
                 chain.Remove(serviceType);
                 if (throwIfMissing)
                 {
-                    throw new InvalidOperationException($"Service not registered. type: {serviceType.FullName}");
+                    string keyInfo = string.IsNullOrEmpty(key) ? "" : $" with key '{key}'";
+                    string coreInfo = _container.Owner != null ? $" in Core: {_container.Owner.GetType().Name}" : "";
+                    throw new InvalidOperationException($"Service not registered: {serviceType.FullName}{keyInfo}{coreInfo}. Did you forget to register it in ConfigureContainer()?");
                 }
 
                 return null;
@@ -314,11 +319,39 @@ namespace Mu3Library.DI
 
         private object CreateInstance(Type implementationType, HashSet<Type> chain)
         {
-            if (implementationType.IsAbstract || implementationType.IsInterface)
+            // Check instantiability cache
+            lock (_cacheLock)
             {
-                throw new InvalidOperationException($"Cannot instantiate abstract/interface type: {implementationType.FullName}");
+                if (_isInstantiableCache.TryGetValue(implementationType, out bool isInstantiable))
+                {
+                    if (!isInstantiable)
+                    {
+                        throw new InvalidOperationException($"Cannot instantiate abstract/interface type: {implementationType.FullName}");
+                    }
+                }
+                else
+                {
+                    bool canInstantiate = !implementationType.IsAbstract && !implementationType.IsInterface;
+                    _isInstantiableCache[implementationType] = canInstantiate;
+                    if (!canInstantiate)
+                    {
+                        throw new InvalidOperationException($"Cannot instantiate abstract/interface type: {implementationType.FullName}");
+                    }
+                }
+
+                // Check constructor cache
+                if (_constructorCache.TryGetValue(implementationType, out ConstructorInfo cachedCtor))
+                {
+                    if (TryBuildParameters(cachedCtor, chain, out object[] args))
+                    {
+                        object instance = cachedCtor.Invoke(args);
+                        InjectMembers(instance, chain);
+                        return instance;
+                    }
+                }
             }
 
+            // Find best constructor
             ConstructorInfo[] constructors = implementationType.GetConstructors();
             if (constructors.Length == 0)
             {
@@ -331,13 +364,17 @@ namespace Mu3Library.DI
             {
                 if (TryBuildParameters(ctor, chain, out object[] args))
                 {
+                    lock (_cacheLock)
+                    {
+                        _constructorCache[implementationType] = ctor;
+                    }
                     object instance = ctor.Invoke(args);
                     InjectMembers(instance, chain);
                     return instance;
                 }
             }
 
-            throw new InvalidOperationException($"No usable constructor found. type: {implementationType.FullName}");
+            throw new InvalidOperationException($"No usable constructor found for type: {implementationType.FullName}. Ensure it has a public constructor with resolvable dependencies.");
         }
 
         private bool TryBuildParameters(ConstructorInfo ctor, HashSet<Type> chain, out object[] args)
