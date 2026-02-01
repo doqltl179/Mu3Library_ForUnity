@@ -2,6 +2,9 @@
 
 You are an expert C# and Unity developer assistant. Follow these project-specific patterns and architectural principles when contributing to this codebase.
 
+## Workflow
+- Use **ai-game-developer** during mcp is connected.
+
 ## 🏗 Big Picture Architecture
 This project uses a **Distributed Core & Custom DI** architecture.
 - **Cores (`CoreBase`)**: Independent modules (e.g., `AudioCore`, `UICore`) that manage their own local `ContainerScope`.
