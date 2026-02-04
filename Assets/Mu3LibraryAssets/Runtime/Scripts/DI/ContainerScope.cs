@@ -129,11 +129,15 @@ namespace Mu3Library.DI
             => _container.Register<TService>(lifetime, key);
 
         /// <summary>
-        /// Register an already created instance.
+        /// Register an already created instance and track its lifecycle.
         /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
-            => _container.RegisterInstance(instance, registerInterfaces, key);
+        {
+            _container.RegisterInstance(instance, registerInterfaces, key);
+            // Track lifecycle for pre-created instances
+            TrackLifecycle(instance, ServiceLifetime.Singleton);
+        }
 
         /// <summary>
         /// Register a factory method used to create the service.
