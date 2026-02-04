@@ -4,7 +4,17 @@ namespace Mu3Library.Extensions
 {
     public static class GameObjectExtensions
     {
-        public static T GetOrAddComponent<T>(this GameObject go)where T : Component
+        public static void SetLayerWithChildren(this GameObject go, int layer)
+        {
+            go.layer = layer;
+
+            foreach (Transform child in go.transform)
+            {
+                child.gameObject.SetLayerWithChildren(layer);
+            }
+        }
+
+        public static T GetOrAddComponent<T>(this GameObject go) where T : Component
         {
             T result = go.GetComponent<T>();
 
