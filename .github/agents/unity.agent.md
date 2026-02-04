@@ -1,73 +1,486 @@
-# Mu3Library Unity Agent
+---
+description: "Unity project architecture, coding conventions, and best practices for Mu3Library"
+name: "Unity Development Standards"
+---
 
-You are a specialized developer agent for the **Mu3Library For Unity** project. You must write code and provide advice that adheres to the project's unique architecture and conventions.
+# Mu3Library For Unity - Project Architecture & Coding Style
 
-## 🤖 Role and Persona
-- Fully understand and apply the **CoreBase** and **MVP** patterns.
-- Strictly follow the existing coding styles (naming, formatting) when adding new features.
-- Prioritize dependency injection (`[Inject]`) and lifecycle management (`IInitializable`, etc.) when making code changes.
+## Project Overview
 
-## 🔧 Core Guidelines
-1. **Dependency Injection (DI)**:
-   - Use the `[Inject]` attribute for field injection.
-   - For inter-core communication, use `[Inject(typeof(OtherCore))]` or `GetClassFromOtherCore<TCore, T>()`.
-   - When inheriting from `CoreBase`, you **must** call `base.Start()` at the beginning of the `Start()` method to ensure injection is completed.
+Mu3Library is a **third-party package** for Unity projects, designed as a modular architecture framework that can be independently integrated into external projects. It supports scalable and maintainable game development based on a custom DI (Dependency Injection) system and the MVP (Model-View-Presenter) UI pattern.
 
-2. **UI Implementation (MVP)**:
-   - UI must follow the **Presenter-View-Model** structure without exception.
-   - `View` should only contain references to Unity components.
-   - `Presenter` handles business logic and utilizes lifecycle methods like `LoadFunc` and `OpenFunc`.
-   - Ensure new UI components are managed via `IMVPManager`.
+## Core Architecture Patterns
 
-3. **Asynchronous Operations**:
-   - Prefer `UniTask` when `MU3LIBRARY_UNITASK_SUPPORT` is defined.
-   - Verify `MU3LIBRARY_ADDRESSABLES_SUPPORT` for Addressables-related tasks.
+### 1. Core-Based Module System
+- **CoreBase**: The top-level component for each functional module that owns a DI scope and registers services
+- **CoreRoot**: The root container that manages global Cores
+- Each Core has an independent DI scope and registers services through the `ConfigureContainer()` method
+- Dependencies between Cores are explicitly declared using the `[Inject(typeof(TargetCore))]` attribute
 
-4. **Coding Style**:
-   - Use the `_` prefix for private fields (e.g., `_myField`).
-   - Use braces on new lines (Allman style) for method bodies and control statements.
-   - Actively use extension methods found in `Mu3Library.Extensions`.
+**Example Structure:**
+```csharp
+// Each Core handles an independent functional domain
+public class AudioCore : CoreBase { }
+public class UICore : CoreBase { }
+public class NetworkCore : CoreBase { }
+public class GameCore : CoreBase { }
+```
 
-## 📚 Reference Files
-- Structure Overview: [.github/copilot-instructions.md](../copilot-instructions.md)
-- Core Base: [Assets/Mu3LibraryAssets/Runtime/Scripts/DI/CoreBase.cs](../../Assets/Mu3LibraryAssets/Runtime/Scripts/DI/CoreBase.cs)
-- UI Base: [Assets/Mu3LibraryAssets/Runtime/Scripts/UI/MVP/Presenter.cs](../../Assets/Mu3LibraryAssets/Runtime/Scripts/UI/MVP/Presenter.cs)
+### 2. Dependency Injection (DI) System
+- **Custom DI Container** implementation (`Container`, `ContainerScope`)
+- Three service lifetime types supported:
+  - **Singleton**: Shares a single instance
+  - **Transient**: Creates a new instance per request
+  - **Scoped**: Shares a single instance within the scope
+- Automatic dependency injection through `[Inject]` attribute
+- Improved testability through interface-based registration
 
-Always propose the best solutions considering the maintainability and scalability of the project.
+**DI Lifecycle:**
+```csharp
+protected override void ConfigureContainer(ContainerScope scope)
+{
+    // Register interfaces mapped to implementations
+    scope.Register<IAudioManager, AudioManager>(ServiceLifetime.Singleton);
+    scope.Register<IWebRequestManager, WebRequestManager>(ServiceLifetime.Singleton);
+}
 
-<!--
-# Mu3Library Unity Agent (한글 참고용)
+// Automatic injection (executed before CoreBase's Start())
+[Inject] private IAudioManager _audioManager;
+[Inject(typeof(UICore))] private IMVPManager _mvpManager;
+```
 
-당신은 **Mu3Library For Unity** 프로젝트의 전문 개발자 에이전트입니다. 이 프로젝트의 고유한 아키텍처와 관례를 준수하여 코드를 작성하고 조언해야 합니다.
+### 3. MVP (Model-View-Presenter) UI Pattern
+- **View**: Only handles references to Unity components and UI elements
+- **Presenter**: Handles all business logic and event processing (testable)
+- **Model**: Serves as a data container
+- **Arguments**: Initial parameters passed when creating a Presenter
 
-## 🤖 역할 및 태도
-- CoreBase와 MVP 패턴을 완벽하게 이해하고 적용합니다.
-- 새로운 기능을 추가할 때 기존 스타일(naming, formatting)을 엄격히 따릅니다.
-- 코드 변경 시 의존성 주입([Inject])과 라이프사이클 관리(IInitializable)를 우선적으로 고려합니다.
+**MVP Lifecycle:**
+1. `Load` → Resource loading and initialization
+2. `Open` → Display UI and start animations
+3. `Close` → Hide UI and end animations
+4. `Unload` → Release resources
 
-## 🔧 주요 지침
-1. 의존성 주입 (DI):
-   - 필드 주입 시 [Inject] 속성을 사용하세요.
-   - 다른 코어와의 통신은 [Inject(typeof(OtherCore))] 또는 GetClassFromOtherCore<TCore, T>()를 사용하세요.
-   - CoreBase를 상속받은 경우 Start() 메서드에서 반드시 base.Start()를 먼저 호출해야 주입이 완료됩니다.
+**Separation Principles:**
+- View contains only references to Unity components (no logic)
+- Presenter handles all business logic and event handling
+- Model only stores data (no logic)
 
-2. UI 구현 (MVP):
-   - UI는 무조건 Presenter-View-Model 구조를 따릅니다.
-   - View는 Unity 컴포넌트 참조만 가집니다.
-   - Presenter는 비즈니스 로직을 담당하며 LoadFunc, OpenFunc 등의 생명주기를 활용합니다.
-   - 새로운 UI 추가 시 IMVPManager를 통해 관리되도록 안내하세요.
+### 4. Interface-Based Lifecycle Management
+When service classes implement the following interfaces, their lifecycle methods are automatically invoked:
 
-3. 비동기 처리:
-   - MU3LIBRARY_UNITASK_SUPPORT 매크로가 있는 경우 UniTask를 우선적으로 사용하세요.
-   - 어드레서블 관련 작업은 MU3LIBRARY_ADDRESSABLES_SUPPORT를 확인하세요.
+- **IInitializable**: `Initialize()` - Service initialization point
+- **IUpdatable**: `OnUpdate()` - Called every frame (Update)
+- **IFixedUpdatable**: `OnFixedUpdate()` - Called on FixedUpdate
+- **ILateUpdatable**: `OnLateUpdate()` - Called on LateUpdate
+- **IDisposable**: `Dispose()` - Service disposal point
 
-4. 코딩 스타일:
-   - private 필드는 _ 접두사를 사용합니다 (예: _myField).
-   - 메서드 본문/제어문에서는 줄바꿈 브레이스(Allman style)를 사용합니다.
-   - 확장 메서드(Mu3Library.Extensions)를 적극적으로 활용하세요.
+```csharp
+public class GameStateManager : IInitializable, IUpdatable, IDisposable
+{
+    public void Initialize() { /* Initialization logic */ }
+    public void OnUpdate() { /* Update logic */ }
+    public void Dispose() { /* Cleanup logic */ }
+}
+```
 
-## 📚 참고 파일
-- 구조 요약: [.github/copilot-instructions.md](../copilot-instructions.md)
-- 핵심 베이스: [Assets/Mu3LibraryAssets/Runtime/Scripts/DI/CoreBase.cs](../../Assets/Mu3LibraryAssets/Runtime/Scripts/DI/CoreBase.cs)
-- UI 베이스: [Assets/Mu3LibraryAssets/Runtime/Scripts/UI/MVP/Presenter.cs](../../Assets/Mu3LibraryAssets/Runtime/Scripts/UI/MVP/Presenter.cs)
--->
+## Namespace Conventions
+
+### Basic Structure
+```
+Mu3Library                              // Main library
+├── DI                                  // Dependency Injection
+├── UI.MVP                              // MVP pattern
+├── Audio                               // Audio system
+├── WebRequest                          // HTTP requests
+├── Observable                          // Observable pattern
+├── Extensions                          // Extension methods
+└── Utility                             // Utility functions
+
+Mu3Library.Sample.{SampleName}          // Sample projects
+Mu3Library.Editor                       // Editor extensions
+```
+
+### Namespace Rules
+- Base namespace: `Mu3Library`
+- Feature-specific sub-namespaces: `Mu3Library.{FeatureName}`
+- Editor extensions: `Mu3Library.Editor`
+- Sample code: `Mu3Library.Sample.{SampleName}`
+
+## Assembly Definition Structure
+
+The project is separated into the following assemblies:
+
+- **Mu3Library**: Main runtime assembly
+- **Mu3Library.DI**: DI system (independent assembly)
+- **Mu3Library.Editor**: Editor extension tools
+- **Mu3Library.InputSystem**: Input System integration (conditional)
+- **Mu3Library.Sample.{Name}**: Sample projects
+
+## Coding Conventions
+
+### 1. Naming Conventions
+```csharp
+// PascalCase
+public class MyClass { }
+public interface IMyInterface { }
+public enum MyEnum { }
+public struct MyStruct { }
+public void PublicMethod() { }
+public int PublicProperty { get; set; }
+
+// camelCase with underscore prefix
+private int _privateField;
+private void PrivateMethod() { }
+
+// camelCase (no underscore)
+int localVariable;
+void MethodParameter(int parameter) { }
+
+// ALL_CAPS
+private const int MAX_COUNT = 100;
+```
+
+### 2. Explicit Access Modifiers
+```csharp
+// Always explicitly declare access modifiers for all members
+public class Example
+{
+    private int _value;           // ✓ Explicit
+    public int Value { get; }     // ✓ Explicit
+
+    int _implicitValue;           // ✗ Implicit (forbidden)
+}
+```
+
+### 3. Avoid Singleton Pattern
+- Dependency injection through DI system is recommended
+- Use `Singleton<T>` or `GenericSingleton<T>` only when unavoidable
+- Minimize global state
+
+### 4. MonoBehaviour Usage Rules
+```csharp
+// Use MonoBehaviour only for components attached to GameObjects
+public class PlayerController : MonoBehaviour { }
+
+// Regular service classes should be POCOs
+public class GameDataManager // Do NOT inherit from MonoBehaviour
+{
+    [Inject] private ISaveSystem _saveSystem;
+    // ...
+}
+```
+
+### 5. ScriptableObject Utilization
+```csharp
+// Data containers, configuration files, shared resources
+[CreateAssetMenu(fileName = "GameConfig", menuName = "Game/Config")]
+public class GameConfig : ScriptableObject
+{
+    public int MaxHealth = 100;
+    public float MoveSpeed = 5f;
+}
+```
+
+### 6. Asynchronous Processing
+```csharp
+// Use Coroutines (default)
+private IEnumerator LoadDataCoroutine()
+{
+    yield return new WaitForSeconds(1f);
+    // Load data...
+}
+
+// Use UniTask (when MU3LIBRARY_UNITASK_SUPPORT is enabled)
+#if MU3LIBRARY_UNITASK_SUPPORT
+private async UniTask LoadDataAsync()
+{
+    await UniTask.Delay(1000);
+    // Load data...
+}
+#endif
+```
+
+## Conditional Compilation
+
+External package dependencies are managed with conditional defines:
+
+```csharp
+#if MU3LIBRARY_UNITASK_SUPPORT
+using Cysharp.Threading.Tasks;
+
+public partial interface IWebRequestManager
+{
+    UniTask<TResponse> GetAsync<TResponse>(string url);
+}
+#endif
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+using UnityEngine.AddressableAssets;
+
+public partial interface IResourceLoader
+{
+    void LoadAddressable<T>(string key, Action<T> onSuccess);
+}
+#endif
+```
+
+**Supported Define Symbols:**
+- `MU3LIBRARY_UNITASK_SUPPORT` - UniTask package
+- `MU3LIBRARY_ADDRESSABLES_SUPPORT` - Unity Addressables
+- `MU3LIBRARY_LOCALIZATION_SUPPORT` - Unity Localization
+- `MU3LIBRARY_INPUTSYSTEM_SUPPORT` - Unity Input System
+
+## Project Structure Principles
+
+### 1. Module Independence
+- Each module must be capable of operating independently
+- External package dependencies are separated through conditional compilation
+- Circular references are prohibited
+
+### 2. Interface-First Approach
+```csharp
+// Abstraction through interfaces
+public interface IAudioManager
+{
+    void PlayBgm(AudioClip clip, float fadeTime = 0f);
+    void PlaySfx(AudioClip clip, float volume = 1f);
+}
+
+// Map interface to implementation during DI registration
+scope.Register<IAudioManager, AudioManager>(ServiceLifetime.Singleton);
+
+// Inject as interface when using
+[Inject] private IAudioManager _audioManager;
+```
+
+### 3. Extension Method Utilization
+```csharp
+// Define extension methods in Extensions namespace
+namespace Mu3Library.Extensions
+{
+    public static class GameObjectExtensions
+    {
+        public static T GetOrAddComponent<T>(this GameObject go) where T : Component
+        {
+            return go.GetComponent<T>() ?? go.AddComponent<T>();
+        }
+    }
+}
+```
+
+### 4. Observable Pattern Usage
+```csharp
+// When data change detection is needed
+public class PlayerData
+{
+    public ObservableInt Health = new ObservableInt();
+    public ObservableString PlayerName = new ObservableString();
+}
+
+// Subscribe and handle events
+_playerData.Health.AddEvent(newValue => UpdateUI(newValue));
+_playerData.Health.Set(80); // Automatically publishes event
+```
+
+## Error Handling and Debugging
+
+### 1. Logging Rules
+```csharp
+// Use Unity's Debug class
+Debug.Log($"[AudioManager] BGM started: {clip.name}");
+Debug.LogWarning($"[AudioManager] Volume too high: {volume}");
+Debug.LogError($"[AudioManager] Audio clip is null!");
+
+// Conditional logging (removed in Release builds)
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+Debug.Log($"[DEBUG] Current state: {state}");
+#endif
+```
+
+### 2. Using Assertions
+```csharp
+// Validate logical errors
+Debug.Assert(health >= 0, "Health cannot be negative!");
+Debug.Assert(player != null, "Player reference is missing!");
+```
+
+### 3. Try-Catch Usage
+```csharp
+// Use for file I/O, network operations, JSON parsing, etc.
+try
+{
+    var data = JsonUtility.FromJson<GameData>(jsonString);
+}
+catch (Exception ex)
+{
+    Debug.LogError($"Failed to parse JSON: {ex.Message}");
+}
+```
+
+## Performance Optimization Guidelines
+
+### 1. Object Pooling
+```csharp
+// Utilize ObjectPool module
+public class BulletPool : ObjectPool<Bullet>
+{
+    protected override Bullet CreatePooledItem()
+    {
+        return Instantiate(_bulletPrefab);
+    }
+}
+
+// Usage
+var bullet = _bulletPool.Get();
+// ...
+_bulletPool.Release(bullet);
+```
+
+### 2. Optimize Frequently Called Methods
+```csharp
+// Cache GetComponent results
+private Rigidbody _rb;
+
+private void Awake()
+{
+    _rb = GetComponent<Rigidbody>(); // Cache
+}
+
+private void Update()
+{
+    _rb.velocity = Vector3.forward; // Use cached reference
+}
+```
+
+### 3. Asynchronous Loading
+```csharp
+// Handle heavy operations asynchronously
+private IEnumerator LoadLevelAsync()
+{
+    var asyncLoad = SceneManager.LoadSceneAsync("MainLevel");
+    while (!asyncLoad.isDone)
+    {
+        UpdateLoadingProgress(asyncLoad.progress);
+        yield return null;
+    }
+}
+```
+
+## Testing Strategy
+
+### 1. Interface-Based Design Enables Mock Testing
+```csharp
+// Production code
+public class GameController
+{
+    [Inject] private IAudioManager _audioManager;
+
+    public void OnVictory()
+    {
+        _audioManager.PlaySfx(_victorySfx);
+    }
+}
+
+// Test code
+public class MockAudioManager : IAudioManager
+{
+    public bool PlaySfxCalled { get; private set; }
+
+    public void PlaySfx(AudioClip clip, float volume = 1f)
+    {
+        PlaySfxCalled = true;
+    }
+}
+```
+
+### 2. Unity Test Framework Utilization
+- EditMode tests: Unit testing for logic
+- PlayMode tests: Integration tests, MonoBehaviour tests
+
+## Important Considerations
+
+### 1. Compatibility with External Projects
+- This project is designed as an independent package
+- Internal rules take priority over external project coding styles
+- Prevent namespace conflicts: All classes must be under the `Mu3Library` namespace hierarchy
+
+### 2. Unity Version Compatibility
+- Developed for Unity 6 (6000.0+)
+- Uses .NET Standard 2.1
+- While backward compatibility is considered, prioritize leveraging latest features
+
+### 3. Package Dependency Management
+- Minimize required dependencies
+- Separate optional packages with conditional compilation
+- Each functional module must be capable of operating independently
+
+### 4. Separate Editor Extensions from Runtime
+- Editor-only code should use `Editor/` folder or `#if UNITY_EDITOR`
+- Separate editor assemblies using Assembly Definition
+
+## Additional Recommendations
+
+### 1. Write XML Documentation Comments
+```csharp
+/// <summary>
+/// Plays a background music with optional fade-in effect.
+/// </summary>
+/// <param name="clip">The audio clip to play.</param>
+/// <param name="fadeTime">Duration of fade-in effect in seconds.</param>
+public void PlayBgm(AudioClip clip, float fadeTime = 0f)
+{
+    // Implementation
+}
+```
+
+### 2. Utilize Partial Classes
+```csharp
+// Can separate files by functionality
+public partial class WebRequestManager // WebRequestManager.cs
+{
+    public void Get<TResponse>(string url, Action<TResponse> onSuccess) { }
+}
+
+public partial class WebRequestManager // WebRequestManager.UniTask.cs
+{
+#if MU3LIBRARY_UNITASK_SUPPORT
+    public async UniTask<TResponse> GetAsync<TResponse>(string url) { }
+#endif
+}
+```
+
+### 3. Unsubscribe from Events
+```csharp
+// Automatic cleanup through IDisposable
+public class UIController : IDisposable
+{
+    [Inject] private IAudioManager _audioManager;
+
+    public void Initialize()
+    {
+        _audioManager.OnVolumeChanged += OnVolumeChanged;
+    }
+
+    public void Dispose()
+    {
+        _audioManager.OnVolumeChanged -= OnVolumeChanged;
+    }
+
+    private void OnVolumeChanged(float volume) { }
+}
+```
+
+## Summary
+
+Mu3Library follows these core principles:
+
+1. **Modularization**: Functional separation through Core-based system
+2. **Dependency Injection**: Reduced coupling with custom DI container
+3. **MVP Pattern**: Separation of UI logic and business logic
+4. **Interface-First**: Improved testability and extensibility
+5. **Conditional Compilation**: Management of optional package dependencies
+6. **Independence**: Prioritize self-contained completeness as a third-party package
+7. **Unity Best Practices**: Adherence to official Unity guidelines
+
+These principles enable building scalable and maintainable Unity projects.
