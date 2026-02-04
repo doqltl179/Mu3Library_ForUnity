@@ -25,6 +25,7 @@ namespace Mu3Library.DI
         private static readonly Dictionary<Type, ConstructorInfo> _constructorCache = new();
         private static readonly Dictionary<Type, bool> _isInstantiableCache = new();
         private static readonly object _cacheLock = new object();
+        private const BindingFlags MemberBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         private bool _initialized = false;
         private bool _disposed = false;
@@ -264,49 +265,43 @@ namespace Mu3Library.DI
 
         private object GetInstance(ServiceDescriptor descriptor, Type serviceType, string key, HashSet<Type> chain)
         {
+            object instance;
+
             if (descriptor.Instance != null)
             {
-                if (!_trackedInstances.Contains(descriptor.Instance))
-                {
-                    InjectMembers(descriptor.Instance, chain);
-                }
-                TrackLifecycle(descriptor.Instance, ServiceLifetime.Singleton);
-                return descriptor.Instance;
+                instance = descriptor.Instance;
             }
-
-            if (descriptor.Lifetime == ServiceLifetime.Singleton)
+            else if (descriptor.Lifetime == ServiceLifetime.Singleton)
             {
                 ServiceKey skey = new(serviceType, descriptor.ImplementationType ?? serviceType, key);
-                object instance = _container.GetOrCreateSingleton(skey, () => CreateInstance(descriptor, chain));
-                TrackLifecycle(instance, ServiceLifetime.Singleton);
-                return instance;
+                instance = _container.GetOrCreateSingleton(skey, () => CreateInstance(descriptor, chain));
             }
-
-            if (descriptor.Lifetime == ServiceLifetime.Scoped)
+            else if (descriptor.Lifetime == ServiceLifetime.Scoped)
             {
                 ServiceKey skey = new(serviceType, descriptor.ImplementationType ?? serviceType, key);
-                if (_scopedInstances.TryGetValue(skey, out object scoped))
+                if (_scopedInstances.TryGetValue(skey, out instance))
                 {
-                    TrackLifecycle(scoped, ServiceLifetime.Scoped);
-                    return scoped;
+                    TrackLifecycle(instance, ServiceLifetime.Scoped);
+                    return instance;
                 }
 
-                object instance = CreateInstance(descriptor, chain);
+                instance = CreateInstance(descriptor, chain);
                 _scopedInstances[skey] = instance;
-                TrackLifecycle(instance, ServiceLifetime.Scoped);
-                return instance;
+            }
+            else // Transient
+            {
+                return CreateInstance(descriptor, chain);
             }
 
-            return CreateInstance(descriptor, chain);
+            TrackLifecycle(instance, descriptor.Lifetime);
+            return instance;
         }
 
         private object CreateInstance(ServiceDescriptor descriptor, HashSet<Type> chain)
         {
             if (descriptor.Factory != null)
             {
-                object instance = descriptor.Factory(this);
-                InjectMembers(instance, chain);
-                return instance;
+                return descriptor.Factory(this);
             }
 
             if (descriptor.ImplementationType == null)
@@ -344,9 +339,7 @@ namespace Mu3Library.DI
                 {
                     if (TryBuildParameters(cachedCtor, chain, out object[] args))
                     {
-                        object instance = cachedCtor.Invoke(args);
-                        InjectMembers(instance, chain);
-                        return instance;
+                        return cachedCtor.Invoke(args);
                     }
                 }
             }
@@ -355,9 +348,7 @@ namespace Mu3Library.DI
             ConstructorInfo[] constructors = implementationType.GetConstructors();
             if (constructors.Length == 0)
             {
-                object instance = Activator.CreateInstance(implementationType);
-                InjectMembers(instance, chain);
-                return instance;
+                return Activator.CreateInstance(implementationType);
             }
 
             foreach (ConstructorInfo ctor in constructors.OrderByDescending(t => t.GetParameters().Length))
@@ -368,9 +359,7 @@ namespace Mu3Library.DI
                     {
                         _constructorCache[implementationType] = ctor;
                     }
-                    object instance = ctor.Invoke(args);
-                    InjectMembers(instance, chain);
-                    return instance;
+                    return ctor.Invoke(args);
                 }
             }
 
@@ -480,34 +469,8 @@ namespace Mu3Library.DI
                     return cached;
                 }
 
-                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                FieldInfo[] allFields = type.GetFields(flags);
-
-                // Pre-filter without intermediate list allocation
-                int count = 0;
-                for (int i = 0; i < allFields.Length; i++)
-                {
-                    FieldInfo field = allFields[i];
-                    if (field.GetCustomAttribute<InjectAttribute>() != null &&
-                        !field.IsInitOnly &&
-                        !field.IsStatic)
-                    {
-                        count++;
-                    }
-                }
-
-                FieldInfo[] result = new FieldInfo[count];
-                int index = 0;
-                for (int i = 0; i < allFields.Length; i++)
-                {
-                    FieldInfo field = allFields[i];
-                    if (field.GetCustomAttribute<InjectAttribute>() != null &&
-                        !field.IsInitOnly &&
-                        !field.IsStatic)
-                    {
-                        result[index++] = field;
-                    }
-                }
+                FieldInfo[] allFields = type.GetFields(MemberBindingFlags);
+                FieldInfo[] result = FilterInjectableMembers(allFields, IsInjectableField);
                 _injectableFieldsCache[type] = result;
                 return result;
             }
@@ -522,34 +485,8 @@ namespace Mu3Library.DI
                     return cached;
                 }
 
-                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                PropertyInfo[] allProperties = type.GetProperties(flags);
-
-                // Pre-filter without intermediate list allocation
-                int count = 0;
-                for (int i = 0; i < allProperties.Length; i++)
-                {
-                    PropertyInfo property = allProperties[i];
-                    if (property.GetCustomAttribute<InjectAttribute>() != null &&
-                        property.CanWrite &&
-                        property.GetIndexParameters().Length == 0)
-                    {
-                        count++;
-                    }
-                }
-
-                PropertyInfo[] result = new PropertyInfo[count];
-                int index = 0;
-                for (int i = 0; i < allProperties.Length; i++)
-                {
-                    PropertyInfo property = allProperties[i];
-                    if (property.GetCustomAttribute<InjectAttribute>() != null &&
-                        property.CanWrite &&
-                        property.GetIndexParameters().Length == 0)
-                    {
-                        result[index++] = property;
-                    }
-                }
+                PropertyInfo[] allProperties = type.GetProperties(MemberBindingFlags);
+                PropertyInfo[] result = FilterInjectableMembers(allProperties, IsInjectableProperty);
                 _injectablePropertiesCache[type] = result;
                 return result;
             }
@@ -558,6 +495,49 @@ namespace Mu3Library.DI
         internal void InjectInto(object instance)
         {
             InjectMembers(instance, new HashSet<Type>());
+        }
+
+        private static T[] FilterInjectableMembers<T>(T[] members, Func<T, bool> predicate) where T : MemberInfo
+        {
+            // Two-pass approach: count first, then allocate exact size
+            int count = 0;
+            for (int i = 0; i < members.Length; i++)
+            {
+                if (predicate(members[i]))
+                {
+                    count++;
+                }
+            }
+
+            if (count == 0)
+            {
+                return Array.Empty<T>();
+            }
+
+            T[] result = new T[count];
+            int index = 0;
+            for (int i = 0; i < members.Length; i++)
+            {
+                if (predicate(members[i]))
+                {
+                    result[index++] = members[i];
+                }
+            }
+            return result;
+        }
+
+        private static bool IsInjectableField(FieldInfo field)
+        {
+            return field.GetCustomAttribute<InjectAttribute>() != null &&
+                   !field.IsInitOnly &&
+                   !field.IsStatic;
+        }
+
+        private static bool IsInjectableProperty(PropertyInfo property)
+        {
+            return property.GetCustomAttribute<InjectAttribute>() != null &&
+                   property.CanWrite &&
+                   property.GetIndexParameters().Length == 0;
         }
 
         private object ResolveFromCore(Type coreType, Type serviceType, string key)

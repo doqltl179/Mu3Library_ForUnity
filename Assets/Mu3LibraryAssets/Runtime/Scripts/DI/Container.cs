@@ -174,10 +174,7 @@ namespace Mu3Library.DI
 
             // For default key (null/empty), check if implementation type already has an instance
             // This ensures all interfaces of same implementation share the same singleton
-            bool hasImplementationType = key.ImplementationType != null;
-            bool isDefaultKey = string.IsNullOrEmpty(key.Key);
-
-            if (hasImplementationType && isDefaultKey)
+            if (key.ImplementationType != null && string.IsNullOrEmpty(key.Key))
             {
                 if (_implementationSingletons.TryGetValue(key.ImplementationType, out instance))
                 {
@@ -190,9 +187,11 @@ namespace Mu3Library.DI
             // No existing instance found - create new one
             instance = factory();
 
-            // Cache in both dictionaries for default key
+            // Cache for future lookups
             _singletons[key] = instance;
-            if (hasImplementationType && isDefaultKey)
+            
+            // Also cache by implementation type for default key to enable instance sharing
+            if (key.ImplementationType != null && string.IsNullOrEmpty(key.Key))
             {
                 _implementationSingletons[key.ImplementationType] = instance;
             }
