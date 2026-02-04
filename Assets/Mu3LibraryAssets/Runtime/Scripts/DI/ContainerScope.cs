@@ -482,19 +482,32 @@ namespace Mu3Library.DI
 
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
                 FieldInfo[] allFields = type.GetFields(flags);
-                List<FieldInfo> injectableFields = new List<FieldInfo>();
 
-                foreach (FieldInfo field in allFields)
+                // Pre-filter without intermediate list allocation
+                int count = 0;
+                for (int i = 0; i < allFields.Length; i++)
                 {
+                    FieldInfo field = allFields[i];
                     if (field.GetCustomAttribute<InjectAttribute>() != null &&
                         !field.IsInitOnly &&
                         !field.IsStatic)
                     {
-                        injectableFields.Add(field);
+                        count++;
                     }
                 }
 
-                FieldInfo[] result = injectableFields.ToArray();
+                FieldInfo[] result = new FieldInfo[count];
+                int index = 0;
+                for (int i = 0; i < allFields.Length; i++)
+                {
+                    FieldInfo field = allFields[i];
+                    if (field.GetCustomAttribute<InjectAttribute>() != null &&
+                        !field.IsInitOnly &&
+                        !field.IsStatic)
+                    {
+                        result[index++] = field;
+                    }
+                }
                 _injectableFieldsCache[type] = result;
                 return result;
             }
@@ -511,19 +524,32 @@ namespace Mu3Library.DI
 
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
                 PropertyInfo[] allProperties = type.GetProperties(flags);
-                List<PropertyInfo> injectableProperties = new List<PropertyInfo>();
 
-                foreach (PropertyInfo property in allProperties)
+                // Pre-filter without intermediate list allocation
+                int count = 0;
+                for (int i = 0; i < allProperties.Length; i++)
                 {
+                    PropertyInfo property = allProperties[i];
                     if (property.GetCustomAttribute<InjectAttribute>() != null &&
                         property.CanWrite &&
                         property.GetIndexParameters().Length == 0)
                     {
-                        injectableProperties.Add(property);
+                        count++;
                     }
                 }
 
-                PropertyInfo[] result = injectableProperties.ToArray();
+                PropertyInfo[] result = new PropertyInfo[count];
+                int index = 0;
+                for (int i = 0; i < allProperties.Length; i++)
+                {
+                    PropertyInfo property = allProperties[i];
+                    if (property.GetCustomAttribute<InjectAttribute>() != null &&
+                        property.CanWrite &&
+                        property.GetIndexParameters().Length == 0)
+                    {
+                        result[index++] = property;
+                    }
+                }
                 _injectablePropertiesCache[type] = result;
                 return result;
             }
@@ -598,12 +624,13 @@ namespace Mu3Library.DI
 
         private object CreateEnumerable(Type elementType, string key)
         {
-            IEnumerable<object> list = ResolveAll(elementType, key);
-            Array array = Array.CreateInstance(elementType, list.Count());
-            int index = 0;
-            foreach (object item in list)
+            IEnumerable<object> enumerable = ResolveAll(elementType, key);
+            // Convert to list first to avoid multiple enumeration
+            List<object> list = enumerable as List<object> ?? enumerable.ToList();
+            Array array = Array.CreateInstance(elementType, list.Count);
+            for (int i = 0; i < list.Count; i++)
             {
-                array.SetValue(item, index++);
+                array.SetValue(list[i], i);
             }
 
             return array;

@@ -163,11 +163,24 @@ namespace Mu3Library.UI.MVP
         {
             CleanupDestroyedPresenters();
 
-            var paramList = Enumerable.Empty<PresenterParams>()
-                .Concat(_openedPresenters)
-                .Concat(_presenterOpenChecker)
-                .Where(t => t.Presenter.CanvasLayerName != "Default")
-                .ToArray();
+            // Pre-allocate list with capacity estimate to reduce allocations
+            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+
+            for (int i = 0; i < _openedPresenters.Count; i++)
+            {
+                if (_openedPresenters[i].Presenter.CanvasLayerName != "Default")
+                {
+                    paramList.Add(_openedPresenters[i]);
+                }
+            }
+
+            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            {
+                if (_presenterOpenChecker[i].Presenter.CanvasLayerName != "Default")
+                {
+                    paramList.Add(_presenterOpenChecker[i]);
+                }
+            }
 
             CloseAll(paramList, forceClose);
         }
@@ -176,10 +189,10 @@ namespace Mu3Library.UI.MVP
         {
             CleanupDestroyedPresenters();
 
-            var paramList = Enumerable.Empty<PresenterParams>()
-                .Concat(_openedPresenters)
-                .Concat(_presenterOpenChecker)
-                .ToArray();
+            // Pre-allocate list with exact capacity to avoid allocations
+            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+            paramList.AddRange(_openedPresenters);
+            paramList.AddRange(_presenterOpenChecker);
 
             CloseAll(paramList, forceClose);
         }
@@ -199,11 +212,24 @@ namespace Mu3Library.UI.MVP
 
             CleanupDestroyedPresenters();
 
-            var paramList = Enumerable.Empty<PresenterParams>()
-                .Concat(_openedPresenters)
-                .Concat(_presenterOpenChecker)
-                .Where(t => layerNameSet.Contains(t.Presenter.CanvasLayerName))
-                .ToArray();
+            // Pre-allocate list with capacity estimate
+            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+
+            for (int i = 0; i < _openedPresenters.Count; i++)
+            {
+                if (layerNameSet.Contains(_openedPresenters[i].Presenter.CanvasLayerName))
+                {
+                    paramList.Add(_openedPresenters[i]);
+                }
+            }
+
+            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            {
+                if (layerNameSet.Contains(_presenterOpenChecker[i].Presenter.CanvasLayerName))
+                {
+                    paramList.Add(_presenterOpenChecker[i]);
+                }
+            }
 
             CloseAll(paramList, forceClose);
         }
@@ -333,7 +359,7 @@ namespace Mu3Library.UI.MVP
 
         #endregion
 
-        private void CloseAll(PresenterParams[] paramList, bool forceClose = false)
+        private void CloseAll(List<PresenterParams> paramList, bool forceClose = false)
         {
             bool isCloseExcuted = false;
 

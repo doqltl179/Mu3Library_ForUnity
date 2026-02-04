@@ -117,7 +117,7 @@ namespace Mu3Library.UI.MVP.Animation
 
         private IEnumerator AnimationCoroutine(float factorFrom, float factorTo, AnimationState endState, IEnumerable<AnimateFunc> animateFunc)
         {
-            if (animateFunc == null || animateFunc.Count() == 0)
+            if (animateFunc == null || !animateFunc.Any())
             {
                 _timeFactor = factorTo;
                 _state = endState;
