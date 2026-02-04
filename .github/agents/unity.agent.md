@@ -70,16 +70,15 @@ protected override void ConfigureContainer(ContainerScope scope)
 When service classes implement the following interfaces, their lifecycle methods are automatically invoked:
 
 - **IInitializable**: `Initialize()` - Service initialization point
-- **IUpdatable**: `OnUpdate()` - Called every frame (Update)
-- **IFixedUpdatable**: `OnFixedUpdate()` - Called on FixedUpdate
-- **ILateUpdatable**: `OnLateUpdate()` - Called on LateUpdate
+- **IUpdatable**: `Update()` - Called every frame (Update)
+- **ILateUpdatable**: `LateUpdate()` - Called on LateUpdate
 - **IDisposable**: `Dispose()` - Service disposal point
 
 ```csharp
 public class GameStateManager : IInitializable, IUpdatable, IDisposable
 {
     public void Initialize() { /* Initialization logic */ }
-    public void OnUpdate() { /* Update logic */ }
+    public void Update() { /* Update logic */ }
     public void Dispose() { /* Cleanup logic */ }
 }
 ```
