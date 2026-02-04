@@ -252,9 +252,29 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.1.9)
+## 📝 최근 업데이트 (v0.1.10)
 
-**Runtime:**
+**DI 시스템:**
+- Core를 통해 클래스를 받을 때 하나의 클래스에 여러 interface가 적용되어 있어도 동일한 instance를 사용하도록 개선
+- DI 코드 최적화 및 리팩토링
+- Collection을 readonly로 변경하여 안정성 향상
+
+**Extensions:**
+- CameraExtensions 추가 - 카메라 프로퍼티 복사 기능
+- int 타입의 비트 연산 Extensions 추가
+- `Overwrite` 함수명을 `CopyTo`로 변경하고 각각의 Extensions로 기능 이전
+
+**Scene/Resource 관리:**
+- SceneLoader.Addressables의 OnSceneLoadEnd 이벤트 호출 구간 수정
+- LoadingCount 제공 추가
+- LoadAllAsync 함수 추가 및 제네릭 타입 수정
+
+**UI/MVP:**
+- MVP Canvas 기본 세팅값 수정
+- 함수 인자 선언 구조 개선
+- Callback 함수와 UniTask 함수의 이름 구조 개선
+
+**이전 업데이트 (v0.1.9):**
 - Addressables LoadAssets 캐시가 타입별로 분리되도록 개선
 - Localization 초기화 Progress 이벤트 및 UniTask API 추가
 - Resource LoadAll 캐시가 타입별로 분리되도록 개선
@@ -279,7 +299,7 @@ protected override void Start()
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.9`
+- Version: `0.1.10`
 
 Made with ❤️ for Unity Developers
 
