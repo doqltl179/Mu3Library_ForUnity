@@ -2,9 +2,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 using IDisposable = System.IDisposable;
+
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+using UnityEngine.InputSystem.UI;
+#endif
 
 namespace Mu3Library.UI.MVP
 {
@@ -22,6 +27,7 @@ namespace Mu3Library.UI.MVP
                 if (m_root == null)
                 {
                     m_root = new GameObject("MVPManagerRoot");
+
                     Object.DontDestroyOnLoad(m_root);
                 }
 
@@ -30,6 +36,67 @@ namespace Mu3Library.UI.MVP
         }
 
         private Transform _rootTransform => _root.transform;
+
+        private static string[] m_sortingLayers = null;
+        private static string[] _sortingLayers
+        {
+            get
+            {
+                if (m_sortingLayers == null)
+                {
+                    m_sortingLayers = SortingLayer.layers.Select(t => t.name).ToArray();
+                }
+
+                return m_sortingLayers;
+            }
+        }
+        public IEnumerable<string> SortingLayers => _sortingLayers;
+
+        private static readonly Dictionary<string, int> m_sortingLayerOrderMap = new();
+        private static Dictionary<string, int> _sortingLayerOrderMap
+        {
+            get
+            {
+                if (m_sortingLayerOrderMap.Count == 0)
+                {
+                    for (int i = 0; i < _sortingLayers.Length; i++)
+                    {
+                        m_sortingLayerOrderMap.Add(_sortingLayers[i], i);
+                    }
+                }
+
+                return m_sortingLayerOrderMap;
+            }
+        }
+
+        private EventSystem m_eventSystem = null;
+        private EventSystem _eventSystem
+        {
+            get
+            {
+                if (m_eventSystem == null)
+                {
+                    m_eventSystem = EventSystem.current;
+                    if (m_eventSystem == null)
+                    {
+                        List<System.Type> components = new List<System.Type>();
+                        components.Add(typeof(EventSystem));
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+                        components.Add(typeof(InputSystemUIInputModule));
+#else
+                        components.Add(typeof(StandaloneInputModule));
+#endif
+                        GameObject go = new GameObject("EventSystem", components.ToArray());
+                        m_eventSystem = go.GetComponent<EventSystem>();
+
+                        Object.DontDestroyOnLoad(go);
+                    }
+                }
+
+                return m_eventSystem;
+            }
+        }
+        public EventSystem EventSystem => _eventSystem;
 
         private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 
@@ -357,6 +424,25 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
+        public void ClearEventSystem()
+        {
+            if (_eventSystem == null)
+            {
+                Debug.LogError("EventSystem cannot be null. The system is designed to ensure at least one EventSystem exists.");
+                return;
+            }
+
+            var eventSystems = MonoBehaviour.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var es in eventSystems)
+            {
+                if (es == _eventSystem)
+                {
+                    continue;
+                }
+
+                Object.Destroy(es.gameObject);
+            }
+        }
         #endregion
 
         private void CloseAll(List<PresenterParams> paramList, bool forceClose = false)
@@ -390,8 +476,8 @@ namespace Mu3Library.UI.MVP
                     continue;
                 }
 
-                int frontLayerOrder = MVPCanvasUtil.GetSortingLayerOrder(mostFront.Presenter.CanvasLayerName);
-                int compareLayerOrder = MVPCanvasUtil.GetSortingLayerOrder(param.Presenter.CanvasLayerName);
+                int frontLayerOrder = GetSortingLayerOrder(mostFront.Presenter.CanvasLayerName);
+                int compareLayerOrder = GetSortingLayerOrder(param.Presenter.CanvasLayerName);
                 if (frontLayerOrder < compareLayerOrder)
                 {
                     mostFront = param;
@@ -565,5 +651,14 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
+        private static int GetSortingLayerOrder(string layerName)
+        {
+            if (_sortingLayerOrderMap.TryGetValue(layerName, out int order))
+            {
+                return order;
+            }
+
+            return -1;
+        }
     }
 }

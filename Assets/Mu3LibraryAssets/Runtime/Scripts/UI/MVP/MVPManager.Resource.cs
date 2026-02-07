@@ -24,7 +24,7 @@ namespace Mu3Library.UI.MVP
             }
             else
             {
-                SetCanvasSettings(layerCanvas, settings, layerName);
+                ApplyMVPCanvasSettings(layerCanvas.gameObject, settings, layerName);
             }
         }
 
@@ -44,7 +44,7 @@ namespace Mu3Library.UI.MVP
                 Canvas canvas = viewResource.GetComponent<Canvas>();
                 _viewLayerMap.Add(
                     type,
-                    canvas != null ? canvas.sortingLayerName : MVPCanvasUtil.SortingLayers[0]);
+                    canvas != null ? canvas.sortingLayerName : _sortingLayers[0]);
             }
             else
             {
@@ -63,12 +63,12 @@ namespace Mu3Library.UI.MVP
 
         private Canvas CreateLayerCanvas(string layerName, MVPCanvasSettings settings)
         {
-            GameObject go = new GameObject(
-                $"Canvas_{layerName}",
-                new System.Type[] { typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster) });
+            GameObject go = new GameObject($"Canvas_{layerName}");
             go.transform.SetParent(_rootTransform);
 
-            return MVPCanvasUtil.ApplyCanvasSettings(go, settings, _renderCamera, layerName);
+            ApplyMVPCanvasSettings(go, settings, layerName);
+
+            return go.GetComponent<Canvas>();
         }
 
         private TView CreateView<TView>(Canvas layerCanvas) where TView : View
@@ -108,24 +108,89 @@ namespace Mu3Library.UI.MVP
             if (!_viewLayerMap.TryGetValue(viewType, out string layerName))
             {
                 Debug.LogWarning($"View layer not registered. type: {viewType}");
-                return MVPCanvasUtil.SortingLayers.Length > 0
-                    ? MVPCanvasUtil.SortingLayers[0]
+                return _sortingLayers.Length > 0
+                    ? _sortingLayers[0]
                     : string.Empty;
             }
 
             return layerName;
         }
 
-        private void SetCanvasSettings(Canvas canvas, MVPCanvasSettings settings, string sortingLayerNameOverride = null)
+        private void ApplyMVPCanvasSettings(GameObject go, MVPCanvasSettings settings, string sortingLayerNameOverride = null)
+        {
+            Canvas canvas = go.GetOrAddComponent<Canvas>();
+            ApplyCanvasSettings(canvas, settings.CanvasSettings, sortingLayerNameOverride);
+
+            CanvasScaler scaler = go.GetOrAddComponent<CanvasScaler>();
+            ApplyScalerSettings(scaler, settings.CanvasScalerSettings);
+
+            GraphicRaycaster graphicRaycaster = go.GetOrAddComponent<GraphicRaycaster>();
+            ApplyGraphicRaycasterSettings(graphicRaycaster, settings.GraphicRaycasterSettings);
+        }
+
+        private void ApplyCanvasSettings(
+            Canvas canvas,
+            CanvasSettings settings,
+            string sortingLayerNameOverride = null)
         {
             if (canvas == null)
             {
+                Debug.LogWarning("Exist null object.");
                 return;
             }
 
-            MVPCanvasUtil.ApplyCanvasSettings(canvas, settings, _renderCamera, sortingLayerNameOverride);
-            MVPCanvasUtil.ApplyScalerSettings(canvas.gameObject, settings);
-            MVPCanvasUtil.GetOrAddGraphicRaycaster(canvas.gameObject);
+            canvas.renderMode = settings.RenderMode;
+            canvas.sortingLayerName = string.IsNullOrEmpty(sortingLayerNameOverride)
+                ? settings.SortingLayerName
+                : sortingLayerNameOverride;
+            canvas.sortingOrder = settings.SortingOrder;
+            canvas.planeDistance = settings.PlaneDistance;
+
+            switch (settings.RenderMode)
+            {
+                case RenderMode.ScreenSpaceCamera:
+                case RenderMode.WorldSpace:
+                    canvas.worldCamera = _renderCamera != null ?
+                        _renderCamera :
+                        Camera.main;
+                    break;
+                case RenderMode.ScreenSpaceOverlay:
+                    canvas.worldCamera = null;
+                    break;
+            }
+        }
+
+        private void ApplyScalerSettings(CanvasScaler canvasScaler, CanvasScalerSettings settings)
+        {
+            if (canvasScaler == null)
+            {
+                Debug.LogWarning("Exist null object.");
+                return;
+            }
+
+            canvasScaler.uiScaleMode = settings.UIScaleMode;
+            canvasScaler.referenceResolution = settings.Resolution != default
+                ? settings.Resolution
+                : new Vector2(1920, 1080);
+            canvasScaler.screenMatchMode = settings.ScreenMatchMode;
+            canvasScaler.matchWidthOrHeight = settings.MatchWidthOrHeight;
+            canvasScaler.physicalUnit = settings.PhysicalUnit;
+            canvasScaler.fallbackScreenDPI = settings.FallbackScreenDPI;
+            canvasScaler.defaultSpriteDPI = settings.SpriteDPI;
+            canvasScaler.scaleFactor = settings.ScaleFactor;
+        }
+
+        private void ApplyGraphicRaycasterSettings(GraphicRaycaster graphicRaycaster, GraphicRaycasterSettings settings)
+        {
+            if (graphicRaycaster == null)
+            {
+                Debug.LogWarning("Exist null object.");
+                return;
+            }
+
+            graphicRaycaster.ignoreReversedGraphics = settings.IgnoreReversedGraphics;
+            graphicRaycaster.blockingObjects = settings.BlockingObjects;
+            graphicRaycaster.blockingMask = settings.BlockingMask;
         }
     }
 }
