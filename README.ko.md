@@ -1,9 +1,15 @@
 # Mu3Library For Unity
 
-> **Languages**: [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
+<div align="center">
+
+### 🌐 Language
+
+[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+</div>
 
 **Mu3Library**는 Unity 프로젝트를 위한 모듈화된 아키텍처 프레임워크입니다. 커스텀 DI(Dependency Injection) 시스템과 MVP(Model-View-Presenter) UI 패턴을 중심으로, 확장 가능하고 유지보수가 쉬운 게임 개발을 지원합니다.
 
