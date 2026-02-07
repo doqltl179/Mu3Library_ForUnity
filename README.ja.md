@@ -1,0 +1,311 @@
+# Mu3Library For Unity
+
+> **Languages**: [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
+
+[![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Mu3Library**は、Unityプロジェクト向けのモジュール化されたアーキテクチャフレームワークです。カスタムDI（Dependency Injection）システムとMVP（Model-View-Presenter）UIパターンを中心に、拡張可能で保守しやすいゲーム開発をサポートします。
+
+## ✨ 主な特徴
+
+- 🏗 **モジュール化されたCoreシステム**: 独立した`CoreBase`による明確な責任分離
+- 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムをサポート
+- 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
+- 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localizationの条件付き有効化
+- 🎵 **Audioシステム**: BGM/SFX分離管理とボリューム制御
+- 🌐 **WebRequest**: HTTP GET/POST、ダウンロードサイズクエリ、UniTaskサポート
+- 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
+- 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
+
+## 📋 要件
+
+- Unity 6 (6000.0+)
+- .NET Standard 2.1
+
+## 📦 インストール方法
+
+### Option 1: Package Manager (Git URL)
+1. Unity Editorで`Window` > `Package Manager`を開きます
+2. `+`ボタンをクリック > `Add package from git URL...`
+3. 以下のURLを入力:
+   ```
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   ```
+
+### Option 2: Package Manager (Local Disk)
+1. このリポジトリをクローンします
+2. Unity Editorで`Window` > `Package Manager`を開きます
+3. `+`ボタン > `Add package from disk...`をクリック
+4. `Assets/Mu3LibraryAssets/package.json`を選択
+
+## 📚 コアモジュール
+
+### DI (Dependency Injection)
+カスタムDIコンテナがサービス登録と依存性注入を自動化します。
+
+```csharp
+using Mu3Library.DI;
+
+public class AudioCore : CoreBase
+{
+    protected override void ConfigureContainer(ContainerScope scope)
+    {
+        // シングルトンとして登録
+        scope.Register<IAudioManager, AudioManager>(ServiceLifetime.Singleton);
+    }
+}
+
+public class GameCore : CoreBase
+{
+    // 自動注入（同じCore内）
+    [Inject] private IAudioManager _audioManager;
+
+    // 異なるCoreからの注入
+    [Inject(typeof(UICore))] private IMVPManager _mvpManager;
+
+    protected override void Start()
+    {
+        base.Start(); // 注入が先に実行される必要があります！
+        _audioManager.PlayBGM("MainTheme");
+    }
+}
+```
+
+### MVP (Model-View-Presenter)
+UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
+
+```csharp
+// Model: データコンテナ
+public class MainMenuModel : Model<MainMenuArgs>
+{
+    public string PlayerName { get; set; }
+}
+
+// View: Unityコンポーネント参照
+public class MainMenuView : View
+{
+    [SerializeField] private Button _startButton;
+    [SerializeField] private TextMeshProUGUI _titleText;
+
+    public Button StartButton => _startButton;
+    public TextMeshProUGUI TitleText => _titleText;
+}
+
+// Presenter: ビジネスロジック
+public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
+{
+    protected override void LoadFunc()
+    {
+        _view.StartButton.onClick.AddListener(OnStartClicked);
+        _view.TitleText.text = $"Welcome, {_model.PlayerName}";
+    }
+
+    protected override void OpenFunc()
+    {
+        // オープンアニメーションなど
+    }
+
+    private void OnStartClicked()
+    {
+        // ゲーム開始ロジック
+    }
+}
+
+// 使用方法
+_mvpManager.LoadAndOpen<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+```
+
+### Audioシステム
+BGMとSFXを分離管理し、ボリューム制御をサポートします。
+
+```csharp
+[Inject] private IAudioManager _audioManager;
+
+void Start()
+{
+    // ボリューム設定
+    _audioManager.MasterVolume = 0.8f;
+    _audioManager.BgmVolume = 0.6f;
+
+    // BGM再生
+    _audioManager.PlayBgm(bgmClip, fadeTime: 1.0f);
+
+    // SFX再生
+    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+}
+```
+
+### WebRequest
+HTTPリクエストを簡単に処理します。
+
+```csharp
+[Inject] private IWebRequestManager _webRequest;
+
+// GETリクエスト
+_webRequest.Get<string>("https://api.example.com/data", response =>
+{
+    Debug.Log(response);
+});
+
+// POSTリクエスト
+var requestBody = new { username = "player", score = 100 };
+_webRequest.Post<object, ServerResponse>("https://api.example.com/submit", requestBody, response =>
+{
+    Debug.Log($"Success: {response.message}");
+});
+
+// UniTaskサポート（MU3LIBRARY_UNITASK_SUPPORT有効時）
+var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+```
+
+### Observableパターン
+値の変更を検出し、イベントを発行します。
+
+```csharp
+public class PlayerData
+{
+    public ObservableInt Health = new ObservableInt();
+    public ObservableString PlayerName = new ObservableString();
+}
+
+// イベント購読
+_playerData.Health.AddEvent(newHealth =>
+{
+    Debug.Log($"Health changed: {newHealth}");
+    UpdateHealthUI(newHealth);
+});
+
+// 値変更（自動的にイベント発行）
+_playerData.Health.Set(80);
+```
+
+## 🔧 オプションパッケージ
+
+以下のパッケージがインストールされると、該当機能が自動的に有効になります:
+
+| パッケージ | Define | 機能 |
+|-------|--------|------|
+| [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await非同期API |
+| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 動的アセットロード |
+| Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
+| Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
+
+## 📖 全モジュールリスト
+
+- **Addressable**: Addressables統合（オプション）
+- **Attribute**: `ConditionalHideAttribute`などのカスタム属性
+- **Audio**: BGM/SFX管理システム
+- **DI**: Dependency Injectionコンテナ
+- **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
+- **Localization**: Unity Localizationラッパー（オプション）
+- **ObjectPool**: ジェネリックオブジェクトプーリング
+- **Observable**: データ変更検出システム
+- **Preference**: PlayerPrefsラッパー
+- **Resource**: Resourcesフォルダローディング
+- **Scene**: シーンローディング抽象化
+- **UI**: MVPパターン実装
+- **Utility**: Singleton、EasingFunctions、Settings
+- **WebRequest**: HTTPリクエスト管理
+
+## 🎓 サンプル
+
+Package Managerの**Samples**タブから以下のサンプルをインポートできます:
+
+- **Sample_Template**: 基本的なCore構造と使用例
+- **Sample_Attribute**: ConditionalHideの使用方法
+- **Sample_UtilWindow**: カスタムエディターウィンドウ
+
+または、プロジェクト内の`Assets/Mu3LibrarySamples`フォルダを参照してください。
+
+**Sample_Template 主要構成:**
+- Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D
+- Localization: Locales（KO/JA/EN）、String Tableサンプル
+- Resources: MVPサンプル用のPrefabと設定
+- Materials: デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）
+
+## 🏗 アーキテクチャ概要
+
+### Coreシステム
+各`CoreBase`は独立したDIコンテナ（`ContainerScope`）を所有し、`CoreRoot`がライフサイクルを管理します。
+
+```
+CoreRoot (Singleton)
+├── AudioCore (独立ContainerScope)
+│   └── AudioManager, BgmController, SfxController
+├── UICore (独立ContainerScope)
+│   └── MVPManager, Presenters...
+└── NetworkCore (独立ContainerScope)
+    └── WebRequestManager
+```
+
+### クロスCore通信
+異なるCoreのサービスにアクセスするには:
+
+```csharp
+// 方法1: Start()で手動取得
+protected override void Start()
+{
+    base.Start();
+    _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
+}
+
+// 方法2: Inject属性（CoreBase専用）
+[Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+```
+
+## 📝 最近の更新 (v0.1.11)
+
+**UI/MVP:**
+- MVPCanvasUtilを削除しMVPManagerに統合 - よりクリーンなAPI
+- MVPCanvasSettingsの改善 - settings分割による柔軟性向上
+
+**Audioシステム:**
+- AudioSourceSettingsの改善とAudioControllerの更新
+- 3D Audioサンプル追加 - Sample_Audio3DシーンとMouseClickHandlerの例
+  - Scenes: Sample_Audio3D.unity
+  - Scripts: SampleAudio3DCore、MouseClickHandler
+  - サムネイル追加
+
+**Extensions:**
+- GameObjectExtensionに`SetLayerWithChildren`関数を追加 - 子オブジェクトまでレイヤー一括設定
+
+**Materials:**
+- デフォルトカラーマテリアル追加 - Black、Blue、Green、Magenta、Red、White
+- Runtime/Materialsフォルダですぐに使用可能
+
+**バグ修正:**
+- DIクラスのライフサイクルバグ修正（ContainerScope、CoreBase）
+
+**以前の更新 (v0.1.10):**
+- Coreを通じてクラスを取得する際、1つのクラスに複数のinterfaceが適用されていても同じinstanceを使用するよう改善
+- DIコードの最適化とリファクタリング
+- Collectionをreadonlyに変更し安定性向上
+- CameraExtensions追加 - カメラプロパティコピー機能
+- int型のビット演算Extensions追加
+- MVP Canvasのデフォルト設定値を修正
+
+## 🤝 貢献
+
+IssueとPull Requestを歓迎します！以下の点にご注意ください:
+- **コーディングスタイル**: プライベートフィールドは`_camelCase`、Allmanブレースを使用
+- **コミットメッセージ**: 明確な説明（例: `feat: Add retry logic to WebRequest`）
+- **テスト**: 可能な限りテストコードを含める
+
+## 📄 ライセンス
+
+このプロジェクトはMITライセンスに従います。
+
+## 📞 お問い合わせ
+
+- **GitHub Issues**: [https://github.com/doqltl179/Mu3Library_ForUnity/issues](https://github.com/doqltl179/Mu3Library_ForUnity/issues)
+- **Author**: Mu3 ([GitHub](https://github.com/doqltl179))
+
+---
+
+**Package Info:**
+- Name: `com.github.doqltl179.mu3libraryassets.base`
+- Version: `0.1.11`
+
+Made with ❤️ for Unity Developers
