@@ -99,7 +99,8 @@ namespace Mu3Library.Audio
             _source.clip = clip;
         }
 
-        public void Play() {
+        public void Play()
+        {
             _isPaused = false;
             _source.Play();
         }
@@ -127,33 +128,11 @@ namespace Mu3Library.Audio
             _source.priority = settings.Priority;
             _source.pitch = settings.Pitch;
             _source.panStereo = settings.StereoPan;
-            _source.spatialBlend = settings.SpatialBlend;
-            _source.reverbZoneMix = settings.ReverbZoneMix;
         }
 
         public void SetAudioParameters(Audio3dSoundSettings settings)
         {
-            _source.dopplerLevel = settings.DopplerLevel;
-            _source.spread = settings.Spread;
-
-            if (settings.AudioSourceCurveType != null && settings.AudioSourceCurve != null)
-            {
-                _source.SetCustomCurve(settings.AudioSourceCurveType.Value, settings.AudioSourceCurve);
-            }
-            else
-            {
-                if (settings.AudioSourceCurve != null)
-                {
-                    _source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, settings.AudioSourceCurve);
-                }
-                else
-                {
-                    _source.rolloffMode = AudioRolloffMode.Linear;
-                }
-            }
-
-            _source.minDistance = settings.MinDistance;
-            _source.maxDistance = settings.MaxDistance;
+            settings.WriteToTarget(_source);
         }
 
         public bool IsSameClip(AudioClip clip)
