@@ -50,6 +50,8 @@ namespace Mu3Library.Scene
         public event Action<string> OnSceneLoadStart;
         public event Action<string> OnSceneLoadEnd;
         public event Action<string, float> OnSceneLoadProgress;
+        public event Action<string> OnAdditiveSceneUnloadStart;
+        public event Action<string> OnAdditiveSceneUnloadEnd;
 
 
 
@@ -165,6 +167,10 @@ namespace Mu3Library.Scene
                 Debug.LogWarning($"Additive scene unload already in progress. reason=AdditiveInProgress sceneName: {sceneName}");
                 return;
             }
+
+            Debug.Log($"Unload additive scene start. sceneName: {sceneName}");
+            _loadingCount++;
+            OnAdditiveSceneUnloadStart?.Invoke(sceneName);
 
             AsyncOperation ao = SceneManager.UnloadSceneAsync(sceneName);
             ao.allowSceneActivation = false;
@@ -298,7 +304,11 @@ namespace Mu3Library.Scene
                     continue;
                 }
 
-                _currentAdditiveScenes.Remove(pair.Value.SceneName);
+                string sceneName = pair.Value.SceneName;
+                Debug.Log($"Unload additive scene end. sceneName: {sceneName}");
+
+                _currentAdditiveScenes.Remove(sceneName);
+                _loadingCount--;
 
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
@@ -312,6 +322,7 @@ namespace Mu3Library.Scene
             foreach (string sceneName in completed)
             {
                 _unloadAdditiveSceneOperations.Remove(sceneName);
+                OnAdditiveSceneUnloadEnd?.Invoke(sceneName);
             }
         }
 
