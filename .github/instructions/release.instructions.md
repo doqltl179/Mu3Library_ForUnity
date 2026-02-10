@@ -26,4 +26,4 @@ When user-facing behavior or API changes:
 2. Changelog entries included.
 3. Public API compatibility checked.
 4. Optional integration gates validated.
-5. Basic compile/test verification completed or gaps reported.
+5. Basic compile/verification completed or gaps reported.

@@ -24,7 +24,7 @@ name: "Mu3Library Reviewer"
 
 ## Verification Expectations
 
-- Request evidence of compile/test verification for touched modules.
+- Request evidence of compile/verification for touched modules.
 - If verification is incomplete, require explicit risk acknowledgment.
 
 ## Mandatory Review Triggers

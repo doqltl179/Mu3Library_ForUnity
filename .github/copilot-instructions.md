@@ -15,7 +15,7 @@ This file is the central entry point for instruction routing.
 1. `.github/agents/task-planner.agent.md`
 2. `.github/agents/unity.agent.md`
 3. `.github/instructions/unity.instructions.md`
-4. `.github/instructions/testing.instructions.md` (when verification is needed)
+4. `.github/instructions/verification.instructions.md` (when compile/safety verification is needed)
 5. `.github/instructions/release.instructions.md` (when release/version/changelog is affected)
 6. `.github/instructions/docs-sync.instructions.md` (when README/CHANGELOG updates are needed)
 7. `.github/agents/reviewer.agent.md` (when review/audit style output is requested)

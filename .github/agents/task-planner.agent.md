@@ -41,7 +41,7 @@ You are responsible for planning, sequencing, and reporting task execution.
 |---|------|--------|---------|
 | 1 | Analyze requirements | Not Started | Review target files |
 | 2 | Implement changes | Not Started | Apply minimal edits |
-| 3 | Verify changes | Not Started | Build/test or static checks |
+| 3 | Verify changes | Not Started | Build or static checks |
 | 4 | Final report | Not Started | Summarize changes and risks |
 ```
 
@@ -63,7 +63,7 @@ You are responsible for planning, sequencing, and reporting task execution.
 
 - Verify impacted areas after changes.
 - If complete verification cannot run, state what was not verified and why.
-- Never claim success for tests/build that were not run.
+- Never claim success for checks/build that were not run.
 
 ## When a Plan Can Be Minimal
 

@@ -62,5 +62,5 @@ Prioritize package quality, consistency, and stable public APIs.
 ## Verification Expectations
 
 - Validate compile impact on touched assemblies.
-- Run available tests/checks relevant to changed modules.
+- Run available checks relevant to changed modules.
 - If verification cannot be run, state the gap explicitly.
