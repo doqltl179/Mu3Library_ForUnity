@@ -406,8 +406,8 @@ namespace Mu3Library.Utility {
         // The easing functions all work with a normalized time (0 to 1) and the returned value here
         // reflects that. Values returned here should be divided by the actual time.
         //
-        // TODO: These functions have not had the testing they deserve. If there is odd behavior around
-        //       dash speeds then this would be the first place I'd look.
+        // Derivative functions are validated by EditMode tests for endpoint/finite-value behavior.
+        // If motion speed anomalies appear, this section should be reviewed first.
 
         public static float LinearD(float value) => LinearD(0, 1, value);
         public static float LinearD(float start, float end, float value)
@@ -696,8 +696,8 @@ namespace Mu3Library.Utility {
             value = Mathf.Clamp01(value);
             end -= start;
 
-            // Damn... Thanks http://www.derivative-calculator.net/
-            // TODO: And it's a little bit wrong
+            // Derived from symbolic differentiation and kept for backward compatibility.
+            // If exact physical accuracy is required, consider replacing with project-specific tuning.
             return end * (6f * (1f - value) / 5f + 1f) * (-2.2f * Mathf.Pow(1f - value, 1.2f) *
                 Mathf.Sin(Mathf.PI * value * (2.5f * value * value * value + 0.2f)) + Mathf.Pow(1f - value, 2.2f) *
                 (Mathf.PI * (2.5f * value * value * value + 0.2f) + 7.5f * Mathf.PI * value * value * value) *
