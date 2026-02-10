@@ -2,17 +2,13 @@
 
 This file is the central entry point for instruction routing.
 
-<!-- SHARED-ENTRY-BLOCK:START -->
-## Shared Entry Block (Keep In Sync)
+## Core Guardrails
 
-- `AGENTS.md` is the primary entry for Codex workflows.
-- `.github/copilot-instructions.md` is the primary entry for Copilot workflows.
-- Both files must be independently usable with equivalent shared guardrails.
-- If shared policy changes in one file, update the other file in the same change.
+- This file is the single source of truth for repository instructions.
 - Prefer edits in `Assets/Mu3LibraryAssets` unless project-level changes are requested.
 - Preserve Unity package stability (`.asmdef`, `.meta`, define symbols, public APIs).
 - Sync docs/changelog when behavior or public API changes.
-<!-- SHARED-ENTRY-BLOCK:END -->
+- Keep Markdown docs (`README*`, `CHANGELOG*`, and instruction files) encoded as UTF-8 BOM with LF line endings to prevent multilingual text corruption.
 
 ## Read Order
 
