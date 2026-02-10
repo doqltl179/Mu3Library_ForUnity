@@ -1,6 +1,10 @@
 # top-most EditorConfig file
 root = true
 
+[*.md]
+charset = utf-8-bom
+end_of_line = lf
+
 # C# files
 [*.cs]
 charset = utf-8
