@@ -16,6 +16,8 @@ namespace Mu3Library.DI
 
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;
+        [SerializeField] private int _executionOrder = 0;
+        internal int ExecutionOrder => _executionOrder;
 
 
 

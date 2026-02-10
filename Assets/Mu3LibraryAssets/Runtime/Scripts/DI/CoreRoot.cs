@@ -60,6 +60,7 @@ namespace Mu3Library.DI
         private static readonly object _lockObj = new object();
 
         private readonly Dictionary<Type, CoreBase> _cores = new();
+        private readonly List<CoreBase> _orderedCores = new();
         internal event Action<Type> OnCoreAdded;
 
 
@@ -88,20 +89,23 @@ namespace Mu3Library.DI
             }
 
             _cores.Clear();
+            _orderedCores.Clear();
         }
 
         private void Update()
         {
-            foreach (var core in _cores.Values)
+            for (int i = 0; i < _orderedCores.Count; i++)
             {
+                CoreBase core = _orderedCores[i];
                 core?.UpdateCore();
             }
         }
 
         private void LateUpdate()
         {
-            foreach (var core in _cores.Values)
+            for (int i = 0; i < _orderedCores.Count; i++)
             {
+                CoreBase core = _orderedCores[i];
                 core?.LateUpdateCore();
             }
         }
@@ -153,6 +157,7 @@ namespace Mu3Library.DI
             Type type = core.GetType();
             if (_cores.Remove(type))
             {
+                _orderedCores.Remove(core);
                 core.DisposeCore();
             }
         }
@@ -171,9 +176,37 @@ namespace Mu3Library.DI
                 return;
             }
 
+            _orderedCores.Add(core);
+            _orderedCores.Sort(CompareCoreOrder);
             core.InitializeCore();
 
             OnCoreAdded?.Invoke(type);
+        }
+
+        private static int CompareCoreOrder(CoreBase a, CoreBase b)
+        {
+            if (ReferenceEquals(a, b))
+            {
+                return 0;
+            }
+
+            if (a == null)
+            {
+                return -1;
+            }
+
+            if (b == null)
+            {
+                return 1;
+            }
+
+            int orderCompare = a.ExecutionOrder.CompareTo(b.ExecutionOrder);
+            if (orderCompare != 0)
+            {
+                return orderCompare;
+            }
+
+            return string.CompareOrdinal(a.GetType().FullName, b.GetType().FullName);
         }
         #endregion
 
