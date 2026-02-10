@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -11,9 +12,6 @@ namespace Mu3Library.WebRequest
     /// </summary>
     public partial class WebRequestManager : IWebRequestManager
     {
-
-
-
         #region Utility
         /// <summary>
         /// Gets the download size of a resource at the specified URL using a HEAD request.
@@ -22,16 +20,7 @@ namespace Mu3Library.WebRequest
         /// <param name="callback">Callback with the size in bytes, or -1 if failed.</param>
         public void GetDownloadSize(string url, Action<long> callback)
         {
-            if (string.IsNullOrEmpty(url))
-            {
-                Debug.LogError("WebRequest HEAD failed. url is null or empty.");
-                callback?.Invoke(-1);
-                return;
-            }
-
-            UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SendWebRequest().completed += _ => HandleDownloadSize(url, request, callback);
+            GetDownloadSizeWithResult(url, result => callback?.Invoke(result.IsSuccess ? result.Data : -1));
         }
 
         /// <summary>
@@ -42,15 +31,7 @@ namespace Mu3Library.WebRequest
         /// <param name="callback">Callback with the parsed response.</param>
         public void Get<T>(string url, Action<T> callback)
         {
-            if (string.IsNullOrEmpty(url))
-            {
-                Debug.LogError("WebRequest GET failed. url is null or empty.");
-                callback?.Invoke(default);
-                return;
-            }
-
-            UnityWebRequest request = CreateGetRequest<T>(url);
-            request.SendWebRequest().completed += _ => HandleResponse(url, request, callback, "GET");
+            GetWithResult<T>(url, result => callback?.Invoke(result.Data));
         }
 
         /// <summary>
@@ -64,58 +45,149 @@ namespace Mu3Library.WebRequest
         /// <param name="contentType">Content-Type header (default: application/json).</param>
         public void Post<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback, string contentType = "application/json")
         {
+            PostWithResult<TRequest, TResponse>(url, body, result => callback?.Invoke(result.Data), contentType);
+        }
+
+        public void GetWithResult<T>(string url, Action<WebRequestResult<T>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        {
             if (string.IsNullOrEmpty(url))
             {
-                Debug.LogError("WebRequest POST failed. url is null or empty.");
-                callback?.Invoke(default);
+                string error = "WebRequest GET failed. url is null or empty.";
+                Debug.LogError(error);
+                callback?.Invoke(WebRequestResult<T>.Failure(-1, error, null));
                 return;
             }
 
-            string payload;
-            if (body == null)
+            ExecuteWithRetry(
+                method: UnityWebRequest.kHttpVerbGET,
+                retryCount: retryCount,
+                createRequest: () =>
+                {
+                    UnityWebRequest request = CreateGetRequest<T>(url);
+                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+                    return request;
+                },
+                onComplete: request =>
+                {
+                    WebRequestResult<T> result = ParseResult<T>(url, request, "GET");
+                    callback?.Invoke(result);
+                });
+        }
+
+        public void PostWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        {
+            if (string.IsNullOrEmpty(url))
             {
-                payload = string.Empty;
-            }
-            else if (body is string bodyString)
-            {
-                payload = bodyString;
-            }
-            else
-            {
-                payload = JsonUtility.ToJson(body);
+                string error = "WebRequest POST failed. url is null or empty.";
+                Debug.LogError(error);
+                callback?.Invoke(WebRequestResult<TResponse>.Failure(-1, error, null));
+                return;
             }
 
+            string payload = SerializeBody(body);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
 
-            UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = CreateDownloadHandler<TResponse>();
-            request.SetRequestHeader("Content-Type", contentType);
-            request.SendWebRequest().completed += _ => HandleResponse(url, request, callback, "POST");
+            ExecuteWithRetry(
+                method: UnityWebRequest.kHttpVerbPOST,
+                retryCount: retryCount,
+                createRequest: () =>
+                {
+                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
+                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                    request.downloadHandler = CreateDownloadHandler<TResponse>();
+                    request.SetRequestHeader("Content-Type", contentType);
+                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+                    return request;
+                },
+                onComplete: request =>
+                {
+                    WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, "POST");
+                    callback?.Invoke(result);
+                });
+        }
+
+        public void GetDownloadSizeWithResult(string url, Action<WebRequestResult<long>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                string error = "WebRequest HEAD failed. url is null or empty.";
+                Debug.LogError(error);
+                callback?.Invoke(WebRequestResult<long>.Failure(-1, error, null));
+                return;
+            }
+
+            ExecuteWithRetry(
+                method: UnityWebRequest.kHttpVerbHEAD,
+                retryCount: retryCount,
+                createRequest: () =>
+                {
+                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+                    request.downloadHandler = new DownloadHandlerBuffer();
+                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+                    return request;
+                },
+                onComplete: request =>
+                {
+                    WebRequestResult<long> result = ParseDownloadSizeResult(url, request);
+                    callback?.Invoke(result);
+                });
         }
         #endregion
 
-        private void HandleResponse<T>(string url, UnityWebRequest request, Action<T> callback, string method)
+        private void ExecuteWithRetry(
+            string method,
+            int retryCount,
+            Func<UnityWebRequest> createRequest,
+            Action<UnityWebRequest> onComplete)
         {
-            using (request)
-            {
-                if (request.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogError($"WebRequest {method} failed. url: {url}\r\n{request.error}");
-                    callback?.Invoke(default);
-                    return;
-                }
+            int maxAttempts = Mathf.Max(1, retryCount + 1);
 
-                try
+            void SendAttempt(int attempt)
+            {
+                UnityWebRequest request = createRequest();
+                request.SendWebRequest().completed += _ =>
                 {
-                    T result = ParseResponse<T>(request);
-                    callback?.Invoke(result);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"WebRequest {method} parse failed. url: {url}\r\n{ex.Message}");
-                    callback?.Invoke(default);
-                }
+                    bool canRetry = request.result != UnityWebRequest.Result.Success && attempt + 1 < maxAttempts;
+                    if (canRetry)
+                    {
+                        using (request)
+                        {
+                            Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
+                        }
+
+                        SendAttempt(attempt + 1);
+                        return;
+                    }
+
+                    onComplete?.Invoke(request);
+                    request.Dispose();
+                };
+            }
+
+            SendAttempt(0);
+        }
+
+        private WebRequestResult<T> ParseResult<T>(string url, UnityWebRequest request, string method)
+        {
+            long statusCode = request.responseCode;
+            IReadOnlyDictionary<string, string> headers = request.GetResponseHeaders();
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                string error = $"WebRequest {method} failed. url: {url}\r\n{request.error}";
+                Debug.LogError(error);
+                return WebRequestResult<T>.Failure(statusCode, error, headers);
+            }
+
+            try
+            {
+                T result = ParseResponse<T>(request);
+                return WebRequestResult<T>.Success(statusCode, result, headers);
+            }
+            catch (Exception ex)
+            {
+                string error = $"WebRequest {method} parse failed. url: {url}\r\n{ex.Message}";
+                Debug.LogError(error);
+                return WebRequestResult<T>.Failure(statusCode, error, headers);
             }
         }
 
@@ -137,28 +209,69 @@ namespace Mu3Library.WebRequest
             return JsonUtility.FromJson<T>(request.downloadHandler.text);
         }
 
-        private void HandleDownloadSize(string url, UnityWebRequest request, Action<long> callback)
+        private WebRequestResult<long> ParseDownloadSizeResult(string url, UnityWebRequest request)
         {
-            using (request)
+            long statusCode = request.responseCode;
+            IReadOnlyDictionary<string, string> headers = request.GetResponseHeaders();
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                if (request.result != UnityWebRequest.Result.Success)
+                string error = $"WebRequest HEAD failed. url: {url}\r\n{request.error}";
+                Debug.LogError(error);
+                return WebRequestResult<long>.Failure(statusCode, error, headers);
+            }
+
+            long size = -1;
+            if (headers != null && headers.TryGetValue("Content-Length", out string lengthValue))
+            {
+                if (!long.TryParse(lengthValue, out size))
                 {
-                    Debug.LogError($"WebRequest HEAD failed. url: {url}\r\n{request.error}");
-                    callback?.Invoke(-1);
-                    return;
+                    size = -1;
+                }
+            }
+
+            return WebRequestResult<long>.Success(statusCode, size, headers);
+        }
+
+        private static string SerializeBody<TRequest>(TRequest body)
+        {
+            if (body == null)
+            {
+                return string.Empty;
+            }
+
+            if (body is string bodyString)
+            {
+                return bodyString;
+            }
+
+            return JsonUtility.ToJson(body);
+        }
+
+        private static void ApplyRequestOptions(UnityWebRequest request, IDictionary<string, string> requestHeaders, int timeoutSeconds)
+        {
+            if (request == null)
+            {
+                return;
+            }
+
+            if (timeoutSeconds > 0)
+            {
+                request.timeout = timeoutSeconds;
+            }
+
+            if (requestHeaders == null)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<string, string> header in requestHeaders)
+            {
+                if (string.IsNullOrEmpty(header.Key))
+                {
+                    continue;
                 }
 
-                long size = -1;
-                var headers = request.GetResponseHeaders();
-                if (headers != null && headers.TryGetValue("Content-Length", out string lengthValue))
-                {
-                    if (!long.TryParse(lengthValue, out size))
-                    {
-                        size = -1;
-                    }
-                }
-
-                callback?.Invoke(size);
+                request.SetRequestHeader(header.Key, header.Value ?? string.Empty);
             }
         }
 
