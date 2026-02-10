@@ -8,12 +8,16 @@ namespace Mu3Library.Localization
     public partial interface ILocalizationManager
     {
         public bool IsInitialized { get; }
+        public bool IsInitializing { get; }
+        public string InitializeError { get; }
         public Locale CurrentLocale { get; }
 
         public event Action OnInitialized;
+        public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
 
         public void Initialize(Action callback = null);
+        public void InitializeWithResult(Action<bool, string> callback);
 
         public void GetString(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);

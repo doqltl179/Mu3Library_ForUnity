@@ -15,7 +15,11 @@ namespace Mu3Library.Addressable
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
 
+        private string _initializeError = string.Empty;
+        public string InitializeError => _initializeError;
+
         private bool _isInitializing = false;
+        public bool IsInitializing => _isInitializing;
 
         private AsyncOperationHandle _initializeHandle;
         private float _lastInitializeProgress = -1.0f;
@@ -33,6 +37,7 @@ namespace Mu3Library.Addressable
         private readonly List<DownloadTracker> _downloadTrackers = new();
 
         public event Action OnInitialized;
+        public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
         public event Action<float> OnDownloadProgress;
 
@@ -52,8 +57,10 @@ namespace Mu3Library.Addressable
             _isInitialized = false;
             _isInitializing = false;
             _lastDownloadProgress = -1.0f;
+            _initializeError = string.Empty;
 
             OnInitialized = null;
+            OnInitializeResult = null;
             OnInitializeProgress = null;
             OnDownloadProgress = null;
         }
@@ -77,6 +84,32 @@ namespace Mu3Library.Addressable
                 OnInitialized += callback;
             }
 
+            BeginInitialize();
+        }
+
+        public void InitializeWithResult(Action<bool, string> callback)
+        {
+            if (_isInitialized)
+            {
+                callback?.Invoke(true, string.Empty);
+                return;
+            }
+
+            if (callback != null)
+            {
+                OnInitializeResult += callback;
+            }
+
+            BeginInitialize();
+        }
+
+        private void BeginInitialize()
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
             if (_isInitializing)
             {
                 return;
@@ -96,21 +129,31 @@ namespace Mu3Library.Addressable
 
         private void OnInitializeCompleted(AsyncOperationHandle handle)
         {
+            bool isSuccess = false;
+            string errorMessage = string.Empty;
+
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
                 _isInitialized = true;
+                isSuccess = true;
+                errorMessage = string.Empty;
                 Debug.Log("Addressables initialized.");
             }
             else
             {
-                Debug.LogError($"Addressables initialize failed.\r\n{handle.OperationException?.Message}");
+                _isInitialized = false;
+                isSuccess = false;
+                errorMessage = handle.OperationException?.Message ?? "Unknown initialization error.";
+                Debug.LogError($"Addressables initialize failed.\r\n{errorMessage}");
             }
 
             _isInitializing = false;
             _lastInitializeProgress = handle.PercentComplete;
+            _initializeError = errorMessage;
             OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
             OnInitialized?.Invoke();
+            OnInitializeResult?.Invoke(isSuccess, errorMessage);
         }
 
         public void LoadAsset<T>(object key, Action<T> callback = null) where T : class

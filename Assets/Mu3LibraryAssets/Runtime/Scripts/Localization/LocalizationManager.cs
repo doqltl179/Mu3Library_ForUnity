@@ -16,6 +16,12 @@ namespace Mu3Library.Localization
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
 
+        private string _initializeError = string.Empty;
+        public string InitializeError => _initializeError;
+
+        private bool _isInitializing = false;
+        public bool IsInitializing => _isInitializing;
+
         private Locale m_defaultLocale;
         private Locale _defaultLocale
         {
@@ -52,11 +58,11 @@ namespace Mu3Library.Localization
             }
         }
 
-        private bool _isInitializing = false;
         private float _lastInitializeProgress = -1.0f;
         private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
 
         public event Action OnInitialized;
+        public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
 
 
@@ -79,6 +85,33 @@ namespace Mu3Library.Localization
             if (callback != null)
             {
                 OnInitialized += callback;
+            }
+
+            BeginInitialize();
+        }
+
+        public void InitializeWithResult(Action<bool, string> callback)
+        {
+            if (_isInitialized)
+            {
+                OnInitializeProgress?.Invoke(1.0f);
+                callback?.Invoke(true, string.Empty);
+                return;
+            }
+
+            if (callback != null)
+            {
+                OnInitializeResult += callback;
+            }
+
+            BeginInitialize();
+        }
+
+        private void BeginInitialize()
+        {
+            if (_isInitialized)
+            {
+                return;
             }
 
             if (_isInitializing)
@@ -199,15 +232,22 @@ namespace Mu3Library.Localization
         private void OnInitializeCompleted(AsyncOperationHandle<LocalizationSettings> handle)
         {
             handle.Completed -= OnInitializeCompleted;
+            bool isSuccess = false;
+            string errorMessage = string.Empty;
 
             if (handle.Status == AsyncOperationStatus.Succeeded)
             {
                 _isInitialized = true;
+                isSuccess = true;
+                errorMessage = string.Empty;
                 Debug.Log("Localization initialized.");
             }
             else
             {
-                Debug.LogError($"Localization initialize failed.\r\n{handle.OperationException?.Message}");
+                _isInitialized = false;
+                isSuccess = false;
+                errorMessage = handle.OperationException?.Message ?? "Unknown initialization error.";
+                Debug.LogError($"Localization initialize failed.\r\n{errorMessage}");
             }
 
             var settings = handle.Result;
@@ -218,9 +258,11 @@ namespace Mu3Library.Localization
 
             _isInitializing = false;
             _lastInitializeProgress = handle.PercentComplete;
+            _initializeError = errorMessage;
             OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
             OnInitialized?.Invoke();
+            OnInitializeResult?.Invoke(isSuccess, errorMessage);
         }
 
         private Locale CreateEnglishFallbackLocale()
