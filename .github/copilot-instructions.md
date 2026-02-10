@@ -1,5 +1,26 @@
 # Mu3Library For Unity
 
+## Mu3Library-Specific Guardrails
+
+These rules are repository-specific and override generic Unity preferences when they conflict:
+
+1. Package-first changes:
+   - Prefer editing under `Assets/Mu3LibraryAssets`.
+   - Avoid unrelated root/project setting edits unless explicitly requested.
+2. Preserve public API stability:
+   - Do not break existing public interfaces/classes without explicit request.
+   - Prefer additive changes and backward compatibility.
+3. Respect assembly boundaries:
+   - Keep `.asmdef` dependencies minimal.
+   - Avoid creating new cross-assembly coupling unless required.
+4. Preserve optional package gates:
+   - Keep external integrations behind existing define symbols (`MU3LIBRARY_*_SUPPORT`).
+   - Do not introduce hard dependencies for optional features.
+5. Unity asset integrity:
+   - Preserve `.meta` files when creating/moving/renaming assets or scripts.
+6. Documentation sync:
+   - If behavior/public API changes, update relevant README/CHANGELOG files in the same task when feasible.
+
 ## ⚠️ CRITICAL: Task Execution Protocol
 
 **MANDATORY**: You WILL follow this protocol BEFORE starting ANY work.
