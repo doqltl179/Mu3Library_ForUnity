@@ -2,6 +2,30 @@ namespace Mu3Library.Observable
 {
     public abstract class ObservableProperty<T>
     {
+        private sealed class SubscriptionToken : System.IDisposable
+        {
+            private ObservableProperty<T> _owner;
+            private System.Action<T> _callback;
+
+            public SubscriptionToken(ObservableProperty<T> owner, System.Action<T> callback)
+            {
+                _owner = owner;
+                _callback = callback;
+            }
+
+            public void Dispose()
+            {
+                if (_owner == null || _callback == null)
+                {
+                    return;
+                }
+
+                _owner.RemoveEvent(_callback);
+                _owner = null;
+                _callback = null;
+            }
+        }
+
         [UnityEngine.SerializeField] protected T _value;
         public T Value => _value;
 
@@ -27,6 +51,22 @@ namespace Mu3Library.Observable
 
         public void AddEvent(System.Action<T> callback) => _callback += callback;
         public void RemoveEvent(System.Action<T> callback) => _callback -= callback;
+
+        public System.IDisposable Subscribe(System.Action<T> callback, bool notifyImmediately = false)
+        {
+            if (callback == null)
+            {
+                return null;
+            }
+
+            AddEvent(callback);
+            if (notifyImmediately)
+            {
+                callback.Invoke(_value);
+            }
+
+            return new SubscriptionToken(this, callback);
+        }
         #endregion
     }
 }
