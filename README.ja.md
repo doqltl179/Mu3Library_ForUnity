@@ -1,4 +1,4 @@
-# Mu3Library For Unity
+﻿# Mu3Library For Unity
 
 <div align="center">
 
@@ -24,6 +24,10 @@
 - 🌐 **WebRequest**: HTTP GET/POST、ダウンロードサイズクエリ、UniTaskサポート
 - 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
 - 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
+- ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
+- 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライを提供
+- 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
+- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー
 
 ## 📋 要件
 
@@ -297,7 +301,6 @@ protected override void Start()
 IssueとPull Requestを歓迎します！以下の点にご注意ください:
 - **コーディングスタイル**: プライベートフィールドは`_camelCase`、Allmanブレースを使用
 - **コミットメッセージ**: 明確な説明（例: `feat: Add retry logic to WebRequest`）
-- **テスト**: 可能な限りテストコードを含める
 
 ## 📄 ライセンス
 

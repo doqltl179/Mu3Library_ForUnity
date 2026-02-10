@@ -1,4 +1,4 @@
-# Mu3Library For Unity
+﻿# Mu3Library For Unity
 
 <div align="center">
 
@@ -24,6 +24,10 @@
 - 🌐 **WebRequest**: HTTP GET/POST, 다운로드 크기 조회, UniTask 지원
 - 📊 **Observable 패턴**: 데이터 변경 감지 및 이벤트 기반 바인딩
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
+- ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
+- 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션 제공
+- 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
+- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공
 
 ## 📋 요구사항
 
@@ -297,7 +301,6 @@ protected override void Start()
 이슈와 풀 리퀘스트를 환영합니다! 다음 사항을 참고해주세요:
 - **코딩 스타일**: 프라이빗 필드는 `_camelCase`, Allman 브레이스 사용
 - **커밋 메시지**: 명확한 설명 (예: `feat: Add retry logic to WebRequest`)
-- **테스트**: 가능하면 테스트 코드 포함
 
 ## 📄 라이선스
 

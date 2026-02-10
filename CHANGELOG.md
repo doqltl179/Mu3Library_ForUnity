@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 <div align="center">
 
@@ -12,6 +12,32 @@ All notable changes to Mu3Library For Unity will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Scene UniTask APIs with cancellation support:
+  - `ISceneLoader.LoadSingleSceneAsync`
+  - `ISceneLoader.LoadAdditiveSceneAsync`
+  - `ISceneLoader.UnloadAdditiveSceneAsync`
+
+### Changed
+- Addressables and Localization initialization contracts now expose explicit result state:
+  - `IsInitialized`
+  - `IsInitializing`
+  - `InitializeError`
+  - `OnInitializeResult` event
+  - `InitializeWithResult(Action<bool, string>)` API
+- WebRequest API now provides structured result variants:
+  - `WebRequestResult<T>` with `IsSuccess`, `StatusCode`, `ErrorMessage`, `ResponseHeaders`, `Data`
+  - Callback APIs: `GetWithResult`, `PostWithResult`, `GetDownloadSizeWithResult`
+  - UniTask APIs: `GetResultAsync`, `PostResultAsync`, `GetDownloadSizeResultAsync`
+  - Added request timeout and retry options for result-based APIs.
+- Core execution order is now deterministic via `CoreBase` serialized execution order setting.
+- Scene unload lifecycle now emits explicit events:
+  - `OnAdditiveSceneUnloadStart`
+  - `OnAdditiveSceneUnloadEnd`
+  - `LoadingCount` now includes additive unload operations.
 
 ## [0.1.11] - 2026-02-08
 

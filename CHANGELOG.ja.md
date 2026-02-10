@@ -1,4 +1,4 @@
-# 変更履歴 (Changelog)
+﻿# 変更履歴 (Changelog)
 
 <div align="center">
 
@@ -12,6 +12,32 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 このフォーマットは[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)に基づいており、
 このプロジェクトは[Semantic Versioning](https://semver.org/spec/v2.0.0.html)に準拠しています。
+
+## [Unreleased]
+
+### 追加
+- Scene UniTask 非同期 API を追加（キャンセル対応）:
+  - `ISceneLoader.LoadSingleSceneAsync`
+  - `ISceneLoader.LoadAdditiveSceneAsync`
+  - `ISceneLoader.UnloadAdditiveSceneAsync`
+
+### 変更
+- Addressables/Localization の初期化契約が明示的な結果状態を提供:
+  - `IsInitialized`
+  - `IsInitializing`
+  - `InitializeError`
+  - `OnInitializeResult` イベント
+  - `InitializeWithResult(Action<bool, string>)` API
+- WebRequest API に構造化された結果型を追加:
+  - `WebRequestResult<T>` (`IsSuccess`, `StatusCode`, `ErrorMessage`, `ResponseHeaders`, `Data`)
+  - コールバック API: `GetWithResult`, `PostWithResult`, `GetDownloadSizeWithResult`
+  - UniTask API: `GetResultAsync`, `PostResultAsync`, `GetDownloadSizeResultAsync`
+  - 結果型 API にリクエストのタイムアウト/リトライ設定を追加
+- CoreBase のシリアライズ実行順序設定により Core 実行順序の決定性を強化
+- Scene アンロードのライフサイクルイベントを明示化:
+  - `OnAdditiveSceneUnloadStart`
+  - `OnAdditiveSceneUnloadEnd`
+  - `LoadingCount` が Additive アンロード処理を含むように改善
 
 ## [0.1.11] - 2026-02-08
 

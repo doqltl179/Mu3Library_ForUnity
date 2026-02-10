@@ -24,6 +24,10 @@
 - 🌐 **WebRequest**: HTTP GET/POST, download size queries, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
+- ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
+- 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, and retry options
+- 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
+- ⏳ **Scene Async APIs**: UniTask + CancellationToken scene load/unload helpers
 
 ## 📋 Requirements
 
@@ -297,7 +301,6 @@ protected override void Start()
 Issues and pull requests are welcome! Please note the following:
 - **Coding Style**: Private fields use `_camelCase`, Allman braces
 - **Commit Messages**: Clear descriptions (e.g., `feat: Add retry logic to WebRequest`)
-- **Tests**: Include test code when possible
 
 ## 📄 License
 
