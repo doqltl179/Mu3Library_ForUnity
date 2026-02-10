@@ -2,7 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
+### 🌐 言語
 
 [English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
 
@@ -32,7 +32,7 @@
 
 ## 📦 インストール方法
 
-### Option 1: Package Manager (Git URL)
+### 方法 1: パッケージマネージャー (Git URL)
 1. Unity Editorで`Window` > `Package Manager`を開きます
 2. `+`ボタンをクリック > `Add package from git URL...`
 3. 以下のURLを入力:
@@ -40,7 +40,7 @@
    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
    ```
 
-### Option 2: Package Manager (Local Disk)
+### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
 3. `+`ボタン > `Add package from disk...`をクリック
@@ -217,7 +217,7 @@ _playerData.Health.Set(80);
 
 ## 🎓 サンプル
 
-Package Managerの**Samples**タブから以下のサンプルをインポートできます:
+パッケージマネージャーの**Samples**タブから以下のサンプルをインポートできます:
 
 - **Sample_Template**: 基本的なCore構造と使用例
 - **Sample_Attribute**: ConditionalHideの使用方法
@@ -246,7 +246,7 @@ CoreRoot (Singleton)
     └── WebRequestManager
 ```
 
-### クロスCore通信
+### Core間通信
 異なるCoreのサービスにアクセスするには:
 
 ```csharp
@@ -265,7 +265,7 @@ protected override void Start()
 
 **UI/MVP:**
 - MVPCanvasUtilを削除しMVPManagerに統合 - よりクリーンなAPI
-- MVPCanvasSettingsの改善 - settings分割による柔軟性向上
+- MVPCanvasSettingsの改善 - 設定分割による柔軟性向上
 
 **Audioシステム:**
 - AudioSourceSettingsの改善とAudioControllerの更新
@@ -285,9 +285,9 @@ protected override void Start()
 - DIクラスのライフサイクルバグ修正（ContainerScope、CoreBase）
 
 **以前の更新 (v0.1.10):**
-- Coreを通じてクラスを取得する際、1つのクラスに複数のinterfaceが適用されていても同じinstanceを使用するよう改善
+- Coreを通じてクラスを取得する際、1つのクラスに複数のインターフェースが適用されていても同じインスタンスを使用するよう改善
 - DIコードの最適化とリファクタリング
-- Collectionをreadonlyに変更し安定性向上
+- Collectionを`readonly`に変更し安定性向上
 - CameraExtensions追加 - カメラプロパティコピー機能
 - int型のビット演算Extensions追加
 - MVP Canvasのデフォルト設定値を修正
@@ -310,8 +310,8 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 ---
 
-**Package Info:**
+**パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
 - Version: `0.1.11`
 
-Made with ❤️ for Unity Developers
+Unity開発者のために制作

@@ -1,7 +1,7 @@
 # 변경 이력 (Changelog)
 <div align="center">
 
-### 🌐 Language
+### 🌐 언어
 
 [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [日本語](CHANGELOG.ja.md)
 
@@ -15,7 +15,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 🌟 개요
 
-**대규모 아키텍처 개편** - 새로운 DI Container 시스템, 향상된 MVP 패턴, 포괄적인 매니저 시스템을 포함한 완전한 패키지 구조 재편. 이번 릴리스는 라이브러리 핵심 아키텍처의 근본적인 재설계를 의미합니다.
+**대규모 아키텍처 개편** - 새로운 DI 컨테이너 시스템, 향상된 MVP 패턴, 포괄적인 매니저 시스템을 포함한 완전한 패키지 구조 재편. 이번 릴리스는 라이브러리 핵심 아키텍처의 근본적인 재설계를 의미합니다.
 
 ### ⚠️ 호환성 파괴 변경사항 (BREAKING CHANGES)
 
@@ -33,7 +33,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `View` 생명주기 메서드 구조 변경
   - `MVPManager` API 완전 재설계
   - 애니메이션 시스템이 MVP 뷰에 통합
-- **DI Container**: 새로운 주입 시스템이 수동 초기화를 대체
+- **DI 컨테이너**: 새로운 주입 시스템이 수동 초기화를 대체
   - 의존성 주입을 위한 `[Inject]` 어트리뷰트
   - `CoreBase`와 `CoreRoot` 기반 아키텍처
 - **ResourceLoader**: DI 기반으로 변경, 더 이상 정적이 아님
@@ -221,9 +221,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 🐛 수정됨
 
 #### 중요 수정사항
-- **DI Container 생명주기 버그**: 서비스 생명주기 관리 문제 수정
+- **DI 컨테이너 생명주기 버그**: 서비스 생명주기 관리 문제 수정
 - 여러 인터페이스 구현이 이제 올바르게 단일 인스턴스를 공유
-- 컬렉션 불변성: 적절한 곳에 컬렉션을 readonly로 변경
+- 컬렉션 불변성: 적절한 곳에 컬렉션을 `readonly`로 변경
 - SceneLoader 이벤트 타이밍: `OnSceneLoadEnd` 콜백 타이밍 수정
 - 코드베이스 전체의 null 참조 처리
 

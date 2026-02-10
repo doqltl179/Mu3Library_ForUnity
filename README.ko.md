@@ -2,7 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
+### 🌐 언어
 
 [English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
 
@@ -32,7 +32,7 @@
 
 ## 📦 설치 방법
 
-### Option 1: Package Manager (Git URL)
+### 방법 1: 패키지 매니저 (Git URL)
 1. Unity Editor에서 `Window` > `Package Manager`를 엽니다
 2. `+` 버튼 클릭 > `Add package from git URL...`
 3. 다음 URL을 입력:
@@ -40,7 +40,7 @@
    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
    ```
 
-### Option 2: Package Manager (Local Disk)
+### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
 3. `+` 버튼 > `Add package from disk...`
@@ -217,7 +217,7 @@ _playerData.Health.Set(80);
 
 ## 🎓 샘플
 
-Package Manager의 **Samples** 탭에서 다음 샘플을 가져올 수 있습니다:
+패키지 매니저의 **Samples** 탭에서 다음 샘플을 가져올 수 있습니다:
 
 - **Sample_Template**: 기본 Core 구조 및 사용 예제
 - **Sample_Attribute**: ConditionalHide 사용법
@@ -246,7 +246,7 @@ CoreRoot (Singleton)
     └── WebRequestManager
 ```
 
-### 교차 Core 통신
+### Core 간 통신
 다른 Core의 서비스에 접근하려면:
 
 ```csharp
@@ -265,7 +265,7 @@ protected override void Start()
 
 **UI/MVP:**
 - MVPCanvasUtil 제거 및 MVPManager로 기능 통합 - 더 간결한 API
-- MVPCanvasSettings 개선 - settings 분할로 유연성 향상
+- MVPCanvasSettings 개선 - 설정 분할로 유연성 향상
 
 **Audio 시스템:**
 - AudioSourceSettings 개선 및 AudioController 업데이트
@@ -282,12 +282,12 @@ protected override void Start()
 - Runtime/Materials 폴더에서 즉시 사용 가능
 
 **버그 수정:**
-- DI 클래스의 lifecycle 버그 수정 (ContainerScope, CoreBase)
+- DI 클래스의 생명주기 버그 수정 (ContainerScope, CoreBase)
 
 **이전 업데이트 (v0.1.10):**
-- Core를 통해 클래스를 받을 때 하나의 클래스에 여러 interface가 적용되어 있어도 동일한 instance를 사용하도록 개선
+- Core를 통해 클래스를 받을 때 하나의 클래스에 여러 인터페이스가 적용되어 있어도 동일한 인스턴스를 사용하도록 개선
 - DI 코드 최적화 및 리팩토링
-- Collection을 readonly로 변경하여 안정성 향상
+- Collection을 `readonly`로 변경하여 안정성 향상
 - CameraExtensions 추가 - 카메라 프로퍼티 복사 기능
 - int 타입의 비트 연산 Extensions 추가
 - MVP Canvas 기본 세팅값 수정
@@ -310,8 +310,8 @@ protected override void Start()
 
 ---
 
-**Package Info:**
+**패키지 정보:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
 - Version: `0.1.11`
 
-Made with ❤️ for Unity Developers
+Unity 개발자를 위해 제작됨

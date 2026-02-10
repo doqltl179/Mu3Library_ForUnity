@@ -231,10 +231,10 @@ Or refer to the `Assets/Mu3LibrarySamples` folder in your project.
 - Resources: Prefabs and settings for MVP samples
 - Materials: Default color materials (Black, Blue, Green, Magenta, Red, White)
 
-## 🏗 아키텍처 개요
+## 🏗 Architecture Overview
 
-### Core 시스템
-각 `CoreBase`는 독립적인 DI 컨테이너(`ContainerScope`)를 소유하며, `CoreRoot`가 생명주기를 관리합니다.
+### Core System
+Each `CoreBase` owns an independent DI container (`ContainerScope`), and `CoreRoot` manages the lifecycle.
 
 ```
 CoreRoot (Singleton)
