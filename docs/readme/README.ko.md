@@ -2,16 +2,22 @@
 
 <div align="center">
 
-### 🌐 언어
-
-[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](../../README.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](README.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](README.ja.md)
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](../../LICENSE)
 
 </div>
 
 **Mu3Library**는 Unity 프로젝트를 위한 모듈화된 아키텍처 프레임워크입니다. 커스텀 DI(Dependency Injection) 시스템과 MVP(Model-View-Presenter) UI 패턴을 중심으로, 확장 가능하고 유지보수가 쉬운 게임 개발을 지원합니다.
+
+## 📘 문서
+
+- English README: `../../README.md`
+- Japanese README: `README.ja.md`
+- Changelog (EN): `../changelog/CHANGELOG.md`
+- Changelog (KO): `../changelog/CHANGELOG.ko.md`
+- Changelog (JA): `../changelog/CHANGELOG.ja.md`
 
 ## ✨ 주요 특징
 
@@ -69,6 +75,8 @@ public class AudioCore : CoreBase
 
 public class GameCore : CoreBase
 {
+    [SerializeField] private AudioClip _mainThemeClip;
+
     // 자동 주입 (같은 Core 내)
     [Inject] private IAudioManager _audioManager;
 
@@ -78,7 +86,7 @@ public class GameCore : CoreBase
     protected override void Start()
     {
         base.Start(); // 주입이 먼저 실행되어야 함!
-        _audioManager.PlayBGM("MainTheme");
+        _audioManager.PlayBgm(_mainThemeClip);
     }
 }
 ```
@@ -124,7 +132,7 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 }
 
 // 사용
-_mvpManager.LoadAndOpen<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
 ### Audio 시스템
@@ -132,15 +140,16 @@ BGM과 SFX를 분리 관리하며 볼륨 제어를 지원합니다.
 
 ```csharp
 [Inject] private IAudioManager _audioManager;
+[Inject] private IAudioVolumeSettings _audioVolumeSettings;
 
 void Start()
 {
     // 볼륨 설정
-    _audioManager.MasterVolume = 0.8f;
-    _audioManager.BgmVolume = 0.6f;
+    _audioVolumeSettings.MasterVolume = 0.8f;
+    _audioVolumeSettings.BgmVolume = 0.6f;
 
     // BGM 재생
-    _audioManager.PlayBgm(bgmClip, fadeTime: 1.0f);
+    _audioManager.PlayBgm(bgmClip);
 
     // SFX 재생
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);

@@ -7,18 +7,20 @@ description: "Documentation synchronization policy for multilingual Mu3Library d
 ## Scope
 
 - `README.md`
-- `README.ko.md`
-- `README.ja.md`
-- `CHANGELOG.md`
-- `CHANGELOG.ko.md`
-- `CHANGELOG.ja.md`
+- `docs/readme/README.ko.md`
+- `docs/readme/README.ja.md`
+- `docs/changelog/CHANGELOG.md`
+- `docs/changelog/CHANGELOG.ko.md`
+- `docs/changelog/CHANGELOG.ja.md`
 
 ## Rules
 
-1. If behavior/public API changes, update at least the primary English doc in the same task.
-2. Keep Korean/Japanese docs aligned when feasible.
-3. If localization is deferred, state exactly which files still need updates.
-4. Avoid documenting unverified behavior.
+1. If behavior/public API changes, update the primary English doc in the same task.
+2. When `README.md` is updated, `docs/readme/README.ko.md` and `docs/readme/README.ja.md` must be updated in the same task.
+3. When `docs/changelog/CHANGELOG.md` is updated, `docs/changelog/CHANGELOG.ko.md` and `docs/changelog/CHANGELOG.ja.md` must be updated in the same task.
+4. Do not defer README/CHANGELOG localization updates unless explicitly requested by the user.
+5. Keep section structure and visual style synchronized across languages, not only the text content.
+6. Avoid documenting unverified behavior.
 
 ## Update Quality
 

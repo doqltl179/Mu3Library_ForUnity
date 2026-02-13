@@ -2,9 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
-
-[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](README.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](docs/readme/README.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](docs/readme/README.ja.md)
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -12,6 +10,14 @@
 </div>
 
 **Mu3Library** is a modular architecture framework for Unity projects. Built around a custom DI (Dependency Injection) system and MVP (Model-View-Presenter) UI pattern, it supports scalable and maintainable game development.
+
+## 📘 Documentation
+
+- Korean README: `docs/readme/README.ko.md`
+- Japanese README: `docs/readme/README.ja.md`
+- Changelog (EN): `docs/changelog/CHANGELOG.md`
+- Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
+- Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
 
 ## ✨ Key Features
 
@@ -69,6 +75,8 @@ public class AudioCore : CoreBase
 
 public class GameCore : CoreBase
 {
+    [SerializeField] private AudioClip _mainThemeClip;
+
     // Auto-injection (within same Core)
     [Inject] private IAudioManager _audioManager;
 
@@ -78,7 +86,7 @@ public class GameCore : CoreBase
     protected override void Start()
     {
         base.Start(); // Injection must be executed first!
-        _audioManager.PlayBGM("MainTheme");
+        _audioManager.PlayBgm(_mainThemeClip);
     }
 }
 ```
@@ -124,7 +132,7 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 }
 
 // Usage
-_mvpManager.LoadAndOpen<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
 ### Audio System
@@ -132,15 +140,16 @@ Separate management of BGM and SFX with volume control support.
 
 ```csharp
 [Inject] private IAudioManager _audioManager;
+[Inject] private IAudioVolumeSettings _audioVolumeSettings;
 
 void Start()
 {
     // Set volumes
-    _audioManager.MasterVolume = 0.8f;
-    _audioManager.BgmVolume = 0.6f;
+    _audioVolumeSettings.MasterVolume = 0.8f;
+    _audioVolumeSettings.BgmVolume = 0.6f;
 
     // Play BGM
-    _audioManager.PlayBgm(bgmClip, fadeTime: 1.0f);
+    _audioManager.PlayBgm(bgmClip);
 
     // Play SFX
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
@@ -318,4 +327,3 @@ This project is distributed under the MIT License.
 - Version: `0.1.11`
 
 Made with ❤️ for Unity Developers
-
