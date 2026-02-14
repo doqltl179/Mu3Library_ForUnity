@@ -1,0 +1,45 @@
+name: Branch Strategy
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-branch-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate develop/main flow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+
+          echo "base=$BASE"
+          echo "head=$HEAD"
+
+          if [[ "$BASE" == "main" ]]; then
+            if [[ "$HEAD" != "develop" ]]; then
+              echo "PRs into main must come from develop."
+              exit 1
+            fi
+            exit 0
+          fi
+
+          if [[ "$BASE" == "develop" ]]; then
+            if [[ "$HEAD" =~ ^(feature|fix|hotfix|chore|refactor|docs|test|perf|build|ci)/.+$ ]] || [[ "$HEAD" == "develop" ]]; then
+              exit 0
+            fi
+
+            echo "PRs into develop must come from a working branch (e.g. feature/*, fix/*, chore/*)."
+            exit 1
+          fi
+
+          echo "Unexpected PR target branch: $BASE"
+          exit 1

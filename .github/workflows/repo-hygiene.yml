@@ -1,0 +1,48 @@
+name: Repository Hygiene
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check-doc-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate root/doc layout
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f README.md
+
+          test ! -f README.ko.md
+          test ! -f README.ja.md
+          test ! -f CHANGELOG.md
+          test ! -f CHANGELOG.ko.md
+          test ! -f CHANGELOG.ja.md
+
+          test -f docs/readme/README.ko.md
+          test -f docs/readme/README.ja.md
+          test -f docs/changelog/CHANGELOG.md
+          test -f docs/changelog/CHANGELOG.ko.md
+          test -f docs/changelog/CHANGELOG.ja.md
+
+      - name: Validate root README links
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -q "docs/readme/README.ko.md" README.md
+          grep -q "docs/readme/README.ja.md" README.md
+          grep -q "docs/changelog/CHANGELOG.md" README.md
