@@ -86,3 +86,4 @@ crashlytics-build.properties
 [Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 
 .vscode/mcp.json
+.venv/
