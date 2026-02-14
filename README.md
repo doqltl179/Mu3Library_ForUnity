@@ -2,9 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
-
-[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](README.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](docs/readme/README.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](docs/readme/README.ja.md)
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -12,6 +10,14 @@
 </div>
 
 **Mu3Library** is a modular architecture framework for Unity projects. Built around a custom DI (Dependency Injection) system and MVP (Model-View-Presenter) UI pattern, it supports scalable and maintainable game development.
+
+## 📘 Documentation
+
+- Korean README: `docs/readme/README.ko.md`
+- Japanese README: `docs/readme/README.ja.md`
+- Changelog (EN): `CHANGELOG.md`
+- Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
+- Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
 
 ## ✨ Key Features
 
@@ -69,6 +75,8 @@ public class AudioCore : CoreBase
 
 public class GameCore : CoreBase
 {
+    [SerializeField] private AudioClip _mainThemeClip;
+
     // Auto-injection (within same Core)
     [Inject] private IAudioManager _audioManager;
 
@@ -78,7 +86,7 @@ public class GameCore : CoreBase
     protected override void Start()
     {
         base.Start(); // Injection must be executed first!
-        _audioManager.PlayBGM("MainTheme");
+        _audioManager.PlayBgm(_mainThemeClip);
     }
 }
 ```
@@ -124,7 +132,7 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 }
 
 // Usage
-_mvpManager.LoadAndOpen<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
 ### Audio System
@@ -132,15 +140,16 @@ Separate management of BGM and SFX with volume control support.
 
 ```csharp
 [Inject] private IAudioManager _audioManager;
+[Inject] private IAudioVolumeSettings _audioVolumeSettings;
 
 void Start()
 {
     // Set volumes
-    _audioManager.MasterVolume = 0.8f;
-    _audioManager.BgmVolume = 0.6f;
+    _audioVolumeSettings.MasterVolume = 0.8f;
+    _audioVolumeSettings.BgmVolume = 0.6f;
 
     // Play BGM
-    _audioManager.PlayBgm(bgmClip, fadeTime: 1.0f);
+    _audioManager.PlayBgm(bgmClip);
 
     // Play SFX
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
@@ -265,36 +274,21 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.1.11)
+## 📝 Recent Updates (v0.2.0)
 
-**UI/MVP:**
-- Removed MVPCanvasUtil and integrated into MVPManager - Cleaner API
-- Improved MVPCanvasSettings - Enhanced flexibility with settings separation
+**Service Event Contract Split:**
+- Service interfaces now focus on functional APIs only.
+- Event APIs were separated into dedicated EventBus interfaces:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
 
-**Audio System:**
-- Improved AudioSourceSettings and updated AudioController
-- Added 3D Audio sample - Sample_Audio3D scene and MouseClickHandler example
-  - Scenes: Sample_Audio3D.unity
-  - Scripts: SampleAudio3DCore, MouseClickHandler
-  - Added thumbnail
-
-**Extensions:**
-- Added `SetLayerWithChildren` function to GameObjectExtension - Batch layer setting for child objects
-
-**Materials:**
-- Added default color materials - Black, Blue, Green, Magenta, Red, White
-- Available immediately in Runtime/Materials folder
-
-**Bug Fixes:**
-- Fixed lifecycle bugs in DI classes (ContainerScope, CoreBase)
-
-**Previous Updates (v0.1.10):**
-- Improved to use the same instance when retrieving classes through Core even if multiple interfaces are applied to a single class
-- DI code optimization and refactoring
-- Changed Collection to readonly for enhanced stability
-- Added CameraExtensions - Camera property copy functionality
-- Added bitwise operation Extensions for int type
-- Modified MVP Canvas default settings
+**Initialization/Scene/WebRequest Improvements:**
+- Added Scene UniTask APIs with cancellation support.
+- Addressables/Localization initialization contracts now expose explicit result state.
+- WebRequest APIs now provide structured result variants with timeout/retry options.
 
 ## 🤝 Contributing
 
@@ -315,7 +309,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.11`
+- Version: `0.2.0`
 
 Made with ❤️ for Unity Developers
-

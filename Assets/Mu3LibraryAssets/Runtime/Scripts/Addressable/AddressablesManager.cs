@@ -10,7 +10,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Addressable
 {
-    public partial class AddressablesManager : IAddressablesManager, IUpdatable, IDisposable
+    public partial class AddressablesManager : IAddressablesManager, IAddressablesManagerEventBus, IUpdatable, IDisposable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;

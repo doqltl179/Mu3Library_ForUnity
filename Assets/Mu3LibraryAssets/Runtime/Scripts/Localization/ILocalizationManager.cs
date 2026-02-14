@@ -12,10 +12,6 @@ namespace Mu3Library.Localization
         public string InitializeError { get; }
         public Locale CurrentLocale { get; }
 
-        public event Action OnInitialized;
-        public event Action<bool, string> OnInitializeResult;
-        public event Action<float> OnInitializeProgress;
-
         public void Initialize(Action callback = null);
         public void InitializeWithResult(Action<bool, string> callback);
 

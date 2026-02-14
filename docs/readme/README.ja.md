@@ -2,16 +2,22 @@
 
 <div align="center">
 
-### 🌐 言語
-
-[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](../../README.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](README.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](README.ja.md)
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](../../LICENSE)
 
 </div>
 
 **Mu3Library**は、Unityプロジェクト向けのモジュール化されたアーキテクチャフレームワークです。カスタムDI（Dependency Injection）システムとMVP（Model-View-Presenter）UIパターンを中心に、拡張可能で保守しやすいゲーム開発をサポートします。
+
+## 📘 ドキュメント
+
+- English README: `../../README.md`
+- Korean README: `README.ko.md`
+- Changelog (EN): `../../CHANGELOG.md`
+- Changelog (KO): `../changelog/CHANGELOG.ko.md`
+- Changelog (JA): `../changelog/CHANGELOG.ja.md`
 
 ## ✨ 主な特徴
 
@@ -69,6 +75,8 @@ public class AudioCore : CoreBase
 
 public class GameCore : CoreBase
 {
+    [SerializeField] private AudioClip _mainThemeClip;
+
     // 自動注入（同じCore内）
     [Inject] private IAudioManager _audioManager;
 
@@ -78,7 +86,7 @@ public class GameCore : CoreBase
     protected override void Start()
     {
         base.Start(); // 注入が先に実行される必要があります！
-        _audioManager.PlayBGM("MainTheme");
+        _audioManager.PlayBgm(_mainThemeClip);
     }
 }
 ```
@@ -124,7 +132,7 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 }
 
 // 使用方法
-_mvpManager.LoadAndOpen<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
 ### Audioシステム
@@ -132,15 +140,16 @@ BGMとSFXを分離管理し、ボリューム制御をサポートします。
 
 ```csharp
 [Inject] private IAudioManager _audioManager;
+[Inject] private IAudioVolumeSettings _audioVolumeSettings;
 
 void Start()
 {
     // ボリューム設定
-    _audioManager.MasterVolume = 0.8f;
-    _audioManager.BgmVolume = 0.6f;
+    _audioVolumeSettings.MasterVolume = 0.8f;
+    _audioVolumeSettings.BgmVolume = 0.6f;
 
     // BGM再生
-    _audioManager.PlayBgm(bgmClip, fadeTime: 1.0f);
+    _audioManager.PlayBgm(bgmClip);
 
     // SFX再生
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
@@ -265,36 +274,21 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近の更新 (v0.1.11)
+## 📝 最近の更新 (v0.2.0)
 
-**UI/MVP:**
-- MVPCanvasUtilを削除しMVPManagerに統合 - よりクリーンなAPI
-- MVPCanvasSettingsの改善 - 設定分割による柔軟性向上
+**サービスイベント契約の分離:**
+- サービスインターフェースは機能API中心に整理されました。
+- イベントAPIは専用のEventBusインターフェースへ分離されました:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
 
-**Audioシステム:**
-- AudioSourceSettingsの改善とAudioControllerの更新
-- 3D Audioサンプル追加 - Sample_Audio3DシーンとMouseClickHandlerの例
-  - Scenes: Sample_Audio3D.unity
-  - Scripts: SampleAudio3DCore、MouseClickHandler
-  - サムネイル追加
-
-**Extensions:**
-- GameObjectExtensionに`SetLayerWithChildren`関数を追加 - 子オブジェクトまでレイヤー一括設定
-
-**Materials:**
-- デフォルトカラーマテリアル追加 - Black、Blue、Green、Magenta、Red、White
-- Runtime/Materialsフォルダですぐに使用可能
-
-**バグ修正:**
-- DIクラスのライフサイクルバグ修正（ContainerScope、CoreBase）
-
-**以前の更新 (v0.1.10):**
-- Coreを通じてクラスを取得する際、1つのクラスに複数のインターフェースが適用されていても同じインスタンスを使用するよう改善
-- DIコードの最適化とリファクタリング
-- Collectionを`readonly`に変更し安定性向上
-- CameraExtensions追加 - カメラプロパティコピー機能
-- int型のビット演算Extensions追加
-- MVP Canvasのデフォルト設定値を修正
+**初期化/Scene/WebRequest の改善:**
+- キャンセル対応のScene UniTask APIを追加しました。
+- Addressables/Localization 初期化契約が明示的な結果状態を提供します。
+- WebRequest APIがタイムアウト/リトライを含む構造化結果型を提供します。
 
 ## 🤝 貢献
 
@@ -315,6 +309,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.11`
+- Version: `0.2.0`
 
 Unity開発者のために制作

@@ -2,9 +2,7 @@
 
 <div align="center">
 
-### 🌐 言語
-
-[English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [日本語](CHANGELOG.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](../../CHANGELOG.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](CHANGELOG.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](CHANGELOG.ja.md)
 
 </div>
 
@@ -14,6 +12,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 このプロジェクトは[Semantic Versioning](https://semver.org/spec/v2.0.0.html)に準拠しています。
 
 ## [Unreleased]
+- 現時点で未リリースの変更はありません。
+
+## [0.2.0] - 2026-02-14
 
 ### 追加
 - Scene UniTask 非同期 API を追加（キャンセル対応）:
@@ -38,6 +39,13 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
   - `OnAdditiveSceneUnloadStart`
   - `OnAdditiveSceneUnloadEnd`
   - `LoadingCount` が Additive アンロード処理を含むように改善
+- サービスイベント契約を専用の EventBus インターフェースへ分離:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
+  - 既存サービスインターフェースはこれらの `event` メンバーを直接宣言しない
 
 ## [0.1.11] - 2026-02-08
 
@@ -437,5 +445,7 @@ public class MyCore : CoreBase
 
 以前のバージョンについては、コミット履歴を参照してください。
 
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20

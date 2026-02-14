@@ -17,8 +17,8 @@ description: "Release and versioning rules for Mu3Library package changes"
 When user-facing behavior or API changes:
 - Update `CHANGELOG.md`.
 - Update localized files when feasible:
-  - `CHANGELOG.ko.md`
-  - `CHANGELOG.ja.md`
+  - `docs/changelog/CHANGELOG.ko.md`
+  - `docs/changelog/CHANGELOG.ja.md`
 
 ## Release Checklist
 

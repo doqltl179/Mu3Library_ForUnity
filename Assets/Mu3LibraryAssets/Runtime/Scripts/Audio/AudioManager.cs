@@ -10,7 +10,7 @@ namespace Mu3Library.Audio
     /// Manages audio playback including BGM (Background Music) and SFX (Sound Effects).
     /// Provides volume control, fading, and pooling for efficient audio management.
     /// </summary>
-    public class AudioManager : IAudioManager, IAudioVolumeSettings, IUpdatable, IDisposable
+    public class AudioManager : IAudioManager, IAudioVolumeSettings, IAudioManagerEventBus, IUpdatable, IDisposable
     {
         private GameObject m_root;
         private GameObject _root

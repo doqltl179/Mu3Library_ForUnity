@@ -2,9 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
-
-[English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [日本語](CHANGELOG.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](CHANGELOG.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](docs/changelog/CHANGELOG.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](docs/changelog/CHANGELOG.ja.md)
 
 </div>
 
@@ -14,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- No unreleased changes yet.
+
+## [0.2.0] - 2026-02-14
 
 ### Added
 - Scene UniTask APIs with cancellation support:
@@ -38,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OnAdditiveSceneUnloadStart`
   - `OnAdditiveSceneUnloadEnd`
   - `LoadingCount` now includes additive unload operations.
+- Separated service event contracts into dedicated event bus interfaces:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
+  - Existing service interfaces no longer declare these `event` members directly.
 
 ## [0.1.11] - 2026-02-08
 
@@ -437,5 +445,7 @@ Special thanks to the open-source community for:
 
 For earlier versions, please refer to commit history.
 
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20
