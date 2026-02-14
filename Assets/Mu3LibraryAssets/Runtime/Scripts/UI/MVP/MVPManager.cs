@@ -17,7 +17,7 @@ namespace Mu3Library.UI.MVP
     /// Manages the lifecycle of MVP (Model-View-Presenter) UI components.
     /// Handles View loading, opening, closing, unloading, and layer management.
     /// </summary>
-    public partial class MVPManager : IMVPManager, IUpdatable, IDisposable
+    public partial class MVPManager : IMVPManager, IMVPManagerEventBus, IUpdatable, IDisposable
     {
         private GameObject m_root;
         private GameObject _root

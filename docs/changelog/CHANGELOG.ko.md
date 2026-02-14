@@ -34,6 +34,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `OnAdditiveSceneUnloadStart`
   - `OnAdditiveSceneUnloadEnd`
   - `LoadingCount`가 Additive 언로드 작업까지 포함하도록 개선
+- 서비스 이벤트 계약을 전용 이벤트 버스 인터페이스로 분리:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
+  - 기존 서비스 인터페이스에서 해당 `event` 멤버는 직접 선언하지 않음
 
 ## [0.1.11] - 2026-02-08
 

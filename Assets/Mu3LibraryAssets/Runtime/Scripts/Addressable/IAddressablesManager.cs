@@ -13,11 +13,6 @@ namespace Mu3Library.Addressable
         public bool IsInitializing { get; }
         public string InitializeError { get; }
 
-        public event Action OnInitialized;
-        public event Action<bool, string> OnInitializeResult;
-        public event Action<float> OnInitializeProgress;
-        public event Action<float> OnDownloadProgress;
-
         public void Initialize(Action callback = null);
         public void InitializeWithResult(Action<bool, string> callback);
 

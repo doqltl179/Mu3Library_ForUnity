@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 namespace Mu3Library.Scene
 {
-    public partial class SceneLoader : IUpdatable, ISceneLoader
+    public partial class SceneLoader : IUpdatable, ISceneLoader, ISceneLoaderEventBus
     {
         private partial class SceneOperation
         {

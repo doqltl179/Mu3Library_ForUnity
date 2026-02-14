@@ -11,7 +11,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public partial class LocalizationManager : ILocalizationManager, IUpdatable
+    public partial class LocalizationManager : ILocalizationManager, ILocalizationManagerEventBus, IUpdatable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
