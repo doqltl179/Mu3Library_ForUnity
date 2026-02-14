@@ -15,7 +15,7 @@
 
 - English README: `../../README.md`
 - Japanese README: `README.ja.md`
-- Changelog (EN): `../changelog/CHANGELOG.md`
+- Changelog (EN): `../../CHANGELOG.md`
 - Changelog (KO): `../changelog/CHANGELOG.ko.md`
 - Changelog (JA): `../changelog/CHANGELOG.ja.md`
 

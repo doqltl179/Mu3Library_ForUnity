@@ -15,7 +15,7 @@
 
 - Korean README: `docs/readme/README.ko.md`
 - Japanese README: `docs/readme/README.ja.md`
-- Changelog (EN): `docs/changelog/CHANGELOG.md`
+- Changelog (EN): `CHANGELOG.md`
 - Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
 - Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
 

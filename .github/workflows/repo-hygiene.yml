@@ -1,4 +1,4 @@
-name: Repository Hygiene
+﻿name: Repository Hygiene
 
 on:
   pull_request:
@@ -28,13 +28,13 @@ jobs:
 
           test ! -f README.ko.md
           test ! -f README.ja.md
-          test ! -f CHANGELOG.md
+          test -f CHANGELOG.md
           test ! -f CHANGELOG.ko.md
           test ! -f CHANGELOG.ja.md
 
           test -f docs/readme/README.ko.md
           test -f docs/readme/README.ja.md
-          test -f docs/changelog/CHANGELOG.md
+
           test -f docs/changelog/CHANGELOG.ko.md
           test -f docs/changelog/CHANGELOG.ja.md
 
@@ -45,4 +45,4 @@ jobs:
 
           grep -q "docs/readme/README.ko.md" README.md
           grep -q "docs/readme/README.ja.md" README.md
-          grep -q "docs/changelog/CHANGELOG.md" README.md
+          grep -q "CHANGELOG.md" README.md

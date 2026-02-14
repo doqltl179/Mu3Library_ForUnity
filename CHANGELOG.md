@@ -2,9 +2,7 @@
 
 <div align="center">
 
-### 🌐 Language
-
-[English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [日本語](CHANGELOG.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](CHANGELOG.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](docs/changelog/CHANGELOG.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](docs/changelog/CHANGELOG.ja.md)
 
 </div>
 

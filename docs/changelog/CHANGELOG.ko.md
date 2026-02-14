@@ -1,9 +1,7 @@
 ﻿# 변경 이력 (Changelog)
 <div align="center">
 
-### 🌐 언어
-
-[English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [日本語](CHANGELOG.ja.md)
+[![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](../../CHANGELOG.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](CHANGELOG.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](CHANGELOG.ja.md)
 
 </div>
 Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니다.
