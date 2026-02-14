@@ -309,6 +309,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.0`
+- Version: `0.2.1`
 
 Made with ❤️ for Unity Developers

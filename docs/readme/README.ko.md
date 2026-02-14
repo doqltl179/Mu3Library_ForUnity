@@ -309,6 +309,6 @@ protected override void Start()
 
 **패키지 정보:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.0`
+- Version: `0.2.1`
 
 Unity 개발자를 위해 제작됨

@@ -12,7 +12,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 このプロジェクトは[Semantic Versioning](https://semver.org/spec/v2.0.0.html)に準拠しています。
 
 ## [Unreleased]
-- 現時点で未リリースの変更はありません。
+### 変更
+- Audio ボリューム契約から EventBus 継承を分離:
+  - `IAudioVolumeSettings` は `IAudioManagerEventBus` を継承しません。
 
 ## [0.2.0] - 2026-02-14
 

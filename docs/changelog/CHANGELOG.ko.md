@@ -10,7 +10,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 이 프로젝트는 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 준수합니다.
 
 ## [Unreleased]
-- 아직 예정된 변경사항이 없습니다.
+### 변경됨
+- Audio 볼륨 계약에서 이벤트 버스 상속 분리:
+  - `IAudioVolumeSettings`가 더 이상 `IAudioManagerEventBus`를 상속하지 않습니다.
 
 ## [0.2.0] - 2026-02-14
 

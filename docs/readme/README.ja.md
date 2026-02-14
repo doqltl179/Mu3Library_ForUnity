@@ -309,6 +309,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.0`
+- Version: `0.2.1`
 
 Unity開発者のために制作
