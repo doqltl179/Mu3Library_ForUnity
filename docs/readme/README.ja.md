@@ -274,36 +274,21 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近の更新 (v0.1.11)
+## 📝 最近の更新 (v0.2.0)
 
-**UI/MVP:**
-- MVPCanvasUtilを削除しMVPManagerに統合 - よりクリーンなAPI
-- MVPCanvasSettingsの改善 - 設定分割による柔軟性向上
+**サービスイベント契約の分離:**
+- サービスインターフェースは機能API中心に整理されました。
+- イベントAPIは専用のEventBusインターフェースへ分離されました:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
 
-**Audioシステム:**
-- AudioSourceSettingsの改善とAudioControllerの更新
-- 3D Audioサンプル追加 - Sample_Audio3DシーンとMouseClickHandlerの例
-  - Scenes: Sample_Audio3D.unity
-  - Scripts: SampleAudio3DCore、MouseClickHandler
-  - サムネイル追加
-
-**Extensions:**
-- GameObjectExtensionに`SetLayerWithChildren`関数を追加 - 子オブジェクトまでレイヤー一括設定
-
-**Materials:**
-- デフォルトカラーマテリアル追加 - Black、Blue、Green、Magenta、Red、White
-- Runtime/Materialsフォルダですぐに使用可能
-
-**バグ修正:**
-- DIクラスのライフサイクルバグ修正（ContainerScope、CoreBase）
-
-**以前の更新 (v0.1.10):**
-- Coreを通じてクラスを取得する際、1つのクラスに複数のインターフェースが適用されていても同じインスタンスを使用するよう改善
-- DIコードの最適化とリファクタリング
-- Collectionを`readonly`に変更し安定性向上
-- CameraExtensions追加 - カメラプロパティコピー機能
-- int型のビット演算Extensions追加
-- MVP Canvasのデフォルト設定値を修正
+**初期化/Scene/WebRequest の改善:**
+- キャンセル対応のScene UniTask APIを追加しました。
+- Addressables/Localization 初期化契約が明示的な結果状態を提供します。
+- WebRequest APIがタイムアウト/リトライを含む構造化結果型を提供します。
 
 ## 🤝 貢献
 
@@ -324,6 +309,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.11`
+- Version: `0.2.0`
 
 Unity開発者のために制作

@@ -10,6 +10,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 이 프로젝트는 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 준수합니다.
 
 ## [Unreleased]
+- 아직 예정된 변경사항이 없습니다.
+
+## [0.2.0] - 2026-02-14
 
 ### 추가됨
 - Scene UniTask 비동기 API 추가 (취소 지원):
@@ -440,5 +443,7 @@ public class MyCore : CoreBase
 
 이전 버전에 대해서는 커밋 히스토리를 참조하세요.
 
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20

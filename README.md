@@ -274,36 +274,21 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.1.11)
+## 📝 Recent Updates (v0.2.0)
 
-**UI/MVP:**
-- Removed MVPCanvasUtil and integrated into MVPManager - Cleaner API
-- Improved MVPCanvasSettings - Enhanced flexibility with settings separation
+**Service Event Contract Split:**
+- Service interfaces now focus on functional APIs only.
+- Event APIs were separated into dedicated EventBus interfaces:
+  - `IAddressablesManagerEventBus`
+  - `ILocalizationManagerEventBus`
+  - `ISceneLoaderEventBus`
+  - `IMVPManagerEventBus`
+  - `IAudioManagerEventBus`
 
-**Audio System:**
-- Improved AudioSourceSettings and updated AudioController
-- Added 3D Audio sample - Sample_Audio3D scene and MouseClickHandler example
-  - Scenes: Sample_Audio3D.unity
-  - Scripts: SampleAudio3DCore, MouseClickHandler
-  - Added thumbnail
-
-**Extensions:**
-- Added `SetLayerWithChildren` function to GameObjectExtension - Batch layer setting for child objects
-
-**Materials:**
-- Added default color materials - Black, Blue, Green, Magenta, Red, White
-- Available immediately in Runtime/Materials folder
-
-**Bug Fixes:**
-- Fixed lifecycle bugs in DI classes (ContainerScope, CoreBase)
-
-**Previous Updates (v0.1.10):**
-- Improved to use the same instance when retrieving classes through Core even if multiple interfaces are applied to a single class
-- DI code optimization and refactoring
-- Changed Collection to readonly for enhanced stability
-- Added CameraExtensions - Camera property copy functionality
-- Added bitwise operation Extensions for int type
-- Modified MVP Canvas default settings
+**Initialization/Scene/WebRequest Improvements:**
+- Added Scene UniTask APIs with cancellation support.
+- Addressables/Localization initialization contracts now expose explicit result state.
+- WebRequest APIs now provide structured result variants with timeout/retry options.
 
 ## 🤝 Contributing
 
@@ -324,6 +309,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.1.11`
+- Version: `0.2.0`
 
 Made with ❤️ for Unity Developers
