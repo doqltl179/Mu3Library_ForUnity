@@ -15,6 +15,10 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 変更
 - Audio ボリューム契約から EventBus 継承を分離:
   - `IAudioVolumeSettings` は `IAudioManagerEventBus` を継承しません。
+- Observable API が外部利用向けの読み取り専用公開をサポート:
+  - `Value` + `Subscribe(...)` 参照用の `IObservableValue<TValue>` を追加
+  - `ObservableProperty<T>` と `ObservableDictionary<TKey, TValue>` に `ReadOnly` 公開を追加
+  - 購読トークン処理を専用 `SubscriptionToken` ファイルへ分離
 
 ## [0.2.0] - 2026-02-14
 

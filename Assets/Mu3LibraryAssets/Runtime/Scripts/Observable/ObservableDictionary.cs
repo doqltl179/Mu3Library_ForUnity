@@ -7,6 +7,7 @@ namespace Mu3Library.Observable
 {
     [Serializable]
     public class ObservableDictionary<TKey, TValue> :
+        IObservableValue<IReadOnlyDictionary<TKey, TValue>>,
         ISerializationCallbackReceiver,
         IDictionary<TKey, TValue>,
         IReadOnlyDictionary<TKey, TValue>
@@ -33,6 +34,7 @@ namespace Mu3Library.Observable
         }
 
         public IReadOnlyDictionary<TKey, TValue> Value => _dictionaryValue;
+        public IObservableValue<IReadOnlyDictionary<TKey, TValue>> ReadOnly => this;
 
         public TValue this[TKey key]
         {
@@ -101,6 +103,24 @@ namespace Mu3Library.Observable
 
         public void AddEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback += callback;
         public void RemoveEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback -= callback;
+
+        public IDisposable Subscribe(
+            Action<IReadOnlyDictionary<TKey, TValue>> callback,
+            bool notifyImmediately = false)
+        {
+            if (callback == null)
+            {
+                return null;
+            }
+
+            AddEvent(callback);
+            if (notifyImmediately)
+            {
+                callback.Invoke(_dictionaryValue);
+            }
+
+            return new SubscriptionToken(() => RemoveEvent(callback));
+        }
 
         public void Add(TKey key, TValue value)
         {

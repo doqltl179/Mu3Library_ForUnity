@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Audio volume contract decoupled from event bus:
   - `IAudioVolumeSettings` no longer inherits `IAudioManagerEventBus`.
+- Observable API now supports read-only exposure for external consumers:
+  - Added `IObservableValue<TValue>` for `Value` + `Subscribe(...)` access.
+  - `ObservableProperty<T>` and `ObservableDictionary<TKey, TValue>` now expose `ReadOnly`.
+  - Subscription token handling was extracted to a dedicated `SubscriptionToken` file.
 
 ## [0.2.0] - 2026-02-14
 
