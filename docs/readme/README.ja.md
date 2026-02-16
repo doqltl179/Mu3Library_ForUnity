@@ -274,7 +274,7 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近の更新 (v0.2.0)
+## 📝 最近の更新 (v0.2.3)
 
 **サービスイベント契約の分離:**
 - サービスインターフェースは機能API中心に整理されました。
@@ -289,6 +289,11 @@ protected override void Start()
 - キャンセル対応のScene UniTask APIを追加しました。
 - Addressables/Localization 初期化契約が明示的な結果状態を提供します。
 - WebRequest APIがタイムアウト/リトライを含む構造化結果型を提供します。
+
+**MVP/Observable/Audio の改善:**
+- `IAudioVolumeSettings` を `IAudioManagerEventBus` から分離しました。
+- `IObservableValue<TValue>` と `ReadOnly` により Observable の読み取り専用公開を追加しました。
+- `OutPanelSettings` をシリアライズ可能にし、`MVPManager` はフォーカス更新時に `EventSystem` の安全性を検証します。
 
 ## 🤝 貢献
 
@@ -309,6 +314,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.1`
+- Version: `0.2.3`
 
 Unity開発者のために制作

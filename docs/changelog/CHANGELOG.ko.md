@@ -10,6 +10,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 이 프로젝트는 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 준수합니다.
 
 ## [Unreleased]
+
+## [0.2.3] - 2026-02-16
 ### 변경됨
 - Audio 볼륨 계약에서 이벤트 버스 상속 분리:
   - `IAudioVolumeSettings`가 더 이상 `IAudioManagerEventBus`를 상속하지 않습니다.
@@ -17,6 +19,10 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `Value` + `Subscribe(...)` 접근을 위한 `IObservableValue<TValue>` 추가
   - `ObservableProperty<T>` 및 `ObservableDictionary<TKey, TValue>`에 `ReadOnly` 노출 추가
   - 구독 토큰 처리를 전용 `SubscriptionToken` 파일로 분리
+- MVP UI 설정과 런타임 안정성이 개선됨:
+  - `OutPanelSettings`가 명시적 직렬화 필드를 가진 직렬화 가능한 구조체로 개선됨
+  - `OutPanelSettings.Standard` 기본 dim 색상 알파값이 `0.5f`로 변경됨
+  - `MVPManager`가 포커스 갱신 시 `EventSystem` 존재를 검증하고 누락 시 명시적 오류를 로그함
 
 ## [0.2.0] - 2026-02-14
 
@@ -449,7 +455,8 @@ public class MyCore : CoreBase
 
 이전 버전에 대해서는 커밋 히스토리를 참조하세요.
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
 [0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20

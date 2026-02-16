@@ -12,6 +12,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 このプロジェクトは[Semantic Versioning](https://semver.org/spec/v2.0.0.html)に準拠しています。
 
 ## [Unreleased]
+
+## [0.2.3] - 2026-02-16
 ### 変更
 - Audio ボリューム契約から EventBus 継承を分離:
   - `IAudioVolumeSettings` は `IAudioManagerEventBus` を継承しません。
@@ -19,6 +21,10 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
   - `Value` + `Subscribe(...)` 参照用の `IObservableValue<TValue>` を追加
   - `ObservableProperty<T>` と `ObservableDictionary<TKey, TValue>` に `ReadOnly` 公開を追加
   - 購読トークン処理を専用 `SubscriptionToken` ファイルへ分離
+- MVP UI 設定とランタイム安全性を改善:
+  - `OutPanelSettings` は明示的なシリアライズ済みバックフィールドを持つシリアライズ可能構造体に更新
+  - `OutPanelSettings.Standard` のデフォルト dim カラーのアルファ値を `0.5f` に変更
+  - `MVPManager` はフォーカス更新時に `EventSystem` の存在を検証し、欠落時に明示的なエラーログを出力
 
 ## [0.2.0] - 2026-02-14
 
@@ -451,7 +457,8 @@ public class MyCore : CoreBase
 
 以前のバージョンについては、コミット履歴を参照してください。
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
 [0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20

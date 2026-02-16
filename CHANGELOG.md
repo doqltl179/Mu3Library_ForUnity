@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.3] - 2026-02-16
 ### Changed
 - Audio volume contract decoupled from event bus:
   - `IAudioVolumeSettings` no longer inherits `IAudioManagerEventBus`.
@@ -19,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `IObservableValue<TValue>` for `Value` + `Subscribe(...)` access.
   - `ObservableProperty<T>` and `ObservableDictionary<TKey, TValue>` now expose `ReadOnly`.
   - Subscription token handling was extracted to a dedicated `SubscriptionToken` file.
+- MVP UI settings and runtime safety were improved:
+  - `OutPanelSettings` is now serializable with explicit serialized backing fields.
+  - `OutPanelSettings.Standard` default dim color alpha changed to `0.5f`.
+  - `MVPManager` now validates `EventSystem` during focus updates and logs explicit errors if missing.
 
 ## [0.2.0] - 2026-02-14
 
@@ -451,7 +457,8 @@ Special thanks to the open-source community for:
 
 For earlier versions, please refer to commit history.
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
 [0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20
