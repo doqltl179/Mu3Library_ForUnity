@@ -498,6 +498,7 @@ namespace Mu3Library.UI.MVP
             }
 
             UpdateOutPanel(mostFront);
+            UpdateEventSystem();
 
             _focused = mostFront;
         }
@@ -559,6 +560,16 @@ namespace Mu3Library.UI.MVP
                 {
                     presenterParam.Presenter.SetSortingOrder(maxSortingOrder + 2);
                 }
+            }
+        }
+
+        private void UpdateEventSystem()
+        {
+            // 변수 호출만으로 EventSystem이 존재하도록 보장
+            if (_eventSystem == null)
+            {
+                Debug.LogError("EventSystem cannot be null. The system is designed to ensure at least one EventSystem exists.");
+                return;
             }
         }
 
