@@ -19,8 +19,10 @@ namespace Mu3Library.UI.MVP
 
         public abstract bool Interactable { get; }
 
-        public abstract void Initialize(View view, Arguments args);
-        public abstract void Initialize(Arguments args);
+
+
+        internal abstract void Initialize(View view, Arguments args);
+        internal abstract void Initialize(Arguments args);
 
         internal abstract void Load();
         internal abstract void Open();
@@ -78,9 +80,9 @@ namespace Mu3Library.UI.MVP
 
 
 
-        public override void Initialize(Arguments args) => Initialize(_view, args);
+        internal override void Initialize(Arguments args) => Initialize(_view, args);
 
-        public override void Initialize(View view, Arguments args)
+        internal override void Initialize(View view, Arguments args)
         {
             _view = view as TView;
             _args = args as TArgs;
