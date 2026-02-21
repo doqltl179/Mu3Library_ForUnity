@@ -11,6 +11,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `PresenterBase.CloseSelf(bool forceClose = false)`: Presenter가 외부 호출자 없이 주입된 `IMVPManager`를 통해 스스로를 닫을 수 있습니다.
+
+### 변경됨
+- `PresenterBase.Initialize(View, Arguments)` 및 `PresenterBase.Initialize(Arguments)`가 `public`에서 `internal`로 변경됨.
+  - 초기화는 이제 `MVPManager`가 독점적으로 관리하며, 외부 코드에서 직접 호출할 수 없습니다.
+
 ## [0.2.3] - 2026-02-16
 ### 변경됨
 - Audio 볼륨 계약에서 이벤트 버스 상속 분리:

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `PresenterBase.CloseSelf(bool forceClose = false)`: A presenter can now close itself via the injected `IMVPManager` reference without needing an external caller.
+
+### Changed
+- `PresenterBase.Initialize(View, Arguments)` and `PresenterBase.Initialize(Arguments)` changed from `public` to `internal`.
+  - Initialization is now managed exclusively by `MVPManager`; external code can no longer call these methods directly.
+
 ## [0.2.3] - 2026-02-16
 ### Changed
 - Audio volume contract decoupled from event bus:
