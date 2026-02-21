@@ -5,6 +5,8 @@ namespace Mu3Library.UI.MVP
 {
     public abstract class PresenterBase : IPresenter
     {
+        private IMVPManager _mvpManager;
+
         public abstract Type ViewType { get; }
 
         public abstract Type ModelType { get; }
@@ -21,6 +23,11 @@ namespace Mu3Library.UI.MVP
 
 
 
+        internal void Context(IMVPManager mvpManager)
+        {
+            _mvpManager = mvpManager;
+        }
+
         internal abstract void Initialize(View view, Arguments args);
         internal abstract void Initialize(Arguments args);
 
@@ -28,6 +35,11 @@ namespace Mu3Library.UI.MVP
         internal abstract void Open();
         internal abstract void Close(bool forceClose = false);
         internal abstract void Unload();
+
+        protected void CloseSelf(bool forceClose = false)
+        {
+            _mvpManager.Close(this, forceClose);
+        }
 
         internal abstract RectTransform RectTransform { get; }
         internal abstract Canvas ViewCanvas { get; }

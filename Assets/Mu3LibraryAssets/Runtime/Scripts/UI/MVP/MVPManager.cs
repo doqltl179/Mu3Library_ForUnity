@@ -659,6 +659,8 @@ namespace Mu3Library.UI.MVP
                 presenter = new TPresenter();
             }
 
+            presenter.Context(this);
+
             return presenter;
         }
 
