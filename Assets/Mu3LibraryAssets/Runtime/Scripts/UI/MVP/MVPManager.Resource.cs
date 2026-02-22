@@ -14,17 +14,17 @@ namespace Mu3Library.UI.MVP
 
 
         #region Interface
-        public void SetLayerCanvasSettings(string layerName, MVPCanvasSettings settings)
+        public void SetLayerCanvasSettings(MVPCanvasSettings settings)
         {
-            if (!_layerCanvases.TryGetValue(layerName, out Canvas layerCanvas))
+            if (!_layerCanvases.TryGetValue(settings.CanvasSettings.SortingLayerName, out Canvas layerCanvas))
             {
-                layerCanvas = CreateLayerCanvas(layerName, settings);
+                layerCanvas = CreateLayerCanvas(settings);
 
-                _layerCanvases.Add(layerName, layerCanvas);
+                _layerCanvases.Add(settings.CanvasSettings.SortingLayerName, layerCanvas);
             }
             else
             {
-                ApplyMVPCanvasSettings(layerCanvas.gameObject, settings, layerName);
+                ApplyMVPCanvasSettings(layerCanvas.gameObject, settings);
             }
         }
 
@@ -61,12 +61,13 @@ namespace Mu3Library.UI.MVP
         }
         #endregion
 
-        private Canvas CreateLayerCanvas(string layerName, MVPCanvasSettings settings)
+        private Canvas CreateLayerCanvas(MVPCanvasSettings settings)
         {
-            GameObject go = new GameObject($"Canvas_{layerName}");
+            GameObject go = new GameObject($"Canvas_{settings.CanvasSettings.SortingLayerName}");
             go.transform.SetParent(_rootTransform);
+            go.layer = LayerMask.NameToLayer("UI");
 
-            ApplyMVPCanvasSettings(go, settings, layerName);
+            ApplyMVPCanvasSettings(go, settings);
 
             return go.GetComponent<Canvas>();
         }
@@ -116,10 +117,10 @@ namespace Mu3Library.UI.MVP
             return layerName;
         }
 
-        private void ApplyMVPCanvasSettings(GameObject go, MVPCanvasSettings settings, string sortingLayerNameOverride = null)
+        private void ApplyMVPCanvasSettings(GameObject go, MVPCanvasSettings settings)
         {
             Canvas canvas = go.GetOrAddComponent<Canvas>();
-            ApplyCanvasSettings(canvas, settings.CanvasSettings, sortingLayerNameOverride);
+            ApplyCanvasSettings(canvas, settings.CanvasSettings);
 
             CanvasScaler scaler = go.GetOrAddComponent<CanvasScaler>();
             ApplyScalerSettings(scaler, settings.CanvasScalerSettings);
@@ -128,10 +129,7 @@ namespace Mu3Library.UI.MVP
             ApplyGraphicRaycasterSettings(graphicRaycaster, settings.GraphicRaycasterSettings);
         }
 
-        private void ApplyCanvasSettings(
-            Canvas canvas,
-            CanvasSettings settings,
-            string sortingLayerNameOverride = null)
+        private void ApplyCanvasSettings(Canvas canvas, CanvasSettings settings)
         {
             if (canvas == null)
             {
@@ -140,11 +138,6 @@ namespace Mu3Library.UI.MVP
             }
 
             canvas.renderMode = settings.RenderMode;
-            canvas.sortingLayerName = string.IsNullOrEmpty(sortingLayerNameOverride)
-                ? settings.SortingLayerName
-                : sortingLayerNameOverride;
-            canvas.sortingOrder = settings.SortingOrder;
-            canvas.planeDistance = settings.PlaneDistance;
 
             switch (settings.RenderMode)
             {
@@ -158,6 +151,10 @@ namespace Mu3Library.UI.MVP
                     canvas.worldCamera = null;
                     break;
             }
+
+            canvas.sortingLayerName = settings.SortingLayerName;
+            canvas.sortingOrder = settings.SortingOrder;
+            canvas.planeDistance = settings.PlaneDistance;
         }
 
         private void ApplyScalerSettings(CanvasScaler canvasScaler, CanvasScalerSettings settings)
