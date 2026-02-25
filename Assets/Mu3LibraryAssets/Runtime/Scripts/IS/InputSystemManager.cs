@@ -10,41 +10,60 @@ namespace Mu3Library.IS
         private readonly Dictionary<string, InputActionAsset> _inputActionAssets = new();
         public int InputActionAssetCount => _inputActionAssets.Count;
 
-        private readonly Dictionary<string, Dictionary<string, InputActionMap>> _inputActionMaps = new();
-        private readonly Dictionary<string, Dictionary<string, Dictionary<string, InputAction>>> _inputActions = new();
+        private readonly Dictionary<string, InputActionMap> _inputActionMaps = new();
+        private readonly Dictionary<string, InputAction> _inputActions = new();
 
 
 
-        public InputAction GetInputAction(string actionMapName, string actionName)
-            => GetInputAction("Default", actionMapName, actionName);
-
-        public InputAction GetInputAction(string assetId, string actionMapName, string actionName)
+        public InputAction GetInputAction(string actionId)
         {
-            if (!IsValidId(assetId) ||
-                !IsValidInputActionMapName(actionMapName) ||
-                !IsValidInputActionName(actionName))
+            if (!IsValidInputActionId(actionId))
             {
                 return null;
             }
 
-            return _inputActions.GetValueOrDefault(assetId)?
-                .GetValueOrDefault(actionMapName)?
-                .GetValueOrDefault(actionName);
+            return _inputActions.GetValueOrDefault(actionId);
         }
 
-        public InputActionMap GetInputActionMap(string actionMapName)
-            => GetInputActionMap("Default", actionMapName);
+        public InputAction GetInputActionWithName(string actionMapName, string actionName)
+            => GetInputActionWithName("Default", actionMapName, actionName);
 
-        public InputActionMap GetInputActionMap(string assetId, string actionMapName)
+        public InputAction GetInputActionWithName(string assetId, string actionMapName, string actionName)
         {
-            if (!IsValidId(assetId) ||
-                !IsValidInputActionMapName(actionMapName))
+            if (!IsValidInputActionAssetId(assetId) ||
+                string.IsNullOrEmpty(actionMapName) ||
+                string.IsNullOrEmpty(actionName) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset))
             {
                 return null;
             }
 
-            return _inputActionMaps.GetValueOrDefault(assetId)?
-                .GetValueOrDefault(actionMapName);
+            return asset.FindActionMap(actionMapName)?.FindAction(actionName);
+        }
+
+        public InputActionMap GetInputActionMap(string actionMapId)
+        {
+            if (!IsValidInputActionMapId(actionMapId))
+            {
+                return null;
+            }
+
+            return _inputActionMaps.GetValueOrDefault(actionMapId);
+        }
+
+        public InputActionMap GetInputActionMapWithName(string actionMapName)
+            => GetInputActionMapWithName("Default", actionMapName);
+
+        public InputActionMap GetInputActionMapWithName(string assetId, string actionMapName)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                string.IsNullOrEmpty(actionMapName) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset))
+            {
+                return null;
+            }
+
+            return asset.FindActionMap(actionMapName);
         }
 
         public InputActionAsset GetInputActionAsset()
@@ -52,7 +71,7 @@ namespace Mu3Library.IS
 
         public InputActionAsset GetInputActionAsset(string id)
         {
-            if (!IsValidId(id))
+            if (!IsValidInputActionAssetId(id))
             {
                 return null;
             }
@@ -65,7 +84,7 @@ namespace Mu3Library.IS
 
         public void SetInputActionAssetEnable(string id, bool enable)
         {
-            if (!IsValidId(id) ||
+            if (!IsValidInputActionAssetId(id) ||
                 !_inputActionAssets.TryGetValue(id, out var asset) ||
                 asset == null)
             {
@@ -97,7 +116,7 @@ namespace Mu3Library.IS
 
         public void AddInputActionAsset(InputActionAsset asset, string id, bool enable)
         {
-            if (!IsValidId(id))
+            if (!IsValidInputActionAssetId(id))
             {
                 return;
             }
@@ -109,63 +128,80 @@ namespace Mu3Library.IS
 
             if (asset != null)
             {
-                _inputActionAssets[id] = asset;
-
-                var actionMaps = new Dictionary<string, InputActionMap>();
-                foreach (var actionMap in asset.actionMaps)
+                // 기존 asset이 있으면 관련 map/action 항목을 먼저 제거
+                if (_inputActionAssets.TryGetValue(id, out var existing))
                 {
-                    string actionMapName = actionMap.name;
-                    actionMaps[actionMapName] = actionMap;
-
-                    var actions = new Dictionary<string, Dictionary<string, InputAction>>();
-                    foreach (var action in actionMap.actions)
+                    foreach (var actionMap in existing.actionMaps)
                     {
-                        string actionName = action.name;
-                        actions[actionMapName][actionName] = action;
+                        _inputActionMaps.Remove(actionMap.id.ToString());
+                        foreach (var action in actionMap.actions)
+                        {
+                            _inputActions.Remove(action.id.ToString());
+                        }
                     }
-
-                    _inputActions[id] = actions;
                 }
 
-                _inputActionMaps[id] = actionMaps;
+                _inputActionAssets[id] = asset;
+
+                foreach (var actionMap in asset.actionMaps)
+                {
+                    string actionMapId = actionMap.id.ToString();
+                    _inputActionMaps[actionMapId] = actionMap;
+
+                    foreach (var action in actionMap.actions)
+                    {
+                        string actionId = action.id.ToString();
+                        _inputActions[actionId] = action;
+                    }
+                }
 
                 SetInputActionAssetEnable(id, enable);
             }
             else
             {
+                if (_inputActionAssets.TryGetValue(id, out var toRemove))
+                {
+                    foreach (var actionMap in toRemove.actionMaps)
+                    {
+                        _inputActionMaps.Remove(actionMap.id.ToString());
+                        foreach (var action in actionMap.actions)
+                        {
+                            _inputActions.Remove(action.id.ToString());
+                        }
+                    }
+                }
+
                 _inputActionAssets.Remove(id);
-                _inputActionMaps.Remove(id);
-                _inputActions.Remove(id);
             }
         }
 
-        private bool IsValidInputActionName(string inputActionName)
+        private bool IsValidInputActionId(string inputActionId)
         {
-            if (string.IsNullOrEmpty(inputActionName))
+            if (string.IsNullOrEmpty(inputActionId))
             {
-                Debug.LogError("InputAction name can not be null or empty.");
+                Debug.LogError("InputAction id can not be null or empty.");
                 return false;
             }
 
             return true;
         }
 
-        private bool IsValidInputActionMapName(string inputActionMapName)
+        private bool IsValidInputActionMapId(string inputActionMapId)
         {
-            if (string.IsNullOrEmpty(inputActionMapName))
+            if (string.IsNullOrEmpty(inputActionMapId))
             {
-                Debug.LogError("InputActionMap name can not be null or empty.");
+                Debug.LogError("InputActionMap id can not be null or empty.");
                 return false;
             }
 
             return true;
         }
 
-        private bool IsValidId(string id)
+        private bool IsValidInputActionAssetId(string id)
         {
             if (string.IsNullOrEmpty(id))
             {
-                Debug.LogError("id can not be null or empty.");
+                Debug.LogError("InputActionAsset id can not be null or empty.");
                 return false;
             }
 

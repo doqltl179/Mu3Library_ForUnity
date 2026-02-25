@@ -9,11 +9,13 @@ namespace Mu3Library.IS
 
 
 
-        public InputAction GetInputAction(string actionMapName, string actionName);
-        public InputAction GetInputAction(string assetId, string actionMapName, string actionName);
+        public InputAction GetInputAction(string actionId);
+        public InputAction GetInputActionWithName(string actionMapName, string actionName);
+        public InputAction GetInputActionWithName(string assetId, string actionMapName, string actionName);
 
-        public InputActionMap GetInputActionMap(string actionMapName);
-        public InputActionMap GetInputActionMap(string assetId, string actionMapName);
+        public InputActionMap GetInputActionMap(string actionMapId);
+        public InputActionMap GetInputActionMapWithName(string actionMapName);
+        public InputActionMap GetInputActionMapWithName(string assetId, string actionMapName);
 
         public InputActionAsset GetInputActionAsset();
         public InputActionAsset GetInputActionAsset(string id);
