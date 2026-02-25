@@ -7,11 +7,11 @@ namespace Mu3Library.IS
 {
     public class InputSystemManager : IInputSystemManager, IInputSystemManagerEventBus
     {
-        protected readonly Dictionary<string, InputActionAsset> _inputActionAssets = new();
+        private readonly Dictionary<string, InputActionAsset> _inputActionAssets = new();
         public int InputActionAssetCount => _inputActionAssets.Count;
 
-        protected readonly Dictionary<string, Dictionary<string, InputActionMap>> _inputActionMaps = new();
-        protected readonly Dictionary<string, Dictionary<string, Dictionary<string, InputAction>>> _inputActions = new();
+        private readonly Dictionary<string, Dictionary<string, InputActionMap>> _inputActionMaps = new();
+        private readonly Dictionary<string, Dictionary<string, Dictionary<string, InputAction>>> _inputActions = new();
 
 
 
