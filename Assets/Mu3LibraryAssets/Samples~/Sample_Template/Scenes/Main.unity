@@ -405,6 +405,10 @@ MonoBehaviour:
     Title: InputSystemManager
     Thumbnail: {fileID: 0}
     Description: 'TODO: Write Description.'
+  - SceneName: Sample_Preference
+    Title: PlayerPrefsLoader
+    Thumbnail: {fileID: 0}
+    Description: 'TODO: Write Description.'
 --- !u!1 &509335871
 GameObject:
   m_ObjectHideFlags: 0

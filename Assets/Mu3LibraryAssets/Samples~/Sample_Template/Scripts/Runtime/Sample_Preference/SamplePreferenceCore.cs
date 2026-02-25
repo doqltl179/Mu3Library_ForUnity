@@ -1,28 +1,19 @@
 using Mu3Library.Attribute;
 using Mu3Library.DI;
-using Mu3Library.Resource;
+using Mu3Library.Preference;
 using Mu3Library.Sample.Template.Global;
 using Mu3Library.Scene;
 using UnityEngine;
 using UnityEngine.UI;
 
-#if TEMPLATE_INPUTSYSTEM_SUPPORT
-using Mu3Library.IS;
-using UnityEngine.InputSystem;
-#endif
-
 // TODO: Add Contents
 
-namespace Mu3Library.Sample.Template.IS
+namespace Mu3Library.Sample.Template.Preference
 {
-    public class SampleISCore : CoreBase
+    public class SamplePreferenceCore : CoreBase
     {
-#if TEMPLATE_INPUTSYSTEM_SUPPORT
-        [Inject(typeof(ISCore))] private IInputSystemManager _inputSystemManager;
-#endif
-
+        [Inject(typeof(PreferenceCore))] private IPlayerPrefsLoader _playerPrefsLoader;
         [Inject(typeof(SceneCore))] private ISceneLoader _sceneLoader;
-        [Inject(typeof(ResourceCore))] private IResourceLoader _resourceLoader;
 
         [Title("UI Elements")]
         [SerializeField] private Button _backButton;
@@ -37,25 +28,6 @@ namespace Mu3Library.Sample.Template.IS
         private void OnDisable()
         {
             UnregisterUiEvents();
-        }
-
-        protected override void Start()
-        {
-            base.Start();
-
-#if TEMPLATE_INPUTSYSTEM_SUPPORT
-            _inputSystemManager.AddInputActionAsset(_resourceLoader.Load<InputActionAsset>("Sample_IS/InputSystemActions"));
-            _inputSystemManager.SetInputActionAssetEnable(true);
-#endif
-        }
-
-        protected override void OnDestroy()
-        {
-            base.OnDestroy();
-
-#if TEMPLATE_INPUTSYSTEM_SUPPORT
-            _inputSystemManager.SetInputActionAssetEnable(false);
-#endif
         }
 
         private void RegisterUiEvents()

@@ -15,6 +15,7 @@ namespace Mu3Library.Sample.Template.Global
         public const string SampleAddressablesAdditive = "Sample_AddressablesAdditive";
         public const string SampleWebRequest = "Sample_WebRequest";
         public const string SampleIS = "Sample_IS";
+        public const string SamplePreference = "Sample_Preference";
 
         private readonly static string[] _sampleSceneNames =
         {
@@ -25,6 +26,7 @@ namespace Mu3Library.Sample.Template.Global
             SampleAddressables,
             SampleWebRequest,
             SampleIS,
+            SamplePreference,
         };
         public static IEnumerable<string> SampleSceneNames => _sampleSceneNames;
 
