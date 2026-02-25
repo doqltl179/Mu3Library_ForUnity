@@ -9,6 +9,8 @@ namespace Mu3Library.IS
 
 
 
+        // TODO: 런타임 바인딩 기능 추가하기
+
         public InputAction GetInputAction(string actionId);
         public InputAction GetInputActionWithName(string actionMapName, string actionName);
         public InputAction GetInputActionWithName(string assetId, string actionMapName, string actionName);
