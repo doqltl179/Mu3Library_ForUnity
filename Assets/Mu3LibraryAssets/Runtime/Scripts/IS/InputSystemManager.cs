@@ -15,6 +15,160 @@ namespace Mu3Library.IS
 
 
 
+        public string GetOverrideJsonOfInputAction(string actionId)
+        {
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                return null;
+            }
+
+            return action.SaveBindingOverridesAsJson();
+        }
+
+        public string GetOverrideJsonOfInputActionWithName(string actionMapName, string actionName)
+            => GetOverrideJsonOfInputActionWithName("Default", actionMapName, actionName);
+
+        public string GetOverrideJsonOfInputActionWithName(string assetId, string actionMapName, string actionName)
+        {
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                return null;
+            }
+
+            return action.SaveBindingOverridesAsJson();
+        }
+
+        public string GetOverrideJsonOfInputActionMap(string actionMapId)
+        {
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.SaveBindingOverridesAsJson();
+        }
+
+        public string GetOverrideJsonOfInputActionMapWithName(string actionMapName)
+            => GetOverrideJsonOfInputActionMapWithName("Default", actionMapName);
+
+        public string GetOverrideJsonOfInputActionMapWithName(string assetId, string actionMapName)
+        {
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.SaveBindingOverridesAsJson();
+        }
+
+        public string GetJsonOfInputActionMap(string actionMapId)
+        {
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.ToJson();
+        }
+
+        public string GetJsonOfInputActionMapWithName(string actionMapName)
+            => GetJsonOfInputActionMapWithName("Default", actionMapName);
+
+        public string GetJsonOfInputActionMapWithName(string assetId, string actionMapName)
+        {
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.ToJson();
+        }
+
+        public string GetOverrideJsonOfInputActionAsset()
+            => GetOverrideJsonOfInputActionAsset("Default");
+
+        public string GetOverrideJsonOfInputActionAsset(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return null;
+            }
+
+            return asset.SaveBindingOverridesAsJson();
+        }
+
+        public string GetJsonOfInputActionAsset()
+            => GetJsonOfInputActionAsset("Default");
+
+        public string GetJsonOfInputActionAsset(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return null;
+            }
+
+            return asset.ToJson();
+        }
+
+        public void ApplyInputActionAssetBindingOverrideFromJson(string assetJson)
+            => ApplyInputActionAssetBindingOverrideFromJson("Default", assetJson);
+
+        public void ApplyInputActionAssetBindingOverrideFromJson(string assetId, string assetJson)
+        {
+            if (string.IsNullOrEmpty(assetJson))
+            {
+                Debug.LogError("InputActionAsset binding override json can not be null or empty.");
+                return;
+            }
+
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return;
+            }
+
+            asset.LoadBindingOverridesFromJson(assetJson);
+        }
+
+        public void AddInputActionAssetFromJson(string assetJson)
+            => AddInputActionAssetFromJson("Default", assetJson, false);
+
+        public void AddInputActionAssetFromJson(string assetJson, bool enable)
+            => AddInputActionAssetFromJson("Default", assetJson, enable);
+
+        public void AddInputActionAssetFromJson(string assetId, string assetJson)
+            => AddInputActionAssetFromJson(assetId, assetJson, false);
+
+        public void AddInputActionAssetFromJson(string assetId, string assetJson, bool enable)
+        {
+            if (string.IsNullOrEmpty(assetJson))
+            {
+                Debug.LogError("InputActionAsset json can not be null or empty.");
+                return;
+            }
+
+            try
+            {
+                var asset = InputActionAsset.FromJson(assetJson);
+                AddInputActionAsset(asset, assetId, enable);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Failed to parse InputActionAsset from json. Exception: {ex}");
+            }
+        }
+
         public InputAction GetInputAction(string actionId)
         {
             if (!IsValidInputActionId(actionId))
@@ -69,23 +223,23 @@ namespace Mu3Library.IS
         public InputActionAsset GetInputActionAsset()
             => GetInputActionAsset("Default");
 
-        public InputActionAsset GetInputActionAsset(string id)
+        public InputActionAsset GetInputActionAsset(string assetId)
         {
-            if (!IsValidInputActionAssetId(id))
+            if (!IsValidInputActionAssetId(assetId))
             {
                 return null;
             }
 
-            return _inputActionAssets.GetValueOrDefault(id);
+            return _inputActionAssets.GetValueOrDefault(assetId);
         }
 
         public void SetInputActionAssetEnable(bool enable)
             => SetInputActionAssetEnable("Default", enable);
 
-        public void SetInputActionAssetEnable(string id, bool enable)
+        public void SetInputActionAssetEnable(string assetId, bool enable)
         {
-            if (!IsValidInputActionAssetId(id) ||
-                !_inputActionAssets.TryGetValue(id, out var asset) ||
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
                 asset == null)
             {
                 return;
@@ -93,13 +247,13 @@ namespace Mu3Library.IS
 
             if (enable)
             {
-                Debug.Log($"InputActionAsset enabled. id: {id}");
+                Debug.Log($"InputActionAsset enabled. id: {assetId}");
 
                 asset.Enable();
             }
             else
             {
-                Debug.Log($"InputActionAsset disabled. id: {id}");
+                Debug.Log($"InputActionAsset disabled. id: {assetId}");
 
                 asset.Disable();
             }
@@ -111,68 +265,134 @@ namespace Mu3Library.IS
         public void AddInputActionAsset(InputActionAsset asset, bool enable)
             => AddInputActionAsset(asset, "Default", enable);
 
-        public void AddInputActionAsset(InputActionAsset asset, string id)
-            => AddInputActionAsset(asset, id, false);
+        public void AddInputActionAsset(InputActionAsset asset, string assetId)
+            => AddInputActionAsset(asset, assetId, false);
 
-        public void AddInputActionAsset(InputActionAsset asset, string id, bool enable)
+        public void AddInputActionAsset(InputActionAsset asset, string assetId, bool enable)
         {
-            if (!IsValidInputActionAssetId(id))
+            if (_inputActionAssets.ContainsKey(assetId))
             {
-                return;
+                Debug.LogWarning($"InputActionAsset with id '{assetId}' already exists. It will be replaced.");
             }
 
-            if (_inputActionAssets.ContainsKey(id))
+            if (AddInputActionAssetToDictionary(asset, assetId))
             {
-                Debug.LogWarning($"InputActionAsset with id '{id}' already exists. It will be replaced.");
-            }
-
-            if (asset != null)
-            {
-                // 기존 asset이 있으면 관련 map/action 항목을 먼저 제거
-                if (_inputActionAssets.TryGetValue(id, out var existing))
+                if (enable)
                 {
-                    foreach (var actionMap in existing.actionMaps)
-                    {
-                        _inputActionMaps.Remove(actionMap.id.ToString());
-                        foreach (var action in actionMap.actions)
-                        {
-                            _inputActions.Remove(action.id.ToString());
-                        }
-                    }
+                    asset.Enable();
                 }
-
-                _inputActionAssets[id] = asset;
-
-                foreach (var actionMap in asset.actionMaps)
-                {
-                    string actionMapId = actionMap.id.ToString();
-                    _inputActionMaps[actionMapId] = actionMap;
-
-                    foreach (var action in actionMap.actions)
-                    {
-                        string actionId = action.id.ToString();
-                        _inputActions[actionId] = action;
-                    }
-                }
-
-                SetInputActionAssetEnable(id, enable);
             }
-            else
+        }
+
+        private bool RemoveInputActionFromDictionary(InputAction action)
+            => RemoveInputActionFromDictionary(action?.id.ToString());
+
+        private bool RemoveInputActionFromDictionary(string actionId)
+        {
+            if (!IsValidInputActionId(actionId) ||
+               !_inputActions.TryGetValue(actionId, out var oldAction) ||
+               oldAction == null)
             {
-                if (_inputActionAssets.TryGetValue(id, out var toRemove))
-                {
-                    foreach (var actionMap in toRemove.actionMaps)
-                    {
-                        _inputActionMaps.Remove(actionMap.id.ToString());
-                        foreach (var action in actionMap.actions)
-                        {
-                            _inputActions.Remove(action.id.ToString());
-                        }
-                    }
-                }
-
-                _inputActionAssets.Remove(id);
+                return false;
             }
+
+            _inputActions.Remove(actionId);
+
+            return true;
+        }
+
+        private bool RemoveInputActionMapFromDictionary(InputActionMap actionMap)
+            => RemoveInputActionMapFromDictionary(actionMap?.id.ToString());
+
+        private bool RemoveInputActionMapFromDictionary(string actionMapId)
+        {
+            if (!IsValidInputActionMapId(actionMapId) ||
+               !_inputActionMaps.TryGetValue(actionMapId, out var oldMap) ||
+               oldMap == null)
+            {
+                return false;
+            }
+
+            _inputActionMaps.Remove(actionMapId);
+
+            foreach (var action in oldMap.actions)
+            {
+                RemoveInputActionFromDictionary(action);
+            }
+
+            return true;
+        }
+
+        private bool RemoveInputActionAssetFromDictionary(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+               !_inputActionAssets.TryGetValue(assetId, out var oldAsset) ||
+               oldAsset == null)
+            {
+                return false;
+            }
+
+            _inputActionAssets.Remove(assetId);
+
+            foreach (var actionMap in oldAsset.actionMaps)
+            {
+                RemoveInputActionMapFromDictionary(actionMap);
+            }
+
+            return true;
+        }
+
+        private bool AddInputActionToDictionary(InputAction action)
+        {
+            if (action == null)
+            {
+                return false;
+            }
+
+            string actionId = action.id.ToString();
+            _inputActions[actionId] = action;
+
+            return true;
+        }
+
+        private bool AddInputActionMapToDictionary(InputActionMap actionMap)
+        {
+            if (actionMap == null)
+            {
+                return false;
+            }
+
+            RemoveInputActionMapFromDictionary(actionMap);
+
+            string actionMapId = actionMap.id.ToString();
+            _inputActionMaps[actionMapId] = actionMap;
+
+            foreach (var action in actionMap.actions)
+            {
+                AddInputActionToDictionary(action);
+            }
+
+            return true;
+        }
+
+        private bool AddInputActionAssetToDictionary(InputActionAsset asset, string assetId)
+        {
+            if (asset == null ||
+               !IsValidInputActionAssetId(assetId))
+            {
+                return false;
+            }
+
+            RemoveInputActionAssetFromDictionary(assetId);
+
+            _inputActionAssets[assetId] = asset;
+
+            foreach (var actionMap in asset.actionMaps)
+            {
+                AddInputActionMapToDictionary(actionMap);
+            }
+
+            return true;
         }
 
         private bool IsValidInputActionId(string inputActionId)
@@ -197,9 +417,9 @@ namespace Mu3Library.IS
             return true;
         }
 
-        private bool IsValidInputActionAssetId(string id)
+        private bool IsValidInputActionAssetId(string assetId)
         {
-            if (string.IsNullOrEmpty(id))
+            if (string.IsNullOrEmpty(assetId))
             {
                 Debug.LogError("InputActionAsset id can not be null or empty.");
                 return false;
