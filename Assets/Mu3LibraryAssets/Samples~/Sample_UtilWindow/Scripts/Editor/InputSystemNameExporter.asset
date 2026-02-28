@@ -349,8 +349,8 @@ MonoBehaviour:
     m_StretchWidth: 1
     m_StretchHeight: 0
   _inputActionAsset: {fileID: -944628639613478452, guid: 16827d1f7f6bbc549912ba27ba1c1efe, type: 3}
-  _scriptSaveFolder: {fileID: 102900000, guid: 00000000000000001000000000000000, type: 3}
-  _assetId: testsetest
-  _scriptNamespace: 
-  _scriptClassName: 
+  _scriptSaveFolder: {fileID: 102900000, guid: af36be738face634d8d81279530acdc3, type: 3}
+  _assetId: Default
+  _scriptNamespace: Mu3Library.Sample.Template.IS
+  _scriptClassName: InputActionAssetKeys
   _foldoutActionMaps: 0
