@@ -40,6 +40,43 @@ namespace Mu3Library.IS
             return action.SaveBindingOverridesAsJson();
         }
 
+        public void ApplyInputActionBindingOverrideFromJson(string actionId, string actionJson)
+        {
+            if (string.IsNullOrEmpty(actionJson))
+            {
+                Debug.LogError("InputAction binding override json can not be null or empty.");
+                return;
+            }
+
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                return;
+            }
+
+            action.LoadBindingOverridesFromJson(actionJson);
+        }
+
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string actionMapName, string actionName, string actionJson)
+            => ApplyInputActionBindingOverrideFromJsonWithName("Default", actionMapName, actionName, actionJson);
+
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionName, string actionJson)
+        {
+            if (string.IsNullOrEmpty(actionJson))
+            {
+                Debug.LogError("InputAction binding override json can not be null or empty.");
+                return;
+            }
+
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                return;
+            }
+
+            action.LoadBindingOverridesFromJson(actionJson);
+        }
+
         public string GetOverrideJsonOfInputActionMap(string actionMapId)
         {
             var actionMap = GetInputActionMap(actionMapId);
@@ -88,6 +125,43 @@ namespace Mu3Library.IS
             }
 
             return actionMap.ToJson();
+        }
+
+        public void ApplyInputActionMapBindingOverrideFromJson(string actionMapId, string actionMapJson)
+        {
+            if (string.IsNullOrEmpty(actionMapJson))
+            {
+                Debug.LogError("InputActionMap binding override json can not be null or empty.");
+                return;
+            }
+
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                return;
+            }
+
+            actionMap.LoadBindingOverridesFromJson(actionMapJson);
+        }
+
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string actionMapName, string actionMapJson)
+            => ApplyInputActionMapBindingOverrideFromJsonWithName("Default", actionMapName, actionMapJson);
+
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionMapJson)
+        {
+            if (string.IsNullOrEmpty(actionMapJson))
+            {
+                Debug.LogError("InputActionMap binding override json can not be null or empty.");
+                return;
+            }
+
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                return;
+            }
+
+            actionMap.LoadBindingOverridesFromJson(actionMapJson);
         }
 
         public string GetOverrideJsonOfInputActionAsset()

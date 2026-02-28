@@ -13,6 +13,10 @@ namespace Mu3Library.IS
         public string GetOverrideJsonOfInputActionWithName(string actionMapName, string actionName);
         public string GetOverrideJsonOfInputActionWithName(string assetId, string actionMapName, string actionName);
 
+        public void ApplyInputActionBindingOverrideFromJson(string actionId, string actionJson);
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string actionMapName, string actionName, string actionJson);
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionName, string actionJson);
+
         public string GetOverrideJsonOfInputActionMap(string actionMapId);
         public string GetOverrideJsonOfInputActionMapWithName(string actionMapName);
         public string GetOverrideJsonOfInputActionMapWithName(string assetId, string actionMapName);
@@ -20,6 +24,10 @@ namespace Mu3Library.IS
         public string GetJsonOfInputActionMap(string actionMapId);
         public string GetJsonOfInputActionMapWithName(string actionMapName);
         public string GetJsonOfInputActionMapWithName(string assetId, string actionMapName);
+
+        public void ApplyInputActionMapBindingOverrideFromJson(string actionMapId, string actionMapJson);
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string actionMapName, string actionMapJson);
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionMapJson);
 
         public string GetOverrideJsonOfInputActionAsset();
         public string GetOverrideJsonOfInputActionAsset(string assetId);
