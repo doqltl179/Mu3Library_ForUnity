@@ -51,6 +51,7 @@ namespace Mu3Library.IS
             var action = GetInputAction(actionId);
             if (action == null)
             {
+                Debug.LogError($"InputAction not found. id: {actionId}");
                 return;
             }
 
@@ -71,6 +72,7 @@ namespace Mu3Library.IS
             var action = GetInputActionWithName(assetId, actionMapName, actionName);
             if (action == null)
             {
+                Debug.LogError($"InputAction not found. assetId: {assetId}, actionMapName: {actionMapName}, actionName: {actionName}");
                 return;
             }
 
@@ -138,6 +140,7 @@ namespace Mu3Library.IS
             var actionMap = GetInputActionMap(actionMapId);
             if (actionMap == null)
             {
+                Debug.LogError($"InputActionMap not found. id: {actionMapId}");
                 return;
             }
 
@@ -158,6 +161,7 @@ namespace Mu3Library.IS
             var actionMap = GetInputActionMapWithName(assetId, actionMapName);
             if (actionMap == null)
             {
+                Debug.LogError($"InputActionMap not found. assetId: {assetId}, actionMapName: {actionMapName}");
                 return;
             }
 
@@ -209,6 +213,7 @@ namespace Mu3Library.IS
                 !_inputActionAssets.TryGetValue(assetId, out var asset) ||
                 asset == null)
             {
+                Debug.LogError($"InputActionAsset not found. id: {assetId}");
                 return;
             }
 
