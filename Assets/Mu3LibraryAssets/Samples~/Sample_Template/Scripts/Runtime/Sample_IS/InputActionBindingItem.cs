@@ -1,6 +1,8 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System;
+
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
 using UnityEngine.InputSystem;
@@ -19,7 +21,19 @@ namespace Mu3Library.Sample.Template.IS
         public InputBinding InputBinding => _inputBinding;
 #endif
 
+        public event Action<InputActionBindingItem> OnClicked;
 
+
+
+        private void Awake()
+        {
+            _button.onClick.AddListener(OnButtonClicked);
+        }
+
+        private void OnDestroy()
+        {
+            _button.onClick.RemoveListener(OnButtonClicked);
+        }
 
         #region Utility
 
@@ -40,5 +54,10 @@ namespace Mu3Library.Sample.Template.IS
 #endif
 
         #endregion
+
+        private void OnButtonClicked()
+        {
+            OnClicked?.Invoke(this);
+        }
     }
 }

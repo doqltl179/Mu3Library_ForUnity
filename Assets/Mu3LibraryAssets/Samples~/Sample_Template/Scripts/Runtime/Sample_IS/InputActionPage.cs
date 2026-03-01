@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,6 +13,10 @@ namespace Mu3Library.Sample.Template.IS
         [SerializeField] private InputActionItem _inputActionItemResource;
         private readonly List<InputActionItem> _inputActionItems = new();
 
+        public int InputActionItemCount => _inputActionItems.Count;
+
+        public event Action<InputActionItem, InputActionBindingItem> OnBindingItemClicked;
+
 
 
         private void Awake()
@@ -20,6 +25,14 @@ namespace Mu3Library.Sample.Template.IS
         }
 
         #region Utility
+
+        public void Patch()
+        {
+            foreach (var item in _inputActionItems)
+            {
+                item.Patch();
+            }
+        }
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
         public void AddInputAction(InputDevice device, InputAction inputAction)
@@ -35,10 +48,17 @@ namespace Mu3Library.Sample.Template.IS
                 return;
             }
 
+            inputActionItem.OnBindingItemClicked += OnBindingItemClickedEvent;
+
             _inputActionItems.Add(inputActionItem);
         }
 #endif
 
         #endregion
+
+        private void OnBindingItemClickedEvent(InputActionItem inputActionItem, InputActionBindingItem bindingItem)
+        {
+            OnBindingItemClicked?.Invoke(inputActionItem, bindingItem);
+        }
     }
 }

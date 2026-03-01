@@ -1,6 +1,8 @@
 using TMPro;
 using UnityEngine;
 using System.Collections.Generic;
+using System;
+
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
 using UnityEngine.InputSystem;
@@ -24,6 +26,8 @@ namespace Mu3Library.Sample.Template.IS
         public InputAction InputAction => _inputAction;
 #endif
 
+        public event Action<InputActionItem, InputActionBindingItem> OnBindingItemClicked;
+
 
 
         private void Awake()
@@ -32,6 +36,11 @@ namespace Mu3Library.Sample.Template.IS
         }
 
         #region Utility
+
+        public void Patch()
+        {
+            SetInputAction(_device, _inputAction);
+        }
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
         public void SetInputAction(InputDevice device, InputAction inputAction)
@@ -57,6 +66,8 @@ namespace Mu3Library.Sample.Template.IS
 
                 bindingItem.SetInputBinding(binding);
 
+                bindingItem.OnClicked += OnBindingItemClickedEvent;
+
                 _bindingItems.Add(bindingItem);
             }
 
@@ -66,5 +77,10 @@ namespace Mu3Library.Sample.Template.IS
 #endif
 
         #endregion
+
+        private void OnBindingItemClickedEvent(InputActionBindingItem bindingItem)
+        {
+            OnBindingItemClicked?.Invoke(this, bindingItem);
+        }
     }
 }

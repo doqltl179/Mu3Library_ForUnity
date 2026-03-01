@@ -18,6 +18,8 @@ namespace Mu3Library.Sample.Template.IS
 {
     public class SampleISCore : CoreBase
     {
+        private const string InputActionAssetResourcePath = "Sample_IS/InputSystemActions";
+
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
         [Inject(typeof(ISCore))] private IInputSystemManager _inputSystemManager;
 #endif
@@ -35,6 +37,14 @@ namespace Mu3Library.Sample.Template.IS
 
         private DeviceTab _currentDeviceTab;
         private InputActionMapTab _currentInputActionMapTab;
+
+        [Space(20)]
+        [SerializeField] private MessageHandler _messageHandler;
+
+        [Space(20)]
+        [SerializeField] private Button _saveButton;
+        [SerializeField] private Button _resetButton;
+        [SerializeField] private Toggle _autoSaveToggle;
 
         [Space(20)]
         [SerializeField] private Button _backButton;
@@ -63,8 +73,14 @@ namespace Mu3Library.Sample.Template.IS
             base.Start();
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
-            InputActionAsset inputActionAsset = _resourceLoader.Load<InputActionAsset>("Sample_IS/InputSystemActions");
+            InputActionAsset inputActionAsset = _resourceLoader.Load<InputActionAsset>(InputActionAssetResourcePath);
             _inputSystemManager.AddInputActionAsset(inputActionAsset);
+
+            string overrideData = DataCacheAgent.Load("Default");
+            if (!string.IsNullOrEmpty(overrideData))
+            {
+                _inputSystemManager.ApplyInputActionAssetBindingOverrideFromJson(overrideData);
+            }
             _inputSystemManager.SetInputActionAssetEnable(true);
 
             // var allDevices = InputSystem.devices;
@@ -109,6 +125,14 @@ namespace Mu3Library.Sample.Template.IS
                         inputActionPage.AddInputAction(device, action);
                     }
 
+                    if (inputActionPage.InputActionItemCount == 0)
+                    {
+                        Destroy(inputActionPage.gameObject);
+                        continue;
+                    }
+
+                    inputActionPage.OnBindingItemClicked += OnBindingItemClicked;
+
                     _inputActionPages[device.name][inputActionMap.name] = inputActionPage;
                 }
             }
@@ -131,19 +155,50 @@ namespace Mu3Library.Sample.Template.IS
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
             _inputSystemManager.SetInputActionAssetEnable(false);
 #endif
+
+            _resourceLoader.Release<InputActionAsset>(InputActionAssetResourcePath);
         }
 
         private void RegisterUiEvents()
         {
+            _saveButton.onClick.AddListener(OnSaveButtonClicked);
+            _resetButton.onClick.AddListener(OnResetButtonClicked);
+            _autoSaveToggle.onValueChanged.AddListener(OnAutoSaveToggleValueChanged);
             _backButton.onClick.AddListener(OnBackButtonClicked);
         }
 
         private void UnregisterUiEvents()
         {
+            _saveButton.onClick.RemoveListener(OnSaveButtonClicked);
+            _resetButton.onClick.RemoveListener(OnResetButtonClicked);
+            _autoSaveToggle.onValueChanged.RemoveListener(OnAutoSaveToggleValueChanged);
             _backButton.onClick.RemoveListener(OnBackButtonClicked);
         }
 
         #region UI Event
+        private void OnAutoSaveToggleValueChanged(bool isOn)
+        {
+            // Nothing.
+        }
+
+        private void OnSaveButtonClicked()
+        {
+            SaveOverrideData();
+        }
+
+        private void OnResetButtonClicked()
+        {
+            RemoveOverrideData();
+
+            foreach (var devicePages in _inputActionPages.Values)
+            {
+                foreach (var page in devicePages.Values)
+                {
+                    page?.Patch();
+                }
+            }
+        }
+
         private void OnBackButtonClicked()
         {
 #if UNITY_EDITOR
@@ -153,6 +208,73 @@ namespace Mu3Library.Sample.Template.IS
 #endif
         }
         #endregion
+
+        private void OnBindingItemClicked(InputActionItem inputActionItem, InputActionBindingItem bindingItem)
+        {
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
+            int bindingIndex = -1;
+            var bindings = inputActionItem.InputAction.bindings;
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                if (bindings[i].id == bindingItem.InputBinding.id)
+                {
+                    bindingIndex = i;
+                    break;
+                }
+            }
+
+            if (bindingIndex < 0)
+            {
+                Debug.LogWarning($"Binding not found for action '{inputActionItem.InputAction.name}'.");
+                return;
+            }
+
+            var cancelAction = _inputSystemManager.GetInputAction(InputActionAssetKeys.UI.Cancel.Id);
+
+            var rebindOperation = _inputSystemManager.StartInteractiveRebind(
+                inputActionItem.InputAction,
+                bindingIndex,
+                targetDeviceTypes: inputActionItem.Device != null ? new[] { inputActionItem.Device.GetType() } : null,
+                cancellingThroughControls: cancelAction?.controls.ToArray(),
+                onComplete: () =>
+                {
+                    bindingItem.SetInputBinding(inputActionItem.InputAction.bindings[bindingIndex]);
+
+                    if (_autoSaveToggle.isOn)
+                    {
+                        SaveOverrideData();
+                    }
+                },
+                onCancel: () =>
+                {
+
+                },
+                onFinally: () =>
+                {
+                    _messageHandler.HideMessage();
+                }
+            );
+
+            System.Text.StringBuilder messageSb = new System.Text.StringBuilder();
+            messageSb.Append($"[{inputActionItem.InputAction.name}]");
+            if (!string.IsNullOrEmpty(bindingItem.InputBinding.effectivePath))
+            {
+                string nameString = InputControlPath.ToHumanReadableString(
+                    bindingItem.InputBinding.effectivePath,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice);
+                messageSb.Append($" - [{nameString}]");
+            }
+            messageSb.AppendLine();
+            messageSb.AppendLine("<size=80%>Input New Key</size>");
+            _messageHandler.ShowMessage(
+                messageSb.ToString(),
+                () =>
+                {
+                    rebindOperation?.Cancel();
+                }
+            );
+#endif
+        }
 
         private void OnTabChanged(Tab changedTab)
         {
@@ -204,6 +326,24 @@ namespace Mu3Library.Sample.Template.IS
             _inputActionPages.GetValueOrDefault(_currentDeviceTab.Device.name)?
                 .GetValueOrDefault(_currentInputActionMapTab.InputActionMap.name)?
                 .gameObject.SetActive(active);
+        }
+
+        private void SaveOverrideData()
+        {
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
+            string overrideData = _inputSystemManager.GetOverrideJsonOfInputActionAsset();
+
+            DataCacheAgent.Save("Default", overrideData);
+#endif
+        }
+
+        private void RemoveOverrideData()
+        {
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
+            _inputSystemManager.RemoveAllInputActionAssetBindingOverrides();
+
+            DataCacheAgent.Remove("Default");
+#endif
         }
     }
 }
