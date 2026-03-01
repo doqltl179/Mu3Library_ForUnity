@@ -27,10 +27,67 @@ When user-facing behavior or API changes:
 3. Public API compatibility checked.
 4. Optional integration gates validated.
 5. Basic compile/verification completed or gaps reported.
+6. **GitHub Release created** (see below — a git tag alone is NOT a release).
+
+## Git Tag vs GitHub Release
+
+> **Critical distinction**: Pushing a git tag (`git push origin vX.Y.Z`) does NOT
+> create a GitHub Release. A GitHub Release is a separate object on GitHub that
+> attaches release notes, assets, and a published state to a tag.
+> Always complete the GitHub Release step after tagging.
+
+## Creating a GitHub Release
+
+Use the `gh` CLI (GitHub CLI) to create the release from the terminal.
+`gh` must be authenticated (`gh auth status`) before use.
+
+### Command
+
+```sh
+gh release create <tag> --title "<title>" --notes "<release notes body>"
+```
+
+### Example for a new version
+
+```sh
+gh release create v0.3.0 --title "v0.3.0" --notes "## What's Changed
+- Added InputSystemManager ...
+
+## Package
+- Version: \`0.3.0\`
+
+## Full Changelog
+https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...v0.3.0"
+```
+
+### Useful flags
+
+| Flag | Purpose |
+|------|---------|
+| `--title` | Release title shown on GitHub |
+| `--notes` | Inline release notes body (Markdown) |
+| `--notes-file <file>` | Read release notes from a file instead |
+| `--draft` | Save as draft instead of publishing immediately |
+| `--prerelease` | Mark as pre-release |
+| `--latest` | Explicitly mark as the latest release (default for non-prerelease) |
+
+### Verification
+
+After creation, confirm the release is visible:
+
+```sh
+gh release view <tag>
+```
+
+Or open it in the browser:
+
+```sh
+gh release view <tag> --web
+```
 
 ## GitHub Release Notes Format
 
-When publishing or editing a GitHub Release, keep a consistent format:
+Keep a consistent format across all releases:
 
 ```md
 ## What's Changed
@@ -44,3 +101,4 @@ https://github.com/doqltl179/Mu3Library_ForUnity/compare/vPREV...vNEW
 ```
 
 - If details are still being refined, publish at least a concise non-empty summary to avoid omission.
+- Always include the Full Changelog comparison link using the previous release tag as `vPREV`.
