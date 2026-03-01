@@ -33,8 +33,7 @@
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
 - 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライを提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
-- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー
-
+- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー- 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 ## 📋 要件
 
 - Unity 6 (6000.0+)
@@ -225,6 +224,7 @@ _playerData.Health.Set(80);
 - **Resource**: Resourcesフォルダローディング
 - **Scene**: シーンローディング抽象化
 - **UI**: MVPパターン実装
+- **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
 - **Utility**: Singleton、EasingFunctions、Settings
 - **WebRequest**: HTTPリクエスト管理
 
@@ -239,7 +239,7 @@ _playerData.Health.Set(80);
 または、プロジェクト内の`Assets/Mu3LibrarySamples`フォルダを参照してください。
 
 **Sample_Template 主要構成:**
-- Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D
+- Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
 - Localization: Locales（KO/JA/EN）、String Tableサンプル
 - Resources: MVPサンプル用のPrefabと設定
 - Materials: デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）
@@ -274,26 +274,23 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近の更新 (v0.2.3)
+## 📝 最近のアップデート (v0.3.0)
 
-**サービスイベント契約の分離:**
-- サービスインターフェースは機能API中心に整理されました。
-- イベントAPIは専用のEventBusインターフェースへ分離されました:
-  - `IAddressablesManagerEventBus`
-  - `ILocalizationManagerEventBus`
-  - `ISceneLoaderEventBus`
-  - `IMVPManagerEventBus`
-  - `IAudioManagerEventBus`
+**InputSystemManager 追加:**
+- 新しい Input System モジュールを追加（`MU3LIBRARY_INPUTSYSTEM_SUPPORT` が必要）。
+- カスタム ID で `InputActionAsset` を登録; GUID ベースおよび名前ベースの検索をサポート。
+- `StartInteractiveRebind(...)` による対話的リバインド; デバイスタイプフィルタリングとキャンセルコントロールをサポート。
+- エセット/アクションマップ/アクション単位のバインディングオーバーライドの JSON 保存・適用。
+- エセット全体または個別アクションマップの有効化/無効化。
 
-**初期化/Scene/WebRequest の改善:**
-- キャンセル対応のScene UniTask APIを追加しました。
-- Addressables/Localization 初期化契約が明示的な結果状態を提供します。
-- WebRequest APIがタイムアウト/リトライを含む構造化結果型を提供します。
+**新しいエディタドロワー追加:**
+- `InputSystemNameExporterDrawer`: Input System アクション名を文字列定数としてエクスポートするドロワー。
+- `LocalizationCharacterCollectorDrawer`: Localization ストリングテーブルから文字を収集・確認するドロワー。
 
-**MVP/Observable/Audio の改善:**
-- `IAudioVolumeSettings` を `IAudioManagerEventBus` から分離しました。
-- `IObservableValue<TValue>` と `ReadOnly` により Observable の読み取り専用公開を追加しました。
-- `OutPanelSettings` をシリアライズ可能にし、`MVPManager` はフォーカス更新時に `EventSystem` の安全性を検証します。
+**MVP 改善:**
+- `PresenterBase.CloseSelf(bool forceClose = false)` 追加: Presenter が外部呼び出し元なしに自分自身を閉じることができます。
+- `PresenterBase.Initialize(...)` が `internal` に変更; 初期化は `MVPManager` が独占的に管理します。
+- `LayerCanvas` が各アイテムに合わせて Layer 値を自動的に同期するようになりました。
 
 ## 🤝 貢献
 
@@ -314,6 +311,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.3`
+- Version: `0.3.0`
 
 Unity開発者のために制作

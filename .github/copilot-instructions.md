@@ -16,9 +16,10 @@ This file is the central entry point for instruction routing.
 2. `.github/agents/unity.agent.md`
 3. `.github/instructions/unity.instructions.md`
 4. `.github/instructions/verification.instructions.md` (when compile/safety verification is needed)
-5. `.github/instructions/release.instructions.md` (when release/version/changelog is affected)
-6. `.github/instructions/docs-sync.instructions.md` (when README/CHANGELOG updates are needed)
-7. `.github/agents/reviewer.agent.md` (when review/audit style output is requested)
+5. `.github/instructions/git-workflow.instructions.md` (when branch/merge/push/release flow is requested)
+6. `.github/instructions/release.instructions.md` (when release/version/changelog is affected)
+7. `.github/instructions/docs-sync.instructions.md` (when README/CHANGELOG updates are needed)
+8. `.github/agents/reviewer.agent.md` (when review/audit style output is requested)
 
 ## Mu3Library Guardrails
 

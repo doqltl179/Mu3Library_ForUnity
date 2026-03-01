@@ -387,7 +387,13 @@ namespace Mu3Library.UI.MVP
 
             if (!_layerCanvases.TryGetValue(viewLayerName, out Canvas layerCanvas))
             {
-                layerCanvas = CreateLayerCanvas(viewLayerName, MVPCanvasSettings.Standard);
+                var layerCanvasSettings = MVPCanvasSettings.Standard;
+
+                var canvasSettings = layerCanvasSettings.CanvasSettings;
+                canvasSettings.SortingLayerName = viewLayerName;
+                layerCanvasSettings.CanvasSettings = canvasSettings;
+
+                layerCanvas = CreateLayerCanvas(layerCanvasSettings);
 
                 _layerCanvases.Add(viewLayerName, layerCanvas);
             }
@@ -658,6 +664,8 @@ namespace Mu3Library.UI.MVP
             {
                 presenter = new TPresenter();
             }
+
+            presenter.Context(this);
 
             return presenter;
         }

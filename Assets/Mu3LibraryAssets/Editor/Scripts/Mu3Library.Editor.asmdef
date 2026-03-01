@@ -2,7 +2,10 @@
     "name": "Mu3Library.Editor",
     "rootNamespace": "Mu3Library.Editor",
     "references": [
-        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b"
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
+        "Unity.Localization",
+        "Unity.Localization.Editor",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"
@@ -13,6 +16,17 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        }
+    ],
     "noEngineReferences": false
 }

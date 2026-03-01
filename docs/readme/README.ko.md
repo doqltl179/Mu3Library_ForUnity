@@ -33,8 +33,7 @@
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
-- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공
-
+- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공- 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
@@ -225,6 +224,7 @@ _playerData.Health.Set(80);
 - **Resource**: Resources 폴더 로딩
 - **Scene**: 씬 로딩 추상화
 - **UI**: MVP 패턴 구현
+- **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
 - **Utility**: Singleton, EasingFunctions, Settings
 - **WebRequest**: HTTP 요청 관리
 
@@ -239,7 +239,7 @@ _playerData.Health.Set(80);
 또는 프로젝트 내 `Assets/Mu3LibrarySamples` 폴더를 참고하세요.
 
 **Sample_Template 주요 구성:**
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D
+- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab 및 설정
 - Materials: 기본 색깔 머티리얼 제공 (Black, Blue, Green, Magenta, Red, White)
@@ -274,26 +274,23 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.2.3)
+## 📝 최근 업데이트 (v0.3.0)
 
-**서비스 이벤트 계약 분리:**
-- 서비스 인터페이스는 기능 API 중심으로 정리되었습니다.
-- 이벤트 API는 전용 EventBus 인터페이스로 분리되었습니다:
-  - `IAddressablesManagerEventBus`
-  - `ILocalizationManagerEventBus`
-  - `ISceneLoaderEventBus`
-  - `IMVPManagerEventBus`
-  - `IAudioManagerEventBus`
+**InputSystemManager 추가:**
+- 새로운 Input System 모듈 추가 (`MU3LIBRARY_INPUTSYSTEM_SUPPORT` 필요).
+- `InputActionAsset`을 커스텀 ID로 등록; GUID 기반 및 이름 기반 조회 지원.
+- `StartInteractiveRebind(...)`을 통한 인터랙티브 리바인딩; 디바이스 타입 필터링 및 취소 컨트롤 지원.
+- 에셋/액션맵/액션 단위 바인딩 오버라이드 직렬화 지원.
+- 전체 에셋 또는 개별 액션맵 활성화/비활성화.
 
-**초기화/Scene/WebRequest 개선:**
-- 취소를 지원하는 Scene UniTask API가 추가되었습니다.
-- Addressables/Localization 초기화 계약이 명시적인 결과 상태를 제공합니다.
-- WebRequest API가 타임아웃/재시도를 포함한 구조화된 결과형을 제공합니다.
+**새로운 에디터 Drawer 추가:**
+- `InputSystemNameExporterDrawer`: Input System 액션 이름을 문자열 상수로 내보내는 Drawer.
+- `LocalizationCharacterCollectorDrawer`: Localization 스트링 테이블에서 문자를 수집·확인하는 Drawer.
 
-**MVP/Observable/Audio 보강:**
-- `IAudioVolumeSettings`가 `IAudioManagerEventBus`에서 분리되었습니다.
-- `IObservableValue<TValue>` 및 `ReadOnly`를 통해 Observable 읽기 전용 접근을 제공합니다.
-- `OutPanelSettings`가 직렬화 가능 구조로 개선되었고, `MVPManager`가 포커스 갱신 시 `EventSystem` 안전성을 검증합니다.
+**MVP 보강:**
+- `PresenterBase.CloseSelf(bool forceClose = false)` 추가: Presenter가 외부 호출자 없이 스스로를 닫을 수 있습니다.
+- `PresenterBase.Initialize(...)`가 `internal`로 변경됨; 초기화가 `MVPManager`에 의해 독점적으로 관리됩니다.
+- `LayerCanvas`가 각 항목에 맞게 Layer 값을 자동으로 동기화합니다.
 
 ## 🤝 기여
 
@@ -314,6 +311,6 @@ protected override void Start()
 
 **패키지 정보:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.3`
+- Version: `0.3.0`
 
 Unity 개발자를 위해 제작됨

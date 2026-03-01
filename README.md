@@ -34,6 +34,7 @@
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, and retry options
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: UniTask + CancellationToken scene load/unload helpers
+- 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 
 ## 📋 Requirements
 
@@ -225,6 +226,7 @@ When the following packages are installed, their features are automatically enab
 - **Resource**: Resources folder loading
 - **Scene**: Scene loading abstraction
 - **UI**: MVP pattern implementation
+- **IS**: Unity Input System wrapper and binding manager (optional)
 - **Utility**: Singleton, EasingFunctions, Settings
 - **WebRequest**: HTTP request management
 
@@ -239,7 +241,7 @@ You can import the following samples from the **Samples** tab in Package Manager
 Or refer to the `Assets/Mu3LibrarySamples` folder in your project.
 
 **Sample_Template Key Components:**
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D
+- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales (KO/JA/EN), String Table samples
 - Resources: Prefabs and settings for MVP samples
 - Materials: Default color materials (Black, Blue, Green, Magenta, Red, White)
@@ -274,26 +276,23 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.2.3)
+## 📝 Recent Updates (v0.3.0)
 
-**Service Event Contract Split:**
-- Service interfaces now focus on functional APIs only.
-- Event APIs were separated into dedicated EventBus interfaces:
-  - `IAddressablesManagerEventBus`
-  - `ILocalizationManagerEventBus`
-  - `ISceneLoaderEventBus`
-  - `IMVPManagerEventBus`
-  - `IAudioManagerEventBus`
+**InputSystemManager Added:**
+- New Input System module (requires `MU3LIBRARY_INPUTSYSTEM_SUPPORT`).
+- Register `InputActionAsset` instances by custom ID with GUID-based and name-based lookup.
+- Interactive rebinding via `StartInteractiveRebind(...)` with optional device-type filtering and cancel support.
+- Binding override serialization for per-asset, per-action-map, and per-action levels.
+- Enable/disable entire asset or individual action maps.
 
-**Initialization/Scene/WebRequest Improvements:**
-- Added Scene UniTask APIs with cancellation support.
-- Addressables/Localization initialization contracts now expose explicit result state.
-- WebRequest APIs now provide structured result variants with timeout/retry options.
+**New Editor Drawers:**
+- `InputSystemNameExporterDrawer`: Export Input System action names as string constants.
+- `LocalizationCharacterCollectorDrawer`: Collect and review characters across Localization string tables.
 
-**MVP/Observable/Audio Refinements:**
-- `IAudioVolumeSettings` was decoupled from `IAudioManagerEventBus`.
-- Observable read-only access is now available via `IObservableValue<TValue>` and `ReadOnly`.
-- `OutPanelSettings` was made serializable, and `MVPManager` now validates `EventSystem` safety during focus updates.
+**MVP Refinements:**
+- `PresenterBase.CloseSelf(bool forceClose = false)` added: Presenter can close itself without an external caller.
+- `PresenterBase.Initialize(...)` is now `internal`; initialization is managed exclusively by `MVPManager`.
+- `LayerCanvas` now synchronizes its Layer value to each child item automatically.
 
 ## 🤝 Contributing
 
@@ -314,6 +313,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.2.3`
+- Version: `0.3.0`
 
 Made with ❤️ for Unity Developers

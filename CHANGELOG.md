@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-01
+
+### Added
+- `InputSystemManager`: New Input System module (requires `MU3LIBRARY_INPUTSYSTEM_SUPPORT`):
+  - Register `InputActionAsset` instances by custom ID; supports GUID-based and name-based action/map lookup.
+  - Interactive rebinding via `StartInteractiveRebind(...)` with optional device-type filtering and cancel-control support.
+  - Binding override serialization for per-asset, per-action-map, and per-action levels: save and load as JSON.
+  - Enable/disable entire asset or individual action maps.
+- `InputSystemNameExporterDrawer`: Editor drawer for exporting Input System action names as string constants.
+- `LocalizationCharacterCollectorDrawer`: Editor drawer for collecting and reviewing characters across Localization string tables.
+- `PresenterBase.CloseSelf(bool forceClose = false)`: A presenter can now close itself via the injected `IMVPManager` reference without needing an external caller.
+
+### Changed
+- `PresenterBase.Initialize(View, Arguments)` and `PresenterBase.Initialize(Arguments)` changed from `public` to `internal`.
+  - Initialization is now managed exclusively by `MVPManager`; external code can no longer call these methods directly.
+- `LayerCanvas` now synchronizes its Layer value to each child item automatically.
+
 ## [0.2.3] - 2026-02-16
 ### Changed
 - Audio volume contract decoupled from event bus:

@@ -394,7 +394,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57789670320ff5741b6ace1cb694093d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 0
+  _dontDestroyOnLoad: 0
+  _executionOrder: 0
   _splashAnimation: {fileID: 1723932439}
 --- !u!4 &528567007
 Transform:
@@ -484,7 +485,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d61bed8e43888f64b966b339a11e02e2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &783130826
 Transform:
   m_ObjectHideFlags: 0
@@ -529,7 +531,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44e83fe5750bfe5418f0fd635d56201f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &959462977
 Transform:
   m_ObjectHideFlags: 0
@@ -570,14 +573,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1213213924}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
   m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 2
     m_Resolution: -1
@@ -671,7 +674,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca8fdc21c16cba94ea4cf74dec24b1b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &1284993521
 Transform:
   m_ObjectHideFlags: 0
@@ -716,7 +720,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dacc30a633ff25647950235bf8bc8110, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &1331891955
 Transform:
   m_ObjectHideFlags: 0
@@ -724,6 +729,52 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1331891953}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1465174215
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1465174217}
+  - component: {fileID: 1465174216}
+  m_Layer: 0
+  m_Name: ISCore
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1465174216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1465174215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41bd6ec5a40afda4dae37fc7ff32a7a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.ISCore
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
+--- !u!4 &1465174217
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1465174215}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -776,7 +827,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85bdefa979562c642bf61dab6a3bd9a6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!1 &1704778838
 GameObject:
   m_ObjectHideFlags: 0
@@ -872,6 +924,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: -4
+  m_characterHorizontalScale: 1
   m_wordSpacing: -4
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1073,7 +1126,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c15ab3938a9da14fb261fe789b8b0a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &2037267860
 Transform:
   m_ObjectHideFlags: 0
@@ -1118,7 +1172,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4a53eb2b527f684b890c4c594846b31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _setAsGlobal: 1
+  _dontDestroyOnLoad: 1
+  _executionOrder: 0
 --- !u!4 &2101551812
 Transform:
   m_ObjectHideFlags: 0
@@ -1149,5 +1204,6 @@ SceneRoots:
   - {fileID: 1284993521}
   - {fileID: 1331891955}
   - {fileID: 959462977}
+  - {fileID: 1465174217}
   - {fileID: 1723932438}
   - {fileID: 295458377}
