@@ -13,12 +13,22 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-01
+
 ### 追加
+- `InputSystemManager`: 新しい Input System モジュールを追加（`MU3LIBRARY_INPUTSYSTEM_SUPPORT` が必要）:
+  - カスタム ID で `InputActionAsset` を登録; GUID ベースおよび名前ベースのアクション/マップ検索をサポート。
+  - `StartInteractiveRebind(...)` による対話的リバインド; デバイスタイプフィルタリングとキャンセルコントロールをサポート。
+  - エセット/アクションマップ/アクション単位でのバインディングオーバーライドの JSON 保存・適用。
+  - エセット全体または個別アクションマップの有効化/無効化。
+- `InputSystemNameExporterDrawer`: Input System アクション名を文字列定数としてエクスポートするエディタドロワーを追加。
+- `LocalizationCharacterCollectorDrawer`: Localization ストリングテーブルから文字を収集・確認するエディタドロワーを追加。
 - `PresenterBase.CloseSelf(bool forceClose = false)`: Presenterが外部の呼び出し元を必要とせず、注入された `IMVPManager` 参照を通じて自分自身を閉じることができます。
 
 ### 変更
 - `PresenterBase.Initialize(View, Arguments)` および `PresenterBase.Initialize(Arguments)` が `public` から `internal` に変更されました。
   - 初期化処理は `MVPManager` が独占的に管理するようになり、外部コードから直接呼び出すことはできません。
+- `LayerCanvas` が各アイテムに合わせて Layer 値を自動的に同期するようになりました。
 
 ## [0.2.3] - 2026-02-16
 ### 変更
