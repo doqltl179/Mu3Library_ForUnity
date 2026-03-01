@@ -1,4 +1,5 @@
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+using System;
 using UnityEngine.InputSystem;
 
 namespace Mu3Library.IS
@@ -8,6 +9,15 @@ namespace Mu3Library.IS
         public int InputActionAssetCount { get; }
 
 
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(string actionId, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null);
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null);
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string assetId, string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null);
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(InputAction action, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null);
+
+        public void RemoveInputActionBindingOverride(string actionId, int bindingIndex);
+        public void RemoveInputActionBindingOverrideWithName(string actionMapName, string actionName, int bindingIndex);
+        public void RemoveInputActionBindingOverrideWithName(string assetId, string actionMapName, string actionName, int bindingIndex);
 
         public string GetOverrideJsonOfInputAction(string actionId);
         public string GetOverrideJsonOfInputActionWithName(string actionMapName, string actionName);
@@ -28,6 +38,9 @@ namespace Mu3Library.IS
         public void ApplyInputActionMapBindingOverrideFromJson(string actionMapId, string actionMapJson);
         public void ApplyInputActionMapBindingOverrideFromJsonWithName(string actionMapName, string actionMapJson);
         public void ApplyInputActionMapBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionMapJson);
+
+        public void RemoveAllInputActionAssetBindingOverrides();
+        public void RemoveAllInputActionAssetBindingOverrides(string assetId);
 
         public string GetOverrideJsonOfInputActionAsset();
         public string GetOverrideJsonOfInputActionAsset(string assetId);

@@ -1,4 +1,5 @@
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,6 +15,136 @@ namespace Mu3Library.IS
         private readonly Dictionary<string, InputAction> _inputActions = new();
 
 
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(string actionId, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebind(
+                GetInputAction(actionId),
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebindWithName(
+                "Default",
+                actionMapName,
+                actionName,
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string assetId, string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebind(
+                GetInputActionWithName(assetId, actionMapName, actionName),
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(InputAction action, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+        {
+            if (action == null)
+            {
+                Debug.LogError("InputAction can not be null.");
+                return null;
+            }
+            else if (bindingIndex < 0 || bindingIndex >= action.bindings.Count)
+            {
+                Debug.LogError($"Binding index out of range. action: {action.name}, bindingIndex: {bindingIndex}");
+                return null;
+            }
+
+            action.Disable();
+
+            var rebind = action.PerformInteractiveRebinding(bindingIndex);
+
+            if (targetDeviceTypes != null && targetDeviceTypes.Length > 0)
+            {
+                // targetDeviceTypes 중 어느 타입에도 해당하지 않는 device의 control을 제외한다.
+                // OnPotentialMatch 방식과 달리 입력 시스템 단에서 원천 차단한다.
+                foreach (var device in InputSystem.devices)
+                {
+                    bool isTarget = false;
+                    foreach (var type in targetDeviceTypes)
+                    {
+                        if (type != null && type.IsAssignableFrom(device.GetType()))
+                        {
+                            isTarget = true;
+                            break;
+                        }
+                    }
+
+                    if (!isTarget)
+                    {
+                        rebind = rebind.WithControlsExcluding(device.path + "/*");
+                    }
+                }
+            }
+
+            if (cancellingThroughControls != null)
+            {
+                foreach (var control in cancellingThroughControls)
+                {
+                    if (control != null)
+                    {
+                        rebind = rebind.WithCancelingThrough(control);
+                    }
+                }
+            }
+
+            var rebindOperation = rebind
+                .OnComplete(op =>
+                {
+                    op.Dispose();
+                    action.Enable();
+                    onComplete?.Invoke();
+                    onFinally?.Invoke();
+                })
+                .OnCancel(op =>
+                {
+                    op.Dispose();
+                    action.Enable();
+                    onCancel?.Invoke();
+                    onFinally?.Invoke();
+                })
+                .Start();
+
+            return rebindOperation;
+        }
+
+        public void RemoveInputActionBindingOverride(string actionId, int bindingIndex)
+        {
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. id: {actionId}");
+                return;
+            }
+
+            action.RemoveBindingOverride(bindingIndex);
+        }
+
+        public void RemoveInputActionBindingOverrideWithName(string actionMapName, string actionName, int bindingIndex)
+            => RemoveInputActionBindingOverrideWithName("Default", actionMapName, actionName, bindingIndex);
+
+        public void RemoveInputActionBindingOverrideWithName(string assetId, string actionMapName, string actionName, int bindingIndex)
+        {
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. assetId: {assetId}, actionMapName: {actionMapName}, actionName: {actionName}");
+                return;
+            }
+
+            action.RemoveBindingOverride(bindingIndex);
+        }
 
         public string GetOverrideJsonOfInputAction(string actionId)
         {
@@ -166,6 +297,21 @@ namespace Mu3Library.IS
             }
 
             actionMap.LoadBindingOverridesFromJson(actionMapJson);
+        }
+
+        public void RemoveAllInputActionAssetBindingOverrides()
+            => RemoveAllInputActionAssetBindingOverrides("Default");
+
+        public void RemoveAllInputActionAssetBindingOverrides(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                Debug.LogError($"InputActionAsset not found. id: {assetId}");
+                return;
+            }
+            asset.RemoveAllBindingOverrides();
         }
 
         public string GetOverrideJsonOfInputActionAsset()
