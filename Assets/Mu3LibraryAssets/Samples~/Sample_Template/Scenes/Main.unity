@@ -403,7 +403,7 @@ MonoBehaviour:
     Description: Web request sample covering GET/POST and response handling.
   - SceneName: Sample_IS
     Title: InputSystemManager
-    Thumbnail: {fileID: 0}
+    Thumbnail: {fileID: 21300000, guid: 51869065097808749b5f1998b9f17b8c, type: 3}
     Description: 'TODO: Write Description.'
   - SceneName: Sample_Preference
     Title: PlayerPrefsLoader
