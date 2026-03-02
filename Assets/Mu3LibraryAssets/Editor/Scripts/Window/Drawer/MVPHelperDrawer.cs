@@ -112,53 +112,33 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void DrawScriptSavePropertiesField()
         {
-            EditorGUI.BeginChangeCheck();
-            int newSpaces = EditorGUILayout.IntSlider("Script Spaces", _scriptSpaces, 2, 8);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "MVP Helper: Script Spaces");
-                _scriptSpaces = newSpaces;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.IntSlider("Script Spaces", _scriptSpaces, 2, 8),
+                v => _scriptSpaces = v,
+                "MVP Helper: Script Spaces");
 
-            EditorGUI.BeginChangeCheck();
-            bool newIgnoreTypeOverlap = EditorGUILayout.Toggle("Ignore Type Overlap", _ignoreTypeOverlap);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "MVP Helper: Ignore Type Overlap");
-                _ignoreTypeOverlap = newIgnoreTypeOverlap;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.Toggle("Ignore Type Overlap", _ignoreTypeOverlap),
+                v => _ignoreTypeOverlap = v,
+                "MVP Helper: Ignore Type Overlap");
 
-            EditorGUI.BeginChangeCheck();
-            bool newApplyAnimationView = EditorGUILayout.Toggle("Apply AnimationView", _applyAnimationView);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "MVP Helper: Apply AnimationView");
-                _applyAnimationView = newApplyAnimationView;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.Toggle("Apply AnimationView", _applyAnimationView),
+                v => _applyAnimationView = v,
+                "MVP Helper: Apply AnimationView");
         }
 
         private void DrawScriptNameField()
         {
-            EditorGUI.BeginChangeCheck();
-            string newNamespace = EditorGUILayout.TextField("Script Namespace", _scriptNamespace);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "MVP Helper: Script Namespace");
-                _scriptNamespace = newNamespace;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Script Namespace", _scriptNamespace),
+                v => _scriptNamespace = v,
+                "MVP Helper: Script Namespace");
 
-            EditorGUI.BeginChangeCheck();
-            string newName = EditorGUILayout.TextField("Script Name", _scriptName);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "MVP Helper: Script Name");
-                _scriptName = newName;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Script Name", _scriptName),
+                v => _scriptName = v,
+                "MVP Helper: Script Name");
         }
 
         private void DrawScriptSaveFolderField()

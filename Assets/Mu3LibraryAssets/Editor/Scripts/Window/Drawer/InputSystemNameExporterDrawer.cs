@@ -104,38 +104,26 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void DrawAssetIdField()
         {
-            EditorGUI.BeginChangeCheck();
-            string newId = EditorGUILayout.TextField("Asset ID", _assetId);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "InputSystem Exporter: Asset ID");
-                _assetId = newId;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Asset ID", _assetId),
+                v => _assetId = v,
+                "InputSystem Exporter: Asset ID");
         }
 
         private void DrawNamespaceField()
         {
-            EditorGUI.BeginChangeCheck();
-            string newNs = EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "InputSystem Exporter: Namespace");
-                _scriptNamespace = newNs;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
+                v => _scriptNamespace = v,
+                "InputSystem Exporter: Namespace");
         }
 
         private void DrawClassNameField()
         {
-            EditorGUI.BeginChangeCheck();
-            string newName = EditorGUILayout.TextField("Class Name (optional)", _scriptClassName);
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(this, "InputSystem Exporter: Class Name");
-                _scriptClassName = newName;
-                EditorUtility.SetDirty(this);
-            }
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
+                v => _scriptClassName = v,
+                "InputSystem Exporter: Class Name");
 
             if (string.IsNullOrWhiteSpace(_scriptClassName) && _inputActionAsset != null)
             {

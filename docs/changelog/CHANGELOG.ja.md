@@ -13,6 +13,13 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-03-02
+
+### 修正
+- `Mu3WindowDrawer`: 派生 Drawer での `BeginChangeCheck` / `RecordObject` / `SetDirty` の定型コードを排除するため、基底クラスに `DrawWithUndo<T>(Func<T>, Action<T>, string)` ヘルパーを追加。
+- `Mu3WindowDrawer`: `DrawFoldoutHeader1` および `DrawFoldoutHeader2` が明示的な `!=` 比較ではなく `EditorGUI.BeginChangeCheck` / `EndChangeCheck` パターンに統一された。
+- `DependencyCheckerDrawer`、`FileFinderDrawer`、`InputSystemNameExporterDrawer`、`MVPHelperDrawer`、`ScreenCaptureDrawer`: すべてのインタラクティブフィールドが新しい `DrawWithUndo<T>` ヘルパーを通じて undo/redo 状態を正しく記録するよう修正。
+
 ## [0.3.1] - 2026-03-02
 
 ### 修正

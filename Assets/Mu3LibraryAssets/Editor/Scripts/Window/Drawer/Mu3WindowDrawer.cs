@@ -159,12 +159,14 @@ namespace Mu3Library.Editor.Window.Drawer
             // 토글 마크 그리기
             _toggleIcon1Style.normal.textColor = foldout ? Color.green : Color.red;
             _toggleIcon1Style.fixedHeight = _header1Style.fixedHeight;
+
+            EditorGUI.BeginChangeCheck();
             bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon1Style, GUILayout.ExpandWidth(false));
 
             // 토글 텍스트 작성
             newFoldout = GUILayout.Toggle(newFoldout, label, _header1Style, GUILayout.ExpandWidth(false));
 
-            if (newFoldout != foldout)
+            if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(this, "Toggle Foldout");
                 foldout = newFoldout;
@@ -194,12 +196,14 @@ namespace Mu3Library.Editor.Window.Drawer
 
             // 토글 마크 그리기
             _toggleIcon2Style.normal.textColor = foldout ? Color.green : Color.red;
+
+            EditorGUI.BeginChangeCheck();
             bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon2Style, GUILayout.ExpandWidth(false));
 
             // 토글 텍스트 작성
             newFoldout = GUILayout.Toggle(newFoldout, label, _header2Style, GUILayout.ExpandWidth(false));
 
-            if (newFoldout != foldout)
+            if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(this, "Toggle Foldout");
                 foldout = newFoldout;
@@ -216,6 +220,22 @@ namespace Mu3Library.Editor.Window.Drawer
             if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header3Style.fontSize);
             GUILayout.Label(label, _header3Style, GUILayout.ExpandWidth(false));
             if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header3Style.fontSize);
+        }
+
+        /// <summary>
+        /// IMGUI 드로우 호출을 BeginChangeCheck / RecordObject / SetDirty 로 감쌉니다.
+        /// drawFunc 가 반환한 새 값이 이전 값과 다를 때 setter 를 호출하고 undo 를 기록합니다.
+        /// </summary>
+        protected void DrawWithUndo<T>(Func<T> drawFunc, Action<T> setter, string undoName)
+        {
+            EditorGUI.BeginChangeCheck();
+            T newValue = drawFunc();
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, undoName);
+                setter(newValue);
+                EditorUtility.SetDirty(this);
+            }
         }
 
         protected void DrawToggleArea(string label, ref bool toggle)

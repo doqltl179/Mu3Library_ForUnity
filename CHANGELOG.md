@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-03-02
+
+### Fixed
+- `Mu3WindowDrawer`: Added `DrawWithUndo<T>(Func<T>, Action<T>, string)` helper to the base class to eliminate repetitive `BeginChangeCheck` / `RecordObject` / `SetDirty` boilerplate in derived drawers.
+- `Mu3WindowDrawer`: `DrawFoldoutHeader1` and `DrawFoldoutHeader2` now use `EditorGUI.BeginChangeCheck` / `EndChangeCheck` consistently instead of an explicit `!=` comparison.
+- `DependencyCheckerDrawer`, `FileFinderDrawer`, `InputSystemNameExporterDrawer`, `MVPHelperDrawer`, `ScreenCaptureDrawer`: All interactive fields now correctly record undo/redo state via the new `DrawWithUndo<T>` helper.
+
 ## [0.3.1] - 2026-03-02
 
 ### Fixed
