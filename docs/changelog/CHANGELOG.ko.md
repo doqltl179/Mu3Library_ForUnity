@@ -11,6 +11,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-02
+
+### 수정됨
+- `MVPManager`: View가 Load 중 기본 상태(예: alpha 1)로 한 프레임 렌더링되는 싱크 문제를 수정.
+  - `Open()` 호출 시 즉시 `SetActiveView(true)` 하던 처리를 `SetActiveView(false)`로 변경하고,
+    Load 완료 후 `Open()` 시작 직전에 `SetActiveView(true)`를 호출하도록 수정.
+  - 이로 인해 애니메이션(예: alpha 0→1)이 View 초기 상태와 동기화된 후 시작됩니다.
+
 ## [0.3.0] - 2026-03-01
 
 ### 추가됨

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-02
+
+### Fixed
+- `MVPManager`: Fixed a one-frame sync issue where the View rendered in its default prefab state before the open animation started.
+  - Changed `Open()` to call `SetActiveView(false)` instead of `SetActiveView(true)`, and deferred `SetActiveView(true)` to just before `Open()` begins (after Load completes).
+  - Animations (e.g. alpha 0→1) now start in sync with the View's intended initial state.
+
 ## [0.3.0] - 2026-03-01
 
 ### Added

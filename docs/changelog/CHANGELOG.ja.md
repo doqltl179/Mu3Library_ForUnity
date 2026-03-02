@@ -13,6 +13,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-02
+
+### 修正
+- `MVPManager`: View が Load 中に素の状態（例: alpha 1）で一フレームレンダリングされる同期ズレを修正。
+  - `Open()` 呼び出し時に即座に `SetActiveView(true)` していた処理を `SetActiveView(false)` に変更し、
+    Load 完了後・`Open()` 開始直前に `SetActiveView(true)` を呼ぶように修正。
+  - これにより、アニメーション（例: alpha 0→1）が View の初期状態と同期してから開始されるようになります。
+
 ## [0.3.0] - 2026-03-01
 
 ### 追加
