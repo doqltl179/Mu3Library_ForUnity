@@ -186,6 +186,7 @@ namespace Mu3Library.UI.MVP
 
         private void WindowLoadedEvent(PresenterParams param)
         {
+            param.Presenter.SetActiveView(true);
             param.Presenter.Open();
 
             _presenterOpenChecker.Add(param);
@@ -421,7 +422,7 @@ namespace Mu3Library.UI.MVP
 
             UpdateSortingOrderAsLast(presenterParams);
             presenter.OptimizeView();
-            presenter.SetActiveView(true);
+            presenter.SetActiveView(false);
 
             presenter.Load();
 
