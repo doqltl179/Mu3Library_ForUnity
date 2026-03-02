@@ -110,7 +110,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 DrawDependency(assetPath);
             }
         }
-        
+
         private void DrawDependency(string assetPath)
         {
             if (string.IsNullOrEmpty(assetPath))
@@ -157,7 +157,7 @@ namespace Mu3Library.Editor.Window.Drawer
                     dependencies = FileFinder.GetDependencies(_objectList, _recursive);
                 }
 
-                if(dependencies == null)
+                if (dependencies == null)
                 {
                     return;
                 }
@@ -167,8 +167,8 @@ namespace Mu3Library.Editor.Window.Drawer
                     dependencies = dependencies
                         .Where(t => !t.StartsWith("Packages/"));
                 }
-                
-                if(_searchWithExtensions)
+
+                if (_searchWithExtensions)
                 {
                     dependencies = dependencies
                         .Where(t =>
@@ -188,7 +188,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 _dependencies.Sort();
             }
         }
-        
+
         private void DrawSearchOptions()
         {
             EditorGUI.BeginChangeCheck();
@@ -218,7 +218,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 EditorUtility.SetDirty(this);
             }
 
-            if(_searchWithExtensions)
+            if (_searchWithExtensions)
             {
                 _serializedObject.Update();
 
@@ -232,7 +232,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             }
         }
-        
+
         private void DrawObjectListField()
         {
             _serializedObject.Update();
@@ -244,7 +244,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
-            
+
         }
     }
 }

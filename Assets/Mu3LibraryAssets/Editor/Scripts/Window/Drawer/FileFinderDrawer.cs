@@ -25,8 +25,8 @@ namespace Mu3Library.Editor.Window.Drawer
             DrawStruct(() =>
             {
                 DrawPropertyField();
-                
-                if(string.IsNullOrEmpty(_guid))
+
+                if (string.IsNullOrEmpty(_guid))
                 {
                     return;
                 }
@@ -67,7 +67,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             EditorGUILayout.EndHorizontal();
         }
-        
+
         private void PingObject(Object obj, bool selectObject = false)
         {
             if (obj == null)

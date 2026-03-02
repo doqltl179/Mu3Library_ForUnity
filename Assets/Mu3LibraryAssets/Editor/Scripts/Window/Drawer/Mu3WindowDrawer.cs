@@ -145,7 +145,7 @@ namespace Mu3Library.Editor.Window.Drawer
             GUILayout.Space(_header1Style.fontSize);
 
             GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
-            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header1Style.fontSize);GUILayout.Space(10);
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header1Style.fontSize); GUILayout.Space(10);
         }
 
         protected void DrawFoldoutHeader1(string label, ref bool foldout, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
