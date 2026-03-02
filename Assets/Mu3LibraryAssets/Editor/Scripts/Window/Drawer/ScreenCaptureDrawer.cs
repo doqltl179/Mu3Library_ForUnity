@@ -37,23 +37,84 @@ namespace Mu3Library.Editor.Window.Drawer
             {
                 DrawSaveFolderField();
 
-                _fileName = EditorGUILayout.TextField("File Name", _fileName);
-                _appendTimestamp = EditorGUILayout.Toggle("Append Timestamp", _appendTimestamp);
-                _openFolderAfterCapture = EditorGUILayout.Toggle("Reveal After Capture", _openFolderAfterCapture);
+                EditorGUI.BeginChangeCheck();
+                string newFileName = EditorGUILayout.TextField("File Name", _fileName);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(this, "Screen Capture: File Name");
+                    _fileName = newFileName;
+                    EditorUtility.SetDirty(this);
+                }
+
+                EditorGUI.BeginChangeCheck();
+                bool newAppendTimestamp = EditorGUILayout.Toggle("Append Timestamp", _appendTimestamp);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(this, "Screen Capture: Append Timestamp");
+                    _appendTimestamp = newAppendTimestamp;
+                    EditorUtility.SetDirty(this);
+                }
+
+                EditorGUI.BeginChangeCheck();
+                bool newOpenFolderAfterCapture = EditorGUILayout.Toggle("Reveal After Capture", _openFolderAfterCapture);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(this, "Screen Capture: Reveal After Capture");
+                    _openFolderAfterCapture = newOpenFolderAfterCapture;
+                    EditorUtility.SetDirty(this);
+                }
 
                 GUILayout.Space(8);
 
-                _captureGameView = EditorGUILayout.Toggle("Capture Game View", _captureGameView);
-                if (_captureGameView)
+                EditorGUI.BeginChangeCheck();
+                bool newCaptureGameView = EditorGUILayout.Toggle("Capture Game View", _captureGameView);
+                if (EditorGUI.EndChangeCheck())
                 {
-                    _gameViewSuperSize = Mathf.Max(1, EditorGUILayout.IntField("Game View Super Size", _gameViewSuperSize));
+                    Undo.RecordObject(this, "Screen Capture: Capture Game View");
+                    _captureGameView = newCaptureGameView;
+                    EditorUtility.SetDirty(this);
                 }
 
-                _captureSceneView = EditorGUILayout.Toggle("Capture Scene View", _captureSceneView);
+                if (_captureGameView)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    int newSuperSize = Mathf.Max(1, EditorGUILayout.IntField("Game View Super Size", _gameViewSuperSize));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(this, "Screen Capture: Game View Super Size");
+                        _gameViewSuperSize = newSuperSize;
+                        EditorUtility.SetDirty(this);
+                    }
+                }
+
+                EditorGUI.BeginChangeCheck();
+                bool newCaptureSceneView = EditorGUILayout.Toggle("Capture Scene View", _captureSceneView);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(this, "Screen Capture: Capture Scene View");
+                    _captureSceneView = newCaptureSceneView;
+                    EditorUtility.SetDirty(this);
+                }
+
                 if (_captureSceneView)
                 {
-                    _sceneViewWidth = Mathf.Max(0, EditorGUILayout.IntField("Scene View Width", _sceneViewWidth));
-                    _sceneViewHeight = Mathf.Max(0, EditorGUILayout.IntField("Scene View Height", _sceneViewHeight));
+                    EditorGUI.BeginChangeCheck();
+                    int newSceneViewWidth = Mathf.Max(0, EditorGUILayout.IntField("Scene View Width", _sceneViewWidth));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(this, "Screen Capture: Scene View Width");
+                        _sceneViewWidth = newSceneViewWidth;
+                        EditorUtility.SetDirty(this);
+                    }
+
+                    EditorGUI.BeginChangeCheck();
+                    int newSceneViewHeight = Mathf.Max(0, EditorGUILayout.IntField("Scene View Height", _sceneViewHeight));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(this, "Screen Capture: Scene View Height");
+                        _sceneViewHeight = newSceneViewHeight;
+                        EditorUtility.SetDirty(this);
+                    }
                 }
 
                 GUILayout.Space(8);
@@ -68,17 +129,18 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void DrawSaveFolderField()
         {
-            _saveFolder = EditorGUILayout.ObjectField("Save Folder", _saveFolder, typeof(DefaultAsset), false) as DefaultAsset;
-
-            if (_saveFolder == null)
+            EditorGUI.BeginChangeCheck();
+            DefaultAsset newFolder = EditorGUILayout.ObjectField("Save Folder", _saveFolder, typeof(DefaultAsset), false) as DefaultAsset;
+            if (EditorGUI.EndChangeCheck())
             {
-                return;
-            }
-
-            if (!FileFinder.IsValidFolder(_saveFolder))
-            {
-                Debug.LogWarning("Selected object is not a valid folder.");
-                _saveFolder = null;
+                Undo.RecordObject(this, "Screen Capture: Save Folder");
+                _saveFolder = newFolder;
+                if (_saveFolder != null && !FileFinder.IsValidFolder(_saveFolder))
+                {
+                    Debug.LogWarning("Selected object is not a valid folder.");
+                    _saveFolder = null;
+                }
+                EditorUtility.SetDirty(this);
             }
         }
 

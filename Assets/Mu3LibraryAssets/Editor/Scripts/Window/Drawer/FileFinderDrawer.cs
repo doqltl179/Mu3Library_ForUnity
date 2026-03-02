@@ -39,7 +39,14 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void DrawPropertyField()
         {
-            _guid = EditorGUILayout.TextField("GUID", _guid);
+            EditorGUI.BeginChangeCheck();
+            string newGuid = EditorGUILayout.TextField("GUID", _guid);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "File Finder: GUID");
+                _guid = newGuid;
+                EditorUtility.SetDirty(this);
+            }
         }
 
         private void DrawButtons()

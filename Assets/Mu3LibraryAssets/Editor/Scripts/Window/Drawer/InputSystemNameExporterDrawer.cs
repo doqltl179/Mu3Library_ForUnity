@@ -108,6 +108,7 @@ namespace Mu3Library.Editor.Window.Drawer
             string newId = EditorGUILayout.TextField("Asset ID", _assetId);
             if (EditorGUI.EndChangeCheck())
             {
+                Undo.RecordObject(this, "InputSystem Exporter: Asset ID");
                 _assetId = newId;
                 EditorUtility.SetDirty(this);
             }
@@ -119,6 +120,7 @@ namespace Mu3Library.Editor.Window.Drawer
             string newNs = EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace);
             if (EditorGUI.EndChangeCheck())
             {
+                Undo.RecordObject(this, "InputSystem Exporter: Namespace");
                 _scriptNamespace = newNs;
                 EditorUtility.SetDirty(this);
             }
@@ -130,6 +132,7 @@ namespace Mu3Library.Editor.Window.Drawer
             string newName = EditorGUILayout.TextField("Class Name (optional)", _scriptClassName);
             if (EditorGUI.EndChangeCheck())
             {
+                Undo.RecordObject(this, "InputSystem Exporter: Class Name");
                 _scriptClassName = newName;
                 EditorUtility.SetDirty(this);
             }

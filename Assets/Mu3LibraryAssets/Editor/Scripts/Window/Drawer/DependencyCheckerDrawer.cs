@@ -191,10 +191,32 @@ namespace Mu3Library.Editor.Window.Drawer
         
         private void DrawSearchOptions()
         {
-            _excludePackages = EditorGUILayout.Toggle("Exclude Packages", _excludePackages);
-            _recursive = EditorGUILayout.Toggle("Recursive", _recursive);
+            EditorGUI.BeginChangeCheck();
+            bool newExcludePackages = EditorGUILayout.Toggle("Exclude Packages", _excludePackages);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "Dependency Checker: Exclude Packages");
+                _excludePackages = newExcludePackages;
+                EditorUtility.SetDirty(this);
+            }
 
-            _searchWithExtensions = EditorGUILayout.Toggle("With Extensions", _searchWithExtensions);
+            EditorGUI.BeginChangeCheck();
+            bool newRecursive = EditorGUILayout.Toggle("Recursive", _recursive);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "Dependency Checker: Recursive");
+                _recursive = newRecursive;
+                EditorUtility.SetDirty(this);
+            }
+
+            EditorGUI.BeginChangeCheck();
+            bool newSearchWithExtensions = EditorGUILayout.Toggle("With Extensions", _searchWithExtensions);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "Dependency Checker: With Extensions");
+                _searchWithExtensions = newSearchWithExtensions;
+                EditorUtility.SetDirty(this);
+            }
 
             if(_searchWithExtensions)
             {

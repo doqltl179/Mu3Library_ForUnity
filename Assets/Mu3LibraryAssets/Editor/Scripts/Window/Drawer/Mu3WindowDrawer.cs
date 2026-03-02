@@ -159,10 +159,17 @@ namespace Mu3Library.Editor.Window.Drawer
             // 토글 마크 그리기
             _toggleIcon1Style.normal.textColor = foldout ? Color.green : Color.red;
             _toggleIcon1Style.fixedHeight = _header1Style.fixedHeight;
-            foldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon1Style, GUILayout.ExpandWidth(false));
+            bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon1Style, GUILayout.ExpandWidth(false));
 
             // 토글 텍스트 작성
-            foldout = GUILayout.Toggle(foldout, label, _header1Style, GUILayout.ExpandWidth(false));
+            newFoldout = GUILayout.Toggle(newFoldout, label, _header1Style, GUILayout.ExpandWidth(false));
+
+            if (newFoldout != foldout)
+            {
+                Undo.RecordObject(this, "Toggle Foldout");
+                foldout = newFoldout;
+                EditorUtility.SetDirty(this);
+            }
 
             GUILayout.EndHorizontal();
 
@@ -187,10 +194,17 @@ namespace Mu3Library.Editor.Window.Drawer
 
             // 토글 마크 그리기
             _toggleIcon2Style.normal.textColor = foldout ? Color.green : Color.red;
-            foldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon2Style, GUILayout.ExpandWidth(false));
+            bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon2Style, GUILayout.ExpandWidth(false));
 
             // 토글 텍스트 작성
-            foldout = GUILayout.Toggle(foldout, label, _header2Style, GUILayout.ExpandWidth(false));
+            newFoldout = GUILayout.Toggle(newFoldout, label, _header2Style, GUILayout.ExpandWidth(false));
+
+            if (newFoldout != foldout)
+            {
+                Undo.RecordObject(this, "Toggle Foldout");
+                foldout = newFoldout;
+                EditorUtility.SetDirty(this);
+            }
 
             GUILayout.EndHorizontal();
 
