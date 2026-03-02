@@ -32,6 +32,9 @@ namespace Mu3Library.Audio
         private readonly List<AudioController> _sfxControllers = new();
         private readonly Queue<AudioController> _sfxPool = new();
 
+        private readonly List<AudioController> _environmentControllers = new();
+        private readonly Queue<AudioController> _environmentPool = new();
+
         private AudioController _bgmMainController = null;
         private AudioController _bgmSubController = null;
 
@@ -91,17 +94,43 @@ namespace Mu3Library.Audio
             set => _sfxSourceCountMax = Mathf.Min(Mathf.Max(value, 1), 10);
         }
 
+        private const float DefaultEnvironmentVolume = 0.8f;
+        private float _environmentVolume = DefaultEnvironmentVolume;
+        public float EnvironmentVolume
+        {
+            get => _environmentVolume;
+            set => SetEnvironmentVolume(value);
+        }
+        private float _calculatedEnvironmentVolume = DefaultMasterVolume * DefaultEnvironmentVolume;
+        public float CalculatedEnvironmentVolume => _calculatedEnvironmentVolume;
+
+        private int _environmentSourceCountMax = 3;
+        /// <summary>
+        /// Maximum number of concurrent Environment instances.
+        /// Min: 1, Max: 5
+        /// </summary>
+        public int EnvironmentInstanceCountMax
+        {
+            get => _environmentSourceCountMax;
+            set => _environmentSourceCountMax = Mathf.Min(Mathf.Max(value, 1), 5);
+        }
+
         public event System.Action<float> OnMasterVolumeChanged;
         public event System.Action<float> OnBgmVolumeChanged;
         public event System.Action<float> OnSfxVolumeChanged;
+        public event System.Action<float> OnEnvironmentVolumeChanged;
 
 
 
         public void Dispose()
         {
             Stop();
+
             PoolSfxAll();
             _sfxPool.Clear();
+
+            PoolEnvironmentAll();
+            _environmentPool.Clear();
 
             if (m_root != null)
             {
@@ -132,6 +161,28 @@ namespace Mu3Library.Audio
                     }
                 }
             }
+
+            if (_environmentControllers.Count > 0)
+            {
+                for (int i = 0; i < _environmentControllers.Count; i++)
+                {
+                    AudioController controller = _environmentControllers[i];
+
+                    if (controller == null)
+                    {
+                        _environmentControllers.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+
+                    if (controller.NormalizedTime >= 0.97f)
+                    {
+                        PoolController(_environmentPool, controller);
+                        _environmentControllers.RemoveAt(i);
+                        i--;
+                    }
+                }
+            }
         }
 
         #region Utility
@@ -140,6 +191,7 @@ namespace Mu3Library.Audio
             SetMasterVolume(DefaultMasterVolume);
             SetBgmVolume(DefaultBgmVolume);
             SetSfxVolume(DefaultSfxVolume);
+            SetEnvironmentVolume(DefaultEnvironmentVolume);
         }
 
         public void ResetMasterVolume()
@@ -155,6 +207,11 @@ namespace Mu3Library.Audio
         public void ResetSfxVolume()
         {
             SetSfxVolume(DefaultSfxVolume);
+        }
+
+        public void ResetEnvironmentVolume()
+        {
+            SetEnvironmentVolume(DefaultEnvironmentVolume);
         }
 
         public void FadeInBgm(float fadeTime = 1.0f)
@@ -408,21 +465,129 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void PlayEnvironment(AudioClip clip) => PlayEnvironment(clip, _sourceSettings, Vector3.zero);
+
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings) => PlayEnvironment(clip, settings, Vector3.zero);
+
+        public void PlayEnvironment(AudioClip clip, Vector3 position) => PlayEnvironment(clip, _sourceSettings, position);
+
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"Environment clip is NULL.");
+                return;
+            }
+
+            CleanupEnvironmentControllers();
+
+            AudioController controller = null;
+
+            if (_environmentControllers.Count < _environmentSourceCountMax)
+            {
+                if (_environmentPool.TryDequeue(out controller))
+                {
+                    InitializeAudioController(controller, clip, settings);
+                }
+                else
+                {
+                    AudioSource source = CreateEnvironmentSource();
+                    controller = CreateAudioController<EnvironmentController>(source, clip, settings);
+                }
+            }
+            else
+            {
+                controller = _environmentControllers[0];
+                _environmentControllers.RemoveAt(0);
+
+                InitializeAudioController(controller, clip, settings);
+            }
+
+            controller.SetActive(true);
+            controller.Position = position;
+
+            controller.Play();
+
+            _environmentControllers.Add(controller);
+        }
+
+        public void StopFirstEnvironment(AudioClip clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _environmentControllers.Count; i++)
+            {
+                AudioController controller = _environmentControllers[i];
+
+                if (controller == null)
+                {
+                    _environmentControllers.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
+                if (controller.IsPlaying && controller.IsSameClip(clip))
+                {
+                    PoolController(_environmentPool, controller);
+
+                    _environmentControllers.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
+        public void StopEnvironmentAll()
+        {
+            PoolEnvironmentAll();
+        }
+
+        public void PauseEnvironmentAll()
+        {
+            foreach (AudioController controller in _environmentControllers)
+            {
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.Pause();
+            }
+        }
+
+        public void UnPauseEnvironmentAll()
+        {
+            foreach (AudioController controller in _environmentControllers)
+            {
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.UnPause();
+            }
+        }
+
         public void Stop()
         {
             StopSfxAll();
+            StopEnvironmentAll();
             StopBgm();
         }
 
         public void Pause()
         {
             PauseSfxAll();
+            PauseEnvironmentAll();
             PauseBgm();
         }
 
         public void UnPause()
         {
             UnPauseSfxAll();
+            UnPauseEnvironmentAll();
             UnPauseBgm();
         }
         #endregion
@@ -467,6 +632,24 @@ namespace Mu3Library.Audio
             OnBgmVolumeChanged?.Invoke(_bgmVolume);
         }
 
+        private void SetEnvironmentVolume(float value)
+        {
+            if (_environmentVolume == value)
+            {
+                return;
+            }
+
+            _environmentVolume = value;
+            _calculatedEnvironmentVolume = _masterVolume * value;
+
+            foreach (AudioController controller in _environmentControllers)
+            {
+                controller.RecalculateVolume();
+            }
+
+            OnEnvironmentVolumeChanged?.Invoke(_environmentVolume);
+        }
+
         private void SetMasterVolume(float value)
         {
             if (_masterVolume == value)
@@ -477,8 +660,14 @@ namespace Mu3Library.Audio
             _masterVolume = value;
             _calculatedBgmVolume = value * _bgmVolume;
             _calculatedSfxVolume = value * _sfxVolume;
+            _calculatedEnvironmentVolume = value * _environmentVolume;
 
             foreach (AudioController controller in _sfxControllers)
+            {
+                controller.RecalculateVolume();
+            }
+
+            foreach (AudioController controller in _environmentControllers)
             {
                 controller.RecalculateVolume();
             }
@@ -505,6 +694,41 @@ namespace Mu3Library.Audio
             source.loop = false;
 
             return source;
+        }
+
+        private AudioSource CreateEnvironmentSource()
+        {
+            GameObject instance = new GameObject("EnvironmentSource");
+            instance.transform.SetParent(_rootTransform);
+
+            AudioSource source = instance.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = false;
+
+            return source;
+        }
+
+        private void PoolEnvironmentAll()
+        {
+            foreach (AudioController controller in _environmentControllers)
+            {
+                PoolController(_environmentPool, controller);
+            }
+            _environmentControllers.Clear();
+        }
+
+        private void CleanupEnvironmentControllers()
+        {
+            for (int i = 0; i < _environmentControllers.Count; i++)
+            {
+                if (_environmentControllers[i] != null)
+                {
+                    continue;
+                }
+
+                _environmentControllers.RemoveAt(i);
+                i--;
+            }
         }
 
         private void PoolController(Queue<AudioController> pool, AudioController controller)

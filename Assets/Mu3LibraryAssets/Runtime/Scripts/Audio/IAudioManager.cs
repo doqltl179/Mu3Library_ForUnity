@@ -5,6 +5,7 @@ namespace Mu3Library.Audio
     public interface IAudioManager
     {
         public int SfxInstanceCountMax { get; set; }
+        public int EnvironmentInstanceCountMax { get; set; }
 
         public AudioSourceSettings SourceSettings { get; set; }
         public AudioBaseSettings BaseSettings { get; set; }
@@ -31,6 +32,15 @@ namespace Mu3Library.Audio
         public void StopSfxAll();
         public void PauseSfxAll();
         public void UnPauseSfxAll();
+
+        public void PlayEnvironment(AudioClip clip);
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings);
+        public void PlayEnvironment(AudioClip clip, Vector3 position);
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position);
+        public void StopFirstEnvironment(AudioClip clip);
+        public void StopEnvironmentAll();
+        public void PauseEnvironmentAll();
+        public void UnPauseEnvironmentAll();
 
         public void Stop();
         public void Pause();

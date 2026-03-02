@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-02
+
+### Added
+- `AudioManager`: Added `EnvironmentController` support for environment audio playback.
+  - New `EnvironmentController` class: plays audio using `EnvironmentVolume` as its category volume.
+  - `EnvironmentInstanceCountMax` property added (default: `3`, max: `5`).
+  - `EnvironmentVolume`, `CalculatedEnvironmentVolume`, `ResetEnvironmentVolume()` added to `AudioManager` and `IVolumeSettings`.
+  - `PlayEnvironment`, `StopFirstEnvironment`, `StopEnvironmentAll`, `PauseEnvironmentAll`, `UnPauseEnvironmentAll` methods added to `AudioManager` and `IAudioManager`.
+  - `OnEnvironmentVolumeChanged` event added to `IAudioManagerEventBus`.
+  - `Stop()`, `Pause()`, and `UnPause()` now include environment audio.
+
 ## [0.3.2] - 2026-03-02
 
 ### Fixed

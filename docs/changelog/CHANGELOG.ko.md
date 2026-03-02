@@ -11,6 +11,17 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-02
+
+### 추가됨
+- `AudioManager`: 환경음 재생을 위한 `EnvironmentController` 기능 추가.
+  - 새 `EnvironmentController` 클래스: `EnvironmentVolume`을 카테고리 볼륨으로 사용하여 오디오를 재생.
+  - `EnvironmentInstanceCountMax` 프로퍼티 추가 (기본값: `3`, 최대: `5`).
+  - `EnvironmentVolume`, `CalculatedEnvironmentVolume`, `ResetEnvironmentVolume()` 추가 (`AudioManager` 및 `IVolumeSettings`).
+  - `PlayEnvironment`, `StopFirstEnvironment`, `StopEnvironmentAll`, `PauseEnvironmentAll`, `UnPauseEnvironmentAll` 메서드 추가 (`AudioManager` 및 `IAudioManager`).
+  - `OnEnvironmentVolumeChanged` 이벤트 추가 (`IAudioManagerEventBus`).
+  - `Stop()`, `Pause()`, `UnPause()`가 환경음도 포함하도록 갱신.
+
 ## [0.3.2] - 2026-03-02
 
 ### 수정됨

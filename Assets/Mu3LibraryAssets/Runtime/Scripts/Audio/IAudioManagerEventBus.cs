@@ -7,5 +7,6 @@ namespace Mu3Library.Audio
         public event Action<float> OnMasterVolumeChanged;
         public event Action<float> OnBgmVolumeChanged;
         public event Action<float> OnSfxVolumeChanged;
+        public event Action<float> OnEnvironmentVolumeChanged;
     }
 }
