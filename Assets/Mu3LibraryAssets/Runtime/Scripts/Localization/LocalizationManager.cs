@@ -165,6 +165,18 @@ namespace Mu3Library.Localization
             return entry != null ? entry.LocalizedValue : "";
         }
 
+        public List<string> GetAllKeys(string tableName)
+        {
+            LocalizedStringDatabase sdb = LocalizationSettings.StringDatabase;
+            StringTable table = sdb != null ? sdb.GetTable(tableName) : null;
+            if (table == null)
+            {
+                return new List<string>();
+            }
+
+            return table.Values.Select(entry => entry.Key).ToList();
+        }
+
         public void ChangeLocaleToNative()
         {
             SystemLanguage sl = Application.systemLanguage;

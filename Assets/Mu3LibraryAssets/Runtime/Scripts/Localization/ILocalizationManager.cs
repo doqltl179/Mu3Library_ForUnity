@@ -18,6 +18,8 @@ namespace Mu3Library.Localization
         public void GetString(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);
 
+        public List<string> GetAllKeys(string tableName);
+
         public void ChangeLocaleToNative();
         public void ChangeLocaleWithEnglishName(string englishName);
         public void ChangeLocale(Locale locale);
