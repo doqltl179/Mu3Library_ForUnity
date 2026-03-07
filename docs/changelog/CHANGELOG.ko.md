@@ -11,6 +11,25 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `AudioSourceSettings`: 루프 동작을 설정 인스턴스별로 제어할 수 있는 `LoopCount` 및 `LoopInterval` 프로퍼티를 추가.
+  - `LoopCount`: 재생 횟수 (`≤0` = 무한 반복, `1` = 1회 재생).
+  - `LoopInterval`: 루프 사이클 사이의 대기 시간(초).
+- `AudioSourceSettings`: 자주 사용되는 설정을 위한 명명된 프리셋 인스턴스를 추가.
+  - `Standard`(무한 루프, 2D), `OneShot`(1회 재생, 2D)
+  - `BgmStandard`, `BgmStandard3D`
+  - `SfxStandard`, `SfxStandard3D`
+  - `EnvironmentStandard`, `EnvironmentStandard3D`
+- `Audio3dSoundSettings.Standard3D`: 완전한 3D 공간 블렌드(`spatialBlend = 1`)를 갖는 새 프리셋 추가.
+- `AudioController`: `AudioSourceSettings`의 `LoopCount` 및 `LoopInterval`에 의해 구동되는 인터벌 포함 루프 재생 기능 추가.
+- `AudioController`: 완료 콜백을 지원하는 `FadeIn` / `FadeOut` 코루틴 API 추가.
+
+### 변경됨
+- `FadeInFirstSfx(AudioClip, float)`가 `FadeInSfx(AudioClip, float)`로 이름이 변경되고 동작이 수정됨: 이미 재생 중인 인스턴스를 대상으로 하는 대신, **새 SFX 인스턴스를** 볼륨 `0`에서 재생하며 페이드 인.
+- `FadeInFirstEnvironment(AudioClip, float)`가 `FadeInEnvironment(AudioClip, float)`로 이름이 변경되고 동일한 동작 변경 적용.
+- `IAudioManager`: `SourceSettings`, `BaseSettings`, `SoundSettings` 프로퍼티를 제거 (호출별 `AudioSourceSettings` 파라미터로 대체됨).
+- `AudioManager` 및 `IAudioManager`를 카테고리(`Bgm`, `Sfx`, `Environment`)별 partial 클래스 파일로 분리. 공개 API 변경 없음.
+
 ## [0.3.3] - 2026-03-02
 
 ### 추가됨

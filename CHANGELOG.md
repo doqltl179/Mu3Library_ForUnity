@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `AudioSourceSettings`: Added `LoopCount` and `LoopInterval` properties to control looping behavior per settings instance.
+  - `LoopCount`: number of play cycles (`≤0` = infinite, `1` = one-shot).
+  - `LoopInterval`: wait time in seconds between loop cycles.
+- `AudioSourceSettings`: Added named preset instances for common use cases.
+  - `Standard` (infinite loop, 2D), `OneShot` (play once, 2D)
+  - `BgmStandard`, `BgmStandard3D`
+  - `SfxStandard`, `SfxStandard3D`
+  - `EnvironmentStandard`, `EnvironmentStandard3D`
+- `Audio3dSoundSettings.Standard3D`: New preset with full 3D spatial blend (`spatialBlend = 1`).
+- `AudioController`: Loop-with-interval playback driven by `LoopCount` and `LoopInterval` from `AudioSourceSettings`.
+- `AudioController`: `FadeIn` / `FadeOut` coroutine API with optional completion callback.
+
+### Changed
+- `FadeInFirstSfx(AudioClip, float)` renamed to `FadeInSfx(AudioClip, float)` and behavior changed: now **plays a new SFX instance** from volume `0` and fades in, instead of targeting an already-playing instance.
+- `FadeInFirstEnvironment(AudioClip, float)` renamed to `FadeInEnvironment(AudioClip, float)` with the same behavior change.
+- `IAudioManager`: Removed `SourceSettings`, `BaseSettings`, and `SoundSettings` properties (superseded by per-call `AudioSourceSettings` parameter).
+- `AudioManager` and `IAudioManager` refactored into partial class files split by category (`Bgm`, `Sfx`, `Environment`) for maintainability. No public API change.
+
 ## [0.3.3] - 2026-03-02
 
 ### Added

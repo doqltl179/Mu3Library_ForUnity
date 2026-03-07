@@ -13,6 +13,25 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `AudioSourceSettings`: ループ動作をインスタンスごとに制御できる `LoopCount` および `LoopInterval` プロパティを追加。
+  - `LoopCount`: 再生回数（`≤0` = 無限ループ、`1` = 1回再生）。
+  - `LoopInterval`: ループサイクル間の待機時間（秒）。
+- `AudioSourceSettings`: よく使われる設定のための名前付きプリセットインスタンスを追加。
+  - `Standard`（無限ループ、2D）、`OneShot`（1回再生、2D）
+  - `BgmStandard`、`BgmStandard3D`
+  - `SfxStandard`、`SfxStandard3D`
+  - `EnvironmentStandard`、`EnvironmentStandard3D`
+- `Audio3dSoundSettings.Standard3D`: 完全な3D空間ブレンド（`spatialBlend = 1`）を持つ新しいプリセットを追加。
+- `AudioController`: `AudioSourceSettings` の `LoopCount` および `LoopInterval` によって制御されるインターバル付きループ再生機能を追加。
+- `AudioController`: 完了コールバックをサポートする `FadeIn` / `FadeOut` コルーチン API を追加。
+
+### 変更
+- `FadeInFirstSfx(AudioClip, float)` を `FadeInSfx(AudioClip, float)` に改名し動作を変更: 既存の再生中インスタンスを対象とする代わりに、**新しい SFX インスタンス**をボリューム `0` から再生してフェードイン。
+- `FadeInFirstEnvironment(AudioClip, float)` を `FadeInEnvironment(AudioClip, float)` に改名し、同様の動作変更を適用。
+- `IAudioManager`: `SourceSettings`、`BaseSettings`、`SoundSettings` プロパティを削除（呼び出しごとの `AudioSourceSettings` パラメータで代替）。
+- `AudioManager` および `IAudioManager` をカテゴリ（`Bgm`、`Sfx`、`Environment`）別の partial クラスファイルに分割。公開 API の変更なし。
+
 ## [0.3.3] - 2026-03-02
 
 ### 追加
