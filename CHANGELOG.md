@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-08
+
 ### Added
 - `AudioSourceSettings`: Added `LoopCount` and `LoopInterval` properties to control looping behavior per settings instance.
   - `LoopCount`: number of play cycles (`≤0` = infinite, `1` = one-shot).

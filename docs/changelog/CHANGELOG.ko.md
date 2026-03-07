@@ -11,6 +11,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-08
+
 ### 추가됨
 - `AudioSourceSettings`: 루프 동작을 설정 인스턴스별로 제어할 수 있는 `LoopCount` 및 `LoopInterval` 프로퍼티를 추가.
   - `LoopCount`: 재생 횟수 (`≤0` = 무한 반복, `1` = 1회 재생).
