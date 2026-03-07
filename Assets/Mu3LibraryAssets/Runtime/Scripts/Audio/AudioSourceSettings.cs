@@ -10,6 +10,13 @@ namespace Mu3Library.Audio
         [SerializeField] private AudioBaseSettings _baseSettings;
         [SerializeField] private Audio3dSoundSettings _soundSettings;
 
+        [Space(10)]
+        [Tooltip("Number of times to play the clip.\n0 or less = infinite loop.\n1 = play once (no loop).")]
+        [SerializeField] private int _loopCount;
+
+        [Tooltip("Seconds to wait between each loop cycle. Ignored when loopCount is 1.")]
+        [SerializeField, Min(0.0f)] private float _loopInterval;
+
         public float Volume
         {
             get => _volume;
@@ -25,12 +32,118 @@ namespace Mu3Library.Audio
             get => _soundSettings;
             set => _soundSettings = value;
         }
+        /// <summary>
+        /// Number of times to play the clip.
+        /// 0 or less = infinite loop. 1 = play once (no loop).
+        /// </summary>
+        public int LoopCount
+        {
+            get => _loopCount;
+            set => _loopCount = value;
+        }
+        /// <summary>
+        /// Seconds to wait between each loop cycle. Ignored when LoopCount is 1.
+        /// </summary>
+        public float LoopInterval
+        {
+            get => _loopInterval;
+            set => _loopInterval = Mathf.Max(0.0f, value);
+        }
 
+        /// <summary>
+        /// Default settings. Infinite loop, no interval.
+        /// </summary>
         public static readonly AudioSourceSettings Standard = new()
         {
             _volume = 1.0f,
             _baseSettings = AudioBaseSettings.Standard,
             _soundSettings = Audio3dSoundSettings.Standard,
+            _loopCount = -1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// One-shot settings. Plays once with no looping.
+        /// </summary>
+        public static readonly AudioSourceSettings OneShot = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard,
+            _loopCount = 1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// BGM: infinite loop, 2D (spatialBlend = 0).
+        /// </summary>
+        public static readonly AudioSourceSettings BgmStandard = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard,
+            _loopCount = -1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// BGM: infinite loop, 3D (spatialBlend = 1).
+        /// </summary>
+        public static readonly AudioSourceSettings BgmStandard3D = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard3D,
+            _loopCount = -1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// SFX: one-shot (plays once), 2D (spatialBlend = 0).
+        /// </summary>
+        public static readonly AudioSourceSettings SfxStandard = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard,
+            _loopCount = 1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// SFX: one-shot (plays once), 3D (spatialBlend = 1).
+        /// </summary>
+        public static readonly AudioSourceSettings SfxStandard3D = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard3D,
+            _loopCount = 1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// Environment: infinite loop, 2D (spatialBlend = 0).
+        /// </summary>
+        public static readonly AudioSourceSettings EnvironmentStandard = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard,
+            _loopCount = -1,
+            _loopInterval = 0.0f,
+        };
+
+        /// <summary>
+        /// Environment: infinite loop, 3D (spatialBlend = 1).
+        /// </summary>
+        public static readonly AudioSourceSettings EnvironmentStandard3D = new()
+        {
+            _volume = 1.0f,
+            _baseSettings = AudioBaseSettings.Standard,
+            _soundSettings = Audio3dSoundSettings.Standard3D,
+            _loopCount = -1,
+            _loopInterval = 0.0f,
         };
 
         public void ReadFromSource(AudioSource source)
@@ -174,6 +287,26 @@ namespace Mu3Library.Audio
         {
             _dopplerLevel = 1.0f,
             _spatialBlend = 0.0f,
+            _spread = 0.0f,
+            _reverbZoneMix = 1.0f,
+
+            _minDistance = 1.0f,
+            _maxDistance = 500.0f,
+            _audioRolloffMode = AudioRolloffMode.Linear,
+
+            _volumeCurve = new AnimationCurve(
+                new Keyframe(0.0f, 1.0f),
+                new Keyframe(1.0f, 0.0f)
+            ),
+        };
+
+        /// <summary>
+        /// Fully 3D spatial blend (spatialBlend = 1). Other values match <see cref="Standard"/>.
+        /// </summary>
+        public static readonly Audio3dSoundSettings Standard3D = new()
+        {
+            _dopplerLevel = 1.0f,
+            _spatialBlend = 1.0f,
             _spread = 0.0f,
             _reverbZoneMix = 1.0f,
 

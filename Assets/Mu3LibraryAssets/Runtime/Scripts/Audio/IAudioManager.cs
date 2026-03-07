@@ -7,9 +7,7 @@ namespace Mu3Library.Audio
         public int SfxInstanceCountMax { get; set; }
         public int EnvironmentInstanceCountMax { get; set; }
 
-        public AudioSourceSettings SourceSettings { get; set; }
-        public AudioBaseSettings BaseSettings { get; set; }
-        public Audio3dSoundSettings SoundSettings { get; set; }
+
 
         public void FadeInBgm(float fadeTime = 1.0f);
         public void FadeOutBgm(float fadeTime = 1.0f);
@@ -30,6 +28,10 @@ namespace Mu3Library.Audio
         public void PlaySfx(AudioClip clip, AudioSourceSettings settings, Vector3 position);
         public void StopFirstSfx(AudioClip clip);
         public void StopSfxAll();
+        public void FadeInSfx(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeInSfxAll(float fadeTime = 1.0f);
+        public void FadeOutFirstSfx(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeOutSfxAll(float fadeTime = 1.0f);
         public void PauseSfxAll();
         public void UnPauseSfxAll();
 
@@ -39,6 +41,10 @@ namespace Mu3Library.Audio
         public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position);
         public void StopFirstEnvironment(AudioClip clip);
         public void StopEnvironmentAll();
+        public void FadeInEnvironment(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeInEnvironmentAll(float fadeTime = 1.0f);
+        public void FadeOutFirstEnvironment(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeOutEnvironmentAll(float fadeTime = 1.0f);
         public void PauseEnvironmentAll();
         public void UnPauseEnvironmentAll();
 
