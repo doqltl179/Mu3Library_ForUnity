@@ -318,12 +318,32 @@ namespace Mu3Library.Editor.Window.Drawer
             if (string.IsNullOrEmpty(name)) return "_";
 
             var sb = new StringBuilder();
+            bool capitalizeNext = true;
             foreach (char c in name)
             {
                 if (char.IsLetterOrDigit(c))
-                    sb.Append(c);
-                else
+                {
+                    if (capitalizeNext && char.IsLetter(c))
+                    {
+                        sb.Append(char.ToUpperInvariant(c));
+                        capitalizeNext = false;
+                    }
+                    else
+                    {
+                        sb.Append(c);
+                        capitalizeNext = false;
+                    }
+                }
+                else if (c == '_')
+                {
                     sb.Append('_');
+                    capitalizeNext = true;
+                }
+                else
+                {
+                    // '-' and other non-identifier chars act as PascalCase word boundary
+                    capitalizeNext = true;
+                }
             }
 
             if (sb.Length > 0 && char.IsDigit(sb[0]))

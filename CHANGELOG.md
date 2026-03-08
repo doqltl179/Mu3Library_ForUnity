@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `InputSystemNameExporterDrawer` and `LocalizationNameExporterDrawer`: Standardized private serialized helper member naming so backing fields and cached accessors are easier to distinguish while keeping behavior unchanged.
 
+### Fixed
+- `LocalizationNameExporterDrawer`: Fixed `SanitizeIdentifier` to produce proper PascalCase class names from entry keys. `-` and other non-identifier characters now act as word boundaries (dropped, next letter capitalized). `_` is preserved as-is and also capitalizes the next letter (e.g. `my-key_name` → `MyKey_Name`).
+
 ## [0.4.0] - 2026-03-08
 
 ### Added

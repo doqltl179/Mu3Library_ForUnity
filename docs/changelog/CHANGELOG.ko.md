@@ -21,6 +21,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 변경됨
 - `InputSystemNameExporterDrawer` 및 `LocalizationNameExporterDrawer`: 동작 변경 없이 backing field와 캐시된 accessor를 더 쉽게 구분할 수 있도록 private serialized helper 멤버 이름을 정리.
 
+### 수정됨
+- `LocalizationNameExporterDrawer`: 엔트리 키에서 올바른 PascalCase 클래스명을 생성하도록 `SanitizeIdentifier`를 수정. `-` 등 비식별자 문자는 단어 경계로 처리되어 생략되고 다음 문자를 대문자화. `_`는 그대로 출력되며 다음 문자를 대문자화 (예: `my-key_name` → `MyKey_Name`).
+
 ## [0.4.0] - 2026-03-08
 
 ### 추가됨

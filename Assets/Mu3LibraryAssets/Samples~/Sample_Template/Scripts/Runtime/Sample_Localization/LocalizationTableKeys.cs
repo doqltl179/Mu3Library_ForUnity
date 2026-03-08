@@ -6,10 +6,16 @@
         {
             public const string Name = "TestStringTable";
             
-            public static class hello
+            public static class Hello
             {
                 public const string Key = "hello";
                 public const string Id = "909386731520";
+            }
+
+            public static class Test02Test
+            {
+                public const string Key = "test-02-test";
+                public const string Id = "37107648355389440";
             }
         }
     }
