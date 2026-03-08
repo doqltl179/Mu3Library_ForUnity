@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-08
+
+### Added
+- `LocalizationNameExporterDrawer`: Added an editor drawer that exports Localization string table names and entry keys as C# constants for pre-declared lookup.
+- `Sample_UtilWindow`: Added a sample `LocalizationNameExporter` drawer asset to the utility window drawer list.
+- `Sample_Template`: Added `LocalizationTableKeys` as a generated example for Localization table/key constants.
+
+### Changed
+- `InputSystemNameExporterDrawer` and `LocalizationNameExporterDrawer`: Standardized private serialized helper member naming so backing fields and cached accessors are easier to distinguish while keeping behavior unchanged.
+
 ## [0.4.0] - 2026-03-08
 
 ### Added

@@ -33,7 +33,9 @@
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
 - 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライを提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
-- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー- 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
+- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー
+- 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
+- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーターと Localization 文字収集ツールを提供
 ## 📋 要件
 
 - Unity 6 (6000.0+)
@@ -234,7 +236,7 @@ _playerData.Health.Set(80);
 
 - **Sample_Template**: 基本的なCore構造と使用例
 - **Sample_Attribute**: ConditionalHideの使用方法
-- **Sample_UtilWindow**: カスタムエディターウィンドウ
+- **Sample_UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 
 または、プロジェクト内の`Assets/Mu3LibrarySamples`フォルダを参照してください。
 
@@ -274,7 +276,7 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近のアップデート (v0.3.0)
+## 📝 最近のアップデート (v0.4.2)
 
 **InputSystemManager 追加:**
 - 新しい Input System モジュールを追加（`MU3LIBRARY_INPUTSYSTEM_SUPPORT` が必要）。
@@ -285,6 +287,7 @@ protected override void Start()
 
 **新しいエディタドロワー追加:**
 - `InputSystemNameExporterDrawer`: Input System アクション名を文字列定数としてエクスポートするドロワー。
+- `LocalizationNameExporterDrawer`: Localization の string table 名と key を文字列定数としてエクスポートするドロワー。
 - `LocalizationCharacterCollectorDrawer`: Localization ストリングテーブルから文字を収集・確認するドロワー。
 
 **MVP 改善:**
@@ -311,6 +314,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.3.0`
+- Version: `0.4.2`
 
 Unity開発者のために制作

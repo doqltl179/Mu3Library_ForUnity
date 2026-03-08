@@ -33,7 +33,9 @@
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
-- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공- 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
+- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공
+- 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기와 Localization 문자 수집 도구 제공
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
@@ -234,7 +236,7 @@ _playerData.Health.Set(80);
 
 - **Sample_Template**: 기본 Core 구조 및 사용 예제
 - **Sample_Attribute**: ConditionalHide 사용법
-- **Sample_UtilWindow**: 커스텀 에디터 윈도우
+- **Sample_UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
 또는 프로젝트 내 `Assets/Mu3LibrarySamples` 폴더를 참고하세요.
 
@@ -274,7 +276,7 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.3.0)
+## 📝 최근 업데이트 (v0.4.2)
 
 **InputSystemManager 추가:**
 - 새로운 Input System 모듈 추가 (`MU3LIBRARY_INPUTSYSTEM_SUPPORT` 필요).
@@ -285,6 +287,7 @@ protected override void Start()
 
 **새로운 에디터 Drawer 추가:**
 - `InputSystemNameExporterDrawer`: Input System 액션 이름을 문자열 상수로 내보내는 Drawer.
+- `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 키를 문자열 상수로 내보내는 Drawer.
 - `LocalizationCharacterCollectorDrawer`: Localization 스트링 테이블에서 문자를 수집·확인하는 Drawer.
 
 **MVP 보강:**
@@ -311,6 +314,6 @@ protected override void Start()
 
 **패키지 정보:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.3.0`
+- Version: `0.4.2`
 
 Unity 개발자를 위해 제작됨

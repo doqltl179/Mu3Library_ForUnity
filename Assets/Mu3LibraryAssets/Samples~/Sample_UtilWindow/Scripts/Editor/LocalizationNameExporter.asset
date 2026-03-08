@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d76c92c706690fb428451d24cd00ab09, type: 3}
-  m_Name: DrawerList
-  m_EditorClassIdentifier: 
+  m_Script: {fileID: 11500000, guid: b5e91d3c7fa248a08b2345678901bcde, type: 3}
+  m_Name: LocalizationNameExporter
+  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.LocalizationNameExporterDrawer
   _foldout: 1
   _header1Style:
     m_Name: 
@@ -192,7 +192,7 @@ MonoBehaviour:
       m_Top: 0
       m_Bottom: 0
     m_Padding:
-      m_Left: 0
+      m_Left: 11
       m_Right: 11
       m_Top: 5
       m_Bottom: 5
@@ -348,12 +348,7 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _drawers:
-  - {fileID: 11400000, guid: f8fdb7f97c9774f42bd66468c4cba6bf, type: 2}
-  - {fileID: 11400000, guid: 1649e8994ac37e54ebbb120f7cc128f7, type: 2}
-  - {fileID: 11400000, guid: 85dbd8aa867f0f141aa4ad57bda224a4, type: 2}
-  - {fileID: 11400000, guid: 7c60ee2d5f5927843b19425d15a2094f, type: 2}
-  - {fileID: 11400000, guid: 4af47a66789c22f4e8c737d69a4afe67, type: 2}
-  - {fileID: 11400000, guid: 9314dd47f45cdd64990e407d5e1077e1, type: 2}
-  - {fileID: 11400000, guid: 46a19a6500cd5e1469056f25de4627e1, type: 2}
-  - {fileID: 11400000, guid: 6f73377d6164572478600f96aaef16b9, type: 2}
+  _scriptSaveFolder: {fileID: 0}
+  _scriptNamespace: 
+  _scriptClassName: 
+  _foldoutTablePreview: 0

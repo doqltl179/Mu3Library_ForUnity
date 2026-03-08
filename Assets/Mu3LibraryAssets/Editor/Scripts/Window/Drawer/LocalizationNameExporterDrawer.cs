@@ -1,26 +1,31 @@
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Mu3Library.Editor.FileUtil;
 using UnityEditor;
+using UnityEditor.Localization;
 using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.Localization.Tables;
 
 namespace Mu3Library.Editor.Window.Drawer
 {
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
-    public class InputSystemNameExporterDrawer : Mu3WindowDrawer
+    public class LocalizationNameExporterDrawer : Mu3WindowDrawer
     {
-        public const string FileName = "InputSystemNameExporter";
-        private const string ItemName = "InputSystem Name Exporter";
+        public const string FileName = "LocalizationNameExporter";
+        private const string ItemName = "Localization Name Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
 
-        [SerializeField, HideInInspector] private InputActionAsset _inputActionAsset;
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
-        [SerializeField, HideInInspector] private string _assetId = "";
         [SerializeField, HideInInspector] private string _scriptNamespace = "";
         [SerializeField, HideInInspector] private string _scriptClassName = "";
+
+        [SerializeField, HideInInspector] private bool _foldoutTablePreview = false;
+
+        private List<StringTableCollection> _tableCollections = new();
+        private bool _isDataLoaded = false;
 
         private const int GridColumns = 4;
 
@@ -35,17 +40,6 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        private SerializedProperty m_serializedPropInputActionAsset;
-        private SerializedProperty _serializedPropInputActionAsset
-        {
-            get
-            {
-                if (m_serializedPropInputActionAsset == null)
-                    m_serializedPropInputActionAsset = _serializedObject.FindProperty(nameof(_inputActionAsset));
-                return m_serializedPropInputActionAsset;
-            }
-        }
-
         private SerializedProperty m_serializedPropScriptSaveFolder;
         private SerializedProperty _serializedPropScriptSaveFolder
         {
@@ -57,9 +51,13 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        [SerializeField, HideInInspector] private bool _foldoutActionMaps = false;
 
 
+        public override void OnBecameVisible()
+        {
+            base.OnBecameVisible();
+            RefreshData();
+        }
 
         public override void OnGUIHeader()
         {
@@ -72,13 +70,13 @@ namespace Mu3Library.Editor.Window.Drawer
 
             DrawStruct(() =>
             {
-                DrawInputActionAssetField();
+                if (!_isDataLoaded)
+                    RefreshData();
+
+                DrawRefreshButton();
                 GUILayout.Space(4);
 
                 DrawScriptSaveFolderField();
-                GUILayout.Space(4);
-
-                DrawAssetIdField();
                 GUILayout.Space(4);
 
                 DrawNamespaceField();
@@ -87,7 +85,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 DrawClassNameField();
                 GUILayout.Space(8);
 
-                DrawActionMapPreview();
+                DrawTablePreview();
                 GUILayout.Space(8);
 
                 DrawValidationAndButton();
@@ -95,41 +93,25 @@ namespace Mu3Library.Editor.Window.Drawer
             }, 20, 20, 0, 0);
         }
 
-        private void DrawInputActionAssetField()
+        private void RefreshData()
         {
-            _serializedObject.Update();
-            EditorGUILayout.PropertyField(_serializedPropInputActionAsset, new GUIContent("Input Action Asset"));
-            _serializedObject.ApplyModifiedProperties();
+            _tableCollections = LocalizationEditorSettings
+                .GetStringTableCollections()
+                .OfType<StringTableCollection>()
+                .ToList();
+
+            _isDataLoaded = true;
         }
 
-        private void DrawAssetIdField()
+        private void DrawRefreshButton()
         {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Asset ID", _assetId),
-                v => _assetId = v,
-                "InputSystem Exporter: Asset ID");
-        }
-
-        private void DrawNamespaceField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
-                v => _scriptNamespace = v,
-                "InputSystem Exporter: Namespace");
-        }
-
-        private void DrawClassNameField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
-                v => _scriptClassName = v,
-                "InputSystem Exporter: Class Name");
-
-            if (string.IsNullOrWhiteSpace(_scriptClassName) && _inputActionAsset != null)
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
             {
-                string placeholder = SanitizeIdentifier(_inputActionAsset.name);
-                EditorGUILayout.HelpBox($"Default class name: {placeholder}", MessageType.None);
+                RefreshData();
             }
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawScriptSaveFolderField()
@@ -147,42 +129,72 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        private void DrawActionMapPreview()
+        private void DrawNamespaceField()
         {
-            if (_inputActionAsset == null) return;
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
+                v => _scriptNamespace = v,
+                "Localization Exporter: Namespace");
+        }
 
-            DrawFoldoutHeader2("Action Maps & Actions Preview", ref _foldoutActionMaps);
+        private void DrawClassNameField()
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
+                v => _scriptClassName = v,
+                "Localization Exporter: Class Name");
 
-            if (!_foldoutActionMaps) return;
+            if (string.IsNullOrWhiteSpace(_scriptClassName))
+            {
+                EditorGUILayout.HelpBox("Default class name: LocalizationKeys", MessageType.None);
+            }
+        }
+
+        private void DrawTablePreview()
+        {
+            if (_tableCollections.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No String Table Collections found. Click Refresh.", MessageType.Info);
+                return;
+            }
+
+            string countLabel = $"String Tables Preview  ({_tableCollections.Count} table(s))";
+            DrawFoldoutHeader2(countLabel, ref _foldoutTablePreview);
+
+            if (!_foldoutTablePreview) return;
 
             DrawStruct(() =>
             {
-                foreach (InputActionMap map in _inputActionAsset.actionMaps)
+                foreach (StringTableCollection collection in _tableCollections)
                 {
-                    EditorGUILayout.LabelField($"[ActionMap]  {map.name}", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField($"[Table]  {collection.TableCollectionName}", EditorStyles.boldLabel);
 
                     DrawStruct(() =>
                     {
-                        var actions = map.actions;
-                        if (actions.Count == 0) return;
+                        var entries = collection.SharedData?.Entries;
+                        if (entries == null || entries.Count == 0)
+                        {
+                            EditorGUILayout.LabelField("(No keys)", EditorStyles.miniLabel);
+                            return;
+                        }
 
                         float availWidth = EditorGUILayout.GetControlRect(false, 0).width;
                         float colWidth = Mathf.Floor(availWidth / GridColumns);
                         float lineHeight = EditorGUIUtility.singleLineHeight;
 
-                        for (int i = 0; i < actions.Count; i += GridColumns)
+                        for (int i = 0; i < entries.Count; i += GridColumns)
                         {
                             Rect rowRect = EditorGUILayout.GetControlRect(false, lineHeight);
                             for (int col = 0; col < GridColumns; col++)
                             {
                                 int idx = i + col;
-                                if (idx >= actions.Count) break;
+                                if (idx >= entries.Count) break;
                                 Rect cellRect = new Rect(
                                     rowRect.x + col * colWidth,
                                     rowRect.y,
                                     colWidth,
                                     rowRect.height);
-                                EditorGUI.LabelField(cellRect, $"• {actions[idx].name}");
+                                EditorGUI.LabelField(cellRect, $"• {entries[idx].Key}");
                             }
                         }
                     }, 16);
@@ -210,14 +222,11 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private string GetFirstWarning()
         {
-            if (_inputActionAsset == null)
-                return "Input Action Asset is not assigned.";
+            if (_tableCollections.Count == 0)
+                return "No String Table Collections found. Click Refresh.";
 
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
-
-            if (string.IsNullOrWhiteSpace(_assetId))
-                return "Asset ID is empty. Please enter an ID.";
 
             return null;
         }
@@ -237,7 +246,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             string className = !string.IsNullOrWhiteSpace(_scriptClassName)
                 ? SanitizeIdentifier(_scriptClassName.Trim())
-                : SanitizeIdentifier(_inputActionAsset.name);
+                : "LocalizationKeys";
             string scriptBody = BuildScriptBody(className);
             string filePath = Path.Combine(systemPath, $"{className}.cs");
 
@@ -245,45 +254,43 @@ namespace Mu3Library.Editor.Window.Drawer
 
             AssetDatabase.Refresh();
 
-            Debug.Log($"InputSystem name script generated. path: {filePath}");
+            Debug.Log($"Localization name script generated. path: {filePath}");
         }
 
         private string BuildScriptBody(string className)
         {
             var lines = new List<object>();
 
-            // Asset ID constant
-            lines.Add($"public const string Name = \"{_inputActionAsset.name}\";");
-            lines.Add($"public const string Id = \"{_assetId}\";");
-            lines.Add("");
-
-            foreach (InputActionMap map in _inputActionAsset.actionMaps)
+            foreach (StringTableCollection collection in _tableCollections)
             {
-                string mapClassName = SanitizeIdentifier(map.name);
-                var mapLines = new List<object>();
+                string tableClassName = SanitizeIdentifier(collection.TableCollectionName);
+                var tableLines = new List<object>();
 
-                mapLines.Add($"public const string Name = \"{map.name}\";");
-                mapLines.Add($"public const string Id = \"{map.id}\";");
-                mapLines.Add("");
+                tableLines.Add($"public const string Name = \"{collection.TableCollectionName}\";");
+                tableLines.Add("");
 
-                foreach (InputAction action in map.actions)
+                var entries = collection.SharedData?.Entries;
+                if (entries != null)
                 {
-                    string actionClassName = SanitizeIdentifier(action.name);
-                    mapLines.Add(new ScriptBuilder.CodeBlock
+                    foreach (SharedTableData.SharedTableEntry entry in entries)
                     {
-                        Header = $"public static class {actionClassName}",
-                        Content = new List<object>
+                        string keyClassName = SanitizeIdentifier(entry.Key);
+                        tableLines.Add(new ScriptBuilder.CodeBlock
                         {
-                            $"public const string Name = \"{action.name}\";",
-                            $"public const string Id = \"{action.id}\";"
-                        }
-                    });
+                            Header = $"public static class {keyClassName}",
+                            Content = new List<object>
+                            {
+                                $"public const string Key = \"{entry.Key}\";",
+                                $"public const string Id = \"{entry.Id}\";"
+                            }
+                        });
+                    }
                 }
 
                 lines.Add(new ScriptBuilder.CodeBlock
                 {
-                    Header = $"public static class {mapClassName}",
-                    Content = mapLines
+                    Header = $"public static class {tableClassName}",
+                    Content = tableLines
                 });
             }
 
@@ -319,7 +326,6 @@ namespace Mu3Library.Editor.Window.Drawer
                     sb.Append('_');
             }
 
-            // Identifier must not start with a digit
             if (sb.Length > 0 && char.IsDigit(sb[0]))
                 sb.Insert(0, '_');
 

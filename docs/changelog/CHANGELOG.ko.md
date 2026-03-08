@@ -11,6 +11,16 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-08
+
+### 추가됨
+- `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 엔트리 키를 C# 상수로 내보내 미리 선언된 조회에 사용할 수 있는 에디터 Drawer를 추가.
+- `Sample_UtilWindow`: 유틸리티 윈도우 Drawer 목록에 `LocalizationNameExporter` 샘플 에셋을 추가.
+- `Sample_Template`: Localization 테이블/키 상수 예제로 생성된 `LocalizationTableKeys`를 추가.
+
+### 변경됨
+- `InputSystemNameExporterDrawer` 및 `LocalizationNameExporterDrawer`: 동작 변경 없이 backing field와 캐시된 accessor를 더 쉽게 구분할 수 있도록 private serialized helper 멤버 이름을 정리.
+
 ## [0.4.0] - 2026-03-08
 
 ### 추가됨

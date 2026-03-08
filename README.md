@@ -35,6 +35,7 @@
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: UniTask + CancellationToken scene load/unload helpers
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
+- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters plus Localization character collection tools
 
 ## 📋 Requirements
 
@@ -236,7 +237,7 @@ You can import the following samples from the **Samples** tab in Package Manager
 
 - **Sample_Template**: Basic Core structure and usage examples
 - **Sample_Attribute**: ConditionalHide usage
-- **Sample_UtilWindow**: Custom editor window
+- **Sample_UtilWindow**: Custom editor window and utility drawer examples
 
 Or refer to the `Assets/Mu3LibrarySamples` folder in your project.
 
@@ -276,7 +277,7 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.3.0)
+## 📝 Recent Updates (v0.4.2)
 
 **InputSystemManager Added:**
 - New Input System module (requires `MU3LIBRARY_INPUTSYSTEM_SUPPORT`).
@@ -287,6 +288,7 @@ protected override void Start()
 
 **New Editor Drawers:**
 - `InputSystemNameExporterDrawer`: Export Input System action names as string constants.
+- `LocalizationNameExporterDrawer`: Export Localization string table names and keys as string constants.
 - `LocalizationCharacterCollectorDrawer`: Collect and review characters across Localization string tables.
 
 **MVP Refinements:**
@@ -313,6 +315,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.3.0`
+- Version: `0.4.2`
 
 Made with ❤️ for Unity Developers
