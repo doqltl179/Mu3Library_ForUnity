@@ -360,12 +360,20 @@ MonoBehaviour:
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Main.unity
     - SceneAsset: {fileID: 102900000, guid: 24159f7bd12d06848878529da7b9af90, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Addressables.unity
+    - SceneAsset: {fileID: 102900000, guid: 20742fac7db662744b7160273fce3a69, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_AddressablesAdditive.unity
     - SceneAsset: {fileID: 102900000, guid: 495ff91d90a7cbe4196b1993308fe7c2, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Audio.unity
+    - SceneAsset: {fileID: 102900000, guid: 51908255ffc78dc48a1b81c20eb0c6cf, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Audio3D.unity
+    - SceneAsset: {fileID: 102900000, guid: 40de482f881e3244fa112c4e1efbedb5, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_IS.unity
     - SceneAsset: {fileID: 102900000, guid: a2de1e8b884bf9749aefe8458912642b, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Localization.unity
     - SceneAsset: {fileID: 102900000, guid: 570a335a17cde3c43b1c0a7e5927d6e8, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_MVP.unity
+    - SceneAsset: {fileID: 102900000, guid: 27a09c14db986fc43a2412d0c726d211, type: 3}
+      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Preference.unity
     - SceneAsset: {fileID: 102900000, guid: d20a8c93d10ddba44bbcfbf3fb450d12, type: 3}
       AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_WebRequest.unity
     - SceneAsset: {fileID: 102900000, guid: 516c7071ff169f445a7331d3508b4327, type: 3}
