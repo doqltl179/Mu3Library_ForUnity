@@ -16,5 +16,13 @@ namespace Mu3Library.Audio
         public void StopBgm();
         public void PauseBgm();
         public void UnPauseBgm();
+
+        public void TransitionBgmWithKey(string key);
+        public void TransitionBgmWithKey(string key, float transitionTime);
+        public void TransitionBgmWithKey(string key, float transitionTime, AudioSourceSettings settings);
+        public void PlayBgmForceWithKey(string key);
+        public void PlayBgmForceWithKey(string key, AudioSourceSettings settings);
+        public void PlayBgmWithKey(string key);
+        public void PlayBgmWithKey(string key, AudioSourceSettings settings);
     }
 }

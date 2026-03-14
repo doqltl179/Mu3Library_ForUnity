@@ -174,6 +174,38 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void TransitionBgmWithKey(string key) => TransitionBgmWithKey(key, 1.0f, AudioSourceSettings.BgmStandard);
+
+        public void TransitionBgmWithKey(string key, float transitionTime) => TransitionBgmWithKey(key, transitionTime, AudioSourceSettings.BgmStandard);
+
+        public void TransitionBgmWithKey(string key, float transitionTime, AudioSourceSettings settings)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                TransitionBgm(clip, transitionTime, settings);
+            }
+        }
+
+        public void PlayBgmForceWithKey(string key) => PlayBgmForceWithKey(key, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgmForceWithKey(string key, AudioSourceSettings settings)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlayBgmForce(clip, settings);
+            }
+        }
+
+        public void PlayBgmWithKey(string key) => PlayBgmWithKey(key, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgmWithKey(string key, AudioSourceSettings settings)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlayBgm(clip, settings);
+            }
+        }
+
         private void SetBgmVolume(float value)
         {
             if (_bgmVolume == value)
