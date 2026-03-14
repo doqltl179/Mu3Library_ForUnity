@@ -18,5 +18,15 @@ namespace Mu3Library.Audio
         public void FadeOutSfxAll(float fadeTime = 1.0f);
         public void PauseSfxAll();
         public void UnPauseSfxAll();
+
+        public void PlaySfxWithKey(string key);
+        public void PlaySfxWithKey(string key, AudioSourceSettings settings);
+        public void PlaySfxWithKey(string key, Vector3 position);
+        public void PlaySfxWithKey(string key, AudioSourceSettings settings, Vector3 position);
+        public void StopFirstSfxWithKey(string key);
+        public void FadeInSfxWithKey(string key);
+        public void FadeInSfxWithKey(string key, float fadeTime);
+        public void FadeOutFirstSfxWithKey(string key);
+        public void FadeOutFirstSfxWithKey(string key, float fadeTime);
     }
 }

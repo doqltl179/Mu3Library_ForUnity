@@ -272,6 +272,48 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void PlaySfxWithKey(string key) => PlaySfxWithKey(key, AudioSourceSettings.SfxStandard, Vector3.zero);
+
+        public void PlaySfxWithKey(string key, AudioSourceSettings settings) => PlaySfxWithKey(key, settings, Vector3.zero);
+
+        public void PlaySfxWithKey(string key, Vector3 position) => PlaySfxWithKey(key, AudioSourceSettings.SfxStandard, position);
+
+        public void PlaySfxWithKey(string key, AudioSourceSettings settings, Vector3 position)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlaySfx(clip, settings, position);
+            }
+        }
+
+        public void StopFirstSfxWithKey(string key)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                StopFirstSfx(clip);
+            }
+        }
+
+        public void FadeInSfxWithKey(string key) => FadeInSfxWithKey(key, 1.0f);
+
+        public void FadeInSfxWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeInSfx(clip, fadeTime);
+            }
+        }
+
+        public void FadeOutFirstSfxWithKey(string key) => FadeOutFirstSfxWithKey(key, 1.0f);
+
+        public void FadeOutFirstSfxWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeOutFirstSfx(clip, fadeTime);
+            }
+        }
+
         private void SetSfxVolume(float value)
         {
             if (_sfxVolume == value)
