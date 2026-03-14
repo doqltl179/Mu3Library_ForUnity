@@ -272,6 +272,48 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void PlayEnvironmentWithKey(string key) => PlayEnvironmentWithKey(key, AudioSourceSettings.EnvironmentStandard, Vector3.zero);
+
+        public void PlayEnvironmentWithKey(string key, AudioSourceSettings settings) => PlayEnvironmentWithKey(key, settings, Vector3.zero);
+
+        public void PlayEnvironmentWithKey(string key, Vector3 position) => PlayEnvironmentWithKey(key, AudioSourceSettings.EnvironmentStandard, position);
+
+        public void PlayEnvironmentWithKey(string key, AudioSourceSettings settings, Vector3 position)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlayEnvironment(clip, settings, position);
+            }
+        }
+
+        public void StopFirstEnvironmentWithKey(string key)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                StopFirstEnvironment(clip);
+            }
+        }
+
+        public void FadeInEnvironmentWithKey(string key) => FadeInEnvironmentWithKey(key, 1.0f);
+
+        public void FadeInEnvironmentWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeInEnvironment(clip, fadeTime);
+            }
+        }
+
+        public void FadeOutFirstEnvironmentWithKey(string key) => FadeOutFirstEnvironmentWithKey(key, 1.0f);
+
+        public void FadeOutFirstEnvironmentWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeOutFirstEnvironment(clip, fadeTime);
+            }
+        }
+
         private void SetEnvironmentVolume(float value)
         {
             if (_environmentVolume == value)
