@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-03-15
+
+### Added
+- `AudioManager.Resource`: Added key-based `AudioClip` registration system.
+  - `RegisterAudioResource(string key, AudioClip clip)`: Register a single clip under a key.
+  - `RegisterAudioResources(Dictionary<string, AudioClip> resources)`: Batch register multiple clips.
+- `IAudioManager` / `AudioManager`: Added `WithKey` overloads to play audio by registered key across all channel types.
+  - BGM: `PlayBgmWithKey`, `PlayBgmForceWithKey`, `TransitionBgmWithKey`
+  - SFX: `PlaySfxWithKey`, `StopFirstSfxWithKey`, `FadeInSfxWithKey`, `FadeOutFirstSfxWithKey`
+  - Environment: `PlayEnvironmentWithKey`, `StopFirstEnvironmentWithKey`, `FadeInEnvironmentWithKey`, `FadeOutFirstEnvironmentWithKey`
+
+### Changed
+- `IAudioManager.Bgm`, `IAudioManager.Sfx`, `IAudioManager.Environment`: Sorted interface declarations alphabetically and grouped by action type for readability.
+- `AudioManager.Bgm`, `AudioManager.Sfx`, `AudioManager.Environment`: Sorted public methods alphabetically.
+- `WithKey` overloads use a delegation pattern — shorter overloads delegate to the full-argument overload, which calls `TryGetCachedAudioResource` once.
+
 ## [0.4.5] - 2026-03-14
 
 ### Changed

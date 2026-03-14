@@ -13,6 +13,22 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-03-15
+
+### 追加
+- `AudioManager.Resource`: キーベースの `AudioClip` 登録システムを追加。
+  - `RegisterAudioResource(string key, AudioClip clip)`: 単一のクリップをキーに登録。
+  - `RegisterAudioResources(Dictionary<string, AudioClip> resources)`: 複数のクリップを一括登録。
+- `IAudioManager` / `AudioManager`: 登録済みキーでオーディオを再生する `WithKey` オーバーロードを全チャンネルタイプに追加。
+  - BGM: `PlayBgmWithKey`, `PlayBgmForceWithKey`, `TransitionBgmWithKey`
+  - SFX: `PlaySfxWithKey`, `StopFirstSfxWithKey`, `FadeInSfxWithKey`, `FadeOutFirstSfxWithKey`
+  - Environment: `PlayEnvironmentWithKey`, `StopFirstEnvironmentWithKey`, `FadeInEnvironmentWithKey`, `FadeOutFirstEnvironmentWithKey`
+
+### 変更
+- `IAudioManager.Bgm`, `IAudioManager.Sfx`, `IAudioManager.Environment`: インターフェース宣言をアルファベット順に並べ替え、アクション種別ごとにグループ化して可読性を向上。
+- `AudioManager.Bgm`, `AudioManager.Sfx`, `AudioManager.Environment`: publicメソッドをアルファベット順に並べ替え。
+- `WithKey` オーバーロードは委譲パターンを使用 — 短いオーバーロードはフル引数のオーバーロードに委譲し、`TryGetCachedAudioResource` の呼び出しはそこで一度だけ行われる。
+
 ## [0.4.5] - 2026-03-14
 
 ### 変更
