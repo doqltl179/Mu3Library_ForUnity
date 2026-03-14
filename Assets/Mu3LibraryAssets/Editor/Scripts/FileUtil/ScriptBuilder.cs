@@ -12,6 +12,12 @@ namespace Mu3Library.Editor.FileUtil
             public List<object> Content;
         }
 
+        public struct ArrayBlock
+        {
+            public string FieldName;
+            public IList<string> Values;
+        }
+
         private static int _appendStackCountMax = 1000;
         public static int AppendStackCountMax
         {
@@ -76,6 +82,10 @@ namespace Mu3Library.Editor.FileUtil
                         previousIsCodeBlock = false;
                         AppendLine(sb, line, startSpaces);
                         break;
+                    case ArrayBlock arrayBlock:
+                        previousIsCodeBlock = false;
+                        AppendArrayBlock(sb, arrayBlock, spaces, startSpaces);
+                        break;
                     case CodeBlock childBlock:
                         previousIsCodeBlock = childCodeBlockAppended;
                         childCodeBlockAppended = true;
@@ -94,6 +104,18 @@ namespace Mu3Library.Editor.FileUtil
                 startSpaces = spaces * spaceCount;
                 AppendLine(sb, "}", startSpaces);
             }
+        }
+
+        private static void AppendArrayBlock(StringBuilder sb, ArrayBlock block, int spaces, int startSpaces)
+        {
+            AppendLine(sb, $"public static readonly string[] {block.FieldName} = new string[]", startSpaces);
+            AppendLine(sb, "{", startSpaces);
+            if (block.Values != null)
+            {
+                foreach (string v in block.Values)
+                    AppendLine(sb, $"\"{v}\",", startSpaces + spaces);
+            }
+            AppendLine(sb, "};", startSpaces);
         }
 
         private static void AppendLine(StringBuilder sb, string code = "", int spaces = 0)

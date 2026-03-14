@@ -11,6 +11,17 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-03-15
+
+### 추가됨
+- `ScriptBuilder`: `ArrayBlock` 구조체(`FieldName`, `Values`)와 `AppendArrayBlock` 메서드 추가.
+  - `ArrayBlock`을 `CodeBlock.Content` 목록에 `string`, `CodeBlock`과 함께 배치할 수 있음.
+  - 들여쓰기는 `ScriptBuilder`가 자동으로 처리하며 `CodeBlock` 출력과 일관성 유지.
+
+### 변경됨
+- `AddressableGroupNameExporterDrawer`: `BuildArrayLines` 헬퍼를 `ScriptBuilder.ArrayBlock`으로 교체.
+  - `AllNames`, `AllAddresses`, `Labels.All` 배열 선언이 `foreach` 루프 대신 단일 `.Add()` 호출로 축약됨.
+
 ## [0.4.6] - 2026-03-15
 
 ### 추가됨

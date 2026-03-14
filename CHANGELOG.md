@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-03-15
+
+### Added
+- `ScriptBuilder`: Added `ArrayBlock` struct (`FieldName`, `Values`) and `AppendArrayBlock` method.
+  - `ArrayBlock` can be placed in a `CodeBlock.Content` list alongside `string` and `CodeBlock` items.
+  - Indentation is handled automatically by `ScriptBuilder`, consistent with `CodeBlock` output.
+
+### Changed
+- `AddressableGroupNameExporterDrawer`: Replaced `BuildArrayLines` helper with `ScriptBuilder.ArrayBlock`.
+  - `AllNames`, `AllAddresses` and `Labels.All` arrays are now declared as `ArrayBlock` entries, reducing per-array boilerplate from a `foreach` loop to a single `.Add()` call.
+
 ## [0.4.6] - 2026-03-15
 
 ### Added

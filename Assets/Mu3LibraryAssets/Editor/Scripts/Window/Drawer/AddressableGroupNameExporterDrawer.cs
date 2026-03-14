@@ -286,8 +286,20 @@ namespace Mu3Library.Editor.Window.Drawer
                 groupLines.Add("");
 
                 var entries = group.entries?.OrderBy(e => e.address).ToList();
-                if (entries != null)
+                if (entries != null && entries.Count > 0)
                 {
+                    var allNames = entries
+                        .Select(e => AssetDatabase.IsValidFolder(e.AssetPath)
+                            ? Path.GetFileName(e.AssetPath)
+                            : Path.GetFileNameWithoutExtension(e.AssetPath))
+                        .ToList();
+                    var allAddresses = entries.Select(e => e.address).ToList();
+
+                    groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = allNames });
+                    groupLines.Add("");
+                    groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = allAddresses });
+                    groupLines.Add("");
+
                     foreach (AddressableAssetEntry entry in entries)
                     {
                         groupLines.Add(BuildEntryBlock(entry));
@@ -350,9 +362,8 @@ namespace Mu3Library.Editor.Window.Drawer
                     string labelFieldName = SanitizeIdentifier(label);
                     labelLines.Add($"public const string {labelFieldName} = \"{label}\";");
                 }
-                string allArray = "new string[] { " + string.Join(", ", sortedLabels.Select(l => $"\"{l}\"")) + " }";
                 labelLines.Add("");
-                labelLines.Add($"public static readonly string[] All = {allArray};");
+                labelLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "All", Values = sortedLabels });
                 entryLines.Add(new ScriptBuilder.CodeBlock
                 {
                     Header = "public static class Labels",
@@ -366,10 +377,22 @@ namespace Mu3Library.Editor.Window.Drawer
                 entry.GatherAllAssets(subEntries, false, true, false);
                 if (subEntries.Count > 0)
                 {
-                    var assetsLines = subEntries
-                        .OrderBy(s => s.address)
-                        .Select(s => (object)BuildEntryBlock(s, entryClassName))
+                    var orderedSubs = subEntries.OrderBy(s => s.address).ToList();
+
+                    var subAllNames = orderedSubs
+                        .Select(s => AssetDatabase.IsValidFolder(s.AssetPath)
+                            ? Path.GetFileName(s.AssetPath)
+                            : Path.GetFileNameWithoutExtension(s.AssetPath))
                         .ToList();
+                    var subAllAddresses = orderedSubs.Select(s => s.address).ToList();
+
+                    var assetsLines = new List<object>();
+                    assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = subAllNames });
+                    assetsLines.Add("");
+                    assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = subAllAddresses });
+                    assetsLines.Add("");
+                    assetsLines.AddRange(orderedSubs.Select(s => (object)BuildEntryBlock(s, entryClassName)));
+
                     entryLines.Add(new ScriptBuilder.CodeBlock
                     {
                         Header = "public static class Assets",

@@ -13,6 +13,17 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-03-15
+
+### 追加
+- `ScriptBuilder`: `ArrayBlock` 構造体（`FieldName`、`Values`）と `AppendArrayBlock` メソッドを追加。
+  - `ArrayBlock` を `CodeBlock.Content` リストに `string`・`CodeBlock` と並べて配置可能。
+  - インデントは `ScriptBuilder` が自動処理し、`CodeBlock` の出力と統一。
+
+### 変更
+- `AddressableGroupNameExporterDrawer`: `BuildArrayLines` ヘルパーを `ScriptBuilder.ArrayBlock` で置き換え。
+  - `AllNames`・`AllAddresses`・`Labels.All` 配列の宣言が `foreach` ループから単一の `.Add()` 呼び出しに短縮。
+
 ## [0.4.6] - 2026-03-15
 
 ### 追加
