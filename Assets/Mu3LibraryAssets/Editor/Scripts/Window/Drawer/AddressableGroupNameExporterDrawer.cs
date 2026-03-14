@@ -1,0 +1,375 @@
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Mu3Library.Editor.FileUtil;
+using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
+using UnityEngine;
+
+namespace Mu3Library.Editor.Window.Drawer
+{
+    [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
+    public class AddressableGroupNameExporterDrawer : Mu3WindowDrawer
+    {
+        public const string FileName = "AddressableGroupNameExporter";
+        private const string ItemName = "Addressable Group Name Exporter";
+        private const string MenuName = MenuRoot + "/" + ItemName;
+
+        [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
+        [SerializeField, HideInInspector] private string _scriptNamespace = "";
+        [SerializeField, HideInInspector] private string _scriptClassName = "";
+
+        [SerializeField, HideInInspector] private bool _foldoutGroupPreview = false;
+
+        private List<AddressableAssetGroup> _groups = new();
+        private bool _isDataLoaded = false;
+
+        private SerializedObject m_serializedObject;
+        private SerializedObject _serializedObject
+        {
+            get
+            {
+                if (m_serializedObject == null)
+                    m_serializedObject = new SerializedObject(this);
+                return m_serializedObject;
+            }
+        }
+
+        private SerializedProperty m_serializedPropScriptSaveFolder;
+        private SerializedProperty _serializedPropScriptSaveFolder
+        {
+            get
+            {
+                if (m_serializedPropScriptSaveFolder == null)
+                    m_serializedPropScriptSaveFolder = _serializedObject.FindProperty(nameof(_scriptSaveFolder));
+                return m_serializedPropScriptSaveFolder;
+            }
+        }
+
+
+
+        public override void OnBecameVisible()
+        {
+            base.OnBecameVisible();
+            RefreshData();
+        }
+
+        public override void OnGUIHeader()
+        {
+            DrawFoldoutHeader1(ItemName, ref _foldout);
+        }
+
+        public override void OnGUIBody()
+        {
+            if (!_foldout) return;
+
+            DrawStruct(() =>
+            {
+                if (!_isDataLoaded)
+                    RefreshData();
+
+                DrawRefreshButton();
+                GUILayout.Space(4);
+
+                DrawScriptSaveFolderField();
+                GUILayout.Space(4);
+
+                DrawNamespaceField();
+                GUILayout.Space(4);
+
+                DrawClassNameField();
+                GUILayout.Space(8);
+
+                DrawGroupPreview();
+                GUILayout.Space(8);
+
+                DrawValidationAndButton();
+
+            }, 20, 20, 0, 0);
+        }
+
+        private void RefreshData()
+        {
+            _groups = new List<AddressableAssetGroup>();
+            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            if (settings != null)
+            {
+                _groups = settings.groups
+                    .Where(g => g != null)
+                    .OrderBy(g => g.Name)
+                    .ToList();
+            }
+            _isDataLoaded = true;
+        }
+
+        private void DrawRefreshButton()
+        {
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
+            {
+                RefreshData();
+            }
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawScriptSaveFolderField()
+        {
+            _serializedObject.Update();
+            EditorGUILayout.PropertyField(_serializedPropScriptSaveFolder, new GUIContent("Script Save Folder"));
+            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null)
+            {
+                if (!IsAssetsFolder(_scriptSaveFolder))
+                {
+                    Debug.LogWarning("Selected folder is not inside the Assets folder.");
+                    _scriptSaveFolder = null;
+                    _serializedObject.ApplyModifiedProperties();
+                }
+            }
+        }
+
+        private void DrawNamespaceField()
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
+                v => _scriptNamespace = v,
+                "Addressable Exporter: Namespace");
+        }
+
+        private void DrawClassNameField()
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
+                v => _scriptClassName = v,
+                "Addressable Exporter: Class Name");
+
+            if (string.IsNullOrWhiteSpace(_scriptClassName))
+            {
+                EditorGUILayout.HelpBox("Default class name: AddressableGroups", MessageType.None);
+            }
+        }
+
+        private void DrawGroupPreview()
+        {
+            if (!_isDataLoaded || _groups.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No Addressable Groups found. Click Refresh.", MessageType.Info);
+                return;
+            }
+
+            string countLabel = $"Addressable Groups Preview  ({_groups.Count} group(s))";
+            DrawFoldoutHeader2(countLabel, ref _foldoutGroupPreview);
+
+            if (!_foldoutGroupPreview) return;
+
+            DrawStruct(() =>
+            {
+                foreach (AddressableAssetGroup group in _groups)
+                {
+                    var entries = group.entries?.OrderBy(e => e.address).ToList();
+                    int entryCount = entries?.Count ?? 0;
+
+                    EditorGUILayout.LabelField($"[Group]  {group.Name}  ({entryCount} asset(s))", EditorStyles.boldLabel);
+
+                    if (entryCount > 0)
+                    {
+                        DrawStruct(() =>
+                        {
+                            foreach (AddressableAssetEntry entry in entries)
+                            {
+                                string assetName = Path.GetFileNameWithoutExtension(entry.AssetPath);
+                                string labelStr = entry.labels.Count > 0
+                                    ? string.Join(", ", entry.labels.OrderBy(l => l))
+                                    : "(no labels)";
+
+                                EditorGUILayout.LabelField(
+                                    $"• {assetName}  |  Address: {entry.address}  |  Labels: {labelStr}",
+                                    EditorStyles.miniLabel);
+                            }
+                        }, 16);
+                    }
+
+                    GUILayout.Space(4);
+                }
+            }, 8);
+        }
+
+        private void DrawValidationAndButton()
+        {
+            string firstWarning = GetFirstWarning();
+
+            if (firstWarning != null)
+            {
+                EditorGUILayout.HelpBox(firstWarning, MessageType.Warning);
+                return;
+            }
+
+            if (GUILayout.Button("Generate C# Script", GUILayout.Height(30)))
+            {
+                GenerateScript();
+            }
+        }
+
+        private string GetFirstWarning()
+        {
+            if (!_isDataLoaded || _groups.Count == 0)
+                return "No Addressable Groups found. Click Refresh.";
+
+            if (_scriptSaveFolder == null)
+                return "Script Save Folder is not set. Drag & drop a project folder.";
+
+            return null;
+        }
+
+        private void GenerateScript()
+        {
+            string assetPath = FileFinder.GetAssetPath(_scriptSaveFolder);
+            string systemPath = FilePathConvertor.AssetPathToSystemPath(assetPath);
+
+            if (!Directory.Exists(systemPath))
+            {
+                Debug.LogWarning($"Folder not found. name: {_scriptSaveFolder.name}");
+                _scriptSaveFolder = null;
+                _serializedObject.ApplyModifiedProperties();
+                return;
+            }
+
+            string className = !string.IsNullOrWhiteSpace(_scriptClassName)
+                ? SanitizeIdentifier(_scriptClassName.Trim())
+                : "AddressableGroups";
+            string scriptBody = BuildScriptBody(className);
+            string filePath = Path.Combine(systemPath, $"{className}.cs");
+
+            File.WriteAllText(filePath, scriptBody, new UTF8Encoding(true));
+
+            AssetDatabase.Refresh();
+
+            Debug.Log($"Addressable group name script generated. path: {filePath}");
+        }
+
+        private string BuildScriptBody(string className)
+        {
+            var lines = new List<object>();
+
+            foreach (AddressableAssetGroup group in _groups)
+            {
+                string groupClassName = SanitizeIdentifier(group.Name);
+                var groupLines = new List<object>();
+
+                groupLines.Add($"public const string Name = \"{group.Name}\";");
+                groupLines.Add("");
+
+                var entries = group.entries?.OrderBy(e => e.address).ToList();
+                if (entries != null)
+                {
+                    foreach (AddressableAssetEntry entry in entries)
+                    {
+                        string assetName = Path.GetFileNameWithoutExtension(entry.AssetPath);
+                        string entryClassName = SanitizeIdentifier(entry.address);
+
+                        var entryLines = new List<object>();
+                        entryLines.Add($"public const string Name = \"{assetName}\";");
+                        entryLines.Add($"public const string Address = \"{entry.address}\";");
+
+                        if (entry.labels.Count > 0)
+                        {
+                            var sortedLabels = entry.labels.OrderBy(l => l).ToList();
+                            var labelLines = new List<object>();
+                            foreach (string label in sortedLabels)
+                            {
+                                string labelFieldName = SanitizeIdentifier(label);
+                                labelLines.Add($"public const string {labelFieldName} = \"{label}\";");
+                            }
+                            string allArray = "new string[] { " + string.Join(", ", sortedLabels.Select(l => $"\"{l}\"")) + " }";
+                            labelLines.Add("");
+                            labelLines.Add($"public static readonly string[] All = {allArray};");
+                            entryLines.Add(new ScriptBuilder.CodeBlock
+                            {
+                                Header = "public static class Labels",
+                                Content = labelLines
+                            });
+                        }
+
+                        groupLines.Add(new ScriptBuilder.CodeBlock
+                        {
+                            Header = $"public static class {entryClassName}",
+                            Content = entryLines
+                        });
+                    }
+                }
+
+                lines.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = $"public static class {groupClassName}",
+                    Content = groupLines
+                });
+            }
+
+            var classBlock = new ScriptBuilder.CodeBlock
+            {
+                Header = $"public static class {className}",
+                Content = lines
+            };
+
+            if (!string.IsNullOrWhiteSpace(_scriptNamespace))
+            {
+                var namespaceBlock = new ScriptBuilder.CodeBlock
+                {
+                    Header = $"namespace {_scriptNamespace.Trim()}",
+                    Content = new List<object> { classBlock }
+                };
+                return ScriptBuilder.Build(4, namespaceBlock);
+            }
+
+            return ScriptBuilder.Build(4, classBlock);
+        }
+
+        private static string SanitizeIdentifier(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "_";
+
+            var sb = new StringBuilder();
+            bool capitalizeNext = false;
+            bool isFirst = true;
+            foreach (char c in name)
+            {
+                if (char.IsLetterOrDigit(c))
+                {
+                    if (isFirst)
+                    {
+                        sb.Append(char.ToUpperInvariant(c));
+                        isFirst = false;
+                    }
+                    else if (capitalizeNext && char.IsLetter(c))
+                    {
+                        sb.Append(char.ToUpperInvariant(c));
+                    }
+                    else
+                    {
+                        sb.Append(c);
+                    }
+                    capitalizeNext = false;
+                }
+                else
+                {
+                    capitalizeNext = true;
+                }
+            }
+
+            if (sb.Length > 0 && char.IsDigit(sb[0]))
+                sb.Insert(0, '_');
+
+            return sb.ToString();
+        }
+
+        private static bool IsAssetsFolder(DefaultAsset folder)
+        {
+            string path = FileFinder.GetAssetPath(folder);
+            return !string.IsNullOrEmpty(path) && (path == "Assets" || path.StartsWith("Assets/"));
+        }
+    }
+}
+#endif

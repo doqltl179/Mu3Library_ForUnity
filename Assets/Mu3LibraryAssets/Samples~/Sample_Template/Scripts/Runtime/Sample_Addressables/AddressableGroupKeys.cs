@@ -1,0 +1,203 @@
+﻿namespace Mu3Library.Sample.Template.Addressables
+{
+    public static class AddressableGroupKeys
+    {
+        public static class DefaultLocalGroup
+        {
+            public const string Name = "Default Local Group";
+            
+        }
+
+        public static class LocalizationAssetsShared
+        {
+            public const string Name = "Localization-Assets-Shared";
+            
+            public static class AssetsMu3LibraryAssetsSamplesSampleLocalizationLocalizationTablesTestStringTableSharedDataAsset
+            {
+                public const string Name = "TestStringTable Shared Data";
+                public const string Address = "Assets/Mu3LibraryAssets/Samples~/Sample_Localization/Localization/Tables/TestStringTable Shared Data.asset";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    
+                    public static readonly string[] All = new string[] { "base-download" };
+                }
+            }
+        }
+
+        public static class LocalizationLocales
+        {
+            public const string Name = "Localization-Locales";
+            
+            public static class EnglishEn
+            {
+                public const string Name = "English (en)";
+                public const string Address = "English (en)";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string Locale = "Locale";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale" };
+                }
+            }
+
+            public static class JapaneseJa
+            {
+                public const string Name = "Japanese (ja)";
+                public const string Address = "Japanese (ja)";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string Locale = "Locale";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale" };
+                }
+            }
+
+            public static class KoreanKo
+            {
+                public const string Name = "Korean (ko)";
+                public const string Address = "Korean (ko)";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string Locale = "Locale";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale" };
+                }
+            }
+        }
+
+        public static class LocalizationStringTablesEnglishEn
+        {
+            public const string Name = "Localization-String-Tables-English (en)";
+            
+            public static class TestStringTableEn
+            {
+                public const string Name = "TestStringTable_en";
+                public const string Address = "TestStringTable_en";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string LocaleEn = "Locale-en";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale-en" };
+                }
+            }
+        }
+
+        public static class LocalizationStringTablesJapaneseJa
+        {
+            public const string Name = "Localization-String-Tables-Japanese (ja)";
+            
+            public static class TestStringTableJa
+            {
+                public const string Name = "TestStringTable_ja";
+                public const string Address = "TestStringTable_ja";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string LocaleJa = "Locale-ja";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale-ja" };
+                }
+            }
+        }
+
+        public static class LocalizationStringTablesKoreanKo
+        {
+            public const string Name = "Localization-String-Tables-Korean (ko)";
+            
+            public static class TestStringTableKo
+            {
+                public const string Name = "TestStringTable_ko";
+                public const string Address = "TestStringTable_ko";
+                public static class Labels
+                {
+                    public const string BaseDownload = "base-download";
+                    public const string LocaleKo = "Locale-ko";
+                    
+                    public static readonly string[] All = new string[] { "base-download", "Locale-ko" };
+                }
+            }
+        }
+
+        public static class TestPack
+        {
+            public const string Name = "TestPack";
+            
+            public static class TestImage03
+            {
+                public const string Name = "TestImage03";
+                public const string Address = "TestImage03";
+                public static class Labels
+                {
+                    public const string TestImage = "test-image";
+                    
+                    public static readonly string[] All = new string[] { "test-image" };
+                }
+            }
+        }
+
+        public static class TestPack02
+        {
+            public const string Name = "TestPack02";
+            
+            public static class TestImage
+            {
+                public const string Name = "TestImage";
+                public const string Address = "TestImage";
+                public static class Labels
+                {
+                    public const string TestImage = "test-image";
+                    public const string TestLabel = "test-label";
+                    
+                    public static readonly string[] All = new string[] { "test-image", "test-label" };
+                }
+            }
+
+            public static class TestImage02
+            {
+                public const string Name = "TestImage02";
+                public const string Address = "TestImage02";
+                public static class Labels
+                {
+                    public const string DownloadAll = "download-all";
+                    public const string TestImage = "test-image";
+                    
+                    public static readonly string[] All = new string[] { "download-all", "test-image" };
+                }
+            }
+        }
+
+        public static class TestScene
+        {
+            public const string Name = "TestScene";
+            
+            public static class SampleAddressables
+            {
+                public const string Name = "Sample_Addressables";
+                public const string Address = "Sample_Addressables";
+                public static class Labels
+                {
+                    public const string TestScene = "test-scene";
+                    
+                    public static readonly string[] All = new string[] { "test-scene" };
+                }
+            }
+
+            public static class SampleAddressablesAdditive
+            {
+                public const string Name = "Sample_AddressablesAdditive";
+                public const string Address = "Sample_AddressablesAdditive";
+                public static class Labels
+                {
+                    public const string TestScene = "test-scene";
+                    
+                    public static readonly string[] All = new string[] { "test-scene" };
+                }
+            }
+        }
+    }
+}

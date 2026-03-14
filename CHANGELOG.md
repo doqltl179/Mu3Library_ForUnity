@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-03-14
+
+### Added
+- `AddressableGroupNameExporterDrawer`: Added an editor drawer (guarded by `MU3LIBRARY_ADDRESSABLES_SUPPORT`) that reads all Addressable groups at editor time and exports their group names, asset names, addresses (keys), and labels as nested C# static classes.
+  - `Labels` inner class provides individual `const string` fields per label and a `static readonly string[] All` containing all label values.
+- `Sample_UtilWindow`: Added a sample `AddressableGroupNameExporter` drawer asset to the utility window drawer list.
+- `Sample_Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
+- `Mu3Library.Editor.asmdef`: Added optional references to `Unity.Addressables` and `Unity.Addressables.Editor` with `MU3LIBRARY_ADDRESSABLES_SUPPORT` version define.
+
 ## [0.4.2] - 2026-03-08
 
 ### Added

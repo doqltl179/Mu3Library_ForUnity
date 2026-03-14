@@ -11,6 +11,15 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-03-14
+
+### 추가됨
+- `AddressableGroupNameExporterDrawer`: 에디터 시점에 모든 Addressable 그룹을 읽어 그룹 이름, 에셋 이름, address(key), 레이블을 중첩 C# static 클래스로 내보내는 에디터 Drawer를 추가 (`MU3LIBRARY_ADDRESSABLES_SUPPORT` 조건 컴파일).
+  - `Labels` 내부 클래스에 레이블별 `const string` 필드와 함께 모든 레이블 값을 담은 `static readonly string[] All`을 제공.
+- `Sample_UtilWindow`: `AddressableGroupNameExporter` 샘플 에셋을 유틸리티 윈도우 Drawer 목록에 추가.
+- `Sample_Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
+- `Mu3Library.Editor.asmdef`: `Unity.Addressables` 및 `Unity.Addressables.Editor` 선택적 참조와 `MU3LIBRARY_ADDRESSABLES_SUPPORT` 버전 정의를 추가.
+
 ## [0.4.2] - 2026-03-08
 
 ### 추가됨
