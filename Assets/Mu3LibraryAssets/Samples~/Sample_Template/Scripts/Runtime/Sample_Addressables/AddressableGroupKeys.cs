@@ -140,7 +140,7 @@
 
                 public static class Assets
                 {
-                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailAudioManagerPng
+                    public static class ThumbnailAudioManagerPng
                     {
                         public const string Name = "Thumbnail_AudioManager";
                         public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png";
@@ -152,7 +152,7 @@
                         }
                     }
 
-                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailAudioManagerFor3DSFXPng
+                    public static class ThumbnailAudioManagerFor3DSFXPng
                     {
                         public const string Name = "Thumbnail_AudioManagerFor3DSFX";
                         public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png";
@@ -164,7 +164,7 @@
                         }
                     }
 
-                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailInputSystemManagerPng
+                    public static class ThumbnailInputSystemManagerPng
                     {
                         public const string Name = "Thumbnail_InputSystemManager";
                         public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png";
@@ -176,7 +176,7 @@
                         }
                     }
 
-                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailLocalizationPng
+                    public static class ThumbnailLocalizationPng
                     {
                         public const string Name = "Thumbnail_Localization";
                         public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png";
