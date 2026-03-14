@@ -11,6 +11,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-03-14
+
+### 변경됨
+- `AddressableGroupNameExporterDrawer`: 폴더 에셋 지원 추가.
+  - `AssetDatabase.IsValidFolder()`로 그룹에 폴더로 등록된 에셋을 감지.
+  - 폴더 에셋의 경우 `GatherAllAssets()`로 하위 에셋을 수집하여 `Assets` inner static class에 중첩 출력.
+  - 에디터 프리뷰에서 폴더 진입점은 `[Folder]` 접두어로 표시되고, 하위 에셋은 들여쓰기하여 표시.
+
 ## [0.4.3] - 2026-03-14
 
 ### 추가됨

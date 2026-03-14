@@ -127,6 +127,69 @@
         {
             public const string Name = "TestPack";
             
+            public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnails
+            {
+                public const string Name = "SceneThumbnails";
+                public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails";
+                public static class Labels
+                {
+                    public const string DownloadAll = "download-all";
+                    
+                    public static readonly string[] All = new string[] { "download-all" };
+                }
+
+                public static class Assets
+                {
+                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailAudioManagerPng
+                    {
+                        public const string Name = "Thumbnail_AudioManager";
+                        public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png";
+                        public static class Labels
+                        {
+                            public const string DownloadAll = "download-all";
+                            
+                            public static readonly string[] All = new string[] { "download-all" };
+                        }
+                    }
+
+                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailAudioManagerFor3DSFXPng
+                    {
+                        public const string Name = "Thumbnail_AudioManagerFor3DSFX";
+                        public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png";
+                        public static class Labels
+                        {
+                            public const string DownloadAll = "download-all";
+                            
+                            public static readonly string[] All = new string[] { "download-all" };
+                        }
+                    }
+
+                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailInputSystemManagerPng
+                    {
+                        public const string Name = "Thumbnail_InputSystemManager";
+                        public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png";
+                        public static class Labels
+                        {
+                            public const string DownloadAll = "download-all";
+                            
+                            public static readonly string[] All = new string[] { "download-all" };
+                        }
+                    }
+
+                    public static class AssetsMu3LibrarySamplesSampleTemplateImagesSceneThumbnailsThumbnailLocalizationPng
+                    {
+                        public const string Name = "Thumbnail_Localization";
+                        public const string Address = "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png";
+                        public static class Labels
+                        {
+                            public const string DownloadAll = "download-all";
+                            
+                            public static readonly string[] All = new string[] { "download-all" };
+                        }
+                    }
+                }
+            }
+
             public static class TestImage03
             {
                 public const string Name = "TestImage03";

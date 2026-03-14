@@ -13,6 +13,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-03-14
+
+### 変更
+- `AddressableGroupNameExporterDrawer`: フォルダーエントリーのサポートを追加。
+  - `AssetDatabase.IsValidFolder()` でグループにフォルダーとして登録されたアセットを検出。
+  - フォルダーエントリーの場合、`GatherAllAssets()` でサブアセットを収集し、`Assets` inner static class にネストして出力。
+  - エディタープレビューでフォルダーエントリーは `[Folder]` プレフィックスで示され、サブアセットはインデントして表示。
+
 ## [0.4.3] - 2026-03-14
 
 ### 追加

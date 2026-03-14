@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-03-14
+
+### Changed
+- `AddressableGroupNameExporterDrawer`: Added folder entry support.
+  - Folder entries registered in an Addressable group are now detected via `AssetDatabase.IsValidFolder()`.
+  - Sub-assets inside a folder are collected with `GatherAllAssets()` and emitted as a nested `Assets` static class inside the folder entry class.
+  - The editor preview marks folder entries with a `[Folder]` prefix and shows sub-assets indented beneath them.
+
 ## [0.4.3] - 2026-03-14
 
 ### Added

@@ -180,14 +180,37 @@ namespace Mu3Library.Editor.Window.Drawer
                         {
                             foreach (AddressableAssetEntry entry in entries)
                             {
-                                string assetName = Path.GetFileNameWithoutExtension(entry.AssetPath);
+                                bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+                                string assetName = isFolder
+                                    ? Path.GetFileName(entry.AssetPath)
+                                    : Path.GetFileNameWithoutExtension(entry.AssetPath);
                                 string labelStr = entry.labels.Count > 0
                                     ? string.Join(", ", entry.labels.OrderBy(l => l))
                                     : "(no labels)";
+                                string prefix = isFolder ? "• [Folder]" : "•";
 
                                 EditorGUILayout.LabelField(
-                                    $"• {assetName}  |  Address: {entry.address}  |  Labels: {labelStr}",
+                                    $"{prefix} {assetName}  |  Address: {entry.address}  |  Labels: {labelStr}",
                                     EditorStyles.miniLabel);
+
+                                if (isFolder)
+                                {
+                                    var subEntries = new List<AddressableAssetEntry>();
+                                    entry.GatherAllAssets(subEntries, false, true, false);
+                                    DrawStruct(() =>
+                                    {
+                                        foreach (AddressableAssetEntry sub in subEntries.OrderBy(s => s.address))
+                                        {
+                                            string subName = Path.GetFileNameWithoutExtension(sub.AssetPath);
+                                            string subLabelStr = sub.labels.Count > 0
+                                                ? string.Join(", ", sub.labels.OrderBy(l => l))
+                                                : "(no labels)";
+                                            EditorGUILayout.LabelField(
+                                                $"  \u21b3 {subName}  |  Address: {sub.address}  |  Labels: {subLabelStr}",
+                                                EditorStyles.miniLabel);
+                                        }
+                                    }, 12);
+                                }
                             }
                         }, 16);
                     }
@@ -267,37 +290,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 {
                     foreach (AddressableAssetEntry entry in entries)
                     {
-                        string assetName = Path.GetFileNameWithoutExtension(entry.AssetPath);
-                        string entryClassName = SanitizeIdentifier(entry.address);
-
-                        var entryLines = new List<object>();
-                        entryLines.Add($"public const string Name = \"{assetName}\";");
-                        entryLines.Add($"public const string Address = \"{entry.address}\";");
-
-                        if (entry.labels.Count > 0)
-                        {
-                            var sortedLabels = entry.labels.OrderBy(l => l).ToList();
-                            var labelLines = new List<object>();
-                            foreach (string label in sortedLabels)
-                            {
-                                string labelFieldName = SanitizeIdentifier(label);
-                                labelLines.Add($"public const string {labelFieldName} = \"{label}\";");
-                            }
-                            string allArray = "new string[] { " + string.Join(", ", sortedLabels.Select(l => $"\"{l}\"")) + " }";
-                            labelLines.Add("");
-                            labelLines.Add($"public static readonly string[] All = {allArray};");
-                            entryLines.Add(new ScriptBuilder.CodeBlock
-                            {
-                                Header = "public static class Labels",
-                                Content = labelLines
-                            });
-                        }
-
-                        groupLines.Add(new ScriptBuilder.CodeBlock
-                        {
-                            Header = $"public static class {entryClassName}",
-                            Content = entryLines
-                        });
+                        groupLines.Add(BuildEntryBlock(entry));
                     }
                 }
 
@@ -325,6 +318,62 @@ namespace Mu3Library.Editor.Window.Drawer
             }
 
             return ScriptBuilder.Build(4, classBlock);
+        }
+
+        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry)
+        {
+            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+            string assetName = isFolder
+                ? Path.GetFileName(entry.AssetPath)
+                : Path.GetFileNameWithoutExtension(entry.AssetPath);
+            string entryClassName = SanitizeIdentifier(entry.address);
+
+            var entryLines = new List<object>();
+            entryLines.Add($"public const string Name = \"{assetName}\";");
+            entryLines.Add($"public const string Address = \"{entry.address}\";");
+
+            if (entry.labels.Count > 0)
+            {
+                var sortedLabels = entry.labels.OrderBy(l => l).ToList();
+                var labelLines = new List<object>();
+                foreach (string label in sortedLabels)
+                {
+                    string labelFieldName = SanitizeIdentifier(label);
+                    labelLines.Add($"public const string {labelFieldName} = \"{label}\";");
+                }
+                string allArray = "new string[] { " + string.Join(", ", sortedLabels.Select(l => $"\"{l}\"")) + " }";
+                labelLines.Add("");
+                labelLines.Add($"public static readonly string[] All = {allArray};");
+                entryLines.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static class Labels",
+                    Content = labelLines
+                });
+            }
+
+            if (isFolder)
+            {
+                var subEntries = new List<AddressableAssetEntry>();
+                entry.GatherAllAssets(subEntries, false, true, false);
+                if (subEntries.Count > 0)
+                {
+                    var assetsLines = subEntries
+                        .OrderBy(s => s.address)
+                        .Select(s => (object)BuildEntryBlock(s))
+                        .ToList();
+                    entryLines.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = "public static class Assets",
+                        Content = assetsLines
+                    });
+                }
+            }
+
+            return new ScriptBuilder.CodeBlock
+            {
+                Header = $"public static class {entryClassName}",
+                Content = entryLines
+            };
         }
 
         private static string SanitizeIdentifier(string name)
