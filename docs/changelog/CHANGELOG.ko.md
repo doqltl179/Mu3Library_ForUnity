@@ -11,6 +11,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-14
+
+### 변경됨
+- `AddressableGroupNameExporterDrawer`: 하위 에셋 클래스명이 상위 클래스명으로 시작하는 경우 해당 접두어를 제거하도록 변경.
+  - 예: 상위 `Views`, 하위 `ViewsDialoguePanelPrefab` → `DialoguePanelPrefab`으로 출력.
+  - 중첩된 폴더 계층에도 재귀적으로 적용.
+
 ## [0.4.4] - 2026-03-14
 
 ### 변경됨

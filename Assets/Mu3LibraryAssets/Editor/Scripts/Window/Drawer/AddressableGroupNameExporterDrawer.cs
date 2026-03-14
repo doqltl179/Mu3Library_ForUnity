@@ -320,13 +320,22 @@ namespace Mu3Library.Editor.Window.Drawer
             return ScriptBuilder.Build(4, classBlock);
         }
 
-        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry)
+        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry, string parentClassName = null)
         {
             bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
             string assetName = isFolder
                 ? Path.GetFileName(entry.AssetPath)
                 : Path.GetFileNameWithoutExtension(entry.AssetPath);
             string entryClassName = SanitizeIdentifier(entry.address);
+
+            if (!string.IsNullOrEmpty(parentClassName) && entryClassName.StartsWith(parentClassName))
+            {
+                entryClassName = entryClassName.Substring(parentClassName.Length);
+                if (string.IsNullOrEmpty(entryClassName))
+                    entryClassName = "_";
+                else if (char.IsDigit(entryClassName[0]))
+                    entryClassName = "_" + entryClassName;
+            }
 
             var entryLines = new List<object>();
             entryLines.Add($"public const string Name = \"{assetName}\";");
@@ -359,7 +368,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 {
                     var assetsLines = subEntries
                         .OrderBy(s => s.address)
-                        .Select(s => (object)BuildEntryBlock(s))
+                        .Select(s => (object)BuildEntryBlock(s, entryClassName))
                         .ToList();
                     entryLines.Add(new ScriptBuilder.CodeBlock
                     {

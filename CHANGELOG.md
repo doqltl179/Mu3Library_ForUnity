@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-14
+
+### Changed
+- `AddressableGroupNameExporterDrawer`: Sub-asset class names that begin with the parent class name now have the parent prefix stripped.
+  - e.g. parent `Views`, sub-asset `ViewsDialoguePanelPrefab` → emitted as `DialoguePanelPrefab`.
+  - Applied recursively through nested folder hierarchies.
+
 ## [0.4.4] - 2026-03-14
 
 ### Changed

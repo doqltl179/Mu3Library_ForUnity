@@ -13,6 +13,13 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-14
+
+### 変更
+- `AddressableGroupNameExporterDrawer`: サブアセットのクラス名が親クラス名で始まる場合、その接頭辞を除去するよう変更。
+  - 例: 親 `Views`、サブアセット `ViewsDialoguePanelPrefab` → `DialoguePanelPrefab` として出力。
+  - ネストされたフォルダー階層にも再帰的に適用。
+
 ## [0.4.4] - 2026-03-14
 
 ### 変更
