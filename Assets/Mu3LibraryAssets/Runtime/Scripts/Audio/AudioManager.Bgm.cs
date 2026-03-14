@@ -21,11 +21,6 @@ namespace Mu3Library.Audio
 
 
 
-        public void ResetBgmVolume()
-        {
-            SetBgmVolume(DefaultBgmVolume);
-        }
-
         public void FadeInBgm(float fadeTime = 1.0f)
         {
             if (_bgmMainController == null)
@@ -54,6 +49,98 @@ namespace Mu3Library.Audio
             }
 
             _bgmMainController.FadeOut(fadeTime, _bgmMainController.Pause);
+        }
+
+        public void PauseBgm()
+        {
+            if (_bgmMainController != null)
+            {
+                _bgmMainController.Pause();
+            }
+            if (_bgmSubController != null)
+            {
+                _bgmSubController.Pause();
+            }
+        }
+
+        public void PlayBgm(AudioClip clip) => PlayBgm(clip, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgm(AudioClip clip, AudioSourceSettings settings)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"BGM clip is NULL.");
+                return;
+            }
+
+            if (_bgmMainController != null)
+            {
+                if (_bgmMainController.IsPlaying && _bgmMainController.IsSameClip(clip))
+                {
+                    Debug.LogWarning($"Requested clip is same with current clip. clip: {clip.name}");
+                    return;
+                }
+
+                InitializeAudioController(_bgmMainController, clip, settings);
+            }
+            else
+            {
+                AudioSource source = CreateBgmSource();
+                _bgmMainController = CreateAudioController<BgmController>(source, clip, settings);
+            }
+
+            _bgmMainController.FadeVolume = 1.0f;
+            _bgmMainController.RecalculateVolume();
+            _bgmMainController.Play();
+        }
+
+        public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgmForce(AudioClip clip, AudioSourceSettings settings)
+        {
+            if (_bgmMainController != null && _bgmMainController.IsPlaying)
+            {
+                _bgmMainController.Stop();
+            }
+
+            PlayBgm(clip, settings);
+        }
+
+        public void PlayBgmForceWithKey(string key) => PlayBgmForceWithKey(key, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgmForceWithKey(string key, AudioSourceSettings settings)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlayBgmForce(clip, settings);
+            }
+        }
+
+        public void PlayBgmWithKey(string key) => PlayBgmWithKey(key, AudioSourceSettings.BgmStandard);
+
+        public void PlayBgmWithKey(string key, AudioSourceSettings settings)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                PlayBgm(clip, settings);
+            }
+        }
+
+        public void ResetBgmVolume()
+        {
+            SetBgmVolume(DefaultBgmVolume);
+        }
+
+        public void StopBgm()
+        {
+            if (_bgmMainController != null)
+            {
+                _bgmMainController.Stop();
+            }
+            if (_bgmSubController != null)
+            {
+                _bgmSubController.Stop();
+            }
         }
 
         public void TransitionBgm(AudioClip clip) => TransitionBgm(clip, 1.0f, AudioSourceSettings.BgmStandard);
@@ -95,85 +182,6 @@ namespace Mu3Library.Audio
             _bgmSubController = from;
         }
 
-        public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, AudioSourceSettings.BgmStandard);
-
-        public void PlayBgmForce(AudioClip clip, AudioSourceSettings settings)
-        {
-            if (_bgmMainController != null && _bgmMainController.IsPlaying)
-            {
-                _bgmMainController.Stop();
-            }
-
-            PlayBgm(clip, settings);
-        }
-
-        public void PlayBgm(AudioClip clip) => PlayBgm(clip, AudioSourceSettings.BgmStandard);
-
-        public void PlayBgm(AudioClip clip, AudioSourceSettings settings)
-        {
-            if (clip == null)
-            {
-                Debug.LogError($"BGM clip is NULL.");
-                return;
-            }
-
-            if (_bgmMainController != null)
-            {
-                if (_bgmMainController.IsPlaying && _bgmMainController.IsSameClip(clip))
-                {
-                    Debug.LogWarning($"Requested clip is same with current clip. clip: {clip.name}");
-                    return;
-                }
-
-                InitializeAudioController(_bgmMainController, clip, settings);
-            }
-            else
-            {
-                AudioSource source = CreateBgmSource();
-                _bgmMainController = CreateAudioController<BgmController>(source, clip, settings);
-            }
-
-            _bgmMainController.FadeVolume = 1.0f;
-            _bgmMainController.RecalculateVolume();
-            _bgmMainController.Play();
-        }
-
-        public void StopBgm()
-        {
-            if (_bgmMainController != null)
-            {
-                _bgmMainController.Stop();
-            }
-            if (_bgmSubController != null)
-            {
-                _bgmSubController.Stop();
-            }
-        }
-
-        public void PauseBgm()
-        {
-            if (_bgmMainController != null)
-            {
-                _bgmMainController.Pause();
-            }
-            if (_bgmSubController != null)
-            {
-                _bgmSubController.Pause();
-            }
-        }
-
-        public void UnPauseBgm()
-        {
-            if (_bgmMainController != null)
-            {
-                _bgmMainController.UnPause();
-            }
-            if (_bgmSubController != null)
-            {
-                _bgmSubController.UnPause();
-            }
-        }
-
         public void TransitionBgmWithKey(string key) => TransitionBgmWithKey(key, 1.0f, AudioSourceSettings.BgmStandard);
 
         public void TransitionBgmWithKey(string key, float transitionTime) => TransitionBgmWithKey(key, transitionTime, AudioSourceSettings.BgmStandard);
@@ -186,23 +194,15 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void PlayBgmForceWithKey(string key) => PlayBgmForceWithKey(key, AudioSourceSettings.BgmStandard);
-
-        public void PlayBgmForceWithKey(string key, AudioSourceSettings settings)
+        public void UnPauseBgm()
         {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            if (_bgmMainController != null)
             {
-                PlayBgmForce(clip, settings);
+                _bgmMainController.UnPause();
             }
-        }
-
-        public void PlayBgmWithKey(string key) => PlayBgmWithKey(key, AudioSourceSettings.BgmStandard);
-
-        public void PlayBgmWithKey(string key, AudioSourceSettings settings)
-        {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            if (_bgmSubController != null)
             {
-                PlayBgm(clip, settings);
+                _bgmSubController.UnPause();
             }
         }
 

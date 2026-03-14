@@ -34,116 +34,6 @@ namespace Mu3Library.Audio
 
 
 
-        public void ResetSfxVolume()
-        {
-            SetSfxVolume(DefaultSfxVolume);
-        }
-
-        public void PlaySfx(AudioClip clip) => PlaySfx(clip, AudioSourceSettings.SfxStandard, Vector3.zero);
-
-        public void PlaySfx(AudioClip clip, AudioSourceSettings settings) => PlaySfx(clip, settings, Vector3.zero);
-
-        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfx(clip, AudioSourceSettings.SfxStandard, position);
-
-        public void PlaySfx(AudioClip clip, AudioSourceSettings settings, Vector3 position)
-        {
-            if (clip == null)
-            {
-                Debug.LogError($"SFX clip is NULL.");
-                return;
-            }
-
-            CleanupSfxControllers();
-
-            AudioController controller = null;
-
-            if (_sfxControllers.Count < _sfxSourceCountMax)
-            {
-                if (_sfxPool.TryDequeue(out controller))
-                {
-                    InitializeAudioController(controller, clip, settings);
-                }
-                else
-                {
-                    AudioSource source = CreateSfxSource();
-                    controller = CreateAudioController<SfxController>(source, clip, settings);
-                }
-            }
-            else
-            {
-                controller = _sfxControllers[0];
-                _sfxControllers.RemoveAt(0);
-
-                InitializeAudioController(controller, clip, settings);
-            }
-
-            controller.SetActive(true);
-            controller.Position = position;
-
-            controller.Play();
-
-            _sfxControllers.Add(controller);
-        }
-
-        public void StopFirstSfx(AudioClip clip)
-        {
-            if (clip == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < _sfxControllers.Count; i++)
-            {
-                AudioController controller = _sfxControllers[i];
-
-                if (controller == null)
-                {
-                    _sfxControllers.RemoveAt(i);
-                    i--;
-                    continue;
-                }
-
-                if ((controller.IsPlaying || controller.IsInLoopInterval) && controller.IsSameClip(clip))
-                {
-                    PoolController(_sfxPool, controller);
-
-                    _sfxControllers.RemoveAt(i);
-                    break;
-                }
-            }
-        }
-
-        public void StopSfxAll()
-        {
-            PoolSfxAll();
-        }
-
-        public void PauseSfxAll()
-        {
-            foreach (AudioController controller in _sfxControllers)
-            {
-                if (controller == null)
-                {
-                    continue;
-                }
-
-                controller.Pause();
-            }
-        }
-
-        public void UnPauseSfxAll()
-        {
-            foreach (AudioController controller in _sfxControllers)
-            {
-                if (controller == null)
-                {
-                    continue;
-                }
-
-                controller.UnPause();
-            }
-        }
-
         /// <summary>
         /// Plays the specified SFX clip with a fade in effect.
         /// Acts like PlaySfx but starts at volume 0 and fades in over fadeTime seconds.
@@ -206,6 +96,16 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void FadeInSfxWithKey(string key) => FadeInSfxWithKey(key, 1.0f);
+
+        public void FadeInSfxWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeInSfx(clip, fadeTime);
+            }
+        }
+
         /// <summary>
         /// Fades out the first active SFX controller playing the specified clip, then pools it.
         /// If the controller is in a loop interval, it is pooled immediately without fading.
@@ -242,6 +142,16 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void FadeOutFirstSfxWithKey(string key) => FadeOutFirstSfxWithKey(key, 1.0f);
+
+        public void FadeOutFirstSfxWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeOutFirstSfx(clip, fadeTime);
+            }
+        }
+
         /// <summary>
         /// Fades out all active SFX controllers, then pools each one.
         /// </summary>
@@ -272,6 +182,65 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void PauseSfxAll()
+        {
+            foreach (AudioController controller in _sfxControllers)
+            {
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.Pause();
+            }
+        }
+
+        public void PlaySfx(AudioClip clip) => PlaySfx(clip, AudioSourceSettings.SfxStandard, Vector3.zero);
+
+        public void PlaySfx(AudioClip clip, AudioSourceSettings settings) => PlaySfx(clip, settings, Vector3.zero);
+
+        public void PlaySfx(AudioClip clip, Vector3 position) => PlaySfx(clip, AudioSourceSettings.SfxStandard, position);
+
+        public void PlaySfx(AudioClip clip, AudioSourceSettings settings, Vector3 position)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"SFX clip is NULL.");
+                return;
+            }
+
+            CleanupSfxControllers();
+
+            AudioController controller = null;
+
+            if (_sfxControllers.Count < _sfxSourceCountMax)
+            {
+                if (_sfxPool.TryDequeue(out controller))
+                {
+                    InitializeAudioController(controller, clip, settings);
+                }
+                else
+                {
+                    AudioSource source = CreateSfxSource();
+                    controller = CreateAudioController<SfxController>(source, clip, settings);
+                }
+            }
+            else
+            {
+                controller = _sfxControllers[0];
+                _sfxControllers.RemoveAt(0);
+
+                InitializeAudioController(controller, clip, settings);
+            }
+
+            controller.SetActive(true);
+            controller.Position = position;
+
+            controller.Play();
+
+            _sfxControllers.Add(controller);
+        }
+
         public void PlaySfxWithKey(string key) => PlaySfxWithKey(key, AudioSourceSettings.SfxStandard, Vector3.zero);
 
         public void PlaySfxWithKey(string key, AudioSourceSettings settings) => PlaySfxWithKey(key, settings, Vector3.zero);
@@ -286,6 +255,39 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void ResetSfxVolume()
+        {
+            SetSfxVolume(DefaultSfxVolume);
+        }
+
+        public void StopFirstSfx(AudioClip clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _sfxControllers.Count; i++)
+            {
+                AudioController controller = _sfxControllers[i];
+
+                if (controller == null)
+                {
+                    _sfxControllers.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
+                if ((controller.IsPlaying || controller.IsInLoopInterval) && controller.IsSameClip(clip))
+                {
+                    PoolController(_sfxPool, controller);
+
+                    _sfxControllers.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
         public void StopFirstSfxWithKey(string key)
         {
             if (TryGetCachedAudioResource(key, out AudioClip clip))
@@ -294,23 +296,21 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void FadeInSfxWithKey(string key) => FadeInSfxWithKey(key, 1.0f);
-
-        public void FadeInSfxWithKey(string key, float fadeTime)
+        public void StopSfxAll()
         {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
-            {
-                FadeInSfx(clip, fadeTime);
-            }
+            PoolSfxAll();
         }
 
-        public void FadeOutFirstSfxWithKey(string key) => FadeOutFirstSfxWithKey(key, 1.0f);
-
-        public void FadeOutFirstSfxWithKey(string key, float fadeTime)
+        public void UnPauseSfxAll()
         {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            foreach (AudioController controller in _sfxControllers)
             {
-                FadeOutFirstSfx(clip, fadeTime);
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.UnPause();
             }
         }
 

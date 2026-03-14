@@ -34,116 +34,6 @@ namespace Mu3Library.Audio
 
 
 
-        public void ResetEnvironmentVolume()
-        {
-            SetEnvironmentVolume(DefaultEnvironmentVolume);
-        }
-
-        public void PlayEnvironment(AudioClip clip) => PlayEnvironment(clip, AudioSourceSettings.EnvironmentStandard, Vector3.zero);
-
-        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings) => PlayEnvironment(clip, settings, Vector3.zero);
-
-        public void PlayEnvironment(AudioClip clip, Vector3 position) => PlayEnvironment(clip, AudioSourceSettings.EnvironmentStandard, position);
-
-        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position)
-        {
-            if (clip == null)
-            {
-                Debug.LogError($"Environment clip is NULL.");
-                return;
-            }
-
-            CleanupEnvironmentControllers();
-
-            AudioController controller = null;
-
-            if (_environmentControllers.Count < _environmentSourceCountMax)
-            {
-                if (_environmentPool.TryDequeue(out controller))
-                {
-                    InitializeAudioController(controller, clip, settings);
-                }
-                else
-                {
-                    AudioSource source = CreateEnvironmentSource();
-                    controller = CreateAudioController<EnvironmentController>(source, clip, settings);
-                }
-            }
-            else
-            {
-                controller = _environmentControllers[0];
-                _environmentControllers.RemoveAt(0);
-
-                InitializeAudioController(controller, clip, settings);
-            }
-
-            controller.SetActive(true);
-            controller.Position = position;
-
-            controller.Play();
-
-            _environmentControllers.Add(controller);
-        }
-
-        public void StopFirstEnvironment(AudioClip clip)
-        {
-            if (clip == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < _environmentControllers.Count; i++)
-            {
-                AudioController controller = _environmentControllers[i];
-
-                if (controller == null)
-                {
-                    _environmentControllers.RemoveAt(i);
-                    i--;
-                    continue;
-                }
-
-                if ((controller.IsPlaying || controller.IsInLoopInterval) && controller.IsSameClip(clip))
-                {
-                    PoolController(_environmentPool, controller);
-
-                    _environmentControllers.RemoveAt(i);
-                    break;
-                }
-            }
-        }
-
-        public void StopEnvironmentAll()
-        {
-            PoolEnvironmentAll();
-        }
-
-        public void PauseEnvironmentAll()
-        {
-            foreach (AudioController controller in _environmentControllers)
-            {
-                if (controller == null)
-                {
-                    continue;
-                }
-
-                controller.Pause();
-            }
-        }
-
-        public void UnPauseEnvironmentAll()
-        {
-            foreach (AudioController controller in _environmentControllers)
-            {
-                if (controller == null)
-                {
-                    continue;
-                }
-
-                controller.UnPause();
-            }
-        }
-
         /// <summary>
         /// Plays the specified Environment clip with a fade in effect.
         /// Acts like PlayEnvironment but starts at volume 0 and fades in over fadeTime seconds.
@@ -206,6 +96,16 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void FadeInEnvironmentWithKey(string key) => FadeInEnvironmentWithKey(key, 1.0f);
+
+        public void FadeInEnvironmentWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeInEnvironment(clip, fadeTime);
+            }
+        }
+
         /// <summary>
         /// Fades out the first active Environment controller playing the specified clip, then pools it.
         /// If the controller is in a loop interval, it is pooled immediately without fading.
@@ -242,6 +142,16 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void FadeOutFirstEnvironmentWithKey(string key) => FadeOutFirstEnvironmentWithKey(key, 1.0f);
+
+        public void FadeOutFirstEnvironmentWithKey(string key, float fadeTime)
+        {
+            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            {
+                FadeOutFirstEnvironment(clip, fadeTime);
+            }
+        }
+
         /// <summary>
         /// Fades out all active Environment controllers, then pools each one.
         /// </summary>
@@ -272,6 +182,65 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void PauseEnvironmentAll()
+        {
+            foreach (AudioController controller in _environmentControllers)
+            {
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.Pause();
+            }
+        }
+
+        public void PlayEnvironment(AudioClip clip) => PlayEnvironment(clip, AudioSourceSettings.EnvironmentStandard, Vector3.zero);
+
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings) => PlayEnvironment(clip, settings, Vector3.zero);
+
+        public void PlayEnvironment(AudioClip clip, Vector3 position) => PlayEnvironment(clip, AudioSourceSettings.EnvironmentStandard, position);
+
+        public void PlayEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position)
+        {
+            if (clip == null)
+            {
+                Debug.LogError($"Environment clip is NULL.");
+                return;
+            }
+
+            CleanupEnvironmentControllers();
+
+            AudioController controller = null;
+
+            if (_environmentControllers.Count < _environmentSourceCountMax)
+            {
+                if (_environmentPool.TryDequeue(out controller))
+                {
+                    InitializeAudioController(controller, clip, settings);
+                }
+                else
+                {
+                    AudioSource source = CreateEnvironmentSource();
+                    controller = CreateAudioController<EnvironmentController>(source, clip, settings);
+                }
+            }
+            else
+            {
+                controller = _environmentControllers[0];
+                _environmentControllers.RemoveAt(0);
+
+                InitializeAudioController(controller, clip, settings);
+            }
+
+            controller.SetActive(true);
+            controller.Position = position;
+
+            controller.Play();
+
+            _environmentControllers.Add(controller);
+        }
+
         public void PlayEnvironmentWithKey(string key) => PlayEnvironmentWithKey(key, AudioSourceSettings.EnvironmentStandard, Vector3.zero);
 
         public void PlayEnvironmentWithKey(string key, AudioSourceSettings settings) => PlayEnvironmentWithKey(key, settings, Vector3.zero);
@@ -286,6 +255,39 @@ namespace Mu3Library.Audio
             }
         }
 
+        public void ResetEnvironmentVolume()
+        {
+            SetEnvironmentVolume(DefaultEnvironmentVolume);
+        }
+
+        public void StopFirstEnvironment(AudioClip clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _environmentControllers.Count; i++)
+            {
+                AudioController controller = _environmentControllers[i];
+
+                if (controller == null)
+                {
+                    _environmentControllers.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
+                if ((controller.IsPlaying || controller.IsInLoopInterval) && controller.IsSameClip(clip))
+                {
+                    PoolController(_environmentPool, controller);
+
+                    _environmentControllers.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
         public void StopFirstEnvironmentWithKey(string key)
         {
             if (TryGetCachedAudioResource(key, out AudioClip clip))
@@ -294,23 +296,21 @@ namespace Mu3Library.Audio
             }
         }
 
-        public void FadeInEnvironmentWithKey(string key) => FadeInEnvironmentWithKey(key, 1.0f);
-
-        public void FadeInEnvironmentWithKey(string key, float fadeTime)
+        public void StopEnvironmentAll()
         {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
-            {
-                FadeInEnvironment(clip, fadeTime);
-            }
+            PoolEnvironmentAll();
         }
 
-        public void FadeOutFirstEnvironmentWithKey(string key) => FadeOutFirstEnvironmentWithKey(key, 1.0f);
-
-        public void FadeOutFirstEnvironmentWithKey(string key, float fadeTime)
+        public void UnPauseEnvironmentAll()
         {
-            if (TryGetCachedAudioResource(key, out AudioClip clip))
+            foreach (AudioController controller in _environmentControllers)
             {
-                FadeOutFirstEnvironment(clip, fadeTime);
+                if (controller == null)
+                {
+                    continue;
+                }
+
+                controller.UnPause();
             }
         }
 
