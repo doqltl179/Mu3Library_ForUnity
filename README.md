@@ -277,24 +277,19 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.4.2)
+## 📝 Recent Updates (v0.4.7)
 
-**InputSystemManager Added:**
-- New Input System module (requires `MU3LIBRARY_INPUTSYSTEM_SUPPORT`).
-- Register `InputActionAsset` instances by custom ID with GUID-based and name-based lookup.
-- Interactive rebinding via `StartInteractiveRebind(...)` with optional device-type filtering and cancel support.
-- Binding override serialization for per-asset, per-action-map, and per-action levels.
-- Enable/disable entire asset or individual action maps.
+**ScriptBuilder Enhancement:**
+- `ScriptBuilder`: Added `ArrayBlock` struct (`FieldName`, `Values`) and `AppendArrayBlock` method for concise array emission in code generation.
 
-**New Editor Drawers:**
-- `InputSystemNameExporterDrawer`: Export Input System action names as string constants.
-- `LocalizationNameExporterDrawer`: Export Localization string table names and keys as string constants.
-- `LocalizationCharacterCollectorDrawer`: Collect and review characters across Localization string tables.
+**Audio Key-Based API:**
+- `AudioManager.Resource`: Key-based `AudioClip` registration (`RegisterAudioResource`, `RegisterAudioResources`).
+- `WithKey` overloads added across all channel types (BGM, SFX, Environment) to play audio by registered key.
 
-**MVP Refinements:**
-- `PresenterBase.CloseSelf(bool forceClose = false)` added: Presenter can close itself without an external caller.
-- `PresenterBase.Initialize(...)` is now `internal`; initialization is managed exclusively by `MVPManager`.
-- `LayerCanvas` now synchronizes its Layer value to each child item automatically.
+**AddressableGroupNameExporterDrawer:**
+- New editor drawer that exports Addressable group names, asset names, addresses, and labels as nested C# static classes (requires `MU3LIBRARY_ADDRESSABLES_SUPPORT`).
+- Folder entry support: sub-assets inside a folder are emitted as a nested `Assets` class.
+- Sub-asset class names that begin with the parent class name have the parent prefix stripped automatically.
 
 ## 🤝 Contributing
 
@@ -315,6 +310,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.4.2`
+- Version: `0.4.7`
 
 Made with ❤️ for Unity Developers

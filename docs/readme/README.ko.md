@@ -276,24 +276,19 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.4.2)
+## 📝 최근 업데이트 (v0.4.7)
 
-**InputSystemManager 추가:**
-- 새로운 Input System 모듈 추가 (`MU3LIBRARY_INPUTSYSTEM_SUPPORT` 필요).
-- `InputActionAsset`을 커스텀 ID로 등록; GUID 기반 및 이름 기반 조회 지원.
-- `StartInteractiveRebind(...)`을 통한 인터랙티브 리바인딩; 디바이스 타입 필터링 및 취소 컨트롤 지원.
-- 에셋/액션맵/액션 단위 바인딩 오버라이드 직렬화 지원.
-- 전체 에셋 또는 개별 액션맵 활성화/비활성화.
+**ScriptBuilder 기능 강화:**
+- `ScriptBuilder`: 코드 생성 시 배열 선언을 간결하게 작성할 수 있는 `ArrayBlock` 구조체(`FieldName`, `Values`)와 `AppendArrayBlock` 메서드 추가.
 
-**새로운 에디터 Drawer 추가:**
-- `InputSystemNameExporterDrawer`: Input System 액션 이름을 문자열 상수로 내보내는 Drawer.
-- `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 키를 문자열 상수로 내보내는 Drawer.
-- `LocalizationCharacterCollectorDrawer`: Localization 스트링 테이블에서 문자를 수집·확인하는 Drawer.
+**오디오 키 기반 API:**
+- `AudioManager.Resource`: 키 기반 `AudioClip` 등록 시스템 (`RegisterAudioResource`, `RegisterAudioResources`).
+- 전 채널 타입(BGM, SFX, Environment)에 등록된 키로 오디오를 재생하는 `WithKey` 오버로드 추가.
 
-**MVP 보강:**
-- `PresenterBase.CloseSelf(bool forceClose = false)` 추가: Presenter가 외부 호출자 없이 스스로를 닫을 수 있습니다.
-- `PresenterBase.Initialize(...)`가 `internal`로 변경됨; 초기화가 `MVPManager`에 의해 독점적으로 관리됩니다.
-- `LayerCanvas`가 각 항목에 맞게 Layer 값을 자동으로 동기화합니다.
+**AddressableGroupNameExporterDrawer:**
+- Addressable 그룹 이름, 에셋 이름, 주소, 레이블을 중첩 C# static 클래스로 내보내는 에디터 Drawer 추가 (`MU3LIBRARY_ADDRESSABLES_SUPPORT` 필요).
+- 폴더 엔트리 지원: 폴더 안의 하위 에셋이 `Assets` 중첩 클래스로 출력됨.
+- 하위 에셋 클래스명이 상위 클래스명과 중복되는 접두어를 자동으로 제거.
 
 ## 🤝 기여
 
@@ -314,6 +309,6 @@ protected override void Start()
 
 **패키지 정보:**
 - Name: `com.github.doqltl179.mu3libraryassets.base`
-- Version: `0.4.2`
+- Version: `0.4.7`
 
 Unity 개발자를 위해 제작됨
