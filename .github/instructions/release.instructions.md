@@ -43,21 +43,23 @@ Use the `gh` CLI (GitHub CLI) to create the release from the terminal.
 
 ### Command
 
+Always use `--notes-file` instead of `--notes` for release body content.
+The `--notes` inline flag causes backtick characters to be consumed as escape
+sequences in PowerShell, corrupting all Markdown code spans in the release notes.
+
 ```sh
-gh release create <tag> --title "<title>" --notes "<release notes body>"
+# 1. Write release notes to a temp file (use UTF-8, no BOM)
+# 2. Create/edit the release using the file
+gh release create <tag> --title "<title>" --notes-file <path-to-notes-file>
+
+# After publishing, delete the temp file
 ```
 
 ### Example for a new version
 
 ```sh
-gh release create v0.3.0 --title "v0.3.0" --notes "## What's Changed
-- Added InputSystemManager ...
-
-## Package
-- Version: \`0.3.0\`
-
-## Full Changelog
-https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...v0.3.0"
+# Write to temp file first (example path)
+gh release create v0.3.0 --title "v0.3.0" --notes-file "Temp\release_notes_v0.3.0.md"
 ```
 
 ### Useful flags
@@ -101,4 +103,7 @@ https://github.com/doqltl179/Mu3Library_ForUnity/compare/vPREV...vNEW
 ```
 
 - If details are still being refined, publish at least a concise non-empty summary to avoid omission.
-- Always include the Full Changelog comparison link using the previous release tag as `vPREV`.
+- Always include the Full Changelog comparison link.
+  - `vPREV` = the tag of the **previous GitHub Release** (not the previous git tag).
+  - Determine `vPREV` by running `gh release list` before creating the release.
+  - Git tags that were never published as a GitHub Release must not be used as `vPREV`.
