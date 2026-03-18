@@ -12,10 +12,13 @@ Prioritize package quality, consistency, and stable public APIs.
 
 ## Scope and Paths
 
-- Package root: `Assets/Mu3LibraryAssets`
-- Runtime: `Assets/Mu3LibraryAssets/Runtime/Scripts`
-- Editor: `Assets/Mu3LibraryAssets/Editor/Scripts`
-- Samples: `Assets/Mu3LibraryAssets/Samples~`
+- Base package root: `Mu3Library_Base`
+- Runtime: `Mu3Library_Base/Runtime/Scripts`
+- Editor: `Mu3Library_Base/Editor/Scripts`
+- Samples: `Mu3Library_Base/Samples~`
+- URP package root: `Mu3Library_URP`
+- BuiltIn dev project: `UnityProject_BuiltIn`
+- URP dev project: `UnityProject_URP`
 
 ## Architecture Rules
 

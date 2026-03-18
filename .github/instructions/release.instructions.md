@@ -6,7 +6,7 @@ description: "Release and versioning rules for Mu3Library package changes"
 
 ## Versioning
 
-- Change `Assets/Mu3LibraryAssets/package.json` version only when requested or when preparing a release.
+- Change `Mu3Library_Base/package.json` version only when requested or when preparing a release.
 - Use semantic versioning intent:
   - Patch: backward-compatible fixes.
   - Minor: backward-compatible features.

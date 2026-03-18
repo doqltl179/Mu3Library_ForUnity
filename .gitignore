@@ -1,6 +1,5 @@
-# This .gitignore file should be placed at the root of your Unity project directory
-#
-# Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
+# This .gitignore file is placed at the monorepo root.
+# It covers both UnityProject_BuiltIn and UnityProject_URP.
 #
 **/[Ll]ibrary/
 **/[Tt]emp/
@@ -35,6 +34,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -73,17 +73,17 @@ crashlytics-build.properties
 
 # My ignores
 # **/[Ss]amples~/
-[Aa]ssets/[Cc]ustomPackages
-[Aa]ssets/[Cc]ustomPackages.meta
-[Aa]ssets/[Aa]ddressableAssetsData
-[Aa]ssets/[Aa]ddressableAssetsData.meta
-[Aa]ssets/[Ss]amples.meta
-[Aa]ssets/TextMesh Pro
-[Aa]ssets/TextMesh Pro.meta
-[Aa]ssets/builtin_shaders
-[Aa]ssets/builtin_shaders.meta
-[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
-[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
+**/[Aa]ssets/[Cc]ustomPackages
+**/[Aa]ssets/[Cc]ustomPackages.meta
+**/[Aa]ssets/[Aa]ddressableAssetsData
+**/[Aa]ssets/[Aa]ddressableAssetsData.meta
+**/[Aa]ssets/[Ss]amples.meta
+**/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
+**/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
+**/[Aa]ssets/builtin_shaders
+**/[Aa]ssets/builtin_shaders.meta
+**/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
+**/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 
 .vscode/
 .venv/

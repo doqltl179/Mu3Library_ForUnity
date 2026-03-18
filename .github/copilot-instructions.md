@@ -5,7 +5,7 @@ This file is the central entry point for instruction routing.
 ## Core Guardrails
 
 - This file is the single source of truth for repository instructions.
-- Prefer edits in `Assets/Mu3LibraryAssets` unless project-level changes are requested.
+- Prefer edits in `Mu3Library_Base` unless project-level changes are requested.
 - Preserve Unity package stability (`.asmdef`, `.meta`, define symbols, public APIs).
 - Sync docs/changelog when behavior or public API changes.
 - Keep Markdown docs (`README*`, `CHANGELOG*`, and instruction files) encoded as UTF-8 BOM with LF line endings to prevent multilingual text corruption.
@@ -24,7 +24,7 @@ This file is the central entry point for instruction routing.
 ## Mu3Library Guardrails
 
 1. Package-first edits:
-   - Prefer changes under `Assets/Mu3LibraryAssets`.
+   - Prefer changes under `Mu3Library_Base` or `Mu3Library_URP`.
    - Avoid unrelated project-level edits unless requested.
 2. Public API stability:
    - Do not break existing public APIs without explicit request.
