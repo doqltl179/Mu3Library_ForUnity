@@ -1,0 +1,24 @@
+{
+    "folders": [
+        {
+            "path": "..",
+            "name": "Mu3Library_ForUnity"
+        }
+    ],
+    "settings": {
+        "dotnet.defaultSolution": "UnityProject_BuiltIn/UnityProject_BuiltIn.slnx",
+        "chat.tools.terminal.autoApprove": {
+            "/^git status --short \\| ForEach-Object \\{ \\$_\\.Substring\\(0,2\\)\\.Trim\\(\\) \\} \\| Group-Object \\| Select-Object Name, Count$/": {
+                "approve": true,
+                "matchCommandLine": true
+            },
+            "/^git status --short \\| Select-String \"\\^D \" \\| ForEach-Object \\{ \\$_\\.Line\\.Substring\\(3\\) \\} \\| ForEach-Object \\{ \\(\\$_ -split '/'\\)\\[0\\.\\.2\\] -join '/' \\} \\| Sort-Object -Unique$/": {
+                "approve": true,
+                "matchCommandLine": true
+            },
+            "ForEach-Object": true,
+            "git add": true,
+            "git commit": true
+        }
+    }
+}
