@@ -1,0 +1,39 @@
+{
+    "name": "Mu3Library.Editor",
+    "rootNamespace": "Mu3Library.Editor",
+    "references": [
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
+        "Unity.Localization",
+        "Unity.Localization.Editor",
+        "Unity.InputSystem",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "",
+            "define": "MU3LIBRARY_ADDRESSABLES_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}
