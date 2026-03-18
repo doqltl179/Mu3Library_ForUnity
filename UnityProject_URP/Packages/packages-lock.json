@@ -1,5 +1,20 @@
 {
   "dependencies": {
+    "com.github.doqltl179.mu3library.base": {
+      "version": "file:../../Mu3Library_Base",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.github.doqltl179.mu3library.urp": {
+      "version": "file:../../Mu3Library_URP",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.github.doqltl179.mu3library.base": "0.5.0",
+        "com.unity.render-pipelines.universal": "17.3.0"
+      }
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.10",
       "depth": 0,
