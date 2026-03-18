@@ -85,5 +85,8 @@ crashlytics-build.properties
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 
+**/[Aa]ssets/[Ss]amples
+**/[Aa]ssets/[Ss]amples.meta
+
 .vscode/
 .venv/
