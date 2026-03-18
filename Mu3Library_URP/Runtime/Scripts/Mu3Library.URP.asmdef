@@ -1,0 +1,22 @@
+{
+    "name": "Mu3Library.URP",
+    "rootNamespace": "Mu3Library.URP",
+    "references": [
+        "Mu3Library"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "MU3LIBRARY_URP_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}

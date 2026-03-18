@@ -1,0 +1,26 @@
+{
+    "name": "Mu3Library.URP.Editor",
+    "rootNamespace": "Mu3Library.URP.Editor",
+    "references": [
+        "Mu3Library",
+        "Mu3Library.Editor",
+        "Mu3Library.URP"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "MU3LIBRARY_URP_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}
