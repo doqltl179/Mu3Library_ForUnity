@@ -49,14 +49,14 @@
 2. Click `+` button > `Add package from git URL...`
 3. Enter the following URL:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
    ```
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
 3. Click `+` button > `Add package from disk...`
-4. Select `Assets/Mu3LibraryAssets/package.json`
+4. Select `Mu3Library_Base/package.json`
 
 ## 📚 Core Modules
 
@@ -239,7 +239,7 @@ You can import the following samples from the **Samples** tab in Package Manager
 - **Sample_Attribute**: ConditionalHide usage
 - **Sample_UtilWindow**: Custom editor window and utility drawer examples
 
-Or refer to the `Assets/Mu3LibrarySamples` folder in your project.
+Or refer to the `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` folder in your project.
 
 **Sample_Template Key Components:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
@@ -309,7 +309,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Name: `com.github.doqltl179.mu3libraryassets.base`
+- Name: `com.github.doqltl179.mu3library.base`
 - Version: `0.4.7`
 
 Made with ❤️ for Unity Developers

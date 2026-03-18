@@ -48,14 +48,14 @@
 2. `+` 버튼 클릭 > `Add package from git URL...`
 3. 다음 URL을 입력:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
    ```
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
 3. `+` 버튼 > `Add package from disk...`
-4. `Assets/Mu3LibraryAssets/package.json` 선택
+4. `Mu3Library_Base/package.json` 선택
 
 ## 📚 핵심 모듈
 
@@ -238,7 +238,7 @@ _playerData.Health.Set(80);
 - **Sample_Attribute**: ConditionalHide 사용법
 - **Sample_UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
-또는 프로젝트 내 `Assets/Mu3LibrarySamples` 폴더를 참고하세요.
+또는 프로젝트 내 `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` 폴더를 참고하세요.
 
 **Sample_Template 주요 구성:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
@@ -308,7 +308,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Name: `com.github.doqltl179.mu3libraryassets.base`
+- Name: `com.github.doqltl179.mu3library.base`
 - Version: `0.4.7`
 
 Unity 개발자를 위해 제작됨

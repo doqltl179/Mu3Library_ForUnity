@@ -356,7 +356,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 🔧 변경됨
 
 #### 아키텍처
-- 패키지 이름: `com.github.doqltl179.mu3libraryassets.base`
+- 패키지 이름: `com.github.doqltl179.mu3library.base`
 - Unity 버전 요구사항: 6000.0+ (Unity 6)
 - 네임스페이스 구조 변경: 모든 코드가 `Mu3Library.*` 아래
 - 어셈블리 분리: Runtime 및 Editor 어셈블리
@@ -466,7 +466,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 2. `Library/`의 모든 캐시 파일 삭제
 3. 새로운 Git URL을 사용하여 v0.1.11 설치:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
    ```
 
 ##### 2단계: 네임스페이스 업데이트

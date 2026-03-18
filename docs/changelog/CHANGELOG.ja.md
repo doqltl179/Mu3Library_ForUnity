@@ -358,7 +358,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 🔧 変更
 
 #### アーキテクチャ
-- パッケージ名: `com.github.doqltl179.mu3libraryassets.base`
+- パッケージ名: `com.github.doqltl179.mu3library.base`
 - Unity バージョン要件: 6000.0+ (Unity 6)
 - ネームスペース構造の変更: すべてのコードが`Mu3Library.*`下に
 - アセンブリの分離: RuntimeとEditorアセンブリ
@@ -468,7 +468,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 2. `Library/`内のキャッシュファイルをすべて削除
 3. 新しいGit URLを使用してv0.1.11をインストール:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
    ```
 
 ##### ステップ2: ネームスペースの更新

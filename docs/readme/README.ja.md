@@ -48,14 +48,14 @@
 2. `+`ボタンをクリック > `Add package from git URL...`
 3. 以下のURLを入力:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Assets/Mu3LibraryAssets
+   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
    ```
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
 3. `+`ボタン > `Add package from disk...`をクリック
-4. `Assets/Mu3LibraryAssets/package.json`を選択
+4. `Mu3Library_Base/package.json`を選択
 
 ## 📚 コアモジュール
 
@@ -238,7 +238,7 @@ _playerData.Health.Set(80);
 - **Sample_Attribute**: ConditionalHideの使用方法
 - **Sample_UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 
-または、プロジェクト内の`Assets/Mu3LibrarySamples`フォルダを参照してください。
+または、プロジェクト内の`UnityProject_BuiltIn/Assets/Mu3LibrarySamples`フォルダを参照してください。
 
 **Sample_Template 主要構成:**
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
@@ -308,7 +308,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Name: `com.github.doqltl179.mu3libraryassets.base`
+- Name: `com.github.doqltl179.mu3library.base`
 - Version: `0.4.7`
 
 Unity開発者のために制作
