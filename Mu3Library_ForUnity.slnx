@@ -1,8 +1,0 @@
-﻿<Solution>
-  <Project Path="Mu3Library.Sample.Template.csproj" />
-  <Project Path="Mu3Library.DI.csproj" />
-  <Project Path="Mu3Library.Editor.csproj" />
-  <Project Path="Mu3Library.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
-</Solution>
