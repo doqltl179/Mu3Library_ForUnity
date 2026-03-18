@@ -1,0 +1,11 @@
+{
+    "folders": [
+        {
+            "path": "..",
+            "name": "Mu3Library_ForUnity"
+        }
+    ],
+    "settings": {
+        "dotnet.defaultSolution": "UnityProject_URP/Mu3Library_ForUnity_URP.slnx"
+    }
+}
