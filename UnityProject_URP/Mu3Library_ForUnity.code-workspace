@@ -6,6 +6,6 @@
         }
     ],
     "settings": {
-        "dotnet.defaultSolution": "UnityProject_URP/Mu3Library_ForUnity_URP.slnx"
+        "dotnet.defaultSolution": "UnityProject_URP/UnityProject_URP.slnx"
     }
 }

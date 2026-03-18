@@ -2,7 +2,8 @@
     "name": "Mu3Library.URP",
     "rootNamespace": "Mu3Library.URP",
     "references": [
-        "Mu3Library"
+        "Mu3Library",
+        "GUID:6391e8445d9411043ab0bbeae0fbab5b"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
