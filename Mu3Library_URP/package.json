@@ -15,7 +15,7 @@
         "Rendering"
     ],
     "dependencies": {
-        "com.github.doqltl179.mu3library.base": "0.4.7",
+        "com.github.doqltl179.mu3library.base": "0.5.0",
         "com.unity.render-pipelines.universal": "17.3.0"
     },
     "samples": []

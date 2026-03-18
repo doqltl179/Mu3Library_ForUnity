@@ -68,10 +68,10 @@ using Mu3Library.DI;
 
 public class AudioCore : CoreBase
 {
-    protected override void ConfigureContainer(ContainerScope scope)
+    protected override void ConfigureContainer()
     {
-        // Register as singleton
-        scope.Register<IAudioManager, AudioManager>(ServiceLifetime.Singleton);
+        // Register AudioManager as a singleton — automatically maps to IAudioManager
+        RegisterClass<AudioManager>();
     }
 }
 
@@ -277,19 +277,13 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.4.7)
+## 📝 Recent Updates (v0.5.0)
 
-**ScriptBuilder Enhancement:**
-- `ScriptBuilder`: Added `ArrayBlock` struct (`FieldName`, `Values`) and `AppendArrayBlock` method for concise array emission in code generation.
+**Monorepo Restructuring:**
+- Repository reorganized: `Mu3Library_Base/` and `Mu3Library_URP/` are now proper UPM packages; `UnityProject_BuiltIn/` and `UnityProject_URP/` are dedicated development projects within the same repository.
 
-**Audio Key-Based API:**
-- `AudioManager.Resource`: Key-based `AudioClip` registration (`RegisterAudioResource`, `RegisterAudioResources`).
-- `WithKey` overloads added across all channel types (BGM, SFX, Environment) to play audio by registered key.
-
-**AddressableGroupNameExporterDrawer:**
-- New editor drawer that exports Addressable group names, asset names, addresses, and labels as nested C# static classes (requires `MU3LIBRARY_ADDRESSABLES_SUPPORT`).
-- Folder entry support: sub-assets inside a folder are emitted as a nested `Assets` class.
-- Sub-asset class names that begin with the parent class name have the parent prefix stripped automatically.
+**DI Null Safety:**
+- `CoreBase.WaitForOtherCore`, `GetClassFromOtherCore`, and `ContainerScope.ResolveFromCore` now handle null `CoreRoot.Instance` safely (e.g., during application quit).
 
 ## 🤝 Contributing
 
@@ -310,6 +304,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Name: `com.github.doqltl179.mu3library.base`
-- Version: `0.4.7`
+- Version: `0.5.0`
 
 Made with ❤️ for Unity Developers

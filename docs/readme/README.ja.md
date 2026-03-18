@@ -67,10 +67,10 @@ using Mu3Library.DI;
 
 public class AudioCore : CoreBase
 {
-    protected override void ConfigureContainer(ContainerScope scope)
+    protected override void ConfigureContainer()
     {
-        // シングルトンとして登録
-        scope.Register<IAudioManager, AudioManager>(ServiceLifetime.Singleton);
+        // AudioManagerをシングルトンとして登録 — IAudioManagerにも自動マッピング
+        RegisterClass<AudioManager>();
     }
 }
 
@@ -276,19 +276,13 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近のアップデート (v0.4.7)
+## 📝 最近のアップデート (v0.5.0)
 
-**ScriptBuilder 機能強化:**
-- `ScriptBuilder`: コード生成で配列宣言を簡潔に記述できる `ArrayBlock` 構造体（`FieldName`、`Values`）と `AppendArrayBlock` メソッドを追加。
+**モノレポ構成への再編:**
+- リポジトリを再構成: `Mu3Library_Base/` と `Mu3Library_URP/` は独立した UPM パッケージ、`UnityProject_BuiltIn/` と `UnityProject_URP/` は専用の開発プロジェクトに分離。
 
-**オーディオ キーベース API:**
-- `AudioManager.Resource`: キーベースの `AudioClip` 登録システム（`RegisterAudioResource`、`RegisterAudioResources`）。
-- 全チャンネルタイプ（BGM、SFX、Environment）に登録済みキーでオーディオを再生する `WithKey` オーバーロードを追加。
-
-**AddressableGroupNameExporterDrawer:**
-- Addressable グループ名、アセット名、アドレス、ラベルをネストされた C# static クラスとしてエクスポートするエディタドロワーを追加（`MU3LIBRARY_ADDRESSABLES_SUPPORT` 必要）。
-- フォルダーエントリサポート: フォルダー内のサブアセットが `Assets` ネストクラスとして出力される。
-- サブアセットのクラス名が親クラス名と重複するプレフィックスを自動除去。
+**DI Null 安全処理:**
+- `CoreBase.WaitForOtherCore`、`GetClassFromOtherCore`、および `ContainerScope.ResolveFromCore` が `CoreRoot.Instance` が null のとき（例: アプリ終了時）に安全に処理されるよう修正。
 
 ## 🤝 貢献
 
@@ -309,6 +303,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Name: `com.github.doqltl179.mu3library.base`
-- Version: `0.4.7`
+- Version: `0.5.0`
 
 Unity開発者のために制作

@@ -11,6 +11,18 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-18
+
+### 변경됨
+- 리포지토리를 모노레포 구조로 개편: `Mu3Library_Base/`와 `Mu3Library_URP/`는 독립 UPM 패키지로, `UnityProject_BuiltIn/`과 `UnityProject_URP/`는 별도 개발 프로젝트로 분리됨.
+- `.gitignore`의 무시 패턴에 `**/` 접두어를 추가하여 모노레포 하위 프로젝트 전체를 포함하도록 개선.
+
+### 수정됨
+- `CoreBase.WaitForOtherCore`: `CoreRoot.Instance`가 null일 때(예: 앱 종료 시점)에 발생하던 `NullReferenceException` 수정.
+- `CoreBase.GetClassFromOtherCore`: 동일한 null 안전 처리 적용.
+- `ContainerScope.ResolveFromCore`: 동일한 null 안전 처리 적용.
+- 문서: 전체 README의 `ConfigureContainer()` 코드 예제 수정 — 잘못된 `ContainerScope scope` 파라미터를 제거하고 서비스 등록에 `RegisterClass<T>()`를 사용하도록 수정.
+
 ## [0.4.7] - 2026-03-15
 
 ### 추가됨

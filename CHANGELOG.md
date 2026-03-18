@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-18
+
+### Changed
+- Repository restructured to monorepo layout: `Mu3Library_Base/` and `Mu3Library_URP/` are now standalone UPM packages; `UnityProject_BuiltIn/` and `UnityProject_URP/` are separate development projects within the same repository.
+- `.gitignore` updated with `**/` prefix patterns to support all sub-projects in the monorepo.
+
+### Fixed
+- `CoreBase.WaitForOtherCore`: Fixed `NullReferenceException` when `CoreRoot.Instance` returns null (e.g., during application quit).
+- `CoreBase.GetClassFromOtherCore`: Same null safety fix applied.
+- `ContainerScope.ResolveFromCore`: Same null safety fix applied.
+- Documentation: Corrected `ConfigureContainer()` signature in all READMEs — removed incorrect `ContainerScope scope` parameter; service registration now uses `RegisterClass<T>()`.
+
 ## [0.4.7] - 2026-03-15
 
 ### Added
