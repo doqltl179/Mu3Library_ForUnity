@@ -11,6 +11,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `MVPManager` / `IMVPManager`: `FocusIgnoredLayers` 프로퍼티와 `SetFocusIgnoredLayer(string layerName, bool ignored)` 메서드 추가.
+  - 무시(ignored) 레이어의 Presenter는 포커스 및 `OutPanel` 업데이트 계산에서 제외됨.
+  - 무시 레이어는 런타임에 토글 가능하며, 변경 즉시 `UpdateFocus()`가 호출됨.
+
 ## [0.5.0] - 2026-03-18
 
 ### 변경됨

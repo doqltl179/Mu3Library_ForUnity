@@ -115,6 +115,9 @@ namespace Mu3Library.UI.MVP
 
         private PresenterParams _focused = null;
 
+        private readonly HashSet<string> _focusIgnoredLayers = new();
+        public IReadOnlyCollection<string> FocusIgnoredLayers => _focusIgnoredLayers;
+
         private OutPanel _outPanel = null;
 
         public event System.Action<IPresenter> OnWindowLoaded;
@@ -137,6 +140,7 @@ namespace Mu3Library.UI.MVP
             _presenterUnloadChecker.Clear();
 
             _focused = null;
+            _focusIgnoredLayers.Clear();
 
             if (m_root != null)
             {
@@ -431,6 +435,25 @@ namespace Mu3Library.UI.MVP
             return presenter;
         }
 
+        public void SetFocusIgnoredLayer(string layerName, bool ignored)
+        {
+            if (string.IsNullOrEmpty(layerName))
+            {
+                return;
+            }
+
+            if (ignored)
+            {
+                _focusIgnoredLayers.Add(layerName);
+            }
+            else
+            {
+                _focusIgnoredLayers.Remove(layerName);
+            }
+
+            UpdateFocus();
+        }
+
         public void ClearEventSystem()
         {
             if (_eventSystem == null)
@@ -477,6 +500,11 @@ namespace Mu3Library.UI.MVP
 
             foreach (PresenterParams param in paramList)
             {
+                if (_focusIgnoredLayers.Contains(param.Presenter.CanvasLayerName))
+                {
+                    continue;
+                }
+
                 if (mostFront == null)
                 {
                     mostFront = param;

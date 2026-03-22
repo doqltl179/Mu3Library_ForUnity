@@ -13,6 +13,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `MVPManager` / `IMVPManager`: `FocusIgnoredLayers` プロパティと `SetFocusIgnoredLayer(string layerName, bool ignored)` メソッドを追加。
+  - 無視（ignored）レイヤーの Presenter はフォーカスおよび `OutPanel` 更新の計算から除外される。
+  - 無視レイヤーは実行時にトグル可能で、変更時に即座に `UpdateFocus()` が呼ばれる。
+
 ## [0.5.0] - 2026-03-18
 
 ### 変更

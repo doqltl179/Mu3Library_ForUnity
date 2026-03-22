@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `MVPManager` / `IMVPManager`: Added `FocusIgnoredLayers` property and `SetFocusIgnoredLayer(string layerName, bool ignored)` method.
+  - Presenters on ignored layers are excluded from focus and `OutPanel` update calculations.
+  - Ignored layers can be toggled at runtime; `UpdateFocus()` is called immediately on each change.
+
 ## [0.5.0] - 2026-03-18
 
 ### Changed

@@ -6,7 +6,9 @@ namespace Mu3Library.UI.MVP
     {
         public EventSystem EventSystem { get; }
         public IEnumerable<string> SortingLayers { get; }
+        public IReadOnlyCollection<string> FocusIgnoredLayers { get; }
 
+        public void SetFocusIgnoredLayer(string layerName, bool ignored);
         public void ClearEventSystem();
 
         public void CloseAllWithoutDefault(bool forceClose = false);
