@@ -277,6 +277,40 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var lines = new List<object>();
 
+            // Root-level Groups class: All array + const string per group referencing each group's Name
+            var groupsContent = new List<object>();
+            var groupIdentifiers = _groups.Select(g => SanitizeIdentifier(g.Name)).ToList();
+            groupsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", groupIdentifiers)} }};");
+            groupsContent.Add("");
+            foreach (AddressableAssetGroup g in _groups)
+            {
+                string gName = SanitizeIdentifier(g.Name);
+                groupsContent.Add($"public const string {gName} = {className}.{gName}.Name;");
+            }
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Groups",
+                Content = groupsContent
+            });
+            lines.Add("");
+
+            // Root-level Labels class: All array + const string per unique label
+            var sortedGlobalLabels = CollectAllLabels(_groups);
+            var labelsContent = new List<object>();
+            var labelIdentifiers = sortedGlobalLabels.Select(l => SanitizeIdentifier(l)).ToList();
+            labelsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", labelIdentifiers)} }};");
+            labelsContent.Add("");
+            foreach (string label in sortedGlobalLabels)
+            {
+                labelsContent.Add($"public const string {SanitizeIdentifier(label)} = \"{label}\";");
+            }
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Labels",
+                Content = labelsContent
+            });
+            lines.Add("");
+
             foreach (AddressableAssetGroup group in _groups)
             {
                 string groupClassName = SanitizeIdentifier(group.Name);
@@ -300,9 +334,40 @@ namespace Mu3Library.Editor.Window.Drawer
                     groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = allAddresses });
                     groupLines.Add("");
 
+                    // Per-group Labels: unique labels across all entries in this group, referencing root Labels
+                    var groupLabelsSeen = new HashSet<string>();
+                    void CollectGroupLabels(AddressableAssetEntry e)
+                    {
+                        foreach (string l in e.labels) groupLabelsSeen.Add(l);
+                        if (AssetDatabase.IsValidFolder(e.AssetPath))
+                        {
+                            var subs = new List<AddressableAssetEntry>();
+                            e.GatherAllAssets(subs, false, true, false);
+                            foreach (var sub in subs) CollectGroupLabels(sub);
+                        }
+                    }
+                    foreach (AddressableAssetEntry e in entries) CollectGroupLabels(e);
+
+                    var groupUniqueLabels = groupLabelsSeen.OrderBy(l => l).ToList();
+                    if (groupUniqueLabels.Count > 0)
+                    {
+                        var groupLabelIdentifiers = groupUniqueLabels.Select(l => SanitizeIdentifier(l)).ToList();
+                        var groupLabelsContent = new List<object>();
+                        groupLabelsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", groupLabelIdentifiers)} }};");
+                        groupLabelsContent.Add("");
+                        foreach (string label in groupUniqueLabels)
+                            groupLabelsContent.Add($"public const string {SanitizeIdentifier(label)} = {className}.Labels.{SanitizeIdentifier(label)};");
+                        groupLines.Add(new ScriptBuilder.CodeBlock
+                        {
+                            Header = "public static class Labels",
+                            Content = groupLabelsContent
+                        });
+                        groupLines.Add("");
+                    }
+
                     foreach (AddressableAssetEntry entry in entries)
                     {
-                        groupLines.Add(BuildEntryBlock(entry));
+                        groupLines.Add(BuildEntryBlock(entry, className));
                     }
                 }
 
@@ -332,7 +397,7 @@ namespace Mu3Library.Editor.Window.Drawer
             return ScriptBuilder.Build(4, classBlock);
         }
 
-        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry, string parentClassName = null)
+        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry, string rootClassName, string parentClassName = null)
         {
             bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
             string assetName = isFolder
@@ -360,10 +425,11 @@ namespace Mu3Library.Editor.Window.Drawer
                 foreach (string label in sortedLabels)
                 {
                     string labelFieldName = SanitizeIdentifier(label);
-                    labelLines.Add($"public const string {labelFieldName} = \"{label}\";");
+                    labelLines.Add($"public const string {labelFieldName} = {rootClassName}.Labels.{labelFieldName};");
                 }
                 labelLines.Add("");
-                labelLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "All", Values = sortedLabels });
+                var localLabelNames = sortedLabels.Select(l => SanitizeIdentifier(l)).ToList();
+                labelLines.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", localLabelNames)} }};");
                 entryLines.Add(new ScriptBuilder.CodeBlock
                 {
                     Header = "public static class Labels",
@@ -391,7 +457,7 @@ namespace Mu3Library.Editor.Window.Drawer
                     assetsLines.Add("");
                     assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = subAllAddresses });
                     assetsLines.Add("");
-                    assetsLines.AddRange(orderedSubs.Select(s => (object)BuildEntryBlock(s, entryClassName)));
+                    assetsLines.AddRange(orderedSubs.Select(s => (object)BuildEntryBlock(s, rootClassName, entryClassName)));
 
                     entryLines.Add(new ScriptBuilder.CodeBlock
                     {
@@ -406,6 +472,33 @@ namespace Mu3Library.Editor.Window.Drawer
                 Header = $"public static class {entryClassName}",
                 Content = entryLines
             };
+        }
+
+        private static List<string> CollectAllLabels(IEnumerable<AddressableAssetGroup> groups)
+        {
+            var seen = new HashSet<string>();
+            var labels = new List<string>();
+
+            void Collect(AddressableAssetEntry entry)
+            {
+                foreach (string label in entry.labels)
+                    if (seen.Add(label))
+                        labels.Add(label);
+
+                if (AssetDatabase.IsValidFolder(entry.AssetPath))
+                {
+                    var subs = new List<AddressableAssetEntry>();
+                    entry.GatherAllAssets(subs, false, true, false);
+                    foreach (var sub in subs.OrderBy(s => s.address))
+                        Collect(sub);
+                }
+            }
+
+            foreach (AddressableAssetGroup group in groups)
+                foreach (AddressableAssetEntry entry in group.entries?.OrderBy(e => e.address) ?? Enumerable.Empty<AddressableAssetEntry>())
+                    Collect(entry);
+
+            return labels.OrderBy(l => l).ToList();
         }
 
         private static string SanitizeIdentifier(string name)
