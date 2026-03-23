@@ -11,10 +11,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-23
+
 ### 추가됨
 - `MVPManager` / `IMVPManager`: `FocusIgnoredLayers` 프로퍼티와 `SetFocusIgnoredLayer(string layerName, bool ignored)` 메서드 추가.
   - 무시(ignored) 레이어의 Presenter는 포커스 및 `OutPanel` 업데이트 계산에서 제외됨.
   - 무시 레이어는 런타임에 토글 가능하며, 변경 즉시 `UpdateFocus()`가 호출됨.
+- `LocalizationNameExporterDrawer`: 생성 스크립트에 루트 `Locales` 클래스(`All` 문자열 배열 및 로케일별 내부 클래스에 `Code`, `EnglishName`, `NativeName`을 `const string`으로 노출)와 루트 `Tables` 클래스(`All` 문자열 배열 및 각 테이블 클래스의 `Name`을 참조하는 `const string` 항목)가 추가됨. 각 테이블 클래스에도 루트 `Locales` 구조를 `const string` 참조로 미러링하는 `Locales` 내부 클래스가 추가됨.
+- `AddressableGroupNameExporterDrawer`: 생성 스크립트에 루트 `Groups` 클래스(그룹 클래스의 `Name`을 참조하는 `const string` 항목과 `All` 배열), 루트 `Labels` 클래스(전체 그룹·엔트리에서 수집한 고유 레이블을 `All` 배열 및 `const string` 값으로 제공), 그리고 루트 `Labels` 항목을 `const string` 참조로 미러링하는 그룹별 `Labels` 내부 클래스가 추가됨.
 
 ## [0.5.0] - 2026-03-18
 

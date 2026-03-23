@@ -13,10 +13,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-23
+
 ### 追加
 - `MVPManager` / `IMVPManager`: `FocusIgnoredLayers` プロパティと `SetFocusIgnoredLayer(string layerName, bool ignored)` メソッドを追加。
   - 無視（ignored）レイヤーの Presenter はフォーカスおよび `OutPanel` 更新の計算から除外される。
   - 無視レイヤーは実行時にトグル可能で、変更時に即座に `UpdateFocus()` が呼ばれる。
+- `LocalizationNameExporterDrawer`: 生成スクリプトにルート `Locales` クラス（`All` 文字列配列、およびロケールごとに `Code`・`EnglishName`・`NativeName` を `const string` で公開する内部クラス）とルート `Tables` クラス（`All` 文字列配列、および各テーブルクラスの `Name` を参照する `const string` エントリ）を追加。各テーブルクラスにも、ルート `Locales` 構造を `const string` 参照でミラーリングする `Locales` 内部クラスが追加される。
+- `AddressableGroupNameExporterDrawer`: 生成スクリプトにルート `Groups` クラス（グループクラスの `Name` を参照する `const string` エントリと `All` 配列）、ルート `Labels` クラス（全グループ・エントリから収集した一意のラベルを `All` 配列と `const string` 値で提供）、およびルート `Labels` エントリを `const string` 参照でミラーリングするグループごとの `Labels` 内部クラスを追加。
 
 ## [0.5.0] - 2026-03-18
 
