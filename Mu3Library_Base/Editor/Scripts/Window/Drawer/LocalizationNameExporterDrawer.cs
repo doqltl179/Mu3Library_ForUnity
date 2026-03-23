@@ -279,6 +279,10 @@ namespace Mu3Library.Editor.Window.Drawer
             }
 
             var globalLocalesContent = new List<object>();
+            // All: new string[] { En.Code, Ja.Code, ... }
+            string globalLocalesAll = $"public static readonly string[] All = new string[] {{ {string.Join(", ", globalLocales.Select(l => $"{SanitizeIdentifier(l.Identifier.Code)}.Code"))} }};";
+            globalLocalesContent.Add(globalLocalesAll);
+            globalLocalesContent.Add("");
             foreach (Locale locale in globalLocales)
                 globalLocalesContent.Add(BuildLocaleCodeBlock(locale));
 
@@ -286,6 +290,23 @@ namespace Mu3Library.Editor.Window.Drawer
             {
                 Header = "public static class Locales",
                 Content = globalLocalesContent
+            });
+            lines.Add("");
+
+            // Root-level Tables class: const string per table + All array
+            var tablesContent = new List<object>();
+            var tableIdentifiers = _tableCollections.Select(col => SanitizeIdentifier(col.TableCollectionName)).ToList();
+            tablesContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", tableIdentifiers)} }};");
+            tablesContent.Add("");
+            foreach (StringTableCollection col in _tableCollections)
+            {
+                string tName = SanitizeIdentifier(col.TableCollectionName);
+                tablesContent.Add($"public const string {tName} = {className}.{tName}.Name;");
+            }
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Tables",
+                Content = tablesContent
             });
             lines.Add("");
 
@@ -297,13 +318,22 @@ namespace Mu3Library.Editor.Window.Drawer
                 tableLines.Add($"public const string Name = \"{collection.TableCollectionName}\";");
                 tableLines.Add("");
 
-                // Per-table Locales class
+                // Per-table Locales class: mirror root Locale properties + All array
                 var tableLocalesContent = new List<object>();
+                var tableLocaleIdentifiers = new List<string>();
                 foreach (Locale locale in _locales)
                 {
                     StringTable table = collection.GetTable(locale.Identifier) as StringTable;
                     if (table != null)
-                        tableLocalesContent.Add(BuildLocaleCodeBlock(locale));
+                        tableLocaleIdentifiers.Add(SanitizeIdentifier(locale.Identifier.Code));
+                }
+                tableLocalesContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", tableLocaleIdentifiers.Select(n => $"{n}.Code"))} }};");
+                tableLocalesContent.Add("");
+                foreach (Locale locale in _locales)
+                {
+                    StringTable table = collection.GetTable(locale.Identifier) as StringTable;
+                    if (table != null)
+                        tableLocalesContent.Add(BuildLocaleReferenceCodeBlock(locale, className));
                 }
 
                 tableLines.Add(new ScriptBuilder.CodeBlock
@@ -355,6 +385,21 @@ namespace Mu3Library.Editor.Window.Drawer
             }
 
             return ScriptBuilder.Build(4, classBlock);
+        }
+
+        private static ScriptBuilder.CodeBlock BuildLocaleReferenceCodeBlock(Locale locale, string rootClassName)
+        {
+            string localeClassName = SanitizeIdentifier(locale.Identifier.Code);
+            return new ScriptBuilder.CodeBlock
+            {
+                Header = $"public static class {localeClassName}",
+                Content = new List<object>
+                {
+                    $"public const string Code = {rootClassName}.Locales.{localeClassName}.Code;",
+                    $"public const string EnglishName = {rootClassName}.Locales.{localeClassName}.EnglishName;",
+                    $"public const string NativeName = {rootClassName}.Locales.{localeClassName}.NativeName;"
+                }
+            };
         }
 
         private static ScriptBuilder.CodeBlock BuildLocaleCodeBlock(Locale locale)
