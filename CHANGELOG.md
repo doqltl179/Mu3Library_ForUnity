@@ -13,10 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-23
+
 ### Added
 - `MVPManager` / `IMVPManager`: Added `FocusIgnoredLayers` property and `SetFocusIgnoredLayer(string layerName, bool ignored)` method.
   - Presenters on ignored layers are excluded from focus and `OutPanel` update calculations.
   - Ignored layers can be toggled at runtime; `UpdateFocus()` is called immediately on each change.
+- `LocalizationNameExporterDrawer`: Generated script now includes a root `Locales` class (with an `All` string array and per-locale inner classes exposing `Code`, `EnglishName`, and `NativeName` as `const string`) and a root `Tables` class (with an `All` string array and a `const string` per table referencing the table class's `Name`). Each per-table class also gains a `Locales` inner class whose entries mirror the root `Locales` structure via `const string` references.
+- `AddressableGroupNameExporterDrawer`: Generated script now includes a root `Groups` class (with an `All` string array and a `const string` per group referencing the group class's `Name`), a root `Labels` class (collecting all unique labels across every group and entry, with an `All` array and per-label `const string` values), and a per-group `Labels` inner class whose entries mirror the root `Labels` entries via `const string` references.
 
 ## [0.5.0] - 2026-03-18
 
