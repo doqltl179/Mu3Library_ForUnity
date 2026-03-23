@@ -7,6 +7,7 @@ using Mu3Library.Editor.FileUtil;
 using UnityEditor;
 using UnityEditor.Localization;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.Localization.Tables;
 
 namespace Mu3Library.Editor.Window.Drawer
@@ -25,6 +26,7 @@ namespace Mu3Library.Editor.Window.Drawer
         [SerializeField, HideInInspector] private bool _foldoutTablePreview = false;
 
         private List<StringTableCollection> _tableCollections = new();
+        private List<Locale> _locales = new();
         private bool _isDataLoaded = false;
 
         private const int GridColumns = 4;
@@ -99,6 +101,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 .GetStringTableCollections()
                 .OfType<StringTableCollection>()
                 .ToList();
+
+            _locales = LocalizationEditorSettings.GetLocales()?.ToList() ?? new List<Locale>();
 
             _isDataLoaded = true;
         }
@@ -261,12 +265,52 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var lines = new List<object>();
 
+            // Root-level Locales class: all unique locales available across all tables
+            var globalLocalesSeen = new HashSet<string>();
+            var globalLocales = new List<Locale>();
+            foreach (StringTableCollection collection in _tableCollections)
+            {
+                foreach (Locale locale in _locales)
+                {
+                    StringTable table = collection.GetTable(locale.Identifier) as StringTable;
+                    if (table != null && globalLocalesSeen.Add(locale.Identifier.Code))
+                        globalLocales.Add(locale);
+                }
+            }
+
+            var globalLocalesContent = new List<object>();
+            foreach (Locale locale in globalLocales)
+                globalLocalesContent.Add(BuildLocaleCodeBlock(locale));
+
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Locales",
+                Content = globalLocalesContent
+            });
+            lines.Add("");
+
             foreach (StringTableCollection collection in _tableCollections)
             {
                 string tableClassName = SanitizeIdentifier(collection.TableCollectionName);
                 var tableLines = new List<object>();
 
                 tableLines.Add($"public const string Name = \"{collection.TableCollectionName}\";");
+                tableLines.Add("");
+
+                // Per-table Locales class
+                var tableLocalesContent = new List<object>();
+                foreach (Locale locale in _locales)
+                {
+                    StringTable table = collection.GetTable(locale.Identifier) as StringTable;
+                    if (table != null)
+                        tableLocalesContent.Add(BuildLocaleCodeBlock(locale));
+                }
+
+                tableLines.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static class Locales",
+                    Content = tableLocalesContent
+                });
                 tableLines.Add("");
 
                 var entries = collection.SharedData?.Entries;
@@ -311,6 +355,24 @@ namespace Mu3Library.Editor.Window.Drawer
             }
 
             return ScriptBuilder.Build(4, classBlock);
+        }
+
+        private static ScriptBuilder.CodeBlock BuildLocaleCodeBlock(Locale locale)
+        {
+            var cultureInfo = locale.Identifier.CultureInfo;
+            string englishName = cultureInfo?.EnglishName ?? locale.Identifier.Code;
+            string nativeName = cultureInfo?.NativeName ?? locale.Identifier.Code;
+
+            return new ScriptBuilder.CodeBlock
+            {
+                Header = $"public static class {SanitizeIdentifier(locale.Identifier.Code)}",
+                Content = new List<object>
+                {
+                    $"public const string Code = \"{locale.Identifier.Code}\";",
+                    $"public const string EnglishName = \"{englishName}\";",
+                    $"public const string NativeName = \"{nativeName}\";"
+                }
+            };
         }
 
         private static string SanitizeIdentifier(string name)
