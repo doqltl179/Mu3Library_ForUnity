@@ -10,10 +10,10 @@ using UnityEngine.InputSystem;
 namespace Mu3Library.Editor.Window.Drawer
 {
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
-    public class InputSystemNameExporterDrawer : Mu3WindowDrawer
+    public class InputSystemDataExporterDrawer : Mu3WindowDrawer
     {
-        public const string FileName = "InputSystemNameExporter";
-        private const string ItemName = "InputSystem Name Exporter";
+        public const string FileName = "InputSystemDataExporter";
+        private const string ItemName = "InputSystem Data Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
 
         [SerializeField, HideInInspector] private InputActionAsset _inputActionAsset;

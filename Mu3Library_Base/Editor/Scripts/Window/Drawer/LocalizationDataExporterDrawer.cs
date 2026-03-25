@@ -13,10 +13,10 @@ using UnityEngine.Localization.Tables;
 namespace Mu3Library.Editor.Window.Drawer
 {
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
-    public class LocalizationNameExporterDrawer : Mu3WindowDrawer
+    public class LocalizationDataExporterDrawer : Mu3WindowDrawer
     {
-        public const string FileName = "LocalizationNameExporter";
-        private const string ItemName = "Localization Name Exporter";
+        public const string FileName = "LocalizationDataExporter";
+        private const string ItemName = "Localization Data Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
 
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;

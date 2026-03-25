@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: Renamed to `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, and `InputSystemDataExporterDrawer` respectively. Associated sample `.asset` files also renamed accordingly.
+- `LocaleData`, `EntryData`, `TableData`: Moved to the `Mu3Library.Localization.Data` namespace as standalone public classes; constructors changed from `internal` to `public`; removed `#if MU3LIBRARY_LOCALIZATION_SUPPORT` guards (no Unity.Localization dependency).
+- `EntryData`: Added `TableName` property; constructor updated to `EntryData(string tableName, string key, string id)`.
+- `LocalizationDataExporterDrawer`: Generated script no longer inlines `LocaleData`, `EntryData`, and `TableData` class definitions; instead imports them via `using Mu3Library.Localization.Data;`. `EntryData` construction now passes the table name as the first argument.
+
 ## [0.6.0] - 2026-03-23
 
 ### Added

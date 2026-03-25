@@ -10,8 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b5e91d3c7fa248a08b2345678901bcde, type: 3}
-  m_Name: LocalizationNameExporter
-  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.LocalizationNameExporterDrawer
+  m_Name: LocalizationDataExporter
+  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.LocalizationDataExporterDrawer
   _foldout: 0
   _header1Style:
     m_Name: 

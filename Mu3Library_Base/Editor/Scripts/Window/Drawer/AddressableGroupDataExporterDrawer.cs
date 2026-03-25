@@ -12,10 +12,10 @@ using UnityEngine;
 namespace Mu3Library.Editor.Window.Drawer
 {
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
-    public class AddressableGroupNameExporterDrawer : Mu3WindowDrawer
+    public class AddressableGroupDataExporterDrawer : Mu3WindowDrawer
     {
-        public const string FileName = "AddressableGroupNameExporter";
-        private const string ItemName = "Addressable Group Name Exporter";
+        public const string FileName = "AddressableGroupDataExporter";
+        private const string ItemName = "Addressable Group Data Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
 
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;

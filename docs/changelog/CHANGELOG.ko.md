@@ -11,6 +11,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: 각각 `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, `InputSystemDataExporterDrawer`로 이름 변경. 관련 샘플 `.asset` 파일도 동일하게 이름 변경.
+- `LocaleData`, `EntryData`, `TableData`: `Mu3Library.Localization.Data` 네임스페이스의 독립 public 클래스로 이동; 생성자를 `internal`에서 `public`으로 변경; `#if MU3LIBRARY_LOCALIZATION_SUPPORT` 가드 제거 (Unity.Localization 의존성 없음).
+- `EntryData`: `TableName` 프로퍼티 추가; 생성자가 `EntryData(string tableName, string key, string id)`로 업데이트.
+- `LocalizationDataExporterDrawer`: 생성 스크립트에서 `LocaleData`, `EntryData`, `TableData` 클래스 정의를 인라인으로 포함하지 않고 `using Mu3Library.Localization.Data;`로 가져옴. `EntryData` 생성 시 첫 번째 인자로 테이블 이름을 전달하도록 변경.
+
 ## [0.6.0] - 2026-03-23
 
 ### 추가됨
