@@ -10,6 +10,7 @@ namespace Mu3Library.Editor.FileUtil
         {
             public string Header;
             public List<object> Content;
+            public string Suffix;
         }
 
         public struct ArrayBlock
@@ -102,7 +103,7 @@ namespace Mu3Library.Editor.FileUtil
             {
                 spaceCount--;
                 startSpaces = spaces * spaceCount;
-                AppendLine(sb, "}", startSpaces);
+                AppendLine(sb, "}" + (block.Suffix ?? string.Empty), startSpaces);
             }
         }
 

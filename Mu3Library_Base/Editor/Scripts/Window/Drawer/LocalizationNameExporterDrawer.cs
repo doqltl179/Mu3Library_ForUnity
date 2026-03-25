@@ -279,12 +279,28 @@ namespace Mu3Library.Editor.Window.Drawer
             }
 
             var globalLocalesContent = new List<object>();
-            // All: new string[] { En.Code, Ja.Code, ... }
-            string globalLocalesAll = $"public static readonly string[] All = new string[] {{ {string.Join(", ", globalLocales.Select(l => $"{SanitizeIdentifier(l.Identifier.Code)}.Code"))} }};";
-            globalLocalesContent.Add(globalLocalesAll);
-            globalLocalesContent.Add("");
+            // Locale fields declared first — All initializer references them by name
             foreach (Locale locale in globalLocales)
-                globalLocalesContent.Add(BuildLocaleCodeBlock(locale));
+            {
+                var cultureInfo = locale.Identifier.CultureInfo;
+                string englishName = cultureInfo?.EnglishName ?? locale.Identifier.Code;
+                string nativeName = cultureInfo?.NativeName ?? locale.Identifier.Code;
+                string n = SanitizeIdentifier(locale.Identifier.Code);
+                globalLocalesContent.Add($"public static readonly LocaleData {n} = new LocaleData(\"{locale.Identifier.Code}\", \"{englishName}\", \"{nativeName}\");");
+            }
+            globalLocalesContent.Add("");
+            // All: references locale fields directly
+            var globalLocalesAllEntries = globalLocales.Select(l =>
+            {
+                string n = SanitizeIdentifier(l.Identifier.Code);
+                return (object)$"{{ {n}.Code, {n} }},";
+            }).ToList();
+            globalLocalesContent.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static readonly IReadOnlyDictionary<string, LocaleData> All = new Dictionary<string, LocaleData>",
+                Content = globalLocalesAllEntries,
+                Suffix = ";"
+            });
 
             lines.Add(new ScriptBuilder.CodeBlock
             {
@@ -293,33 +309,36 @@ namespace Mu3Library.Editor.Window.Drawer
             });
             lines.Add("");
 
-            // Root-level Tables class: const string per table + All array
+            // Tables class: each table is a sealed class inheriting TableData;
+            // All holds direct references — no wrapper object, no duplication.
             var tablesContent = new List<object>();
-            var tableIdentifiers = _tableCollections.Select(col => SanitizeIdentifier(col.TableCollectionName)).ToList();
-            tablesContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", tableIdentifiers)} }};");
-            tablesContent.Add("");
+
+            // Typed static fields declared before All so field initializers run in order
             foreach (StringTableCollection col in _tableCollections)
             {
-                string tName = SanitizeIdentifier(col.TableCollectionName);
-                tablesContent.Add($"public const string {tName} = {className}.{tName}.Name;");
+                string n = SanitizeIdentifier(col.TableCollectionName);
+                tablesContent.Add($"public static readonly {n}Data {n} = new {n}Data();");
             }
-            lines.Add(new ScriptBuilder.CodeBlock
+            tablesContent.Add("");
+
+            // All: direct references to the typed instances above
+            var allDictEntries = _tableCollections.Select(col =>
             {
-                Header = "public static class Tables",
-                Content = tablesContent
+                string n = SanitizeIdentifier(col.TableCollectionName);
+                return (object)$"{{ {n}.Name, {n} }},";
+            }).ToList();
+            tablesContent.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static readonly IReadOnlyDictionary<string, TableData> All = new Dictionary<string, TableData>",
+                Content = allDictEntries,
+                Suffix = ";"
             });
-            lines.Add("");
 
             foreach (StringTableCollection collection in _tableCollections)
             {
                 string tableClassName = SanitizeIdentifier(collection.TableCollectionName);
                 var tableLines = new List<object>();
 
-                tableLines.Add($"public const string Name = \"{collection.TableCollectionName}\";");
-                tableLines.Add("");
-
-                // Per-table Locales class: mirror root Locale properties + All array
-                var tableLocalesContent = new List<object>();
                 var tableLocaleIdentifiers = new List<string>();
                 foreach (Locale locale in _locales)
                 {
@@ -327,52 +346,75 @@ namespace Mu3Library.Editor.Window.Drawer
                     if (table != null)
                         tableLocaleIdentifiers.Add(SanitizeIdentifier(locale.Identifier.Code));
                 }
-                tableLocalesContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", tableLocaleIdentifiers.Select(n => $"{n}.Code"))} }};");
-                tableLocalesContent.Add("");
+
+                var entries = collection.SharedData?.Entries;
+
+                // Locales: typed LocaleData fields — direct references to root instances (declared first)
+                var tableLocalesContent = new List<object>();
                 foreach (Locale locale in _locales)
                 {
                     StringTable table = collection.GetTable(locale.Identifier) as StringTable;
                     if (table != null)
-                        tableLocalesContent.Add(BuildLocaleReferenceCodeBlock(locale, className));
+                    {
+                        string locId = SanitizeIdentifier(locale.Identifier.Code);
+                        tableLocalesContent.Add($"public static readonly LocaleData {locId} = {className}.Locales.{locId};");
+                    }
                 }
-
                 tableLines.Add(new ScriptBuilder.CodeBlock
                 {
-                    Header = "public static class Locales",
+                    Header = "public new static class Locales",
                     Content = tableLocalesContent
                 });
                 tableLines.Add("");
 
-                var entries = collection.SharedData?.Entries;
+                // Entry fields — direct EntryData instances (declared before constructor)
                 if (entries != null)
-                {
                     foreach (SharedTableData.SharedTableEntry entry in entries)
                     {
                         string keyClassName = SanitizeIdentifier(entry.Key);
-                        tableLines.Add(new ScriptBuilder.CodeBlock
-                        {
-                            Header = $"public static class {keyClassName}",
-                            Content = new List<object>
-                            {
-                                $"public const string Key = \"{entry.Key}\";",
-                                $"public const string Id = \"{entry.Id}\";"
-                            }
-                        });
+                        tableLines.Add($"public static readonly EntryData {keyClassName} = new EntryData(\"{collection.TableCollectionName}\", \"{entry.Key}\", \"{entry.Id}\");");
                     }
-                }
+                tableLines.Add("");
 
-                lines.Add(new ScriptBuilder.CodeBlock
+                // Constructor — references Locales and entry fields declared above
+                tableLines.Add($"internal {tableClassName}Data() : base(");
+                tableLines.Add($"    \"{collection.TableCollectionName}\",");
+                tableLines.Add("    new Dictionary<string, LocaleData>");
+                tableLines.Add("    {");
+                foreach (string locId in tableLocaleIdentifiers)
+                    tableLines.Add($"        {{ Locales.{locId}.Code, Locales.{locId} }},");
+                tableLines.Add("    },");
+                tableLines.Add("    new Dictionary<string, EntryData>");
+                tableLines.Add("    {");
+                if (entries != null)
+                    foreach (SharedTableData.SharedTableEntry entry in entries)
+                    {
+                        string keyId = SanitizeIdentifier(entry.Key);
+                        tableLines.Add($"        {{ {keyId}.Key, {keyId} }},");
+                    }
+                tableLines.Add("    })");
+                tableLines.Add("{ }");
+
+                tablesContent.Add(new ScriptBuilder.CodeBlock
                 {
-                    Header = $"public static class {tableClassName}",
+                    Header = $"public sealed class {tableClassName}Data : TableData",
                     Content = tableLines
                 });
             }
+
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Tables",
+                Content = tablesContent
+            });
 
             var classBlock = new ScriptBuilder.CodeBlock
             {
                 Header = $"public static class {className}",
                 Content = lines
             };
+
+            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine + "using Mu3Library.Localization.Data;" + System.Environment.NewLine + System.Environment.NewLine;
 
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
             {
@@ -381,43 +423,10 @@ namespace Mu3Library.Editor.Window.Drawer
                     Header = $"namespace {_scriptNamespace.Trim()}",
                     Content = new List<object> { classBlock }
                 };
-                return ScriptBuilder.Build(4, namespaceBlock);
+                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
             }
 
-            return ScriptBuilder.Build(4, classBlock);
-        }
-
-        private static ScriptBuilder.CodeBlock BuildLocaleReferenceCodeBlock(Locale locale, string rootClassName)
-        {
-            string localeClassName = SanitizeIdentifier(locale.Identifier.Code);
-            return new ScriptBuilder.CodeBlock
-            {
-                Header = $"public static class {localeClassName}",
-                Content = new List<object>
-                {
-                    $"public const string Code = {rootClassName}.Locales.{localeClassName}.Code;",
-                    $"public const string EnglishName = {rootClassName}.Locales.{localeClassName}.EnglishName;",
-                    $"public const string NativeName = {rootClassName}.Locales.{localeClassName}.NativeName;"
-                }
-            };
-        }
-
-        private static ScriptBuilder.CodeBlock BuildLocaleCodeBlock(Locale locale)
-        {
-            var cultureInfo = locale.Identifier.CultureInfo;
-            string englishName = cultureInfo?.EnglishName ?? locale.Identifier.Code;
-            string nativeName = cultureInfo?.NativeName ?? locale.Identifier.Code;
-
-            return new ScriptBuilder.CodeBlock
-            {
-                Header = $"public static class {SanitizeIdentifier(locale.Identifier.Code)}",
-                Content = new List<object>
-                {
-                    $"public const string Code = \"{locale.Identifier.Code}\";",
-                    $"public const string EnglishName = \"{englishName}\";",
-                    $"public const string NativeName = \"{nativeName}\";"
-                }
-            };
+            return usingStatement + ScriptBuilder.Build(4, classBlock);
         }
 
         private static string SanitizeIdentifier(string name)
