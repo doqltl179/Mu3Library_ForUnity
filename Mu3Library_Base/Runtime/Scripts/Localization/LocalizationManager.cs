@@ -131,7 +131,7 @@ namespace Mu3Library.Localization
             _initializeHandle.Completed += OnInitializeCompleted;
         }
 
-        public void GetString(string tableName, string key, Action<string> callback)
+        public void GetStringAsync(string tableName, string key, Action<string> callback)
         {
             LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
             if (stringDatabase == null)
