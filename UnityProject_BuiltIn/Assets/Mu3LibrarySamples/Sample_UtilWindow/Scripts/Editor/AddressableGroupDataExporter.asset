@@ -349,6 +349,6 @@ MonoBehaviour:
     m_StretchWidth: 1
     m_StretchHeight: 0
   _scriptSaveFolder: {fileID: 102900000, guid: 0793d5b1271890a4bb148194443ce3f7, type: 3}
-  _scriptNamespace: Mu3Library.Sample.Template.Addressables
+  _scriptNamespace: Mu3Library.Sample.Template.Addressable
   _scriptClassName: AddressableGroupKeys
   _foldoutGroupPreview: 0

@@ -1,4 +1,4 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+﻿#if MU3LIBRARY_ADDRESSABLES_SUPPORT
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -277,33 +277,19 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var lines = new List<object>();
 
-            // Root-level Groups class: All array + const string per group referencing each group's Name
-            var groupsContent = new List<object>();
-            var groupIdentifiers = _groups.Select(g => SanitizeIdentifier(g.Name)).ToList();
-            groupsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", groupIdentifiers)} }};");
-            groupsContent.Add("");
-            foreach (AddressableAssetGroup g in _groups)
-            {
-                string gName = SanitizeIdentifier(g.Name);
-                groupsContent.Add($"public const string {gName} = {className}.{gName}.Name;");
-            }
-            lines.Add(new ScriptBuilder.CodeBlock
-            {
-                Header = "public static class Groups",
-                Content = groupsContent
-            });
-            lines.Add("");
-
-            // Root-level Labels class: All array + const string per unique label
+            // Root-level Labels class: individual LabelData first, then All
             var sortedGlobalLabels = CollectAllLabels(_groups);
             var labelsContent = new List<object>();
-            var labelIdentifiers = sortedGlobalLabels.Select(l => SanitizeIdentifier(l)).ToList();
-            labelsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", labelIdentifiers)} }};");
-            labelsContent.Add("");
             foreach (string label in sortedGlobalLabels)
+                labelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = new LabelData(\"{label}\");");
+            labelsContent.Add("");
+            var allLabelFields = sortedGlobalLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
+            labelsContent.Add(new ScriptBuilder.CodeBlock
             {
-                labelsContent.Add($"public const string {SanitizeIdentifier(label)} = \"{label}\";");
-            }
+                Header = "public static readonly LabelData[] All = new LabelData[]",
+                Content = allLabelFields,
+                Suffix = ";"
+            });
             lines.Add(new ScriptBuilder.CodeBlock
             {
                 Header = "public static class Labels",
@@ -311,17 +297,84 @@ namespace Mu3Library.Editor.Window.Drawer
             });
             lines.Add("");
 
+            // Root-level Groups class: instances first, All dict, then sealed class definitions
+            var groupsContent = new List<object>();
+
+            // Instance fields declared before All so static init order is correct
+            foreach (AddressableAssetGroup g in _groups)
+            {
+                string gName = SanitizeIdentifier(g.Name);
+                groupsContent.Add($"public static readonly {gName}Data {gName} = new {gName}Data();");
+            }
+            groupsContent.Add("");
+
+            // All: IReadOnlyDictionary<string, GroupData>
+            var allDictEntries = _groups.Select(g =>
+            {
+                string gName = SanitizeIdentifier(g.Name);
+                return (object)$"{{ {gName}.Name, {gName} }},";
+            }).ToList();
+            groupsContent.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static readonly IReadOnlyDictionary<string, GroupData> All = new Dictionary<string, GroupData>",
+                Content = allDictEntries,
+                Suffix = ";"
+            });
+
+            // Sealed class definitions for each group
             foreach (AddressableAssetGroup group in _groups)
             {
                 string groupClassName = SanitizeIdentifier(group.Name);
                 var groupLines = new List<object>();
 
-                groupLines.Add($"public const string Name = \"{group.Name}\";");
-                groupLines.Add("");
-
                 var entries = group.entries?.OrderBy(e => e.address).ToList();
+
+                // Collect per-group unique labels (including sub-entries of folders)
+                var groupLabelsSeen = new HashSet<string>();
+                void CollectGroupLabels(AddressableAssetEntry e)
+                {
+                    foreach (string l in e.labels) groupLabelsSeen.Add(l);
+                    if (AssetDatabase.IsValidFolder(e.AssetPath))
+                    {
+                        var subs = new List<AddressableAssetEntry>();
+                        e.GatherAllAssets(subs, false, true, false);
+                        foreach (var sub in subs) CollectGroupLabels(sub);
+                    }
+                }
+                if (entries != null)
+                    foreach (AddressableAssetEntry e in entries) CollectGroupLabels(e);
+
+                var groupUniqueLabels = groupLabelsSeen.OrderBy(l => l).ToList();
+
+                // Per-group Labels inner class: LabelData refs then All
+                if (groupUniqueLabels.Count > 0)
+                {
+                    var groupLabelsContent = new List<object>();
+                    foreach (string label in groupUniqueLabels)
+                        groupLabelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = {className}.Labels.{SanitizeIdentifier(label)};");
+                    groupLabelsContent.Add("");
+                    var allGroupLabelFields = groupUniqueLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
+                    groupLabelsContent.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = "public static readonly LabelData[] All = new LabelData[]",
+                        Content = allGroupLabelFields,
+                        Suffix = ";"
+                    });
+                    groupLines.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = "public new static class Labels",
+                        Content = groupLabelsContent
+                    });
+                    groupLines.Add("");
+                }
+
+                // Entries: top-level entries become instance fields for instance access
                 if (entries != null && entries.Count > 0)
                 {
+                    foreach (AddressableAssetEntry entry in entries)
+                        groupLines.AddRange(BuildTopLevelEntryLines(entry, group.Name, className));
+                    groupLines.Add("");
+
                     var allNames = entries
                         .Select(e => AssetDatabase.IsValidFolder(e.AssetPath)
                             ? Path.GetFileName(e.AssetPath)
@@ -333,56 +386,58 @@ namespace Mu3Library.Editor.Window.Drawer
                     groupLines.Add("");
                     groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = allAddresses });
                     groupLines.Add("");
-
-                    // Per-group Labels: unique labels across all entries in this group, referencing root Labels
-                    var groupLabelsSeen = new HashSet<string>();
-                    void CollectGroupLabels(AddressableAssetEntry e)
-                    {
-                        foreach (string l in e.labels) groupLabelsSeen.Add(l);
-                        if (AssetDatabase.IsValidFolder(e.AssetPath))
-                        {
-                            var subs = new List<AddressableAssetEntry>();
-                            e.GatherAllAssets(subs, false, true, false);
-                            foreach (var sub in subs) CollectGroupLabels(sub);
-                        }
-                    }
-                    foreach (AddressableAssetEntry e in entries) CollectGroupLabels(e);
-
-                    var groupUniqueLabels = groupLabelsSeen.OrderBy(l => l).ToList();
-                    if (groupUniqueLabels.Count > 0)
-                    {
-                        var groupLabelIdentifiers = groupUniqueLabels.Select(l => SanitizeIdentifier(l)).ToList();
-                        var groupLabelsContent = new List<object>();
-                        groupLabelsContent.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", groupLabelIdentifiers)} }};");
-                        groupLabelsContent.Add("");
-                        foreach (string label in groupUniqueLabels)
-                            groupLabelsContent.Add($"public const string {SanitizeIdentifier(label)} = {className}.Labels.{SanitizeIdentifier(label)};");
-                        groupLines.Add(new ScriptBuilder.CodeBlock
-                        {
-                            Header = "public static class Labels",
-                            Content = groupLabelsContent
-                        });
-                        groupLines.Add("");
-                    }
-
-                    foreach (AddressableAssetEntry entry in entries)
-                    {
-                        groupLines.Add(BuildEntryBlock(entry, className));
-                    }
                 }
 
-                lines.Add(new ScriptBuilder.CodeBlock
+                // Constructor
+                groupLines.Add($"internal {groupClassName}Data() : base(");
+                groupLines.Add($"    \"{group.Name}\",");
+                groupLines.Add("    new Dictionary<string, EntryData>");
+                groupLines.Add("    {");
+                if (entries != null)
                 {
-                    Header = $"public static class {groupClassName}",
+                    foreach (AddressableAssetEntry entry in entries)
+                    {
+                        bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+                        string entryClassName = SanitizeIdentifier(entry.address);
+                        if (isFolder)
+                        {
+                            string shortName = SanitizeIdentifier(Path.GetFileName(entry.AssetPath));
+                            groupLines.Add($"        {{ _{shortName}.Name, _{shortName} }},");
+                        }
+                        else
+                        {
+                            groupLines.Add($"        {{ _{entryClassName}.Name, _{entryClassName} }},");
+                        }
+                    }
+                }
+                groupLines.Add("    },");
+                groupLines.Add("    new Dictionary<string, LabelData>");
+                groupLines.Add("    {");
+                foreach (string label in groupUniqueLabels)
+                    groupLines.Add($"        {{ Labels.{SanitizeIdentifier(label)}.Value, Labels.{SanitizeIdentifier(label)} }},");
+                groupLines.Add("    })");
+                groupLines.Add("{ }");
+
+                groupsContent.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = $"public sealed class {groupClassName}Data : GroupData",
                     Content = groupLines
                 });
             }
+
+            lines.Add(new ScriptBuilder.CodeBlock
+            {
+                Header = "public static class Groups",
+                Content = groupsContent
+            });
 
             var classBlock = new ScriptBuilder.CodeBlock
             {
                 Header = $"public static class {className}",
                 Content = lines
             };
+
+            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine + "using Mu3Library.Addressable.Data;" + System.Environment.NewLine + System.Environment.NewLine;
 
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
             {
@@ -391,13 +446,90 @@ namespace Mu3Library.Editor.Window.Drawer
                     Header = $"namespace {_scriptNamespace.Trim()}",
                     Content = new List<object> { classBlock }
                 };
-                return ScriptBuilder.Build(4, namespaceBlock);
+                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
             }
 
-            return ScriptBuilder.Build(4, classBlock);
+            return usingStatement + ScriptBuilder.Build(4, classBlock);
         }
 
-        private ScriptBuilder.CodeBlock BuildEntryBlock(AddressableAssetEntry entry, string rootClassName, string parentClassName = null)
+        /// <summary>
+        /// Generates the entry lines for a top-level group entry.
+        /// Non-folder entries become instance fields (accessible via group instance).
+        /// Folder entries keep their static class structure but also get an instance field.
+        /// </summary>
+        private List<object> BuildTopLevelEntryLines(AddressableAssetEntry entry, string groupName, string rootClassName)
+        {
+            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+            string assetName = isFolder
+                ? Path.GetFileName(entry.AssetPath)
+                : Path.GetFileNameWithoutExtension(entry.AssetPath);
+            string entryClassName = SanitizeIdentifier(entry.address);
+            var result = new List<object>();
+
+            if (!isFolder)
+            {
+                var subAssets = new List<AddressableAssetEntry>();
+                entry.GatherAllAssets(subAssets, false, false, true);
+                subAssets = subAssets.OrderBy(s => s.address).ToList();
+
+                if (subAssets.Count == 0)
+                {
+                    // Simple entry: private static backing + public instance field
+                    result.Add($"private static readonly EntryData _{entryClassName} = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");");
+                    result.Add($"public readonly EntryData {entryClassName} = _{entryClassName};");
+                }
+                else
+                {
+                    // With sub-objects: XSubAssets class + private static backing + public instance field
+                    string subAssetsClassName = entryClassName + "SubAssets";
+                    var subObjectFields = subAssets
+                        .Select(s => (s, subName: GetSubObjectName(s.address), fieldName: SanitizeIdentifier(GetSubObjectName(s.address))))
+                        .ToList();
+
+                    var subAssetsContent = new List<object>();
+                    foreach (var (s, subName, fieldName) in subObjectFields)
+                        subAssetsContent.Add($"public static readonly EntryData {fieldName} = new EntryData(\"{groupName}\", \"{subName}\", \"{s.address}\");");
+                    subAssetsContent.Add("");
+                    var allFieldRefs = subObjectFields.Select(t => (object)$"{t.fieldName},").ToList();
+                    subAssetsContent.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = "public static readonly EntryData[] All = new EntryData[]",
+                        Content = allFieldRefs,
+                        Suffix = ";"
+                    });
+                    result.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = $"public static class {subAssetsClassName}",
+                        Content = subAssetsContent
+                    });
+                    result.Add("");
+
+                    var backingLines = new List<string>();
+                    backingLines.Add($"private static readonly EntryData _{entryClassName} = new EntryData(");
+                    backingLines.Add($"    \"{groupName}\",");
+                    backingLines.Add($"    \"{assetName}\",");
+                    backingLines.Add($"    \"{entry.address}\",");
+                    backingLines.Add($"    {subAssetsClassName}.All);");
+                    result.Add(new ScriptBuilder.RawBlock { Lines = backingLines });
+                    result.Add($"public readonly EntryData {entryClassName} = _{entryClassName};");
+                }
+            }
+            else
+            {
+                // Folder: static class structure (Data + Labels + Assets) + instance field using short name
+                var folderElement = BuildEntryElement(entry, groupName, rootClassName, null);
+                result.Add(folderElement);
+                result.Add("");
+
+                string shortName = SanitizeIdentifier(assetName);
+                result.Add($"private static readonly EntryData _{shortName} = {entryClassName}.Data;");
+                result.Add($"public readonly EntryData {shortName} = _{shortName};");
+            }
+
+            return result;
+        }
+
+        private object BuildEntryElement(AddressableAssetEntry entry, string groupName, string rootClassName, string parentClassName)
         {
             bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
             string assetName = isFolder
@@ -414,22 +546,110 @@ namespace Mu3Library.Editor.Window.Drawer
                     entryClassName = "_" + entryClassName;
             }
 
-            var entryLines = new List<object>();
-            entryLines.Add($"public const string Name = \"{assetName}\";");
-            entryLines.Add($"public const string Address = \"{entry.address}\";");
+            if (!isFolder)
+            {
+                // Collect sub-objects (e.g. sprites inside a texture) — excludes self
+                var subAssets = new List<AddressableAssetEntry>();
+                entry.GatherAllAssets(subAssets, false, false, true);
+                subAssets = subAssets.OrderBy(s => s.address).ToList();
 
+                if (subAssets.Count == 0)
+                {
+                    return $"public static readonly EntryData {entryClassName} = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");";
+                }
+
+                // Has sub-objects: promote to static class with Data + SubAssets
+                var subObjectFields = subAssets
+                    .Select(s => (s, subName: GetSubObjectName(s.address), fieldName: SanitizeIdentifier(GetSubObjectName(s.address))))
+                    .ToList();
+
+                // SubAssets class content
+                var subAssetsContent = new List<object>();
+                foreach (var (s, subName, fieldName) in subObjectFields)
+                    subAssetsContent.Add($"public static readonly EntryData {fieldName} = new EntryData(\"{groupName}\", \"{subName}\", \"{s.address}\");");
+                subAssetsContent.Add("");
+                var allFieldRefs = subObjectFields.Select(t => (object)$"{t.fieldName},").ToList();
+                subAssetsContent.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static readonly EntryData[] All = new EntryData[]",
+                    Content = allFieldRefs,
+                    Suffix = ";"
+                });
+
+                // Data field referencing SubAssets fields
+                var dataLines = new List<string>();
+                dataLines.Add($"public static readonly EntryData Data = new EntryData(");
+                dataLines.Add($"    \"{groupName}\",");
+                dataLines.Add($"    \"{assetName}\",");
+                dataLines.Add($"    \"{entry.address}\",");
+                dataLines.Add("    new EntryData[]");
+                dataLines.Add("    {");
+                foreach (var (_, _, fieldName) in subObjectFields)
+                    dataLines.Add($"        SubAssets.{fieldName},");
+                dataLines.Add("    });");
+
+                var classContent = new List<object>();
+                classContent.Add(new ScriptBuilder.RawBlock { Lines = dataLines });
+                classContent.Add("");
+                classContent.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static class SubAssets",
+                    Content = subAssetsContent
+                });
+
+                return new ScriptBuilder.CodeBlock
+                {
+                    Header = $"public static class {entryClassName}",
+                    Content = classContent
+                };
+            }
+
+            var entryLines = new List<object>();
+
+            // Collect folder sub-entries
+            var subEntries = new List<AddressableAssetEntry>();
+            entry.GatherAllAssets(subEntries, false, true, false);
+            var orderedSubs = subEntries.OrderBy(s => s.address).ToList();
+
+            // Data field for the folder entry itself, with recursively nested SubEntries
+            if (orderedSubs.Count > 0)
+            {
+                var dataLines = new List<string>();
+                dataLines.Add($"public static readonly EntryData Data = new EntryData(");
+                dataLines.Add($"    \"{groupName}\",");
+                dataLines.Add($"    \"{assetName}\",");
+                dataLines.Add($"    \"{entry.address}\",");
+                dataLines.Add("    new EntryData[]");
+                dataLines.Add("    {");
+                foreach (var sub in orderedSubs)
+                {
+                    var subLines = BuildEntryDataLines(sub, groupName, "        ");
+                    dataLines.AddRange(subLines.Take(subLines.Count - 1));
+                    dataLines.Add(subLines[subLines.Count - 1] + ",");
+                }
+                dataLines.Add("    });");
+                entryLines.Add(new ScriptBuilder.RawBlock { Lines = dataLines });
+            }
+            else
+            {
+                entryLines.Add($"public static readonly EntryData Data = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");");
+            }
+
+            // Per-folder Labels (only if this folder entry has labels)
             if (entry.labels.Count > 0)
             {
                 var sortedLabels = entry.labels.OrderBy(l => l).ToList();
                 var labelLines = new List<object>();
                 foreach (string label in sortedLabels)
-                {
-                    string labelFieldName = SanitizeIdentifier(label);
-                    labelLines.Add($"public const string {labelFieldName} = {rootClassName}.Labels.{labelFieldName};");
-                }
+                    labelLines.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = {rootClassName}.Labels.{SanitizeIdentifier(label)};");
                 labelLines.Add("");
-                var localLabelNames = sortedLabels.Select(l => SanitizeIdentifier(l)).ToList();
-                labelLines.Add($"public static readonly string[] All = new string[] {{ {string.Join(", ", localLabelNames)} }};");
+                var allFolderLabelFields = sortedLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
+                labelLines.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static readonly LabelData[] All = new LabelData[]",
+                    Content = allFolderLabelFields,
+                    Suffix = ";"
+                });
                 entryLines.Add(new ScriptBuilder.CodeBlock
                 {
                     Header = "public static class Labels",
@@ -437,34 +657,29 @@ namespace Mu3Library.Editor.Window.Drawer
                 });
             }
 
-            if (isFolder)
+            // Assets inner class for sub-entries
+            if (orderedSubs.Count > 0)
             {
-                var subEntries = new List<AddressableAssetEntry>();
-                entry.GatherAllAssets(subEntries, false, true, false);
-                if (subEntries.Count > 0)
+                var subAllNames = orderedSubs
+                    .Select(s => AssetDatabase.IsValidFolder(s.AssetPath)
+                        ? Path.GetFileName(s.AssetPath)
+                        : Path.GetFileNameWithoutExtension(s.AssetPath))
+                    .ToList();
+                var subAllAddresses = orderedSubs.Select(s => s.address).ToList();
+
+                var assetsLines = new List<object>();
+                assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = subAllNames });
+                assetsLines.Add("");
+                assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = subAllAddresses });
+                assetsLines.Add("");
+                foreach (var sub in orderedSubs)
+                    assetsLines.Add(BuildEntryElement(sub, groupName, rootClassName, entryClassName));
+
+                entryLines.Add(new ScriptBuilder.CodeBlock
                 {
-                    var orderedSubs = subEntries.OrderBy(s => s.address).ToList();
-
-                    var subAllNames = orderedSubs
-                        .Select(s => AssetDatabase.IsValidFolder(s.AssetPath)
-                            ? Path.GetFileName(s.AssetPath)
-                            : Path.GetFileNameWithoutExtension(s.AssetPath))
-                        .ToList();
-                    var subAllAddresses = orderedSubs.Select(s => s.address).ToList();
-
-                    var assetsLines = new List<object>();
-                    assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = subAllNames });
-                    assetsLines.Add("");
-                    assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = subAllAddresses });
-                    assetsLines.Add("");
-                    assetsLines.AddRange(orderedSubs.Select(s => (object)BuildEntryBlock(s, rootClassName, entryClassName)));
-
-                    entryLines.Add(new ScriptBuilder.CodeBlock
-                    {
-                        Header = "public static class Assets",
-                        Content = assetsLines
-                    });
-                }
+                    Header = "public static class Assets",
+                    Content = assetsLines
+                });
             }
 
             return new ScriptBuilder.CodeBlock
@@ -472,6 +687,69 @@ namespace Mu3Library.Editor.Window.Drawer
                 Header = $"public static class {entryClassName}",
                 Content = entryLines
             };
+        }
+
+        /// <summary>
+        /// Recursively generates lines for a "new EntryData(...)" expression.
+        /// Sub-objects are included without self-reference (includeSelf = false).
+        /// The returned list's last line does NOT include a trailing comma or semicolon.
+        /// </summary>
+        private static List<string> BuildEntryDataLines(AddressableAssetEntry entry, string groupName, string indent)
+        {
+            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+            string name = isFolder
+                ? Path.GetFileName(entry.AssetPath)
+                : Path.GetFileNameWithoutExtension(entry.AssetPath);
+
+            var subList = new List<AddressableAssetEntry>();
+            if (isFolder)
+                entry.GatherAllAssets(subList, false, true, false);
+            else
+                entry.GatherAllAssets(subList, false, false, true);  // no self, just sub-objects
+            subList = subList.OrderBy(s => s.address).ToList();
+
+            // No deeper hierarchy: single-line expression
+            if (subList.Count == 0)
+                return new List<string> { $"{indent}new EntryData(\"{groupName}\", \"{name}\", \"{entry.address}\")" };
+
+            string innerIndent = indent + "    ";
+            string itemIndent = indent + "        ";
+            var lines = new List<string>();
+            lines.Add($"{indent}new EntryData(");
+            lines.Add($"{innerIndent}\"{groupName}\",");
+            lines.Add($"{innerIndent}\"{name}\",");
+            lines.Add($"{innerIndent}\"{entry.address}\",");
+            lines.Add($"{innerIndent}new EntryData[]");
+            lines.Add($"{innerIndent}{{");
+            foreach (var sub in subList)
+            {
+                var subLines = BuildEntryDataLines(sub, groupName, itemIndent);
+                lines.AddRange(subLines.Take(subLines.Count - 1));
+                lines.Add(subLines[subLines.Count - 1] + ",");
+            }
+            lines.Add($"{innerIndent}}}");
+            lines.Add($"{indent})");
+            return lines;
+        }
+
+        /// <summary>
+        /// Extracts the sub-object name from an address of the form "Texture[SpriteName]" → "SpriteName".
+        /// </summary>
+        private static string GetSubObjectName(string address)
+        {
+            int start = address.LastIndexOf('[');
+            int end = address.LastIndexOf(']');
+            if (start >= 0 && end > start)
+                return address.Substring(start + 1, end - start - 1);
+            return Path.GetFileNameWithoutExtension(address);
+        }
+
+        private static bool NonFolderHasSubObjects(AddressableAssetEntry entry)
+        {
+            if (AssetDatabase.IsValidFolder(entry.AssetPath)) return false;
+            var subs = new List<AddressableAssetEntry>();
+            entry.GatherAllAssets(subs, false, false, true);
+            return subs.Count > 0;
         }
 
         private static List<string> CollectAllLabels(IEnumerable<AddressableAssetGroup> groups)

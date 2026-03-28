@@ -18,6 +18,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `LocaleData`、`EntryData`、`TableData`: `Mu3Library.Localization.Data` 名前空間のスタンドアロン public クラスに移動; コンストラクターを `internal` から `public` に変更; `#if MU3LIBRARY_LOCALIZATION_SUPPORT` ガードを削除（Unity.Localization への依存なし）。
 - `EntryData`: `TableName` プロパティを追加; コンストラクターが `EntryData(string tableName, string key, string id)` に更新。
 - `LocalizationDataExporterDrawer`: 生成スクリプトに `LocaleData`・`EntryData`・`TableData` クラス定義をインラインで含めず、`using Mu3Library.Localization.Data;` でインポート。`EntryData` 構築時に最初の引数としてテーブル名を渡すよう変更。
+- `LabelData`、`EntryData`、`GroupData`: `Mu3Library.Addressable.Data` 名前空間にスタンドアロン public クラスとして追加（`#if` ガードなし; 純粋 C#）。`GroupData` は生成される per-group sealed class の基底クラスとなり、`Name`、`Entries`、`Labels` 辞書を保持。
+- `AddressableGroupDataExporterDrawer`: 生成スクリプトの構造を Localization パターンに渴合するよう変更 — `Labels` クラスは `const string` の代わりに `LabelData` インスタンスを保持; `Groups` クラスは型付き `*Data` グループインスタンスと `IReadOnlyDictionary<string, GroupData> All` を保持; per-group クラスは `sealed class *Data : GroupData` 形式で生成。非フォルダーエントリーは `EntryData` フィールド、フォルダーエントリーは `EntryData Data` フィールドと `Assets` 内部クラスを維持。生成コードに `using Mu3Library.Addressable.Data;` を含む。
 
 ## [0.6.0] - 2026-03-23
 

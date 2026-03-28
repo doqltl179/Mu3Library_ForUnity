@@ -19,6 +19,15 @@ namespace Mu3Library.Editor.FileUtil
             public IList<string> Values;
         }
 
+        /// <summary>
+        /// Outputs each line with the current indentation prepended. Use relative
+        /// extra spaces (e.g. 4 spaces for continuation args) embedded in each string.
+        /// </summary>
+        public struct RawBlock
+        {
+            public List<string> Lines;
+        }
+
         private static int _appendStackCountMax = 1000;
         public static int AppendStackCountMax
         {
@@ -86,6 +95,12 @@ namespace Mu3Library.Editor.FileUtil
                     case ArrayBlock arrayBlock:
                         previousIsCodeBlock = false;
                         AppendArrayBlock(sb, arrayBlock, spaces, startSpaces);
+                        break;
+                    case RawBlock rawBlock:
+                        previousIsCodeBlock = false;
+                        if (rawBlock.Lines != null)
+                            foreach (string rawLine in rawBlock.Lines)
+                                AppendLine(sb, rawLine, startSpaces);
                         break;
                     case CodeBlock childBlock:
                         previousIsCodeBlock = childCodeBlockAppended;

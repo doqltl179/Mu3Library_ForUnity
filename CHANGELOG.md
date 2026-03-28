@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LocaleData`, `EntryData`, `TableData`: Moved to the `Mu3Library.Localization.Data` namespace as standalone public classes; constructors changed from `internal` to `public`; removed `#if MU3LIBRARY_LOCALIZATION_SUPPORT` guards (no Unity.Localization dependency).
 - `EntryData`: Added `TableName` property; constructor updated to `EntryData(string tableName, string key, string id)`.
 - `LocalizationDataExporterDrawer`: Generated script no longer inlines `LocaleData`, `EntryData`, and `TableData` class definitions; instead imports them via `using Mu3Library.Localization.Data;`. `EntryData` construction now passes the table name as the first argument.
+- `LabelData`, `EntryData`, `GroupData`: Added to the `Mu3Library.Addressable.Data` namespace as standalone public classes (no `#if` guard; pure C#). `GroupData` acts as a base class for generated per-group sealed classes, holding `Name`, `Entries`, and `Labels` dictionaries.
+- `AddressableGroupDataExporterDrawer`: Generated script structure changed to mirror the Localization pattern — `Labels` class now holds `LabelData` instances instead of `const string`; `Groups` class now holds typed `*Data` group instances and an `IReadOnlyDictionary<string, GroupData> All`; per-group classes are `sealed class *Data : GroupData` with a constructor. Non-folder entries become `EntryData` fields; folder entries remain static classes with an `EntryData Data` field plus sub-entry `Assets` class. Generated output now includes `using Mu3Library.Addressable.Data;`.
 
 ## [0.6.0] - 2026-03-23
 

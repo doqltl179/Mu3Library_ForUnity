@@ -16,6 +16,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `LocaleData`, `EntryData`, `TableData`: `Mu3Library.Localization.Data` 네임스페이스의 독립 public 클래스로 이동; 생성자를 `internal`에서 `public`으로 변경; `#if MU3LIBRARY_LOCALIZATION_SUPPORT` 가드 제거 (Unity.Localization 의존성 없음).
 - `EntryData`: `TableName` 프로퍼티 추가; 생성자가 `EntryData(string tableName, string key, string id)`로 업데이트.
 - `LocalizationDataExporterDrawer`: 생성 스크립트에서 `LocaleData`, `EntryData`, `TableData` 클래스 정의를 인라인으로 포함하지 않고 `using Mu3Library.Localization.Data;`로 가져옴. `EntryData` 생성 시 첫 번째 인자로 테이블 이름을 전달하도록 변경.
+- `LabelData`, `EntryData`, `GroupData`: `Mu3Library.Addressable.Data` 네임스페이스에 독립 public 클래스로 추가 (`#if` 가드 없음; 순수 C#). `GroupData`는 생성된 per-group sealed class의 기반 클래스로 `Name`, `Entries`, `Labels` 딕셔너리를 보유.
+- `AddressableGroupDataExporterDrawer`: 생성 스크립트 구조가 Localization 패턴으로 변경 — `Labels` 클래스는 `const string` 대신 `LabelData` 인스턴스를 보유; `Groups` 클래스는 타입된 `*Data` 그룹 인스턴스와 `IReadOnlyDictionary<string, GroupData> All`을 보유; per-group 클래스는 `sealed class *Data : GroupData` 형식으로 생성. 비폴더 entry는 `EntryData` 필드, 폴더 entry는 `EntryData Data` 필드와 `Assets` inner class를 유지. 생성 코드에 `using Mu3Library.Addressable.Data;` 포함.
 
 ## [0.6.0] - 2026-03-23
 
