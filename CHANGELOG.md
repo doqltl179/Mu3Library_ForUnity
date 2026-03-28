@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ResourcesPathExporterDrawer`: New editor drawer that scans all `*/Resources/*` paths in the project and generates a C# script with nested static classes reflecting the folder hierarchy. Each asset is exposed as a `ResourcePathData` field containing its resource-relative path (without extension) and file name.
+- `ResourcePathData`: New class in the `Mu3Library.Resource.Data` namespace with `Path` and `Name` string properties.
+
 ### Changed
 - `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: Renamed to `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, and `InputSystemDataExporterDrawer` respectively. Associated sample `.asset` files also renamed accordingly.
 - `LocaleData`, `EntryData`, `TableData`: Moved to the `Mu3Library.Localization.Data` namespace as standalone public classes; constructors changed from `internal` to `public`; removed `#if MU3LIBRARY_LOCALIZATION_SUPPORT` guards (no Unity.Localization dependency).

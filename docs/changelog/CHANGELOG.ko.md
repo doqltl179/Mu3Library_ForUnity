@@ -11,6 +11,10 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `ResourcesPathExporterDrawer`: 프로젝트 내 `*/Resources/*` 경로의 에셋을 자동으로 탐색하고, 폴더 계층을 중첩 static 클래스로 표현하는 C# 스크립트를 생성하는 에디터 Drawer. 각 에셋은 리소스 상대 경로(확장자 제외)와 파일명을 담은 `ResourcePathData` 필드로 노출됨.
+- `ResourcePathData`: `Path`와 `Name` 문자열 프로퍼티를 가진 `Mu3Library.Resource.Data` 네임스페이스의 새 클래스.
+
 ### 변경됨
 - `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: 각각 `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, `InputSystemDataExporterDrawer`로 이름 변경. 관련 샘플 `.asset` 파일도 동일하게 이름 변경.
 - `LocaleData`, `EntryData`, `TableData`: `Mu3Library.Localization.Data` 네임스페이스의 독립 public 클래스로 이동; 생성자를 `internal`에서 `public`으로 변경; `#if MU3LIBRARY_LOCALIZATION_SUPPORT` 가드 제거 (Unity.Localization 의존성 없음).
