@@ -88,5 +88,9 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
+# Symlink/Junction targets for package samples (source of truth is Samples~)
+UnityProject_BuiltIn/Assets/Mu3LibrarySamples/
+UnityProject_URP/Assets/Mu3LibrarySamplesURP/
+
 .vscode/
 .venv/

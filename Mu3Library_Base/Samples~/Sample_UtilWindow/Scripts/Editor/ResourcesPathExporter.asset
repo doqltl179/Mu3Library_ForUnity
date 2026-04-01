@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2, type: 3}
-  m_Name: AddressableGroupDataExporter
-  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.AddressableGroupDataExporterDrawer
+  m_Script: {fileID: 11500000, guid: 0f5a5dd7e6b24c40bcb42deebb010028, type: 3}
+  m_Name: ResourcesPathExporter
+  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.ResourcesPathExporterDrawer
   _foldout: 1
   _header1Style:
     m_Name: 
@@ -286,7 +286,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 1, g: 0, b: 0, a: 1}
+      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,7 +348,7 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _scriptSaveFolder: {fileID: 102900000, guid: 0793d5b1271890a4bb148194443ce3f7, type: 3}
-  _scriptNamespace: Mu3Library.Sample.Template.Addressable
-  _scriptClassName: AddressableGroupKeys
-  _foldoutGroupPreview: 0
+  _scriptSaveFolder: {fileID: 102900000, guid: 2b779789ed4d8b0458de2a798845c3f0, type: 3}
+  _scriptNamespace: Mu3Library.Sample.Template.Resource
+  _scriptClassName: ResourceDataKeys
+  _foldoutPreview: 1
