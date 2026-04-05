@@ -106,6 +106,8 @@ namespace Mu3Library.Audio
                     }
                 }
             }
+
+            UpdatePlaylist();
         }
 
         #region Utility

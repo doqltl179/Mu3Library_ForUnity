@@ -133,6 +133,8 @@ namespace Mu3Library.Audio
 
         public void StopBgm()
         {
+            CancelPlaylist();
+
             if (_bgmMainController != null)
             {
                 _bgmMainController.Stop();
