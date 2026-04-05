@@ -12,14 +12,22 @@ This file is the central entry point for instruction routing.
 
 ## Read Order
 
-1. `.github/agents/task-planner.agent.md`
-2. `.github/agents/unity.agent.md`
-3. `.github/instructions/unity.instructions.md`
-4. `.github/instructions/verification.instructions.md` (when compile/safety verification is needed)
-5. `.github/instructions/git-workflow.instructions.md` (when branch/merge/push/release flow is requested)
-6. `.github/instructions/release.instructions.md` (when release/version/changelog is affected)
-7. `.github/instructions/docs-sync.instructions.md` (when README/CHANGELOG updates are needed)
-8. `.github/agents/reviewer.agent.md` (when review/audit style output is requested)
+Always-loaded (auto-injected via `applyTo: '**'`):
+1. `.github/instructions/task-planner.instructions.md`
+2. `.github/instructions/unity-architecture.instructions.md`
+3. `.github/instructions/reviewer.instructions.md`
+4. `.github/instructions/unity.instructions.md` (C# files only, `applyTo: '**/*.cs'`)
+
+Conditionally loaded:
+5. `.github/instructions/verification.instructions.md` (when compile/safety verification is needed)
+6. `.github/instructions/git-workflow.instructions.md` (when branch/merge/push/release flow is requested)
+7. `.github/instructions/release.instructions.md` (when release/version/changelog is affected)
+8. `.github/instructions/docs-sync.instructions.md` (when README/CHANGELOG updates are needed)
+
+Subagent-only (invoked via `runSubagent`):
+- `.github/agents/task-planner.agent.md`
+- `.github/agents/unity.agent.md`
+- `.github/agents/reviewer.agent.md`
 
 ## Mu3Library Guardrails
 
