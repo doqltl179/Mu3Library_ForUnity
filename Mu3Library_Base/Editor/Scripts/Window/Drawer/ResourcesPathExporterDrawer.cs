@@ -288,8 +288,27 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private string BuildScriptBody(string className)
         {
-            FolderNode root = BuildTree(_entries);
-            var classContent = BuildFolderContent(root);
+            var byRoot = _entries.GroupBy(e => e.ResourcesRoot).OrderBy(g => g.Key).ToList();
+
+            List<object> classContent;
+            if (byRoot.Count == 1)
+            {
+                classContent = BuildFolderContent(BuildTree(byRoot[0]));
+            }
+            else
+            {
+                classContent = new List<object>();
+                foreach (var group in byRoot)
+                {
+                    string parentDir = Path.GetFileName(Path.GetDirectoryName(group.Key)) ?? "Root";
+                    string rootClassName = SanitizeIdentifier(parentDir);
+                    classContent.Add(new ScriptBuilder.CodeBlock
+                    {
+                        Header = $"public static class {rootClassName}",
+                        Content = BuildFolderContent(BuildTree(group))
+                    });
+                }
+            }
 
             var classBlock = new ScriptBuilder.CodeBlock
             {
@@ -297,7 +316,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 Content = classContent
             };
 
-            string usingStatement = "using Mu3Library.Resource.Data;" + System.Environment.NewLine + System.Environment.NewLine;
+            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine
+                + "using Mu3Library.Resource.Data;" + System.Environment.NewLine + System.Environment.NewLine;
 
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
             {
@@ -335,16 +355,36 @@ namespace Mu3Library.Editor.Window.Drawer
             return root;
         }
 
-        private static List<object> BuildFolderContent(FolderNode node)
+        private static List<object> BuildFolderContent(FolderNode node, string folderPath = "")
         {
             var content = new List<object>();
+            var fieldNames = new List<string>();
+
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                content.Add($"public const string FolderPath = \"{folderPath}\";");
+                content.Add("");
+            }
 
             foreach (var kvp in node.Assets)
             {
-                string identifier = SanitizeIdentifier(kvp.Key);
+                string identifier = SanitizeIdentifier(kvp.Value.ResourcePath);
                 string resPath = kvp.Value.ResourcePath;
                 string assetName = kvp.Value.Name;
                 content.Add($"public static readonly ResourcePathData {identifier} = new ResourcePathData(\"{resPath}\", \"{assetName}\");");
+                fieldNames.Add(identifier);
+            }
+
+            if (fieldNames.Count > 0)
+            {
+                content.Add("");
+                var allEntries = fieldNames.Select(n => (object)$"{n},").ToList();
+                content.Add(new ScriptBuilder.CodeBlock
+                {
+                    Header = "public static readonly IReadOnlyList<ResourcePathData> All = new ResourcePathData[]",
+                    Content = allEntries,
+                    Suffix = ";"
+                });
             }
 
             if (node.Assets.Count > 0 && node.Subfolders.Count > 0)
@@ -352,10 +392,12 @@ namespace Mu3Library.Editor.Window.Drawer
 
             foreach (var kvp in node.Subfolders)
             {
-                List<object> childContent = BuildFolderContent(kvp.Value);
+                string childClassName = SanitizeIdentifier(kvp.Key);
+                string childPath = string.IsNullOrEmpty(folderPath) ? kvp.Key : $"{folderPath}/{kvp.Key}";
+                List<object> childContent = BuildFolderContent(kvp.Value, childPath);
                 content.Add(new ScriptBuilder.CodeBlock
                 {
-                    Header = $"public static class {SanitizeIdentifier(kvp.Key)}",
+                    Header = $"public static class {childClassName}",
                     Content = childContent
                 });
             }
