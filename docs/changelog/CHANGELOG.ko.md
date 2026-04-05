@@ -11,7 +11,19 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-05
+
 ### 추가됨
+- `AudioManager`: `PlayBgmPlaylist(AudioClip[] clips, ...)` 및 `StopBgmPlaylist()`를 통한 BGM 플레이리스트 기능 추가.
+  - `AudioClip` 배열을 받아 순서대로 연속 재생.
+  - `loopCount`: 0 이하 = 무한 반복; 양수 = 해당 횟수만큼 전체 사이클 재생 (기본값: -1).
+  - `shuffle`: 매 사이클마다 Fisher-Yates 알고리즘으로 재생 순서를 무작위화 (기본값: false).
+  - `interval`: 트랙 간 대기 시간(초) (기본값: 1.0).
+  - `PlaySfx`와 동일한 패턴으로 8가지 오버로드 제공.
+  - `PlayBgmPlaylist` 호출 시 현재 재생 중인 BGM을 먼저 정지.
+  - `StopBgm` 또는 `StopBgmPlaylist` 호출 시 플레이리스트 비활성화.
+  - 인터벌 카운트다운은 pause를 인식하여 BGM이 일시정지된 동안 타이머가 진행되지 않음.
+- `IAudioManager`: 새 `IAudioManager.BgmPlaylist.cs` partial 파일을 통해 `PlayBgmPlaylist` 오버로드 및 `StopBgmPlaylist` 추가.
 - `ResourcesPathExporterDrawer`: 프로젝트 내 `*/Resources/*` 경로의 에셋을 자동으로 탐색하고, 폴더 계층을 중첩 static 클래스로 표현하는 C# 스크립트를 생성하는 에디터 Drawer. 각 에셋은 리소스 상대 경로(확장자 제외)와 파일명을 담은 `ResourcePathData` 필드로 노출됨.
 - `ResourcePathData`: `Path`와 `Name` 문자열 프로퍼티를 가진 `Mu3Library.Resource.Data` 네임스페이스의 새 클래스.
 

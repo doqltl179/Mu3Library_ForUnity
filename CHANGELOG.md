@@ -13,7 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-05
+
 ### Added
+- `AudioManager`: BGM playlist support via `PlayBgmPlaylist(AudioClip[] clips, ...)` and `StopBgmPlaylist()`.
+  - Accepts an array of `AudioClip`s and plays them sequentially.
+  - `loopCount`: 0 or less = infinite cycle; positive value = play that many full cycles (default: -1).
+  - `shuffle`: randomises playback order using Fisher-Yates before each cycle (default: false).
+  - `interval`: seconds to wait between tracks (default: 1.0).
+  - Eight overloads follow the same pattern as `PlaySfx` for ergonomic API composition.
+  - Calling `PlayBgmPlaylist` stops any currently playing BGM before starting.
+  - Calling `StopBgm` or `StopBgmPlaylist` deactivates the playlist.
+  - Interval countdown is pause-aware: timer does not advance while BGM is paused.
+- `IAudioManager`: Extended with `PlayBgmPlaylist` overloads and `StopBgmPlaylist` via new `IAudioManager.BgmPlaylist.cs` partial file.
 - `ResourcesPathExporterDrawer`: New editor drawer that scans all `*/Resources/*` paths in the project and generates a C# script with nested static classes reflecting the folder hierarchy. Each asset is exposed as a `ResourcePathData` field containing its resource-relative path (without extension) and file name.
 - `ResourcePathData`: New class in the `Mu3Library.Resource.Data` namespace with `Path` and `Name` string properties.
 

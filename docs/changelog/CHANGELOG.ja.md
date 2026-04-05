@@ -13,7 +13,19 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-05
+
 ### 追加
+- `AudioManager`: `PlayBgmPlaylist(AudioClip[] clips, ...)` および `StopBgmPlaylist()` による BGM プレイリスト機能を追加。
+  - `AudioClip` の配列を受け取り、順番に連続再生する。
+  - `loopCount`: 0 以下 = 無限サイクル; 正の値 = その回数だけ全サイクルを再生 (デフォルト: -1)。
+  - `shuffle`: 各サイクル前に Fisher-Yates アルゴリズムで再生順をランダム化 (デフォルト: false)。
+  - `interval`: トラック間の待機時間（秒）(デフォルト: 1.0)。
+  - `PlaySfx` と同じパターンで 8 種類のオーバーロードを提供。
+  - `PlayBgmPlaylist` 呼び出し時、現在再生中の BGM を先に停止する。
+  - `StopBgm` または `StopBgmPlaylist` 呼び出し時にプレイリストを非アクティブ化する。
+  - インターバルのカウントダウンはポーズを考慮し、BGM が一時停止中はタイマーが進まない。
+- `IAudioManager`: 新しい `IAudioManager.BgmPlaylist.cs` partial ファイルを通じて `PlayBgmPlaylist` オーバーロードおよび `StopBgmPlaylist` を追加。
 - `ResourcesPathExporterDrawer`: プロジェクト内の `*/Resources/*` パスのアセットを自動スキャンし、フォルダー階層を入れ子 static クラスで表現する C# スクリプトを生成するエディター Drawer。各アセットはリソース相対パス（拡張子なし）とファイル名を保持する `ResourcePathData` フィールドとして公開される。
 - `ResourcePathData`: `Path` と `Name` 文字列プロパティを持つ `Mu3Library.Resource.Data` 名前空間の新しいクラス。
 
@@ -23,7 +35,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `EntryData`: `TableName` プロパティを追加; コンストラクターが `EntryData(string tableName, string key, string id)` に更新。
 - `LocalizationDataExporterDrawer`: 生成スクリプトに `LocaleData`・`EntryData`・`TableData` クラス定義をインラインで含めず、`using Mu3Library.Localization.Data;` でインポート。`EntryData` 構築時に最初の引数としてテーブル名を渡すよう変更。
 - `LabelData`、`EntryData`、`GroupData`: `Mu3Library.Addressable.Data` 名前空間にスタンドアロン public クラスとして追加（`#if` ガードなし; 純粋 C#）。`GroupData` は生成される per-group sealed class の基底クラスとなり、`Name`、`Entries`、`Labels` 辞書を保持。
-- `AddressableGroupDataExporterDrawer`: 生成スクリプトの構造を Localization パターンに渴合するよう変更 — `Labels` クラスは `const string` の代わりに `LabelData` インスタンスを保持; `Groups` クラスは型付き `*Data` グループインスタンスと `IReadOnlyDictionary<string, GroupData> All` を保持; per-group クラスは `sealed class *Data : GroupData` 形式で生成。非フォルダーエントリーは `EntryData` フィールド、フォルダーエントリーは `EntryData Data` フィールドと `Assets` 内部クラスを維持。生成コードに `using Mu3Library.Addressable.Data;` を含む。
+- `AddressableGroupDataExporterDrawer`: 生成スクリプトの構造を Localization パターンに合わせるよう変更 — `Labels` クラスは `const string` の代わりに `LabelData` インスタンスを保持; `Groups` クラスは型付き `*Data` グループインスタンスと `IReadOnlyDictionary<string, GroupData> All` を保持; per-group クラスは `sealed class *Data : GroupData` 形式で生成。非フォルダーエントリーは `EntryData` フィールド、フォルダーエントリーは `EntryData Data` フィールドと `Assets` 内部クラスを維持。生成コードに `using Mu3Library.Addressable.Data;` を含む。
 
 ## [0.6.0] - 2026-03-23
 
