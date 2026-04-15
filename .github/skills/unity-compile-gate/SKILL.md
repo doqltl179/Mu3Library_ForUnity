@@ -36,6 +36,6 @@ Run compile-only verification for Mu3Library without adding test ownership.
 - target project and editor path,
 - compile exit status,
 - updated `tasks/compile-status.json`,
-- retained log path for failed runs,
+- retained log path for compile runs, with the default log location under `log/compile-gate/`,
 - `tasks/todo.md` note describing what compile evidence was collected,
 - explicit risk note if compile could not be completed.

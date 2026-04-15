@@ -145,6 +145,8 @@ $unityExe = Resolve-UnityEditorPath -RequestedPath $EditorPath
 $targets = if ($Target -eq "both") { @("builtin", "urp") } else { @($Target) }
 $targetLabel = ($targets -join ",")
 $startedAt = (Get-Date).ToString("o")
+$logTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$defaultLogDirectory = Join-Path $repoRoot "log\compile-gate"
 $results = @()
 $compileProcess = Get-Process -Id $PID
 
@@ -175,18 +177,32 @@ try {
         }
 
         $logPath = if ($LogFile -eq "-") {
-            Join-Path ([System.IO.Path]::GetTempPath()) ("mu3-compile-{0}-{1}.log" -f $entry, [System.Guid]::NewGuid().ToString("N"))
+            if (-not (Test-Path $defaultLogDirectory)) {
+                New-Item -Path $defaultLogDirectory -ItemType Directory -Force | Out-Null
+            }
+
+            Join-Path $defaultLogDirectory ("compile-{0}-{1}.log" -f $logTimestamp, $entry)
         }
         elseif ($targets.Count -gt 1) {
             $directory = [System.IO.Path]::GetDirectoryName($LogFile)
             if ([string]::IsNullOrWhiteSpace($directory)) {
                 $directory = (Get-Location).Path
             }
+
+            if (-not (Test-Path $directory)) {
+                New-Item -Path $directory -ItemType Directory -Force | Out-Null
+            }
+
             $baseName = [System.IO.Path]::GetFileNameWithoutExtension($LogFile)
             $extension = [System.IO.Path]::GetExtension($LogFile)
             Join-Path $directory ("{0}-{1}{2}" -f $baseName, $entry, $extension)
         }
         else {
+            $directory = [System.IO.Path]::GetDirectoryName($LogFile)
+            if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path $directory)) {
+                New-Item -Path $directory -ItemType Directory -Force | Out-Null
+            }
+
             $LogFile
         }
 
@@ -212,12 +228,7 @@ try {
         $retainedLogPath = $null
         if (Test-Path $logPath) {
             Get-Content -Path $logPath
-            if ($LogFile -eq "-" -and $exitCode -eq 0) {
-                Remove-Item -Path $logPath -Force
-            }
-            else {
-                $retainedLogPath = $logPath
-            }
+            $retainedLogPath = $logPath
         }
 
         $results += [pscustomobject]@{

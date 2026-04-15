@@ -20,6 +20,7 @@ This document maps the reusable workflow entrypoints that support the Mu3Library
 
 - The compile gate is compile-only by design. It does not imply or run tests.
 - The gate is considered open only after `tasks/compile-status.json` leaves `running`, and failed results must be triaged before the next unit proceeds.
+- By default, compile logs are written under `log/compile-gate/` so they can be reviewed or removed locally without polluting the repository root.
 - If the target Unity project is already open in an interactive editor instance, the runner fails early with an explicit error instead of attempting a second batch instance.
 - If the tracked compile process disappears while the status file still says `running`, the hook converts that stale state to `failed-stale` and blocks the current prompt so triage happens before the next unit continues.
 - Failed runs retain their log path in `tasks/compile-status.json` so reviewer evidence survives the compile step.

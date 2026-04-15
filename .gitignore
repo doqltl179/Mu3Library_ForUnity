@@ -94,5 +94,5 @@ UnityProject_URP/Assets/Mu3LibrarySamplesURP/
 
 .vscode/
 .venv/
-/*.log
+/log/
 tasks/compile-status.json
