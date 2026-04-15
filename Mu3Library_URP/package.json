@@ -18,5 +18,11 @@
         "com.github.doqltl179.mu3library.base": "0.5.0",
         "com.unity.render-pipelines.universal": "17.3.0"
     },
-    "samples": []
+    "samples": [
+        {
+            "displayName": "ScreenEffect",
+            "description": "URP screen effect sample scene and scripts for Mu3Library URP",
+            "path": "Samples~/ScreenEffect"
+        }
+    ]
 }

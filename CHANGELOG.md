@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Mu3Library_URP/package.json`: Published the `ScreenEffect` sample through the package manifest so it is discoverable from the Unity Package Manager.
+
 ## [0.8.0] - 2026-04-05
 
 ### Added

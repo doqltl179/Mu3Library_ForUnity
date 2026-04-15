@@ -235,11 +235,15 @@ When the following packages are installed, their features are automatically enab
 
 You can import the following samples from the **Samples** tab in Package Manager:
 
+Base package (**Mu3 Library**):
 - **Sample_Template**: Basic Core structure and usage examples
 - **Sample_Attribute**: ConditionalHide usage
 - **Sample_UtilWindow**: Custom editor window and utility drawer examples
 
-Or refer to the `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` folder in your project.
+URP package (**Mu3 Library URP**):
+- **ScreenEffect**: URP screen effect sample scene and supporting scripts
+
+In this repository, the base sample sources live under `Mu3Library_Base/Samples~` and the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`.
 
 **Sample_Template Key Components:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
@@ -277,13 +281,11 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 Recent Updates (v0.5.0)
+## 📝 Recent Updates
 
-**Monorepo Restructuring:**
-- Repository reorganized: `Mu3Library_Base/` and `Mu3Library_URP/` are now proper UPM packages; `UnityProject_BuiltIn/` and `UnityProject_URP/` are dedicated development projects within the same repository.
-
-**DI Null Safety:**
-- `CoreBase.WaitForOtherCore`, `GetClassFromOtherCore`, and `ContainerScope.ResolveFromCore` now handle null `CoreRoot.Instance` safely (e.g., during application quit).
+- Latest released base package: `0.8.0`
+- Latest released URP package: `0.1.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- See `CHANGELOG.md` for unreleased changes, including the URP `ScreenEffect` sample manifest update.
 
 ## 🤝 Contributing
 
@@ -303,7 +305,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Name: `com.github.doqltl179.mu3library.base`
-- Version: `0.5.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.8.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
 
 Made with ❤️ for Unity Developers

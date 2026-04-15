@@ -234,11 +234,15 @@ _playerData.Health.Set(80);
 
 パッケージマネージャーの**Samples**タブから以下のサンプルをインポートできます:
 
+Base パッケージ (**Mu3 Library**):
 - **Sample_Template**: 基本的なCore構造と使用例
 - **Sample_Attribute**: ConditionalHideの使用方法
 - **Sample_UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 
-または、プロジェクト内の`UnityProject_BuiltIn/Assets/Mu3LibrarySamples`フォルダを参照してください。
+URP パッケージ (**Mu3 Library URP**):
+- **ScreenEffect**: URP スクリーンエフェクトのサンプルシーンと補助スクリプト
+
+このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect` にあります。
 
 **Sample_Template 主要構成:**
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
@@ -276,13 +280,11 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 最近のアップデート (v0.5.0)
+## 📝 最近のアップデート
 
-**モノレポ構成への再編:**
-- リポジトリを再構成: `Mu3Library_Base/` と `Mu3Library_URP/` は独立した UPM パッケージ、`UnityProject_BuiltIn/` と `UnityProject_URP/` は専用の開発プロジェクトに分離。
-
-**DI Null 安全処理:**
-- `CoreBase.WaitForOtherCore`、`GetClassFromOtherCore`、および `ContainerScope.ResolveFromCore` が `CoreRoot.Instance` が null のとき（例: アプリ終了時）に安全に処理されるよう修正。
+- 最新の Base パッケージ版: `0.8.0`
+- 最新の URP パッケージ版: `0.1.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
+- 未リリースの変更と URP `ScreenEffect` サンプル manifest 更新は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
 
@@ -302,7 +304,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Name: `com.github.doqltl179.mu3library.base`
-- Version: `0.5.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.8.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
 
 Unity開発者のために制作
