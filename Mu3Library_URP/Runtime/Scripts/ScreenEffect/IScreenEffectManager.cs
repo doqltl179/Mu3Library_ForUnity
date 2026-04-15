@@ -9,20 +9,20 @@ namespace Mu3Library.URP.ScreenEffect
     /// <br/> <b>사용 예:</b>
     /// <code>
     /// var effect = new GrayscaleEffect(RenderPassEvent.AfterRenderingPostProcessing);
-    /// _postVolumeManager.RegisterPass(effect);
+    /// _screenEffectManager.RegisterPass(effect);
     /// </code>
     /// <br/> <b>cameraFilter 사용 예:</b>
     /// <code>
     /// // MainCamera 에만 적용
-    /// _postVolumeManager.RegisterPass(effect, cam => cam.CompareTag("MainCamera"));
+    /// _screenEffectManager.RegisterPass(effect, cam => cam.CompareTag("MainCamera"));
     /// </code>
     /// <br/> <b>해제 시:</b>
     /// <code>
-    /// _postVolumeManager.UnregisterPass(effect);
+    /// _screenEffectManager.UnregisterPass(effect);
     /// effect.Dispose();
     /// </code>
     /// </summary>
-    public interface IPostVolumeManager
+    public interface IScreenEffectManager
     {
         /// <summary>
         /// RenderPipelineManager를 통해 매 프레임 렌더 패스를 주입하도록 등록합니다.

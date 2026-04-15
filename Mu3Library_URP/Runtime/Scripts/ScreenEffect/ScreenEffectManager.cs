@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Mu3Library.URP.ScreenEffect
 {
-    public class PostVolumeManager : IPostVolumeManager
+    public class ScreenEffectManager : IScreenEffectManager
     {
         private struct PassEntry
         {

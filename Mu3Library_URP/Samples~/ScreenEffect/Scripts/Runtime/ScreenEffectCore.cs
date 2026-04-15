@@ -7,7 +7,7 @@ namespace Mu3Library.URP.Sample.ScreenEffect
 {
     public class ScreenEffectCore : CoreBase
     {
-        [Inject] private IPostVolumeManager _postVolumeManager;
+        [Inject] private IScreenEffectManager _screenEffectManager;
 
         [Space(20)]
         [SerializeField] private Camera _mainCamera;
@@ -23,7 +23,7 @@ namespace Mu3Library.URP.Sample.ScreenEffect
 
         protected override void ConfigureContainer()
         {
-            RegisterClass<PostVolumeManager>();
+            RegisterClass<ScreenEffectManager>();
         }
 
         protected override void Start()
@@ -36,14 +36,14 @@ namespace Mu3Library.URP.Sample.ScreenEffect
             _grayscaleHandler.Init(_grayscaleEffect);
             _shakeHandler.Init(_shakeEffect);
 
-            _postVolumeManager.RegisterPass(_grayscaleEffect, CameraFilter);
-            _postVolumeManager.RegisterPass(_shakeEffect, CameraFilter);
+            _screenEffectManager.RegisterPass(_grayscaleEffect, CameraFilter);
+            _screenEffectManager.RegisterPass(_shakeEffect, CameraFilter);
         }
 
         protected override void OnDestroy()
         {
-            _postVolumeManager?.UnregisterPass(_grayscaleEffect);
-            _postVolumeManager?.UnregisterPass(_shakeEffect);
+            _screenEffectManager?.UnregisterPass(_grayscaleEffect);
+            _screenEffectManager?.UnregisterPass(_shakeEffect);
 
             _grayscaleEffect?.Dispose();
             _shakeEffect?.Dispose();

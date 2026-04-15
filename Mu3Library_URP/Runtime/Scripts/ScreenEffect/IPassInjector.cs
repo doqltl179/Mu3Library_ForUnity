@@ -5,7 +5,7 @@ namespace Mu3Library.URP.ScreenEffect
 {
     /// <summary>
     /// RenderPipelineManager 방식으로 렌더 패스를 주입할 때 사용하는 인터페이스.
-    /// <br/> PostVolumeManager.RegisterPass() 로 등록하면, 매 프레임 카메라 렌더링 시
+    /// <br/> IScreenEffectManager.RegisterPass() 로 등록하면, 매 프레임 카메라 렌더링 시
     /// TrySetup() 이 호출되어 조건을 만족할 경우 Pass 가 해당 프레임에 주입됩니다.
     /// <br/>
     /// <br/> <b>RenderPassEvent 주요 값 설명:</b>
