@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mu3-cli"
+version = "0.1.0"
+description = "Auxiliary repository CLI for Mu3Library agent-framework and tooling workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12,<1.0",
+]
+
+[project.scripts]
+mu3-cli = "mu3_cli.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

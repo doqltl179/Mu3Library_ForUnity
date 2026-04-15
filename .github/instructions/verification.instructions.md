@@ -22,6 +22,13 @@ Define practical non-test verification steps per change type.
 4. Optional package integration changed:
    - Verify code is fully wrapped by corresponding define symbols.
 
+## Compile-Only Workflow
+
+- When the requested verification scope is compile-only, do not add or imply test execution.
+- Use the repository compile gate workflow to run compile synchronously and wait for completion before the next task proceeds.
+- Record compile state in `tasks/compile-status.json` and treat `running` as a hard stop for follow-up work.
+- If compile fails or becomes `failed-stale`, stop the next unit, record triage in `tasks/todo.md`, acknowledge the status, and report the verification gap explicitly.
+
 ## If Full Verification Is Not Possible
 
 - Perform static verification for impacted files and boundaries.

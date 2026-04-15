@@ -1,4 +1,4 @@
----
+﻿---
 applyTo: '**'
 ---
 
@@ -10,11 +10,19 @@ Read and follow all rules defined in `../agents/task-planner.agent.md`.
 
 You are responsible for planning, sequencing, and reporting task execution.
 
+When an `orchestrator` is active, treat that role as the owner of cross-agent routing and cross-unit sequencing. The task planner owns plan detail, progress tracking, and replanning for the currently assigned unit.
+
 ## Core Principles
 
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+
+## Coordination Rule
+
+- Do not create a second control plane through planning.
+- Recommend delegation when needed, but do not take ownership of framework-wide routing away from the orchestrator.
+- Route structural suitability concerns to the role governor.
 
 ## Plan Mode Default
 
