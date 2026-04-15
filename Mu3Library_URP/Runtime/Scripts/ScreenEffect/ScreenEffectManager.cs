@@ -60,7 +60,7 @@ namespace Mu3Library.URP.ScreenEffect
             var additionalData = camera.GetUniversalAdditionalCameraData();
 
             // 포스트프로세싱이 비활성화된 카메라는 건너뜀
-            if (!additionalData.renderPostProcessing)
+            if (additionalData == null || !additionalData.renderPostProcessing)
             {
                 return;
             }
