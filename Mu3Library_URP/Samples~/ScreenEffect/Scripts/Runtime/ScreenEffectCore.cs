@@ -2,7 +2,6 @@ using Mu3Library.DI;
 using Mu3Library.URP.Sample.ScreenEffect.VolumeHandle;
 using Mu3Library.URP.ScreenEffect;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Mu3Library.URP.Sample.ScreenEffect
 {
@@ -11,11 +10,14 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         [Inject] private IPostVolumeManager _postVolumeManager;
 
         [Space(20)]
-        [SerializeField] private Volume _volume;
+        [SerializeField] private Camera _mainCamera;
 
         [Space(20)]
         [SerializeField] private GrayscaleHandler _grayscaleHandler;
         [SerializeField] private ShakeHandler _shakeHandler;
+
+        private GrayscaleEffect _grayscaleEffect;
+        private ShakeEffect _shakeEffect;
 
 
 
@@ -28,8 +30,28 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         {
             base.Start();
 
-            _grayscaleHandler.Context(_postVolumeManager, _volume);
-            _shakeHandler.Context(_postVolumeManager, _volume);
+            _grayscaleEffect = new GrayscaleEffect();
+            _shakeEffect = new ShakeEffect();
+
+            _grayscaleHandler.Init(_grayscaleEffect);
+            _shakeHandler.Init(_shakeEffect);
+
+            _postVolumeManager.RegisterPass(_grayscaleEffect, CameraFilter);
+            _postVolumeManager.RegisterPass(_shakeEffect, CameraFilter);
+        }
+
+        protected override void OnDestroy()
+        {
+            _postVolumeManager?.UnregisterPass(_grayscaleEffect);
+            _postVolumeManager?.UnregisterPass(_shakeEffect);
+
+            _grayscaleEffect?.Dispose();
+            _shakeEffect?.Dispose();
+        }
+
+        private bool CameraFilter(Camera cam)
+        {
+            return _mainCamera == null || cam == _mainCamera;
         }
     }
 }

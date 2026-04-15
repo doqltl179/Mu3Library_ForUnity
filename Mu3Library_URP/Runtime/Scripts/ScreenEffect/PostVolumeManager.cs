@@ -1,59 +1,84 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Mu3Library.URP.ScreenEffect
 {
     public class PostVolumeManager : IPostVolumeManager
     {
-
-
-
-
-        public VolumeHandler<T> Wrap<T>(Volume volume) where T : VolumeComponent
+        private struct PassEntry
         {
-            if (!volume.profile.TryGet<T>(out var component))
-            {
-                component = volume.profile.Add<T>();
-            }
-
-            return new VolumeHandler<T>(volume, component, owned: false);
+            public IPassInjector Injector;
+            public Func<Camera, bool> Filter;
         }
 
-        public VolumeHandler<T> Create<T>() where T : VolumeComponent, new()
-            => Create<T>(0, true, null);
+        private readonly List<PassEntry> _injectors = new List<PassEntry>();
 
-        public VolumeHandler<T> Create<T>(float priority) where T : VolumeComponent, new()
-            => Create<T>(priority, true, null);
 
-        public VolumeHandler<T> Create<T>(bool isGlobal) where T : VolumeComponent, new()
-            => Create<T>(0, isGlobal, null);
 
-        public VolumeHandler<T> Create<T>(Transform parent) where T : VolumeComponent, new()
-            => Create<T>(0, true, parent);
-
-        public VolumeHandler<T> Create<T>(float priority, bool isGlobal) where T : VolumeComponent, new()
-            => Create<T>(priority, isGlobal, null);
-
-        public VolumeHandler<T> Create<T>(float priority, Transform parent) where T : VolumeComponent, new()
-            => Create<T>(priority, true, parent);
-
-        public VolumeHandler<T> Create<T>(bool isGlobal, Transform parent) where T : VolumeComponent, new()
-            => Create<T>(0, isGlobal, parent);
-
-        public VolumeHandler<T> Create<T>(float priority, bool isGlobal, Transform parent) where T : VolumeComponent, new()
+        public void RegisterPass(IPassInjector injector, Func<Camera, bool> cameraFilter = null)
         {
-            var go = new GameObject(typeof(T).Name);
-            if (parent != null)
+            if (_injectors.Exists(e => e.Injector == injector))
             {
-                go.transform.SetParent(parent);
+                return;
             }
 
-            var volume = go.AddComponent<Volume>();
-            volume.isGlobal = isGlobal;
-            volume.priority = priority;
+            if (_injectors.Count == 0)
+            {
+                RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+            }
 
-            var component = volume.profile.Add<T>();
-            return new VolumeHandler<T>(volume, component, owned: true);
+            _injectors.Add(new PassEntry { Injector = injector, Filter = cameraFilter });
+        }
+
+        public void UnregisterPass(IPassInjector injector)
+        {
+            int index = _injectors.FindIndex(e => e.Injector == injector);
+            if (index < 0)
+            {
+                return;
+            }
+
+            _injectors.RemoveAt(index);
+
+            if (_injectors.Count == 0)
+            {
+                RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+            }
+        }
+
+        private void OnBeginCameraRendering(ScriptableRenderContext context, Camera camera)
+        {
+            // 에디터 Preview 카메라는 건너뜀
+            if (camera.cameraType == CameraType.Preview)
+            {
+                return;
+            }
+
+            var additionalData = camera.GetUniversalAdditionalCameraData();
+
+            // 포스트프로세싱이 비활성화된 카메라는 건너뜀
+            if (!additionalData.renderPostProcessing)
+            {
+                return;
+            }
+
+            var renderer = additionalData.scriptableRenderer;
+            foreach (var entry in _injectors)
+            {
+                if (entry.Filter != null && !entry.Filter(camera))
+                {
+                    continue;
+                }
+
+                if (entry.Injector.TrySetup())
+                {
+                    renderer.EnqueuePass(entry.Injector.Pass);
+                }
+            }
         }
     }
 }
+

@@ -1,40 +1,26 @@
 using Mu3Library.URP.ScreenEffect;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
 {
-    public abstract class PostVolumeHandler<T> : MonoBehaviour where T : VolumeComponent
+    public abstract class PostVolumeHandler<TEffect> : MonoBehaviour where TEffect : IPassInjector
     {
-        protected IPostVolumeManager _postVolumeManager;
-
-        protected Volume _volume;
-        protected VolumeHandler<T> _handler;
+        protected TEffect _effect;
 
 
 
-        #region Utility
-        public void Context(IPostVolumeManager postVolumeManager, Volume volume)
+        public void Init(TEffect effect)
         {
-            var handler = postVolumeManager.Wrap<T>(volume);
-            handler.Active = false;
-
-            _handler = handler;
-            _volume = volume;
-            _postVolumeManager = postVolumeManager;
+            _effect = effect;
         }
-        #endregion
 
         #region UI Event
         public void SetActiveVolume(bool active)
         {
-            if (_handler == null)
-            {
-                return;
-            }
-
-            _handler.Active = active;
+            OnSetActive(active);
         }
         #endregion
+
+        protected abstract void OnSetActive(bool active);
     }
 }

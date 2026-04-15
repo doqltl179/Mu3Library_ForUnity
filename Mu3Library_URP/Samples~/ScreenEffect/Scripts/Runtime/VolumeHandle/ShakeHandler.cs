@@ -2,31 +2,22 @@ using Mu3Library.URP.ScreenEffect;
 
 namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
 {
-    public class ShakeHandler : PostVolumeHandler<ShakeVolume>
+    public class ShakeHandler : PostVolumeHandler<ShakeEffect>
     {
-
-
-
+        protected override void OnSetActive(bool active)
+        {
+            _effect?.SetActive(active);
+        }
 
         #region UI Event
         public void SetValueWeight(float value)
         {
-            if (_handler == null)
-            {
-                return;
-            }
-
-            _handler.Component.Weight.value = value;
+            _effect?.SetWeight(value);
         }
 
         public void SetValueAmplitude(float value)
         {
-            if (_handler == null)
-            {
-                return;
-            }
-
-            _handler.Component.Amplitude.value = value;
+            _effect?.SetAmplitude(value);
         }
         #endregion
     }

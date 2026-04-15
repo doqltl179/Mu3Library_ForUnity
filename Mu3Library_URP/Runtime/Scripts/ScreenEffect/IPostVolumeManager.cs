@@ -1,28 +1,39 @@
-﻿using UnityEngine;
-using UnityEngine.Rendering;
+﻿using System;
+using UnityEngine;
 
 namespace Mu3Library.URP.ScreenEffect
 {
+    /// <summary>
+    /// 렌더 패스 주입을 관리하는 인터페이스.
+    /// <br/>
+    /// <br/> <b>사용 예:</b>
+    /// <code>
+    /// var effect = new GrayscaleEffect(RenderPassEvent.AfterRenderingPostProcessing);
+    /// _postVolumeManager.RegisterPass(effect);
+    /// </code>
+    /// <br/> <b>cameraFilter 사용 예:</b>
+    /// <code>
+    /// // MainCamera 에만 적용
+    /// _postVolumeManager.RegisterPass(effect, cam => cam.CompareTag("MainCamera"));
+    /// </code>
+    /// <br/> <b>해제 시:</b>
+    /// <code>
+    /// _postVolumeManager.UnregisterPass(effect);
+    /// effect.Dispose();
+    /// </code>
+    /// </summary>
     public interface IPostVolumeManager
     {
         /// <summary>
-        /// 씬에 이미 존재하는 Volume의 VolumeComponent를 핸들러로 감쌉니다.
-        /// 컴포넌트가 없으면 자동으로 추가합니다.
-        /// Dispose() 시 컴포넌트를 비활성화합니다.
+        /// RenderPipelineManager를 통해 매 프레임 렌더 패스를 주입하도록 등록합니다.
         /// </summary>
-        VolumeHandler<T> Wrap<T>(Volume volume) where T : VolumeComponent;
+        /// <param name="cameraFilter">패스를 적용할 카메라 조건. null이면 모든 카메라에 적용.</param>
+        void RegisterPass(IPassInjector injector, Func<Camera, bool> cameraFilter = null);
 
-        public VolumeHandler<T> Create<T>() where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(float priority) where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(bool isGlobal) where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(Transform parent) where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(float priority, bool isGlobal) where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(float priority, Transform parent) where T : VolumeComponent, new();
-        public VolumeHandler<T> Create<T>(bool isGlobal, Transform parent) where T : VolumeComponent, new();
         /// <summary>
-        /// 새로운 Volume GameObject를 생성하고 핸들러로 반환합니다.
-        /// Dispose() 시 GameObject(Volume)를 삭제합니다.
+        /// 등록된 렌더 패스 주입을 해제합니다.
+        /// Dispose()는 직접 호출해야 합니다.
         /// </summary>
-        public VolumeHandler<T> Create<T>(float priority, bool isGlobal, Transform parent) where T : VolumeComponent, new();
+        void UnregisterPass(IPassInjector injector);
     }
 }
