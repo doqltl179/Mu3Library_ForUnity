@@ -236,16 +236,16 @@ When the following packages are installed, their features are automatically enab
 You can import the following samples from the **Samples** tab in Package Manager:
 
 Base package (**Mu3 Library**):
-- **Sample_Template**: Basic Core structure and usage examples
-- **Sample_Attribute**: ConditionalHide usage
-- **Sample_UtilWindow**: Custom editor window and utility drawer examples
+- **Template**: Basic Core structure and usage examples
+- **Attribute**: ConditionalHide usage
+- **UtilWindow**: Custom editor window and utility drawer examples
 
 URP package (**Mu3 Library URP**):
 - **ScreenEffect**: URP screen effect sample scene and supporting scripts
 
 In this repository, the base sample sources live under `Mu3Library_Base/Samples~` and the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`.
 
-**Sample_Template Key Components:**
+**Template Key Components:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales (KO/JA/EN), String Table samples
 - Resources: Prefabs and settings for MVP samples

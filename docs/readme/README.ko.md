@@ -235,16 +235,16 @@ _playerData.Health.Set(80);
 패키지 매니저의 **Samples** 탭에서 다음 샘플을 가져올 수 있습니다:
 
 Base 패키지 (**Mu3 Library**):
-- **Sample_Template**: 기본 Core 구조 및 사용 예제
-- **Sample_Attribute**: ConditionalHide 사용법
-- **Sample_UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
+- **Template**: 기본 Core 구조 및 사용 예제
+- **Attribute**: ConditionalHide 사용법
+- **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
 URP 패키지 (**Mu3 Library URP**):
 - **ScreenEffect**: URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서 확인할 수 있습니다.
 
-**Sample_Template 주요 구성:**
+**Template 주요 구성:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab 및 설정

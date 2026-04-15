@@ -106,16 +106,16 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 추가됨
 - `AddressableGroupNameExporterDrawer`: 에디터 시점에 모든 Addressable 그룹을 읽어 그룹 이름, 에셋 이름, address(key), 레이블을 중첩 C# static 클래스로 내보내는 에디터 Drawer를 추가 (`MU3LIBRARY_ADDRESSABLES_SUPPORT` 조건 컴파일).
   - `Labels` 내부 클래스에 레이블별 `const string` 필드와 함께 모든 레이블 값을 담은 `static readonly string[] All`을 제공.
-- `Sample_UtilWindow`: `AddressableGroupNameExporter` 샘플 에셋을 유틸리티 윈도우 Drawer 목록에 추가.
-- `Sample_Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
+- `UtilWindow`: `AddressableGroupNameExporter` 샘플 에셋을 유틸리티 윈도우 Drawer 목록에 추가.
+- `Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
 - `Mu3Library.Editor.asmdef`: `Unity.Addressables` 및 `Unity.Addressables.Editor` 선택적 참조와 `MU3LIBRARY_ADDRESSABLES_SUPPORT` 버전 정의를 추가.
 
 ## [0.4.2] - 2026-03-08
 
 ### 추가됨
 - `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 엔트리 키를 C# 상수로 내보내 미리 선언된 조회에 사용할 수 있는 에디터 Drawer를 추가.
-- `Sample_UtilWindow`: 유틸리티 윈도우 Drawer 목록에 `LocalizationNameExporter` 샘플 에셋을 추가.
-- `Sample_Template`: Localization 테이블/키 상수 예제로 생성된 `LocalizationTableKeys`를 추가.
+- `UtilWindow`: 유틸리티 윈도우 Drawer 목록에 `LocalizationNameExporter` 샘플 에셋을 추가.
+- `Template`: Localization 테이블/키 상수 예제로 생성된 `LocalizationTableKeys`를 추가.
 
 ### 변경됨
 - `InputSystemNameExporterDrawer` 및 `LocalizationNameExporterDrawer`: 동작 변경 없이 backing field와 캐시된 accessor를 더 쉽게 구분할 수 있도록 private serialized helper 멤버 이름을 정리.
@@ -382,7 +382,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 코드 생성 헬퍼인 `ScriptBuilder`
 
 #### 샘플
-- **Sample_Template**: 포괄적인 샘플 프로젝트
+- **Template**: 포괄적인 샘플 프로젝트
   - Sample_MVP: MVP 패턴 데모
   - Sample_Audio: 오디오 시스템 쇼케이스
   - Sample_Audio3D: 3D 공간 오디오 예제

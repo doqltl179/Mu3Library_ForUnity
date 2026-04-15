@@ -108,16 +108,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `AddressableGroupNameExporterDrawer`: Added an editor drawer (guarded by `MU3LIBRARY_ADDRESSABLES_SUPPORT`) that reads all Addressable groups at editor time and exports their group names, asset names, addresses (keys), and labels as nested C# static classes.
   - `Labels` inner class provides individual `const string` fields per label and a `static readonly string[] All` containing all label values.
-- `Sample_UtilWindow`: Added a sample `AddressableGroupNameExporter` drawer asset to the utility window drawer list.
-- `Sample_Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
+- `UtilWindow`: Added a sample `AddressableGroupNameExporter` drawer asset to the utility window drawer list.
+- `Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
 - `Mu3Library.Editor.asmdef`: Added optional references to `Unity.Addressables` and `Unity.Addressables.Editor` with `MU3LIBRARY_ADDRESSABLES_SUPPORT` version define.
 
 ## [0.4.2] - 2026-03-08
 
 ### Added
 - `LocalizationNameExporterDrawer`: Added an editor drawer that exports Localization string table names and entry keys as C# constants for pre-declared lookup.
-- `Sample_UtilWindow`: Added a sample `LocalizationNameExporter` drawer asset to the utility window drawer list.
-- `Sample_Template`: Added `LocalizationTableKeys` as a generated example for Localization table/key constants.
+- `UtilWindow`: Added a sample `LocalizationNameExporter` drawer asset to the utility window drawer list.
+- `Template`: Added `LocalizationTableKeys` as a generated example for Localization table/key constants.
 
 ### Changed
 - `InputSystemNameExporterDrawer` and `LocalizationNameExporterDrawer`: Standardized private serialized helper member naming so backing fields and cached accessors are easier to distinguish while keeping behavior unchanged.
@@ -383,7 +383,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ScriptBuilder`: Code generation helper
 
 #### Samples
-- **Sample_Template**: Comprehensive sample project
+- **Template**: Comprehensive sample project
   - Sample_MVP: MVP pattern demonstration
   - Sample_Audio: Audio system showcase
   - Sample_Audio3D: 3D spatial audio example

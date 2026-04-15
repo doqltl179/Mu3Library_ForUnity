@@ -108,16 +108,16 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 追加
 - `AddressableGroupNameExporterDrawer`: エディター上で全 Addressable グループを読み取り、グループ名・アセット名・アドレス(key)・ラベルをネストした C# static クラスとして書き出すエディタードロワーを追加（`MU3LIBRARY_ADDRESSABLES_SUPPORT` 条件付きコンパイル）。
   - `Labels` 内部クラスにラベルごとの `const string` フィールドと、全ラベル値を格納した `static readonly string[] All` を提供。
-- `Sample_UtilWindow`: ユーティリティウィンドウのドロワー一覧に `AddressableGroupNameExporter` サンプルアセットを追加。
-- `Sample_Template`: Addressable グループ/アドレス定数の生成例として `AddressableGroupKeys` を追加。
+- `UtilWindow`: ユーティリティウィンドウのドロワー一覧に `AddressableGroupNameExporter` サンプルアセットを追加。
+- `Template`: Addressable グループ/アドレス定数の生成例として `AddressableGroupKeys` を追加。
 - `Mu3Library.Editor.asmdef`: `Unity.Addressables` および `Unity.Addressables.Editor` のオプション参照と `MU3LIBRARY_ADDRESSABLES_SUPPORT` バージョン定義を追加。
 
 ## [0.4.2] - 2026-03-08
 
 ### 追加
 - `LocalizationNameExporterDrawer`: Localization の string table 名と entry key を C# 定数として書き出し、事前宣言された参照に使えるエディタドロワーを追加。
-- `Sample_UtilWindow`: ユーティリティウィンドウのドロワー一覧に `LocalizationNameExporter` サンプルアセットを追加。
-- `Sample_Template`: Localization テーブル/キー定数の生成例として `LocalizationTableKeys` を追加。
+- `UtilWindow`: ユーティリティウィンドウのドロワー一覧に `LocalizationNameExporter` サンプルアセットを追加。
+- `Template`: Localization テーブル/キー定数の生成例として `LocalizationTableKeys` を追加。
 
 ### 変更
 - `InputSystemNameExporterDrawer` と `LocalizationNameExporterDrawer`: 動作は変えずに、backing field とキャッシュ済み accessor を区別しやすいよう private serialized helper メンバー名を整理。
@@ -384,7 +384,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - コード生成ヘルパー`ScriptBuilder`
 
 #### サンプル
-- **Sample_Template**: 包括的なサンプルプロジェクト
+- **Template**: 包括的なサンプルプロジェクト
   - Sample_MVP: MVPパターンのデモ
   - Sample_Audio: オーディオシステムのショーケース
   - Sample_Audio3D: 3D空間オーディオの例

@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3library.base",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "displayName": "Mu3 Library",
     "description": "A modular architecture framework for Unity featuring custom DI (Dependency Injection), MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more. Supports optional packages like UniTask, Addressables, and Localization.",
     "unity": "6000.0",
@@ -26,19 +26,19 @@
     "dependencies": {},
     "samples": [
         {
-            "displayName": "Sample_Template",
+            "displayName": "Template",
             "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization",
-            "path": "Samples~/Sample_Template"
+            "path": "Samples~/Template"
         },
         {
-            "displayName": "Sample_Attribute",
+            "displayName": "Attribute",
             "description": "ConditionalHide attribute usage examples for Inspector customization",
-            "path": "Samples~/Sample_Attribute"
+            "path": "Samples~/Attribute"
         },
         {
-            "displayName": "Sample_UtilWindow",
+            "displayName": "UtilWindow",
             "description": "Custom Editor Window implementation examples",
-            "path": "Samples~/Sample_UtilWindow"
+            "path": "Samples~/UtilWindow"
         }
     ]
 }

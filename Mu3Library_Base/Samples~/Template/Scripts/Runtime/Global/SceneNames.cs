@@ -31,7 +31,7 @@ namespace Mu3Library.Sample.Template.Global
         public static IEnumerable<string> SampleSceneNames => _sampleSceneNames;
 
 #if UNITY_EDITOR
-        public const string SceneFolderAssetPath = "Assets/Mu3LibrarySamples/Sample_Template/Scenes/";
+        public const string SceneFolderAssetPath = "Assets/Mu3LibrarySamples/Template/Scenes/";
 
         public static string GetSceneAssetPath(string sceneName)
         {

@@ -9,10 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc1435628cb20144880f1a24e60afcd8, type: 3}
-  m_Name: SceneList
-  m_EditorClassIdentifier: 
-  _foldout: 1
+  m_Script: {fileID: 11500000, guid: 4cd5f43dc2e50d5499ac96ff61e789a3, type: 3}
+  m_Name: LocalizationCharacterCollector
+  m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.LocalizationCharacterCollectorDrawer
+  _foldout: 0
   _header1Style:
     m_Name: 
     m_Normal:
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 0, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -286,7 +286,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 1, b: 1, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,39 +348,13 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _sceneFolders:
-  - {fileID: 102900000, guid: f899c8f89cf358d4f842d3b24f540a61, type: 3}
-  - {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
-  _scenes:
-  - Folder: {fileID: 102900000, guid: f899c8f89cf358d4f842d3b24f540a61, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Template
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: 23feaabc584fd5c4ebfae0670fe81b87, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Main.unity
-    - SceneAsset: {fileID: 102900000, guid: 24159f7bd12d06848878529da7b9af90, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Addressables.unity
-    - SceneAsset: {fileID: 102900000, guid: 20742fac7db662744b7160273fce3a69, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_AddressablesAdditive.unity
-    - SceneAsset: {fileID: 102900000, guid: 495ff91d90a7cbe4196b1993308fe7c2, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Audio.unity
-    - SceneAsset: {fileID: 102900000, guid: 51908255ffc78dc48a1b81c20eb0c6cf, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Audio3D.unity
-    - SceneAsset: {fileID: 102900000, guid: 40de482f881e3244fa112c4e1efbedb5, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_IS.unity
-    - SceneAsset: {fileID: 102900000, guid: a2de1e8b884bf9749aefe8458912642b, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Localization.unity
-    - SceneAsset: {fileID: 102900000, guid: 570a335a17cde3c43b1c0a7e5927d6e8, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_MVP.unity
-    - SceneAsset: {fileID: 102900000, guid: 27a09c14db986fc43a2412d0c726d211, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_Preference.unity
-    - SceneAsset: {fileID: 102900000, guid: d20a8c93d10ddba44bbcfbf3fb450d12, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Sample_WebRequest.unity
-    - SceneAsset: {fileID: 102900000, guid: 516c7071ff169f445a7331d3508b4327, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Template/Scenes/Splash.unity
-  - Folder: {fileID: 102900000, guid: 36ea03527be0f0548a844ba1994136fd, type: 3}
-    FolderPath: Assets/Mu3LibrarySamples/Sample_Attribute
-    Foldout: 1
-    SceneAssets:
-    - SceneAsset: {fileID: 102900000, guid: 5f3ed4ffceb083f45b321458ad95a889, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Sample_Attribute/Scenes/Sample_Attribute.unity
+  _selectedTableNames: []
+  _selectedLocaleCodes:
+  - en
+  - ja
+  - ko
+  _allTablesSelected: 1
+  _allLocalesSelected: 0
+  _outputPath: Assets/Mu3LibrarySamples/UtilWindow/Scripts
+  _fileName: 
+  _customCharacters: 

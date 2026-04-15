@@ -235,16 +235,16 @@ _playerData.Health.Set(80);
 パッケージマネージャーの**Samples**タブから以下のサンプルをインポートできます:
 
 Base パッケージ (**Mu3 Library**):
-- **Sample_Template**: 基本的なCore構造と使用例
-- **Sample_Attribute**: ConditionalHideの使用方法
-- **Sample_UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
+- **Template**: 基本的なCore構造と使用例
+- **Attribute**: ConditionalHideの使用方法
+- **UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 
 URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: URP スクリーンエフェクトのサンプルシーンと補助スクリプト
 
 このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect` にあります。
 
-**Sample_Template 主要構成:**
+**Template 主要構成:**
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
 - Localization: Locales（KO/JA/EN）、String Tableサンプル
 - Resources: MVPサンプル用のPrefabと設定
