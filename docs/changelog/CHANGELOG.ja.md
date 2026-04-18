@@ -14,6 +14,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [Unreleased]
 
 ### 変更
+- `IScreenEffect` / `IScreenEffectManager`: URP ScreenEffect の契約インターフェース名を `IPassInjector` から変更し、マネージャー登録 API を `RegisterPass` / `UnregisterPass` から `RegisterEffect` / `UnregisterEffect` に整理して、現在の effect ベースのフローと公開 API 名を一致させました。
+- `ScreenEffectBase` / `ScreenPassBase`: カスタム URP ScreenEffect と Pass 実装向けの共通基底クラスを追加し、active 状態、dispose、pass 生成、shader/material のライフサイクル管理を共通化しました。
 - `ScreenEffectManager` / `IScreenEffectManager`: URP の ScreenEffect パス登録クラスとインターフェース名を、現在の責務に合わせて `PostVolumeManager` / `IPostVolumeManager` から改名。Unity Volume ベースの責務を表さなくなったため。
 
 ### 修正

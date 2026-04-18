@@ -282,9 +282,9 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 최신 Base 패키지 버전: `0.8.0`
-- 최신 URP 패키지 버전: `0.1.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- 미출시 변경사항과 URP `ScreenEffect` 샘플 manifest 업데이트는 `CHANGELOG.md`를 참고하세요.
+- 최신 Base 패키지 버전: `0.9.0`
+- 최신 URP 패키지 버전: `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- 미출시 변경사항과 URP `ScreenEffect` API 구조 개편, 샘플 manifest 업데이트는 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
 
@@ -304,7 +304,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.8.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
 
 Unity 개발자를 위해 제작됨

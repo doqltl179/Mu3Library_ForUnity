@@ -283,9 +283,9 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Latest released base package: `0.8.0`
-- Latest released URP package: `0.1.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- See `CHANGELOG.md` for unreleased changes, including the URP `ScreenEffect` sample manifest update.
+- Latest released base package: `0.9.0`
+- Latest released URP package: `0.1.2` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- See `CHANGELOG.md` for unreleased changes, including the URP `ScreenEffect` API restructure and sample manifest update.
 
 ## 🤝 Contributing
 
@@ -305,7 +305,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.8.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.2` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
 
 Made with ❤️ for Unity Developers

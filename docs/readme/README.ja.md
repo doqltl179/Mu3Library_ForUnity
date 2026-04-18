@@ -282,9 +282,9 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- 最新の Base パッケージ版: `0.8.0`
-- 最新の URP パッケージ版: `0.1.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
-- 未リリースの変更と URP `ScreenEffect` サンプル manifest 更新は `CHANGELOG.md` を参照してください。
+- 最新の Base パッケージ版: `0.9.0`
+- 最新の URP パッケージ版: `0.1.2`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
+- 未リリースの変更と URP `ScreenEffect` API 再構成、サンプル manifest 更新は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
 
@@ -304,7 +304,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.8.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
+- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.2`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
 
 Unity開発者のために制作
