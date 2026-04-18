@@ -13,12 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ShakeEffect` / `ShakePass`: Added `SetPeriod(float period)` so the URP shake screen effect can control the shake loop duration independently from amplitude.
+
 ### Changed
 - `IScreenEffect` / `IScreenEffectManager`: Renamed the URP screen-effect contract from `IPassInjector`, and renamed the manager registration APIs from `RegisterPass` / `UnregisterPass` to `RegisterEffect` / `UnregisterEffect` so the public API matches the current effect-based flow.
 - `ScreenEffectBase` / `ScreenPassBase`: Added reusable base classes for custom URP screen effects and passes, centralising active-state, disposal, pass creation, and shader/material lifecycle management.
 - `ScreenEffectManager` / `IScreenEffectManager`: Renamed the URP screen-effect pass registry class and interface from `PostVolumeManager` / `IPostVolumeManager` so their names reflect the current non-Volume-based responsibility.
 
 ### Fixed
+- `ShakeEffect` / `ShakePass`: Changing `SetPeriod(float period)` now preserves the current shake position instead of jumping to a different offset mid-animation.
 - `Mu3Library_URP/package.json`: Published the `ScreenEffect` sample through the package manifest so it is discoverable from the Unity Package Manager.
 
 ## [0.8.0] - 2026-04-05

@@ -10,7 +10,9 @@ namespace Mu3Library.URP.ScreenEffect.Effects.Grayscale
     {
         protected override string _shaderPath => "Hidden/Mu3Library/Grayscale";
 
-        private ClampedFloatParameter _weight = new ClampedFloatParameter(1f, 0f, 1f);
+        public static float WeightMin => 0f;
+        public static float WeightMax => 1f;
+        private ClampedFloatParameter _weight = new ClampedFloatParameter(1f, WeightMin, WeightMax);
 
         private static readonly int WeightId = Shader.PropertyToID("_Weight");
 

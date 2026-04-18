@@ -13,12 +13,16 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `ShakeEffect` / `ShakePass`: URP の shake screen effect で振幅とは独立してループ周期を制御できるよう、`SetPeriod(float period)` を追加。
+
 ### 変更
 - `IScreenEffect` / `IScreenEffectManager`: URP ScreenEffect の契約インターフェース名を `IPassInjector` から変更し、マネージャー登録 API を `RegisterPass` / `UnregisterPass` から `RegisterEffect` / `UnregisterEffect` に整理して、現在の effect ベースのフローと公開 API 名を一致させました。
 - `ScreenEffectBase` / `ScreenPassBase`: カスタム URP ScreenEffect と Pass 実装向けの共通基底クラスを追加し、active 状態、dispose、pass 生成、shader/material のライフサイクル管理を共通化しました。
 - `ScreenEffectManager` / `IScreenEffectManager`: URP の ScreenEffect パス登録クラスとインターフェース名を、現在の責務に合わせて `PostVolumeManager` / `IPostVolumeManager` から改名。Unity Volume ベースの責務を表さなくなったため。
 
 ### 修正
+- `ShakeEffect` / `ShakePass`: `SetPeriod(float period)` の変更時にアニメーション途中で揺れ位置が別オフセットへ跳ばないよう、現在の位相を維持するよう修正。
 - `Mu3Library_URP/package.json`: `ScreenEffect` サンプルをパッケージ manifest の `samples` 一覧に公開し、Unity Package Manager から検出およびインポートできるよう修正。
 
 ## [0.8.0] - 2026-04-05

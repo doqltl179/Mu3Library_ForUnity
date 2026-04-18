@@ -1,4 +1,5 @@
 using Mu3Library.URP.ScreenEffect.Effects.Grayscale;
+using UnityEngine;
 
 namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
 {
@@ -11,13 +12,13 @@ namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
         {
             base.OnInit();
 
-            _effect.SetWeight(0f);
+            SetValueWeight(0f);
         }
 
         #region UI Event
         public void SetValueWeight(float value)
         {
-            _effect?.SetWeight(value);
+            _effect?.SetWeight(Mathf.Lerp(GrayscalePass.WeightMin, GrayscalePass.WeightMax, value));
         }
         #endregion
     }

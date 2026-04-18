@@ -18,13 +18,16 @@
 
             float _Weight;
             float _Amplitude;
+            float _Period;
+            float _ElapsedTime;
+            float _PhaseOffset;
 
             half4 Frag(Varyings input) : SV_Target
             {
-                float t = _Time.y;
+                float phase = TWO_PI * (_ElapsedTime / max(_Period, 0.0001)) + _PhaseOffset;
                 float2 shake = float2(
-                sin(t * 37.3 + 1.5) * cos(t * 19.7),
-                cos(t * 23.1 + 2.7) * sin(t * 41.3));
+                sin(phase + 1.5) * cos(phase * 2.0),
+                cos(phase * 3.0 + 2.7) * sin(phase * 2.0));
                 float2 uv = clamp(input.texcoord + shake * _Amplitude * _Weight, 0.0, 1.0);
                 return SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
             }

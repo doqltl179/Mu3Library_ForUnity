@@ -15,5 +15,7 @@ namespace Mu3Library.URP.ScreenEffect.Effects.Shake
         public void SetWeight(float weight) => _pass.SetWeight(weight);
 
         public void SetAmplitude(float amplitude) => _pass.SetAmplitude(amplitude);
+
+        public void SetPeriod(float period) => _pass.SetPeriod(period);
     }
 }
