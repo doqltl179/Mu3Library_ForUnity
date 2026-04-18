@@ -4,33 +4,32 @@ using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Rendering.Universal;
 
-namespace Mu3Library.URP.ScreenEffect
+namespace Mu3Library.URP.ScreenEffect.Effects.Shake
 {
-    public class ShakePass : ScriptableRenderPass
+    public class ShakePass : ScreenPassBase
     {
-        private readonly Material _material;
-        private float _weight;
-        private float _amplitude;
+        protected override string _shaderPath => "Hidden/Mu3Library/Shake";
+
+        private ClampedFloatParameter _weight = new ClampedFloatParameter(1f, 0f, 1f);
+        private ClampedFloatParameter _amplitude = new ClampedFloatParameter(0.1f, 0f, 0.1f);
 
         private static readonly int WeightId = Shader.PropertyToID("_Weight");
         private static readonly int AmplitudeId = Shader.PropertyToID("_Amplitude");
 
 
 
-        public ShakePass(Material material)
+        public ShakePass()
         {
-            _material = material;
             requiresIntermediateTexture = true;
-        }
-
-        public void Setup(float weight, float amplitude)
-        {
-            _weight = weight;
-            _amplitude = amplitude;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            if (_material == null)
+            {
+                return;
+            }
+
             var resourceData = frameData.Get<UniversalResourceData>();
             if (resourceData.isActiveTargetBackBuffer)
             {
@@ -45,13 +44,17 @@ namespace Mu3Library.URP.ScreenEffect
 
             TextureHandle destination = renderGraph.CreateTexture(destinationDesc);
 
-            _material.SetFloat(WeightId, _weight);
-            _material.SetFloat(AmplitudeId, _amplitude);
+            _material.SetFloat(WeightId, _weight.value);
+            _material.SetFloat(AmplitudeId, _amplitude.value);
 
             RenderGraphUtils.BlitMaterialParameters para = new(source, destination, _material, 0);
             renderGraph.AddBlitPass(para, passName: "Shake");
 
             resourceData.cameraColor = destination;
         }
+
+        public void SetWeight(float weight) => _weight.value = weight;
+
+        public void SetAmplitude(float amplitude) => _amplitude.value = amplitude;
     }
 }

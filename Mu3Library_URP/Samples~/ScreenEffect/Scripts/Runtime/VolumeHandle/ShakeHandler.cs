@@ -1,12 +1,18 @@
-using Mu3Library.URP.ScreenEffect;
+using Mu3Library.URP.ScreenEffect.Effects.Shake;
 
 namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
 {
-    public class ShakeHandler : PostVolumeHandler<ShakeEffect>
+    public class ShakeHandler : ScreenEffectHandler<ShakeEffect>
     {
-        protected override void OnSetActive(bool active)
+
+
+
+        protected override void OnInit()
         {
-            _effect?.SetActive(active);
+            base.OnInit();
+
+            _effect.SetWeight(0f);
+            _effect.SetAmplitude(0f);
         }
 
         #region UI Event

@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3library.urp",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "displayName": "Mu3 Library URP",
     "description": "URP (Universal Render Pipeline) extensions for Mu3Library. Requires com.github.doqltl179.mu3library.base and com.unity.render-pipelines.universal.",
     "unity": "6000.0",

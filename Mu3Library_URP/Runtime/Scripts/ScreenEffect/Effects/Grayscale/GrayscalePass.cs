@@ -4,27 +4,30 @@ using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Rendering.Universal;
 
-namespace Mu3Library.URP.ScreenEffect
+namespace Mu3Library.URP.ScreenEffect.Effects.Grayscale
 {
-    public class GrayscalePass : ScriptableRenderPass
+    public class GrayscalePass : ScreenPassBase
     {
-        private readonly Material _material;
-        private float _weight;
+        protected override string _shaderPath => "Hidden/Mu3Library/Grayscale";
+
+        private ClampedFloatParameter _weight = new ClampedFloatParameter(1f, 0f, 1f);
 
         private static readonly int WeightId = Shader.PropertyToID("_Weight");
 
 
 
-        public GrayscalePass(Material material)
+        public GrayscalePass()
         {
-            _material = material;
             requiresIntermediateTexture = true;
         }
 
-        public void Setup(float weight) => _weight = weight;
-
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            if (_material == null)
+            {
+                return;
+            }
+
             var resourceData = frameData.Get<UniversalResourceData>();
             if (resourceData.isActiveTargetBackBuffer)
             {
@@ -39,12 +42,14 @@ namespace Mu3Library.URP.ScreenEffect
 
             TextureHandle destination = renderGraph.CreateTexture(destinationDesc);
 
-            _material.SetFloat(WeightId, _weight);
+            _material.SetFloat(WeightId, _weight.value);
 
             RenderGraphUtils.BlitMaterialParameters para = new(source, destination, _material, 0);
             renderGraph.AddBlitPass(para, passName: "Grayscale");
 
             resourceData.cameraColor = destination;
         }
+
+        public void SetWeight(float weight) => _weight.value = weight;
     }
 }

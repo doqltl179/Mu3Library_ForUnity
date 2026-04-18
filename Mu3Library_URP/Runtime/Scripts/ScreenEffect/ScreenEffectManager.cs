@@ -8,42 +8,98 @@ namespace Mu3Library.URP.ScreenEffect
 {
     public class ScreenEffectManager : IScreenEffectManager
     {
-        private struct PassEntry
+        private struct EffectEntry
         {
-            public IPassInjector Injector;
+            public IScreenEffect Effect;
             public Func<Camera, bool> Filter;
         }
 
-        private readonly List<PassEntry> _injectors = new List<PassEntry>();
+        private readonly List<EffectEntry> _effects = new List<EffectEntry>();
 
 
 
-        public void RegisterPass(IPassInjector injector, Func<Camera, bool> cameraFilter = null)
+        public IScreenEffect RegisterEffect<TEffect>(Func<Camera, bool> cameraFilter = null) where TEffect : IScreenEffect, new()
         {
-            if (_injectors.Exists(e => e.Injector == injector))
-            {
-                return;
-            }
+            TEffect effect = new();
+            RegisterEffect(effect, cameraFilter);
 
-            if (_injectors.Count == 0)
+            return effect;
+        }
+
+        public void RegisterEffect(IScreenEffect effect, Func<Camera, bool> cameraFilter = null)
+        {
+            if (_effects.Count == 0)
             {
                 RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
             }
 
-            _injectors.Add(new PassEntry { Injector = injector, Filter = cameraFilter });
+            _effects.Add(new EffectEntry { Effect = effect, Filter = cameraFilter });
         }
 
-        public void UnregisterPass(IPassInjector injector)
+        public void UnregisterEffect(IScreenEffect effect)
+            => UnregisterEffect(effect, false);
+
+        public void UnregisterEffect(IScreenEffect effect, bool dispose)
         {
-            int index = _injectors.FindIndex(e => e.Injector == injector);
-            if (index < 0)
+            if (effect == null)
             {
                 return;
             }
 
-            _injectors.RemoveAt(index);
+            var entry = _effects.Find(t => t.Effect == effect);
+            if (entry.Effect == null)
+            {
+                return;
+            }
 
-            if (_injectors.Count == 0)
+            _effects.Remove(entry);
+
+            if (dispose)
+            {
+                entry.Effect.Dispose();
+            }
+
+            if (_effects.Count == 0)
+            {
+                RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+            }
+        }
+
+        public void UnregisterEffectAll<TEffect>() where TEffect : IScreenEffect
+            => UnregisterEffectAll(typeof(TEffect), false);
+
+        public void UnregisterEffectAll<TEffect>(bool dispose) where TEffect : IScreenEffect
+            => UnregisterEffectAll(typeof(TEffect), dispose);
+
+        public void UnregisterEffectAll(Type effectType)
+            => UnregisterEffectAll(effectType, false);
+
+        public void UnregisterEffectAll(Type effectType, bool dispose)
+        {
+            if (effectType == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _effects.Count; i++)
+            {
+                var entry = _effects[i];
+                var effect = entry.Effect;
+                if (effect == null || effect.PassType != effectType)
+                {
+                    continue;
+                }
+
+                _effects.RemoveAt(i);
+                i--;
+
+                if (dispose)
+                {
+                    effect.Dispose();
+                }
+            }
+
+            if (_effects.Count == 0)
             {
                 RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
             }
@@ -66,17 +122,14 @@ namespace Mu3Library.URP.ScreenEffect
             }
 
             var renderer = additionalData.scriptableRenderer;
-            foreach (var entry in _injectors)
+            foreach (var entry in _effects)
             {
                 if (entry.Filter != null && !entry.Filter(camera))
                 {
                     continue;
                 }
 
-                if (entry.Injector.TrySetup())
-                {
-                    renderer.EnqueuePass(entry.Injector.Pass);
-                }
+                entry.Effect.RequestEnqueuePass(renderer, context);
             }
         }
     }

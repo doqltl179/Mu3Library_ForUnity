@@ -1,12 +1,17 @@
-using Mu3Library.URP.ScreenEffect;
+using Mu3Library.URP.ScreenEffect.Effects.Grayscale;
 
 namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
 {
-    public class GrayscaleHandler : PostVolumeHandler<GrayscaleEffect>
+    public class GrayscaleHandler : ScreenEffectHandler<GrayscaleEffect>
     {
-        protected override void OnSetActive(bool active)
+
+
+
+        protected override void OnInit()
         {
-            _effect?.SetActive(active);
+            base.OnInit();
+
+            _effect.SetWeight(0f);
         }
 
         #region UI Event

@@ -17,6 +17,8 @@ namespace Mu3Library.URP.Sample.ScreenEffect.Util
         private void Start()
         {
             _slider.onValueChanged.AddListener(OnValueChanged);
+
+            OnValueChanged(_slider.value);
         }
 
         private void OnDestroy()

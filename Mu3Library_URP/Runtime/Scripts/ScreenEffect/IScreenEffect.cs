@@ -1,4 +1,5 @@
 using System;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Mu3Library.URP.ScreenEffect
@@ -15,14 +16,18 @@ namespace Mu3Library.URP.ScreenEffect
     /// <br/> - <b>AfterRenderingPostProcessing</b>: URP 내장 포스트프로세싱 완료 후 (전체 화면 효과에 권장)
     /// <br/> - <b>AfterRendering</b>: 모든 렌더링 완료 후, UI Camera Overlay 포함
     /// </summary>
-    public interface IPassInjector : IDisposable
+    public interface IScreenEffect : IDisposable
     {
-        ScriptableRenderPass Pass { get; }
+        public Type PassType { get; }
 
-        /// <summary>
-        /// 볼륨 상태를 확인하고 패스에 파라미터를 설정합니다.
-        /// </summary>
-        /// <returns>패스를 이번 프레임에 등록해야 하면 true, 건너뛰어야 하면 false.</returns>
-        bool TrySetup();
+        public bool ActiveSelf { get; }
+        public bool IsDisposed { get; }
+
+
+
+        public void RequestEnqueuePass(ScriptableRenderer renderer, ScriptableRenderContext context);
+
+        public void SetActive(bool active);
+        public void SetRenderPassEvent(RenderPassEvent renderPassEvent);
     }
 }

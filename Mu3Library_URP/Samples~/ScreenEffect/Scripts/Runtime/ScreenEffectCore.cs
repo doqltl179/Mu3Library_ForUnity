@@ -2,6 +2,7 @@ using Mu3Library.DI;
 using Mu3Library.URP.Sample.ScreenEffect.VolumeHandle;
 using Mu3Library.URP.ScreenEffect;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Mu3Library.URP.Sample.ScreenEffect
 {
@@ -13,11 +14,11 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         [SerializeField] private Camera _mainCamera;
 
         [Space(20)]
+        [SerializeField] private ToggleGroup _toggleItemGroup;
+
+        [Space(20)]
         [SerializeField] private GrayscaleHandler _grayscaleHandler;
         [SerializeField] private ShakeHandler _shakeHandler;
-
-        private GrayscaleEffect _grayscaleEffect;
-        private ShakeEffect _shakeEffect;
 
 
 
@@ -30,28 +31,23 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         {
             base.Start();
 
-            _grayscaleEffect = new GrayscaleEffect();
-            _shakeEffect = new ShakeEffect();
+            _grayscaleHandler.Context(_screenEffectManager, _mainCamera);
+            _shakeHandler.Context(_screenEffectManager, _mainCamera);
 
-            _grayscaleHandler.Init(_grayscaleEffect);
-            _shakeHandler.Init(_shakeEffect);
+            _grayscaleHandler.Init();
+            _shakeHandler.Init();
 
-            _screenEffectManager.RegisterPass(_grayscaleEffect, CameraFilter);
-            _screenEffectManager.RegisterPass(_shakeEffect, CameraFilter);
+            _grayscaleHandler.RegisterEffect();
+            _shakeHandler.RegisterEffect();
+
+            _toggleItemGroup.ActiveToggles();
+            _toggleItemGroup.SetAllTogglesOff();
         }
 
         protected override void OnDestroy()
         {
-            _screenEffectManager?.UnregisterPass(_grayscaleEffect);
-            _screenEffectManager?.UnregisterPass(_shakeEffect);
-
-            _grayscaleEffect?.Dispose();
-            _shakeEffect?.Dispose();
-        }
-
-        private bool CameraFilter(Camera cam)
-        {
-            return _mainCamera == null || cam == _mainCamera;
+            _grayscaleHandler.UnregisterEffect(true);
+            _shakeHandler.UnregisterEffect(true);
         }
     }
 }
