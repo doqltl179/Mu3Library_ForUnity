@@ -16,7 +16,7 @@ namespace Mu3Library.Localization
         public void Initialize(Action callback = null);
         public void InitializeWithResult(Action<bool, string> callback);
 
-        public void GetStringAsync(string tableName, string key, Action<string> callback);
+        public void GetString(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);
         /// <summary>
         /// `EntryData` can be obtained from the generated code by LocalizationDataExporter.
