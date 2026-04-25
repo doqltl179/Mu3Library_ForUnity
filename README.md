@@ -241,7 +241,7 @@ Base package (**Mu3 Library**):
 - **UtilWindow**: Custom editor window and utility drawer examples
 
 URP package (**Mu3 Library URP**):
-- **ScreenEffect**: URP screen effect sample scene and supporting scripts
+- **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
 
 In this repository, the base sample sources live under `Mu3Library_Base/Samples~` and the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`.
 
@@ -285,7 +285,7 @@ protected override void Start()
 
 - Latest released base package: `0.9.0`
 - Latest released URP package: `0.1.2` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- See `CHANGELOG.md` for unreleased changes, including the URP `ScreenEffect` API restructure and sample manifest update.
+- See `CHANGELOG.md` for unreleased changes, including the expanded URP `ScreenEffect` handler set and the earlier toon effect addition.
 
 ## 🤝 Contributing
 

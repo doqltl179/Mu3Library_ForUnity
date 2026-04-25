@@ -16,6 +16,7 @@ This directory is the human-facing map for the Mu3Library multi-agent framework.
 - `agent-catalog.md`: current and planned agent inventory, including boundary notes.
 - `handoff-contract.md`: structured handoff packet format, memory routing, and review-aware state transitions.
 - `workflow-assets.md`: reusable skills, prompts, hooks, and scripts that support framework execution without adding new owners.
+- `unity-yaml-guide.md`: verified workflow for direct Unity scene and prefab YAML edits, including ScreenEffect sample anchors and validation rules.
 
 Related tooling:
 
@@ -54,3 +55,5 @@ This framework intentionally combines:
 - CLI conventions that start small and scale through subcommands.
 
 Those patterns were chosen because they map well to Mu3Library's package-first Unity workflow.
+
+For Unity scene and prefab wiring work, consult `unity-yaml-guide.md` before editing YAML directly and update it whenever a new reliable pattern is verified.

@@ -15,11 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `ShakeEffect` / `ShakePass`: Added `SetPeriod(float period)` so the URP shake screen effect can control the shake loop duration independently from amplitude.
+- `GaussianBlurEffect` / `GaussianBlurPass`: Added a new URP full-screen gaussian blur effect with matching pass and shader implementation.
+- `DepthOutlineEffect` / `DepthOutlinePass`: Added `SetOutlineThickness(float outlineThickness)` plus a matching sample slider so depth-based outlines can be widened without changing the threshold.
 
 ### Changed
 - `IScreenEffect` / `IScreenEffectManager`: Renamed the URP screen-effect contract from `IPassInjector`, and renamed the manager registration APIs from `RegisterPass` / `UnregisterPass` to `RegisterEffect` / `UnregisterEffect` so the public API matches the current effect-based flow.
 - `ScreenEffectBase` / `ScreenPassBase`: Added reusable base classes for custom URP screen effects and passes, centralising active-state, disposal, pass creation, and shader/material lifecycle management.
 - `ScreenEffectManager` / `IScreenEffectManager`: Renamed the URP screen-effect pass registry class and interface from `PostVolumeManager` / `IPostVolumeManager` so their names reflect the current non-Volume-based responsibility.
+- `ScreenEffect` sample: Kept `ScreenEffectCore` on the existing handler-driven setup flow and added matching sample handler scripts so effects follow the same integration pattern as grayscale, shake, gaussian blur, and depth outline.
+- `GaussianBlurEffect` / `GaussianBlurPass`: Finalised the canonical gaussian blur naming for the full-screen blur API surface, sample handler, serialized sample field, and sample scene object names, with `Blur Radius` as the public control. If you adopted an earlier unreleased blur prototype from this branch, migrate it to `GaussianBlur*`.
 
 ### Fixed
 - `ShakeEffect` / `ShakePass`: Changing `SetPeriod(float period)` now preserves the current shake position instead of jumping to a different offset mid-animation.

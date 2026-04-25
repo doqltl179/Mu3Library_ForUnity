@@ -8,7 +8,7 @@ This document maps the reusable workflow entrypoints that support the Mu3Library
 
 | Type | Artifact | Purpose |
 |---|---|---|
-| Skill | `.github/skills/unity-compile-gate/SKILL.md` | Compile-only verification workflow that waits for completion before the next unit proceeds |
+| Skill | `.github/skills/unity-compile-gate/SKILL.md` | Batch Unity compile-only verification workflow for editor-closed runs that waits for completion before the next unit proceeds |
 | Prompt | `.github/prompts/compile-unity.prompt.md` | Chat entrypoint for synchronous compile-only verification |
 | Prompt | `.github/prompts/framework-next-unit.prompt.md` | Chat entrypoint for the bounded work -> review -> continue or rework loop |
 | Hook | `.github/hooks/compile-gate.json` | Blocks the next prompt while a compile is still running or until a failed compile result is triaged |
@@ -19,7 +19,8 @@ This document maps the reusable workflow entrypoints that support the Mu3Library
 ## Compile-Only Gate
 
 - The compile gate is compile-only by design. It does not imply or run tests.
-- The gate is considered open only after `tasks/compile-status.json` leaves `running`, and failed results must be triaged before the next unit proceeds.
+- When the target Unity editor is already open, prefer editor-safe `dotnet build` on the affected generated Unity `.csproj` files instead of starting the batch gate.
+- The batch gate is considered open only after `tasks/compile-status.json` leaves `running`, and batch-gate failures must be triaged before the next unit proceeds.
 - By default, compile logs are written under `log/compile-gate/` so they can be reviewed or removed locally without polluting the repository root.
 - If the target Unity project is already open in an interactive editor instance, the runner fails early with an explicit error instead of attempting a second batch instance.
 - If the tracked compile process disappears while the status file still says `running`, the hook converts that stale state to `failed-stale` and blocks the current prompt so triage happens before the next unit continues.

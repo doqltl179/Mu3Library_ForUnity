@@ -14,7 +14,13 @@ Run compile-only verification for Mu3Library without adding test ownership.
 - compile verification is requested but tests are explicitly out of scope,
 - the next framework unit must wait for compile completion,
 - a change touches Unity runtime, editor, sample, or package surfaces and needs compile evidence,
-- you need a repeatable compile workflow for `UnityProject_BuiltIn` or `UnityProject_URP`.
+- you need a repeatable batch Unity compile workflow for `UnityProject_BuiltIn` or `UnityProject_URP` while the target editor is closed.
+
+## Prefer A Different Path When
+
+- the target Unity project is already open in an interactive editor instance,
+- editor-safe C# assembly verification is sufficient for the current unit,
+- the current need is to validate affected generated Unity `.csproj` files via `dotnet build` instead of starting a second Unity process.
 
 ## Workflow
 
@@ -29,6 +35,7 @@ Run compile-only verification for Mu3Library without adding test ownership.
 - This workflow is compile-only. Do not add or imply test execution.
 - Do not continue to the next task while `tasks/compile-status.json` reports `running`.
 - Close any interactive Unity editor already open for the same target project before running the batch compile gate.
+- If the editor is already open, do not force this workflow through failure triage just to collect routine verification. Use editor-safe `dotnet build` verification instead unless batch Unity compile evidence is explicitly required.
 - Treat compile verification as evidence for `reviewer`, not as a substitute for reviewer approval.
 
 ## Output Expectations

@@ -15,15 +15,20 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - `ShakeEffect` / `ShakePass`: URP の shake screen effect で振幅とは独立してループ周期を制御できるよう、`SetPeriod(float period)` を追加。
+- `GaussianBlurEffect` / `GaussianBlurPass`: 対応する pass と shader 実装を含む新しい URP フルスクリーン gaussian blur effect を追加。
+- `DepthOutlineEffect` / `DepthOutlinePass`: threshold を変えずに depth ベースの outline を太くできるよう、`SetOutlineThickness(float outlineThickness)` と対応するサンプル slider を追加。
 
 ### 変更
 - `IScreenEffect` / `IScreenEffectManager`: URP ScreenEffect の契約インターフェース名を `IPassInjector` から変更し、マネージャー登録 API を `RegisterPass` / `UnregisterPass` から `RegisterEffect` / `UnregisterEffect` に整理して、現在の effect ベースのフローと公開 API 名を一致させました。
 - `ScreenEffectBase` / `ScreenPassBase`: カスタム URP ScreenEffect と Pass 実装向けの共通基底クラスを追加し、active 状態、dispose、pass 生成、shader/material のライフサイクル管理を共通化しました。
 - `ScreenEffectManager` / `IScreenEffectManager`: URP の ScreenEffect パス登録クラスとインターフェース名を、現在の責務に合わせて `PostVolumeManager` / `IPostVolumeManager` から改名。Unity Volume ベースの責務を表さなくなったため。
+- `ScreenEffect` サンプル: `ScreenEffectCore` を既存の handler 中心セットアップのまま維持し、grayscale / shake / gaussian blur / depth outline と同じ統合パターンで effect を追加できるよう、対応する sample handler スクリプトを追加。
+- `GaussianBlurEffect` / `GaussianBlurPass`: フルスクリーン blur API surface、sample handler、serialized sample field、sample scene object 名を正式な gaussian blur 命名へ確定し、公開調整項目も `Blur Radius` に統一。もしこのブランチ上の未リリース blur プロトタイプを採用していた場合は `GaussianBlur*` へ移行が必要。
 
 ### 修正
 - `ShakeEffect` / `ShakePass`: `SetPeriod(float period)` の変更時にアニメーション途中で揺れ位置が別オフセットへ跳ばないよう、現在の位相を維持するよう修正。
 - `Mu3Library_URP/package.json`: `ScreenEffect` サンプルをパッケージ manifest の `samples` 一覧に公開し、Unity Package Manager から検出およびインポートできるよう修正。
+
 
 ## [0.8.0] - 2026-04-05
 

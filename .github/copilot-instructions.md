@@ -71,9 +71,10 @@ Workspace skills:
 - For multi-step work, provide a short plan, progress updates, and a final verification summary.
 - For agent-framework changes, work in one bounded unit at a time and route the structural suitability review through the role-governor before continuing.
 - For memory-routing or handoff changes, keep `.github/instructions/memory-policy.instructions.md` as the operative rule and use `docs/ai-agents/handoff-contract.md` as the human-facing contract reference.
+- For direct Unity scene or prefab YAML edits, consult `docs/ai-agents/unity-yaml-guide.md` first, prefer cloning verified local subtrees over inventing raw YAML by hand, and update that guide when a new reliable pattern or failure mode is confirmed.
 - For multilingual `README` or `CHANGELOG` work, prefer `docs-sync` for synchronization and keep release execution separate.
 - For release, versioning, tagging, branch sync, or GitHub Release execution, prefer `release-manager` and keep `docs-sync` plus `reviewer` as adjacent gates.
 - For Unity-domain routing, prefer the narrowest owner first: `unity-runtime` for non-gated runtime work, `unity-editor` for non-gated editor work, `package-integration` for define-gated optional packages, `sample-integrity` for sample-only package work, sample manifests, imported sample footprints, and sample smoke checks, and `unity` only for truly cross-boundary Unity tasks.
-- For compile-only verification, use `unity-compile-gate`, wait until compile completion is recorded, and do not proceed to the next unit while the compile gate still reports `running`.
+- For compile-only verification, prefer editor-safe `dotnet build` of the affected generated Unity `.csproj` files when the target Unity editor is open. Use `unity-compile-gate` only when the editor is closed and batch Unity compile evidence is specifically needed; if a batch compile is started, wait until completion is recorded before continuing.
 - Keep implementation incremental and verifiable.
 - If a required tool is unavailable, continue with an equivalent fallback and report it briefly.

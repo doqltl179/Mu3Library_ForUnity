@@ -240,7 +240,7 @@ Base 패키지 (**Mu3 Library**):
 - **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
 URP 패키지 (**Mu3 Library URP**):
-- **ScreenEffect**: URP 스크린 이펙트 샘플 씬 및 보조 스크립트
+- **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서 확인할 수 있습니다.
 
@@ -284,7 +284,7 @@ protected override void Start()
 
 - 최신 Base 패키지 버전: `0.9.0`
 - 최신 URP 패키지 버전: `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- 미출시 변경사항과 URP `ScreenEffect` API 구조 개편, 샘플 manifest 업데이트는 `CHANGELOG.md`를 참고하세요.
+- 최신 URP `ScreenEffect` 변경사항을 포함한 미출시 변경사항은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
 
