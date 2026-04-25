@@ -6,27 +6,86 @@ description: "Release and versioning rules for Mu3Library package changes"
 
 ## Versioning
 
-- Change `Mu3Library_Base/package.json` version only when requested or when preparing a release.
-- Use semantic versioning intent:
-  - Patch: backward-compatible fixes.
-  - Minor: backward-compatible features.
-  - Major: breaking changes.
+This repository is a monorepo containing two independent UPM packages:
+- **Base** (`Mu3Library_Base/`) — core library.
+- **URP** (`Mu3Library_URP/`) — URP extension, depends on Base.
 
-## Changelog
+Each package has its own version number and must be released independently.
 
-When user-facing behavior or API changes:
+- Change `Mu3Library_Base/package.json` version only for Base releases.
+- Change `Mu3Library_URP/package.json` version only for URP releases.
+- Both packages may be released from the same commit when both change simultaneously.
+
+## Tag Naming Convention
+
+Tags use a `<package>/<version>` prefix to scope each release:
+
+| Package | Tag format | Example |
+|---------|------------|---------|
+| Base | `base/vX.Y.Z` | `base/v0.10.0` |
+| URP | `urp/vX.Y.Z` | `urp/v0.1.2` |
+
+> **Legacy tags** (`v0.0.20`–`v0.6.0`) used the plain `vX.Y.Z` format and are kept as-is for historical URLs.
+
+### Creating tags
+
+```sh
+# Base only
+git tag base/v0.10.0
+git push origin base/v0.10.0
+
+# URP only
+git tag urp/v0.1.2
+git push origin urp/v0.1.2
+
+# Both at once (same commit)
+git tag base/v0.10.0
+git tag urp/v0.1.2
+git push origin base/v0.10.0 urp/v0.1.2
+```
+
+## UPM Installation URLs
+
+Users install each package via `?path=` and `#<tag>`:
+
+```
+# Base
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.10.0
+
+# URP
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.2
+```
+
+Update these URLs in `README.md` (and localized variants) whenever a new release tag is created.
+
+## Semantic Versioning Rules
+
+- Patch: backward-compatible fixes.
+- Minor: backward-compatible features.
+- Major: breaking changes.
+
+
 - Update `CHANGELOG.md`.
+- Each entry must appear under the correct package section header:
+  - `## [base/X.Y.Z] - YYYY-MM-DD` for Base changes.
+  - `## [urp/X.Y.Z] - YYYY-MM-DD` for URP changes.
 - Apply `.github/instructions/docs-sync.instructions.md` so localized changelog files stay synchronized in the same task unless the user explicitly requests otherwise.
 
 ## Release Checklist
 
-1. Version updated intentionally.
-2. Changelog entries included.
-3. Reviewer gate completed for release-sensitive surfaces.
-4. Public API compatibility checked.
-5. Optional integration gates validated.
-6. Basic compile/verification completed or gaps reported.
-7. **GitHub Release created** (see below — a git tag alone is NOT a release).
+Run this checklist **per package** being released:
+
+1. Package version updated in `package.json`.
+2. CHANGELOG entry present under the correct `[base/X.Y.Z]` or `[urp/X.Y.Z]` header.
+3. Localized changelogs synchronized (EN/KO/JA).
+4. Reviewer gate completed for release-sensitive surfaces.
+5. Public API compatibility checked.
+6. Optional integration gates validated.
+7. Basic compile/verification completed or gaps reported.
+8. Commit changes → merge to `main`.
+9. **Git tag created** with the correct prefix (`base/vX.Y.Z` or `urp/vX.Y.Z`).
+10. Tag pushed to remote.
+11. **GitHub Release created** (see below — a git tag alone is NOT a release).
 
 ## Git Tag vs GitHub Release
 
@@ -57,8 +116,11 @@ gh release create <tag> --title "<title>" --notes-file <path-to-notes-file>
 ### Example for a new version
 
 ```sh
-# Write to temp file first (example path)
-gh release create v0.3.0 --title "v0.3.0" --notes-file "Temp\release_notes_v0.3.0.md"
+# Base
+gh release create base/v0.10.0 --title "[Base] v0.10.0" --notes-file "Temp\release_notes_base_v0.10.0.md"
+
+# URP
+gh release create urp/v0.1.2 --title "[URP] v0.1.2" --notes-file "Temp\release_notes_urp_v0.1.2.md"
 ```
 
 ### Useful flags
@@ -88,7 +150,9 @@ gh release view <tag> --web
 
 ## GitHub Release Notes Format
 
-Keep a consistent format across all releases:
+Keep a consistent format. The title reflects the package:
+- Base release: `[Base] vX.Y.Z`
+- URP release: `[URP] vX.Y.Z`
 
 ```md
 ## What's Changed
@@ -96,9 +160,11 @@ Keep a consistent format across all releases:
 
 ## Package
 - Version: `x.y.z`
+- Install: `https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/vX.Y.Z`
+  (replace `Base` / `base` with `URP` / `urp` for URP releases)
 
 ## Full Changelog
-https://github.com/doqltl179/Mu3Library_ForUnity/compare/vPREV...vNEW
+https://github.com/doqltl179/Mu3Library_ForUnity/compare/PREV_TAG...NEW_TAG
 ```
 
 - If details are still being refined, publish at least a concise non-empty summary to avoid omission.

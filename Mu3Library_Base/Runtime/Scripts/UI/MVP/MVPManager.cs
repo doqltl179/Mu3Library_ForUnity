@@ -104,6 +104,21 @@ namespace Mu3Library.UI.MVP
         {
             public PresenterBase Presenter;
             public OutPanelSettings OutPanelSettings;
+
+            public PresenterParams Parent;
+            public readonly List<PresenterParams> Children = new();
+
+            public void AddChild(PresenterParams child)
+            {
+                child.Parent = this;
+                Children.Add(child);
+            }
+
+            public void UnlinkFromParent()
+            {
+                Parent?.Children.Remove(this);
+                Parent = null;
+            }
         }
 
         private readonly List<PresenterParams> _openedPresenters = new();
@@ -316,15 +331,7 @@ namespace Mu3Library.UI.MVP
             PresenterParams closeParam = _focused;
             _focused = null;
 
-            bool canClose = _openedPresenters.Remove(closeParam) ||
-                (forceClose && _presenterOpenChecker.Remove(closeParam));
-
-            if (canClose)
-            {
-                closeParam.Presenter.Close(forceClose);
-                _presenterCloseChecker.Add(closeParam);
-            }
-            else
+            if (!ClosePresenterWithChildren(closeParam, forceClose))
             {
                 _focused = closeParam;
             }
@@ -339,48 +346,48 @@ namespace Mu3Library.UI.MVP
 
             CleanupDestroyedPresenters();
 
-            PresenterParams param = _openedPresenters
-                .Where(t => t.Presenter == presenter)
-                .LastOrDefault();
-
-            if (param != null)
-            {
-                _openedPresenters.Remove(param);
-            }
-            else if (forceClose)
-            {
-                param = _presenterOpenChecker
-                    .Where(t => t.Presenter == presenter)
-                    .LastOrDefault();
-
-                if (param != null)
-                {
-                    _presenterOpenChecker.Remove(param);
-                }
-            }
-
+            PresenterParams param = FindPresenterParams(presenter as PresenterBase);
             if (param == null)
             {
                 return false;
             }
 
-            param.Presenter.Close(forceClose);
-            _presenterCloseChecker.Add(param);
-
-            return true;
+            return ClosePresenterWithChildren(param, forceClose);
         }
 
         public IPresenter Open<TPresenter>() where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, OutPanelSettings.Disabled);
+            => Open<TPresenter>(null, null, OutPanelSettings.Disabled);
 
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(args, OutPanelSettings.Disabled);
+            => Open<TPresenter>(null, args, OutPanelSettings.Disabled);
 
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, settings);
+            => Open<TPresenter>(null, null, settings);
 
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(null, args, settings);
+
+        public IPresenter Open<TPresenter>(IPresenter parent) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(parent, null, OutPanelSettings.Disabled);
+
+        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(parent, args, OutPanelSettings.Disabled);
+
+        public IPresenter Open<TPresenter>(IPresenter parent, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(parent, null, settings);
+
+        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
         {
+            PresenterParams parentParams = null;
+            if (parent != null)
+            {
+                parentParams = FindPresenterParams(parent as PresenterBase);
+                if (parentParams == null)
+                {
+                    Debug.LogWarning($"Parent presenter not found or not active. Opening without parent. type: {parent.GetType()}");
+                }
+            }
+
             TPresenter presenter = CreatePresenter<TPresenter>();
 
             System.Type viewType = presenter.ViewType;
@@ -403,9 +410,11 @@ namespace Mu3Library.UI.MVP
                 _layerCanvases.Add(viewLayerName, layerCanvas);
             }
 
+            RectTransform parentTransform = parentParams?.Presenter.RectTransform;
+
             if (!presenter.IsViewExist)
             {
-                View view = CreateView(viewType, layerCanvas);
+                View view = CreateView(viewType, layerCanvas, parentTransform);
                 if (view == null)
                 {
                     return null;
@@ -415,6 +424,11 @@ namespace Mu3Library.UI.MVP
             }
             else
             {
+                if (parentTransform != null)
+                {
+                    presenter.RectTransform?.SetParent(parentTransform, false);
+                }
+
                 presenter.Initialize(args);
             }
 
@@ -423,6 +437,8 @@ namespace Mu3Library.UI.MVP
                 Presenter = presenter,
                 OutPanelSettings = settings,
             };
+
+            parentParams?.AddChild(presenterParams);
 
             UpdateSortingOrderAsLast(presenterParams);
             presenter.OptimizeView();
@@ -474,6 +490,79 @@ namespace Mu3Library.UI.MVP
             }
         }
         #endregion
+
+        private PresenterParams FindPresenterParams(PresenterBase presenter)
+        {
+            if (presenter == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < _openedPresenters.Count; i++)
+            {
+                if (_openedPresenters[i].Presenter == presenter)
+                {
+                    return _openedPresenters[i];
+                }
+            }
+
+            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            {
+                if (_presenterOpenChecker[i].Presenter == presenter)
+                {
+                    return _presenterOpenChecker[i];
+                }
+            }
+
+            for (int i = 0; i < _presenterLoadChecker.Count; i++)
+            {
+                if (_presenterLoadChecker[i].Presenter == presenter)
+                {
+                    return _presenterLoadChecker[i];
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Closes a presenter and all its chained children depth-first (deepest child first).
+        /// Cascade children are always force-closed to interrupt any ongoing open animation.
+        /// </summary>
+        private bool ClosePresenterWithChildren(PresenterParams param, bool forceClose)
+        {
+            if (param == null)
+            {
+                return false;
+            }
+
+            // Close children depth-first. Copy to avoid mutation during iteration.
+            if (param.Children.Count > 0)
+            {
+                List<PresenterParams> children = new List<PresenterParams>(param.Children);
+                foreach (PresenterParams child in children)
+                {
+                    ClosePresenterWithChildren(child, forceClose: true);
+                }
+            }
+
+            bool removed = _openedPresenters.Remove(param);
+            if (!removed && forceClose)
+            {
+                removed = _presenterOpenChecker.Remove(param);
+            }
+
+            if (!removed)
+            {
+                return false;
+            }
+
+            param.UnlinkFromParent();
+            param.Presenter.Close(forceClose);
+            _presenterCloseChecker.Add(param);
+
+            return true;
+        }
 
         private void CloseAll(List<PresenterParams> paramList, bool forceClose = false)
         {

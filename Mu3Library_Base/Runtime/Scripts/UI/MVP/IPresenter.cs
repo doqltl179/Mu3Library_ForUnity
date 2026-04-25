@@ -8,15 +8,19 @@ namespace Mu3Library.UI.MVP
         public Type ViewType { get; }
 
         public Type ModelType { get; }
-        public Type ArgumentType{ get; }
+        public Type ArgumentType { get; }
 
         public bool IsViewExist { get; }
         public ViewState ViewState { get; }
-        
+
         public string ObjectLayerName { get; }
         public string CanvasLayerName { get; }
         public int SortingOrder { get; }
 
         public bool Interactable { get; }
+
+        public Vector2 AnchoredPosition { get; set; }
+        public Vector2 SizeDelta { get; set; }
+        public Vector3 LocalScale { get; set; }
     }
 }

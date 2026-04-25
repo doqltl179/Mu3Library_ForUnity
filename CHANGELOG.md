@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [urp/0.1.2] - 2026-04-26
+
 ### Added
 - `ShakeEffect` / `ShakePass`: Added `SetPeriod(float period)` so the URP shake screen effect can control the shake loop duration independently from amplitude.
 - `GaussianBlurEffect` / `GaussianBlurPass`: Added a new URP full-screen gaussian blur effect with matching pass and shader implementation.
@@ -29,7 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ShakeEffect` / `ShakePass`: Changing `SetPeriod(float period)` now preserves the current shake position instead of jumping to a different offset mid-animation.
 - `Mu3Library_URP/package.json`: Published the `ScreenEffect` sample through the package manifest so it is discoverable from the Unity Package Manager.
 
-## [0.8.0] - 2026-04-05
+## [base/0.10.0] - 2026-04-26
+
+### Added
+- `IMVPManager`: Added parent-linked `Open<TPresenter>(IPresenter parent, ...)` overloads (four new signatures: with no extra args, with `Arguments`, with `OutPanelSettings`, and with both). Opening a presenter with a parent link connects the child's RectTransform to the parent, inheriting its anchored position, size delta, and local scale.
+- `IPresenter`: Added `AnchoredPosition`, `SizeDelta`, and `LocalScale` properties for reading and writing the presenter's RectTransform layout values at runtime.
+
+## [base/0.8.0] - 2026-04-05
 
 ### Added
 - `AudioManager`: BGM playlist support via `PlayBgmPlaylist(AudioClip[] clips, ...)` and `StopBgmPlaylist()`.
@@ -53,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LabelData`, `EntryData`, `GroupData`: Added to the `Mu3Library.Addressable.Data` namespace as standalone public classes (no `#if` guard; pure C#). `GroupData` acts as a base class for generated per-group sealed classes, holding `Name`, `Entries`, and `Labels` dictionaries.
 - `AddressableGroupDataExporterDrawer`: Generated script structure changed to mirror the Localization pattern — `Labels` class now holds `LabelData` instances instead of `const string`; `Groups` class now holds typed `*Data` group instances and an `IReadOnlyDictionary<string, GroupData> All`; per-group classes are `sealed class *Data : GroupData` with a constructor. Non-folder entries become `EntryData` fields; folder entries remain static classes with an `EntryData Data` field plus sub-entry `Assets` class. Generated output now includes `using Mu3Library.Addressable.Data;`.
 
-## [0.6.0] - 2026-03-23
+## [base/0.6.0] - 2026-03-23
 
 ### Added
 - `MVPManager` / `IMVPManager`: Added `FocusIgnoredLayers` property and `SetFocusIgnoredLayer(string layerName, bool ignored)` method.
@@ -62,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LocalizationNameExporterDrawer`: Generated script now includes a root `Locales` class (with an `All` string array and per-locale inner classes exposing `Code`, `EnglishName`, and `NativeName` as `const string`) and a root `Tables` class (with an `All` string array and a `const string` per table referencing the table class's `Name`). Each per-table class also gains a `Locales` inner class whose entries mirror the root `Locales` structure via `const string` references.
 - `AddressableGroupNameExporterDrawer`: Generated script now includes a root `Groups` class (with an `All` string array and a `const string` per group referencing the group class's `Name`), a root `Labels` class (collecting all unique labels across every group and entry, with an `All` array and per-label `const string` values), and a per-group `Labels` inner class whose entries mirror the root `Labels` entries via `const string` references.
 
-## [0.5.0] - 2026-03-18
+## [base/0.5.0] - 2026-03-18
 
 ### Changed
 - Repository restructured to monorepo layout: `Mu3Library_Base/` and `Mu3Library_URP/` are now standalone UPM packages; `UnityProject_BuiltIn/` and `UnityProject_URP/` are separate development projects within the same repository.
@@ -74,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ContainerScope.ResolveFromCore`: Same null safety fix applied.
 - Documentation: Corrected `ConfigureContainer()` signature in all READMEs — removed incorrect `ContainerScope scope` parameter; service registration now uses `RegisterClass<T>()`.
 
-## [0.4.7] - 2026-03-15
+## [base/0.4.7] - 2026-03-15
 
 ### Added
 - `ScriptBuilder`: Added `ArrayBlock` struct (`FieldName`, `Values`) and `AppendArrayBlock` method.
@@ -85,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AddressableGroupNameExporterDrawer`: Replaced `BuildArrayLines` helper with `ScriptBuilder.ArrayBlock`.
   - `AllNames`, `AllAddresses` and `Labels.All` arrays are now declared as `ArrayBlock` entries, reducing per-array boilerplate from a `foreach` loop to a single `.Add()` call.
 
-## [0.4.6] - 2026-03-15
+## [base/0.4.6] - 2026-03-15
 
 ### Added
 - `AudioManager.Resource`: Added key-based `AudioClip` registration system.
@@ -101,14 +109,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AudioManager.Bgm`, `AudioManager.Sfx`, `AudioManager.Environment`: Sorted public methods alphabetically.
 - `WithKey` overloads use a delegation pattern — shorter overloads delegate to the full-argument overload, which calls `TryGetCachedAudioResource` once.
 
-## [0.4.5] - 2026-03-14
+## [base/0.4.5] - 2026-03-14
 
 ### Changed
 - `AddressableGroupNameExporterDrawer`: Sub-asset class names that begin with the parent class name now have the parent prefix stripped.
   - e.g. parent `Views`, sub-asset `ViewsDialoguePanelPrefab` → emitted as `DialoguePanelPrefab`.
   - Applied recursively through nested folder hierarchies.
 
-## [0.4.4] - 2026-03-14
+## [base/0.4.4] - 2026-03-14
 
 ### Changed
 - `AddressableGroupNameExporterDrawer`: Added folder entry support.
@@ -116,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sub-assets inside a folder are collected with `GatherAllAssets()` and emitted as a nested `Assets` static class inside the folder entry class.
   - The editor preview marks folder entries with a `[Folder]` prefix and shows sub-assets indented beneath them.
 
-## [0.4.3] - 2026-03-14
+## [base/0.4.3] - 2026-03-14
 
 ### Added
 - `AddressableGroupNameExporterDrawer`: Added an editor drawer (guarded by `MU3LIBRARY_ADDRESSABLES_SUPPORT`) that reads all Addressable groups at editor time and exports their group names, asset names, addresses (keys), and labels as nested C# static classes.
@@ -125,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
 - `Mu3Library.Editor.asmdef`: Added optional references to `Unity.Addressables` and `Unity.Addressables.Editor` with `MU3LIBRARY_ADDRESSABLES_SUPPORT` version define.
 
-## [0.4.2] - 2026-03-08
+## [base/0.4.2] - 2026-03-08
 
 ### Added
 - `LocalizationNameExporterDrawer`: Added an editor drawer that exports Localization string table names and entry keys as C# constants for pre-declared lookup.
@@ -138,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `LocalizationNameExporterDrawer`: Fixed `SanitizeIdentifier` to produce proper PascalCase class names from entry keys. `-` and other non-identifier characters now act as word boundaries (dropped, next letter capitalized). `_` is preserved as-is and also capitalizes the next letter (e.g. `my-key_name` → `MyKey_Name`).
 
-## [0.4.0] - 2026-03-08
+## [base/0.4.0] - 2026-03-08
 
 ### Added
 - `AudioSourceSettings`: Added `LoopCount` and `LoopInterval` properties to control looping behavior per settings instance.
@@ -159,7 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IAudioManager`: Removed `SourceSettings`, `BaseSettings`, and `SoundSettings` properties (superseded by per-call `AudioSourceSettings` parameter).
 - `AudioManager` and `IAudioManager` refactored into partial class files split by category (`Bgm`, `Sfx`, `Environment`) for maintainability. No public API change.
 
-## [0.3.3] - 2026-03-02
+## [base/0.3.3] - 2026-03-02
 
 ### Added
 - `AudioManager`: Added `EnvironmentController` support for environment audio playback.
@@ -170,21 +178,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OnEnvironmentVolumeChanged` event added to `IAudioManagerEventBus`.
   - `Stop()`, `Pause()`, and `UnPause()` now include environment audio.
 
-## [0.3.2] - 2026-03-02
+## [base/0.3.2] - 2026-03-02
 
 ### Fixed
 - `Mu3WindowDrawer`: Added `DrawWithUndo<T>(Func<T>, Action<T>, string)` helper to the base class to eliminate repetitive `BeginChangeCheck` / `RecordObject` / `SetDirty` boilerplate in derived drawers.
 - `Mu3WindowDrawer`: `DrawFoldoutHeader1` and `DrawFoldoutHeader2` now use `EditorGUI.BeginChangeCheck` / `EndChangeCheck` consistently instead of an explicit `!=` comparison.
 - `DependencyCheckerDrawer`, `FileFinderDrawer`, `InputSystemNameExporterDrawer`, `MVPHelperDrawer`, `ScreenCaptureDrawer`: All interactive fields now correctly record undo/redo state via the new `DrawWithUndo<T>` helper.
 
-## [0.3.1] - 2026-03-02
+## [base/0.3.1] - 2026-03-02
 
 ### Fixed
 - `MVPManager`: Fixed a one-frame sync issue where the View rendered in its default prefab state before the open animation started.
   - Changed `Open()` to call `SetActiveView(false)` instead of `SetActiveView(true)`, and deferred `SetActiveView(true)` to just before `Open()` begins (after Load completes).
   - Animations (e.g. alpha 0→1) now start in sync with the View's intended initial state.
 
-## [0.3.0] - 2026-03-01
+## [base/0.3.0] - 2026-03-01
 
 ### Added
 - `InputSystemManager`: New Input System module (requires `MU3LIBRARY_INPUTSYSTEM_SUPPORT`):
@@ -201,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Initialization is now managed exclusively by `MVPManager`; external code can no longer call these methods directly.
 - `LayerCanvas` now synchronizes its Layer value to each child item automatically.
 
-## [0.2.3] - 2026-02-16
+## [base/0.2.3] - 2026-02-16
 ### Changed
 - Audio volume contract decoupled from event bus:
   - `IAudioVolumeSettings` no longer inherits `IAudioManagerEventBus`.
@@ -214,7 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OutPanelSettings.Standard` default dim color alpha changed to `0.5f`.
   - `MVPManager` now validates `EventSystem` during focus updates and logs explicit errors if missing.
 
-## [0.2.0] - 2026-02-14
+## [base/0.2.0] - 2026-02-14
 
 ### Added
 - Scene UniTask APIs with cancellation support:
@@ -247,7 +255,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `IAudioManagerEventBus`
   - Existing service interfaces no longer declare these `event` members directly.
 
-## [0.1.11] - 2026-02-08
+## [base/0.1.11] - 2026-02-08
 
 ### 🌟 Overview
 
@@ -638,15 +646,17 @@ Special thanks to the open-source community for:
 
 ---
 
-## [0.0.20] - Previous Release
+## [base/0.0.20] - Previous Release
 
 ### Added
 - ObservableProperty implementation
 
 For earlier versions, please refer to commit history.
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...HEAD
-[0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
-[0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/base/v0.10.0...HEAD
+[urp/0.1.2]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/urp%2Fv0.1.2
+[base/0.10.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.6.0...base%2Fv0.10.0
+[base/0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
+[base/0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
 [0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20

@@ -14,6 +14,7 @@ namespace Mu3Library.UI.MVP
         public float Alpha { get; set; }
 
         public Vector2 AnchoredPosition { get; set; }
+        public Vector2 SizeDelta { get; set; }
         public Vector3 LocalScale { get; set; }
 
         public void SetSortingLayer(string layerName);
