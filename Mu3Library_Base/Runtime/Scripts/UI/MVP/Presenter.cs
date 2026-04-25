@@ -12,6 +12,10 @@ namespace Mu3Library.UI.MVP
         public abstract Type ModelType { get; }
         public abstract Type ArgumentType { get; }
 
+        internal abstract RectTransform RectTransform { get; }
+        internal abstract Canvas ViewCanvas { get; }
+        internal abstract CanvasGroup CanvasGroup { get; }
+
         public abstract bool IsViewExist { get; }
         public abstract ViewState ViewState { get; }
 
@@ -20,6 +24,11 @@ namespace Mu3Library.UI.MVP
         public abstract int SortingOrder { get; }
 
         public abstract bool Interactable { get; }
+        internal abstract float Alpha { get; set; }
+
+        public abstract Vector2 AnchoredPosition { get; set; }
+        public abstract Vector2 SizeDelta { get; set; }
+        public abstract Vector3 LocalScale { get; set; }
 
 
 
@@ -41,15 +50,24 @@ namespace Mu3Library.UI.MVP
             _mvpManager.Close(this, forceClose);
         }
 
-        internal abstract RectTransform RectTransform { get; }
-        internal abstract Canvas ViewCanvas { get; }
-        internal abstract CanvasGroup CanvasGroup { get; }
-        internal abstract float Alpha { get; set; }
-
         internal abstract void SetActiveView(bool active);
         internal abstract void OptimizeView();
         internal abstract void ForceDestroyView();
         internal abstract void SetSortingOrder(int sortingOrder);
+
+        protected IPresenter OpenAsChild<TPresenter>() where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(null, OutPanelSettings.Disabled);
+
+        protected IPresenter OpenAsChild<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(args, OutPanelSettings.Disabled);
+
+        protected IPresenter OpenAsChild<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(null, settings);
+
+        protected IPresenter OpenAsChild<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+        {
+            return _mvpManager.Open<TPresenter>(this, args, settings);
+        }
     }
 
     public abstract class Presenter<TView, TModel, TArgs> : PresenterBase
@@ -66,6 +84,10 @@ namespace Mu3Library.UI.MVP
         protected TArgs _args;
         public override Type ArgumentType => typeof(TArgs);
 
+        internal sealed override RectTransform RectTransform => _view != null ? _view.RectTransform : null;
+        internal sealed override Canvas ViewCanvas => _view != null ? _view.Canvas : null;
+        internal sealed override CanvasGroup CanvasGroup => _view != null ? _view.CanvasGroup : null;
+
         public override bool IsViewExist => _view != null;
         public override ViewState ViewState => _view.ViewState;
 
@@ -74,10 +96,6 @@ namespace Mu3Library.UI.MVP
         public override int SortingOrder => _view.SortingOrder;
 
         public override bool Interactable => _view.Interactable;
-
-        internal sealed override RectTransform RectTransform => _view != null ? _view.RectTransform : null;
-        internal sealed override Canvas ViewCanvas => _view != null ? _view.Canvas : null;
-        internal sealed override CanvasGroup CanvasGroup => _view != null ? _view.CanvasGroup : null;
         internal sealed override float Alpha
         {
             get => _view != null ? _view.Alpha : 0.0f;
@@ -86,6 +104,42 @@ namespace Mu3Library.UI.MVP
                 if (_view != null)
                 {
                     _view.Alpha = value;
+                }
+            }
+        }
+
+        public override Vector2 AnchoredPosition
+        {
+            get => _view != null ? _view.AnchoredPosition : Vector2.zero;
+            set
+            {
+                if (_view != null)
+                {
+                    _view.AnchoredPosition = value;
+                }
+            }
+        }
+
+        public override Vector2 SizeDelta
+        {
+            get => _view != null ? _view.SizeDelta : Vector2.zero;
+            set
+            {
+                if (_view != null)
+                {
+                    _view.SizeDelta = value;
+                }
+            }
+        }
+
+        public override Vector3 LocalScale
+        {
+            get => _view != null ? _view.LocalScale : Vector3.one;
+            set
+            {
+                if (_view != null)
+                {
+                    _view.LocalScale = value;
                 }
             }
         }
@@ -173,7 +227,7 @@ namespace Mu3Library.UI.MVP
             }
 
             _view.transform.SetAsLastSibling();
-            _view.Stretch();
+            // _view.Stretch();
         }
 
         internal sealed override void ForceDestroyView()

@@ -21,5 +21,10 @@ namespace Mu3Library.UI.MVP
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+
+        public IPresenter Open<TPresenter>(IPresenter parent) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter parent, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
     }
 }

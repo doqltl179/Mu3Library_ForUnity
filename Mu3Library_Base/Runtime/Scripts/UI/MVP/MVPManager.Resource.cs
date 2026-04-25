@@ -79,6 +79,9 @@ namespace Mu3Library.UI.MVP
         }
 
         private View CreateView(System.Type viewType, Canvas layerCanvas)
+            => CreateView(viewType, layerCanvas, null);
+
+        private View CreateView(System.Type viewType, Canvas layerCanvas, Transform parentTransform)
         {
             if (!_viewResourceMap.ContainsKey(viewType))
             {
@@ -93,7 +96,7 @@ namespace Mu3Library.UI.MVP
                 return null;
             }
 
-            View inst = Object.Instantiate(resource, layerCanvas.transform);
+            View inst = Object.Instantiate(resource, parentTransform != null ? parentTransform : layerCanvas.transform);
 
             layerCanvas.CopyTo(inst.Canvas, true, true);
             inst.Canvas.overrideSorting = true;

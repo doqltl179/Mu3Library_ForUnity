@@ -97,6 +97,12 @@ namespace Mu3Library.UI.MVP
             set => _rectTransform.anchoredPosition = value;
         }
 
+        public Vector2 SizeDelta
+        {
+            get => _rectTransform.sizeDelta;
+            set => _rectTransform.sizeDelta = value;
+        }
+
         public Vector3 LocalScale
         {
             get => _rectTransform.localScale;
@@ -158,7 +164,7 @@ namespace Mu3Library.UI.MVP
 
         internal void Close(bool forceClose = false)
         {
-            if(forceClose && _lifeCycleCoroutine != null)
+            if (forceClose && _lifeCycleCoroutine != null)
             {
                 StopCoroutine(_lifeCycleCoroutine);
                 _lifeCycleCoroutine = null;
