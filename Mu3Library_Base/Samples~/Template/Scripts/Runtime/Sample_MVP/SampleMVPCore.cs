@@ -37,7 +37,12 @@ namespace Mu3Library.Sample.Template.MVP
         [SerializeField] private KeyCode _closeAllWithoutDefaultKey = KeyCode.Z;
         [SerializeField] private KeyCode _closeAllWithoutDefaultForceKey = KeyCode.X;
 
+        [Space(20)]
+        [SerializeField] private KeyCode _openLinkParentKey = KeyCode.J;
+        [SerializeField] private KeyCode _closeLinkParentKey = KeyCode.K;
+
         private IPresenter _loadingScreenPresenter = null;
+        private IPresenter _linkParentPresenter = null;
 
 
 
@@ -91,6 +96,15 @@ namespace Mu3Library.Sample.Template.MVP
                 CloseLoadingScreen();
             }
 
+            else if (Input.GetKeyDown(_openLinkParentKey))
+            {
+                OpenLinkParent();
+            }
+            else if (Input.GetKeyDown(_closeLinkParentKey))
+            {
+                CloseLinkParent();
+            }
+
             else if (Input.GetKeyDown(_closeAllWithoutDefaultKey))
             {
                 _mvpManager.CloseAllWithoutDefault();
@@ -116,6 +130,9 @@ namespace Mu3Library.Sample.Template.MVP
 
                     { _loadingScreenOpenKey, "Open loading screen" },
                     { _loadingScreenCloseKey, "Close loading screen" },
+
+                    { _openLinkParentKey, "Open link parent" },
+                    { _closeLinkParentKey, "Close link parent" },
 
                     { _closeAllWithoutDefaultKey, "Close all without default" },
                     { _closeAllWithoutDefaultForceKey, "Close all without default (force)" },
@@ -186,7 +203,7 @@ namespace Mu3Library.Sample.Template.MVP
 
         private void OpenLoadingScreen()
         {
-            if(_loadingScreenPresenter == null ||
+            if (_loadingScreenPresenter == null ||
                 _loadingScreenPresenter.ViewState == ViewState.Unloaded)
             {
                 _loadingScreenPresenter = _mvpManager.Open<LoadingScreenPresenter>();
@@ -198,6 +215,23 @@ namespace Mu3Library.Sample.Template.MVP
             if (_mvpManager.Close(_loadingScreenPresenter))
             {
                 _loadingScreenPresenter = null;
+            }
+        }
+
+        private void OpenLinkParent()
+        {
+            if (_linkParentPresenter == null ||
+                _linkParentPresenter.ViewState == ViewState.Unloaded)
+            {
+                _linkParentPresenter = _mvpManager.Open<LinkParentPresenter>();
+            }
+        }
+
+        private void CloseLinkParent()
+        {
+            if (_mvpManager.Close(_linkParentPresenter))
+            {
+                _linkParentPresenter = null;
             }
         }
 
