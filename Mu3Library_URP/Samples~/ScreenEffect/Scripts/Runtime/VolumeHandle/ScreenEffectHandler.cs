@@ -72,7 +72,7 @@ namespace Mu3Library.URP.Sample.ScreenEffect.VolumeHandle
         }
 
         #region UI Event
-        public void SetActive(bool active) => _effect.SetActive(active);
+        public void SetActive(bool active) => _effect?.SetActive(active);
         #endregion
 
         protected virtual bool CameraFilter(Camera camera)

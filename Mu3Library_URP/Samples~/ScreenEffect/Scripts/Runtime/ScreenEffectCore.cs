@@ -19,6 +19,8 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         [Space(20)]
         [SerializeField] private GrayscaleHandler _grayscaleHandler;
         [SerializeField] private ShakeHandler _shakeHandler;
+        [SerializeField] private GaussianBlurHandler _gaussianBlurHandler;
+        [SerializeField] private DepthOutlineHandler _depthOutlineHandler;
 
 
 
@@ -31,14 +33,10 @@ namespace Mu3Library.URP.Sample.ScreenEffect
         {
             base.Start();
 
-            _grayscaleHandler.Context(_screenEffectManager, _mainCamera);
-            _shakeHandler.Context(_screenEffectManager, _mainCamera);
-
-            _grayscaleHandler.Init();
-            _shakeHandler.Init();
-
-            _grayscaleHandler.RegisterEffect();
-            _shakeHandler.RegisterEffect();
+            SetupHandler(_grayscaleHandler);
+            SetupHandler(_shakeHandler);
+            SetupHandler(_gaussianBlurHandler);
+            SetupHandler(_depthOutlineHandler);
 
             _toggleItemGroup.ActiveToggles();
             _toggleItemGroup.SetAllTogglesOff();
@@ -46,8 +44,32 @@ namespace Mu3Library.URP.Sample.ScreenEffect
 
         protected override void OnDestroy()
         {
-            _grayscaleHandler.UnregisterEffect(true);
-            _shakeHandler.UnregisterEffect(true);
+            DisposeHandler(_grayscaleHandler);
+            DisposeHandler(_shakeHandler);
+            DisposeHandler(_gaussianBlurHandler);
+            DisposeHandler(_depthOutlineHandler);
+        }
+
+        private void SetupHandler<TEffect>(ScreenEffectHandler<TEffect> handler) where TEffect : IScreenEffect, new()
+        {
+            if (handler == null)
+            {
+                return;
+            }
+
+            handler.Context(_screenEffectManager, _mainCamera);
+            handler.Init();
+            handler.RegisterEffect();
+        }
+
+        private static void DisposeHandler<TEffect>(ScreenEffectHandler<TEffect> handler) where TEffect : IScreenEffect, new()
+        {
+            if (handler == null)
+            {
+                return;
+            }
+
+            handler.UnregisterEffect(true);
         }
     }
 }
