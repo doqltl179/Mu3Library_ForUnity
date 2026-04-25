@@ -11,6 +11,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [urp/0.1.2] - 2026-04-26
+
 ### 추가됨
 - `ShakeEffect` / `ShakePass`: URP shake screen effect의 흔들림 진폭과 별도로 루프 지속시간을 제어할 수 있도록 `SetPeriod(float period)`를 추가.
 - `GaussianBlurEffect` / `GaussianBlurPass`: 대응 pass 및 shader 구현과 함께 새 URP 전체 화면 gaussian blur effect를 추가.
@@ -27,8 +29,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `ShakeEffect` / `ShakePass`: `SetPeriod(float period)` 값을 바꿀 때 애니메이션 도중 흔들림 위치가 다른 오프셋으로 튀지 않도록 현재 위상을 유지하도록 수정.
 - `Mu3Library_URP/package.json`: `ScreenEffect` 샘플을 패키지 manifest의 `samples` 목록에 게시하여 Unity Package Manager에서 검색 및 import할 수 있도록 수정.
 
+## [base/0.10.0] - 2026-04-26
 
-## [0.8.0] - 2026-04-05
+### 추가됨
+- `IMVPManager`: 부모 연동 `Open<TPresenter>(IPresenter parent, ...)` 오버로드 4가지를 추가 (인자 없음, `Arguments` 포함, `OutPanelSettings` 포함, 둘 다 포함). 부모 링크로 presenter를 열면 자식의 RectTransform이 부모에 연결되어 anchored position, size delta, local scale을 상속함.
+- `IPresenter`: 런타임에 presenter의 RectTransform 레이아웃 값을 읽고 쓸 수 있도록 `AnchoredPosition`, `SizeDelta`, `LocalScale` 프로퍼티를 추가.
+
+## [base/0.8.0] - 2026-04-05
 
 ### 추가됨
 - `AudioManager`: `PlayBgmPlaylist(AudioClip[] clips, ...)` 및 `StopBgmPlaylist()`를 통한 BGM 플레이리스트 기능 추가.
@@ -52,7 +59,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `LabelData`, `EntryData`, `GroupData`: `Mu3Library.Addressable.Data` 네임스페이스에 독립 public 클래스로 추가 (`#if` 가드 없음; 순수 C#). `GroupData`는 생성된 per-group sealed class의 기반 클래스로 `Name`, `Entries`, `Labels` 딕셔너리를 보유.
 - `AddressableGroupDataExporterDrawer`: 생성 스크립트 구조가 Localization 패턴으로 변경 — `Labels` 클래스는 `const string` 대신 `LabelData` 인스턴스를 보유; `Groups` 클래스는 타입된 `*Data` 그룹 인스턴스와 `IReadOnlyDictionary<string, GroupData> All`을 보유; per-group 클래스는 `sealed class *Data : GroupData` 형식으로 생성. 비폴더 entry는 `EntryData` 필드, 폴더 entry는 `EntryData Data` 필드와 `Assets` inner class를 유지. 생성 코드에 `using Mu3Library.Addressable.Data;` 포함.
 
-## [0.6.0] - 2026-03-23
+## [base/0.6.0] - 2026-03-23
 
 ### 추가됨
 - `MVPManager` / `IMVPManager`: `FocusIgnoredLayers` 프로퍼티와 `SetFocusIgnoredLayer(string layerName, bool ignored)` 메서드 추가.
@@ -61,7 +68,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `LocalizationNameExporterDrawer`: 생성 스크립트에 루트 `Locales` 클래스(`All` 문자열 배열 및 로케일별 내부 클래스에 `Code`, `EnglishName`, `NativeName`을 `const string`으로 노출)와 루트 `Tables` 클래스(`All` 문자열 배열 및 각 테이블 클래스의 `Name`을 참조하는 `const string` 항목)가 추가됨. 각 테이블 클래스에도 루트 `Locales` 구조를 `const string` 참조로 미러링하는 `Locales` 내부 클래스가 추가됨.
 - `AddressableGroupNameExporterDrawer`: 생성 스크립트에 루트 `Groups` 클래스(그룹 클래스의 `Name`을 참조하는 `const string` 항목과 `All` 배열), 루트 `Labels` 클래스(전체 그룹·엔트리에서 수집한 고유 레이블을 `All` 배열 및 `const string` 값으로 제공), 그리고 루트 `Labels` 항목을 `const string` 참조로 미러링하는 그룹별 `Labels` 내부 클래스가 추가됨.
 
-## [0.5.0] - 2026-03-18
+## [base/0.5.0] - 2026-03-18
 
 ### 변경됨
 - 리포지토리를 모노레포 구조로 개편: `Mu3Library_Base/`와 `Mu3Library_URP/`는 독립 UPM 패키지로, `UnityProject_BuiltIn/`과 `UnityProject_URP/`는 별도 개발 프로젝트로 분리됨.
@@ -73,7 +80,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `ContainerScope.ResolveFromCore`: 동일한 null 안전 처리 적용.
 - 문서: 전체 README의 `ConfigureContainer()` 코드 예제 수정 — 잘못된 `ContainerScope scope` 파라미터를 제거하고 서비스 등록에 `RegisterClass<T>()`를 사용하도록 수정.
 
-## [0.4.7] - 2026-03-15
+## [base/0.4.7] - 2026-03-15
 
 ### 추가됨
 - `ScriptBuilder`: `ArrayBlock` 구조체(`FieldName`, `Values`)와 `AppendArrayBlock` 메서드 추가.
@@ -84,7 +91,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `AddressableGroupNameExporterDrawer`: `BuildArrayLines` 헬퍼를 `ScriptBuilder.ArrayBlock`으로 교체.
   - `AllNames`, `AllAddresses`, `Labels.All` 배열 선언이 `foreach` 루프 대신 단일 `.Add()` 호출로 축약됨.
 
-## [0.4.6] - 2026-03-15
+## [base/0.4.6] - 2026-03-15
 
 ### 추가됨
 - `AudioManager.Resource`: 키 기반 `AudioClip` 등록 시스템 추가.
@@ -100,14 +107,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `AudioManager.Bgm`, `AudioManager.Sfx`, `AudioManager.Environment`: public 메서드를 알파벳 순으로 정렬.
 - `WithKey` 오버로드는 위임 패턴을 사용 — 짧은 오버로드는 전체 인자를 받는 오버로드에 위임하고, `TryGetCachedAudioResource`는 해당 오버로드 안에서 한 번만 호출.
 
-## [0.4.5] - 2026-03-14
+## [base/0.4.5] - 2026-03-14
 
 ### 변경됨
 - `AddressableGroupNameExporterDrawer`: 하위 에셋 클래스명이 상위 클래스명으로 시작하는 경우 해당 접두어를 제거하도록 변경.
   - 예: 상위 `Views`, 하위 `ViewsDialoguePanelPrefab` → `DialoguePanelPrefab`으로 출력.
   - 중첩된 폴더 계층에도 재귀적으로 적용.
 
-## [0.4.4] - 2026-03-14
+## [base/0.4.4] - 2026-03-14
 
 ### 변경됨
 - `AddressableGroupNameExporterDrawer`: 폴더 에셋 지원 추가.
@@ -115,7 +122,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - 폴더 에셋의 경우 `GatherAllAssets()`로 하위 에셋을 수집하여 `Assets` inner static class에 중첩 출력.
   - 에디터 프리뷰에서 폴더 진입점은 `[Folder]` 접두어로 표시되고, 하위 에셋은 들여쓰기하여 표시.
 
-## [0.4.3] - 2026-03-14
+## [base/0.4.3] - 2026-03-14
 
 ### 추가됨
 - `AddressableGroupNameExporterDrawer`: 에디터 시점에 모든 Addressable 그룹을 읽어 그룹 이름, 에셋 이름, address(key), 레이블을 중첩 C# static 클래스로 내보내는 에디터 Drawer를 추가 (`MU3LIBRARY_ADDRESSABLES_SUPPORT` 조건 컴파일).
@@ -124,7 +131,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
 - `Mu3Library.Editor.asmdef`: `Unity.Addressables` 및 `Unity.Addressables.Editor` 선택적 참조와 `MU3LIBRARY_ADDRESSABLES_SUPPORT` 버전 정의를 추가.
 
-## [0.4.2] - 2026-03-08
+## [base/0.4.2] - 2026-03-08
 
 ### 추가됨
 - `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 엔트리 키를 C# 상수로 내보내 미리 선언된 조회에 사용할 수 있는 에디터 Drawer를 추가.
@@ -137,7 +144,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 수정됨
 - `LocalizationNameExporterDrawer`: 엔트리 키에서 올바른 PascalCase 클래스명을 생성하도록 `SanitizeIdentifier`를 수정. `-` 등 비식별자 문자는 단어 경계로 처리되어 생략되고 다음 문자를 대문자화. `_`는 그대로 출력되며 다음 문자를 대문자화 (예: `my-key_name` → `MyKey_Name`).
 
-## [0.4.0] - 2026-03-08
+## [base/0.4.0] - 2026-03-08
 
 ### 추가됨
 - `AudioSourceSettings`: 루프 동작을 설정 인스턴스별로 제어할 수 있는 `LoopCount` 및 `LoopInterval` 프로퍼티를 추가.
@@ -158,7 +165,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `IAudioManager`: `SourceSettings`, `BaseSettings`, `SoundSettings` 프로퍼티를 제거 (호출별 `AudioSourceSettings` 파라미터로 대체됨).
 - `AudioManager` 및 `IAudioManager`를 카테고리(`Bgm`, `Sfx`, `Environment`)별 partial 클래스 파일로 분리. 공개 API 변경 없음.
 
-## [0.3.3] - 2026-03-02
+## [base/0.3.3] - 2026-03-02
 
 ### 추가됨
 - `AudioManager`: 환경음 재생을 위한 `EnvironmentController` 기능 추가.
@@ -169,14 +176,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `OnEnvironmentVolumeChanged` 이벤트 추가 (`IAudioManagerEventBus`).
   - `Stop()`, `Pause()`, `UnPause()`가 환경음도 포함하도록 갱신.
 
-## [0.3.2] - 2026-03-02
+## [base/0.3.2] - 2026-03-02
 
 ### 수정됨
 - `Mu3WindowDrawer`: 반복적인 `BeginChangeCheck` / `RecordObject` / `SetDirty` 보일러플레이트를 제거하기 위해 기반 클래스에 `DrawWithUndo<T>(Func<T>, Action<T>, string)` 헬퍼를 추가.
 - `Mu3WindowDrawer`: `DrawFoldoutHeader1` 및 `DrawFoldoutHeader2`가 명시적인 `!=` 비교 대신 `EditorGUI.BeginChangeCheck` / `EndChangeCheck` 방식으로 통일됨.
 - `DependencyCheckerDrawer`, `FileFinderDrawer`, `InputSystemNameExporterDrawer`, `MVPHelperDrawer`, `ScreenCaptureDrawer`: 모든 인터랙티브 필드가 새로운 `DrawWithUndo<T>` 헬퍼를 통해 undo/redo 상태를 올바르게 기록하도록 수정.
 
-## [0.3.1] - 2026-03-02
+## [base/0.3.1] - 2026-03-02
 
 ### 수정됨
 - `MVPManager`: View가 Load 중 기본 상태(예: alpha 1)로 한 프레임 렌더링되는 싱크 문제를 수정.
@@ -184,7 +191,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
     Load 완료 후 `Open()` 시작 직전에 `SetActiveView(true)`를 호출하도록 수정.
   - 이로 인해 애니메이션(예: alpha 0→1)이 View 초기 상태와 동기화된 후 시작됩니다.
 
-## [0.3.0] - 2026-03-01
+## [base/0.3.0] - 2026-03-01
 
 ### 추가됨
 - `InputSystemManager`: 새로운 Input System 모듈 추가 (`MU3LIBRARY_INPUTSYSTEM_SUPPORT` 필요):
@@ -201,7 +208,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - 초기화는 이제 `MVPManager`가 독점적으로 관리하며, 외부 코드에서 직접 호출할 수 없습니다.
 - `LayerCanvas`가 각 항목에 맞게 Layer 값을 자동으로 동기화합니다.
 
-## [0.2.3] - 2026-02-16
+## [base/0.2.3] - 2026-02-16
 ### 변경됨
 - Audio 볼륨 계약에서 이벤트 버스 상속 분리:
   - `IAudioVolumeSettings`가 더 이상 `IAudioManagerEventBus`를 상속하지 않습니다.
@@ -214,7 +221,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `OutPanelSettings.Standard` 기본 dim 색상 알파값이 `0.5f`로 변경됨
   - `MVPManager`가 포커스 갱신 시 `EventSystem` 존재를 검증하고 누락 시 명시적 오류를 로그함
 
-## [0.2.0] - 2026-02-14
+## [base/0.2.0] - 2026-02-14
 
 ### 추가됨
 - Scene UniTask 비동기 API 추가 (취소 지원):
@@ -247,7 +254,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
   - `IAudioManagerEventBus`
   - 기존 서비스 인터페이스에서 해당 `event` 멤버는 직접 선언하지 않음
 
-## [0.1.11] - 2026-02-08
+## [base/0.1.11] - 2026-02-08
 
 ### 🌟 개요
 
@@ -638,15 +645,17 @@ public class MyCore : CoreBase
 
 ---
 
-## [0.0.20] - 이전 릴리스
+## [base/0.0.20] - 이전 릴리스
 
 ### 추가됨
 - ObservableProperty 구현
 
 이전 버전에 대해서는 커밋 히스토리를 참조하세요.
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.3...HEAD
-[0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
-[0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
-[0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
-[0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20
+[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/base/v0.10.0...HEAD
+[urp/0.1.2]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/urp%2Fv0.1.2
+[base/0.10.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.6.0...base%2Fv0.10.0
+[base/0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3
+[base/0.2.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.1.11...v0.2.0
+[base/0.1.11]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.0.20...v0.1.11
+[base/0.0.20]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/v0.0.20
