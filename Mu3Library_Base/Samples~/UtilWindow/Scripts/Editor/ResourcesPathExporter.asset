@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f5a5dd7e6b24c40bcb42deebb010028, type: 3}
   m_Name: ResourcesPathExporter
   m_EditorClassIdentifier: Mu3Library.Editor::Mu3Library.Editor.Window.Drawer.ResourcesPathExporterDrawer
-  _foldout: 1
+  _foldout: 0
   _header1Style:
     m_Name: 
     m_Normal:
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 0, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -286,7 +286,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
+      m_TextColor: {r: 1, g: 0, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -351,4 +351,4 @@ MonoBehaviour:
   _scriptSaveFolder: {fileID: 102900000, guid: 2b779789ed4d8b0458de2a798845c3f0, type: 3}
   _scriptNamespace: Mu3Library.Sample.Template.Resource
   _scriptClassName: ResourceDataKeys
-  _foldoutPreview: 1
+  _foldoutPreview: 0

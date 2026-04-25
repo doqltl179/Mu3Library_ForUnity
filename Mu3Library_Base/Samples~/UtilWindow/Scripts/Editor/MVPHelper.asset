@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d60dbc2cf88ee04cbde8acb6cfb3b2d, type: 3}
   m_Name: MVPHelper
   m_EditorClassIdentifier: 
-  _foldout: 0
+  _foldout: 1
   _header1Style:
     m_Name: 
     m_Normal:
@@ -219,7 +219,7 @@ MonoBehaviour:
     m_Normal:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
-      m_TextColor: {r: 1, g: 0, b: 0, a: 1}
+      m_TextColor: {r: 0, g: 1, b: 0, a: 1}
     m_Hover:
       m_Background: {fileID: 0}
       m_ScaledBackgrounds: []
@@ -348,9 +348,9 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _scriptSaveFolder: {fileID: 102900000, guid: ea61379a13fae124d9f88a4114516f68, type: 3}
-  _scriptNamespace: Mu3Library.Sample.Test
-  _scriptName: Test
+  _scriptSaveFolder: {fileID: 102900000, guid: 82ddb95a394dd67429e836e0d6e28dad, type: 3}
+  _scriptNamespace: Mu3Library.Sample.Template.MVP
+  _scriptName: LinkParent
   _scriptSpaces: 4
   _ignoreTypeOverlap: 1
   _applyAnimationView: 0
