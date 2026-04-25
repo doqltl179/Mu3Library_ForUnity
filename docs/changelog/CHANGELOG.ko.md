@@ -11,6 +11,47 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `ShakeEffect` / `ShakePass`: URP shake screen effect의 흔들림 진폭과 별도로 루프 지속시간을 제어할 수 있도록 `SetPeriod(float period)`를 추가.
+- `GaussianBlurEffect` / `GaussianBlurPass`: 대응 pass 및 shader 구현과 함께 새 URP 전체 화면 gaussian blur effect를 추가.
+- `DepthOutlineEffect` / `DepthOutlinePass`: threshold를 바꾸지 않고도 depth 기반 outline을 더 두껍게 만들 수 있도록 `SetOutlineThickness(float outlineThickness)`와 대응 샘플 slider를 추가.
+
+### 변경됨
+- `IScreenEffect` / `IScreenEffectManager`: URP ScreenEffect 계약 인터페이스 이름을 `IPassInjector`에서 변경하고, 매니저 등록 API를 `RegisterPass` / `UnregisterPass`에서 `RegisterEffect` / `UnregisterEffect`로 정리하여 현재 effect 기반 흐름과 공개 API 명칭을 일치시킴.
+- `ScreenEffectBase` / `ScreenPassBase`: 커스텀 URP ScreenEffect 및 Pass 구현을 위한 공용 기반 클래스를 추가하여 활성 상태, dispose 처리, pass 생성, shader/material 생명주기 관리를 공통화함.
+- `ScreenEffectManager` / `IScreenEffectManager`: URP ScreenEffect 패스 등록 클래스와 인터페이스 이름을 현재 역할에 맞게 `PostVolumeManager` / `IPostVolumeManager`에서 변경. 더 이상 Unity Volume 기반 책임을 나타내지 않음.
+- `ScreenEffect` 샘플: `ScreenEffectCore`를 기존 handler 중심 setup 흐름으로 유지하고, grayscale/shake/gaussian blur/depth outline과 같은 방식으로 새 effect를 붙일 수 있도록 대응 sample handler 스크립트를 추가.
+- `GaussianBlurEffect` / `GaussianBlurPass`: 전체 화면 blur API 표면, sample handler, serialized sample field, sample scene object 이름을 정식 gaussian blur 명칭으로 확정하고, 공개 조절 항목도 `Blur Radius`로 통일함. 이 브랜치의 이전 미출시 blur 프로토타입을 사용 중이었다면 `GaussianBlur*`로 옮겨야 함.
+
+### 수정됨
+- `ShakeEffect` / `ShakePass`: `SetPeriod(float period)` 값을 바꿀 때 애니메이션 도중 흔들림 위치가 다른 오프셋으로 튀지 않도록 현재 위상을 유지하도록 수정.
+- `Mu3Library_URP/package.json`: `ScreenEffect` 샘플을 패키지 manifest의 `samples` 목록에 게시하여 Unity Package Manager에서 검색 및 import할 수 있도록 수정.
+
+
+## [0.8.0] - 2026-04-05
+
+### 추가됨
+- `AudioManager`: `PlayBgmPlaylist(AudioClip[] clips, ...)` 및 `StopBgmPlaylist()`를 통한 BGM 플레이리스트 기능 추가.
+  - `AudioClip` 배열을 받아 순서대로 연속 재생.
+  - `loopCount`: 0 이하 = 무한 반복; 양수 = 해당 횟수만큼 전체 사이클 재생 (기본값: -1).
+  - `shuffle`: 매 사이클마다 Fisher-Yates 알고리즘으로 재생 순서를 무작위화 (기본값: false).
+  - `interval`: 트랙 간 대기 시간(초) (기본값: 1.0).
+  - `PlaySfx`와 동일한 패턴으로 8가지 오버로드 제공.
+  - `PlayBgmPlaylist` 호출 시 현재 재생 중인 BGM을 먼저 정지.
+  - `StopBgm` 또는 `StopBgmPlaylist` 호출 시 플레이리스트 비활성화.
+  - 인터벌 카운트다운은 pause를 인식하여 BGM이 일시정지된 동안 타이머가 진행되지 않음.
+- `IAudioManager`: 새 `IAudioManager.BgmPlaylist.cs` partial 파일을 통해 `PlayBgmPlaylist` 오버로드 및 `StopBgmPlaylist` 추가.
+- `ResourcesPathExporterDrawer`: 프로젝트 내 `*/Resources/*` 경로의 에셋을 자동으로 탐색하고, 폴더 계층을 중첩 static 클래스로 표현하는 C# 스크립트를 생성하는 에디터 Drawer. 각 에셋은 리소스 상대 경로(확장자 제외)와 파일명을 담은 `ResourcePathData` 필드로 노출됨.
+- `ResourcePathData`: `Path`와 `Name` 문자열 프로퍼티를 가진 `Mu3Library.Resource.Data` 네임스페이스의 새 클래스.
+
+### 변경됨
+- `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: 각각 `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, `InputSystemDataExporterDrawer`로 이름 변경. 관련 샘플 `.asset` 파일도 동일하게 이름 변경.
+- `LocaleData`, `EntryData`, `TableData`: `Mu3Library.Localization.Data` 네임스페이스의 독립 public 클래스로 이동; 생성자를 `internal`에서 `public`으로 변경; `#if MU3LIBRARY_LOCALIZATION_SUPPORT` 가드 제거 (Unity.Localization 의존성 없음).
+- `EntryData`: `TableName` 프로퍼티 추가; 생성자가 `EntryData(string tableName, string key, string id)`로 업데이트.
+- `LocalizationDataExporterDrawer`: 생성 스크립트에서 `LocaleData`, `EntryData`, `TableData` 클래스 정의를 인라인으로 포함하지 않고 `using Mu3Library.Localization.Data;`로 가져옴. `EntryData` 생성 시 첫 번째 인자로 테이블 이름을 전달하도록 변경.
+- `LabelData`, `EntryData`, `GroupData`: `Mu3Library.Addressable.Data` 네임스페이스에 독립 public 클래스로 추가 (`#if` 가드 없음; 순수 C#). `GroupData`는 생성된 per-group sealed class의 기반 클래스로 `Name`, `Entries`, `Labels` 딕셔너리를 보유.
+- `AddressableGroupDataExporterDrawer`: 생성 스크립트 구조가 Localization 패턴으로 변경 — `Labels` 클래스는 `const string` 대신 `LabelData` 인스턴스를 보유; `Groups` 클래스는 타입된 `*Data` 그룹 인스턴스와 `IReadOnlyDictionary<string, GroupData> All`을 보유; per-group 클래스는 `sealed class *Data : GroupData` 형식으로 생성. 비폴더 entry는 `EntryData` 필드, 폴더 entry는 `EntryData Data` 필드와 `Assets` inner class를 유지. 생성 코드에 `using Mu3Library.Addressable.Data;` 포함.
+
 ## [0.6.0] - 2026-03-23
 
 ### 추가됨
@@ -79,16 +120,16 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 추가됨
 - `AddressableGroupNameExporterDrawer`: 에디터 시점에 모든 Addressable 그룹을 읽어 그룹 이름, 에셋 이름, address(key), 레이블을 중첩 C# static 클래스로 내보내는 에디터 Drawer를 추가 (`MU3LIBRARY_ADDRESSABLES_SUPPORT` 조건 컴파일).
   - `Labels` 내부 클래스에 레이블별 `const string` 필드와 함께 모든 레이블 값을 담은 `static readonly string[] All`을 제공.
-- `Sample_UtilWindow`: `AddressableGroupNameExporter` 샘플 에셋을 유틸리티 윈도우 Drawer 목록에 추가.
-- `Sample_Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
+- `UtilWindow`: `AddressableGroupNameExporter` 샘플 에셋을 유틸리티 윈도우 Drawer 목록에 추가.
+- `Template`: Addressable 그룹/어드레스 상수 생성 예제로 `AddressableGroupKeys`를 추가.
 - `Mu3Library.Editor.asmdef`: `Unity.Addressables` 및 `Unity.Addressables.Editor` 선택적 참조와 `MU3LIBRARY_ADDRESSABLES_SUPPORT` 버전 정의를 추가.
 
 ## [0.4.2] - 2026-03-08
 
 ### 추가됨
 - `LocalizationNameExporterDrawer`: Localization 스트링 테이블 이름과 엔트리 키를 C# 상수로 내보내 미리 선언된 조회에 사용할 수 있는 에디터 Drawer를 추가.
-- `Sample_UtilWindow`: 유틸리티 윈도우 Drawer 목록에 `LocalizationNameExporter` 샘플 에셋을 추가.
-- `Sample_Template`: Localization 테이블/키 상수 예제로 생성된 `LocalizationTableKeys`를 추가.
+- `UtilWindow`: 유틸리티 윈도우 Drawer 목록에 `LocalizationNameExporter` 샘플 에셋을 추가.
+- `Template`: Localization 테이블/키 상수 예제로 생성된 `LocalizationTableKeys`를 추가.
 
 ### 변경됨
 - `InputSystemNameExporterDrawer` 및 `LocalizationNameExporterDrawer`: 동작 변경 없이 backing field와 캐시된 accessor를 더 쉽게 구분할 수 있도록 private serialized helper 멤버 이름을 정리.
@@ -355,7 +396,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 코드 생성 헬퍼인 `ScriptBuilder`
 
 #### 샘플
-- **Sample_Template**: 포괄적인 샘플 프로젝트
+- **Template**: 포괄적인 샘플 프로젝트
   - Sample_MVP: MVP 패턴 데모
   - Sample_Audio: 오디오 시스템 쇼케이스
   - Sample_Audio3D: 3D 공간 오디오 예제

@@ -25,7 +25,9 @@ namespace Mu3Library.Addressable
         private float _lastInitializeProgress = -1.0f;
         private float _lastDownloadProgress = -1.0f;
 
+        private HashSet<object> _locatorKeys = new();
         private readonly Dictionary<object, object> _assetCache = new();
+        private readonly Dictionary<object, object> _cachedAssetKeyMap = new();
         private readonly Dictionary<object, AsyncOperationHandle> _assetHandleCache = new();
 
         private sealed class DownloadTracker
@@ -53,6 +55,7 @@ namespace Mu3Library.Addressable
             ClearCache();
 
             _downloadTrackers.Clear();
+            _locatorKeys.Clear();
 
             _isInitialized = false;
             _isInitializing = false;
@@ -137,6 +140,12 @@ namespace Mu3Library.Addressable
                 _isInitialized = true;
                 isSuccess = true;
                 errorMessage = string.Empty;
+
+                if (handle.Result is IResourceLocator locator)
+                {
+                    _locatorKeys = new HashSet<object>(locator.Keys);
+                }
+
                 Debug.Log("Addressables initialized.");
             }
             else
@@ -172,6 +181,7 @@ namespace Mu3Library.Addressable
                     if (existingAsset != null)
                     {
                         _assetCache[key] = existingAsset;
+                        _cachedAssetKeyMap[existingAsset] = key;
                     }
                     else
                     {
@@ -189,6 +199,7 @@ namespace Mu3Library.Addressable
                     if (existingAsset != null)
                     {
                         _assetCache[key] = existingAsset;
+                        _cachedAssetKeyMap[existingAsset] = key;
                     }
                     else
                     {
@@ -210,6 +221,7 @@ namespace Mu3Library.Addressable
                 if (asset != null)
                 {
                     _assetCache[key] = asset;
+                    _cachedAssetKeyMap[asset] = key;
                 }
                 else
                 {
@@ -239,6 +251,7 @@ namespace Mu3Library.Addressable
                     if (existingAssets != null)
                     {
                         _assetCache[cacheKey] = existingAssets;
+                        _cachedAssetKeyMap[existingAssets] = cacheKey;
                     }
                     else
                     {
@@ -256,6 +269,7 @@ namespace Mu3Library.Addressable
                     if (existingAssets != null)
                     {
                         _assetCache[cacheKey] = existingAssets;
+                        _cachedAssetKeyMap[existingAssets] = cacheKey;
                     }
                     else
                     {
@@ -277,6 +291,7 @@ namespace Mu3Library.Addressable
                 if (assets != null)
                 {
                     _assetCache[cacheKey] = assets;
+                    _cachedAssetKeyMap[assets] = cacheKey;
                 }
                 else
                 {
@@ -404,6 +419,38 @@ namespace Mu3Library.Addressable
             };
         }
 
+        public bool IsKeyExist(object key)
+        {
+            if (key == null)
+            {
+                return false;
+            }
+            else if (_assetCache.ContainsKey(key))
+            {
+                return true;
+            }
+
+            return _locatorKeys.Contains(key);
+        }
+
+        public string GetCachedAddress(object asset)
+            => GetCachedAddress<string>(asset);
+
+        public T GetCachedAddress<T>(object asset) where T : class
+        {
+            if (asset == null)
+            {
+                return null;
+            }
+
+            if (_cachedAssetKeyMap.TryGetValue(asset, out object key))
+            {
+                return key as T;
+            }
+
+            return null;
+        }
+
         public bool TryGetCachedAsset<T>(object key, out T asset) where T : class
         {
             asset = null;
@@ -434,6 +481,11 @@ namespace Mu3Library.Addressable
                 _assetHandleCache.Remove(key);
             }
 
+            if (_assetCache.TryGetValue(key, out object cachedAsset))
+            {
+                _cachedAssetKeyMap.Remove(cachedAsset);
+            }
+
             _assetCache.Remove(key);
         }
 
@@ -449,6 +501,7 @@ namespace Mu3Library.Addressable
 
             _assetHandleCache.Clear();
             _assetCache.Clear();
+            _cachedAssetKeyMap.Clear();
         }
 
         private void UpdateInitializeProgress()

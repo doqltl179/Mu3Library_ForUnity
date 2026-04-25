@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
+using Mu3Library.Localization.Data;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -131,7 +132,7 @@ namespace Mu3Library.Localization
             _initializeHandle.Completed += OnInitializeCompleted;
         }
 
-        public void GetString(string tableName, string key, Action<string> callback)
+        public void GetStringAsync(string tableName, string key, Action<string> callback)
         {
             LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
             if (stringDatabase == null)
@@ -163,6 +164,17 @@ namespace Mu3Library.Localization
             StringTable table = sdb != null ? sdb.GetTable(tableName) : null;
             StringTableEntry entry = table != null ? table.GetEntry(key) : null;
             return entry != null ? entry.LocalizedValue : "";
+        }
+
+        public string GetString(EntryData entryData)
+        {
+            if (entryData == null)
+            {
+                Debug.LogError("EntryData is null.");
+                return "";
+            }
+
+            return GetString(entryData.TableName, entryData.Key);
         }
 
         public List<string> GetAllKeys(string tableName)

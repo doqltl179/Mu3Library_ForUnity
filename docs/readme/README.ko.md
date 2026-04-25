@@ -234,13 +234,17 @@ _playerData.Health.Set(80);
 
 패키지 매니저의 **Samples** 탭에서 다음 샘플을 가져올 수 있습니다:
 
-- **Sample_Template**: 기본 Core 구조 및 사용 예제
-- **Sample_Attribute**: ConditionalHide 사용법
-- **Sample_UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
+Base 패키지 (**Mu3 Library**):
+- **Template**: 기본 Core 구조 및 사용 예제
+- **Attribute**: ConditionalHide 사용법
+- **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
-또는 프로젝트 내 `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` 폴더를 참고하세요.
+URP 패키지 (**Mu3 Library URP**):
+- **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 
-**Sample_Template 주요 구성:**
+이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서 확인할 수 있습니다.
+
+**Template 주요 구성:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab 및 설정
@@ -276,13 +280,11 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
-## 📝 최근 업데이트 (v0.5.0)
+## 📝 최근 업데이트
 
-**모노레포 구조 개편:**
-- 리포지토리 재구성: `Mu3Library_Base/`와 `Mu3Library_URP/`는 독립 UPM 패키지, `UnityProject_BuiltIn/`과 `UnityProject_URP/`는 전용 개발 프로젝트로 분리.
-
-**DI Null 안전 처리:**
-- `CoreBase.WaitForOtherCore`, `GetClassFromOtherCore`, 및 `ContainerScope.ResolveFromCore`가 `CoreRoot.Instance`가 null일 때(예: 앱 종료 시) 안전하게 처리되도록 수정.
+- 최신 Base 패키지 버전: `0.9.0`
+- 최신 URP 패키지 버전: `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- 최신 URP `ScreenEffect` 변경사항을 포함한 미출시 변경사항은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
 
@@ -302,7 +304,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Name: `com.github.doqltl179.mu3library.base`
-- Version: `0.5.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
 
 Unity 개발자를 위해 제작됨

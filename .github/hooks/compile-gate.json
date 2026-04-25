@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "pwsh -File ./scripts/compile-gate/check-compile-gate.ps1",
+        "windows": "powershell -File .\\scripts\\compile-gate\\check-compile-gate.ps1",
+        "timeout": 10
+      }
+    ]
+  }
+}

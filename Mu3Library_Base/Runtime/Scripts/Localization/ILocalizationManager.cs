@@ -1,6 +1,7 @@
 #if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
 using System.Collections.Generic;
+using Mu3Library.Localization.Data;
 using UnityEngine.Localization;
 
 namespace Mu3Library.Localization
@@ -15,8 +16,12 @@ namespace Mu3Library.Localization
         public void Initialize(Action callback = null);
         public void InitializeWithResult(Action<bool, string> callback);
 
-        public void GetString(string tableName, string key, Action<string> callback);
+        public void GetStringAsync(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);
+        /// <summary>
+        /// `EntryData` can be obtained from the generated code by LocalizationDataExporter.
+        /// </summary>
+        public string GetString(EntryData entryData);
 
         public List<string> GetAllKeys(string tableName);
 

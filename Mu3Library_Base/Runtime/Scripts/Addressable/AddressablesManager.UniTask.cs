@@ -32,6 +32,7 @@ namespace Mu3Library.Addressable
                 if (existingAsset != null)
                 {
                     _assetCache[key] = existingAsset;
+                    _cachedAssetKeyMap[existingAsset] = key;
                 }
                 else
                 {
@@ -51,6 +52,7 @@ namespace Mu3Library.Addressable
             if (asset != null)
             {
                 _assetCache[key] = asset;
+                _cachedAssetKeyMap[asset] = key;
             }
             else
             {
@@ -81,6 +83,7 @@ namespace Mu3Library.Addressable
                 if (existingAssets != null)
                 {
                     _assetCache[cacheKey] = existingAssets;
+                    _cachedAssetKeyMap[existingAssets] = cacheKey;
                 }
                 else
                 {
@@ -100,6 +103,7 @@ namespace Mu3Library.Addressable
             if (assets != null)
             {
                 _assetCache[cacheKey] = assets;
+                _cachedAssetKeyMap[assets] = cacheKey;
             }
             else
             {

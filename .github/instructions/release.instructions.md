@@ -16,18 +16,17 @@ description: "Release and versioning rules for Mu3Library package changes"
 
 When user-facing behavior or API changes:
 - Update `CHANGELOG.md`.
-- Update localized files in the same task (unless the user explicitly requests otherwise):
-  - `docs/changelog/CHANGELOG.ko.md`
-  - `docs/changelog/CHANGELOG.ja.md`
+- Apply `.github/instructions/docs-sync.instructions.md` so localized changelog files stay synchronized in the same task unless the user explicitly requests otherwise.
 
 ## Release Checklist
 
 1. Version updated intentionally.
 2. Changelog entries included.
-3. Public API compatibility checked.
-4. Optional integration gates validated.
-5. Basic compile/verification completed or gaps reported.
-6. **GitHub Release created** (see below — a git tag alone is NOT a release).
+3. Reviewer gate completed for release-sensitive surfaces.
+4. Public API compatibility checked.
+5. Optional integration gates validated.
+6. Basic compile/verification completed or gaps reported.
+7. **GitHub Release created** (see below — a git tag alone is NOT a release).
 
 ## Git Tag vs GitHub Release
 

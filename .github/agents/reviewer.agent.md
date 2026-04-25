@@ -51,7 +51,7 @@ Use this reviewer checklist as mandatory when any of the following is true:
 - Public API signatures changed (interfaces, public classes/methods/properties).
 - `.asmdef` files or assembly references changed.
 - Optional-package define gates were added/removed/modified.
-- `Assets/Mu3LibraryAssets/package.json` version or package metadata changed.
+- `package.json` version or package metadata changed.
 - Release/changelog/documentation synchronization is part of the task.
 
 ## Review Output Format

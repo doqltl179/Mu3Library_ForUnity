@@ -10,12 +10,22 @@ namespace Mu3Library.Editor.FileUtil
         {
             public string Header;
             public List<object> Content;
+            public string Suffix;
         }
 
         public struct ArrayBlock
         {
             public string FieldName;
             public IList<string> Values;
+        }
+
+        /// <summary>
+        /// Outputs each line with the current indentation prepended. Use relative
+        /// extra spaces (e.g. 4 spaces for continuation args) embedded in each string.
+        /// </summary>
+        public struct RawBlock
+        {
+            public List<string> Lines;
         }
 
         private static int _appendStackCountMax = 1000;
@@ -86,6 +96,12 @@ namespace Mu3Library.Editor.FileUtil
                         previousIsCodeBlock = false;
                         AppendArrayBlock(sb, arrayBlock, spaces, startSpaces);
                         break;
+                    case RawBlock rawBlock:
+                        previousIsCodeBlock = false;
+                        if (rawBlock.Lines != null)
+                            foreach (string rawLine in rawBlock.Lines)
+                                AppendLine(sb, rawLine, startSpaces);
+                        break;
                     case CodeBlock childBlock:
                         previousIsCodeBlock = childCodeBlockAppended;
                         childCodeBlockAppended = true;
@@ -102,7 +118,7 @@ namespace Mu3Library.Editor.FileUtil
             {
                 spaceCount--;
                 startSpaces = spaces * spaceCount;
-                AppendLine(sb, "}", startSpaces);
+                AppendLine(sb, "}" + (block.Suffix ?? string.Empty), startSpaces);
             }
         }
 

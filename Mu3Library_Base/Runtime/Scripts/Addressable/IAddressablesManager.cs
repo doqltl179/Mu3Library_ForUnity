@@ -28,6 +28,11 @@ namespace Mu3Library.Addressable
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true);
         public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoReleaseHandle = true);
 
+        public bool IsKeyExist(object key);
+
+        public string GetCachedAddress(object asset);
+        public T GetCachedAddress<T>(object asset) where T : class;
+
         public bool TryGetCachedAsset<T>(object key, out T asset) where T : class;
         public void ReleaseCachedAsset(object key);
         public void ClearCache();

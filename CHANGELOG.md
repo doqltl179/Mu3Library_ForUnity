@@ -13,6 +13,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ShakeEffect` / `ShakePass`: Added `SetPeriod(float period)` so the URP shake screen effect can control the shake loop duration independently from amplitude.
+- `GaussianBlurEffect` / `GaussianBlurPass`: Added a new URP full-screen gaussian blur effect with matching pass and shader implementation.
+- `DepthOutlineEffect` / `DepthOutlinePass`: Added `SetOutlineThickness(float outlineThickness)` plus a matching sample slider so depth-based outlines can be widened without changing the threshold.
+
+### Changed
+- `IScreenEffect` / `IScreenEffectManager`: Renamed the URP screen-effect contract from `IPassInjector`, and renamed the manager registration APIs from `RegisterPass` / `UnregisterPass` to `RegisterEffect` / `UnregisterEffect` so the public API matches the current effect-based flow.
+- `ScreenEffectBase` / `ScreenPassBase`: Added reusable base classes for custom URP screen effects and passes, centralising active-state, disposal, pass creation, and shader/material lifecycle management.
+- `ScreenEffectManager` / `IScreenEffectManager`: Renamed the URP screen-effect pass registry class and interface from `PostVolumeManager` / `IPostVolumeManager` so their names reflect the current non-Volume-based responsibility.
+- `ScreenEffect` sample: Kept `ScreenEffectCore` on the existing handler-driven setup flow and added matching sample handler scripts so effects follow the same integration pattern as grayscale, shake, gaussian blur, and depth outline.
+- `GaussianBlurEffect` / `GaussianBlurPass`: Finalised the canonical gaussian blur naming for the full-screen blur API surface, sample handler, serialized sample field, and sample scene object names, with `Blur Radius` as the public control. If you adopted an earlier unreleased blur prototype from this branch, migrate it to `GaussianBlur*`.
+
+### Fixed
+- `ShakeEffect` / `ShakePass`: Changing `SetPeriod(float period)` now preserves the current shake position instead of jumping to a different offset mid-animation.
+- `Mu3Library_URP/package.json`: Published the `ScreenEffect` sample through the package manifest so it is discoverable from the Unity Package Manager.
+
+## [0.8.0] - 2026-04-05
+
+### Added
+- `AudioManager`: BGM playlist support via `PlayBgmPlaylist(AudioClip[] clips, ...)` and `StopBgmPlaylist()`.
+  - Accepts an array of `AudioClip`s and plays them sequentially.
+  - `loopCount`: 0 or less = infinite cycle; positive value = play that many full cycles (default: -1).
+  - `shuffle`: randomises playback order using Fisher-Yates before each cycle (default: false).
+  - `interval`: seconds to wait between tracks (default: 1.0).
+  - Eight overloads follow the same pattern as `PlaySfx` for ergonomic API composition.
+  - Calling `PlayBgmPlaylist` stops any currently playing BGM before starting.
+  - Calling `StopBgm` or `StopBgmPlaylist` deactivates the playlist.
+  - Interval countdown is pause-aware: timer does not advance while BGM is paused.
+- `IAudioManager`: Extended with `PlayBgmPlaylist` overloads and `StopBgmPlaylist` via new `IAudioManager.BgmPlaylist.cs` partial file.
+- `ResourcesPathExporterDrawer`: New editor drawer that scans all `*/Resources/*` paths in the project and generates a C# script with nested static classes reflecting the folder hierarchy. Each asset is exposed as a `ResourcePathData` field containing its resource-relative path (without extension) and file name.
+- `ResourcePathData`: New class in the `Mu3Library.Resource.Data` namespace with `Path` and `Name` string properties.
+
+### Changed
+- `LocalizationNameExporterDrawer`, `AddressableGroupNameExporterDrawer`, `InputSystemNameExporterDrawer`: Renamed to `LocalizationDataExporterDrawer`, `AddressableGroupDataExporterDrawer`, and `InputSystemDataExporterDrawer` respectively. Associated sample `.asset` files also renamed accordingly.
+- `LocaleData`, `EntryData`, `TableData`: Moved to the `Mu3Library.Localization.Data` namespace as standalone public classes; constructors changed from `internal` to `public`; removed `#if MU3LIBRARY_LOCALIZATION_SUPPORT` guards (no Unity.Localization dependency).
+- `EntryData`: Added `TableName` property; constructor updated to `EntryData(string tableName, string key, string id)`.
+- `LocalizationDataExporterDrawer`: Generated script no longer inlines `LocaleData`, `EntryData`, and `TableData` class definitions; instead imports them via `using Mu3Library.Localization.Data;`. `EntryData` construction now passes the table name as the first argument.
+- `LabelData`, `EntryData`, `GroupData`: Added to the `Mu3Library.Addressable.Data` namespace as standalone public classes (no `#if` guard; pure C#). `GroupData` acts as a base class for generated per-group sealed classes, holding `Name`, `Entries`, and `Labels` dictionaries.
+- `AddressableGroupDataExporterDrawer`: Generated script structure changed to mirror the Localization pattern — `Labels` class now holds `LabelData` instances instead of `const string`; `Groups` class now holds typed `*Data` group instances and an `IReadOnlyDictionary<string, GroupData> All`; per-group classes are `sealed class *Data : GroupData` with a constructor. Non-folder entries become `EntryData` fields; folder entries remain static classes with an `EntryData Data` field plus sub-entry `Assets` class. Generated output now includes `using Mu3Library.Addressable.Data;`.
+
 ## [0.6.0] - 2026-03-23
 
 ### Added
@@ -81,16 +121,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `AddressableGroupNameExporterDrawer`: Added an editor drawer (guarded by `MU3LIBRARY_ADDRESSABLES_SUPPORT`) that reads all Addressable groups at editor time and exports their group names, asset names, addresses (keys), and labels as nested C# static classes.
   - `Labels` inner class provides individual `const string` fields per label and a `static readonly string[] All` containing all label values.
-- `Sample_UtilWindow`: Added a sample `AddressableGroupNameExporter` drawer asset to the utility window drawer list.
-- `Sample_Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
+- `UtilWindow`: Added a sample `AddressableGroupNameExporter` drawer asset to the utility window drawer list.
+- `Template`: Added `AddressableGroupKeys` as a generated example for Addressable group/address constants.
 - `Mu3Library.Editor.asmdef`: Added optional references to `Unity.Addressables` and `Unity.Addressables.Editor` with `MU3LIBRARY_ADDRESSABLES_SUPPORT` version define.
 
 ## [0.4.2] - 2026-03-08
 
 ### Added
 - `LocalizationNameExporterDrawer`: Added an editor drawer that exports Localization string table names and entry keys as C# constants for pre-declared lookup.
-- `Sample_UtilWindow`: Added a sample `LocalizationNameExporter` drawer asset to the utility window drawer list.
-- `Sample_Template`: Added `LocalizationTableKeys` as a generated example for Localization table/key constants.
+- `UtilWindow`: Added a sample `LocalizationNameExporter` drawer asset to the utility window drawer list.
+- `Template`: Added `LocalizationTableKeys` as a generated example for Localization table/key constants.
 
 ### Changed
 - `InputSystemNameExporterDrawer` and `LocalizationNameExporterDrawer`: Standardized private serialized helper member naming so backing fields and cached accessors are easier to distinguish while keeping behavior unchanged.
@@ -356,7 +396,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ScriptBuilder`: Code generation helper
 
 #### Samples
-- **Sample_Template**: Comprehensive sample project
+- **Template**: Comprehensive sample project
   - Sample_MVP: MVP pattern demonstration
   - Sample_Audio: Audio system showcase
   - Sample_Audio3D: 3D spatial audio example
