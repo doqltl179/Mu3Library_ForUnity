@@ -35,6 +35,7 @@ namespace Mu3Library.Localization
             }
 
             _isInitializing = true;
+
             _initializeHandle = LocalizationSettings.InitializationOperation;
             if (_initializeHandle.IsDone)
             {
@@ -89,12 +90,13 @@ namespace Mu3Library.Localization
                 return;
             }
 
-            _localeChangeCts?.Cancel();
-            _localeChangeCts?.Dispose();
+            CancelChangeLocale();
+
             _localeChangeCts = new CancellationTokenSource();
             CancellationToken token = _localeChangeCts.Token;
 
             _isLocaleChanging = true;
+
             try
             {
                 LocalizationSettings.SelectedLocale = locale;
@@ -104,7 +106,7 @@ namespace Mu3Library.Localization
             }
             catch (OperationCanceledException)
             {
-                // Cancelled — _currentLocale is not updated
+                Debug.LogWarning("Locale change canceled.");
             }
             finally
             {
@@ -115,6 +117,8 @@ namespace Mu3Library.Localization
         public void CancelChangeLocale()
         {
             _localeChangeCts?.Cancel();
+            _localeChangeCts?.Dispose();
+            _localeChangeCts = null;
         }
 
         public async UniTask<Locale> GetSelectedLocaleAsync()
