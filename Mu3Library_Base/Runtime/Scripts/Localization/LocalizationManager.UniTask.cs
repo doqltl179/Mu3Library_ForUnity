@@ -30,7 +30,15 @@ namespace Mu3Library.Localization
 
             if (_isInitializing)
             {
-                await _initializeHandle.ToUniTask();
+                try
+                {
+                    await _initializeHandle.ToUniTask();
+                }
+                finally
+                {
+                    await UniTask.WaitUntil(() => !_isInitializing);
+                }
+
                 return;
             }
 
@@ -43,8 +51,17 @@ namespace Mu3Library.Localization
                 return;
             }
 
-            await _initializeHandle.ToUniTask();
-            OnInitializeCompleted(_initializeHandle);
+            try
+            {
+                await _initializeHandle.ToUniTask();
+            }
+            finally
+            {
+                if (_isInitializing)
+                {
+                    OnInitializeCompleted(_initializeHandle);
+                }
+            }
         }
 
         public async UniTask<string> GetStringAsync(string tableName, string key)

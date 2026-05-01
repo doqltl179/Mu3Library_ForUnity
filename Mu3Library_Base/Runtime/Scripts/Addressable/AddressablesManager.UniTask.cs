@@ -14,6 +14,7 @@ namespace Mu3Library.Addressable
 
 
 
+
         public async UniTask<T> LoadAssetAsync<T>(object key) where T : class
         {
             if (TryGetCachedAsset(key, out T cached))
@@ -25,39 +26,33 @@ namespace Mu3Library.Addressable
             {
                 if (!existing.IsDone)
                 {
-                    await existing.ToUniTask();
+                    T existingAsset = null;
+                    try
+                    {
+                        await existing.ToUniTask();
+                    }
+                    finally
+                    {
+                        existingAsset = FinalizeCachedLoad<T>(key, existing);
+                    }
+
+                    return existingAsset;
                 }
 
-                T existingAsset = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as T : null;
-                if (existingAsset != null)
-                {
-                    _assetCache[key] = existingAsset;
-                    _cachedAssetKeyMap[existingAsset] = key;
-                }
-                else
-                {
-                    _assetHandleCache.Remove(key);
-                    Addressables.Release(existing);
-                }
-
-                return existingAsset;
+                return FinalizeCachedLoad<T>(key, existing);
             }
 
             AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(key);
             _assetHandleCache[key] = handle;
 
-            await handle.ToUniTask();
-
-            T asset = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            if (asset != null)
+            T asset = null;
+            try
             {
-                _assetCache[key] = asset;
-                _cachedAssetKeyMap[asset] = key;
+                await handle.ToUniTask();
             }
-            else
+            finally
             {
-                _assetHandleCache.Remove(key);
-                Addressables.Release(handle);
+                asset = FinalizeCachedLoad<T>(key, handle);
             }
 
             return asset;
@@ -76,39 +71,33 @@ namespace Mu3Library.Addressable
             {
                 if (!existing.IsDone)
                 {
-                    await existing.ToUniTask();
+                    IList<T> existingAssets = null;
+                    try
+                    {
+                        await existing.ToUniTask();
+                    }
+                    finally
+                    {
+                        existingAssets = FinalizeCachedLoad<IList<T>>(cacheKey, existing);
+                    }
+
+                    return existingAssets;
                 }
 
-                IList<T> existingAssets = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as IList<T> : null;
-                if (existingAssets != null)
-                {
-                    _assetCache[cacheKey] = existingAssets;
-                    _cachedAssetKeyMap[existingAssets] = cacheKey;
-                }
-                else
-                {
-                    _assetHandleCache.Remove(cacheKey);
-                    Addressables.Release(existing);
-                }
-
-                return existingAssets;
+                return FinalizeCachedLoad<IList<T>>(cacheKey, existing);
             }
 
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
             _assetHandleCache[cacheKey] = handle;
 
-            await handle.ToUniTask();
-
-            IList<T> assets = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            if (assets != null)
+            IList<T> assets = null;
+            try
             {
-                _assetCache[cacheKey] = assets;
-                _cachedAssetKeyMap[assets] = cacheKey;
+                await handle.ToUniTask();
             }
-            else
+            finally
             {
-                _assetHandleCache.Remove(cacheKey);
-                Addressables.Release(handle);
+                assets = FinalizeCachedLoad<IList<T>>(cacheKey, handle);
             }
 
             return assets;
@@ -117,12 +106,18 @@ namespace Mu3Library.Addressable
         public async UniTask<long> GetDownloadSizeAsync(object key)
         {
             AsyncOperationHandle<long> handle = Addressables.GetDownloadSizeAsync(key);
-            await handle.ToUniTask();
-
-            long size = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : 0L;
-            if (handle.IsValid())
+            long size = 0L;
+            try
             {
-                Addressables.Release(handle);
+                await handle.ToUniTask();
+                size = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : 0L;
+            }
+            finally
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
 
             return size;
@@ -132,43 +127,55 @@ namespace Mu3Library.Addressable
         {
             AsyncOperationHandle<IList<UnityEngine.ResourceManagement.ResourceLocations.IResourceLocation>> locationsHandle =
                 Addressables.LoadResourceLocationsAsync(keys, mergeMode, typeof(object));
-            await locationsHandle.ToUniTask();
+            try
+            {
+                await locationsHandle.ToUniTask();
 
-            if (locationsHandle.Status != AsyncOperationStatus.Succeeded || locationsHandle.Result == null)
+                if (locationsHandle.Status != AsyncOperationStatus.Succeeded || locationsHandle.Result == null)
+                {
+                    return 0L;
+                }
+
+                AsyncOperationHandle<long> sizeHandle = Addressables.GetDownloadSizeAsync(locationsHandle.Result);
+                long size = 0L;
+                try
+                {
+                    await sizeHandle.ToUniTask();
+                    size = sizeHandle.Status == AsyncOperationStatus.Succeeded ? sizeHandle.Result : 0L;
+                }
+                finally
+                {
+                    if (sizeHandle.IsValid())
+                    {
+                        Addressables.Release(sizeHandle);
+                    }
+                }
+
+                return size;
+            }
+            finally
             {
                 if (locationsHandle.IsValid())
                 {
                     Addressables.Release(locationsHandle);
                 }
-                return 0L;
             }
-
-            AsyncOperationHandle<long> sizeHandle = Addressables.GetDownloadSizeAsync(locationsHandle.Result);
-            await sizeHandle.ToUniTask();
-
-            long size = sizeHandle.Status == AsyncOperationStatus.Succeeded ? sizeHandle.Result : 0L;
-            if (sizeHandle.IsValid())
-            {
-                Addressables.Release(sizeHandle);
-            }
-
-            if (locationsHandle.IsValid())
-            {
-                Addressables.Release(locationsHandle);
-            }
-
-            return size;
         }
 
         public async UniTask DownloadDependenciesAsync(object key, Action<float> progress = null, bool autoReleaseHandle = true)
         {
             AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(key, autoReleaseHandle);
             TrackDownloadHandle(handle, progress);
-            await handle.ToUniTask();
-
-            if (!autoReleaseHandle && handle.IsValid())
+            try
             {
-                Addressables.Release(handle);
+                await handle.ToUniTask();
+            }
+            finally
+            {
+                if (!autoReleaseHandle && handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
         }
 
@@ -176,23 +183,34 @@ namespace Mu3Library.Addressable
         {
             AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(keys, mergeMode, autoReleaseHandle);
             TrackDownloadHandle(handle, progress);
-            await handle.ToUniTask();
-
-            if (!autoReleaseHandle && handle.IsValid())
+            try
             {
-                Addressables.Release(handle);
+                await handle.ToUniTask();
+            }
+            finally
+            {
+                if (!autoReleaseHandle && handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
         }
 
         public async UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
-            await handle.ToUniTask();
-
-            IList<string> catalogs = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            if (!autoReleaseHandle && handle.IsValid())
+            IList<string> catalogs = null;
+            try
             {
-                Addressables.Release(handle);
+                await handle.ToUniTask();
+                catalogs = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
+            }
+            finally
+            {
+                if (!autoReleaseHandle && handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
 
             return catalogs;
@@ -201,12 +219,18 @@ namespace Mu3Library.Addressable
         public async UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<IResourceLocator>> handle = Addressables.UpdateCatalogs(autoReleaseHandle);
-            await handle.ToUniTask();
-
-            IList<IResourceLocator> locators = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            if (!autoReleaseHandle && handle.IsValid())
+            IList<IResourceLocator> locators = null;
+            try
             {
-                Addressables.Release(handle);
+                await handle.ToUniTask();
+                locators = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
+            }
+            finally
+            {
+                if (!autoReleaseHandle && handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
 
             return locators;
@@ -221,7 +245,15 @@ namespace Mu3Library.Addressable
 
             if (_isInitializing)
             {
-                await _initializeHandle.ToUniTask();
+                try
+                {
+                    await _initializeHandle.ToUniTask();
+                }
+                finally
+                {
+                    await UniTask.WaitUntil(() => !_isInitializing);
+                }
+
                 return;
             }
 
@@ -233,8 +265,38 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            await _initializeHandle.ToUniTask();
-            OnInitializeCompleted(_initializeHandle);
+            try
+            {
+                await _initializeHandle.ToUniTask();
+            }
+            finally
+            {
+                if (_isInitializing)
+                {
+                    OnInitializeCompleted(_initializeHandle);
+                }
+            }
+        }
+
+        private T FinalizeCachedLoad<T>(object key, AsyncOperationHandle handle) where T : class
+        {
+            T asset = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result as T : null;
+            if (asset != null)
+            {
+                _assetCache[key] = asset;
+                _cachedAssetKeyMap[asset] = key;
+            }
+            else
+            {
+                _assetHandleCache.Remove(key);
+
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+            }
+
+            return asset;
         }
     }
 }
