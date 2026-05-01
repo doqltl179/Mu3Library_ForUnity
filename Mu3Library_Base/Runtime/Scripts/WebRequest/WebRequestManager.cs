@@ -71,7 +71,8 @@ namespace Mu3Library.WebRequest
                 {
                     WebRequestResult<T> result = ParseResult<T>(url, request, "GET");
                     callback?.Invoke(result);
-                });
+                },
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<T>("GET", url, ex)));
         }
 
         public void PostWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
@@ -103,7 +104,8 @@ namespace Mu3Library.WebRequest
                 {
                     WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, "POST");
                     callback?.Invoke(result);
-                });
+                },
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<TResponse>("POST", url, ex)));
         }
 
         public void GetDownloadSizeWithResult(string url, Action<WebRequestResult<long>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
@@ -130,7 +132,8 @@ namespace Mu3Library.WebRequest
                 {
                     WebRequestResult<long> result = ParseDownloadSizeResult(url, request);
                     callback?.Invoke(result);
-                });
+                },
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<long>("HEAD", url, ex)));
         }
         #endregion
 
@@ -138,33 +141,60 @@ namespace Mu3Library.WebRequest
             string method,
             int retryCount,
             Func<UnityWebRequest> createRequest,
-            Action<UnityWebRequest> onComplete)
+            Action<UnityWebRequest> onComplete,
+            Action<Exception> onUnexpectedFailure)
         {
             int maxAttempts = Mathf.Max(1, retryCount + 1);
 
             void SendAttempt(int attempt)
             {
-                UnityWebRequest request = createRequest();
-                request.SendWebRequest().completed += _ =>
+                UnityWebRequest request = null;
+
+                try
                 {
-                    bool canRetry = request.result != UnityWebRequest.Result.Success && attempt + 1 < maxAttempts;
-                    if (canRetry)
+                    request = createRequest();
+                    request.SendWebRequest().completed += _ =>
                     {
-                        using (request)
+                        bool canRetry = request.result != UnityWebRequest.Result.Success && attempt + 1 < maxAttempts;
+                        if (canRetry)
                         {
-                            Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
+                            using (request)
+                            {
+                                Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
+                            }
+
+                            SendAttempt(attempt + 1);
+                            return;
                         }
 
+                        onComplete?.Invoke(request);
+                        request.Dispose();
+                    };
+                }
+                catch (Exception ex)
+                {
+                    request?.Dispose();
+
+                    bool canRetry = attempt + 1 < maxAttempts;
+                    if (canRetry)
+                    {
+                        Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
                         SendAttempt(attempt + 1);
                         return;
                     }
 
-                    onComplete?.Invoke(request);
-                    request.Dispose();
-                };
+                    onUnexpectedFailure?.Invoke(ex);
+                }
             }
 
             SendAttempt(0);
+        }
+
+        private WebRequestResult<T> CreateUnexpectedFailureResult<T>(string method, string url, Exception exception)
+        {
+            string error = $"WebRequest {method} failed with exception. url: {url}\r\n{exception.GetType().Name}: {exception.Message}";
+            Debug.LogError(error);
+            return WebRequestResult<T>.Failure(-1, error, null);
         }
 
         private WebRequestResult<T> ParseResult<T>(string url, UnityWebRequest request, string method)
