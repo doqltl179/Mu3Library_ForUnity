@@ -31,7 +31,7 @@
 - 📊 **Observable 패턴**: 데이터 변경 감지 및 이벤트 기반 바인딩
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
-- 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션 제공
+- 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
@@ -178,6 +178,12 @@ _webRequest.Post<object, ServerResponse>("https://api.example.com/submit", reque
 
 // UniTask 지원 (MU3LIBRARY_UNITASK_SUPPORT 활성화 시)
 var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+
+// 호출부에서 필요할 때만 취소를 예외로 전파
+var cancellableData = await _webRequest.GetAsync<DataModel>(
+    "https://api.example.com/data",
+    cancellationToken: token,
+    propagateCancellation: true);
 ```
 
 ### Observable 패턴

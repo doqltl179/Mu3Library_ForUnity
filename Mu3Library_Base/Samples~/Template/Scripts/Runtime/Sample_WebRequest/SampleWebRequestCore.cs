@@ -197,7 +197,7 @@ namespace Mu3Library.Sample.Template.WebRequest
 
             try
             {
-                await _webRequestManager.GetResultAsync<string>(_testStringUrl, cancellationToken: cts.Token);
+                await _webRequestManager.GetResultAsync<string>(_testStringUrl, cancellationToken: cts.Token, propagateCancellation: true);
                 RecordLog(FormatSmokeStatus(
                     false,
                     "Async cancellation smoke check unexpectedly completed."));

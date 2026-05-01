@@ -31,7 +31,7 @@
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
-- 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, and retry options
+- 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: UniTask + CancellationToken scene load/unload helpers
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
@@ -179,6 +179,12 @@ _webRequest.Post<object, ServerResponse>("https://api.example.com/submit", reque
 
 // UniTask support (when MU3LIBRARY_UNITASK_SUPPORT is enabled)
 var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+
+// Propagate cancellation only when the caller explicitly needs it
+var cancellableData = await _webRequest.GetAsync<DataModel>(
+    "https://api.example.com/data",
+    cancellationToken: token,
+    propagateCancellation: true);
 ```
 
 ### Observable Pattern

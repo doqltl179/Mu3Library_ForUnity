@@ -13,6 +13,15 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `.github/workflows/unity-compile-gate.yml`: `scripts/compile-gate/run-unity-compile.ps1` を実行する manual self-hosted Windows ワークフローと、push / pull request イベントで動く GitHub-hosted の案内 job を追加。
+
+### 変更
+- `IWebRequestManager` / `WebRequestManager`: UniTask WebRequest API に任意の `propagateCancellation` フラグを追加。デフォルトではキャンセルを失敗/既定値の経路として扱い、明示的なキャンセルが必要な呼び出し側だけが opt-in できるように変更。
+
+### 修正
+- `README.md` と各ローカライズ README: WebRequest の opt-in キャンセル伝播動作を文書化。
+
 ## [urp/0.1.2] - 2026-04-26
 
 ### 追加

@@ -31,7 +31,7 @@
 - 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
 - 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
-- 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライを提供
+- 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライと、必要時のみのキャンセル伝播を提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
 - ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
@@ -178,6 +178,12 @@ _webRequest.Post<object, ServerResponse>("https://api.example.com/submit", reque
 
 // UniTaskサポート（MU3LIBRARY_UNITASK_SUPPORT有効時）
 var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+
+// 呼び出し側で必要な場合だけキャンセルを例外として伝播
+var cancellableData = await _webRequest.GetAsync<DataModel>(
+    "https://api.example.com/data",
+    cancellationToken: token,
+    propagateCancellation: true);
 ```
 
 ### Observableパターン

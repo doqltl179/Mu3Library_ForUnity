@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `.github/workflows/unity-compile-gate.yml`: Added a manual self-hosted Windows workflow for `scripts/compile-gate/run-unity-compile.ps1`, plus an automatic GitHub-hosted guidance job for push and pull request events.
+
+### Changed
+- `IWebRequestManager` / `WebRequestManager`: UniTask WebRequest APIs now accept optional `propagateCancellation` flags. By default cancellation becomes a failure/default-value path, while callers that need explicit cancellation can opt in.
+
+### Fixed
+- `README.md` and localized READMEs: Documented the opt-in WebRequest cancellation propagation behavior.
+
 ## [urp/0.1.2] - 2026-04-26
 
 ### Added

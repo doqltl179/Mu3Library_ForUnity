@@ -7,9 +7,9 @@ namespace Mu3Library.WebRequest
 {
     public partial interface IWebRequestManager
     {
-        public UniTask<T> GetAsync<T>(string url, CancellationToken cancellationToken = default);
-        public UniTask<TResponse> PostAsync<TRequest, TResponse>(string url, TRequest body, string contentType = "application/json", CancellationToken cancellationToken = default);
-        public UniTask<long> GetDownloadSizeAsync(string url, CancellationToken cancellationToken = default);
+        public UniTask<T> GetAsync<T>(string url, CancellationToken cancellationToken = default, bool propagateCancellation = false);
+        public UniTask<TResponse> PostAsync<TRequest, TResponse>(string url, TRequest body, string contentType = "application/json", CancellationToken cancellationToken = default, bool propagateCancellation = false);
+        public UniTask<long> GetDownloadSizeAsync(string url, CancellationToken cancellationToken = default, bool propagateCancellation = false);
 
         public UniTask<WebRequestResult<T>> GetResultAsync<T>(
             string url,
@@ -17,7 +17,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false);
 
         public UniTask<WebRequestResult<TResponse>> PostResultAsync<TRequest, TResponse>(
             string url,
@@ -27,7 +28,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false);
 
         public UniTask<WebRequestResult<long>> GetDownloadSizeResultAsync(
             string url,
@@ -35,7 +37,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false);
     }
 }
 #endif
