@@ -158,6 +158,18 @@ namespace Mu3Library.Localization
             };
         }
 
+        public void GetString(EntryData entryData, Action<string> callback)
+        {
+            if (entryData == null)
+            {
+                Debug.LogError("EntryData is null.");
+                callback?.Invoke("");
+                return;
+            }
+
+            GetString(entryData.TableName, entryData.Key, callback);
+        }
+
         public string GetString(string tableName, string key)
         {
             LocalizedStringDatabase sdb = LocalizationSettings.StringDatabase;
