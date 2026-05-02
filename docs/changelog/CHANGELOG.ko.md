@@ -11,6 +11,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 제거됨
+- 대상 Unity 에디터를 닫아야만 동작하도록 설계된 저장소 Unity batch compile-gate 워크플로, 스크립트, 훅, 에디터 batch entrypoint를 제거함. 이제 compile-only 검증은 생성된 Unity `.csproj` 파일에 대한 editor-safe `dotnet build`에 의존함.
+
 ## [base/0.11.0] - 2026-05-02
 
 ### 추가됨

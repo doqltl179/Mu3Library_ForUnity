@@ -43,7 +43,6 @@ Subagent-only (invoked via `runSubagent`):
 Workspace skills:
 - `.github/skills/bootstrap-python-cli/SKILL.md`
 - `.github/skills/agent-role-audit/SKILL.md`
-- `.github/skills/unity-compile-gate/SKILL.md`
 
 ## Mu3Library Guardrails
 
@@ -75,6 +74,6 @@ Workspace skills:
 - For multilingual `README` or `CHANGELOG` work, prefer `docs-sync` for synchronization and keep release execution separate.
 - For release, versioning, tagging, branch sync, or GitHub Release execution, prefer `release-manager` and keep `docs-sync` plus `reviewer` as adjacent gates.
 - For Unity-domain routing, prefer the narrowest owner first: `unity-runtime` for non-gated runtime work, `unity-editor` for non-gated editor work, `package-integration` for define-gated optional packages, `sample-integrity` for sample-only package work, sample manifests, imported sample footprints, and sample smoke checks, and `unity` only for truly cross-boundary Unity tasks.
-- For compile-only verification, prefer editor-safe `dotnet build` of the affected generated Unity `.csproj` files when the target Unity editor is open. Use `unity-compile-gate` only when the editor is closed and batch Unity compile evidence is specifically needed; if a batch compile is started, wait until completion is recorded before continuing.
+- For compile-only verification, prefer editor-safe `dotnet build` of the affected generated Unity `.csproj` files.
 - Keep implementation incremental and verifiable.
 - If a required tool is unavailable, continue with an equivalent fallback and report it briefly.

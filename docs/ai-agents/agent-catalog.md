@@ -46,7 +46,6 @@ No additional deferred candidates are active right now. Add new agents only afte
 |---|---|---|
 | `bootstrap-python-cli` | `cli-platform` | Design or refine auxiliary Python CLI tooling and environment bootstrap flow |
 | `agent-role-audit` | `role-governor` | Audit overlap, missing ownership, and split/merge decisions for agents |
-| `unity-compile-gate` | Workflow asset plane | Run compile-only verification, wait for completion, and block the next unit until compile state is known |
 
 ## Supporting Protocols
 

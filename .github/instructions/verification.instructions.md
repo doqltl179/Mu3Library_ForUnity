@@ -25,10 +25,8 @@ Define practical non-test verification steps per change type.
 ## Compile-Only Workflow
 
 - When the requested verification scope is compile-only, do not add or imply test execution.
-- If the target Unity project is already open in an interactive editor instance, prefer editor-safe assembly verification with `dotnet build` on the affected generated Unity `.csproj` files.
-- Use the repository compile gate workflow only when the editor is closed or when batch Unity compile evidence is explicitly required.
-- Treat `tasks/compile-status.json` as blocking only for batch compile runs that were actually started for the current unit. A pre-existing triaged batch failure does not block editor-safe assembly verification.
-- If a batch compile is started, record compile state in `tasks/compile-status.json`, treat `running` as a hard stop for follow-up work, and if it ends in `failed` or `failed-stale`, stop the next unit, record triage in `tasks/todo.md`, acknowledge the status, and report the verification gap explicitly.
+- Use editor-safe assembly verification with `dotnet build` on the affected generated Unity `.csproj` files.
+- If editor-safe compile verification cannot be completed, report the verification gap explicitly before proceeding.
 
 ## If Full Verification Is Not Possible
 
