@@ -40,12 +40,12 @@
 
 No additional deferred candidates are active right now. Add new agents only after a new bounded ownership gap is found and passes suitability review.
 
-## Skills Introduced In Iteration 1
+## Workflow Asset Inventory Boundary
 
-| Skill | Owner | Purpose |
-|---|---|---|
-| `bootstrap-python-cli` | `cli-platform` | Design or refine auxiliary Python CLI tooling and environment bootstrap flow |
-| `agent-role-audit` | `role-governor` | Audit overlap, missing ownership, and split/merge decisions for agents |
+`agent-catalog.md` is the authoritative inventory for long-lived agent owners.
+
+Prompt and skill inventory lives in `docs/ai-agents/workflow-assets.md`.
+When a reusable flow is useful but does not create a new durable owner, document it there instead of expanding this catalog.
 
 ## Supporting Protocols
 

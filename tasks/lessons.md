@@ -13,3 +13,4 @@
 - When a Unity sample already treats the scene as the owner of handler wiring, UI hierarchy, and `UnityEvent` bindings, prefer direct YAML edits over runtime-generated workaround code, and keep imported sample scenes plus package sample source scenes synchronized.
 - When the user wants scene async load and cancel responsibilities separated, prefer `UniTask<bool>` load results plus explicit cancel events over rollback-oriented stop semantics, and document clearly whether cancel is scene-scoped or caller-scoped.
 - For this repository's package releases, keep the Base package on the `0.x.x` line unless the user explicitly asks to change that versioning convention.
+- For ideation or concept-shaping requests, run the suitability gate before adding a long-lived agent; if the output stops at a concept brief, implement it as a workflow asset such as a skill or prompt instead.

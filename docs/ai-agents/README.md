@@ -40,6 +40,7 @@ Approved in the current rollout:
 - dedicated docs-sync ownership for multilingual README and CHANGELOG synchronization,
 - dedicated release-manager ownership for versioning, release-scoped manifest metadata, branch and tag execution, release packaging, and GitHub Release execution,
 - dedicated sample-integrity ownership for sample manifests, package samples, imported sample footprints, and sample smoke checks,
+- a workflow-asset ideation entrypoint for pre-unit concept shaping when package direction is unclear,
 - a compile-only workflow gate that waits for compile completion before the next unit proceeds,
 - a tooling-local Python CLI bootstrap under `tools/mu3_cli`.
 
@@ -55,5 +56,7 @@ This framework intentionally combines:
 - CLI conventions that start small and scale through subcommands.
 
 Those patterns were chosen because they map well to Mu3Library's package-first Unity workflow.
+
+When a capability is useful but does not own a durable repository surface, keep it in the workflow-asset plane instead of promoting it into the agent catalog.
 
 For Unity scene and prefab wiring work, consult `unity-yaml-guide.md` before editing YAML directly and update it whenever a new reliable pattern is verified.
