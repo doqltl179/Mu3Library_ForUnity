@@ -41,7 +41,7 @@ Execution-plane agents should produce concrete artifacts. They should not redefi
 - `prompts`: narrow entry points for repeatable user-facing tasks.
 - `hooks`: deterministic guardrails for preflight checks.
 
-Current workflow assets include a compile-only gate implemented as a skill, prompt entrypoints, a hook, and supporting scripts. That workflow exists to wait for compile completion before the next unit proceeds without introducing a new compile-specific execution owner.
+Current workflow assets include prompt entrypoints and supporting instructions for compile-only verification. Compile verification is now expected to use editor-safe `dotnet build` against the affected generated Unity `.csproj` files rather than a dedicated batch gate.
 
 Supporting documents for this plane should also define:
 

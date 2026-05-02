@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
-- Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. Compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files.
+- Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
 
 ## [base/0.11.0] - 2026-05-02
 

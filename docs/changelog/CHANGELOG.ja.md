@@ -14,7 +14,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [Unreleased]
 
 ### 削除
-- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一します。
+- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
 
 ## [base/0.11.0] - 2026-05-02
 

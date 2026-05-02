@@ -53,4 +53,4 @@ No additional deferred candidates are active right now. Add new agents only afte
 |---|---|
 | `docs/ai-agents/handoff-contract.md` | Defines the structured handoff packet, memory scope matrix, and review-aware persistence rules |
 | `.github/instructions/memory-policy.instructions.md` | Enforces repository-specific memory routing rules during agent work |
-| `docs/ai-agents/workflow-assets.md` | Maps reusable skills, prompts, hooks, and scripts such as the compile-only gate |
+| `docs/ai-agents/workflow-assets.md` | Maps reusable skills, prompts, hooks, and scripts that support the workflow asset plane |

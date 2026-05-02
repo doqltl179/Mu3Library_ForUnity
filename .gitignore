@@ -95,5 +95,4 @@ UnityProject_URP/Assets/Mu3LibrarySamplesURP/
 .vscode/
 .venv/
 /log/
-tasks/compile-status.json
 tasks/todo.md
