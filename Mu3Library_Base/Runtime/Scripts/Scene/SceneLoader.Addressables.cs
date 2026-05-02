@@ -14,6 +14,7 @@ namespace Mu3Library.Scene
         {
             public bool IsAddressables;
             public AsyncOperationHandle<SceneInstance> AddressablesHandle;
+            public AsyncOperation ActivationOperation;
             public bool AutoReleaseHandle;
         }
 
@@ -24,136 +25,269 @@ namespace Mu3Library.Scene
 
 
 
+        public void PreloadSingleSceneWithAddressables(string key)
+        {
+            TryPreloadSingleSceneWithAddressables(key, autoActivate: false);
+        }
+
+        public void ActivateSingleSceneWithAddressables(string key)
+        {
+            TryActivateSingleSceneWithAddressables(key);
+        }
+
         public void LoadSingleSceneWithAddressables(string key)
         {
-            if (string.IsNullOrEmpty(key))
-            {
-                return;
-            }
+            TryPreloadSingleSceneWithAddressables(key, autoActivate: true);
+        }
 
-            if (IsSingleSceneOperationInProgress())
-            {
-                Debug.LogWarning($"Single scene load already in progress. reason=SingleInProgress key: {key}");
-                return;
-            }
+        public void PreloadAdditiveSceneWithAddressables(string key)
+        {
+            TryPreloadAdditiveSceneWithAddressables(key, autoActivate: false);
+        }
 
-            if (IsAdditiveSceneOperationInProgress())
-            {
-                Debug.LogWarning($"Cannot load single scene while additive scene is loading/unloading. reason=AdditiveInProgress key: {key}");
-                return;
-            }
-
-            if (_currentSceneName == key)
-            {
-                return;
-            }
-
-            Debug.Log($"Load addressable single scene start. key: {key}");
-
-            _loadingCount++;
-            OnSceneLoadStart?.Invoke(key);
-
-            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(key, LoadSceneMode.Single, activateOnLoad: false);
-            _singleAddressablesSceneOperation = CreateAddressablesLoadOperation(key, handle, isAdditive: false);
+        public void ActivateAdditiveSceneWithAddressables(string key)
+        {
+            TryActivateAdditiveSceneWithAddressables(key);
         }
 
         public void LoadAdditiveSceneWithAddressables(string key)
         {
-            if (string.IsNullOrEmpty(key))
-            {
-                return;
-            }
-
-            if (_currentAdditiveScenes.Contains(key))
-            {
-                return;
-            }
-
-            if (IsSingleSceneOperationInProgress())
-            {
-                Debug.LogWarning($"Cannot load additive scene while single scene is loading/unloading. reason=SingleInProgress key: {key}");
-                return;
-            }
-
-            if (_loadAdditiveAddressablesSceneOperations.ContainsKey(key))
-            {
-                Debug.LogWarning($"Additive scene load already in progress. reason=AdditiveInProgress key: {key}");
-                return;
-            }
-
-            Debug.Log($"Load addressable additive scene start. key: {key}");
-
-            _loadingCount++;
-            OnSceneLoadStart?.Invoke(key);
-
-            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(key, LoadSceneMode.Additive, activateOnLoad: false);
-            _loadAdditiveAddressablesSceneOperations.Add(key, CreateAddressablesLoadOperation(key, handle, isAdditive: true));
+            TryPreloadAdditiveSceneWithAddressables(key, autoActivate: true);
         }
 
         public void UnloadAdditiveSceneWithAddressables(string key, bool autoReleaseHandle = true)
         {
+            TryStartUnloadAdditiveSceneWithAddressables(key, autoReleaseHandle);
+        }
+
+        private bool TryPreloadSingleSceneWithAddressables(string key, bool autoActivate)
+        {
+            SceneCommandType commandType = autoActivate ? SceneCommandType.LoadSingle : SceneCommandType.PreloadSingle;
             if (string.IsNullOrEmpty(key))
             {
-                return;
+                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (!_currentAdditiveScenes.Contains(key))
+            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
             {
-                Debug.LogWarning($"Scene is not loaded. reason=NotLoaded key: {key}");
-                return;
+                return true;
+            }
+
+            if (TryGetSingleSceneOperation(out SceneOperation existingOperation))
+            {
+                if (existingOperation.SceneName != key)
+                {
+                    return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
+                }
+
+                if (autoActivate)
+                {
+                    RequestActivation(existingOperation);
+                }
+
+                return true;
+            }
+
+            if (IsAdditiveSceneOperationInProgress())
+            {
+                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
+            }
+
+            Debug.Log($"Addressable single scene preload start. key: {key}");
+
+            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(key, LoadSceneMode.Single, activateOnLoad: false);
+            _singleAddressablesSceneOperation = CreateAddressablesLoadOperation(key, handle, isAdditive: false, autoActivate: autoActivate);
+            EmitStatusChanged(_singleAddressablesSceneOperation, force: true);
+            return true;
+        }
+
+        private bool TryActivateSingleSceneWithAddressables(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.InvalidSceneName);
+            }
+
+            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
+            {
+                return true;
+            }
+
+            if (!TryGetSingleSceneOperation(out SceneOperation operation) || operation.SceneName != key)
+            {
+                return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
+            {
+                return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            RequestActivation(operation);
+            return true;
+        }
+
+        private bool TryPreloadAdditiveSceneWithAddressables(string key, bool autoActivate)
+        {
+            SceneCommandType commandType = autoActivate ? SceneCommandType.LoadAdditive : SceneCommandType.PreloadAdditive;
+            if (string.IsNullOrEmpty(key))
+            {
+                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.InvalidSceneName);
+            }
+
+            if (_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
+            {
+                return true;
+            }
+
+            if (TryGetAdditiveSceneOperation(key, out SceneOperation existingOperation))
+            {
+                if (existingOperation.IsUnload)
+                {
+                    return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
+                }
+
+                if (autoActivate)
+                {
+                    RequestActivation(existingOperation);
+                }
+
+                return true;
             }
 
             if (IsSingleSceneOperationInProgress())
             {
-                Debug.LogWarning($"Cannot unload additive scene while single scene is loading/unloading. reason=SingleInProgress key: {key}");
-                return;
+                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
             }
 
-            if (_unloadAdditiveAddressablesSceneOperations.ContainsKey(key))
+            Debug.Log($"Addressable additive scene preload start. key: {key}");
+
+            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(key, LoadSceneMode.Additive, activateOnLoad: false);
+            SceneOperation operation = CreateAddressablesLoadOperation(key, handle, isAdditive: true, autoActivate: autoActivate);
+            _loadAdditiveAddressablesSceneOperations.Add(key, operation);
+            EmitStatusChanged(operation, force: true);
+            return true;
+        }
+
+        private bool TryActivateAdditiveSceneWithAddressables(string key)
+        {
+            if (string.IsNullOrEmpty(key))
             {
-                Debug.LogWarning($"Additive scene unload already in progress. reason=AdditiveInProgress key: {key}");
-                return;
+                return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.InvalidSceneName);
+            }
+
+            if (_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
+            {
+                return true;
+            }
+
+            if (!TryGetAdditiveSceneOperation(key, out SceneOperation operation) || operation.IsUnload)
+            {
+                return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
+            {
+                return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            RequestActivation(operation);
+            return true;
+        }
+
+        private bool TryStartUnloadAdditiveSceneWithAddressables(string key, bool autoReleaseHandle)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.InvalidSceneName);
+            }
+
+            if (!_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
+            {
+                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.NotLoaded);
+            }
+
+            if (TryGetAdditiveSceneOperation(key, out SceneOperation existingOperation))
+            {
+                if (existingOperation.IsUnload)
+                {
+                    return true;
+                }
+
+                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
+            }
+
+            if (IsSingleSceneOperationInProgress())
+            {
+                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
             }
 
             if (!_loadedAddressableSceneHandles.TryGetValue(key, out AsyncOperationHandle<SceneInstance> handle) || !handle.IsValid())
             {
-                Debug.LogWarning($"Addressable scene handle not found. reason=HandleNotFound key: {key}");
-                return;
+                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.NotLoaded);
             }
 
+            Debug.Log($"Addressable additive scene unload start. key: {key}");
+
             AsyncOperationHandle<SceneInstance> unloadHandle = Addressables.UnloadSceneAsync(handle, autoReleaseHandle);
-            _unloadAdditiveAddressablesSceneOperations.Add(key, CreateAddressablesUnloadOperation(key, unloadHandle, autoReleaseHandle));
+            SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, autoReleaseHandle);
+            _unloadAdditiveAddressablesSceneOperations.Add(key, operation);
+            EmitStatusChanged(operation, force: true);
+            return true;
         }
 
-        private SceneOperation CreateAddressablesLoadOperation(string key, AsyncOperationHandle<SceneInstance> handle, bool isAdditive)
+        private SceneOperation CreateAddressablesLoadOperation(string key, AsyncOperationHandle<SceneInstance> handle, bool isAdditive, bool autoActivate)
         {
-            return new SceneOperation
+            SceneOperation operation = new SceneOperation
             {
                 SceneName = key,
                 IsAddressables = true,
                 AddressablesHandle = handle,
+                ActivationOperation = null,
                 IsAdditive = isAdditive,
                 IsUnload = false,
-                FakeDuration = _fakeLoadingTime,
-                UseFakeLoading = _useFakeLoading,
+                AutoActivate = autoActivate,
                 ActivationRequested = false,
+                Phase = ScenePhase.Preloading,
+                Progress = 0f,
+                LastReportedProgress = -1f,
                 AutoReleaseHandle = false,
             };
+
+            handle.Completed += completed =>
+            {
+                operation.HasCompletionResult = true;
+                operation.CompletedSuccessfully = completed.Status == AsyncOperationStatus.Succeeded;
+            };
+
+            return operation;
         }
 
         private SceneOperation CreateAddressablesUnloadOperation(string key, AsyncOperationHandle<SceneInstance> handle, bool autoReleaseHandle)
         {
-            return new SceneOperation
+            SceneOperation operation = new SceneOperation
             {
                 SceneName = key,
                 IsAddressables = true,
                 AddressablesHandle = handle,
+                ActivationOperation = null,
                 IsAdditive = true,
                 IsUnload = true,
-                UseFakeLoading = false,
+                AutoActivate = false,
                 ActivationRequested = false,
+                Phase = ScenePhase.Unloading,
+                Progress = 0f,
+                LastReportedProgress = -1f,
                 AutoReleaseHandle = autoReleaseHandle,
             };
+
+            handle.Completed += completed =>
+            {
+                operation.HasCompletionResult = true;
+                operation.CompletedSuccessfully = completed.Status == AsyncOperationStatus.Succeeded;
+            };
+
+            return operation;
         }
 
         partial void UpdateAddressablesOperations()
@@ -176,25 +310,25 @@ namespace Mu3Library.Scene
             }
 
             string key = _singleAddressablesSceneOperation.SceneName;
-            Debug.Log($"Load addressable single scene end. key: {key}");
+            string previousSceneName = _currentSceneName;
+            bool succeeded = IsAddressablesOperationSuccessful(_singleAddressablesSceneOperation);
+            Debug.Log($"Addressable single scene operation end. key: {key} succeeded={succeeded}");
 
-            if (_singleAddressablesSceneOperation.AddressablesHandle.IsValid() &&
-                _singleAddressablesSceneOperation.AddressablesHandle.Status == AsyncOperationStatus.Succeeded)
+            if (succeeded)
             {
                 UnityEngine.SceneManagement.Scene scene = _singleAddressablesSceneOperation.AddressablesHandle.Result.Scene;
                 _currentSceneName = scene.IsValid() ? scene.name : key;
+                _currentSingleSceneStatusName = key;
+                _currentAdditiveScenes.Clear();
+                OnSingleSceneLoaded?.Invoke(key);
+                OnSingleSceneChanged?.Invoke(previousSceneName, _currentSceneName);
             }
             else
             {
-                _currentSceneName = key;
+                Debug.LogError($"Addressable single scene load failed. key: {key}");
             }
 
-            _currentAdditiveScenes.Clear();
-
-            _loadingCount--;
             _singleAddressablesSceneOperation = null;
-
-            OnSceneLoadEnd?.Invoke(key);
         }
 
         private void UpdateLoadAdditiveAddressablesOperations()
@@ -213,15 +347,19 @@ namespace Mu3Library.Scene
                 }
 
                 string key = pair.Value.SceneName;
-                Debug.Log($"Load addressable additive scene end. key: {key}");
+                bool succeeded = IsAddressablesOperationSuccessful(pair.Value);
+                Debug.Log($"Addressable additive scene operation end. key: {key} succeeded={succeeded}");
 
-                if (pair.Value.AddressablesHandle.IsValid() && pair.Value.AddressablesHandle.Status == AsyncOperationStatus.Succeeded)
+                if (succeeded)
                 {
                     _loadedAddressableSceneHandles[key] = pair.Value.AddressablesHandle;
+                    _currentAdditiveScenes.Add(key);
+                    OnAdditiveSceneLoaded?.Invoke(key);
                 }
-
-                _currentAdditiveScenes.Add(key);
-                _loadingCount--;
+                else
+                {
+                    Debug.LogError($"Addressable additive scene load failed. key: {key}");
+                }
 
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
@@ -235,8 +373,6 @@ namespace Mu3Library.Scene
             foreach (string key in completed)
             {
                 _loadAdditiveAddressablesSceneOperations.Remove(key);
-
-                OnSceneLoadEnd?.Invoke(key);
             }
         }
 
@@ -255,8 +391,17 @@ namespace Mu3Library.Scene
                     continue;
                 }
 
-                _currentAdditiveScenes.Remove(pair.Value.SceneName);
-                _loadedAddressableSceneHandles.Remove(pair.Value.SceneName);
+                bool succeeded = IsAddressablesOperationSuccessful(pair.Value);
+                if (succeeded)
+                {
+                    _currentAdditiveScenes.Remove(pair.Value.SceneName);
+                    _loadedAddressableSceneHandles.Remove(pair.Value.SceneName);
+                    OnAdditiveSceneUnloaded?.Invoke(pair.Value.SceneName);
+                }
+                else
+                {
+                    Debug.LogError($"Addressable additive scene unload failed. key: {pair.Value.SceneName}");
+                }
 
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
@@ -277,75 +422,56 @@ namespace Mu3Library.Scene
         {
             if (!operation.AddressablesHandle.IsValid())
             {
-                return true;
+                return operation.HasCompletionResult;
             }
-
-            OnSceneLoadProgress?.Invoke(operation.SceneName, GetAddressablesOperationProgress(operation));
 
             if (operation.AddressablesHandle.Status == AsyncOperationStatus.Failed)
             {
+                operation.HasCompletionResult = true;
+                operation.CompletedSuccessfully = false;
                 return true;
             }
 
             if (operation.IsUnload)
             {
+                UpdateSceneOperationStatus(operation, ScenePhase.Unloading, Mathf.Clamp01(operation.AddressablesHandle.PercentComplete));
                 return operation.AddressablesHandle.IsDone;
             }
 
-            if (operation.AddressablesHandle.PercentComplete < 1.0f)
+            float progress = Mathf.Clamp01(operation.AddressablesHandle.PercentComplete);
+            if (progress < 1.0f)
             {
+                UpdateSceneOperationStatus(operation, ScenePhase.Preloading, progress);
                 return false;
             }
 
-            if (operation.UseFakeLoading && operation.FakeDuration > 0f && operation.FakeTimer < operation.FakeDuration)
+            if (!operation.AutoActivate)
             {
-                operation.FakeTimer += Time.deltaTime;
+                UpdateSceneOperationStatus(operation, ScenePhase.Preloaded, 1.0f);
                 return false;
             }
 
             if (!operation.ActivationRequested)
             {
-                if (operation.AddressablesHandle.IsValid() && operation.AddressablesHandle.Status == AsyncOperationStatus.Succeeded)
-                {
-                    AsyncOperation activation = operation.AddressablesHandle.Result.ActivateAsync();
-                    if (activation != null && !activation.isDone)
-                    {
-                        operation.ActivationRequested = true;
-                        return false;
-                    }
-                }
-
-                operation.ActivationRequested = true;
+                UpdateSceneOperationStatus(operation, ScenePhase.Preloaded, 1.0f);
+                BeginActivation(operation);
+            }
+            else
+            {
+                UpdateSceneOperationStatus(operation, ScenePhase.Activating, 1.0f);
             }
 
-            return operation.AddressablesHandle.IsDone;
+            return operation.ActivationOperation == null || operation.ActivationOperation.isDone;
         }
 
-        private float GetAddressablesOperationProgress(SceneOperation operation)
+        private static bool IsAddressablesOperationSuccessful(SceneOperation operation)
         {
-            if (!operation.AddressablesHandle.IsValid())
+            if (operation.HasCompletionResult)
             {
-                return operation.IsUnload ? 1.0f : 0.0f;
+                return operation.CompletedSuccessfully;
             }
 
-            float progress = Mathf.Clamp01(operation.AddressablesHandle.PercentComplete);
-            if (operation.IsUnload)
-            {
-                return progress;
-            }
-
-            if (!operation.UseFakeLoading || operation.FakeDuration <= 0f)
-            {
-                return progress;
-            }
-
-            if (progress < 1f)
-            {
-                return progress * 0.9f;
-            }
-
-            float fakeProgress = Mathf.Clamp01(operation.FakeTimer / operation.FakeDuration);
-            return 0.9f + (fakeProgress * 0.1f);
+            return operation.AddressablesHandle.IsValid() && operation.AddressablesHandle.Status == AsyncOperationStatus.Succeeded;
         }
     }
 }

@@ -16,12 +16,16 @@ namespace Mu3Library.Localization
         public void Initialize(Action callback = null);
         public void InitializeWithResult(Action<bool, string> callback);
 
-        public void GetStringAsync(string tableName, string key, Action<string> callback);
         public string GetString(string tableName, string key);
+        public void GetString(string tableName, string key, Action<string> callback);
         /// <summary>
         /// `EntryData` can be obtained from the generated code by LocalizationDataExporter.
         /// </summary>
         public string GetString(EntryData entryData);
+        /// <summary>
+        /// `EntryData` can be obtained from the generated code by LocalizationDataExporter.
+        /// </summary>
+        public void GetString(EntryData entryData, Action<string> callback);
 
         public List<string> GetAllKeys(string tableName);
 

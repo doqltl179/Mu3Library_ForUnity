@@ -11,25 +11,32 @@ namespace Mu3Library.WebRequest
 {
     public partial class WebRequestManager
     {
-        public async UniTask<long> GetDownloadSizeAsync(string url, CancellationToken cancellationToken = default)
+        public async UniTask<long> GetDownloadSizeAsync(string url, CancellationToken cancellationToken = default, bool propagateCancellation = false)
         {
-            WebRequestResult<long> result = await GetDownloadSizeResultAsync(url, cancellationToken: cancellationToken);
+            WebRequestResult<long> result = await GetDownloadSizeResultAsync(
+                url,
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
             return result.IsSuccess ? result.Data : -1;
         }
 
-        public async UniTask<T> GetAsync<T>(string url, CancellationToken cancellationToken = default)
+        public async UniTask<T> GetAsync<T>(string url, CancellationToken cancellationToken = default, bool propagateCancellation = false)
         {
-            WebRequestResult<T> result = await GetResultAsync<T>(url, cancellationToken: cancellationToken);
+            WebRequestResult<T> result = await GetResultAsync<T>(
+                url,
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
             return result.Data;
         }
 
-        public async UniTask<TResponse> PostAsync<TRequest, TResponse>(string url, TRequest body, string contentType = "application/json", CancellationToken cancellationToken = default)
+        public async UniTask<TResponse> PostAsync<TRequest, TResponse>(string url, TRequest body, string contentType = "application/json", CancellationToken cancellationToken = default, bool propagateCancellation = false)
         {
             WebRequestResult<TResponse> result = await PostResultAsync<TRequest, TResponse>(
                 url,
                 body,
                 contentType: contentType,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
             return result.Data;
         }
 
@@ -39,7 +46,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -48,36 +56,20 @@ namespace Mu3Library.WebRequest
                 return WebRequestResult<T>.Failure(-1, error, null);
             }
 
-            int maxAttempts = Mathf.Max(1, retryCount + 1);
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                using (UnityWebRequest request = CreateGetRequest<T>(url))
+            return await ExecuteWithRetryAsync(
+                method: "GET",
+                url: url,
+                createRequest: () =>
                 {
+                    UnityWebRequest request = CreateGetRequest<T>(url);
                     ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-
-                    await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
-
-                    if (request.result == UnityWebRequest.Result.Success)
-                    {
-                        return ParseResult<T>(url, request, "GET");
-                    }
-
-                    bool canRetry = attempt + 1 < maxAttempts;
-                    if (!canRetry)
-                    {
-                        return ParseResult<T>(url, request, "GET");
-                    }
-
-                    Debug.LogWarning($"WebRequest GET retry. attempt: {attempt + 2}/{maxAttempts}");
-                    if (retryDelaySeconds > 0f)
-                    {
-                        int delayMs = Mathf.Max(1, (int)(retryDelaySeconds * 1000f));
-                        await UniTask.Delay(delayMs, cancellationToken: cancellationToken);
-                    }
-                }
-            }
-
-            return WebRequestResult<T>.Failure(-1, "WebRequest GET failed due to unknown retry state.", null);
+                    return request;
+                },
+                parseResult: request => ParseResult<T>(url, request, "GET"),
+                retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
         }
 
         public async UniTask<WebRequestResult<TResponse>> PostResultAsync<TRequest, TResponse>(
@@ -88,7 +80,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -97,42 +90,26 @@ namespace Mu3Library.WebRequest
                 return WebRequestResult<TResponse>.Failure(-1, error, null);
             }
 
-            string payload = SerializeBody(body);
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
-
-            int maxAttempts = Mathf.Max(1, retryCount + 1);
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
-            {
-                using (UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
+            return await ExecuteWithRetryAsync(
+                method: "POST",
+                url: url,
+                createRequest: () =>
                 {
+                    string payload = SerializeBody(body);
+                    byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
+
+                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
                     request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                     request.downloadHandler = CreateDownloadHandler<TResponse>();
                     request.SetRequestHeader("Content-Type", contentType);
                     ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-
-                    await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
-
-                    if (request.result == UnityWebRequest.Result.Success)
-                    {
-                        return ParseResult<TResponse>(url, request, "POST");
-                    }
-
-                    bool canRetry = attempt + 1 < maxAttempts;
-                    if (!canRetry)
-                    {
-                        return ParseResult<TResponse>(url, request, "POST");
-                    }
-
-                    Debug.LogWarning($"WebRequest POST retry. attempt: {attempt + 2}/{maxAttempts}");
-                    if (retryDelaySeconds > 0f)
-                    {
-                        int delayMs = Mathf.Max(1, (int)(retryDelaySeconds * 1000f));
-                        await UniTask.Delay(delayMs, cancellationToken: cancellationToken);
-                    }
-                }
-            }
-
-            return WebRequestResult<TResponse>.Failure(-1, "WebRequest POST failed due to unknown retry state.", null);
+                    return request;
+                },
+                parseResult: request => ParseResult<TResponse>(url, request, "POST"),
+                retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
         }
 
         public async UniTask<WebRequestResult<long>> GetDownloadSizeResultAsync(
@@ -141,7 +118,8 @@ namespace Mu3Library.WebRequest
             int timeoutSeconds = 0,
             int retryCount = 0,
             float retryDelaySeconds = 0.5f,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool propagateCancellation = false)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -150,37 +128,107 @@ namespace Mu3Library.WebRequest
                 return WebRequestResult<long>.Failure(-1, error, null);
             }
 
+            return await ExecuteWithRetryAsync(
+                method: "HEAD",
+                url: url,
+                createRequest: () =>
+                {
+                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+                    request.downloadHandler = new DownloadHandlerBuffer();
+                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+                    return request;
+                },
+                parseResult: request => ParseDownloadSizeResult(url, request),
+                retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellationToken: cancellationToken,
+                propagateCancellation: propagateCancellation);
+        }
+
+        private async UniTask<WebRequestResult<T>> ExecuteWithRetryAsync<T>(
+            string method,
+            string url,
+            Func<UnityWebRequest> createRequest,
+            Func<UnityWebRequest, WebRequestResult<T>> parseResult,
+            int retryCount,
+            float retryDelaySeconds,
+            CancellationToken cancellationToken,
+            bool propagateCancellation)
+        {
             int maxAttempts = Mathf.Max(1, retryCount + 1);
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
-                using (UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD))
+                try
                 {
-                    request.downloadHandler = new DownloadHandlerBuffer();
-                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-
-                    await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
-
-                    if (request.result == UnityWebRequest.Result.Success)
+                    using (UnityWebRequest request = createRequest())
                     {
-                        return ParseDownloadSizeResult(url, request);
+                        await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
+
+                        if (request.result == UnityWebRequest.Result.Success)
+                        {
+                            return parseResult(request);
+                        }
+
+                        bool canRetry = attempt + 1 < maxAttempts;
+                        if (!canRetry)
+                        {
+                            return parseResult(request);
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    if (propagateCancellation)
+                    {
+                        throw;
                     }
 
+                    return CreateCanceledFailure<T>(method, url);
+                }
+                catch (Exception ex)
+                {
                     bool canRetry = attempt + 1 < maxAttempts;
                     if (!canRetry)
                     {
-                        return ParseDownloadSizeResult(url, request);
+                        return CreateUnexpectedFailure<T>(method, url, ex);
                     }
+                }
 
-                    Debug.LogWarning($"WebRequest HEAD retry. attempt: {attempt + 2}/{maxAttempts}");
-                    if (retryDelaySeconds > 0f)
+                Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
+                if (retryDelaySeconds > 0f)
+                {
+                    try
                     {
                         int delayMs = Mathf.Max(1, (int)(retryDelaySeconds * 1000f));
                         await UniTask.Delay(delayMs, cancellationToken: cancellationToken);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        if (propagateCancellation)
+                        {
+                            throw;
+                        }
+
+                        return CreateCanceledFailure<T>(method, url);
+                    }
                 }
             }
 
-            return WebRequestResult<long>.Failure(-1, "WebRequest HEAD failed due to unknown retry state.", null);
+            return WebRequestResult<T>.Failure(-1, $"WebRequest {method} failed due to unknown retry state.", null);
+        }
+
+        private WebRequestResult<T> CreateCanceledFailure<T>(string method, string url)
+        {
+            string error = $"WebRequest {method} canceled. url: {url}";
+            Debug.LogWarning(error);
+            return WebRequestResult<T>.Failure(-1, error, null);
+        }
+
+        private WebRequestResult<T> CreateUnexpectedFailure<T>(string method, string url, Exception exception)
+        {
+            string error = $"WebRequest {method} failed with exception. url: {url}\r\n{exception.GetType().Name}: {exception.Message}";
+            Debug.LogError(error);
+            return WebRequestResult<T>.Failure(-1, error, null);
         }
     }
 }

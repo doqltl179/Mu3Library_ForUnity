@@ -6,9 +6,19 @@ namespace Mu3Library.Localization
 {
     public partial interface ILocalizationManager
     {
+        public bool IsLocaleChanging { get; }
+
+
+
         public UniTask InitializeAsync();
+
         public UniTask<string> GetStringAsync(string tableName, string key);
         public UniTask<Locale> GetSelectedLocaleAsync();
+
+        public UniTask ChangeLocaleToNativeAsync();
+        public UniTask ChangeLocaleWithEnglishNameAsync(string englishName);
+        public UniTask ChangeLocaleAsync(Locale locale);
+        public void CancelChangeLocale();
     }
 }
 #endif

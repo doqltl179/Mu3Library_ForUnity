@@ -31,9 +31,9 @@
 - 📊 **Observable 패턴**: 데이터 변경 감지 및 이벤트 기반 바인딩
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
-- 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션 제공
+- 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
-- ⏳ **Scene 비동기 API**: UniTask + CancellationToken 기반 씬 로드/언로드 헬퍼 제공
+- ⏳ **Scene 비동기 API**: phase 기반 UniTask 씬 preload/activate/load/unload 헬퍼 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
 - 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기와 Localization 문자 수집 도구 제공
 ## 📋 요구사항
@@ -46,16 +46,22 @@
 ### 방법 1: 패키지 매니저 (Git URL)
 1. Unity Editor에서 `Window` > `Package Manager`를 엽니다
 2. `+` 버튼 클릭 > `Add package from git URL...`
-3. 다음 URL을 입력:
+3. 다음 URL 중 하나를 입력:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
+    # Base 패키지
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.11.0
+
+    # URP 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
    ```
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
 3. `+` 버튼 > `Add package from disk...`
-4. `Mu3Library_Base/package.json` 선택
+4. 다음 중 하나를 선택합니다:
+    - `Mu3Library_Base/package.json`
+    - `Mu3Library_URP/package.json` (먼저 Base 설치)
 
 ## 📚 핵심 모듈
 
@@ -178,6 +184,12 @@ _webRequest.Post<object, ServerResponse>("https://api.example.com/submit", reque
 
 // UniTask 지원 (MU3LIBRARY_UNITASK_SUPPORT 활성화 시)
 var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+
+// 호출부에서 필요할 때만 취소를 예외로 전파
+var cancellableData = await _webRequest.GetAsync<DataModel>(
+    "https://api.example.com/data",
+    cancellationToken: token,
+    propagateCancellation: true);
 ```
 
 ### Observable 패턴
@@ -224,7 +236,7 @@ _playerData.Health.Set(80);
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
 - **Resource**: Resources 폴더 로딩
-- **Scene**: 씬 로딩 추상화
+- **Scene**: phase/status 조회, lifecycle/progress callback, 통합 rejection event를 제공하는 씬 로딩 추상화
 - **UI**: MVP 패턴 구현
 - **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
 - **Utility**: Singleton, EasingFunctions, Settings
@@ -282,9 +294,9 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 최신 Base 패키지 버전: `0.9.0`
-- 최신 URP 패키지 버전: `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- 최신 URP `ScreenEffect` 변경사항을 포함한 미출시 변경사항은 `CHANGELOG.md`를 참고하세요.
+- 최신 Base 패키지 버전: `0.11.0`
+- 최신 URP 패키지 버전: `0.1.3` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.11.0`)
+- `base/0.11.0`, `urp/0.1.3` 릴리스 상세 내용은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
 
@@ -304,7 +316,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.2` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.3` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.11.0`)
 
 Unity 개발자를 위해 제작됨

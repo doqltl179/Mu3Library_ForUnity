@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [base/0.11.0] - 2026-05-02
+
+### Added
+- `.github/workflows/unity-compile-gate.yml`: Added a manual self-hosted Windows workflow for `scripts/compile-gate/run-unity-compile.ps1`, plus an automatic GitHub-hosted guidance job for push and pull request events.
+
+### Changed
+- `IWebRequestManager` / `WebRequestManager`: UniTask WebRequest APIs now accept optional `propagateCancellation` flags. By default cancellation becomes a failure/default-value path, while callers that need explicit cancellation can opt in.
+- `ISceneLoader` / `SceneLoader`: Simplified the scene-loading API around explicit `Preload*`, `Activate*`, `Load*`, and `Unload*` commands. Removed fake-loading controls, added phase/status queries plus matching `*Async` wait helpers, and aligned the Editor and Addressables scene-loading surfaces with the same flow.
+  - Simplified `ISceneLoaderEventBus` to load-lifecycle callbacks (`LoadStarted`, `Preloaded`, `Loaded`, `Unloaded`), restored progress callbacks, unified rejection reporting into `OnSceneCommandRejected(SceneCommandRejectedInfo)`, and added `OnSingleSceneChanged(previousSceneName, loadedSceneName)` for single-scene transitions.
+  - Removed `UseFakeLoading`, `FakeLoadingTime`, and the previous CancellationToken-based scene async helper contract.
+
+### Fixed
+- `README.md` and localized READMEs: Documented the opt-in WebRequest cancellation propagation behavior.
+
+## [urp/0.1.3] - 2026-05-02
+
+### Changed
+- `Mu3Library_URP/package.json`: Updated the URP manifest to depend on `com.github.doqltl179.mu3library.base` `0.11.0` and aligned the package release with Base `0.11.0`.
+
 ## [urp/0.1.2] - 2026-04-26
 
 ### Added

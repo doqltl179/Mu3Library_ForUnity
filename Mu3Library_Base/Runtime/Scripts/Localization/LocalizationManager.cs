@@ -132,7 +132,7 @@ namespace Mu3Library.Localization
             _initializeHandle.Completed += OnInitializeCompleted;
         }
 
-        public void GetStringAsync(string tableName, string key, Action<string> callback)
+        public void GetString(string tableName, string key, Action<string> callback)
         {
             LocalizedStringDatabase stringDatabase = LocalizationSettings.StringDatabase;
             if (stringDatabase == null)
@@ -156,6 +156,18 @@ namespace Mu3Library.Localization
                     callback?.Invoke("");
                 }
             };
+        }
+
+        public void GetString(EntryData entryData, Action<string> callback)
+        {
+            if (entryData == null)
+            {
+                Debug.LogError("EntryData is null.");
+                callback?.Invoke("");
+                return;
+            }
+
+            GetString(entryData.TableName, entryData.Key, callback);
         }
 
         public string GetString(string tableName, string key)

@@ -31,9 +31,9 @@
 - 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
 - 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
-- 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライを提供
+- 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライと、必要時のみのキャンセル伝播を提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
-- ⏳ **Scene 非同期 API**: UniTask + CancellationToken ベースのシーン load/unload ヘルパー
+- ⏳ **Scene 非同期 API**: phase ベースの UniTask シーン preload/activate/load/unload helper
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーターと Localization 文字収集ツールを提供
 ## 📋 要件
@@ -46,16 +46,22 @@
 ### 方法 1: パッケージマネージャー (Git URL)
 1. Unity Editorで`Window` > `Package Manager`を開きます
 2. `+`ボタンをクリック > `Add package from git URL...`
-3. 以下のURLを入力:
+3. 以下のURLのいずれかを入力:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
+    # Base パッケージ
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.11.0
+
+    # URP パッケージ（先に Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
    ```
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
 3. `+`ボタン > `Add package from disk...`をクリック
-4. `Mu3Library_Base/package.json`を選択
+4. 以下のいずれかを選択:
+    - `Mu3Library_Base/package.json`
+    - `Mu3Library_URP/package.json`（先に Base をインストール）
 
 ## 📚 コアモジュール
 
@@ -178,6 +184,12 @@ _webRequest.Post<object, ServerResponse>("https://api.example.com/submit", reque
 
 // UniTaskサポート（MU3LIBRARY_UNITASK_SUPPORT有効時）
 var data = await _webRequest.GetAsync<DataModel>("https://api.example.com/data");
+
+// 呼び出し側で必要な場合だけキャンセルを例外として伝播
+var cancellableData = await _webRequest.GetAsync<DataModel>(
+    "https://api.example.com/data",
+    cancellationToken: token,
+    propagateCancellation: true);
 ```
 
 ### Observableパターン
@@ -224,7 +236,7 @@ _playerData.Health.Set(80);
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング
-- **Scene**: シーンローディング抽象化
+- **Scene**: phase/status 参照、lifecycle/progress callback、統合 rejection event を提供するシーンローディング抽象化
 - **UI**: MVPパターン実装
 - **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
 - **Utility**: Singleton、EasingFunctions、Settings
@@ -282,9 +294,9 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- 最新の Base パッケージ版: `0.9.0`
-- 最新の URP パッケージ版: `0.1.2`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
-- 最新の URP `ScreenEffect` 変更を含む未リリース変更は `CHANGELOG.md` を参照してください。
+- 最新の Base パッケージ版: `0.11.0`
+- 最新の URP パッケージ版: `0.1.3`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.11.0`）
+- `base/0.11.0` と `urp/0.1.3` のリリース詳細は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
 
@@ -304,7 +316,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.2`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.5.0`）
+- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.3`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.11.0`）
 
 Unity開発者のために制作
