@@ -11,3 +11,5 @@
 - For public concrete-type renames in package APIs, prefer moving the main implementation to the new name while leaving the old type as an `[Obsolete]` compatibility alias unless the user explicitly wants a breaking removal.
 - Before expanding URP ScreenEffect features under a ban on deprecated compatibility APIs, confirm the sample project's RenderGraph mode first; if preview execution still depends on compatibility mode, align the project setting before adding more effects.
 - When a Unity sample already treats the scene as the owner of handler wiring, UI hierarchy, and `UnityEvent` bindings, prefer direct YAML edits over runtime-generated workaround code, and keep imported sample scenes plus package sample source scenes synchronized.
+- When the user wants scene async load and cancel responsibilities separated, prefer `UniTask<bool>` load results plus explicit cancel events over rollback-oriented stop semantics, and document clearly whether cancel is scene-scoped or caller-scoped.
+- For this repository's package releases, keep the Base package on the `0.x.x` line unless the user explicitly asks to change that versioning convention.

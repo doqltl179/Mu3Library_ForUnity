@@ -11,14 +11,24 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.11.0] - 2026-05-02
+
 ### 추가됨
 - `.github/workflows/unity-compile-gate.yml`: `scripts/compile-gate/run-unity-compile.ps1`를 실행하는 manual self-hosted Windows 워크플로와, push/pull request 이벤트에서 실행되는 GitHub-hosted 안내 job을 추가함.
 
 ### 변경됨
 - `IWebRequestManager` / `WebRequestManager`: UniTask WebRequest API에 선택적 `propagateCancellation` 플래그를 추가. 기본 동작에서는 취소를 실패/기본값 경로로 처리하고, 명시적 취소가 필요한 호출부만 opt-in 하도록 변경.
+- `ISceneLoader` / `SceneLoader`: 씬 로딩 API를 명시적인 `Preload*`, `Activate*`, `Load*`, `Unload*` 명령 중심으로 단순화. fake loading 제어를 제거하고, phase/status 조회와 동일한 이름 체계의 `*Async` 대기 helper를 추가했으며, Editor 및 Addressables 씬 로딩 표면도 같은 흐름으로 정렬.
+  - `ISceneLoaderEventBus`를 `LoadStarted`, `Preloaded`, `Loaded`, `Unloaded` lifecycle callback 중심으로 유지하면서 progress callback을 복원하고, rejection 보고를 `OnSceneCommandRejected(SceneCommandRejectedInfo)` 하나로 통합했으며, single-scene 전환용 `OnSingleSceneChanged(previousSceneName, loadedSceneName)`를 추가.
+  - `UseFakeLoading`, `FakeLoadingTime`, 그리고 예전 CancellationToken 기반 scene async helper 계약을 제거.
 
 ### 수정됨
 - `README.md` 및 현지화 README: WebRequest의 선택적 취소 전파 동작을 문서화.
+
+## [urp/0.1.3] - 2026-05-02
+
+### 변경됨
+- `Mu3Library_URP/package.json`: URP manifest가 `com.github.doqltl179.mu3library.base` `0.11.0`에 의존하도록 업데이트하고, 패키지 릴리스를 Base `0.11.0`과 맞춤.
 
 ## [urp/0.1.2] - 2026-04-26
 

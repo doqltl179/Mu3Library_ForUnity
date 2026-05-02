@@ -13,14 +13,24 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.11.0] - 2026-05-02
+
 ### 追加
 - `.github/workflows/unity-compile-gate.yml`: `scripts/compile-gate/run-unity-compile.ps1` を実行する manual self-hosted Windows ワークフローと、push / pull request イベントで動く GitHub-hosted の案内 job を追加。
 
 ### 変更
 - `IWebRequestManager` / `WebRequestManager`: UniTask WebRequest API に任意の `propagateCancellation` フラグを追加。デフォルトではキャンセルを失敗/既定値の経路として扱い、明示的なキャンセルが必要な呼び出し側だけが opt-in できるように変更。
+- `ISceneLoader` / `SceneLoader`: シーン読み込み API を明示的な `Preload*`、`Activate*`、`Load*`、`Unload*` コマンド中心へ簡素化。fake loading 制御を削除し、phase/status 参照と同じ命名規則の `*Async` 待機 helper を追加し、Editor と Addressables のシーン読み込み surface も同じフローに揃えました。
+  - `ISceneLoaderEventBus` を `LoadStarted`、`Preloaded`、`Loaded`、`Unloaded` の lifecycle callback 中心に保ちつつ progress callback を復元し、rejection 報告を `OnSceneCommandRejected(SceneCommandRejectedInfo)` へ統合したうえで、single-scene 遷移用の `OnSingleSceneChanged(previousSceneName, loadedSceneName)` を追加しました。
+  - `UseFakeLoading`、`FakeLoadingTime`、および従来の CancellationToken ベース scene async helper 契約を削除。
 
 ### 修正
 - `README.md` と各ローカライズ README: WebRequest の opt-in キャンセル伝播動作を文書化。
+
+## [urp/0.1.3] - 2026-05-02
+
+### 変更
+- `Mu3Library_URP/package.json`: URP manifest が `com.github.doqltl179.mu3library.base` `0.11.0` に依存するよう更新し、パッケージリリースを Base `0.11.0` に揃えました。
 
 ## [urp/0.1.2] - 2026-04-26
 

@@ -33,7 +33,7 @@
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
-- ⏳ **Scene Async APIs**: UniTask + CancellationToken scene load/unload helpers
+- ⏳ **Scene Async APIs**: Phase-based UniTask scene preload/activate/load/unload helpers
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 - 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters plus Localization character collection tools
 
@@ -47,16 +47,22 @@
 ### Option 1: Package Manager (Git URL)
 1. Open `Window` > `Package Manager` in Unity Editor
 2. Click `+` button > `Add package from git URL...`
-3. Enter the following URL:
+3. Enter one of the following URLs:
    ```
-   https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base
+    # Base package
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.11.0
+
+    # URP package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
    ```
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
 3. Click `+` button > `Add package from disk...`
-4. Select `Mu3Library_Base/package.json`
+4. Select one of the following:
+    - `Mu3Library_Base/package.json`
+    - `Mu3Library_URP/package.json` (install Base first)
 
 ## 📚 Core Modules
 
@@ -231,7 +237,7 @@ When the following packages are installed, their features are automatically enab
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
-- **Scene**: Scene loading abstraction
+- **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, and unified rejection events
 - **UI**: MVP pattern implementation
 - **IS**: Unity Input System wrapper and binding manager (optional)
 - **Utility**: Singleton, EasingFunctions, Settings
@@ -289,9 +295,9 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Latest released base package: `0.9.0`
-- Latest released URP package: `0.1.2` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
-- See `CHANGELOG.md` for unreleased changes, including the expanded URP `ScreenEffect` handler set and the earlier toon effect addition.
+- Latest released base package: `0.11.0`
+- Latest released URP package: `0.1.3` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.11.0`)
+- See `CHANGELOG.md` for the `base/0.11.0` and `urp/0.1.3` release details.
 
 ## 🤝 Contributing
 
@@ -311,7 +317,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.9.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.2` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.5.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.3` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.11.0`)
 
 Made with ❤️ for Unity Developers

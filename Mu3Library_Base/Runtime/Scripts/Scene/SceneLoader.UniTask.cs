@@ -1,94 +1,144 @@
 #if MU3LIBRARY_UNITASK_SUPPORT
 using System;
-using System.Threading;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Mu3Library.Scene
 {
     public partial class SceneLoader
     {
-        public UniTask<bool> LoadSingleSceneAsync(string sceneName, CancellationToken cancellationToken = default)
+        public UniTask<bool> PreloadSingleSceneAsync(string sceneName)
         {
-            return RunSceneOperationAsync(
+            return RunSceneCommandAsync(
                 sceneName,
-                startOperation: LoadSingleScene,
-                subscribe: action => OnSceneLoadEnd += action,
-                unsubscribe: action => OnSceneLoadEnd -= action,
-                cancellationToken: cancellationToken);
+                startCommand: name => TryPreloadSingleScene(name, autoActivate: false),
+                isCompleted: IsSingleScenePreloaded,
+                isInProgress: IsSingleSceneOperationInProgressFor);
         }
 
-        public UniTask<bool> LoadAdditiveSceneAsync(string sceneName, CancellationToken cancellationToken = default)
+        public UniTask<bool> ActivateSingleSceneAsync(string sceneName)
         {
-            return RunSceneOperationAsync(
+            return RunSceneCommandAsync(
                 sceneName,
-                startOperation: LoadAdditiveScene,
-                subscribe: action => OnSceneLoadEnd += action,
-                unsubscribe: action => OnSceneLoadEnd -= action,
-                cancellationToken: cancellationToken);
+                startCommand: TryActivateSingleScene,
+                isCompleted: IsSingleSceneLoaded,
+                isInProgress: IsSingleSceneOperationInProgressFor);
         }
 
-        public UniTask<bool> UnloadAdditiveSceneAsync(string sceneName, CancellationToken cancellationToken = default)
+        public UniTask<bool> LoadSingleSceneAsync(string sceneName)
         {
-            return RunSceneOperationAsync(
+            return RunSceneCommandAsync(
                 sceneName,
-                startOperation: UnloadAdditiveScene,
-                subscribe: action => OnAdditiveSceneUnloadEnd += action,
-                unsubscribe: action => OnAdditiveSceneUnloadEnd -= action,
-                cancellationToken: cancellationToken);
+                startCommand: name => TryPreloadSingleScene(name, autoActivate: true),
+                isCompleted: IsSingleSceneLoaded,
+                isInProgress: IsSingleSceneOperationInProgressFor);
         }
 
-        private async UniTask<bool> RunSceneOperationAsync(
+        public UniTask<bool> PreloadAdditiveSceneAsync(string sceneName)
+        {
+            return RunSceneCommandAsync(
+                sceneName,
+                startCommand: name => TryPreloadAdditiveScene(name, autoActivate: false),
+                isCompleted: IsAdditiveScenePreloaded,
+                isInProgress: IsAdditiveSceneOperationInProgressFor);
+        }
+
+        public UniTask<bool> ActivateAdditiveSceneAsync(string sceneName)
+        {
+            return RunSceneCommandAsync(
+                sceneName,
+                startCommand: TryActivateAdditiveScene,
+                isCompleted: IsAdditiveSceneLoaded,
+                isInProgress: IsAdditiveSceneOperationInProgressFor);
+        }
+
+        public UniTask<bool> LoadAdditiveSceneAsync(string sceneName)
+        {
+            return RunSceneCommandAsync(
+                sceneName,
+                startCommand: name => TryPreloadAdditiveScene(name, autoActivate: true),
+                isCompleted: IsAdditiveSceneLoaded,
+                isInProgress: IsAdditiveSceneOperationInProgressFor);
+        }
+
+        public UniTask<bool> UnloadAdditiveSceneAsync(string sceneName)
+        {
+            return RunSceneCommandAsync(
+                sceneName,
+                startCommand: TryStartUnloadAdditiveScene,
+                isCompleted: IsAdditiveSceneUnloaded,
+                isInProgress: IsAdditiveSceneUnloadInProgressFor);
+        }
+
+        private async UniTask<bool> RunSceneCommandAsync(
             string sceneName,
-            Action<string> startOperation,
-            Action<Action<string>> subscribe,
-            Action<Action<string>> unsubscribe,
-            CancellationToken cancellationToken)
+            Func<string, bool> startCommand,
+            Func<string, bool> isCompleted,
+            Func<string, bool> isInProgress)
         {
-            if (string.IsNullOrWhiteSpace(sceneName))
-            {
-                Debug.LogError("Scene operation failed. sceneName is null or empty.");
-                return false;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            UniTaskCompletionSource<bool> completionSource = new UniTaskCompletionSource<bool>();
-            Action<string> onCompleted = null;
-            onCompleted = completedSceneName =>
-            {
-                if (completedSceneName != sceneName)
-                {
-                    return;
-                }
-
-                completionSource.TrySetResult(true);
-            };
-
-            subscribe(onCompleted);
-            int previousLoadingCount = LoadingCount;
-
-            try
-            {
-                startOperation(sceneName);
-                if (LoadingCount <= previousLoadingCount)
-                {
-                    return false;
-                }
-
-                using (cancellationToken.Register(() => completionSource.TrySetCanceled(cancellationToken)))
-                {
-                    return await completionSource.Task;
-                }
-            }
-            catch (OperationCanceledException)
+            if (!startCommand(sceneName))
             {
                 return false;
             }
-            finally
+
+            if (isCompleted(sceneName))
             {
-                unsubscribe(onCompleted);
+                return true;
             }
+
+            if (!isInProgress(sceneName))
+            {
+                return false;
+            }
+
+            await UniTask.WaitUntil(() => isCompleted(sceneName) || !isInProgress(sceneName));
+            return isCompleted(sceneName);
+        }
+
+        private bool IsSingleScenePreloaded(string sceneName)
+        {
+            return TryGetSingleSceneStatus(out SceneStatus status)
+                && status.SceneName == sceneName
+                && (status.Phase == ScenePhase.Preloaded || status.Phase == ScenePhase.Activating || status.Phase == ScenePhase.Loaded);
+        }
+
+        private bool IsSingleSceneLoaded(string sceneName)
+        {
+            return TryGetSingleSceneStatus(out SceneStatus status)
+                && status.SceneName == sceneName
+                && status.Phase == ScenePhase.Loaded;
+        }
+
+        private bool IsSingleSceneOperationInProgressFor(string sceneName)
+        {
+            return TryGetSingleSceneOperation(out SceneOperation operation) && operation.SceneName == sceneName;
+        }
+
+        private bool IsAdditiveScenePreloaded(string sceneName)
+        {
+            return TryGetAdditiveSceneStatus(sceneName, out SceneStatus status)
+                && (status.Phase == ScenePhase.Preloaded || status.Phase == ScenePhase.Activating || status.Phase == ScenePhase.Loaded);
+        }
+
+        private bool IsAdditiveSceneLoaded(string sceneName)
+        {
+            return TryGetAdditiveSceneStatus(sceneName, out SceneStatus status)
+                && status.Phase == ScenePhase.Loaded;
+        }
+
+        private bool IsAdditiveSceneUnloaded(string sceneName)
+        {
+            return !TryGetAdditiveSceneStatus(sceneName, out _);
+        }
+
+        private bool IsAdditiveSceneOperationInProgressFor(string sceneName)
+        {
+            return TryGetAdditiveSceneOperation(sceneName, out SceneOperation operation) && !operation.IsUnload;
+        }
+
+        private bool IsAdditiveSceneUnloadInProgressFor(string sceneName)
+        {
+            return TryGetAdditiveSceneOperation(sceneName, out SceneOperation operation) && operation.IsUnload;
         }
     }
 }
