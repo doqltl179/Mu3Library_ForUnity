@@ -12,6 +12,7 @@ This directory is the human-facing map for the Mu3Library multi-agent framework.
 ## Documents In This Folder
 
 - `architecture.md`: control-plane, execution-plane, quality-plane, and memory-plane design.
+- `development-idea-creator-evaluation.md`: fixed prompt set and scoring rubric for ideation-regression checks.
 - `iteration-process.md`: the required feature-unit -> suitability-review -> continue-or-rework loop.
 - `agent-catalog.md`: current and planned agent inventory, including boundary notes.
 - `handoff-contract.md`: structured handoff packet format, memory routing, and review-aware state transitions.
@@ -40,7 +41,7 @@ Approved in the current rollout:
 - dedicated docs-sync ownership for multilingual README and CHANGELOG synchronization,
 - dedicated release-manager ownership for versioning, release-scoped manifest metadata, branch and tag execution, release packaging, and GitHub Release execution,
 - dedicated sample-integrity ownership for sample manifests, package samples, imported sample footprints, and sample smoke checks,
-- a workflow-asset ideation entrypoint for pre-unit concept shaping when package direction is unclear,
+- a workflow-asset ideation entrypoint for pre-unit concept shaping and package-whitespace discovery when package direction is unclear,
 - a compile-only workflow gate that waits for compile completion before the next unit proceeds,
 - a tooling-local Python CLI bootstrap under `tools/mu3_cli`.
 

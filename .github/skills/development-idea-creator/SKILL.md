@@ -1,6 +1,6 @@
 ﻿---
 name: development-idea-creator
-description: "Use when the user is stuck on Mu3Library package direction and needs concrete development ideas, ranked options, or a concept brief grounded in repo context and optional web research."
+description: "Use when the user is stuck on Mu3Library package direction and needs genuinely new package ideas, ranked options, or a concept brief grounded in repo context and optional web research."
 ---
 
 # Development Idea Creator
@@ -8,13 +8,36 @@ description: "Use when the user is stuck on Mu3Library package direction and nee
 ## Purpose
 
 Generate package-aligned development ideas for Mu3Library before a bounded implementation unit exists.
+Default toward discovering new package surfaces, workflow leverage, and ecosystem bridges rather than polishing current features.
 
 ## Use This Skill When
 
 - the user says they are stuck, blocked, or ideas feel repetitive,
-- the next package improvement direction is unclear,
+- the next package direction is unclear,
 - a rough concept should become a small concept brief before planning,
-- external patterns may help widen the option space without overriding repository constraints.
+- external patterns may help widen the option space without overriding repository constraints,
+- the user wants future-facing package bets instead of another backlog-refinement pass.
+
+## Default Stance
+
+Unless the user explicitly asks for incremental refinement:
+
+- treat "development ideas" as whitespace discovery,
+- treat a named pain point or existing feature as a signal, then widen one hop to adjacent workflows before ranking ideas,
+- prefer ideas that create a new reusable surface, new workflow leverage, or a new adoption path,
+- allow at most one incremental baseline idea for comparison.
+
+## Failure Mode To Avoid
+
+Do not stop at "improve an existing feature".
+Classify an option as incremental if it is mostly:
+
+- more convenience methods or wrappers around an existing surface,
+- minor editor UX polish,
+- documentation-only or sample-only cleanup,
+- another toggle or option for a current capability.
+
+Incremental ideas can appear only as a low-priority baseline unless the user explicitly wants that class of work.
 
 ## Boundary
 
@@ -25,40 +48,87 @@ It does not choose the next owner, create task sequencing, or replace implementa
 
 This skill combines four patterns:
 
-- Prompt Engineering Guide "Agent Components": keep planning, tool use, and memory explicit.
-- AI Agent Engineering in Practice: turn ambiguous asks into prompt contracts and durable context before execution.
-- Google Gemini Enterprise "Idea Generation": generate broadly first, then rank using user-defined criteria.
-- Agentic Patterns "Iterative Multi-Agent Brainstorming": explore diverse perspectives, then synthesize into one brief.
+- Prompt Engineering Guide "Agent Components": keep repository evidence, tools, and constraints explicit.
+- AI Agent Engineering in Practice: turn ambiguous asks into a repeatable prompt contract before execution.
+- Google Gemini Enterprise "Idea Generation": diverge first, then rank with explicit criteria.
+- Agentic Patterns "Iterative Multi-Agent Brainstorming": force distinct lenses before synthesis.
 
 Use these patterns to widen the option space first, then narrow it into one concept brief.
 
+## Required Discovery Pass
+
+Before generating ideas:
+
+1. Summarize current package intent from repository evidence relevant to the request.
+2. Build a quick capability map across the relevant runtime, editor, optional integration, sample, docs, and tooling surfaces.
+3. Build a whitespace map that lists missing workflows, repeated manual work, missing bridges, absent teaching assets, missing ecosystem integrations, or future-facing utility surfaces.
+4. Use limited web research only after the whitespace map exists and only to widen adjacent patterns.
+
+## Divergence Rules
+
+Generate ideas across distinct buckets.
+Unless the user narrows the scope so tightly that this is impossible, include:
+
+- one net-new package surface,
+- one workflow or tooling multiplier,
+- one ecosystem bridge or optional integration,
+- one sample or discoverability bet,
+- one higher-risk strategic bet.
+
+For each idea, explicitly state:
+
+- novelty class,
+- why it is not just an improvement of an existing feature,
+- likely package surfaces,
+- primary risk.
+
+If an idea duplicates a current capability, mark it as duplicate and replace it.
+
+## Ranking Rules
+
+Score each serious option against explicit fit criteria:
+
+- package fit,
+- novelty,
+- leverage,
+- feasibility,
+- verification cost or operational risk.
+
+Novelty must materially affect rank.
+A low-novelty idea cannot be the top pick unless the user explicitly asked for safe incremental work.
+
 ## Workflow
 
-1. Summarize Mu3Library intent from repository evidence relevant to the request.
-2. Extract constraints: package fit, public API stability, `.asmdef` boundaries, optional define-gate impact, sample or docs impact, and verification cost.
-3. If repository context is not enough, use limited web research to collect adjacent patterns or comparable package ideas.
-4. Generate 3 to 5 distinct ideas across different lenses such as quick win, developer UX, optional integrations, sample expansion, runtime or editor utility, or package maintainability.
-5. Score each idea against explicit fit criteria and note major risks.
-6. Write a concept brief for the top idea:
+1. Summarize Mu3Library intent and the current capability map from repository evidence.
+2. Extract hard constraints: package fit, public API stability, `.asmdef` boundaries, optional define-gate impact, sample or docs impact, and verification cost.
+3. List 4 to 8 whitespace opportunities before proposing solutions.
+4. If repository context is not enough, use limited web research to collect adjacent patterns or comparable package ideas.
+5. Generate 5 distinct ideas across the required buckets.
+6. Score each idea against the ranking criteria, note major risks, and explain the novelty evidence.
+7. Write a concept brief for the top idea:
    - problem or opportunity,
    - target user or maintainer value,
+   - why this is meaningfully new for Mu3Library,
    - likely package surfaces,
    - hard constraints,
    - acceptance signals,
    - open questions.
-7. Return control to the main agent or `orchestrator` for bounded-unit acceptance and owner selection.
+8. Return control to the main agent or `orchestrator` for bounded-unit acceptance and owner selection.
 
 ## Guardrails
 
 - Repository constraints beat web research.
 - Do not emit step-by-step implementation plans, verification ownership, or final routing decisions.
-- Advisory downstream-owner notes are optional annotations only.
+- Advisory downstream-specialist notes are optional annotations only.
+- If the user explicitly requests refinement work, state that the output is in incremental-refinement mode and relax the novelty quota.
 - Keep rejected or speculative ideas session-scoped unless later approved as durable policy.
 
 ## Output Expectations
 
 - package-intent summary,
-- 3 to 5 ranked ideas with fit scores,
+- capability map,
+- whitespace map,
+- 5 ranked ideas with novelty class and fit scores,
 - risk notes for each serious option,
 - one top-idea concept brief,
-- optional likely downstream owners and validation questions.
+- optional handoff candidates and validation questions.

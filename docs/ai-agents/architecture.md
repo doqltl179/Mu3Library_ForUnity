@@ -43,7 +43,7 @@ Execution-plane agents should produce concrete artifacts. They should not redefi
 
 Current workflow assets include prompt entrypoints and supporting instructions for compile-only verification. Compile verification is now expected to use editor-safe `dotnet build` against the affected generated Unity `.csproj` files rather than a dedicated batch gate.
 
-The workflow asset plane also includes a repository-shaped ideation skill and prompt for pre-unit concept shaping when package direction is unclear. That asset emits a concept brief and returns control to the main agent or `orchestrator`; it does not create a new execution owner.
+The workflow asset plane also includes a repository-shaped ideation skill and prompt for pre-unit concept shaping and whitespace discovery when package direction is unclear. That asset maps current capability, emits a concept brief, and returns control to the main agent or `orchestrator`; it does not create a new execution owner.
 
 Supporting documents for this plane should also define:
 

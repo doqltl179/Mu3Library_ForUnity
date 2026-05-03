@@ -70,7 +70,7 @@ Workspace skills:
 
 - For multi-step work, provide a short plan, progress updates, and a final verification summary.
 - For agent-framework changes, work in one bounded unit at a time and route the structural suitability review through the role-governor before continuing.
-- For pre-unit package-direction ideation or when the user is stuck on what to build next, prefer the `development-idea-creator` prompt or skill; keep outputs at concept-brief level and hand routing back to the main agent or `orchestrator`.
+- For pre-unit package-direction ideation or when the user is stuck on what to build next, prefer the `development-idea-creator` prompt or skill; default it toward whitespace discovery and net-new package directions unless the user explicitly asks for incremental refinement, keep outputs at concept-brief level, and hand routing back to the main agent or `orchestrator`.
 - For memory-routing or handoff changes, keep `.github/instructions/memory-policy.instructions.md` as the operative rule and use `docs/ai-agents/handoff-contract.md` as the human-facing contract reference.
 - For direct Unity scene or prefab YAML edits, consult `docs/ai-agents/unity-yaml-guide.md` first, prefer cloning verified local subtrees over inventing raw YAML by hand, and update that guide when a new reliable pattern or failure mode is confirmed.
 - For multilingual `README` or `CHANGELOG` work, prefer `docs-sync` for synchronization and keep release execution separate.
