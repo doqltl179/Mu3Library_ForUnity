@@ -13,6 +13,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 変更
+- `SceneLoader`: `OnSingleSceneLoaded`、`OnAdditiveSceneLoaded`、`OnAdditiveSceneUnloaded` は、優先的に `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` のタイミングへ揃えるように変更しました。一方で `OnAdditiveScenePreloaded` は引き続き activation 前の milestone のままです。あわせて Built-in / Editor の additive unload は `allowSceneActivation` で完了を遅延させなくなり、unload progress は基盤となる async operation の値をそのまま反映します。
+
 ### 削除
 - 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
 

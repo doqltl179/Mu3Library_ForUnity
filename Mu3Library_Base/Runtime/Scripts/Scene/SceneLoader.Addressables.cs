@@ -231,6 +231,7 @@ namespace Mu3Library.Scene
 
             AsyncOperationHandle<SceneInstance> unloadHandle = Addressables.UnloadSceneAsync(handle, autoReleaseHandle);
             SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, autoReleaseHandle);
+            operation.SceneHandle = handle.Result.Scene.handle;
             _unloadAdditiveAddressablesSceneOperations.Add(key, operation);
             EmitStatusChanged(operation, force: true);
             return true;
@@ -316,12 +317,10 @@ namespace Mu3Library.Scene
 
             if (succeeded)
             {
-                UnityEngine.SceneManagement.Scene scene = _singleAddressablesSceneOperation.AddressablesHandle.Result.Scene;
-                _currentSceneName = scene.IsValid() ? scene.name : key;
-                _currentSingleSceneStatusName = key;
-                _currentAdditiveScenes.Clear();
-                OnSingleSceneLoaded?.Invoke(key);
-                OnSingleSceneChanged?.Invoke(previousSceneName, _currentSceneName);
+                FinalizeSingleSceneLoaded(
+                    _singleAddressablesSceneOperation,
+                    ResolveLoadedSceneName(_singleAddressablesSceneOperation),
+                    ResolveLoadedSceneHandle(_singleAddressablesSceneOperation));
             }
             else
             {
@@ -352,9 +351,7 @@ namespace Mu3Library.Scene
 
                 if (succeeded)
                 {
-                    _loadedAddressableSceneHandles[key] = pair.Value.AddressablesHandle;
-                    _currentAdditiveScenes.Add(key);
-                    OnAdditiveSceneLoaded?.Invoke(key);
+                    FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneHandle(pair.Value));
                 }
                 else
                 {
@@ -394,9 +391,7 @@ namespace Mu3Library.Scene
                 bool succeeded = IsAddressablesOperationSuccessful(pair.Value);
                 if (succeeded)
                 {
-                    _currentAdditiveScenes.Remove(pair.Value.SceneName);
-                    _loadedAddressableSceneHandles.Remove(pair.Value.SceneName);
-                    OnAdditiveSceneUnloaded?.Invoke(pair.Value.SceneName);
+                    FinalizeAdditiveSceneUnloaded(pair.Value);
                 }
                 else
                 {
@@ -430,6 +425,16 @@ namespace Mu3Library.Scene
                 operation.HasCompletionResult = true;
                 operation.CompletedSuccessfully = false;
                 return true;
+            }
+
+            if (operation.HasUnitySceneEvent)
+            {
+                if (operation.IsUnload)
+                {
+                    return operation.AddressablesHandle.IsDone;
+                }
+
+                return operation.ActivationOperation == null || operation.ActivationOperation.isDone;
             }
 
             if (operation.IsUnload)

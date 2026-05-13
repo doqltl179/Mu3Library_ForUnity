@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 namespace Mu3Library.Scene
 {
-    public partial class SceneLoader : IUpdatable, ISceneLoader, ISceneLoaderEventBus
+    public partial class SceneLoader : IUpdatable, ISceneLoader, ISceneLoaderEventBus, IDisposable
     {
         private partial class SceneOperation
         {
@@ -22,6 +22,8 @@ namespace Mu3Library.Scene
             public float LastReportedProgress;
             public bool HasCompletionResult;
             public bool CompletedSuccessfully;
+            public int SceneHandle;
+            public bool HasUnitySceneEvent;
             public AsyncOperation Operation;
         }
 
@@ -60,6 +62,15 @@ namespace Mu3Library.Scene
         {
             _currentSceneName = SceneManager.GetActiveScene().name;
             _currentSingleSceneStatusName = _currentSceneName;
+
+            SceneManager.sceneLoaded += HandleUnitySceneLoaded;
+            SceneManager.sceneUnloaded += HandleUnitySceneUnloaded;
+        }
+
+        public void Dispose()
+        {
+            SceneManager.sceneLoaded -= HandleUnitySceneLoaded;
+            SceneManager.sceneUnloaded -= HandleUnitySceneUnloaded;
         }
 
         public void Update()
@@ -70,6 +81,21 @@ namespace Mu3Library.Scene
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
             UpdateAddressablesOperations();
 #endif
+        }
+
+        private void HandleUnitySceneLoaded(UnityEngine.SceneManagement.Scene scene, LoadSceneMode _)
+        {
+            if (TryEmitSingleSceneLoadedFromUnityEvent(scene))
+            {
+                return;
+            }
+
+            TryEmitAdditiveSceneLoadedFromUnityEvent(scene);
+        }
+
+        private void HandleUnitySceneUnloaded(UnityEngine.SceneManagement.Scene scene)
+        {
+            TryEmitAdditiveSceneUnloadedFromUnityEvent(scene);
         }
 
         #region Utility
@@ -345,9 +371,9 @@ namespace Mu3Library.Scene
 
             Debug.Log($"Additive scene unload start. sceneName: {sceneName}");
             AsyncOperation ao = SceneManager.UnloadSceneAsync(sceneName);
-            ao.allowSceneActivation = false;
 
             SceneOperation operation = CreateUnloadOperation(sceneName, ao);
+            operation.SceneHandle = ResolveBuiltInSceneHandle(sceneName);
             _unloadAdditiveSceneOperations.Add(sceneName, operation);
             EmitStatusChanged(operation, force: true);
             return true;
@@ -405,18 +431,12 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            string sceneName = _singleSceneOperation.SceneName;
-            string previousSceneName = _currentSceneName;
-            Debug.Log($"Single scene load end. sceneName: {sceneName}");
-
-            _currentSceneName = sceneName;
-            _currentSingleSceneStatusName = sceneName;
-            _currentAdditiveScenes.Clear();
+            FinalizeSingleSceneLoaded(
+                _singleSceneOperation,
+                ResolveLoadedSceneName(_singleSceneOperation),
+                ResolveLoadedSceneHandle(_singleSceneOperation));
 
             _singleSceneOperation = null;
-
-            OnSingleSceneLoaded?.Invoke(sceneName);
-            OnSingleSceneChanged?.Invoke(previousSceneName, _currentSceneName);
         }
 
         private void UpdateLoadAdditiveOperations()
@@ -434,10 +454,7 @@ namespace Mu3Library.Scene
                     continue;
                 }
 
-                string sceneName = pair.Value.SceneName;
-                Debug.Log($"Additive scene load end. sceneName: {sceneName}");
-
-                _currentAdditiveScenes.Add(sceneName);
+                FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneHandle(pair.Value));
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
             }
@@ -450,7 +467,6 @@ namespace Mu3Library.Scene
             foreach (string sceneName in completed)
             {
                 _loadAdditiveSceneOperations.Remove(sceneName);
-                OnAdditiveSceneLoaded?.Invoke(sceneName);
             }
         }
 
@@ -469,10 +485,7 @@ namespace Mu3Library.Scene
                     continue;
                 }
 
-                string sceneName = pair.Value.SceneName;
-                Debug.Log($"Additive scene unload end. sceneName: {sceneName}");
-
-                _currentAdditiveScenes.Remove(sceneName);
+                FinalizeAdditiveSceneUnloaded(pair.Value);
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
             }
@@ -485,12 +498,16 @@ namespace Mu3Library.Scene
             foreach (string sceneName in completed)
             {
                 _unloadAdditiveSceneOperations.Remove(sceneName);
-                OnAdditiveSceneUnloaded?.Invoke(sceneName);
             }
         }
 
         private bool UpdateOperation(SceneOperation operation)
         {
+            if (operation.HasUnitySceneEvent)
+            {
+                return operation.Operation.isDone;
+            }
+
             if (operation.IsUnload)
             {
                 return UpdateUnloadOperation(operation);
@@ -525,19 +542,13 @@ namespace Mu3Library.Scene
 
         private bool UpdateUnloadOperation(SceneOperation operation)
         {
+            if (operation.HasUnitySceneEvent)
+            {
+                return operation.Operation.isDone;
+            }
+
             float progress = Mathf.Clamp01(operation.Operation.progress);
             UpdateSceneOperationStatus(operation, ScenePhase.Unloading, progress);
-
-            if (operation.Operation.progress < 0.9f)
-            {
-                return false;
-            }
-
-            if (!operation.ActivationRequested)
-            {
-                operation.Operation.allowSceneActivation = true;
-                operation.ActivationRequested = true;
-            }
 
             return operation.Operation.isDone;
         }
@@ -670,9 +681,252 @@ namespace Mu3Library.Scene
             }
         }
 
+        private bool TryEmitSingleSceneLoadedFromUnityEvent(UnityEngine.SceneManagement.Scene scene)
+        {
+            if (TryFinalizeSingleSceneLoaded(_singleSceneOperation, scene))
+            {
+                return true;
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (TryFinalizeSingleSceneLoaded(_singleAddressablesSceneOperation, scene))
+            {
+                return true;
+            }
+#endif
+
+            return false;
+        }
+
+        private bool TryEmitAdditiveSceneLoadedFromUnityEvent(UnityEngine.SceneManagement.Scene scene)
+        {
+            foreach (var pair in _loadAdditiveSceneOperations)
+            {
+                if (TryFinalizeAdditiveSceneLoaded(pair.Value, scene))
+                {
+                    return true;
+                }
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            foreach (var pair in _loadAdditiveAddressablesSceneOperations)
+            {
+                if (TryFinalizeAdditiveSceneLoaded(pair.Value, scene))
+                {
+                    return true;
+                }
+            }
+#endif
+
+            return false;
+        }
+
+        private bool TryEmitAdditiveSceneUnloadedFromUnityEvent(UnityEngine.SceneManagement.Scene scene)
+        {
+            foreach (var pair in _unloadAdditiveSceneOperations)
+            {
+                if (TryFinalizeAdditiveSceneUnloaded(pair.Value, scene))
+                {
+                    return true;
+                }
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            foreach (var pair in _unloadAdditiveAddressablesSceneOperations)
+            {
+                if (TryFinalizeAdditiveSceneUnloaded(pair.Value, scene))
+                {
+                    return true;
+                }
+            }
+#endif
+
+            return false;
+        }
+
+        private bool TryFinalizeSingleSceneLoaded(SceneOperation operation, UnityEngine.SceneManagement.Scene scene)
+        {
+            if (!MatchesUnitySceneEvent(operation, scene))
+            {
+                return false;
+            }
+
+            FinalizeSingleSceneLoaded(operation, scene.name, scene.handle);
+            return true;
+        }
+
+        private bool TryFinalizeAdditiveSceneLoaded(SceneOperation operation, UnityEngine.SceneManagement.Scene scene)
+        {
+            if (!MatchesUnitySceneEvent(operation, scene))
+            {
+                return false;
+            }
+
+            FinalizeAdditiveSceneLoaded(operation, scene.handle);
+            return true;
+        }
+
+        private bool TryFinalizeAdditiveSceneUnloaded(SceneOperation operation, UnityEngine.SceneManagement.Scene scene)
+        {
+            if (!MatchesUnitySceneEvent(operation, scene))
+            {
+                return false;
+            }
+
+            FinalizeAdditiveSceneUnloaded(operation);
+            return true;
+        }
+
+        private void FinalizeSingleSceneLoaded(SceneOperation operation, string loadedSceneName, int sceneHandle)
+        {
+            if (operation == null || operation.HasUnitySceneEvent)
+            {
+                return;
+            }
+
+            string previousSceneName = _currentSceneName;
+            Debug.Log($"Single scene load end. sceneName: {operation.SceneName}");
+
+            operation.SceneHandle = sceneHandle;
+            operation.HasUnitySceneEvent = true;
+            operation.Phase = ScenePhase.Loaded;
+            operation.Progress = 1.0f;
+
+            _currentSceneName = loadedSceneName;
+            _currentSingleSceneStatusName = operation.SceneName;
+            _currentAdditiveScenes.Clear();
+
+            OnSingleSceneLoaded?.Invoke(operation.SceneName);
+            OnSingleSceneChanged?.Invoke(previousSceneName, _currentSceneName);
+        }
+
+        private void FinalizeAdditiveSceneLoaded(SceneOperation operation, int sceneHandle)
+        {
+            if (operation == null || operation.HasUnitySceneEvent)
+            {
+                return;
+            }
+
+            Debug.Log($"Additive scene load end. sceneName: {operation.SceneName}");
+
+            operation.SceneHandle = sceneHandle;
+            operation.HasUnitySceneEvent = true;
+            operation.Phase = ScenePhase.Loaded;
+            operation.Progress = 1.0f;
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables)
+            {
+                _loadedAddressableSceneHandles[operation.SceneName] = operation.AddressablesHandle;
+            }
+#endif
+
+            _currentAdditiveScenes.Add(operation.SceneName);
+            OnAdditiveSceneLoaded?.Invoke(operation.SceneName);
+        }
+
+        private void FinalizeAdditiveSceneUnloaded(SceneOperation operation)
+        {
+            if (operation == null || operation.HasUnitySceneEvent)
+            {
+                return;
+            }
+
+            Debug.Log($"Additive scene unload end. sceneName: {operation.SceneName}");
+
+            operation.HasUnitySceneEvent = true;
+            operation.Progress = 1.0f;
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables)
+            {
+                _loadedAddressableSceneHandles.Remove(operation.SceneName);
+            }
+#endif
+
+            _currentAdditiveScenes.Remove(operation.SceneName);
+            OnAdditiveSceneUnloaded?.Invoke(operation.SceneName);
+        }
+
         private SceneStatus CreateStatus(SceneOperation operation)
         {
             return new SceneStatus(operation.SceneName, operation.IsAdditive, operation.Phase, operation.Progress);
+        }
+
+        private bool MatchesUnitySceneEvent(SceneOperation operation, UnityEngine.SceneManagement.Scene scene)
+        {
+            if (operation == null || operation.HasUnitySceneEvent)
+            {
+                return false;
+            }
+
+            if (operation.SceneHandle != 0)
+            {
+                return operation.SceneHandle == scene.handle;
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables)
+            {
+                if (!operation.AddressablesHandle.IsValid() ||
+                    operation.AddressablesHandle.Status != UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+                {
+                    return false;
+                }
+
+                UnityEngine.SceneManagement.Scene addressableScene = operation.AddressablesHandle.Result.Scene;
+                return addressableScene.IsValid() && addressableScene.handle == scene.handle;
+            }
+#endif
+
+            return string.Equals(operation.SceneName, scene.name, StringComparison.Ordinal);
+        }
+
+        private static int ResolveBuiltInSceneHandle(string sceneName)
+        {
+            UnityEngine.SceneManagement.Scene scene = SceneManager.GetSceneByName(sceneName);
+            return scene.IsValid() ? scene.handle : 0;
+        }
+
+        private string ResolveLoadedSceneName(SceneOperation operation)
+        {
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables &&
+                operation.AddressablesHandle.IsValid() &&
+                operation.AddressablesHandle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+            {
+                UnityEngine.SceneManagement.Scene scene = operation.AddressablesHandle.Result.Scene;
+                if (scene.IsValid())
+                {
+                    return scene.name;
+                }
+            }
+#endif
+
+            return operation.SceneName;
+        }
+
+        private int ResolveLoadedSceneHandle(SceneOperation operation)
+        {
+            if (operation.SceneHandle != 0)
+            {
+                return operation.SceneHandle;
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables &&
+                operation.AddressablesHandle.IsValid() &&
+                operation.AddressablesHandle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+            {
+                UnityEngine.SceneManagement.Scene scene = operation.AddressablesHandle.Result.Scene;
+                if (scene.IsValid())
+                {
+                    return scene.handle;
+                }
+            }
+#endif
+
+            return ResolveBuiltInSceneHandle(operation.SceneName);
         }
 
         private bool ValidateSceneCommand(string sceneName, SceneCommandType commandType)
@@ -708,35 +962,87 @@ namespace Mu3Library.Scene
 
         private bool TryGetSingleSceneOperation(out SceneOperation operation)
         {
+            if (_singleSceneOperation != null)
+            {
+                if (_singleSceneOperation.HasUnitySceneEvent)
+                {
+                    _singleSceneOperation = null;
+                }
+                else
+                {
+                    operation = _singleSceneOperation;
+                    return true;
+                }
+            }
+
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
-            operation = _singleSceneOperation ?? _singleAddressablesSceneOperation;
-#else
-            operation = _singleSceneOperation;
+            if (_singleAddressablesSceneOperation != null)
+            {
+                if (_singleAddressablesSceneOperation.HasUnitySceneEvent)
+                {
+                    _singleAddressablesSceneOperation = null;
+                }
+                else
+                {
+                    operation = _singleAddressablesSceneOperation;
+                    return true;
+                }
+            }
 #endif
-            return operation != null;
+
+            operation = null;
+            return false;
         }
 
         private bool TryGetAdditiveSceneOperation(string sceneName, out SceneOperation operation)
         {
             if (_loadAdditiveSceneOperations.TryGetValue(sceneName, out operation))
             {
-                return true;
+                if (operation.HasUnitySceneEvent)
+                {
+                    _loadAdditiveSceneOperations.Remove(sceneName);
+                }
+                else
+                {
+                    return true;
+                }
             }
 
             if (_unloadAdditiveSceneOperations.TryGetValue(sceneName, out operation))
             {
-                return true;
+                if (operation.HasUnitySceneEvent)
+                {
+                    _unloadAdditiveSceneOperations.Remove(sceneName);
+                }
+                else
+                {
+                    return true;
+                }
             }
 
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
             if (_loadAdditiveAddressablesSceneOperations.TryGetValue(sceneName, out operation))
             {
-                return true;
+                if (operation.HasUnitySceneEvent)
+                {
+                    _loadAdditiveAddressablesSceneOperations.Remove(sceneName);
+                }
+                else
+                {
+                    return true;
+                }
             }
 
             if (_unloadAdditiveAddressablesSceneOperations.TryGetValue(sceneName, out operation))
             {
-                return true;
+                if (operation.HasUnitySceneEvent)
+                {
+                    _unloadAdditiveAddressablesSceneOperations.Remove(sceneName);
+                }
+                else
+                {
+                    return true;
+                }
             }
 #endif
 
@@ -753,22 +1059,22 @@ namespace Mu3Library.Scene
         {
             int count = 0;
 
-            if (_singleSceneOperation != null)
+            if (IsVisibleOperation(_singleSceneOperation))
             {
                 count++;
             }
 
-            count += _loadAdditiveSceneOperations.Count;
-            count += _unloadAdditiveSceneOperations.Count;
+            count += CountVisibleOperations(_loadAdditiveSceneOperations);
+            count += CountVisibleOperations(_unloadAdditiveSceneOperations);
 
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
-            if (_singleAddressablesSceneOperation != null)
+            if (IsVisibleOperation(_singleAddressablesSceneOperation))
             {
                 count++;
             }
 
-            count += _loadAdditiveAddressablesSceneOperations.Count;
-            count += _unloadAdditiveAddressablesSceneOperations.Count;
+            count += CountVisibleOperations(_loadAdditiveAddressablesSceneOperations);
+            count += CountVisibleOperations(_unloadAdditiveAddressablesSceneOperations);
 #endif
 
             return count;
@@ -776,11 +1082,43 @@ namespace Mu3Library.Scene
 
         private bool IsAdditiveSceneOperationInProgress()
         {
-            bool inProgress = _loadAdditiveSceneOperations.Count > 0 || _unloadAdditiveSceneOperations.Count > 0;
+            bool inProgress = HasVisibleOperations(_loadAdditiveSceneOperations) || HasVisibleOperations(_unloadAdditiveSceneOperations);
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
-            inProgress |= _loadAdditiveAddressablesSceneOperations.Count > 0 || _unloadAdditiveAddressablesSceneOperations.Count > 0;
+            inProgress |= HasVisibleOperations(_loadAdditiveAddressablesSceneOperations) || HasVisibleOperations(_unloadAdditiveAddressablesSceneOperations);
 #endif
             return inProgress;
+        }
+
+        private static bool IsVisibleOperation(SceneOperation operation)
+        {
+            return operation != null && !operation.HasUnitySceneEvent;
+        }
+
+        private static int CountVisibleOperations(Dictionary<string, SceneOperation> operations)
+        {
+            int count = 0;
+            foreach (var pair in operations)
+            {
+                if (IsVisibleOperation(pair.Value))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool HasVisibleOperations(Dictionary<string, SceneOperation> operations)
+        {
+            foreach (var pair in operations)
+            {
+                if (IsVisibleOperation(pair.Value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
