@@ -16,6 +16,8 @@ This document maps the reusable workflow entrypoints that support the Mu3Library
 ## Compile-Only Verification
 
 - Compile-only verification should use editor-safe `dotnet build` on the affected generated Unity `.csproj` files.
+- For VS Code and C# Dev Kit-driven verification, start from the tracked `UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace` file by default, and switch to `UnityProject_URP/Mu3Library_ForUnity.code-workspace` only when the URP context is the primary concern.
+- Use `mu3-cli csdevkit` helpers to inspect the active context, run load diagnostics, choose curated compile-only build profiles, and generate repo-local support bundles.
 - Compile verification remains evidence for `reviewer`, not a substitute for reviewer approval.
 
 ## Design Rule

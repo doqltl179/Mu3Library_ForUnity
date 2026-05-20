@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added a tracked C# Dev Kit workflow around the Built-In default workspace and the URP additional workspace. The tracked `.code-workspace` files now recommend the C# Dev Kit extensions, and `mu3-cli csdevkit` now provides context switching, load diagnostics, curated compile-only build profiles, support bundles, and drift checks.
+- Added `tools/csdevkit_tests`, a standalone xUnit project targeting `net10.0` so C# Dev Kit can discover a narrow pure C# metadata test surface without touching Unity package assemblies.
+
 ### Changed
 - `SceneLoader`: `OnSingleSceneLoaded`, `OnAdditiveSceneLoaded`, and `OnAdditiveSceneUnloaded` now prefer `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` timing, while `OnAdditiveScenePreloaded` remains the pre-activation milestone. Built-in and Editor additive unload no longer gate completion through `allowSceneActivation`, so unload progress reflects the underlying async operation directly.
 

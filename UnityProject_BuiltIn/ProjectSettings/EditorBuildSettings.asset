@@ -7,6 +7,7 @@ EditorBuildSettings:
   m_Scenes: []
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 001162774126f544e81ac1ca26219466, type: 2}
+    com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings: {fileID: 11400000, guid: 26f343553289120428513b77ec3b3be3, type: 2}
     com.unity.localization.settings: {fileID: 11400000, guid: c9f1835e8d1dda144a2cce7768c3d7e3, type: 2}
   m_UseUCBPForAssetBundles: 0

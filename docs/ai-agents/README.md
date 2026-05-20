@@ -21,7 +21,9 @@ This directory is the human-facing map for the Mu3Library multi-agent framework.
 
 Related tooling:
 
-- `tools/mu3_cli/README.md`: bootstrap and usage guide for the repository-local Python CLI.
+- `tools/mu3_cli/README.md`: bootstrap and usage guide for the repository-local Python CLI, including the `mu3-cli csdevkit` support surface.
+- `UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace`: default VS Code entrypoint for Base and Built-In maintenance, with tracked C# Dev Kit recommendations and default solution selection.
+- `UnityProject_URP/Mu3Library_ForUnity.code-workspace`: additional VS Code entrypoint for URP-focused work, with tracked C# Dev Kit recommendations and default solution selection.
 
 ## Foundation Scope
 
@@ -43,7 +45,8 @@ Approved in the current rollout:
 - dedicated sample-integrity ownership for sample manifests, package samples, imported sample footprints, and sample smoke checks,
 - a workflow-asset ideation entrypoint for pre-unit concept shaping and package-whitespace discovery when package direction is unclear,
 - a compile-only workflow gate that waits for compile completion before the next unit proceeds,
-- a tooling-local Python CLI bootstrap under `tools/mu3_cli`.
+- a tooling-local Python CLI bootstrap under `tools/mu3_cli`,
+- a tracked C# Dev Kit workspace flow that starts from the Built-In workspace by default and uses `mu3-cli csdevkit` helpers for context switching, diagnostics, support bundles, and drift checks.
 
 No deferred ownership candidates are currently approved in the rollout backlog.
 

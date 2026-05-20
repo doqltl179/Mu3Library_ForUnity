@@ -13,6 +13,10 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- Built-In の既定 workspace と URP の追加 workspace を起点にする tracked C# Dev Kit workflow を追加しました。tracked `.code-workspace` ファイルが C# Dev Kit 拡張を推奨し、`mu3-cli csdevkit` が context 切り替え、load diagnostics、curated compile-only build profile、support bundle、drift check を提供します。
+- `tools/csdevkit_tests` を追加しました。これは `net10.0` を対象にする standalone xUnit project であり、Unity package assembly に触れずに C# Dev Kit が狭い純粋 C# metadata test surface を discover できるようにします。
+
 ### 変更
 - `SceneLoader`: `OnSingleSceneLoaded`、`OnAdditiveSceneLoaded`、`OnAdditiveSceneUnloaded` は、優先的に `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` のタイミングへ揃えるように変更しました。一方で `OnAdditiveScenePreloaded` は引き続き activation 前の milestone のままです。あわせて Built-in / Editor の additive unload は `allowSceneActivation` で完了を遅延させなくなり、unload progress は基盤となる async operation の値をそのまま反映します。
 

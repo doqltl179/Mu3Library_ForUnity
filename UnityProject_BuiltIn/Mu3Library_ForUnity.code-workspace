@@ -5,6 +5,12 @@
             "name": "Mu3Library_ForUnity"
         }
     ],
+    "extensions": {
+        "recommendations": [
+            "ms-dotnettools.csdevkit",
+            "ms-dotnettools.csharp"
+        ]
+    },
     "settings": {
         "dotnet.defaultSolution": "UnityProject_BuiltIn/UnityProject_BuiltIn.slnx",
         "chat.tools.terminal.autoApprove": {

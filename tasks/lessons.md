@@ -16,3 +16,6 @@
 - For ideation or concept-shaping requests, run the suitability gate before adding a long-lived agent; if the output stops at a concept brief, implement it as a workflow asset such as a skill or prompt instead.
 - For ideation workflow assets, force a capability map, whitespace map, distinct idea buckets, and per-idea novelty evidence; otherwise the output collapses into incremental improvements of current package surfaces.
 - For ideation regression checks, always include both broad novelty cases and an explicit incremental-refinement control case; otherwise you cannot tell whether the asset improved or merely overcorrected.
+- When the user asks what new features would help after an external tooling update, treat that as a request for repository features that exploit the tool, not just documentation or workflow notes about the tool.
+- For Python tooling on Windows that captures `dotnet` output for diagnostics, force UTF-8 decoding with replacement instead of relying on the locale default, or support-bundle generation can fail on mixed-encoding output.
+- When adding a new tooling workflow that depends on tracked `.code-workspace` files, sync the framework-facing docs and the changelog in the same follow-up; a tool-local README alone is not enough for discoverability.
