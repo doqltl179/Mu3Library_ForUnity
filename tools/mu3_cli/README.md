@@ -22,6 +22,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - Open `UnityProject_URP/Mu3Library_ForUnity.code-workspace` only when URP is the primary context you need to inspect or verify.
 - Built-In is the default development context for this repository.
 - URP is an additional context layered on top of the Base package and should not replace the Built-In baseline for shared maintenance.
+- Shared Base files can still have more than one valid project context because both Built-In and URP include them with different define sets.
 - Local context state is stored under `log/mu3_cli/csdevkit-state.json`, so switching contexts does not dirty tracked workspace files.
 - The tracked workspace files carry the C# Dev Kit extension recommendations and `dotnet.defaultSolution` values that this flow expects.
 
