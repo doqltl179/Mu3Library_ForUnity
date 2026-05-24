@@ -49,7 +49,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.11.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.12.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
