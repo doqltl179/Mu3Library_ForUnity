@@ -14,13 +14,23 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 추가됨
 - Built-In 기본 워크스페이스와 URP 추가 워크스페이스를 기준으로 하는 tracked C# Dev Kit 워크플로를 추가함. 이제 tracked `.code-workspace` 파일이 C# Dev Kit 확장을 추천하며, `mu3-cli csdevkit`이 context 전환, load diagnostics, curated compile-only build profile, support bundle, drift check 기능을 제공함.
 - `tools/csdevkit_tests`를 추가함. 이 프로젝트는 `net10.0`을 대상으로 하는 standalone xUnit 프로젝트이며, Unity package assembly를 건드리지 않고도 C# Dev Kit가 좁은 순수 C# metadata test surface를 discover할 수 있도록 함.
+
+### 제거됨
+- 대상 Unity 에디터를 닫아야만 동작하도록 설계된 저장소 Unity batch compile-gate 워크플로, 스크립트, 훅, 에디터 batch entrypoint를 제거함. 이 변경으로 batch 호출용 SceneLoader smoke entrypoint도 함께 제거되며, compile-only 검증은 생성된 Unity `.csproj` 파일에 대한 editor-safe `dotnet build`에 의존하고 SceneLoader 런타임 smoke 검증은 당분간 수동 경로만 남음.
+
+## [base/0.13.0] - 2026-05-24
+
+### 추가됨
 - `GameObjectPool<T>`: 사용자가 풀이 비었을 때의 생성을 정의할 수 있는 선택적 `Create` 델리게이트 생성자와, 풀에 보관된 비활성 오브젝트를 파기하는 `Clear()`를 추가함.
 
 ### 변경됨
 - `GameObjectPool<T>`: 내부 `List<T>`를 `Queue<T>`로 교체하고, 풀에 보관된 인스턴스 ID를 추적해 중복된 비활성 오브젝트 재등록을 방지하며, 더 이상 리소스 참조로 직접 instantiate하지 않도록 변경함.
+  기존 `GameObjectPool(T resource)` 생성자는 제거되었으므로, 호출부는 `GameObjectPool(Create onCreate)`로 옮기고 생성 로직을 명시적으로 전달해야 함.
 
-### 제거됨
-- 대상 Unity 에디터를 닫아야만 동작하도록 설계된 저장소 Unity batch compile-gate 워크플로, 스크립트, 훅, 에디터 batch entrypoint를 제거함. 이 변경으로 batch 호출용 SceneLoader smoke entrypoint도 함께 제거되며, compile-only 검증은 생성된 Unity `.csproj` 파일에 대한 editor-safe `dotnet build`에 의존하고 SceneLoader 런타임 smoke 검증은 당분간 수동 경로만 남음.
+## [urp/0.1.4] - 2026-05-24
+
+### 변경됨
+- `Mu3Library_URP/package.json`: URP manifest가 `com.github.doqltl179.mu3library.base` `0.13.0`에 의존하도록 업데이트하고, 패키지 메타데이터를 Base `0.13.0`과 맞춤.
 
 ## [base/0.12.0] - 2026-05-24
 

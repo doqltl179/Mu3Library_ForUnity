@@ -16,13 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added a tracked C# Dev Kit workflow around the Built-In default workspace and the URP additional workspace. The tracked `.code-workspace` files now recommend the C# Dev Kit extensions, and `mu3-cli csdevkit` now provides context switching, load diagnostics, curated compile-only build profiles, support bundles, and drift checks.
 - Added `tools/csdevkit_tests`, a standalone xUnit project targeting `net10.0` so C# Dev Kit can discover a narrow pure C# metadata test surface without touching Unity package assemblies.
+
+### Removed
+- Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
+
+## [base/0.13.0] - 2026-05-24
+
+### Added
 - `GameObjectPool<T>`: Added an optional `Create` delegate constructor for user-defined empty-pool creation and `Clear()` to destroy pooled inactive objects.
 
 ### Changed
 - `GameObjectPool<T>`: Replaced the internal `List<T>` with `Queue<T>`, now prevents duplicate inactive enqueues by tracking pooled instance IDs, and no longer instantiates directly from a resource reference.
+  The previous `GameObjectPool(T resource)` constructor was removed; migrate call sites to `GameObjectPool(Create onCreate)` and provide the instantiation logic explicitly.
 
-### Removed
-- Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
+## [urp/0.1.4] - 2026-05-24
+
+### Changed
+- `Mu3Library_URP/package.json`: Updated the URP manifest to depend on `com.github.doqltl179.mu3library.base` `0.13.0` and aligned the package metadata with Base `0.13.0`.
 
 ## [base/0.12.0] - 2026-05-24
 

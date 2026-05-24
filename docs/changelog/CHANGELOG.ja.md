@@ -16,13 +16,23 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 追加
 - Built-In の既定 workspace と URP の追加 workspace を起点にする tracked C# Dev Kit workflow を追加しました。tracked `.code-workspace` ファイルが C# Dev Kit 拡張を推奨し、`mu3-cli csdevkit` が context 切り替え、load diagnostics、curated compile-only build profile、support bundle、drift check を提供します。
 - `tools/csdevkit_tests` を追加しました。これは `net10.0` を対象にする standalone xUnit project であり、Unity package assembly に触れずに C# Dev Kit が狭い純粋 C# metadata test surface を discover できるようにします。
+
+### 削除
+- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
+
+## [base/0.13.0] - 2026-05-24
+
+### 追加
 - `GameObjectPool<T>`: 利用側がプール空時の生成を定義できる任意の `Create` デリゲートコンストラクターと、プール済みの非アクティブオブジェクトを破棄する `Clear()` を追加しました。
 
 ### 変更
 - `GameObjectPool<T>`: 内部 `List<T>` を `Queue<T>` に切り替え、プール済みインスタンス ID を追跡して重複した非アクティブオブジェクトの再登録を防ぎ、resource 参照から直接 instantiate しないように変更しました。
+  以前の `GameObjectPool(T resource)` コンストラクターは削除されたため、呼び出し側は `GameObjectPool(Create onCreate)` へ移行し、生成ロジックを明示的に渡す必要があります。
 
-### 削除
-- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
+## [urp/0.1.4] - 2026-05-24
+
+### 変更
+- `Mu3Library_URP/package.json`: URP manifest が `com.github.doqltl179.mu3library.base` `0.13.0` に依存するよう更新し、パッケージメタデータを Base `0.13.0` に揃えました。
 
 ## [base/0.12.0] - 2026-05-24
 
