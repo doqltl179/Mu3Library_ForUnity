@@ -230,13 +230,14 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute` 등 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **DI**: Dependency Injection 컨테이너
+- **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티와 재사용 가능한 일회성 helper
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
 - **ObjectPool**: 제네릭 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
 - **Resource**: Resources 폴더 로딩
-- **Scene**: phase/status 조회, lifecycle/progress callback, 통합 rejection event를 제공하는 씬 로딩 추상화
+- **Scene**: phase/status 조회, lifecycle/progress callback, 일회성 lifecycle 구독 helper, 통합 rejection event를 제공하는 씬 로딩 추상화
 - **UI**: MVP 패턴 구현
 - **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
 - **Utility**: Singleton, EasingFunctions, Settings

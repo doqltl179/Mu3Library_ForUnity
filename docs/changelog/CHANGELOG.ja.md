@@ -17,11 +17,20 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - Built-In の既定 workspace と URP の追加 workspace を起点にする tracked C# Dev Kit workflow を追加しました。tracked `.code-workspace` ファイルが C# Dev Kit 拡張を推奨し、`mu3-cli csdevkit` が context 切り替え、load diagnostics、curated compile-only build profile、support bundle、drift check を提供します。
 - `tools/csdevkit_tests` を追加しました。これは `net10.0` を対象にする standalone xUnit project であり、Unity package assembly に触れずに C# Dev Kit が狭い純粋 C# metadata test surface を discover できるようにします。
 
-### 変更
-- `SceneLoader`: `OnSingleSceneLoaded`、`OnAdditiveSceneLoaded`、`OnAdditiveSceneUnloaded` は、優先的に `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` のタイミングへ揃えるように変更しました。一方で `OnAdditiveScenePreloaded` は引き続き activation 前の milestone のままです。あわせて Built-in / Editor の additive unload は `allowSceneActivation` で完了を遅延させなくなり、unload progress は基盤となる async operation の値をそのまま反映します。
-
 ### 削除
 - 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
+
+## [base/0.12.0] - 2026-05-24
+
+### 追加
+- `ISceneLoaderEventBus` / `SceneLoader`: 既存の `SubscribeOnSingleSceneLoadedOnce` を超えて、single-scene の `LoadStarted`、`Preloaded`、`Changed` コールバックと、additive の `LoadStarted`、`Preloaded`、`Loaded`、`Unloaded` コールバックまで one-shot 購読 helper を拡張しました。
+  この変更により `ISceneLoaderEventBus` の実装契約が変わるため、custom 実装は upgrade 時に新しい one-shot 購読 method も実装する必要があります。
+- `ILocalizationManagerEventBus` / `LocalizationManager`、`IAddressablesManagerEventBus` / `AddressablesManager`、`IMVPManagerEventBus` / `MVPManager`: localization の初期化完了/結果イベント、Addressables の初期化イベント、MVP の window lifecycle イベント向けに one-shot 購読 helper を追加しました。
+  この変更により各 event-bus の実装契約が変わるため、custom 実装は upgrade 時に新しい one-shot 購読 method も実装する必要があります。
+- `SubscribeHandler`: `Action`、`Action<T>`、`Action<T1, T2>` 登録向けの再利用可能な `SubscribeOnce(...)` オーバーロードを追加し、各 service が自分の handler instance を通して one-shot 購読を管理できるようにしました。
+
+### 変更
+- `SceneLoader`: `OnSingleSceneLoaded`、`OnAdditiveSceneLoaded`、`OnAdditiveSceneUnloaded` は、優先的に `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` のタイミングへ揃えるように変更しました。一方で `OnAdditiveScenePreloaded` は引き続き activation 前の milestone のままです。あわせて Built-in / Editor の additive unload は `allowSceneActivation` で完了を遅延させなくなり、unload progress は基盤となる async operation の値をそのまま反映します。
 
 ## [base/0.11.0] - 2026-05-02
 

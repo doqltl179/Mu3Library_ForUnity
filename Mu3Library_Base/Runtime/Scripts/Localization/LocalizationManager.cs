@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
+using Mu3Library.Event;
 using Mu3Library.Localization.Data;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -61,6 +62,7 @@ namespace Mu3Library.Localization
 
         private float _lastInitializeProgress = -1.0f;
         private AsyncOperationHandle<LocalizationSettings> _initializeHandle;
+        private readonly SubscribeHandler _subscribeHandler = new();
 
         public event Action OnInitialized;
         public event Action<bool, string> OnInitializeResult;
@@ -73,6 +75,26 @@ namespace Mu3Library.Localization
         {
             UpdateInitializeProgress();
         }
+
+        public uint SubscribeOnInitializedOnce(Action callback)
+            => SubscribeOnInitializedOnce(callback, null);
+
+        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnInitialized += handler,
+                handler => OnInitialized -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback)
+            => SubscribeOnInitializeResultOnce(callback, null);
+
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnInitializeResult += handler,
+                handler => OnInitializeResult -= handler,
+                callback,
+                onDisposed);
 
         public void Initialize(Action callback = null)
         {

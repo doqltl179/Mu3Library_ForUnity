@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Mu3Library.DI;
+using Mu3Library.Event;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
@@ -37,6 +38,7 @@ namespace Mu3Library.Addressable
             public float LastProgress = -1.0f;
         }
         private readonly List<DownloadTracker> _downloadTrackers = new();
+        private readonly SubscribeHandler _subscribeHandler = new();
 
         public event Action OnInitialized;
         public event Action<bool, string> OnInitializeResult;
@@ -47,6 +49,8 @@ namespace Mu3Library.Addressable
 
         public void Dispose()
         {
+            _subscribeHandler.Dispose();
+
             if (_initializeHandle.IsValid())
             {
                 Addressables.Release(_initializeHandle);
@@ -73,6 +77,26 @@ namespace Mu3Library.Addressable
             UpdateInitializeProgress();
             UpdateDownloadProgress();
         }
+
+        public uint SubscribeOnInitializedOnce(Action callback)
+            => SubscribeOnInitializedOnce(callback, null);
+
+        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnInitialized += handler,
+                handler => OnInitialized -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback)
+            => SubscribeOnInitializeResultOnce(callback, null);
+
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnInitializeResult += handler,
+                handler => OnInitializeResult -= handler,
+                callback,
+                onDisposed);
 
         public void Initialize(Action callback = null)
         {
@@ -159,6 +183,7 @@ namespace Mu3Library.Addressable
             _isInitializing = false;
             _lastInitializeProgress = handle.PercentComplete;
             _initializeError = errorMessage;
+
             OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
             OnInitialized?.Invoke();

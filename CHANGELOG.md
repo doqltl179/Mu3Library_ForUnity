@@ -17,11 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a tracked C# Dev Kit workflow around the Built-In default workspace and the URP additional workspace. The tracked `.code-workspace` files now recommend the C# Dev Kit extensions, and `mu3-cli csdevkit` now provides context switching, load diagnostics, curated compile-only build profiles, support bundles, and drift checks.
 - Added `tools/csdevkit_tests`, a standalone xUnit project targeting `net10.0` so C# Dev Kit can discover a narrow pure C# metadata test surface without touching Unity package assemblies.
 
-### Changed
-- `SceneLoader`: `OnSingleSceneLoaded`, `OnAdditiveSceneLoaded`, and `OnAdditiveSceneUnloaded` now prefer `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` timing, while `OnAdditiveScenePreloaded` remains the pre-activation milestone. Built-in and Editor additive unload no longer gate completion through `allowSceneActivation`, so unload progress reflects the underlying async operation directly.
-
 ### Removed
 - Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
+
+## [base/0.12.0] - 2026-05-24
+
+### Added
+- `ISceneLoaderEventBus` / `SceneLoader`: Expanded one-shot subscription helpers beyond `SubscribeOnSingleSceneLoadedOnce` to cover single-scene `LoadStarted`, `Preloaded`, and `Changed` callbacks, plus additive `LoadStarted`, `Preloaded`, `Loaded`, and `Unloaded` callbacks.
+  This changes the `ISceneLoaderEventBus` implementation contract, so custom implementers must add the new once-subscription methods when upgrading.
+- `ILocalizationManagerEventBus` / `LocalizationManager`, `IAddressablesManagerEventBus` / `AddressablesManager`, `IMVPManagerEventBus` / `MVPManager`: Added one-shot subscription helpers for localization initialization completion/result events, Addressables initialization events, and MVP window lifecycle events.
+  This changes each event-bus implementation contract, so custom implementers must add the new once-subscription methods when upgrading.
+- `SubscribeHandler`: Added reusable `SubscribeOnce(...)` overloads for `Action`, `Action<T>`, and `Action<T1, T2>` registrations so each service can manage one-shot subscriptions through its own handler instance.
+
+### Changed
+- `SceneLoader`: `OnSingleSceneLoaded`, `OnAdditiveSceneLoaded`, and `OnAdditiveSceneUnloaded` now prefer `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` timing, while `OnAdditiveScenePreloaded` remains the pre-activation milestone. Built-in and Editor additive unload no longer gate completion through `allowSceneActivation`, so unload progress reflects the underlying async operation directly.
 
 ## [base/0.11.0] - 2026-05-02
 

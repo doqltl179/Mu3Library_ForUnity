@@ -15,11 +15,20 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - Built-In 기본 워크스페이스와 URP 추가 워크스페이스를 기준으로 하는 tracked C# Dev Kit 워크플로를 추가함. 이제 tracked `.code-workspace` 파일이 C# Dev Kit 확장을 추천하며, `mu3-cli csdevkit`이 context 전환, load diagnostics, curated compile-only build profile, support bundle, drift check 기능을 제공함.
 - `tools/csdevkit_tests`를 추가함. 이 프로젝트는 `net10.0`을 대상으로 하는 standalone xUnit 프로젝트이며, Unity package assembly를 건드리지 않고도 C# Dev Kit가 좁은 순수 C# metadata test surface를 discover할 수 있도록 함.
 
-### 변경됨
-- `SceneLoader`: `OnSingleSceneLoaded`, `OnAdditiveSceneLoaded`, `OnAdditiveSceneUnloaded`는 이제 우선적으로 `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` 시점에 맞춰 동작하며, `OnAdditiveScenePreloaded`는 계속 activation 이전 milestone으로 유지됩니다. 또한 Built-in 및 Editor additive unload는 더 이상 `allowSceneActivation`으로 완료를 지연시키지 않으므로, unload progress는 기본 async operation 값을 직접 반영합니다.
-
 ### 제거됨
 - 대상 Unity 에디터를 닫아야만 동작하도록 설계된 저장소 Unity batch compile-gate 워크플로, 스크립트, 훅, 에디터 batch entrypoint를 제거함. 이 변경으로 batch 호출용 SceneLoader smoke entrypoint도 함께 제거되며, compile-only 검증은 생성된 Unity `.csproj` 파일에 대한 editor-safe `dotnet build`에 의존하고 SceneLoader 런타임 smoke 검증은 당분간 수동 경로만 남음.
+
+## [base/0.12.0] - 2026-05-24
+
+### 추가됨
+- `ISceneLoaderEventBus` / `SceneLoader`: 기존 `SubscribeOnSingleSceneLoadedOnce`를 넘어 single-scene `LoadStarted`, `Preloaded`, `Changed` 콜백과 additive `LoadStarted`, `Preloaded`, `Loaded`, `Unloaded` 콜백까지 일회성 구독 helper를 확장함.
+  이 변경으로 `ISceneLoaderEventBus` 구현 계약이 바뀌므로, 커스텀 구현체는 업그레이드 시 새 일회성 구독 메서드를 함께 구현해야 함.
+- `ILocalizationManagerEventBus` / `LocalizationManager`, `IAddressablesManagerEventBus` / `AddressablesManager`, `IMVPManagerEventBus` / `MVPManager`: localization 초기화 완료/결과 이벤트, Addressables 초기화 이벤트, MVP window lifecycle 이벤트를 위한 일회성 구독 helper를 추가함.
+  이 변경으로 각 event-bus 구현 계약이 바뀌므로, 커스텀 구현체는 업그레이드 시 새 일회성 구독 메서드를 함께 구현해야 함.
+- `SubscribeHandler`: `Action`, `Action<T>`, `Action<T1, T2>` 등록을 위한 재사용 가능한 `SubscribeOnce(...)` 오버로드를 추가하여, 각 서비스가 자신의 handler 인스턴스를 통해 일회성 구독을 관리할 수 있게 함.
+
+### 변경됨
+- `SceneLoader`: `OnSingleSceneLoaded`, `OnAdditiveSceneLoaded`, `OnAdditiveSceneUnloaded`는 이제 우선적으로 `SceneManager.sceneLoaded` / `SceneManager.sceneUnloaded` 시점에 맞춰 동작하며, `OnAdditiveScenePreloaded`는 계속 activation 이전 milestone으로 유지됩니다. 또한 Built-in 및 Editor additive unload는 더 이상 `allowSceneActivation`으로 완료를 지연시키지 않으므로, unload progress는 기본 async operation 값을 직접 반영합니다.
 
 ## [base/0.11.0] - 2026-05-02
 

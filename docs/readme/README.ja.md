@@ -230,13 +230,14 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute`などのカスタム属性
 - **Audio**: BGM/SFX管理システム
 - **DI**: Dependency Injectionコンテナ
+- **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility と再利用可能な one-shot helper
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
 - **ObjectPool**: ジェネリックオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング
-- **Scene**: phase/status 参照、lifecycle/progress callback、統合 rejection event を提供するシーンローディング抽象化
+- **Scene**: phase/status 参照、lifecycle/progress callback、one-shot lifecycle 購読 helper、統合 rejection event を提供するシーンローディング抽象化
 - **UI**: MVPパターン実装
 - **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
 - **Utility**: Singleton、EasingFunctions、Settings

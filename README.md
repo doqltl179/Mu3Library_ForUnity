@@ -231,13 +231,14 @@ When the following packages are installed, their features are automatically enab
 - **Attribute**: Custom attributes like `ConditionalHideAttribute`
 - **Audio**: BGM/SFX management system
 - **DI**: Dependency Injection container
+- **Event**: Owner-managed subscription utilities and reusable one-shot helpers via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
 - **ObjectPool**: Generic object pooling
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
-- **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, and unified rejection events
+- **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation
 - **IS**: Unity Input System wrapper and binding manager (optional)
 - **Utility**: Singleton, EasingFunctions, Settings

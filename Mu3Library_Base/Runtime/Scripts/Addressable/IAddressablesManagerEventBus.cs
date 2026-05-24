@@ -9,6 +9,11 @@ namespace Mu3Library.Addressable
         public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
         public event Action<float> OnDownloadProgress;
+
+        public uint SubscribeOnInitializedOnce(Action callback);
+        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed);
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback);
+        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed);
     }
 }
 #endif

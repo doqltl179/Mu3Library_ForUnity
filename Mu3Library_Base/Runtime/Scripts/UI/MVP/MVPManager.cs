@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
+using Mu3Library.Event;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -134,6 +135,7 @@ namespace Mu3Library.UI.MVP
         public IReadOnlyCollection<string> FocusIgnoredLayers => _focusIgnoredLayers;
 
         private OutPanel _outPanel = null;
+        private readonly SubscribeHandler _subscribeHandler = new();
 
         public event System.Action<IPresenter> OnWindowLoaded;
         public event System.Action<IPresenter> OnWindowOpened;
@@ -144,6 +146,8 @@ namespace Mu3Library.UI.MVP
 
         public void Dispose()
         {
+            _subscribeHandler.Dispose();
+
             _layerCanvases.Clear();
             _viewResourceMap.Clear();
             _viewLayerMap.Clear();
@@ -172,6 +176,46 @@ namespace Mu3Library.UI.MVP
             CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
             CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
         }
+
+        public uint SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback)
+            => SubscribeOnWindowLoadedOnce(callback, null);
+
+        public uint SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnWindowLoaded += handler,
+                handler => OnWindowLoaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback)
+            => SubscribeOnWindowOpenedOnce(callback, null);
+
+        public uint SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnWindowOpened += handler,
+                handler => OnWindowOpened -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback)
+            => SubscribeOnWindowClosedOnce(callback, null);
+
+        public uint SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnWindowClosed += handler,
+                handler => OnWindowClosed -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback)
+            => SubscribeOnWindowUnloadedOnce(callback, null);
+
+        public uint SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnWindowUnloaded += handler,
+                handler => OnWindowUnloaded -= handler,
+                callback,
+                onDisposed);
 
         private void CheckLifecycle(List<PresenterParams> list, ViewState checkState, System.Action<PresenterParams> callback = null)
         {
