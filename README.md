@@ -234,7 +234,7 @@ When the following packages are installed, their features are automatically enab
 - **Event**: Owner-managed subscription utilities and reusable one-shot helpers via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
-- **ObjectPool**: Generic object pooling
+- **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, an optional creation callback, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading

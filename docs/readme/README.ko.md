@@ -233,7 +233,7 @@ _playerData.Health.Set(80);
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티와 재사용 가능한 일회성 helper
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
-- **ObjectPool**: 제네릭 오브젝트 풀링
+- **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, 선택적 생성 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
 - **Resource**: Resources 폴더 로딩

@@ -233,7 +233,7 @@ _playerData.Health.Set(80);
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility と再利用可能な one-shot helper
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
-- **ObjectPool**: ジェネリックオブジェクトプーリング
+- **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング

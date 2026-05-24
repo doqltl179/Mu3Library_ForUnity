@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added a tracked C# Dev Kit workflow around the Built-In default workspace and the URP additional workspace. The tracked `.code-workspace` files now recommend the C# Dev Kit extensions, and `mu3-cli csdevkit` now provides context switching, load diagnostics, curated compile-only build profiles, support bundles, and drift checks.
 - Added `tools/csdevkit_tests`, a standalone xUnit project targeting `net10.0` so C# Dev Kit can discover a narrow pure C# metadata test surface without touching Unity package assemblies.
+- `GameObjectPool<T>`: Added an optional `Create` delegate constructor for user-defined empty-pool creation and `Clear()` to destroy pooled inactive objects.
+
+### Changed
+- `GameObjectPool<T>`: Replaced the internal `List<T>` with `Queue<T>`, now prevents duplicate inactive enqueues by tracking pooled instance IDs, and no longer instantiates directly from a resource reference.
 
 ### Removed
 - Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
