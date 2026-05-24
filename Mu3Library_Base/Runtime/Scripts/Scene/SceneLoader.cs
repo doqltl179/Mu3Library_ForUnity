@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Mu3Library.DI;
+using Mu3Library.Event;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -40,6 +41,8 @@ namespace Mu3Library.Scene
         private readonly Dictionary<string, SceneOperation> _loadAdditiveSceneOperations = new();
         private readonly Dictionary<string, SceneOperation> _unloadAdditiveSceneOperations = new();
 
+        private readonly SubscribeHandler _subscribeHandler = new();
+
         public event Action<string> OnSingleSceneLoadStarted;
         public event Action<string, float> OnSingleScenePreloadProgress;
         public event Action<string> OnSingleScenePreloaded;
@@ -69,6 +72,8 @@ namespace Mu3Library.Scene
 
         public void Dispose()
         {
+            _subscribeHandler.Dispose();
+
             SceneManager.sceneLoaded -= HandleUnitySceneLoaded;
             SceneManager.sceneUnloaded -= HandleUnitySceneUnloaded;
         }
@@ -174,6 +179,86 @@ namespace Mu3Library.Scene
         {
             TryStartUnloadAdditiveScene(sceneName);
         }
+
+        public uint SubscribeOnSingleSceneLoadStartedOnce(Action<string> callback)
+            => SubscribeOnSingleSceneLoadStartedOnce(callback, null);
+
+        public uint SubscribeOnSingleSceneLoadStartedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnSingleSceneLoadStarted += handler,
+                handler => OnSingleSceneLoadStarted -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnSingleScenePreloadedOnce(Action<string> callback)
+            => SubscribeOnSingleScenePreloadedOnce(callback, null);
+
+        public uint SubscribeOnSingleScenePreloadedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnSingleScenePreloaded += handler,
+                handler => OnSingleScenePreloaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnSingleSceneLoadedOnce(Action<string> callback)
+            => SubscribeOnSingleSceneLoadedOnce(callback, null);
+
+        public uint SubscribeOnSingleSceneLoadedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnSingleSceneLoaded += handler,
+                handler => OnSingleSceneLoaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback)
+            => SubscribeOnSingleSceneChangedOnce(callback, null);
+
+        public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnSingleSceneChanged += handler,
+                handler => OnSingleSceneChanged -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback)
+            => SubscribeOnAdditiveSceneLoadStartedOnce(callback, null);
+
+        public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnAdditiveSceneLoadStarted += handler,
+                handler => OnAdditiveSceneLoadStarted -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnAdditiveScenePreloadedOnce(Action<string> callback)
+            => SubscribeOnAdditiveScenePreloadedOnce(callback, null);
+
+        public uint SubscribeOnAdditiveScenePreloadedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnAdditiveScenePreloaded += handler,
+                handler => OnAdditiveScenePreloaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnAdditiveSceneLoadedOnce(Action<string> callback)
+            => SubscribeOnAdditiveSceneLoadedOnce(callback, null);
+
+        public uint SubscribeOnAdditiveSceneLoadedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnAdditiveSceneLoaded += handler,
+                handler => OnAdditiveSceneLoaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback)
+            => SubscribeOnAdditiveSceneUnloadedOnce(callback, null);
+
+        public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnAdditiveSceneUnloaded += handler,
+                handler => OnAdditiveSceneUnloaded -= handler,
+                callback,
+                onDisposed);
         #endregion
 
         private bool IsSceneInBuild(string sceneName)

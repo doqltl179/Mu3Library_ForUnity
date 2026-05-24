@@ -61,5 +61,23 @@ namespace Mu3Library.Scene
         public event Action<string> OnAdditiveSceneUnloaded;
 
         public event Action<SceneCommandRejectedInfo> OnSceneCommandRejected;
+
+        public uint SubscribeOnSingleSceneLoadStartedOnce(Action<string> callback);
+        public uint SubscribeOnSingleSceneLoadStartedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnSingleScenePreloadedOnce(Action<string> callback);
+        public uint SubscribeOnSingleScenePreloadedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnSingleSceneLoadedOnce(Action<string> callback);
+        public uint SubscribeOnSingleSceneLoadedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback);
+        public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback, Action onDisposed);
+
+        public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback);
+        public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnAdditiveScenePreloadedOnce(Action<string> callback);
+        public uint SubscribeOnAdditiveScenePreloadedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnAdditiveSceneLoadedOnce(Action<string> callback);
+        public uint SubscribeOnAdditiveSceneLoadedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback);
+        public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback, Action onDisposed);
     }
 }
