@@ -227,7 +227,7 @@ _playerData.Health.Set(80);
 ## 📖 전체 모듈 목록
 
 - **Addressable**: Addressables 통합 (선택)
-- **Attribute**: `ConditionalHideAttribute` 등 커스텀 속성
+- **Attribute**: `ConditionalHideAttribute`, `ButtonInvokeAttribute` 등의 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **DI**: Dependency Injection 컨테이너
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티와 재사용 가능한 일회성 helper
@@ -249,7 +249,7 @@ _playerData.Health.Set(80);
 
 Base 패키지 (**Mu3 Library**):
 - **Template**: 기본 Core 구조 및 사용 예제
-- **Attribute**: ConditionalHide 사용법
+- **Attribute**: `ConditionalHideAttribute`와 `ButtonInvokeAttribute` 사용법
 - **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 
 URP 패키지 (**Mu3 Library URP**):
@@ -295,9 +295,9 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 최신 Base 패키지 버전: `0.11.0`
-- 최신 URP 패키지 버전: `0.1.3` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.11.0`)
-- `base/0.11.0`, `urp/0.1.3` 릴리스 상세 내용은 `CHANGELOG.md`를 참고하세요.
+- 이 저장소의 현재 Base 패키지 버전: `0.14.0`
+- 이 저장소의 현재 URP 패키지 버전: `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
 
@@ -317,7 +317,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.3` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.11.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.14.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Unity 개발자를 위해 제작됨

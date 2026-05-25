@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
 
+## [base/0.14.0] - 2026-05-25
+
+### Added
+- `ButtonInvokeAttribute` / `ButtonInvokeAttributeDrawer`: Added support for rendering an Inspector button on a serialized field that invokes a parameterless instance method, and updated the Attribute sample to demonstrate it alongside `ConditionalHideAttribute`.
+
 ## [base/0.13.0] - 2026-05-24
 
 ### Added

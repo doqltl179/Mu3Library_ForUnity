@@ -227,7 +227,7 @@ _playerData.Health.Set(80);
 ## 📖 全モジュールリスト
 
 - **Addressable**: Addressables統合（オプション）
-- **Attribute**: `ConditionalHideAttribute`などのカスタム属性
+- **Attribute**: `ConditionalHideAttribute` や `ButtonInvokeAttribute` などのカスタム属性
 - **Audio**: BGM/SFX管理システム
 - **DI**: Dependency Injectionコンテナ
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility と再利用可能な one-shot helper
@@ -249,7 +249,7 @@ _playerData.Health.Set(80);
 
 Base パッケージ (**Mu3 Library**):
 - **Template**: 基本的なCore構造と使用例
-- **Attribute**: ConditionalHideの使用方法
+- **Attribute**: `ConditionalHideAttribute` と `ButtonInvokeAttribute` の使用方法
 - **UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 
 URP パッケージ (**Mu3 Library URP**):
@@ -295,9 +295,9 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- 最新の Base パッケージ版: `0.11.0`
-- 最新の URP パッケージ版: `0.1.3`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.11.0`）
-- `base/0.11.0` と `urp/0.1.3` のリリース詳細は `CHANGELOG.md` を参照してください。
+- このリポジトリ上の現在の Base パッケージ版: `0.14.0`
+- このリポジトリ上の現在の URP パッケージ版: `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
+- リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
 
@@ -317,7 +317,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.3`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.11.0`）
+- Base: `com.github.doqltl179.mu3library.base` `0.14.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 
 Unity開発者のために制作

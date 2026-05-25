@@ -228,7 +228,7 @@ When the following packages are installed, their features are automatically enab
 ## 📖 Complete Module List
 
 - **Addressable**: Addressables integration (optional)
-- **Attribute**: Custom attributes like `ConditionalHideAttribute`
+- **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **DI**: Dependency Injection container
 - **Event**: Owner-managed subscription utilities and reusable one-shot helpers via `SubscribeHandler`
@@ -250,7 +250,7 @@ You can import the following samples from the **Samples** tab in Package Manager
 
 Base package (**Mu3 Library**):
 - **Template**: Basic Core structure and usage examples
-- **Attribute**: ConditionalHide usage
+- **Attribute**: `ConditionalHideAttribute` and `ButtonInvokeAttribute` usage
 - **UtilWindow**: Custom editor window and utility drawer examples
 
 URP package (**Mu3 Library URP**):
@@ -296,9 +296,9 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Latest released base package: `0.11.0`
-- Latest released URP package: `0.1.3` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.11.0`)
-- See `CHANGELOG.md` for the `base/0.11.0` and `urp/0.1.3` release details.
+- Current Base package version in this repository: `0.14.0`
+- Current URP package version in this repository: `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
 
@@ -318,7 +318,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.11.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.3` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.11.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.14.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Made with ❤️ for Unity Developers

@@ -20,6 +20,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 削除
 - 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
 
+## [base/0.14.0] - 2026-05-25
+
+### 追加
+- `ButtonInvokeAttribute` / `ButtonInvokeAttributeDrawer`: シリアライズされたフィールドに引数なしのインスタンスメソッドを呼び出す Inspector ボタンを表示する機能を追加し、Attribute サンプルでも `ConditionalHideAttribute` とあわせて例を追加しました。
+
 ## [base/0.13.0] - 2026-05-24
 
 ### 追加
