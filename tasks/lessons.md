@@ -15,6 +15,8 @@
 - For this repository's package releases, keep the Base package on the `0.x.x` line unless the user explicitly asks to change that versioning convention.
 - For ideation or concept-shaping requests, run the suitability gate before adding a long-lived agent; if the output stops at a concept brief, implement it as a workflow asset such as a skill or prompt instead.
 - For ideation workflow assets, force a capability map, whitespace map, distinct idea buckets, and per-idea novelty evidence; otherwise the output collapses into incremental improvements of current package surfaces.
+- If the user wants an idea bank rather than a refinement pass, do not make a top concept brief the default output shape; preserve multiple viable directions first and deepen one idea only on explicit request.
+- After a human-facing role rename in the agent framework, finish the sweep by aligning prompt filenames, skill ids, and router references in the same bounded unit; partial aliasing is acceptable temporarily, but naming convergence is cleaner if the scope is already local.
 - For ideation regression checks, always include both broad novelty cases and an explicit incremental-refinement control case; otherwise you cannot tell whether the asset improved or merely overcorrected.
 - When the user asks what new features would help after an external tooling update, treat that as a request for repository features that exploit the tool, not just documentation or workflow notes about the tool.
 - For Python tooling on Windows that captures `dotnet` output for diagnostics, force UTF-8 decoding with replacement instead of relying on the locale default, or support-bundle generation can fail on mixed-encoding output.

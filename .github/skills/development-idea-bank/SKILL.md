@@ -1,20 +1,21 @@
-﻿---
-name: development-idea-creator
-description: "Use when the user is stuck on Mu3Library package direction and needs genuinely new package ideas, ranked options, or a concept brief grounded in repo context and optional web research."
+---
+name: development-idea-bank
+description: "Use when the user needs a Mu3Library idea bank of genuinely new package directions and wants to avoid collapsing back into refinement of current features."
 ---
 
-# Development Idea Creator
+# Development Idea Bank
 
 ## Purpose
 
-Generate package-aligned development ideas for Mu3Library before a bounded implementation unit exists.
-Default toward discovering new package surfaces, workflow leverage, and ecosystem bridges rather than polishing current features.
+Generate a package-aligned idea bank for Mu3Library before a bounded implementation unit exists.
+Default toward discovering new package surfaces, workflow leverage, ecosystem bridges, and adoption wedges rather than polishing current features.
+Preserve multiple viable directions instead of collapsing early into a single concept brief.
 
 ## Use This Skill When
 
 - the user says they are stuck, blocked, or ideas feel repetitive,
 - the next package direction is unclear,
-- a rough concept should become a small concept brief before planning,
+- the user wants a repository-shaped idea bank or shortlist before planning,
 - external patterns may help widen the option space without overriding repository constraints,
 - the user wants future-facing package bets instead of another backlog-refinement pass.
 
@@ -22,10 +23,12 @@ Default toward discovering new package surfaces, workflow leverage, and ecosyste
 
 Unless the user explicitly asks for incremental refinement:
 
-- treat "development ideas" as whitespace discovery,
+- treat "development ideas" as whitespace discovery and option-bank expansion,
 - treat a named pain point or existing feature as a signal, then widen one hop to adjacent workflows before ranking ideas,
 - prefer ideas that create a new reusable surface, new workflow leverage, or a new adoption path,
-- allow at most one incremental baseline idea for comparison.
+- keep the top 3 ideas in `net-new` or `adjacent-new` territory,
+- allow at most one incremental baseline idea for comparison,
+- avoid auto-converging to one implementation-ready brief.
 
 ## Failure Mode To Avoid
 
@@ -35,14 +38,18 @@ Classify an option as incremental if it is mostly:
 - more convenience methods or wrappers around an existing surface,
 - minor editor UX polish,
 - documentation-only or sample-only cleanup,
-- another toggle or option for a current capability.
+- another toggle or option for a current capability,
+- narrowing a broad request into a near-term backlog item too early.
 
 Incremental ideas can appear only as a low-priority baseline unless the user explicitly wants that class of work.
+They cannot occupy the top 3 by default.
 
 ## Boundary
 
 This skill is pre-unit concept shaping only.
+It produces an idea bank or shortlist, not a chosen implementation unit.
 It does not choose the next owner, create task sequencing, or replace implementation planning.
+Deepen one idea into a concept brief only if the user explicitly asks after seeing the bank.
 
 ## Research-Informed Structure
 
@@ -53,7 +60,7 @@ This skill combines four patterns:
 - Google Gemini Enterprise "Idea Generation": diverge first, then rank with explicit criteria.
 - Agentic Patterns "Iterative Multi-Agent Brainstorming": force distinct lenses before synthesis.
 
-Use these patterns to widen the option space first, then narrow it into one concept brief.
+Use these patterns to widen the option space first, then narrow only as far as a reusable idea bank or shortlist.
 
 ## Required Discovery Pass
 
@@ -72,15 +79,18 @@ Unless the user narrows the scope so tightly that this is impossible, include:
 - one net-new package surface,
 - one workflow or tooling multiplier,
 - one ecosystem bridge or optional integration,
-- one sample or discoverability bet,
-- one higher-risk strategic bet.
+- one adoption or discoverability bet,
+- one higher-risk strategic bet,
+- at most one low-novelty baseline idea for contrast.
 
 For each idea, explicitly state:
 
+- idea-bank bucket,
 - novelty class,
 - why it is not just an improvement of an existing feature,
 - likely package surfaces,
-- primary risk.
+- primary risk,
+- the user or maintainer value unlocked.
 
 If an idea duplicates a current capability, mark it as duplicate and replace it.
 
@@ -95,7 +105,8 @@ Score each serious option against explicit fit criteria:
 - verification cost or operational risk.
 
 Novelty must materially affect rank.
-A low-novelty idea cannot be the top pick unless the user explicitly asked for safe incremental work.
+A low-novelty idea cannot reach the top 3 unless the user explicitly asked for safe incremental work.
+The ranking should keep multiple viable directions alive instead of pretending the first pick is already selected.
 
 ## Workflow
 
@@ -103,24 +114,22 @@ A low-novelty idea cannot be the top pick unless the user explicitly asked for s
 2. Extract hard constraints: package fit, public API stability, `.asmdef` boundaries, optional define-gate impact, sample or docs impact, and verification cost.
 3. List 4 to 8 whitespace opportunities before proposing solutions.
 4. If repository context is not enough, use limited web research to collect adjacent patterns or comparable package ideas.
-5. Generate 5 distinct ideas across the required buckets.
+5. Generate 6 distinct ideas across the required buckets.
 6. Score each idea against the ranking criteria, note major risks, and explain the novelty evidence.
-7. Write a concept brief for the top idea:
-   - problem or opportunity,
-   - target user or maintainer value,
-   - why this is meaningfully new for Mu3Library,
-   - likely package surfaces,
-   - hard constraints,
-   - acceptance signals,
-   - open questions.
-8. Return control to the main agent or `orchestrator` for bounded-unit acceptance and owner selection.
+7. Return an idea bank that includes:
+   - a ranked shortlist,
+   - 1 to 2 lines of rationale per idea,
+   - tags or buckets that show the spread of directions,
+   - short follow-up hooks for which idea to deepen next.
+8. Only write a concept brief for one idea if the user explicitly asks for that deeper pass after seeing the bank.
+9. Return control to the main agent or `orchestrator` for bounded-unit acceptance and owner selection.
 
 ## Guardrails
 
 - Repository constraints beat web research.
 - Do not emit step-by-step implementation plans, verification ownership, or final routing decisions.
 - Advisory downstream-specialist notes are optional annotations only.
-- If the user explicitly requests refinement work, state that the output is in incremental-refinement mode and relax the novelty quota.
+- If the user explicitly requests refinement work, state that the output is in incremental-refinement mode, relax the novelty quota, and keep the work inside the named surfaces.
 - Keep rejected or speculative ideas session-scoped unless later approved as durable policy.
 
 ## Output Expectations
@@ -128,7 +137,7 @@ A low-novelty idea cannot be the top pick unless the user explicitly asked for s
 - package-intent summary,
 - capability map,
 - whitespace map,
-- 5 ranked ideas with novelty class and fit scores,
+- 6 ranked ideas with bucket, novelty class, and fit scores,
 - risk notes for each serious option,
-- one top-idea concept brief,
-- optional handoff candidates and validation questions.
+- short selection hooks or validation questions,
+- optional single-idea concept brief only on request.
