@@ -1,5 +1,21 @@
 ﻿# Handoff Contract
 
+## When
+
+- you need to pass work from one agent or workflow stage to another,
+- you need to decide what belongs in session memory versus repo memory,
+- you need a review-ready packet that preserves task context without re-reading the full conversation.
+
+## Route Away When
+
+- the question is about stable framework rationale: use [architecture.md](../architecture.md),
+- the question is about the bounded framework-change loop: use [iteration-process.md](../workflow/iteration-process.md),
+- the question is about who owns the current work: use [routing/README.md](../routing/README.md).
+
+## Owns
+
+- handoff packets, routing handoff expectations, and review-aware persistence.
+
 ## Purpose
 
 This document defines how Mu3Library agents pass work, state, and review context between one another.
@@ -133,7 +149,7 @@ Skip memory persistence when all are true:
 - Objective: Decide whether the proposed memory-policy instruction and handoff contract fit the framework without introducing overlap.
 - Status: ready for review
 - Completed Work: Drafted repository memory scope rules and a standard handoff packet.
-- Relevant Artifacts: docs/ai-agents/handoff-contract.md, .github/instructions/memory-policy.instructions.md
+- Relevant Artifacts: docs/ai-agents/contracts/handoff-contract.md, .github/instructions/memory-policy.instructions.md
 - Constraints: Must not create a second control plane; must preserve session vs repo memory separation.
 - Open Questions: Should any of these rules live in agent-framework.instructions instead?
 - Risks: Memory policy may overlap with existing agent-framework guidance if too broad.

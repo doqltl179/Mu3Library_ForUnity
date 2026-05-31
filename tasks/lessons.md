@@ -21,3 +21,5 @@
 - When the user asks what new features would help after an external tooling update, treat that as a request for repository features that exploit the tool, not just documentation or workflow notes about the tool.
 - For Python tooling on Windows that captures `dotnet` output for diagnostics, force UTF-8 decoding with replacement instead of relying on the locale default, or support-bundle generation can fail on mixed-encoding output.
 - When adding a new tooling workflow that depends on tracked `.code-workspace` files, sync the framework-facing docs and the changelog in the same follow-up; a tool-local README alone is not enough for discoverability.
+- When a user asks to refine a one-off concept or planning document in this repo, localize the document to the user's language and add current-vs-proposed code examples instead of leaving the content at abstract bullet level.
+- If a first ideation pass feels weak to the user, the next pass should pivot away from broad orchestration or control-plane ideas and toward more tactile package surfaces that reduce visible user code or improve sample-visible behavior immediately.

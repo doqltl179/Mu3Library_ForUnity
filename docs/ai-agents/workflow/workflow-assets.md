@@ -1,16 +1,20 @@
 ﻿# Workflow Assets
 
-## Use This Page When
+## When
 
 - you need to check whether a repeatable flow should stay as a prompt, skill, or hook instead of becoming a new agent,
 - you need the current inventory of reusable non-owner workflow assets,
 - you need compile-only or ideation support surfaces without changing durable ownership.
 
-## Document Boundary
+## Route Away When
 
-- This page owns reusable workflow assets that support the framework without creating a new durable owner.
-- For long-lived agent inventory, use [agent-catalog.md](routing/agent-catalog.md).
-- For stable framework design, use [architecture.md](architecture.md).
+- the question is about durable owner inventory: use [agent-catalog.md](../routing/agent-catalog.md),
+- the question is about stable framework rationale: use [architecture.md](../architecture.md),
+- the question is about the bounded framework-change loop: use [iteration-process.md](iteration-process.md).
+
+## Owns
+
+- reusable workflow assets that support the framework without creating a new durable owner.
 
 ## Purpose
 

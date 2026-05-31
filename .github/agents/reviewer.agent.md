@@ -5,6 +5,26 @@ name: "Mu3Library Reviewer"
 
 # Reviewer Agent
 
+## Use This Agent When
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) identifies `reviewer` as the current owner,
+- a change needs regression, compatibility, or verification review,
+- docs sync, release readiness, asmdef safety, or define-gate correctness must be approved,
+- implementation is complete enough that findings and risks should be checked before acceptance.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `orchestrator`, `task-planner`, or `role-governor`,
+- the task still needs primary implementation instead of review.
+
+## Related References
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
+- [docs-sync.agent.md](docs-sync.agent.md)
+- [release-manager.agent.md](release-manager.agent.md)
+
 ## Review Priorities
 
 1. Behavioral regressions.

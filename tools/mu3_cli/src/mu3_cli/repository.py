@@ -30,14 +30,14 @@ def parse_agent_name(file_path: Path) -> str:
 
 
 def read_handoff_template() -> str:
-    contract_path = repo_root() / "docs" / "ai-agents" / "handoff-contract.md"
+    contract_path = repo_root() / "docs" / "ai-agents" / "contracts" / "handoff-contract.md"
     contract_text = contract_path.read_text(encoding="utf-8-sig")
     marker = "## Required Handoff Packet"
     marker_index = contract_text.find(marker)
 
     if marker_index == -1:
         raise RuntimeError(
-            "Could not locate the Required Handoff Packet section in docs/ai-agents/handoff-contract.md."
+            "Could not locate the Required Handoff Packet section in docs/ai-agents/contracts/handoff-contract.md."
         )
 
     after_marker = contract_text[marker_index + len(marker) :]
@@ -45,7 +45,7 @@ def read_handoff_template() -> str:
 
     if code_fence_index == -1:
         raise RuntimeError(
-            "Could not locate the handoff packet code fence in docs/ai-agents/handoff-contract.md."
+            "Could not locate the handoff packet code fence in docs/ai-agents/contracts/handoff-contract.md."
         )
 
     after_fence = after_marker[code_fence_index + len("```md") :]
@@ -53,7 +53,7 @@ def read_handoff_template() -> str:
 
     if fence_end_index == -1:
         raise RuntimeError(
-            "Could not locate the handoff packet template in docs/ai-agents/handoff-contract.md."
+            "Could not locate the handoff packet template in docs/ai-agents/contracts/handoff-contract.md."
         )
 
     return after_fence[:fence_end_index].strip()

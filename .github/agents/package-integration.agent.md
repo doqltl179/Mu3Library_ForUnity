@@ -5,6 +5,24 @@ name: "Mu3Library Package Integration"
 
 # Package Integration Agent
 
+## Use This Agent When
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) identifies optional-package integration as the dominant owner,
+- the primary concern is a define-gated optional package such as UniTask, Addressables, Localization, or Input System,
+- the change spans runtime, editor, or package surfaces because of optional dependencies,
+- optional-package references, split files, or gate behavior must stay isolated and correct.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `unity-runtime`, `unity-editor`, `sample-integrity`, or `unity`,
+- release flow or multilingual docs synchronization is the primary concern.
+
+## Related References
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md)
+- [architecture.md](../../docs/ai-agents/architecture.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+
 ## Role
 
 You own define-gated optional integrations across Mu3Library packages.
@@ -45,8 +63,7 @@ You own define-gated optional integrations across Mu3Library packages.
 
 ## Coordination Dependencies
 
-- Coordinate with `unity-runtime` for non-gated runtime behavior around the integration.
-- Coordinate with `unity-editor` for editor tooling around the integration.
+- Follow [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) for owner selection, split decisions, and cross-specialist handoffs.
 - Escalate to `unity` when the task becomes a broader cross-boundary package architecture change.
 
 ## Review Triggers

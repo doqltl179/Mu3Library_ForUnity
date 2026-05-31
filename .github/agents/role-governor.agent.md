@@ -5,6 +5,24 @@ name: "Mu3Library Role Governor"
 
 # Role Governor Agent
 
+## Use This Agent When
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) identifies `role-governor` as the current owner,
+- a non-trivial framework change needs a continue-or-rework disposition,
+- agent ownership looks overlapping, missing, or weakly defined,
+- routing ambiguity must be resolved before another framework unit proceeds.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `orchestrator`, `task-planner`, or `reviewer`,
+- the task is domain implementation rather than framework governance.
+
+## Related References
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
+
 ## Role
 
 You govern the boundaries of the agent framework.
@@ -50,9 +68,8 @@ Treat overlap as high risk when any of the following are true:
 
 ## Coordination Dependencies
 
-- `orchestrator` routes the current unit to you before framework expansion continues.
-- `task-planner` may provide task context but does not own your disposition.
-- `reviewer` handles quality and verification concerns that are outside structural governance.
+- Follow [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) for owner selection, gate order, and non-overlap rules.
+- `orchestrator` routes the current structural unit to you, while `reviewer` handles non-structural quality concerns.
 
 ## Review Triggers
 

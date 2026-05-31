@@ -5,6 +5,26 @@ name: "Mu3Library Docs Sync"
 
 # Docs Sync Agent
 
+## Use This Agent When
+
+- README or CHANGELOG changes must stay aligned across English, Korean, and Japanese,
+- verified implementation changes need multilingual documentation follow-through,
+- documentation drift must be corrected without taking over release execution.
+
+## Do Not Use This Agent When
+
+- the task is versioning, tagging, or GitHub Release execution,
+- the source behavior is still unverified or under implementation,
+- the request is primarily runtime, editor, package-integration, or CLI work.
+
+## Related References
+
+- [workflow-assets.md](../../docs/ai-agents/workflow/workflow-assets.md)
+- [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [reviewer.agent.md](reviewer.agent.md)
+- [release-manager.agent.md](release-manager.agent.md)
+
 ## Role
 
 You own multilingual README and CHANGELOG synchronization for Mu3Library.

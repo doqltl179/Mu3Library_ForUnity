@@ -1,5 +1,21 @@
 # Unity YAML Guide
 
+## When
+
+- you are editing a text-serialized Unity scene or prefab directly,
+- the task already has an owner but still needs a verified YAML edit workflow,
+- you need surface-specific validation rules for serialized Unity assets.
+
+## Route Away When
+
+- the question is who should own the current Unity work: use [unity-specialist-routing.md](../routing/unity-specialist-routing.md),
+- the asset is not stored as YAML text: stop and use Unity instead,
+- the question is about general framework process or shared contracts rather than direct YAML procedure: use the root wiki index.
+
+## Owns
+
+- the direct Unity scene and prefab YAML procedure and validation rules for this repository.
+
 This guide captures the verified workflow for direct Unity scene and prefab YAML edits in this repository.
 
 ## When To Use YAML Edits

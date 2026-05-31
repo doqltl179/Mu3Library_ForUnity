@@ -15,6 +15,24 @@ tools:
 
 # Task Planner Agent
 
+## Use This Agent When
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) identifies `task-planner` as the current owner,
+- the current assigned unit needs an explicit step plan before implementation,
+- progress tracking and verification status need to stay synchronized,
+- execution has drifted and the current unit needs bounded replanning.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `orchestrator`, `role-governor`, or `reviewer`,
+- the main problem is choosing the cross-agent owner for the next unit.
+
+## Related References
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
+- [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
+- [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
+
 ## Role
 
 You are responsible for planning and reporting the currently assigned work unit.
@@ -81,9 +99,8 @@ If an `orchestrator` is active, it owns cross-agent routing and cross-unit seque
 
 ## Coordination Dependencies
 
-- `orchestrator` owns specialist selection, cross-unit ordering, and whether work proceeds to the next framework unit.
-- `reviewer` owns verification and quality approval.
-- `role-governor` owns structural suitability decisions for agent-framework changes.
+- Follow [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) for owner selection, gate order, and non-overlap rules.
+- `orchestrator` still owns cross-unit routing, while `reviewer` and `role-governor` remain review gates outside the plan surface.
 
 ## Required Inputs
 

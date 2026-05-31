@@ -5,6 +5,24 @@ name: "Mu3Library Unity Runtime"
 
 # Unity Runtime Agent
 
+## Use This Agent When
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) identifies runtime as the dominant owner,
+- the task is primarily inside `Mu3Library_Base/Runtime/Scripts` or `Mu3Library_URP/Runtime/Scripts`,
+- runtime behavior, lifecycle, or runtime-facing public APIs are the dominant concern,
+- the change should stay non-editor and non-gated unless escalation becomes necessary.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `unity-editor`, `package-integration`, `sample-integrity`, or `unity`,
+- release flow, docs synchronization, or framework routing is the real owner.
+
+## Related References
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md)
+- [architecture.md](../../docs/ai-agents/architecture.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+
 ## Role
 
 You own non-editor Unity package work inside runtime code surfaces.
@@ -45,9 +63,8 @@ You own non-editor Unity package work inside runtime code surfaces.
 
 ## Coordination Dependencies
 
-- Coordinate with `unity-editor` when runtime and editor surfaces must change together.
+- Follow [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) for owner selection, split decisions, and cross-specialist handoffs.
 - Escalate to `package-integration` when define-gated optional features are the primary owner.
-- Use `unity` only when the change is genuinely cross-boundary and cannot be owned by one narrower Unity specialist.
 
 ## Review Triggers
 

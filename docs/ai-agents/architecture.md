@@ -4,35 +4,72 @@
 
 Mu3Library needs a multi-agent framework that can scale without turning into a set of overlapping prompts. The design goal is not to maximize agent count. The design goal is to create a small control plane that can coordinate several specialized agents safely.
 
+The framework follows this development philosophy: "Break large features into multiple small features, and make each small feature an independent, non-overlapping capability. Develop with modularity and maintainability in mind." In practice, new work should be decomposed into small, independent, non-overlapping units so the system stays modular and maintainable.
+
+## When
+
+- you need the stable framework design rather than the current rollout snapshot,
+- you need to understand why the framework is split into planes,
+- you need to understand why the wiki is split into routing, contracts, workflow, and guides,
+- you need design rationale before changing framework routing or ownership boundaries.
+
+## Route Away When
+
+- the question is about the current approved owner inventory: use [agent-catalog.md](routing/agent-catalog.md),
+- the question is about the bounded framework-change loop: use [iteration-process.md](workflow/iteration-process.md),
+- the question is about handoff packet format or memory-routing rules: use [handoff-contract.md](contracts/handoff-contract.md),
+- the question is about workflow assets or specialized procedures instead of stable rationale: use [workflow/README.md](workflow/README.md) or [guides/README.md](guides/README.md).
+
+## Owns
+
+- stable framework design and plane boundaries.
+- the rationale for why the wiki is split by question shape for AI-agent discovery.
+
+## Design Principles
+
+- Favor flow-style execution control for predictable sequencing.
+- Favor role-specialized agents for bounded autonomy.
+- Keep state and memory handling explicit.
+- Keep CLI conventions small first, then scale through subcommands.
+- When a capability is useful but does not own a durable repository surface, keep it in the workflow-asset plane instead of promoting it into the agent catalog.
+- Organize framework docs by question shape so an AI agent can choose the next owning page quickly instead of re-reading broad summaries.
+
+## Documentation Topology
+
+The wiki structure is intentionally optimized for AI-agent discovery during live work.
+
+- `routing/` answers ownership questions such as who should own the current task or which specialist should be selected.
+- `contracts/` answers shared-format questions such as which packet, section contract, or persistence rule should be followed.
+- `workflow/` answers repeatable-process questions such as which framework loop, workflow asset, or ideation flow should be used.
+- `guides/` answers surface-specific procedure questions such as how to perform a concrete edit safely on a specialized surface.
+- The root keeps the top-level wiki index and this stable design page so agents can recover when the next document is not obvious.
+
+This split is not for human browsing convenience alone. It exists so an AI agent can map the current question shape to one documentation surface before opening any leaf page.
+
 ## Architecture Layers
 
 ### 1. Governance Plane
 
-- `orchestrator`: decomposes work, chooses the next agent, enforces the iteration loop, and owns the current task graph.
-- `role-governor`: audits agent boundaries, overlap, duplication risk, and owns the structural suitability disposition for each non-trivial framework iteration.
+- A routing owner decomposes work, chooses the next specialist, and keeps sequencing coherent.
+- A structural suitability owner audits overlap, missing ownership, duplication risk, and boundary fitness after non-trivial framework changes.
 
-These agents do not own Unity feature implementation. They own coordination and structural fitness.
+Governance owners do not own Unity feature implementation. They own coordination and structural fitness.
 
 ### 2. Execution Plane
 
-- `task-planner`: turns the current assigned unit into verifiable steps and keeps progress records aligned. It does not own cross-agent routing when the orchestrator is active.
-- `unity-runtime`: owns non-gated runtime work for Base and URP packages.
-- `unity-editor`: owns non-gated editor tooling work for Base and URP packages.
-- `package-integration`: owns define-gated optional package integrations across runtime, editor, and package surfaces.
-- `docs-sync`: owns multilingual README and CHANGELOG synchronization after verified implementation changes.
-- `release-manager`: owns versioning, release-scoped manifest metadata, release packaging, branch and tag execution, and GitHub Release publication through the documented release workflow.
-- `sample-integrity`: owns package sample manifests, `Samples~` content, imported sample footprints, and sample smoke-check flows.
-- `unity`: remains available only for genuinely cross-boundary Unity package tasks that cannot be cleanly assigned to one narrower Unity specialist.
-- `cli-platform`: manages auxiliary Python CLI and environment bootstrap work for repository tooling.
+- A planning owner turns the current assigned unit into verifiable steps and keeps progress records aligned.
+- Domain specialists own bounded delivery surfaces such as runtime, editor, optional-package integration, docs synchronization, release execution, and sample integrity.
+- A cross-boundary Unity owner exists only for tasks that genuinely span narrower specialists and cannot be held cleanly by one owner.
+- Auxiliary tooling ownership stays inside tooling-safe roots such as repository-local Python bootstrap and CLI workflows.
 
-`docs-sync` owns only the synchronized documentation surface inside a release flow. `release-manager` owns the actual release execution path, and `reviewer` remains the release-readiness gate.
+Execution-plane owners should produce concrete artifacts. They should not redefine the whole system while working.
 
-Execution-plane agents should produce concrete artifacts. They should not redefine the whole system while working.
+Current concrete owners live in [agent-catalog.md](routing/agent-catalog.md).
 
 ### 3. Quality Plane
 
-- `reviewer`: checks regressions, public API safety, define guards, assembly boundaries, docs sync, and release readiness.
-- future verification specialists can be added later if the reviewer becomes too broad.
+- A review owner checks regressions, public API safety, define guards, assembly boundaries, docs sync, and release readiness.
+- Future verification specialists can be added later if the review surface becomes too broad for one owner.
 
 ### 4. Workflow Asset Plane
 
@@ -41,7 +78,7 @@ Execution-plane agents should produce concrete artifacts. They should not redefi
 - `prompts`: narrow entry points for repeatable user-facing tasks.
 - `hooks`: deterministic guardrails for preflight checks.
 
-Current workflow assets include prompt entrypoints and supporting instructions for compile-only verification. Compile verification is now expected to use editor-safe `dotnet build` against the affected generated Unity `.csproj` files rather than a dedicated batch gate.
+Current workflow assets include prompt entrypoints and supporting instructions for compile-only verification. Compile verification should use editor-safe `dotnet build` against the affected generated Unity `.csproj` files and remain reviewer evidence rather than a dedicated control-plane gate.
 
 The workflow asset plane also includes a repository-shaped ideation skill and prompt for pre-unit idea-bank shaping and whitespace discovery when package direction is unclear. That asset maps current capability, preserves multiple viable directions, and returns control to the main agent or `orchestrator`; it does not create a new execution owner.
 
@@ -63,17 +100,11 @@ The detailed routing and packet format are defined in `handoff-contract.md` and 
 
 Source owners can propose persistence, but orchestrator records final promotion after review.
 
-## Iteration Model
+## Operational References
 
-Every non-trivial framework change follows this loop:
-
-1. Select one bounded feature unit.
-2. Add or refine the smallest useful artifact for that unit.
-3. Run a structural suitability review through `role-governor` and add `reviewer` when quality or verification approval is also needed.
-4. Continue only if the change fits the whole design.
-5. If the fit is poor, rework the structure before adding more layers.
-
-This prevents agent sprawl and keeps the framework legible.
+- For question-shape-based navigation across the wiki, start from [README.md](README.md).
+- For the required bounded-unit review loop, use [iteration-process.md](workflow/iteration-process.md).
+- For current approved owners and deferred candidates, use [agent-catalog.md](routing/agent-catalog.md).
 
 ## Agent Spec Contract
 
@@ -90,34 +121,26 @@ Every agent document should define the following fields explicitly:
 
 If any of those fields are vague, the agent is not ready to add.
 
-## Boundaries For Newly Requested Managers
+## Boundary Examples
 
-### CLI Manager
+### Tooling Ownership
 
-The requested CLI manager is structurally valid only if it stays narrow:
+Tooling ownership is structurally valid only if it stays narrow:
 
 - It owns Python environment bootstrap, CLI command architecture, and automation UX.
 - It does not own Unity runtime/editor feature logic.
 - It should prefer auxiliary tooling directories and package metadata instead of touching product assemblies.
 - It must declare safe roots and forbidden roots so that tooling work does not leak into shipped package surfaces.
 
-That is why iteration 1 introduces `cli-platform` rather than a broad system administrator.
+That boundary is why tooling automation stays in a narrow specialist role instead of a broad system administrator.
 
-### Agent Role Manager
+### Structural Governance Ownership
 
-The requested agent role manager is structurally valid only as a governance function:
+Structural governance ownership is valid only as a governance function:
 
 - It audits role overlap and missing ownership.
 - It recommends merge, split, remove, or re-scope actions.
 - It does not implement the delegated work itself.
 - It owns the structural continue-or-rework decision for each non-trivial framework iteration.
 
-That is why iteration 1 introduces `role-governor` rather than a manager that tries to do both governance and delivery.
-
-## Near-Term Expansion Candidates
-
-These are intentionally deferred until the current split structure proves stable:
-
-No additional deferred agents are approved right now. Add more owners only after a new structural gap survives the suitability gate.
-
-The current `unity` agent remains in place as a narrow cross-boundary fallback after sample-only ownership moved to `sample-integrity`.
+That boundary is why governance and delivery stay split instead of being bundled into one manager role.

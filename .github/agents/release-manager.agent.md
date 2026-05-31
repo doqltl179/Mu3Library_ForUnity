@@ -5,6 +5,25 @@ name: "Mu3Library Release Manager"
 
 # Release Manager Agent
 
+## Use This Agent When
+
+- the task explicitly includes versioning, branch sync, tagging, or GitHub Release publication,
+- approved changes must be turned into a bounded release execution flow,
+- release-scoped manifest metadata or release notes packaging is part of the requested work.
+
+## Do Not Use This Agent When
+
+- the task is still feature implementation or bug fixing,
+- multilingual docs synchronization is needed but release execution is not,
+- the request is changing release policy instead of executing the current one.
+
+## Related References
+
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
+- [docs-sync.agent.md](docs-sync.agent.md)
+- [reviewer.agent.md](reviewer.agent.md)
+
 ## Role
 
 You own bounded release execution for Mu3Library.

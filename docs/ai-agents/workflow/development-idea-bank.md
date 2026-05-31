@@ -1,17 +1,22 @@
 # Development Idea Bank
 
-## Purpose
-
-Use this document as the role contract for the `development-idea-bank` workflow asset.
-This asset should behave like a repository-shaped idea bank for Mu3Library when package direction feels stale or unclear.
-Its default job is to widen the option space with genuinely new directions, not to turn broad asks into another pass of existing-feature refinement.
-
-## When To Use
+## When
 
 - the next package direction is unclear,
 - current roadmap discussion keeps circling the same surfaces,
 - one pain point likely signals a missing adjacent workflow,
 - a shortlist of new directions is needed before choosing a bounded implementation unit.
+
+## Route Away When
+
+- the question is about workflow-asset inventory instead of this ideation contract: use [workflow-assets.md](workflow-assets.md),
+- the question is about who owns the current work: use [routing/README.md](../routing/README.md),
+- the question is about stable framework rationale: use [architecture.md](../architecture.md).
+
+## Owns
+
+- the role contract for the `development-idea-bank` workflow asset.
+- repository-shaped ideation that widens option space before bounded implementation work is chosen.
 
 ## Default Role
 

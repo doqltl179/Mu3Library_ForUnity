@@ -1,16 +1,20 @@
 ﻿# Iteration Process
 
-## Use This Page When
+## When
 
 - you are defining the next bounded framework unit,
 - you need to know when `role-governor` or `reviewer` must gate a change,
 - you need to decide whether to continue or rework after a non-trivial framework update.
 
-## Document Boundary
+## Route Away When
 
-- This page owns the required framework-change loop.
-- For owner inventory, use [agent-catalog.md](routing/agent-catalog.md).
-- For handoff packet structure and memory-routing rules, use [handoff-contract.md](contracts/handoff-contract.md).
+- the question is who owns the current work: use [agent-catalog.md](../routing/agent-catalog.md) or the routing folder index,
+- the question is about handoff packet format or persistence rules: use [handoff-contract.md](../contracts/handoff-contract.md),
+- the question is about stable framework rationale instead of the loop itself: use [architecture.md](../architecture.md).
+
+## Owns
+
+- the required framework-change loop.
 
 ## Required Loop
 

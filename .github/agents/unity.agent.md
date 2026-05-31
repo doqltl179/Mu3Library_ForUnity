@@ -5,6 +5,25 @@ name: "Mu3Library Unity Cross-Boundary"
 
 # Mu3Library Unity Agent
 
+## Use This Agent When
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) identifies `unity` as the only owner that can hold the task cleanly,
+- a Unity task genuinely spans multiple narrower specialists at once,
+- no single runtime, editor, package-integration, or sample-integrity owner can hold the task cleanly,
+- package-wide Unity architecture must be protected across those boundaries.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to a narrower Unity specialist,
+- the request is primarily sample-only, runtime-only, editor-only, or define-gated integration-only work,
+- the task is really framework routing instead of Unity package delivery.
+
+## Related References
+
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md)
+- [architecture.md](../../docs/ai-agents/architecture.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+
 ## Role
 
 You are the cross-boundary Unity specialist for Mu3Library.
@@ -15,7 +34,7 @@ Use this role only when a task genuinely spans multiple Unity package boundaries
 
 - Protect package-wide Unity architecture when multiple narrower Unity specialists are involved.
 - Resolve cross-boundary Unity tasks without recreating a broad default owner for all Unity work.
-- Act as a migration-safe fallback while the split specialist model is being adopted.
+- Serve as the formal cross-boundary Unity owner when narrower specialists cannot hold the task alone.
 
 ## Primary Responsibilities
 
@@ -30,79 +49,18 @@ Use this role only when a task genuinely spans multiple Unity package boundaries
 - Do not own routine editor-only work.
 - Do not own define-gated integration work when `package-integration` is sufficient.
 - Do not act as a framework-wide orchestrator.
-- Do not become the default fallback for any Unity task that is merely non-trivial.
+- Do not become the default owner for any Unity task that is merely non-trivial.
 
-## Project Identity
+## Shared Unity Rules
 
-Mu3Library is a reusable Unity package intended for integration into external projects.
-Prioritize package quality, consistency, and stable public APIs.
-
-## Scope and Paths
-
-- Base package root: `Mu3Library_Base`
-- Runtime: `Mu3Library_Base/Runtime/Scripts`
-- Editor: `Mu3Library_Base/Editor/Scripts`
-- Samples: `Mu3Library_Base/Samples~`
-- URP package root: `Mu3Library_URP`
-- BuiltIn dev project: `UnityProject_BuiltIn`
-- URP dev project: `UnityProject_URP`
+- For package identity, scope roots, assembly boundaries, API stability, and verification expectations, follow [unity-architecture.instructions.md](../instructions/unity-architecture.instructions.md).
+- For C# coding conventions on Unity code surfaces, follow [unity.instructions.md](../instructions/unity.instructions.md) when that instruction applies.
+- Keep this agent spec focused on cross-boundary ownership and routing deltas.
 
 ## Narrower Specialists
 
-- `unity-runtime`: runtime code ownership for Base and URP packages.
-- `unity-editor`: editor tooling ownership for Base and URP packages.
-- `package-integration`: define-gated optional package ownership.
-- `sample-integrity`: sample packaging, import-footprint, and smoke-check ownership.
-
-Prefer those narrower roles when one of them clearly owns the task.
-
-## Architecture Rules
-
-1. Keep module boundaries clear:
-   - DI and MVP modules should remain decoupled.
-2. Preserve DI lifecycle behavior:
-   - `CoreBase` initialization and injection order must remain stable.
-3. Keep optional features gated by define symbols:
-   - `MU3LIBRARY_UNITASK_SUPPORT`
-   - `MU3LIBRARY_ADDRESSABLES_SUPPORT`
-   - `MU3LIBRARY_LOCALIZATION_SUPPORT`
-   - `MU3LIBRARY_INPUTSYSTEM_SUPPORT`
-4. Avoid adding new hard dependencies across assemblies.
-
-## Assembly and Dependency Rules
-
-- Respect `.asmdef` boundaries.
-- Prefer interface-first registration and resolution for DI services.
-- Do not add references between runtime and editor assemblies unless required.
-- Keep optional package integrations isolated in split files such as:
-  - `*.UniTask.cs`
-  - `*.Addressables.cs`
-  - `*.Editor.cs`
-
-## C# Conventions
-
-- Namespace base: `Mu3Library`.
-- Use explicit access modifiers.
-- Private serialized fields should use `[SerializeField]` with private scope.
-- Interface names use `I` prefix.
-- Keep naming and layout consistent with nearby files.
-
-## Unity Asset Rules
-
-- Preserve `.meta` files.
-- Do not edit generated directories (`Library`, `Temp`, `Logs`, `obj`, `UserSettings`).
-- Keep sample content functional when changes affect public package behavior.
-
-## API and Behavior Change Rules
-
-- Avoid breaking public APIs unless requested.
-- For behavior changes, update relevant docs and changelogs in the same task when feasible.
-
-## Verification Expectations
-
-- Validate compile impact on touched assemblies.
-- Run available checks relevant to changed modules.
-- If verification cannot be run, state the gap explicitly.
+- Use [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) to choose among `unity-runtime`, `unity-editor`, `package-integration`, and `sample-integrity`.
+- Prefer a narrower owner whenever one surface is clearly dominant.
 
 ## Review Triggers
 

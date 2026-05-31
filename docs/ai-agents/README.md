@@ -1,66 +1,84 @@
-﻿# AI Agent Framework Docs
+﻿# AI Agent Wiki
 
-This directory is the human-facing map for the Mu3Library multi-agent framework.
+This directory is the wiki-style entrypoint for the Mu3Library AI-agent framework. Every page in this tree exists for AI-agent work, so the main job of this index is simple: identify the current question shape and jump to the smallest owning page.
 
-## Goals
+## Development Philosophy
 
-- Build the framework through small, reviewable iterations instead of one large rewrite.
-- Keep agent responsibilities narrow enough that ownership is obvious.
-- Separate control-plane concerns from execution-plane concerns.
-- Preserve repository-specific guardrails such as Unity assembly boundaries, define symbols, multilingual docs, and release flow.
+- Break large features into multiple small features, and make each small feature an independent, non-overlapping capability.
+- Apply the same rule to the docs: keep each page focused on one concern, remove duplicated summaries, and link to the owning page instead.
+- Keep the framework and its documentation modular, reviewable, and maintainable.
 
-## Documents In This Folder
+## How To Use This Wiki
 
-- `architecture.md`: control-plane, execution-plane, quality-plane, and memory-plane design.
-- `development-idea-bank.md`: role contract for the ideation workflow asset and its default idea-bank output.
-- `iteration-process.md`: the required feature-unit -> suitability-review -> continue-or-rework loop.
-- `agent-catalog.md`: current and planned agent inventory, including boundary notes.
-- `handoff-contract.md`: structured handoff packet format, memory routing, and review-aware state transitions.
-- `workflow-assets.md`: reusable skills, prompts, hooks, and scripts that support framework execution without adding new owners.
-- `unity-yaml-guide.md`: verified workflow for direct Unity scene and prefab YAML edits, including ScreenEffect sample anchors and validation rules.
+1. Start here only when the next page is not obvious.
+2. Match the current question to one folder or one stable page.
+3. Open the smallest linked page that owns that concern.
+4. If two pages repeat the same rule, keep one owner page and replace the duplicate with a link.
 
-Related tooling:
+## Choose By Question Shape
 
-- `tools/mu3_cli/README.md`: bootstrap and usage guide for the repository-local Python CLI, including the `mu3-cli csdevkit` support surface.
-- `UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace`: default VS Code entrypoint for Base and Built-In maintenance, with tracked C# Dev Kit recommendations and default solution selection.
-- `UnityProject_URP/Mu3Library_ForUnity.code-workspace`: additional VS Code entrypoint for URP-focused work, with tracked C# Dev Kit recommendations and default solution selection.
+| Question Shape | Open First |
+|---|---|
+| Who owns this work? | [routing/README.md](routing/README.md) |
+| What packet, section contract, or shared format should I follow? | [contracts/README.md](contracts/README.md) |
+| What repeatable process or workflow asset should I follow? | [workflow/README.md](workflow/README.md) |
+| What specialized procedure should I follow for a concrete surface? | [guides/README.md](guides/README.md) |
+| Why is the framework shaped this way? | [architecture.md](architecture.md) |
 
-## Foundation Scope
+## Routing Rule
 
-Iteration 1 established the foundation needed before broader agent expansion:
+- Routing is allowed: links connect the reader from the wiki index or a nearby page to the single owning page for a concern.
+- Workaround-style documentation paths are not allowed: do not create a second page that explains the same procedure or decision surface in parallel.
+- If another page needs the same content, link to the owner page or move the rule there.
 
-- A central orchestration model.
-- A governance model for detecting role overlap.
-- A constrained CLI/platform manager for auxiliary tooling.
-- Reusable skills for CLI bootstrap and role audits.
+## Folder Map
 
-## Current Rollout State
+- [routing/README.md](routing/README.md): owner inventory and shared owner-selection rules.
+- [contracts/README.md](contracts/README.md): shared packet, section, and persistence contracts.
+- [workflow/README.md](workflow/README.md): repeatable framework process and workflow assets.
+- [guides/README.md](guides/README.md): specialized procedures for concrete edit surfaces.
+- [architecture.md](architecture.md): stable design rationale for the whole system.
 
-Approved in the current rollout:
+## Quick Routes By Task
 
-- memory and handoff protocol for the control plane,
-- split Unity specialists for runtime, editor, and optional-package ownership,
-- dedicated docs-sync ownership for multilingual README and CHANGELOG synchronization,
-- dedicated release-manager ownership for versioning, release-scoped manifest metadata, branch and tag execution, release packaging, and GitHub Release execution,
-- dedicated sample-integrity ownership for sample manifests, package samples, imported sample footprints, and sample smoke checks,
-- a workflow-asset ideation entrypoint for pre-unit idea-bank shaping and package-whitespace discovery when package direction is unclear,
-- a compile-only workflow gate that waits for compile completion before the next unit proceeds,
-- a tooling-local Python CLI bootstrap under `tools/mu3_cli`,
-- a tracked C# Dev Kit workspace flow that starts from the Built-In workspace by default and uses `mu3-cli csdevkit` helpers for context switching, diagnostics, support bundles, and drift checks.
+| If you need to... | Open | Why |
+|---|---|---|
+| Choose the current owner for a task or confirm what is rollout-approved | [agent-catalog.md](routing/agent-catalog.md) | Tracks approved agents, statuses, and rollout snapshot |
+| Browse the routing pages before choosing a specific owner document | [routing/README.md](routing/README.md) | Gives the local index for owner inventory and shared routing matrices |
+| Open the detailed operating contract for a specific agent | [agent-catalog.md](routing/agent-catalog.md) | Links the approved inventory to each agent spec under `.github/agents/` |
+| Understand the shared structure of agent spec documents | [agent-spec-contract.md](contracts/agent-spec-contract.md) | Defines what belongs in individual agent specs versus shared wiki pages |
+| Browse the contract pages before opening a specific shared contract | [contracts/README.md](contracts/README.md) | Gives the local index for shared spec and handoff contracts |
+| Choose among control-plane agents with one owner matrix | [control-plane-routing.md](routing/control-plane-routing.md) | Centralizes shared owner-selection and gate-order rules for the control plane |
+| Choose among Unity specialist agents with one owner matrix | [unity-specialist-routing.md](routing/unity-specialist-routing.md) | Centralizes shared Unity owner-selection and split rules |
+| Understand the stable framework design and plane boundaries | [architecture.md](architecture.md) | Explains the control, execution, quality, workflow-asset, and memory planes |
+| Browse workflow pages before opening a specific process or workflow asset | [workflow/README.md](workflow/README.md) | Gives the local index for framework process, workflow assets, and ideation contracts |
+| Browse specialized procedural guides before opening a concrete edit workflow | [guides/README.md](guides/README.md) | Gives the local index for surface-specific editing procedures and validation rules |
+| Follow the required loop for non-trivial framework changes | [iteration-process.md](workflow/iteration-process.md) | Defines the bounded unit -> suitability review -> continue or rework process |
+| Prepare a handoff or decide what belongs in session memory versus repo memory | [handoff-contract.md](contracts/handoff-contract.md) | Defines the handoff packet, routing rules, and review-aware persistence |
+| Decide whether a reusable flow should be a prompt, skill, or hook instead of a new agent | [workflow-assets.md](workflow/workflow-assets.md) | Tracks reusable non-owner workflow assets and their boundaries |
+| Widen option space before choosing a bounded implementation unit | [development-idea-bank.md](workflow/development-idea-bank.md) | Defines the repository-shaped ideation workflow asset |
+| Edit Unity scene or prefab YAML directly | [unity-yaml-guide.md](guides/unity-yaml-guide.md) | Captures verified YAML-editing patterns and validation rules |
 
-No deferred ownership candidates are currently approved in the rollout backlog.
+## Document Boundaries
 
-## Design Notes
+| Page | Owns | Do not use it for |
+|---|---|---|
+| [README.md](README.md) | Wiki navigation, quick routing, and page boundaries | Repeating full framework summaries |
+| [agent-spec-contract.md](contracts/agent-spec-contract.md) | Shared agent spec structure and field ownership | Per-agent scope deltas or rollout status |
+| [control-plane-routing.md](routing/control-plane-routing.md) | Shared control-plane owner-selection matrix and gate-order rules | Stable whole-framework design or handoff packet format |
+| [unity-specialist-routing.md](routing/unity-specialist-routing.md) | Shared Unity owner-selection matrix and split rules | Stable whole-framework design or non-Unity routing |
+| [architecture.md](architecture.md) | Stable framework design and plane boundaries | Rollout status or handoff packet details |
+| [agent-catalog.md](routing/agent-catalog.md) | Approved owner inventory, rollout snapshot, and direct links to agent specs | Deep architecture rationale |
+| [workflow/README.md](workflow/README.md) | Local index for process and workflow-asset pages | Whole-framework architecture or owner-selection matrices |
+| [guides/README.md](guides/README.md) | Local index for specialized edit procedures | Whole-framework routing or shared contracts |
+| [iteration-process.md](workflow/iteration-process.md) | The bounded-unit review loop | Owner inventory or memory policy |
+| [handoff-contract.md](contracts/handoff-contract.md) | Handoff packet structure, memory scope, and persistence rules | System-wide architecture summary |
+| [workflow-assets.md](workflow/workflow-assets.md) | Reusable prompts, skills, hooks, and scripts that do not create a durable owner | Long-lived agent ownership |
+| [development-idea-bank.md](workflow/development-idea-bank.md) | Ideation workflow contract and output rules | General framework routing |
+| [unity-yaml-guide.md](guides/unity-yaml-guide.md) | Verified direct scene and prefab YAML workflow | General AI-agent governance |
 
-This framework intentionally combines:
+## Related Tooling
 
-- flow-style execution control for predictable sequencing,
-- role-specialized agents for bounded autonomy,
-- explicit state and memory handling,
-- CLI conventions that start small and scale through subcommands.
-
-Those patterns were chosen because they map well to Mu3Library's package-first Unity workflow.
-
-When a capability is useful but does not own a durable repository surface, keep it in the workflow-asset plane instead of promoting it into the agent catalog.
-
-For Unity scene and prefab wiring work, consult `unity-yaml-guide.md` before editing YAML directly and update it whenever a new reliable pattern is verified.
+- [tools/mu3_cli/README.md](../../tools/mu3_cli/README.md): bootstrap and usage guide for the repository-local Python CLI, including the `mu3-cli csdevkit` support surface.
+- [UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace](../../UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace): default VS Code entrypoint for Base and Built-In maintenance, with tracked C# Dev Kit recommendations and default solution selection.
+- [UnityProject_URP/Mu3Library_ForUnity.code-workspace](../../UnityProject_URP/Mu3Library_ForUnity.code-workspace): URP-focused VS Code entrypoint with tracked C# Dev Kit recommendations and default solution selection.

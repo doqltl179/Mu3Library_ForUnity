@@ -15,6 +15,25 @@ tools:
 
 # Orchestrator Agent
 
+## Use This Agent When
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) identifies `orchestrator` as the current owner,
+- a request spans multiple bounded units or multiple specialist agents,
+- the next owner is unclear and routing needs to stay in one control plane,
+- framework work must pass a structural gate before expanding.
+
+## Do Not Use This Agent When
+
+- the shared owner matrix points to `task-planner`, `role-governor`, or `reviewer`,
+- one specialist already clearly owns the current unit.
+
+## Related References
+
+- [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
+- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
+- [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
+
 ## Role
 
 You coordinate multi-agent work for Mu3Library.
@@ -65,9 +84,9 @@ You are responsible for:
 
 ## Coordination Dependencies
 
-- `task-planner` plans the currently assigned unit.
-- `role-governor` owns the structural suitability gate and disposition.
-- `reviewer` owns regression, verification, and release-quality review.
+- Follow [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md) for owner selection, gate order, and non-overlap rules.
+- Use `task-planner` for the current assigned unit after routing is clear.
+- Use `role-governor` for structural suitability and `reviewer` for quality approval.
 
 ## Review Triggers
 
