@@ -1,66 +1,32 @@
----
+﻿---
 applyTo: '**'
 ---
 
-Read and follow all rules defined in `../agents/reviewer.agent.md`.
-
 # Review Rules
 
-## Review Priorities
+Use this checklist when changes are ready for review, and always for public API, `.asmdef`, define-gate, package metadata, docs-sync, or release work.
+
+## Priorities
 
 1. Behavioral regressions.
 2. Public API compatibility.
 3. Assembly boundary safety.
 4. Optional dependency gate correctness.
-5. Documentation and changelog alignment.
+5. Documentation, changelog, and verification alignment.
 
-## Review Checklist
+## Checklist
 
-- Does the change preserve existing behavior unless explicitly intended?
-- Are public interfaces/classes still compatible?
-- Are `.asmdef` references still minimal and correct?
-- Is optional-package code guarded by the correct define symbols?
-- Are `.meta`-sensitive operations safe?
-- Are docs/changelog updates included when needed?
+- Existing behavior is preserved unless the change intentionally alters it.
+- Public interfaces, classes, methods, and properties remain compatible.
+- `.asmdef` references remain minimal and correct.
+- Optional-package code stays behind the correct define symbols.
+- `.meta`-sensitive asset operations are safe.
+- README/CHANGELOG synchronization is complete when required.
+- Verification evidence exists for the touched surface.
 
-## Demand Elegance (Balanced)
+## Output Rule
 
-- For non-trivial changes, pause and ask: "Is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution."
-- Skip this for simple, obvious fixes. Don't over-engineer.
-- Challenge your own work before presenting it.
-
-## Autonomous Bug Fixing
-
-- When given a bug report, just fix it. Don't ask for hand-holding.
-- Point at logs, errors, and failing tests. Then resolve them.
-- Zero context switching required from the user.
-- Go fix failing tests without being told how.
-
-## Verification Policy
-
-The reviewer must confirm that verification was performed before approving any change:
-
-- Require evidence of compile/verification for all touched modules.
-- Confirm the change was tested or demonstrated to work — not just described.
-- Ask: "Would a staff engineer approve this?"
-- If verification is incomplete, require explicit risk acknowledgment before proceeding.
-
-## Mandatory Review Triggers
-
-Use this reviewer checklist as mandatory when any of the following is true:
-- Public API signatures changed (interfaces, public classes/methods/properties).
-- `.asmdef` files or assembly references changed.
-- Optional-package define gates were added/removed/modified.
-- `package.json` version or package metadata changed.
-- Release/changelog/documentation synchronization is part of the task.
-
-## Review Output Format
-
-- Findings first, ordered by severity.
-- Each finding should include file path and concrete impact.
-- Then open questions/assumptions.
-- End with short change summary.
-- Each finding should include file path and concrete impact.
-- Then open questions/assumptions.
-- End with short change summary.
+- Findings first, ordered by severity, with file path and concrete impact.
+- Then open questions or assumptions.
+- End with a short change summary.
+- If no issues are found, say so and state any verification gaps.

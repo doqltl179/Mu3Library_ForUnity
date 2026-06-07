@@ -1,28 +1,28 @@
 ﻿---
 applyTo: '**'
-description: "Core multi-agent framework rules for Mu3Library orchestration and boundary control"
+description: "Compact multi-agent framework rules for Mu3Library routing and boundary control"
 ---
 
 # Agent Framework Instructions
 
 ## Core Rules
 
-- Build the agent framework through bounded iterations, not broad rewrites.
-- Apply the development philosophy: "Break large features into multiple small features, and make each small feature an independent, non-overlapping capability. Develop with modularity and maintainability in mind."
-- Break large features into smaller features, and define each small feature as an independent, non-overlapping capability.
-- Use `docs/ai-agents/README.md` as the wiki index for framework documentation, and open only the smallest linked page that matches the current task.
-- For AI-agent doc discovery, prefer the folder index that matches the current question shape: `routing/` for owner selection, `contracts/` for shared formats, `workflow/` for repeatable process, `guides/` for specialized edit procedures, and `architecture.md` for stable rationale.
-- Treat routing as wiki navigation to the single owning page for a concern.
-- When multiple agent docs share the same contract or sibling-owner routing rules, move that shared content into one wiki page and keep the agent files focused on their deltas.
-- Apply the same rule to control-plane owner-selection and gate-order guidance.
-- Default loop: one feature unit -> suitability review -> continue or rework.
-- Prefer one owner per concern. If two agents appear to own the same concern, stop and re-scope before continuing.
+- Work in bounded units; do not bundle unrelated framework changes.
+- Keep one owner per concern. If two agents appear to own the same concern, stop and re-scope.
 - Keep governance roles separate from execution roles.
-- Prefer modular, maintainable structures over bundled implementations.
-- When framework docs start duplicating each other, consolidate the rule into one owning page and replace repeats with links.
-- Do not create workaround-style alternate documentation paths for the same concern. If a second page starts acting like another procedure for the same surface, consolidate it into the owner page or formally re-scope ownership.
+- Keep shared rules in one owning wiki page and link to it from nearby docs.
+- Do not create workaround-style alternate procedures for the same concern.
 
-## Required Suitability Gate
+## Token Budget Rules
+
+- For the detailed procedure, use `docs/ai-agents/workflow/token-budget.md`.
+- Open `docs/ai-agents/README.md` only when the next page is not obvious.
+- Use folder indexes as routers: `routing/`, `contracts/`, `workflow/`, `guides/`, then the smallest matching leaf page.
+- Do not read every agent spec during framework discovery. Use `routing/agent-catalog.md` for inventory and open a spec only after that owner is selected.
+- Prefer links over repeated summaries in agent specs, instructions, and wiki indexes.
+- Summarize large command output instead of copying it into handoff or review text.
+
+## Suitability Gate
 
 After any non-trivial agent-framework change, check:
 
@@ -30,29 +30,20 @@ After any non-trivial agent-framework change, check:
 - missing ownership,
 - routing ambiguity,
 - repository-boundary violations,
-- catalog and router updates required by the change.
+- required catalog or router updates.
 
-The `role-governor` owns the structural suitability disposition. The `orchestrator` routes work to that gate but does not self-approve structural expansion.
+`role-governor` owns the structural continue-or-rework disposition. `orchestrator` routes to the gate but does not self-approve structural expansion.
 
-If the fit is unclear, revise the structure before adding more agents.
+## Required Artifact Updates
 
-## Required Artifacts
+- Update `docs/ai-agents/routing/agent-catalog.md` when owner inventory changes.
+- Update `docs/ai-agents/architecture.md` when the stable control model changes.
+- Update `.github/copilot-instructions.md` when startup routing or discovery changes.
+- Add or revise a skill only when a reusable workflow gains a stable input/output contract.
 
-When adding or changing agent-framework documents:
+## Boundaries
 
-- update `docs/ai-agents/routing/agent-catalog.md` if the inventory changes,
-- update `docs/ai-agents/architecture.md` if the control model changes,
-- update `.github/copilot-instructions.md` if routing or discovery changes,
-- add or revise a skill when a reusable workflow gains a stable input/output contract.
-
-## Special Boundary Notes
-
-- CLI and Python tooling must stay in auxiliary tooling scope unless the user explicitly requests product integration.
-- Unity runtime/editor/package boundaries still take precedence over framework convenience.
-- Do not replace the existing `unity` agent with split agents until the split has passed a suitability review.
-
-## Memory Notes
-
-- `.github/instructions/memory-policy.instructions.md` is the authoritative memory-routing policy for this framework.
-- `docs/ai-agents/contracts/handoff-contract.md` defines the human-facing packet format and review-aware handoff flow.
-- Until all requested review gates pass, treat current-iteration routing state as session-scoped.
+- CLI and Python tooling stay in auxiliary tooling scope unless product integration is explicitly requested.
+- Unity runtime/editor/package boundaries take precedence over framework convenience.
+- Do not replace the narrowed `unity` agent unless the split passes suitability review.
+- `.github/instructions/memory-policy.instructions.md` is the operative memory policy; `docs/ai-agents/contracts/handoff-contract.md` is the human-facing packet reference.

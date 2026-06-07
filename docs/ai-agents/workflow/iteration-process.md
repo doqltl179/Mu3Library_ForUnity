@@ -2,93 +2,50 @@
 
 ## When
 
-- you are defining the next bounded framework unit,
-- you need to know when `role-governor` or `reviewer` must gate a change,
-- you need to decide whether to continue or rework after a non-trivial framework update.
+- non-trivial AI-agent framework work changes routing, owners, instructions, prompts, skills, or wiki structure,
+- a proposed workflow asset might become a durable owner,
+- a framework unit needs continue-or-rework disposition.
 
 ## Route Away When
 
-- the question is who owns the current work: use [agent-catalog.md](../routing/agent-catalog.md) or the routing folder index,
-- the question is about handoff packet format or persistence rules: use [handoff-contract.md](../contracts/handoff-contract.md),
-- the question is about stable framework rationale instead of the loop itself: use [architecture.md](../architecture.md).
-
-## Owns
-
-- the required framework-change loop.
+- choosing the owner: [routing/README.md](../routing/README.md),
+- writing a handoff packet: [handoff-contract.md](../contracts/handoff-contract.md),
+- checking stable rationale: [architecture.md](../architecture.md).
 
 ## Required Loop
 
-All non-trivial AI-agent framework work in this repository follows the same loop.
+1. Pick one bounded unit.
+2. Edit only that unit and directly required router/catalog references.
+3. Run structural suitability through `role-governor`.
+4. If `continue`, proceed to the next unit.
+5. If `rework`, stop expansion and narrow, merge, remove, or re-scope the unit first.
 
-### 1. Preceding Work
+Examples of a bounded unit: one instruction file, one agent spec, one workflow asset, one router page, or one stable architecture update.
 
-Work on one feature unit at a time.
+## Suitability Questions
 
-Examples:
-
-- one instruction file,
-- one new agent,
-- one skill,
-- one control-plane rule,
-- one human-facing architecture document.
-
-The unit should be small enough that the review can answer whether it belongs in the system.
-
-### 2. Suitability Review
-
-After the unit is added or revised, review it against the whole structure.
-
-Owner of the structural gate:
-
-- `role-governor` for continue-or-rework on framework fit.
-- `reviewer` when the unit also changes quality, verification, release, or compatibility expectations.
-
-Review questions:
-
-- Does the new artifact overlap with an existing owner?
-- Does it create a second control plane by accident?
-- Does it blur repository boundaries such as runtime/editor, package/tooling, or docs/release?
-- Does it add process complexity without adding meaningful coordination value?
-- Does it require a catalog or routing update?
-
-### 3-1. If Suitable
-
-Proceed to the next bounded unit only after the structural gate returns `continue`.
-
-Required actions:
-
-- mark the current unit complete,
-- update the catalog if the set of agents changed,
-- carry forward only the unresolved structural risks.
-
-### 3-2. If Not Suitable
-
-Stop expansion and rework the structure first.
-
-Required actions:
-
-- document the conflict or ambiguity,
-- decide whether the new artifact should be split, merged, narrowed, or removed,
-- review whether the preceding unit must be reworked,
-- restart the loop only after the boundary is clear again.
+- Does the unit overlap with an existing owner?
+- Does it leave a missing owner or ambiguous route?
+- Does it create a second control plane?
+- Does it blur repository boundaries such as runtime/editor, package/tooling, docs/release, or samples/core?
+- Does it require a catalog, router, instruction, prompt, or skill update?
+- Does it add process complexity without meaningful coordination value?
 
 ## Decision Table
 
 | Situation | Decision |
 |---|---|
-| Clear owner, clear boundary, measurable value | Continue |
-| Useful idea but blurred responsibility | Narrow scope and review again |
-| Same responsibility already owned elsewhere | Merge or reject |
-| Orchestrator and planner both try to route work | Narrow task-planner to unit planning and keep routing in orchestrator |
-| New manager tries to govern and execute the same work | Split into governance and execution roles |
-| Adds repo tooling without touching product code | Acceptable if isolated under tooling scope |
+| Clear owner, boundary, and value | Continue |
+| Useful idea with blurred responsibility | Narrow and review again |
+| Responsibility already owned elsewhere | Merge or reject |
+| Governance owner starts delivery work | Split governance from execution |
+| Execution owner starts redefining routing | Route back to `orchestrator` |
+| Tooling stays auxiliary and isolated | Acceptable with explicit safe roots |
 
 ## Stop Conditions
 
-Pause the rollout when any of the following appears:
-
 - two agents claim the same primary artifact,
-- an agent cannot state its non-goals,
-- a governance agent starts implementing domain work,
-- an execution agent starts redefining routing rules,
-- the reviewer cannot tell who should own the next change.
+- an agent cannot state non-goals,
+- governance starts implementing domain work,
+- execution starts changing routing ownership,
+- reviewer cannot tell who owns the next change.

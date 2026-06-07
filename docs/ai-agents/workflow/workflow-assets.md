@@ -2,54 +2,40 @@
 
 ## When
 
-- you need to check whether a repeatable flow should stay as a prompt, skill, or hook instead of becoming a new agent,
-- you need the current inventory of reusable non-owner workflow assets,
-- you need compile-only or ideation support surfaces without changing durable ownership.
+- a repeatable flow supports work but should not become a durable owner,
+- you need the prompt, skill, hook, or script inventory,
+- you are deciding whether a reusable procedure belongs here instead of in `agent-catalog.md`.
 
 ## Route Away When
 
-- the question is about durable owner inventory: use [agent-catalog.md](../routing/agent-catalog.md),
-- the question is about stable framework rationale: use [architecture.md](../architecture.md),
-- the question is about the bounded framework-change loop: use [iteration-process.md](iteration-process.md).
+- durable owner inventory is needed: [agent-catalog.md](../routing/agent-catalog.md),
+- stable framework rationale is needed: [architecture.md](../architecture.md),
+- the bounded framework-change loop is needed: [iteration-process.md](iteration-process.md).
 
-## Owns
-
-- reusable workflow assets that support the framework without creating a new durable owner.
-
-## Purpose
-
-This document maps the reusable workflow entrypoints that support the Mu3Library agent framework without adding new domain owners.
-
-## Current Assets
+## Asset Inventory
 
 | Type | Artifact | Purpose |
 |---|---|---|
-| Prompt | `.github/prompts/compile-unity.prompt.md` | Chat entrypoint for synchronous compile-only verification |
-| Prompt | `.github/prompts/development-idea-bank.prompt.md` | Chat entrypoint for repository-shaped Mu3Library idea-bank generation and whitespace discovery when package direction is unclear |
-| Prompt | `.github/prompts/framework-next-unit.prompt.md` | Chat entrypoint for the bounded work -> review -> continue or rework loop |
-| Skill | `.github/skills/development-idea-bank/SKILL.md` | Pre-unit idea-bank workflow that maps current capability, surfaces whitespace, ranks distinct directions, and preserves option space until a later deepening pass |
+| Prompt | `.github/prompts/compile-unity.prompt.md` | Synchronous compile-only verification entrypoint |
+| Prompt | `.github/prompts/development-idea-bank.prompt.md` | Repository-shaped package idea-bank entrypoint |
+| Prompt | `.github/prompts/framework-next-unit.prompt.md` | Bounded work -> review -> continue/rework entrypoint |
+| Skill | `.github/skills/bootstrap-python-cli/SKILL.md` | Repository-local Python CLI bootstrap |
+| Skill | `.github/skills/agent-role-audit/SKILL.md` | Structural role audit workflow |
+| Skill | `.github/skills/development-idea-bank/SKILL.md` | Package whitespace and idea-bank workflow |
 
-## Compile-Only Verification
+## Rules
 
-- Compile-only verification should use editor-safe `dotnet build` on the affected generated Unity `.csproj` files.
-- For VS Code and C# Dev Kit-driven verification, start from the tracked `UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace` file by default, and switch to `UnityProject_URP/Mu3Library_ForUnity.code-workspace` only when the URP context is the primary concern.
-- Use `mu3-cli csdevkit` helpers to inspect the active context, run load diagnostics, choose curated compile-only build profiles, and generate repo-local support bundles.
-- Compile verification remains evidence for `reviewer`, not a substitute for reviewer approval.
+- Prefer workflow assets when the repository needs a repeatable flow but not a long-lived owner.
+- Promote a flow to an agent only after a durable ownership gap passes `role-governor` suitability review.
+- Compile-only verification is evidence for `reviewer`, not a replacement for reviewer approval.
+- Ideation stays in the workflow-asset plane unless it reveals a new ownership gap.
+- Token-budget procedure lives in [token-budget.md](token-budget.md); it is a workflow rule, not a new owner.
 
-## Design Rule
+## Compile Verification
 
-- Prefer workflow assets when the repository needs a repeatable flow but not a new long-lived execution owner.
-- Promote workflow assets before adding a new agent when the change is procedural rather than ownership-driven.
-
-## Ideation Boundary
-
-- Repository-shaped ideation remains in the workflow-asset plane unless it proves a durable ownership gap that cannot be held by existing agents.
-- By default, the ideation asset should map current capability and whitespace before ranking ideas.
-- Unless the user explicitly asks for refinement work, the ideation asset should bias toward net-new package surfaces, workflow multipliers, ecosystem bridges, or adoption wedges, keep the top 3 outside incremental polish, and allow at most one incremental baseline idea.
-- The ideation asset may suggest handoff candidates, but routing still returns to the main agent or `orchestrator`.
-- The ideation asset should return an idea bank or shortlist by default. A single concept brief is an explicit follow-up only when the user asks for it.
+- Prefer editor-safe `dotnet build` on affected generated Unity `.csproj` files.
+- For VS Code and C# Dev Kit support, start from the tracked Built-In workspace and use `mu3-cli csdevkit` helpers when needed.
 
 ## Idea-Bank Contract
 
-- `development-idea-bank.md` defines the role, output contract, anti-patterns, and refinement escape hatch for this workflow asset.
-- When prompt, skill, or routing changes, confirm that the asset still preserves multiple new directions instead of collapsing into existing-feature enhancement.
+`development-idea-bank.md` owns the detailed role, output, anti-pattern, and refinement rules. Keep this inventory page as a router only.

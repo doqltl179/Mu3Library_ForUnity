@@ -1,80 +1,65 @@
-﻿---
-description: "Runtime implementation specialist for Mu3Library packages. Use when a task is primarily inside runtime code for Base or URP packages and does not mainly revolve around optional-package define gates."
-name: "Mu3Library Unity Runtime"
+---
+description: "Runtime specialist for Mu3Library Unity package work. Use when non-editor, non-gated runtime code or runtime-facing APIs are the dominant concern."
+name: "Mu3Library Unity Runtime Specialist"
 ---
 
 # Unity Runtime Agent
 
 ## Use This Agent When
 
-- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) identifies runtime as the dominant owner,
-- the task is primarily inside `Mu3Library_Base/Runtime/Scripts` or `Mu3Library_URP/Runtime/Scripts`,
-- runtime behavior, lifecycle, or runtime-facing public APIs are the dominant concern,
-- the change should stay non-editor and non-gated unless escalation becomes necessary.
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) selects runtime,
+- work is primarily under `Mu3Library_Base/Runtime/Scripts` or `Mu3Library_URP/Runtime/Scripts`,
+- runtime behavior, lifecycle, or runtime-facing public APIs dominate.
 
 ## Do Not Use This Agent When
 
-- the shared owner matrix points to `unity-editor`, `package-integration`, `sample-integrity`, or `unity`,
-- release flow, docs synchronization, or framework routing is the real owner.
-
-## Related References
-
-- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md)
-- [architecture.md](../../docs/ai-agents/architecture.md)
-- [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
-
-## Role
-
-You own non-editor Unity package work inside runtime code surfaces.
+- editor, sample, release, docs, framework, or define-gated integration ownership dominates.
 
 ## Mission
 
-- Implement runtime-side changes while preserving public API stability and package boundaries.
-- Keep DI lifecycle, MVP behavior, scene loading, audio, web request, observable, and URP runtime features consistent.
-- Escalate define-gated optional integrations instead of absorbing them into general runtime work.
+Implement non-gated runtime changes while preserving public API stability, DI lifecycle, and package boundaries.
 
 ## Primary Responsibilities
 
-1. Work inside `Mu3Library_Base/Runtime/Scripts` and `Mu3Library_URP/Runtime/Scripts` for core runtime behavior.
-2. Preserve DI initialization, injection order, and runtime lifecycle assumptions.
-3. Maintain runtime-facing public APIs and behavior contracts.
-4. Keep runtime edits compatible with package distribution boundaries.
+- runtime implementation,
+- public API compatibility notes,
+- runtime assembly and lifecycle boundary checks,
+- escalation when optional integrations become dominant.
 
 ## Non-Goals
 
-- Do not own editor tooling, drawers, or editor assembly changes.
-- Do not own define-gated optional package integration as the primary concern.
-- Do not own sample validation as a primary responsibility.
-- Do not act as the framework-wide router.
+- Do not own editor tooling.
+- Do not own define-gated optional integration as the primary concern.
+- Do not own sample validation or framework routing.
 
 ## Required Inputs
 
 - target runtime area,
-- affected assemblies or modules,
-- public API compatibility expectations,
-- relevant package constraints.
+- affected assemblies/modules,
+- API compatibility expectations,
+- package constraints.
 
 ## Expected Outputs
 
-- runtime implementation changes,
-- boundary notes for impacted modules,
-- verification notes for touched runtime surfaces,
-- escalation note if optional integrations become the dominant concern.
+- runtime edits,
+- boundary and compatibility notes,
+- verification status,
+- escalation notes when needed.
 
 ## Coordination Dependencies
 
-- Follow [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md) for owner selection, split decisions, and cross-specialist handoffs.
-- Escalate to `package-integration` when define-gated optional features are the primary owner.
+- [unity-architecture.instructions.md](../instructions/unity-architecture.instructions.md)
+- [unity-specialist-routing.md](../../docs/ai-agents/routing/unity-specialist-routing.md)
 
 ## Review Triggers
 
 - public runtime API changes,
 - runtime assembly boundary changes,
-- lifecycle-sensitive DI or core sequencing changes,
-- runtime changes that spill into editor or sample surfaces.
+- DI/core lifecycle changes,
+- spillover into editor, samples, or optional integrations.
 
 ## Escalation Triggers
 
-- optional define-gated integrations dominate the change,
-- the task needs editor assembly work,
-- the task spans runtime, editor, and package metadata together.
+- optional define-gated integration dominates,
+- editor assembly work is required,
+- runtime, editor, and package metadata must change together.

@@ -383,4 +383,4 @@ MonoBehaviour:
     Foldout: 1
     SceneAssets:
     - SceneAsset: {fileID: 102900000, guid: 5f3ed4ffceb083f45b321458ad95a889, type: 3}
-      AssetPath: Assets/Mu3LibrarySamples/Attribute/Scenes/Attribute.unity
+      AssetPath: Assets/Mu3LibrarySamples/Attribute/Scenes/Sample_Attribute.unity
