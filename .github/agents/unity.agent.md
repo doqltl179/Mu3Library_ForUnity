@@ -30,7 +30,7 @@ Protect package-wide Unity architecture for genuinely cross-boundary work.
 
 - Do not own routine runtime-only, editor-only, sample-only, or define-gated integration-only work.
 - Do not become the default owner for any non-trivial Unity task.
-- Do not act as framework orchestrator.
+- Route framework ownership questions back to the control-plane router.
 
 ## Required Inputs
 

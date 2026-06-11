@@ -31,7 +31,7 @@ Keep optional integrations isolated behind correct define symbols and package de
 
 - Do not own broad non-gated runtime or editor work.
 - Do not own release execution.
-- Do not act as framework router.
+- Route framework ownership questions back to the control-plane router.
 
 ## Required Inputs
 

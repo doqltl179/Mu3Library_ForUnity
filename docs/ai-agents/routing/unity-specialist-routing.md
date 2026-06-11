@@ -1,4 +1,4 @@
-# Unity Specialist Routing
+﻿# Unity Specialist Routing
 
 ## When
 
@@ -8,13 +8,8 @@
 
 ## Route Away When
 
-- the question is about approved owner inventory or rollout status: use [agent-catalog.md](agent-catalog.md),
-- the question is about the direct YAML edit procedure: use [unity-yaml-guide.md](../guides/unity-yaml-guide.md),
-- the question is about stable framework rationale instead of Unity owner selection: use [architecture.md](../architecture.md).
-
-## Owns
-
-- the shared owner-selection matrix and shared routing rules for the Unity specialist agent family.
+- Unity owner selection is no longer the question: use [README.md](README.md) or [../README.md](../README.md).
+- the need is specifically owner inventory, direct YAML procedure, or stable framework rationale: use [agent-catalog.md](agent-catalog.md), [unity-yaml-guide.md](../guides/unity-yaml-guide.md), or [architecture.md](../architecture.md).
 
 ## Owner Selection Matrix
 
@@ -34,14 +29,9 @@
 - If define-gated optional behavior is the primary concern, `package-integration` owns the task even when runtime or editor files are touched.
 - Use `unity` only when a narrower split would hide real cross-boundary package coupling.
 
-## Shared Coordination Rules
+## Coordination Links
 
 - Use [handoff-contract.md](../contracts/handoff-contract.md) for handoff packets and persistence guidance.
 - Use `reviewer` when public APIs, `.asmdef` boundaries, define gates, docs sync, or release-related surfaces are affected.
 - Use [unity-yaml-guide.md](../guides/unity-yaml-guide.md) before editing serialized scene or prefab YAML directly.
 - If the change is actually about framework ownership structure instead of Unity package delivery, route to [iteration-process.md](../workflow/iteration-process.md) and the framework-control agents instead.
-
-## Duplication Rule
-
-- Do not restate this owner-selection matrix in every Unity agent spec.
-- Individual Unity agent docs should link here and document only the deltas that are unique to that owner.

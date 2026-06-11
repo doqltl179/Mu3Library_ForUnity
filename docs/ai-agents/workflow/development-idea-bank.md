@@ -1,4 +1,4 @@
-# Development Idea Bank
+﻿# Development Idea Bank
 
 ## When
 
@@ -9,9 +9,8 @@
 
 ## Route Away When
 
-- the question is about workflow-asset inventory instead of this ideation contract: use [workflow-assets.md](workflow-assets.md),
-- the question is about who owns the current work: use [routing/README.md](../routing/README.md),
-- the question is about stable framework rationale: use [architecture.md](../architecture.md).
+- this ideation contract is no longer the question: use [../README.md](../README.md) for the top-level router.
+- the need is specifically workflow-asset inventory or stable framework rationale: use [workflow-assets.md](workflow-assets.md) or [architecture.md](../architecture.md).
 
 ## Owns
 

@@ -40,5 +40,5 @@ No deferred agent candidates are active. Add a new agent only when a bounded own
 | Control-plane owner matrix | [control-plane-routing.md](control-plane-routing.md) |
 | Unity specialist owner matrix | [unity-specialist-routing.md](unity-specialist-routing.md) |
 | Shared agent spec contract | [agent-spec-contract.md](../contracts/agent-spec-contract.md) |
-| Handoff and memory scope | [handoff-contract.md](../contracts/handoff-contract.md) |
+| Handoff packet contract | [handoff-contract.md](../contracts/handoff-contract.md) |
 | Workflow asset inventory | [workflow-assets.md](../workflow/workflow-assets.md) |

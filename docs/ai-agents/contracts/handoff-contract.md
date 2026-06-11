@@ -6,17 +6,7 @@
 - session state needs to survive an owner change,
 - you need the human-facing packet format for memory routing.
 
-`.github/instructions/memory-policy.instructions.md` is the operative policy. This page is the compact contract reference.
-
-## Memory Scope
-
-| Scope | Use For | Do Not Store |
-|---|---|---|
-| User memory | Stable cross-repository user preferences | repo-specific task state |
-| Session memory | Current iteration state, routing notes, open risks, temporary handoffs | durable conventions before review |
-| Repository memory | Stable project facts and verified conventions | secrets, speculation, terminal noise |
-
-If scope is unclear, keep it in session memory until review gates complete.
+`.github/instructions/memory-policy.instructions.md` owns memory scope, promotion, and do-not-persist policy. This page owns the handoff packet shape.
 
 ## Required Packet
 
@@ -48,17 +38,10 @@ If scope is unclear, keep it in session memory until review gates complete.
 - `Requested review`: `role-governor`, `reviewer`, both, or none.
 - `Persistence proposal`: `session`, `repository`, `user`, or `none`, with a short reason.
 
-## Routing Rules
+## Handoff Expectations
 
 - `orchestrator` sends specialists a bounded unit, owner, constraints, and expected verification.
 - Specialists return completed artifacts, verification status, risks, and next-owner recommendations.
 - `role-governor` receives structural changes with overlap, missing-owner, routing, and catalog-update concerns.
 - `reviewer` receives review-ready changes with verification evidence and known gaps.
 - Review owners return findings, disposition, and whether any state should be persisted.
-
-## Persistence Rule
-
-- Source owners may propose persistence.
-- `orchestrator` confirms repository-memory promotion after requested review gates pass.
-- If disposition is `rework`, keep the packet session-scoped and revise the structure first.
-- Never persist secrets, credentials, speculative rules, repeated chatter, or raw terminal noise.

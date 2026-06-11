@@ -28,7 +28,7 @@ tools:
 
 ## Mission
 
-Turn the assigned unit into a short, verifiable plan and keep `tasks/todo.md` aligned with actual progress.
+Turn the assigned unit into a short, verifiable plan, keep the detailed active plan in `tasks/plans/`, keep `tasks/todo.md` aligned as the index, and close the plan cleanly when the unit ends.
 
 ## Primary Responsibilities
 
@@ -39,9 +39,7 @@ Turn the assigned unit into a short, verifiable plan and keep `tasks/todo.md` al
 
 ## Non-Goals
 
-- Do not become a second router.
-- Do not approve structural fit.
-- Do not replace reviewer verification.
+- Do not widen the unit beyond planning and bounded replanning.
 
 ## Required Inputs
 
@@ -53,7 +51,8 @@ Turn the assigned unit into a short, verifiable plan and keep `tasks/todo.md` al
 ## Expected Outputs
 
 - concise plan,
-- updated task record,
+- updated plan file and task index,
+- plan-closure cleanup when the unit completes,
 - verification status,
 - replanning or escalation notes.
 
@@ -73,4 +72,4 @@ Turn the assigned unit into a short, verifiable plan and keep `tasks/todo.md` al
 
 - the unit needs another specialist,
 - verification cannot run as planned,
-- repository constraints make the plan invalid.
+- repository constraints make the current plan invalid.

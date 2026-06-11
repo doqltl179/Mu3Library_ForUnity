@@ -28,9 +28,8 @@ Audit completed changes for regressions, API safety, assembly boundaries, define
 
 ## Non-Goals
 
-- Do not choose framework ownership.
 - Do not replace domain implementation.
-- Do not approve structural expansion.
+- Route structural ownership questions back to the control-plane router.
 
 ## Required Inputs
 

@@ -21,7 +21,7 @@ Open this page only for stable design rationale. For current owner status, use [
 | Execution | Bounded delivery surfaces such as Unity runtime/editor, docs sync, release, samples, and tooling | [agent-catalog.md](routing/agent-catalog.md) |
 | Quality | Regression, API, assembly, define-gate, docs, release, and verification review | [reviewer.agent.md](../../.github/agents/reviewer.agent.md) |
 | Workflow Asset | Reusable flows that support work without becoming owners | [workflow-assets.md](workflow/workflow-assets.md) |
-| Memory | Session, repository, and user memory routing | [handoff-contract.md](contracts/handoff-contract.md) |
+| Memory | Handoff packet contract and memory-routing entrypoint | [handoff-contract.md](contracts/handoff-contract.md) |
 
 ## Documentation Topology
 

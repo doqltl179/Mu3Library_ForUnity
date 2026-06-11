@@ -1,4 +1,4 @@
-# Agent Spec Contract
+﻿# Agent Spec Contract
 
 ## When
 
@@ -8,9 +8,8 @@
 
 ## Route Away When
 
-- the question is about approved owner inventory or rollout status: use [agent-catalog.md](../routing/agent-catalog.md),
-- the question is about cross-agent packet format or persistence rules: use [handoff-contract.md](handoff-contract.md),
-- the question is about choosing the current owner: use [routing/README.md](../routing/README.md).
+- the shared agent-spec contract is no longer the question: use [../README.md](../README.md) for the top-level router.
+- the need is specifically owner inventory, cross-agent packet format, or current-owner selection: use [../routing/agent-catalog.md](../routing/agent-catalog.md), [handoff-contract.md](handoff-contract.md), or [../routing/README.md](../routing/README.md).
 
 ## Owns
 

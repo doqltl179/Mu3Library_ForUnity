@@ -47,14 +47,18 @@ Workspace skills:
 - `.github/skills/bootstrap-python-cli/SKILL.md`
 - `.github/skills/agent-role-audit/SKILL.md`
 - `.github/skills/development-idea-bank/SKILL.md`
+- `.github/skills/asmdef-triage/SKILL.md`
+- `.github/skills/editmode-test-addition/SKILL.md`
 
 ## AI-Agent Wiki Routing
 
 - Start from `docs/ai-agents/README.md` only when the next page is unclear.
 - Choose by question shape:
   - `routing/` for owner selection.
+  - `packages/` for package-boundary navigation before local package rules.
   - `contracts/` for shared packets or section formats.
   - `workflow/` for repeatable process or workflow assets.
+  - `plans/` for task plan templates, plan storage rules, and plan-writing conventions.
   - `guides/` for specialized edit procedures.
   - `architecture.md` for stable design rationale.
 - Treat routing as navigation to one owning page, not permission to create duplicate procedures.
@@ -63,6 +67,8 @@ Workspace skills:
 ## Workflow Summary
 
 - For multi-step work, keep a short plan, progress updates, and final verification summary.
+- For non-trivial task execution, keep `tasks/todo.md` as the persistent index and store the full active plan in `tasks/plans/` using `docs/ai-agents/plans/plan-template.md`.
+- When a bounded unit completes, clear `tasks/todo.md` back to the active state and delete the completed low-value plan unless explicit retention is needed.
 - For agent-framework changes, work in one bounded unit and run the structural suitability gate through `role-governor` before continuing.
 - For memory-routing or handoff changes, `.github/instructions/memory-policy.instructions.md` is operative; `docs/ai-agents/contracts/handoff-contract.md` is the human-facing contract.
 - For direct Unity scene or prefab YAML edits, consult `docs/ai-agents/guides/unity-yaml-guide.md` first.

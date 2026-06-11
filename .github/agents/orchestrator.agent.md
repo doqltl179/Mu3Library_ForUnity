@@ -41,7 +41,6 @@ Keep one control plane for decomposing work, selecting the next owner, and coord
 ## Non-Goals
 
 - Do not implement Unity/package work as the primary owner.
-- Do not self-approve structural expansion.
 - Do not continue framework expansion before the prior unit is reviewed.
 
 ## Required Inputs
