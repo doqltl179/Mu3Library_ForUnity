@@ -7,12 +7,13 @@ This file is the central router for repository instructions.
 - This file is the single source of truth for repository instruction routing.
 - Prefer package-first edits under `Mu3Library_Base` or `Mu3Library_URP`.
 - Preserve Unity package stability: public APIs, `.asmdef` boundaries, `.meta` files, define symbols, samples, and package metadata.
-- Break large features into small, independent, non-overlapping units.
+- Follow the repository development philosophy in `.github/instructions/agent-framework.instructions.md`.
 - Sync README/CHANGELOG files when behavior or public API changes.
 - Keep Markdown prose docs (`README*`, `CHANGELOG*`, instruction files, and `docs/ai-agents/**`) encoded as UTF-8 BOM with LF line endings. Keep frontmatter-driven agent, prompt, and skill files parser-compatible.
 
 ## Token Budget Default
 
+- Follow the interactive-response brevity rule in `.github/instructions/agent-framework.instructions.md`.
 - Search first with `rg` or a narrow file list; open only the smallest relevant file or line range.
 - Do not paste full logs, generated files, HTML, JSON, or broad command output. Inspect error patterns and surrounding lines instead.
 - Keep progress updates short and summarize command output by result, failure point, and affected files.

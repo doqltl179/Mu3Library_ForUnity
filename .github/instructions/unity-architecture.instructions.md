@@ -19,6 +19,7 @@ Mu3Library is a reusable Unity package for external projects. Prioritize package
 
 ## Architecture Rules
 
+- Follow the repository development philosophy in `.github/instructions/agent-framework.instructions.md`.
 - Keep DI and MVP modules decoupled.
 - Preserve `CoreBase` initialization and injection order.
 - Keep optional integrations gated by:

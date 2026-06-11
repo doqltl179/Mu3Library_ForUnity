@@ -2,12 +2,13 @@
 
 ## Intent
 
-Mu3Library uses a small multi-agent framework to coordinate specialized work without overlapping prompts. The design principle is to split large work into small, independent, non-overlapping units.
+Mu3Library uses a small multi-agent framework to coordinate specialized work without overlapping prompts.
 
 Open this page only for stable design rationale. For current owner status, use [routing/agent-catalog.md](routing/agent-catalog.md).
 
 ## Design Principles
 
+- The canonical development philosophy lives in `.github/instructions/agent-framework.instructions.md`.
 - Prefer one owner per concern.
 - Keep governance, execution, quality, workflow assets, and memory as separate planes.
 - Keep workflow assets as prompts, skills, hooks, or scripts until a durable ownership gap is proven.
