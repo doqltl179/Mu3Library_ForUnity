@@ -8,6 +8,7 @@ Use this section when the question is which repeatable process or workflow asset
 |---|---|---|
 | Keep an AI-agent task low-token while reading docs, logs, tools, or command output | [token-budget.md](token-budget.md) | Defines the scope-narrowing, output-summarizing, and compacting workflow |
 | Follow the bounded unit -> review -> continue or rework loop | [iteration-process.md](iteration-process.md) | Defines the required framework-change process and stop conditions |
+| Adapt an external prompt, article, policy, or workflow into repository-safe guidance | [external-guidance-adaptation.md](external-guidance-adaptation.md) | Separates durable patterns from vendor-specific details and maps them to the right repository artifact |
 | Execute release details after release policy is already in scope | [release-execution.md](release-execution.md) | Defines package tags, GitHub Release commands, and release note format |
 | Execute branch, push, release-sync, or hotfix details | [git-workflow.md](git-workflow.md) | Defines branch sequencing and pushable checks |
 | Check whether a repeatable flow should stay as a workflow asset instead of becoming a new agent | [workflow-assets.md](workflow-assets.md) | Tracks reusable prompts, skills, hooks, and supporting workflow assets |

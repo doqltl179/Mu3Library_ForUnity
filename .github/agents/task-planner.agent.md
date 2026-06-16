@@ -34,6 +34,7 @@ Turn the assigned unit into a short, verifiable plan, keep the detailed active p
 
 - plan bounded steps,
 - update task status promptly,
+- keep external-source verification and repository-fit assumptions explicit when the unit adapts outside guidance,
 - keep verification explicit,
 - surface replanning needs early.
 
@@ -45,6 +46,7 @@ Turn the assigned unit into a short, verifiable plan, keep the detailed active p
 
 - assigned unit,
 - owner and constraints,
+- external source and repository target when the unit is an adaptation task,
 - expected verification,
 - current task status.
 
@@ -60,6 +62,7 @@ Turn the assigned unit into a short, verifiable plan, keep the detailed active p
 
 - Planning rules: [task-planner.instructions.md](../instructions/task-planner.instructions.md)
 - Routing matrix: [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
+- External adaptation: [external-guidance-adaptation.md](../../docs/ai-agents/workflow/external-guidance-adaptation.md)
 - Framework loop: [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
 
 ## Review Triggers

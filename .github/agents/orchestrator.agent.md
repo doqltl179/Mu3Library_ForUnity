@@ -35,6 +35,7 @@ Keep one control plane for decomposing work, selecting the next owner, and coord
 
 - split broad work into bounded units,
 - choose the next owner,
+- route freshness-sensitive external verification before downstream implementation when current outside facts matter,
 - coordinate `role-governor` and `reviewer` gates,
 - keep catalog/router updates aligned with structural changes.
 
@@ -47,6 +48,7 @@ Keep one control plane for decomposing work, selecting the next owner, and coord
 
 - user goal,
 - current bounded unit,
+- external source scope when the unit adapts outside guidance,
 - known constraints,
 - current owner/catalog state,
 - latest gate result when available.
@@ -62,6 +64,7 @@ Keep one control plane for decomposing work, selecting the next owner, and coord
 
 - Owner selection: [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
 - Framework loop: [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
+- External adaptation: [external-guidance-adaptation.md](../../docs/ai-agents/workflow/external-guidance-adaptation.md)
 - Handoffs: [handoff-contract.md](../../docs/ai-agents/contracts/handoff-contract.md)
 
 ## Review Triggers

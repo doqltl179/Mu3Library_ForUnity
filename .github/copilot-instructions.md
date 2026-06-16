@@ -26,16 +26,17 @@ This file is the central router for repository instructions.
 Always-loaded:
 1. `.github/instructions/agent-framework.instructions.md`
 2. `.github/instructions/memory-policy.instructions.md`
-3. `.github/instructions/task-planner.instructions.md`
-4. `.github/instructions/unity-architecture.instructions.md`
-5. `.github/instructions/reviewer.instructions.md`
-6. `.github/instructions/unity.instructions.md` only for C# files.
+3. `.github/instructions/external-guidance.instructions.md`
+4. `.github/instructions/task-planner.instructions.md`
+5. `.github/instructions/unity-architecture.instructions.md`
+6. `.github/instructions/reviewer.instructions.md`
+7. `.github/instructions/unity.instructions.md` only for C# files.
 
 Conditionally loaded:
-7. `.github/instructions/verification.instructions.md` when compile or safety verification is needed.
-8. `.github/instructions/git-workflow.instructions.md` when branch, merge, push, or release flow is requested.
-9. `.github/instructions/release.instructions.md` when release, version, tag, or changelog release scope is affected.
-10. `.github/instructions/docs-sync.instructions.md` when README/CHANGELOG synchronization is needed.
+8. `.github/instructions/verification.instructions.md` when compile or safety verification is needed.
+9. `.github/instructions/git-workflow.instructions.md` when branch, merge, push, or release flow is requested.
+10. `.github/instructions/release.instructions.md` when release, version, tag, or changelog release scope is affected.
+11. `.github/instructions/docs-sync.instructions.md` when README/CHANGELOG synchronization is needed.
 
 Subagent specs are not startup reading. Open `.github/agents/*.agent.md` only when routing selects that owner:
 
@@ -50,6 +51,13 @@ Workspace skills:
 - `.github/skills/development-idea-bank/SKILL.md`
 - `.github/skills/asmdef-triage/SKILL.md`
 - `.github/skills/editmode-test-addition/SKILL.md`
+
+Workspace prompts:
+
+- `.github/prompts/adapt-external-guidance.prompt.md`
+- `.github/prompts/compile-unity.prompt.md`
+- `.github/prompts/development-idea-bank.prompt.md`
+- `.github/prompts/framework-next-unit.prompt.md`
 
 ## AI-Agent Wiki Routing
 

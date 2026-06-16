@@ -25,6 +25,7 @@ Own structural suitability for framework changes and keep roles non-overlapping.
 - audit overlap, missing ownership, and weak boundaries,
 - recommend keep, narrow, split, merge, defer, or reject,
 - decide `continue` or `rework` for the current framework unit,
+- reject unnecessary vendor-specific carryover when a shared instruction, workflow page, or prompt asset is sufficient,
 - identify required catalog, router, instruction, prompt, or skill updates.
 
 ## Non-Goals
@@ -52,12 +53,14 @@ Own structural suitability for framework changes and keep roles non-overlapping.
 
 - [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
 - [agent-catalog.md](../../docs/ai-agents/routing/agent-catalog.md)
+- [external-guidance-adaptation.md](../../docs/ai-agents/workflow/external-guidance-adaptation.md)
 - [iteration-process.md](../../docs/ai-agents/workflow/iteration-process.md)
 
 ## Review Triggers
 
 - every non-trivial framework iteration,
 - every new agent or skill proposal,
+- external prompt, policy, or workflow adaptation that changes shared framework artifacts,
 - routing ownership changes,
 - duplicate control-plane risk.
 

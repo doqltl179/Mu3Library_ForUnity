@@ -23,6 +23,7 @@ Audit completed changes for regressions, API safety, assembly boundaries, define
 
 - report findings first by severity,
 - confirm verification evidence or gaps,
+- check that externally derived rules are paraphrased, source-routed, and stripped of vendor-specific drift,
 - check docs/changelog alignment when required,
 - block approval when risk is unacknowledged.
 
@@ -48,11 +49,13 @@ Audit completed changes for regressions, API safety, assembly boundaries, define
 ## Coordination Dependencies
 
 - Review rules: [reviewer.instructions.md](../instructions/reviewer.instructions.md)
+- External evidence rules: [external-guidance.instructions.md](../instructions/external-guidance.instructions.md)
 - Routing matrix: [control-plane-routing.md](../../docs/ai-agents/routing/control-plane-routing.md)
 
 ## Review Triggers
 
 - public API, `.asmdef`, define-gate, package metadata, docs-sync, or release changes,
+- external prompt, policy, or workflow adaptation changes shared instructions, prompts, or workflow docs,
 - verification was skipped or incomplete.
 
 ## Escalation Triggers

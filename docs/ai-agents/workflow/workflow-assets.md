@@ -17,6 +17,7 @@
 
 | Type | Artifact | Purpose |
 |---|---|---|
+| Prompt | `.github/prompts/adapt-external-guidance.prompt.md` | External prompt/policy/workflow -> repository-safe adaptation entrypoint |
 | Prompt | `.github/prompts/compile-unity.prompt.md` | Synchronous compile-only verification entrypoint |
 | Prompt | `.github/prompts/development-idea-bank.prompt.md` | Repository-shaped package idea-bank entrypoint |
 | Prompt | `.github/prompts/framework-next-unit.prompt.md` | Bounded work -> review -> continue/rework entrypoint |
