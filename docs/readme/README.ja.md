@@ -49,7 +49,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.12.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.1
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
@@ -319,7 +319,7 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.14.0`
+- このリポジトリ上の現在の Base パッケージ版: `0.14.1`
 - このリポジトリ上の現在の URP パッケージ版: `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -341,7 +341,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.14.1`
 - URP: `com.github.doqltl179.mu3library.urp` `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 
 Unity開発者のために制作

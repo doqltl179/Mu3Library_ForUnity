@@ -16,13 +16,17 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 追加
 - Built-In の既定 workspace と URP の追加 workspace を起点にする tracked C# Dev Kit workflow を追加しました。tracked `.code-workspace` ファイルが C# Dev Kit 拡張を推奨し、`mu3-cli csdevkit` が context 切り替え、load diagnostics、curated compile-only build profile、support bundle、drift check を提供します。
 - `tools/csdevkit_tests` を追加しました。これは `net10.0` を対象にする standalone xUnit project であり、Unity package assembly に触れずに C# Dev Kit が狭い純粋 C# metadata test surface を discover できるようにします。
+
+### 削除
+- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
+
+## [base/0.14.1] - 2026-06-17
+
+### 追加
 - MVP UI runtime に `OpenOptions` と `HostOptions` を追加しました。これにより、連結して開く presenter で ownership と visual host、およびルートレイアウト配置を分けて設定できます。
 
 ### 変更
 - `IMVPManager` / `MVPManager` / `PresenterBase`: 連結 presenter の open フローを `owner` 用語と明示的な host option 中心へリファクタリングしました。`HostOptions.Host` を指定しない場合は owner のルート view 配下へ配置する既定動作を維持しますが、毎回の open では owner の `RectTransform` 値をコピーする代わりに child view resource のルートレイアウトを再適用します。
-
-### 削除
-- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
 
 ## [base/0.14.0] - 2026-05-25
 
