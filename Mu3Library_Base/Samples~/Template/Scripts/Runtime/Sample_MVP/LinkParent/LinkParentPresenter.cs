@@ -27,8 +27,17 @@ namespace Mu3Library.Sample.Template.MVP
 
         private void OnInstantiateChildButtonClicked()
         {
-            var child = OpenAsChild<LinkChildPresenter>();
-            child.AnchoredPosition = new Vector2(Random.Range(-800, 800), Random.Range(-400, 400));
+            OpenAsChild<LinkChildPresenter>(new OpenOptions()
+            {
+                HostOptions = new HostOptions()
+                {
+                    Host = _view.ChildHost,
+                    ApplyLayout = rectTransform =>
+                    {
+                        rectTransform.anchoredPosition = new Vector2(Random.Range(-800, 800), Random.Range(-400, 400));
+                    },
+                },
+            });
         }
     }
 }

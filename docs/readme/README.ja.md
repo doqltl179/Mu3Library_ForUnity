@@ -142,6 +142,30 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
+presenter を連結して開く場合は、ownership と visual host を分けて設定します。
+
+```csharp
+public class InventoryPresenter : Presenter<InventoryView, InventoryModel, InventoryArgs>
+{
+    private void OpenTooltip()
+    {
+        OpenAsChild<TooltipPresenter>(new OpenOptions
+        {
+            HostOptions = new HostOptions
+            {
+                Host = _view.TooltipHost,
+                ApplyLayout = rectTransform =>
+                {
+                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
+                },
+            },
+        });
+    }
+}
+```
+
+`Owner` はライフサイクル連結を制御し、`HostOptions` は子 view の取り付け先とルート `RectTransform` レイアウトの適用方法を制御します。
+
 ### Audioシステム
 BGMとSFXを分離管理し、ボリューム制御をサポートします。
 

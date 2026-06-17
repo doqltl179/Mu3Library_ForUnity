@@ -83,16 +83,19 @@ namespace Mu3Library.UI.MVP
 
         private View CreateView(System.Type viewType, Canvas layerCanvas, Transform parentTransform)
         {
-            if (!_viewResourceMap.ContainsKey(viewType))
+            if (!TryGetViewResource(viewType, out View resource))
             {
-                Debug.LogError($"View not found. type: {viewType}");
                 return null;
             }
 
-            View resource = _viewResourceMap[viewType];
+            return CreateView(resource, layerCanvas, parentTransform);
+        }
+
+        private View CreateView(View resource, Canvas layerCanvas, Transform parentTransform = null)
+        {
             if (resource == null)
             {
-                Debug.LogError($"Resource view is NULL. type: {viewType}");
+                Debug.LogError("Resource view is NULL.");
                 return null;
             }
 
@@ -103,6 +106,23 @@ namespace Mu3Library.UI.MVP
             inst.SetSortingOrder(resource.SortingOrder);
 
             return inst;
+        }
+
+        private bool TryGetViewResource(System.Type viewType, out View resource)
+        {
+            if (!_viewResourceMap.TryGetValue(viewType, out resource))
+            {
+                Debug.LogError($"View not found. type: {viewType}");
+                return false;
+            }
+
+            if (resource == null)
+            {
+                Debug.LogError($"Resource view is NULL. type: {viewType}");
+                return false;
+            }
+
+            return true;
         }
 
         private string GetLayerName<TView>() where TView : View => GetLayerName(typeof(TView));

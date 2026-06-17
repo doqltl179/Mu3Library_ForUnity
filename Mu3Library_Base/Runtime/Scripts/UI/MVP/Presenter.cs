@@ -56,17 +56,35 @@ namespace Mu3Library.UI.MVP
         internal abstract void SetSortingOrder(int sortingOrder);
 
         protected IPresenter OpenAsChild<TPresenter>() where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>(null, OutPanelSettings.Disabled);
+            => OpenAsChild<TPresenter>((OpenOptions)null);
 
         protected IPresenter OpenAsChild<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>(args, OutPanelSettings.Disabled);
+            => OpenAsChild<TPresenter>(new OpenOptions()
+            {
+                Arguments = args,
+            });
 
         protected IPresenter OpenAsChild<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>(null, settings);
+            => OpenAsChild<TPresenter>(new OpenOptions()
+            {
+                OutPanelSettings = settings,
+            });
 
         protected IPresenter OpenAsChild<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
         {
-            return _mvpManager.Open<TPresenter>(this, args, settings);
+            return OpenAsChild<TPresenter>(new OpenOptions()
+            {
+                Arguments = args,
+                OutPanelSettings = settings,
+            });
+        }
+
+        protected IPresenter OpenAsChild<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new()
+        {
+            options ??= new OpenOptions();
+            options.Owner = this;
+
+            return _mvpManager.Open<TPresenter>(options);
         }
     }
 

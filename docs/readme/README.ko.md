@@ -142,6 +142,30 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
+presenter를 체인으로 여는 경우에는 ownership과 visual host를 분리해서 설정합니다.
+
+```csharp
+public class InventoryPresenter : Presenter<InventoryView, InventoryModel, InventoryArgs>
+{
+    private void OpenTooltip()
+    {
+        OpenAsChild<TooltipPresenter>(new OpenOptions
+        {
+            HostOptions = new HostOptions
+            {
+                Host = _view.TooltipHost,
+                ApplyLayout = rectTransform =>
+                {
+                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
+                },
+            },
+        });
+    }
+}
+```
+
+`Owner`는 생명주기 체인을 제어하고, `HostOptions`는 자식 view를 어디에 붙일지와 루트 `RectTransform` 레이아웃을 어떻게 적용할지를 제어합니다.
+
 ### Audio 시스템
 BGM과 SFX를 분리 관리하며 볼륨 제어를 지원합니다.
 

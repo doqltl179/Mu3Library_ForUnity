@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine.EventSystems;
+
 namespace Mu3Library.UI.MVP
 {
     public partial interface IMVPManager
@@ -21,10 +22,11 @@ namespace Mu3Library.UI.MVP
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new();
 
-        public IPresenter Open<TPresenter>(IPresenter parent) where TPresenter : PresenterBase, new();
-        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args) where TPresenter : PresenterBase, new();
-        public IPresenter Open<TPresenter>(IPresenter parent, OutPanelSettings settings) where TPresenter : PresenterBase, new();
-        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
     }
 }

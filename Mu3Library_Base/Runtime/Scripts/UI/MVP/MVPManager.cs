@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
 using Mu3Library.Event;
+using Mu3Library.Extensions;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -101,35 +102,36 @@ namespace Mu3Library.UI.MVP
 
         private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 
-        private class PresenterParams
+        private sealed class PresenterEntry
         {
             public PresenterBase Presenter;
             public OutPanelSettings OutPanelSettings;
 
-            public PresenterParams Parent;
-            public readonly List<PresenterParams> Children = new();
+            public PresenterEntry Owner;
+            public readonly List<PresenterEntry> OwnedChildren = new();
 
-            public void AddChild(PresenterParams child)
+            public void AddOwnedChild(PresenterEntry child)
             {
-                child.Parent = this;
-                Children.Add(child);
+                child.DetachFromOwner();
+                child.Owner = this;
+                OwnedChildren.Add(child);
             }
 
-            public void UnlinkFromParent()
+            public void DetachFromOwner()
             {
-                Parent?.Children.Remove(this);
-                Parent = null;
+                Owner?.OwnedChildren.Remove(this);
+                Owner = null;
             }
         }
 
-        private readonly List<PresenterParams> _openedPresenters = new();
+        private readonly List<PresenterEntry> _openedPresenters = new();
 
-        private readonly List<PresenterParams> _presenterLoadChecker = new();
-        private readonly List<PresenterParams> _presenterOpenChecker = new();
-        private readonly List<PresenterParams> _presenterCloseChecker = new();
-        private readonly List<PresenterParams> _presenterUnloadChecker = new();
+        private readonly List<PresenterEntry> _presenterLoadChecker = new();
+        private readonly List<PresenterEntry> _presenterOpenChecker = new();
+        private readonly List<PresenterEntry> _presenterCloseChecker = new();
+        private readonly List<PresenterEntry> _presenterUnloadChecker = new();
 
-        private PresenterParams _focused = null;
+        private PresenterEntry _focused = null;
 
         private readonly HashSet<string> _focusIgnoredLayers = new();
         public IReadOnlyCollection<string> FocusIgnoredLayers => _focusIgnoredLayers;
@@ -217,13 +219,13 @@ namespace Mu3Library.UI.MVP
                 callback,
                 onDisposed);
 
-        private void CheckLifecycle(List<PresenterParams> list, ViewState checkState, System.Action<PresenterParams> callback = null)
+        private void CheckLifecycle(List<PresenterEntry> list, ViewState checkState, System.Action<PresenterEntry> callback = null)
         {
             bool isViewDestroyed = false;
 
             for (int i = 0; i < list.Count; i++)
             {
-                PresenterParams param = list[i];
+                PresenterEntry param = list[i];
                 if (!param.Presenter.IsViewExist)
                 {
                     Debug.LogWarning($"View descroyed. checkState: {checkState}, presenter: {param.Presenter.GetType()}");
@@ -247,7 +249,7 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private void WindowLoadedEvent(PresenterParams param)
+        private void WindowLoadedEvent(PresenterEntry param)
         {
             param.Presenter.SetActiveView(true);
             param.Presenter.Open();
@@ -259,7 +261,7 @@ namespace Mu3Library.UI.MVP
             OnWindowLoaded?.Invoke(param.Presenter);
         }
 
-        private void WindowOpenedEvent(PresenterParams param)
+        private void WindowOpenedEvent(PresenterEntry param)
         {
             _openedPresenters.Add(param);
 
@@ -268,7 +270,7 @@ namespace Mu3Library.UI.MVP
             OnWindowOpened?.Invoke(param.Presenter);
         }
 
-        private void WindowClosedEvent(PresenterParams param)
+        private void WindowClosedEvent(PresenterEntry param)
         {
             param.Presenter.Unload();
 
@@ -279,7 +281,7 @@ namespace Mu3Library.UI.MVP
             OnWindowClosed?.Invoke(param.Presenter);
         }
 
-        private void WindowUnloadedEvent(PresenterParams param)
+        private void WindowUnloadedEvent(PresenterEntry param)
         {
             param.Presenter.SetActiveView(false);
             PoolPresenter(param.Presenter);
@@ -295,7 +297,7 @@ namespace Mu3Library.UI.MVP
             CleanupDestroyedPresenters();
 
             // Pre-allocate list with capacity estimate to reduce allocations
-            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
 
             for (int i = 0; i < _openedPresenters.Count; i++)
             {
@@ -321,7 +323,7 @@ namespace Mu3Library.UI.MVP
             CleanupDestroyedPresenters();
 
             // Pre-allocate list with exact capacity to avoid allocations
-            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
             paramList.AddRange(_openedPresenters);
             paramList.AddRange(_presenterOpenChecker);
 
@@ -344,7 +346,7 @@ namespace Mu3Library.UI.MVP
             CleanupDestroyedPresenters();
 
             // Pre-allocate list with capacity estimate
-            List<PresenterParams> paramList = new List<PresenterParams>(_openedPresenters.Count + _presenterOpenChecker.Count);
+            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
 
             for (int i = 0; i < _openedPresenters.Count; i++)
             {
@@ -372,10 +374,10 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            PresenterParams closeParam = _focused;
+            PresenterEntry closeParam = _focused;
             _focused = null;
 
-            if (!ClosePresenterWithChildren(closeParam, forceClose))
+            if (!ClosePresenterWithOwnedChildren(closeParam, forceClose))
             {
                 _focused = closeParam;
             }
@@ -390,47 +392,42 @@ namespace Mu3Library.UI.MVP
 
             CleanupDestroyedPresenters();
 
-            PresenterParams param = FindPresenterParams(presenter as PresenterBase);
+            PresenterEntry param = FindPresenterEntry(presenter as PresenterBase);
             if (param == null)
             {
                 return false;
             }
 
-            return ClosePresenterWithChildren(param, forceClose);
+            return ClosePresenterWithOwnedChildren(param, forceClose);
         }
 
         public IPresenter Open<TPresenter>() where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, null, OutPanelSettings.Disabled);
+            => Open<TPresenter>((OpenOptions)null);
 
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, args, OutPanelSettings.Disabled);
+            => Open<TPresenter>(new OpenOptions()
+            {
+                Arguments = args,
+            });
 
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, null, settings);
+            => Open<TPresenter>(new OpenOptions()
+            {
+                OutPanelSettings = settings,
+            });
 
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(null, args, settings);
-
-        public IPresenter Open<TPresenter>(IPresenter parent) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(parent, null, OutPanelSettings.Disabled);
-
-        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(parent, args, OutPanelSettings.Disabled);
-
-        public IPresenter Open<TPresenter>(IPresenter parent, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(parent, null, settings);
-
-        public IPresenter Open<TPresenter>(IPresenter parent, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-        {
-            PresenterParams parentParams = null;
-            if (parent != null)
+            => Open<TPresenter>(new OpenOptions()
             {
-                parentParams = FindPresenterParams(parent as PresenterBase);
-                if (parentParams == null)
-                {
-                    Debug.LogWarning($"Parent presenter not found or not active. Opening without parent. type: {parent.GetType()}");
-                }
-            }
+                Arguments = args,
+                OutPanelSettings = settings,
+            });
+
+        public IPresenter Open<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new()
+        {
+            options ??= new OpenOptions();
+
+            PresenterEntry ownerEntry = ResolveOwnerEntry(options.Owner);
 
             TPresenter presenter = CreatePresenter<TPresenter>();
 
@@ -454,46 +451,77 @@ namespace Mu3Library.UI.MVP
                 _layerCanvases.Add(viewLayerName, layerCanvas);
             }
 
-            RectTransform parentTransform = parentParams?.Presenter.RectTransform;
+            TryGetViewResource(viewType, out View viewResource);
+            RectTransform ownerHost = ownerEntry?.Presenter.RectTransform;
 
             if (!presenter.IsViewExist)
             {
-                View view = CreateView(viewType, layerCanvas, parentTransform);
+                if (viewResource == null)
+                {
+                    return null;
+                }
+
+                View view = CreateView(viewResource, layerCanvas);
                 if (view == null)
                 {
                     return null;
                 }
 
-                presenter.Initialize(view, args);
+                PrepareViewForOpen(viewResource, view.Canvas, view.RectTransform, layerCanvas, ownerHost, options.HostOptions);
+                presenter.Initialize(view, options.Arguments);
             }
             else
             {
-                if (parentTransform != null)
-                {
-                    presenter.RectTransform?.SetParent(parentTransform, false);
-                }
-
-                presenter.Initialize(args);
+                PrepareViewForOpen(viewResource, presenter.ViewCanvas, presenter.RectTransform, layerCanvas, ownerHost, options.HostOptions);
+                presenter.Initialize(options.Arguments);
             }
 
-            PresenterParams presenterParams = new PresenterParams()
+            PresenterEntry presenterEntry = new PresenterEntry()
             {
                 Presenter = presenter,
-                OutPanelSettings = settings,
+                OutPanelSettings = options.OutPanelSettings,
             };
 
-            parentParams?.AddChild(presenterParams);
+            ownerEntry?.AddOwnedChild(presenterEntry);
 
-            UpdateSortingOrderAsLast(presenterParams);
+            UpdateSortingOrderAsLast(presenterEntry);
             presenter.OptimizeView();
             presenter.SetActiveView(false);
 
             presenter.Load();
 
-            _presenterLoadChecker.Add(presenterParams);
+            _presenterLoadChecker.Add(presenterEntry);
 
             return presenter;
         }
+
+        public IPresenter Open<TPresenter>(IPresenter owner) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(new OpenOptions()
+            {
+                Owner = owner,
+            });
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(new OpenOptions()
+            {
+                Owner = owner,
+                Arguments = args,
+            });
+
+        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(new OpenOptions()
+            {
+                Owner = owner,
+                OutPanelSettings = settings,
+            });
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(new OpenOptions()
+            {
+                Owner = owner,
+                Arguments = args,
+                OutPanelSettings = settings,
+            });
 
         public void SetFocusIgnoredLayer(string layerName, bool ignored)
         {
@@ -535,7 +563,7 @@ namespace Mu3Library.UI.MVP
         }
         #endregion
 
-        private PresenterParams FindPresenterParams(PresenterBase presenter)
+        private PresenterEntry FindPresenterEntry(PresenterBase presenter)
         {
             if (presenter == null)
             {
@@ -569,11 +597,87 @@ namespace Mu3Library.UI.MVP
             return null;
         }
 
+        private PresenterEntry ResolveOwnerEntry(IPresenter owner)
+        {
+            if (owner == null)
+            {
+                return null;
+            }
+
+            PresenterEntry ownerEntry = FindPresenterEntry(owner as PresenterBase);
+            if (ownerEntry == null)
+            {
+                Debug.LogWarning($"Owner presenter not found or not active. Opening without owner. type: {owner.GetType()}");
+            }
+
+            return ownerEntry;
+        }
+
+        private static Transform ResolveHostTransform(RectTransform ownerHost, HostOptions hostOptions, Transform layerRoot)
+        {
+            if (hostOptions != null && hostOptions.Host != null)
+            {
+                return hostOptions.Host;
+            }
+
+            return ownerHost != null ? ownerHost.transform : layerRoot;
+        }
+
+        private static void RestoreViewRootLayout(View viewResource, RectTransform targetRectTransform)
+        {
+            if (viewResource == null || targetRectTransform == null)
+            {
+                return;
+            }
+
+            RectTransform sourceRectTransform = viewResource.RectTransform;
+            if (sourceRectTransform == null)
+            {
+                return;
+            }
+
+            targetRectTransform.anchorMin = sourceRectTransform.anchorMin;
+            targetRectTransform.anchorMax = sourceRectTransform.anchorMax;
+            targetRectTransform.anchoredPosition3D = sourceRectTransform.anchoredPosition3D;
+            targetRectTransform.sizeDelta = sourceRectTransform.sizeDelta;
+            targetRectTransform.pivot = sourceRectTransform.pivot;
+            targetRectTransform.localRotation = sourceRectTransform.localRotation;
+            targetRectTransform.localScale = sourceRectTransform.localScale;
+        }
+
+        private static void PrepareViewForOpen(
+            View viewResource,
+            Canvas viewCanvas,
+            RectTransform viewRectTransform,
+            Canvas layerCanvas,
+            RectTransform ownerHost,
+            HostOptions hostOptions)
+        {
+            if (viewCanvas == null || viewRectTransform == null || layerCanvas == null)
+            {
+                return;
+            }
+
+            layerCanvas.CopyTo(viewCanvas, true, true);
+            viewCanvas.overrideSorting = true;
+
+            Transform hostTransform = ResolveHostTransform(ownerHost, hostOptions, layerCanvas.transform);
+            viewRectTransform.SetParent(hostTransform, false);
+
+            if (viewResource != null)
+            {
+                RestoreViewRootLayout(viewResource, viewRectTransform);
+                viewCanvas.sortingOrder = viewResource.SortingOrder;
+            }
+
+            hostOptions?.ApplyLayout?.Invoke(viewRectTransform);
+        }
+
         /// <summary>
         /// Closes a presenter and all its chained children depth-first (deepest child first).
         /// Cascade children are always force-closed to interrupt any ongoing open animation.
         /// </summary>
-        private bool ClosePresenterWithChildren(PresenterParams param, bool forceClose)
+        private bool ClosePresenterWithOwnedChildren(PresenterEntry param, bool forceClose)
         {
             if (param == null)
             {
@@ -581,12 +685,12 @@ namespace Mu3Library.UI.MVP
             }
 
             // Close children depth-first. Copy to avoid mutation during iteration.
-            if (param.Children.Count > 0)
+            if (param.OwnedChildren.Count > 0)
             {
-                List<PresenterParams> children = new List<PresenterParams>(param.Children);
-                foreach (PresenterParams child in children)
+                List<PresenterEntry> children = new List<PresenterEntry>(param.OwnedChildren);
+                foreach (PresenterEntry child in children)
                 {
-                    ClosePresenterWithChildren(child, forceClose: true);
+                    ClosePresenterWithOwnedChildren(child, forceClose: true);
                 }
             }
 
@@ -601,14 +705,14 @@ namespace Mu3Library.UI.MVP
                 return false;
             }
 
-            param.UnlinkFromParent();
+            param.DetachFromOwner();
             param.Presenter.Close(forceClose);
             _presenterCloseChecker.Add(param);
 
             return true;
         }
 
-        private void CloseAll(List<PresenterParams> paramList, bool forceClose = false)
+        private void CloseAll(List<PresenterEntry> paramList, bool forceClose = false)
         {
             bool isCloseExcuted = false;
 
@@ -628,10 +732,10 @@ namespace Mu3Library.UI.MVP
 
         private void UpdateFocus()
         {
-            IEnumerable<PresenterParams> paramList = RunningPresenterParams();
-            PresenterParams mostFront = null;
+            IEnumerable<PresenterEntry> paramList = RunningPresenterEntries();
+            PresenterEntry mostFront = null;
 
-            foreach (PresenterParams param in paramList)
+            foreach (PresenterEntry param in paramList)
             {
                 if (_focusIgnoredLayers.Contains(param.Presenter.CanvasLayerName))
                 {
@@ -687,13 +791,13 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private static bool RemoveDestroyedPresenters(List<PresenterParams> list)
+        private static bool RemoveDestroyedPresenters(List<PresenterEntry> list)
         {
             bool removed = false;
 
             for (int i = 0; i < list.Count; i++)
             {
-                PresenterParams param = list[i];
+                PresenterEntry param = list[i];
                 if (param?.Presenter != null && param.Presenter.IsViewExist)
                 {
                     continue;
@@ -708,7 +812,7 @@ namespace Mu3Library.UI.MVP
             return removed;
         }
 
-        private void UpdateSortingOrderAsLast(PresenterParams presenterParam)
+        private void UpdateSortingOrderAsLast(PresenterEntry presenterParam)
         {
             if (presenterParam == null || presenterParam.Presenter == null || !presenterParam.Presenter.IsViewExist)
             {
@@ -716,7 +820,7 @@ namespace Mu3Library.UI.MVP
             }
 
             System.Type viewType = presenterParam.Presenter.ViewType;
-            IEnumerable<int> sameViewSortingOrders = RunningPresenterParams()
+            IEnumerable<int> sameViewSortingOrders = RunningPresenterEntries()
                 .Where(t => t.Presenter.ViewType == viewType)
                 .Select(t => t.Presenter.SortingOrder);
 
@@ -741,7 +845,7 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private void UpdateOutPanel(PresenterParams param)
+        private void UpdateOutPanel(PresenterEntry param)
         {
             if (_outPanel == null)
             {
@@ -764,9 +868,9 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private IEnumerable<PresenterParams> RunningPresenterParams()
+        private IEnumerable<PresenterEntry> RunningPresenterEntries()
         {
-            return Enumerable.Empty<PresenterParams>()
+            return Enumerable.Empty<PresenterEntry>()
                 .Concat(_presenterCloseChecker)
                 .Concat(_openedPresenters)
                 .Concat(_presenterOpenChecker)

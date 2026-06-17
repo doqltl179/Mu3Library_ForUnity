@@ -143,6 +143,30 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
+For chained presenters, ownership and visual hosting are configured separately.
+
+```csharp
+public class InventoryPresenter : Presenter<InventoryView, InventoryModel, InventoryArgs>
+{
+    private void OpenTooltip()
+    {
+        OpenAsChild<TooltipPresenter>(new OpenOptions
+        {
+            HostOptions = new HostOptions
+            {
+                Host = _view.TooltipHost,
+                ApplyLayout = rectTransform =>
+                {
+                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
+                },
+            },
+        });
+    }
+}
+```
+
+`Owner` controls lifecycle chaining, while `HostOptions` controls where the child view is attached and how its root `RectTransform` is laid out.
+
 ### Audio System
 Separate management of BGM and SFX with volume control support.
 
