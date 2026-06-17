@@ -11,14 +11,7 @@ All notable changes to Mu3Library For Unity will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- Added a tracked C# Dev Kit workflow around the Built-In default workspace and the URP additional workspace. The tracked `.code-workspace` files now recommend the C# Dev Kit extensions, and `mu3-cli csdevkit` now provides context switching, load diagnostics, curated compile-only build profiles, support bundles, and drift checks.
-- Added `tools/csdevkit_tests`, a standalone xUnit project targeting `net10.0` so C# Dev Kit can discover a narrow pure C# metadata test surface without touching Unity package assemblies.
-
-### Removed
-- Removed the repository Unity batch compile-gate workflow, scripts, hooks, and editor batch entrypoints because that verification path intentionally required the target Unity editor to be closed. This also removes the batch-callable SceneLoader smoke entrypoint, so compile-only verification now relies on editor-safe `dotnet build` against the generated Unity `.csproj` files and SceneLoader runtime smoke coverage is temporarily manual.
+This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
 ## [base/0.14.1] - 2026-06-17
 
@@ -718,7 +711,6 @@ Special thanks to the open-source community for:
 
 For earlier versions, please refer to commit history.
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/base/v0.10.0...HEAD
 [urp/0.1.2]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/urp%2Fv0.1.2
 [base/0.10.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.6.0...base%2Fv0.10.0
 [base/0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3

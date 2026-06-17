@@ -18,6 +18,7 @@
 - Changelog (EN): `CHANGELOG.md`
 - Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
 - Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
+- Repository workflow changelog: `docs/repository/CHANGELOG.md`
 
 ## ✨ Key Features
 

@@ -18,6 +18,7 @@
 - Changelog (EN): `../../CHANGELOG.md`
 - Changelog (KO): `../changelog/CHANGELOG.ko.md`
 - Changelog (JA): `../changelog/CHANGELOG.ja.md`
+- 저장소 워크플로 변경 이력: `../repository/CHANGELOG.md`
 
 ## ✨ 주요 특징
 

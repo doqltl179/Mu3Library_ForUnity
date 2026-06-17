@@ -18,6 +18,7 @@
 - Changelog (EN): `../../CHANGELOG.md`
 - Changelog (KO): `../changelog/CHANGELOG.ko.md`
 - Changelog (JA): `../changelog/CHANGELOG.ja.md`
+- リポジトリ workflow 変更履歴: `../repository/CHANGELOG.md`
 
 ## ✨ 主な特徴
 
