@@ -11,14 +11,12 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 このフォーマットは[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)に基づいており、
 このプロジェクトは[Semantic Versioning](https://semver.org/spec/v2.0.0.html)に準拠しています。
 
-## [Unreleased]
+この changelog はパッケージリリース変更のみを追跡します。リポジトリ開発 workflow と tooling の変更は [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md) で管理します。
 
-### 追加
-- Built-In の既定 workspace と URP の追加 workspace を起点にする tracked C# Dev Kit workflow を追加しました。tracked `.code-workspace` ファイルが C# Dev Kit 拡張を推奨し、`mu3-cli csdevkit` が context 切り替え、load diagnostics、curated compile-only build profile、support bundle、drift check を提供します。
-- `tools/csdevkit_tests` を追加しました。これは `net10.0` を対象にする standalone xUnit project であり、Unity package assembly に触れずに C# Dev Kit が狭い純粋 C# metadata test surface を discover できるようにします。
+## [base/0.14.2] - 2026-06-20
 
-### 削除
-- 対象 Unity エディタを閉じた状態でしか動作しない設計だった repository の Unity batch compile-gate workflow、script、hook、editor batch entrypoint を削除しました。この変更で batch 呼び出し用の SceneLoader smoke entrypoint も合わせて削除されるため、compile-only 検証は生成された Unity `.csproj` に対する editor-safe `dotnet build` に統一し、SceneLoader の runtime smoke 検証は当面手動のみになります。
+### 変更
+- `IMVPManager` / `MVPManager` / `PresenterBase`: `OpenOptions` を削除し、直接 `HostOptions` を受け取るオーバーロードへ置き換えつつ、`Open` / `OpenAsChild` の convenience オーバーロードは引き続き最後の明示 open シグネチャ 1 つへだけ委譲する形を維持しました。
 
 ## [base/0.14.1] - 2026-06-17
 
@@ -719,7 +717,6 @@ public class MyCore : CoreBase
 
 以前のバージョンについては、コミット履歴を参照してください。
 
-[Unreleased]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/base/v0.10.0...HEAD
 [urp/0.1.2]: https://github.com/doqltl179/Mu3Library_ForUnity/releases/tag/urp%2Fv0.1.2
 [base/0.10.0]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.6.0...base%2Fv0.10.0
 [base/0.2.3]: https://github.com/doqltl179/Mu3Library_ForUnity/compare/v0.2.0...v0.2.3

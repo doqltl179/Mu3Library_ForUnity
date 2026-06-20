@@ -18,6 +18,7 @@
 - Changelog (EN): `../../CHANGELOG.md`
 - Changelog (KO): `../changelog/CHANGELOG.ko.md`
 - Changelog (JA): `../changelog/CHANGELOG.ja.md`
+- リポジトリ workflow 変更履歴: `../repository/CHANGELOG.md`
 
 ## ✨ 主な特徴
 
@@ -49,7 +50,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
@@ -149,15 +150,12 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 {
     private void OpenTooltip()
     {
-        OpenAsChild<TooltipPresenter>(new OpenOptions
+        OpenAsChild<TooltipPresenter>(new HostOptions
         {
-            HostOptions = new HostOptions
+            Host = _view.TooltipHost,
+            ApplyLayout = rectTransform =>
             {
-                Host = _view.TooltipHost,
-                ApplyLayout = rectTransform =>
-                {
-                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
-                },
+                rectTransform.anchoredPosition = new Vector2(24f, -16f);
             },
         });
     }
@@ -165,6 +163,15 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 ```
 
 `Owner` はライフサイクル連結を制御し、`HostOptions` は子 view の取り付け先とルート `RectTransform` レイアウトの適用方法を制御します。
+
+manager から直接開く場合でも、同じ ownership / host 構成を 1 つのオーバーロードで維持できます。
+
+```csharp
+_mvpManager.Open<TooltipPresenter>(inventoryPresenter, new HostOptions
+{
+    Host = tooltipHost,
+});
+```
 
 ### Audioシステム
 BGMとSFXを分離管理し、ボリューム制御をサポートします。
@@ -319,7 +326,7 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.14.1`
+- このリポジトリ上の現在の Base パッケージ版: `0.14.2`
 - このリポジトリ上の現在の URP パッケージ版: `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -341,7 +348,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
 - URP: `com.github.doqltl179.mu3library.urp` `0.1.4`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 
 Unity開発者のために制作

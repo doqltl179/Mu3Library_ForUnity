@@ -56,36 +56,28 @@ namespace Mu3Library.UI.MVP
         internal abstract void SetSortingOrder(int sortingOrder);
 
         protected IPresenter OpenAsChild<TPresenter>() where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>((OpenOptions)null);
+            => OpenAsChild<TPresenter>(null, OutPanelSettings.Disabled, null);
 
         protected IPresenter OpenAsChild<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>(new OpenOptions()
-            {
-                Arguments = args,
-            });
+            => OpenAsChild<TPresenter>(args, OutPanelSettings.Disabled, null);
 
         protected IPresenter OpenAsChild<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => OpenAsChild<TPresenter>(new OpenOptions()
-            {
-                OutPanelSettings = settings,
-            });
+            => OpenAsChild<TPresenter>(null, settings, null);
 
         protected IPresenter OpenAsChild<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-        {
-            return OpenAsChild<TPresenter>(new OpenOptions()
-            {
-                Arguments = args,
-                OutPanelSettings = settings,
-            });
-        }
+            => OpenAsChild<TPresenter>(args, settings, null);
 
-        protected IPresenter OpenAsChild<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new()
-        {
-            options ??= new OpenOptions();
-            options.Owner = this;
+        protected IPresenter OpenAsChild<TPresenter>(HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(null, OutPanelSettings.Disabled, hostOptions);
 
-            return _mvpManager.Open<TPresenter>(options);
-        }
+        protected IPresenter OpenAsChild<TPresenter>(Arguments args, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(args, OutPanelSettings.Disabled, hostOptions);
+
+        protected IPresenter OpenAsChild<TPresenter>(OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => OpenAsChild<TPresenter>(null, settings, hostOptions);
+
+        protected IPresenter OpenAsChild<TPresenter>(Arguments args, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => _mvpManager.Open<TPresenter>(this, args, settings, hostOptions);
     }
 
     public abstract class Presenter<TView, TModel, TArgs> : PresenterBase

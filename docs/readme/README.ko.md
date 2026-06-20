@@ -18,6 +18,7 @@
 - Changelog (EN): `../../CHANGELOG.md`
 - Changelog (KO): `../changelog/CHANGELOG.ko.md`
 - Changelog (JA): `../changelog/CHANGELOG.ja.md`
+- 저장소 워크플로 변경 이력: `../repository/CHANGELOG.md`
 
 ## ✨ 주요 특징
 
@@ -49,7 +50,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
@@ -149,15 +150,12 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 {
     private void OpenTooltip()
     {
-        OpenAsChild<TooltipPresenter>(new OpenOptions
+        OpenAsChild<TooltipPresenter>(new HostOptions
         {
-            HostOptions = new HostOptions
+            Host = _view.TooltipHost,
+            ApplyLayout = rectTransform =>
             {
-                Host = _view.TooltipHost,
-                ApplyLayout = rectTransform =>
-                {
-                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
-                },
+                rectTransform.anchoredPosition = new Vector2(24f, -16f);
             },
         });
     }
@@ -165,6 +163,15 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 ```
 
 `Owner`는 생명주기 체인을 제어하고, `HostOptions`는 자식 view를 어디에 붙일지와 루트 `RectTransform` 레이아웃을 어떻게 적용할지를 제어합니다.
+
+manager에서 직접 여는 경우에도 같은 ownership/host 구성을 하나의 오버로드로 유지할 수 있습니다.
+
+```csharp
+_mvpManager.Open<TooltipPresenter>(inventoryPresenter, new HostOptions
+{
+    Host = tooltipHost,
+});
+```
 
 ### Audio 시스템
 BGM과 SFX를 분리 관리하며 볼륨 제어를 지원합니다.
@@ -319,7 +326,7 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.14.1`
+- 이 저장소의 현재 Base 패키지 버전: `0.14.2`
 - 이 저장소의 현재 URP 패키지 버전: `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -341,7 +348,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
 - URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Unity 개발자를 위해 제작됨
