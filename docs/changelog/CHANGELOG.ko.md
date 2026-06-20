@@ -11,6 +11,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
+## [base/0.14.2] - 2026-06-20
+
+### 변경됨
+- `IMVPManager` / `MVPManager` / `PresenterBase`: `OpenOptions`를 제거하고 직접 `HostOptions`를 받는 오버로드들로 교체했으며, `Open` / `OpenAsChild` 편의 오버로드들은 계속 마지막 명시 open 시그니처 하나로만 위임되도록 유지함.
+
 ## [base/0.14.1] - 2026-06-17
 
 ### 추가됨

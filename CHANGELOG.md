@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
+## [base/0.14.2] - 2026-06-20
+
+### Changed
+- `IMVPManager` / `MVPManager` / `PresenterBase`: Removed `OpenOptions` and replaced it with direct `HostOptions` overloads while keeping every `Open` / `OpenAsChild` convenience overload delegated to one final explicit open signature.
+
 ## [base/0.14.1] - 2026-06-17
 
 ### Added

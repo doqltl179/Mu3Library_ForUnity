@@ -402,32 +402,53 @@ namespace Mu3Library.UI.MVP
         }
 
         public IPresenter Open<TPresenter>() where TPresenter : PresenterBase, new()
-            => Open<TPresenter>((OpenOptions)null);
+            => Open<TPresenter>(null, null, OutPanelSettings.Disabled, null);
 
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Arguments = args,
-            });
+            => Open<TPresenter>(null, args, OutPanelSettings.Disabled, null);
 
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                OutPanelSettings = settings,
-            });
+            => Open<TPresenter>(null, null, settings, null);
 
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Arguments = args,
-                OutPanelSettings = settings,
-            });
+            => Open<TPresenter>(null, args, settings, null);
 
-        public IPresenter Open<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new()
+        public IPresenter Open<TPresenter>(HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(null, null, OutPanelSettings.Disabled, hostOptions);
+
+        public IPresenter Open<TPresenter>(Arguments args, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(null, args, OutPanelSettings.Disabled, hostOptions);
+
+        public IPresenter Open<TPresenter>(OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(null, null, settings, hostOptions);
+
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(null, args, settings, hostOptions);
+
+        public IPresenter Open<TPresenter>(IPresenter owner) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, null, OutPanelSettings.Disabled, null);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, args, OutPanelSettings.Disabled, null);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, null, settings, null);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, args, settings, null);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, null, OutPanelSettings.Disabled, hostOptions);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, args, OutPanelSettings.Disabled, hostOptions);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
+            => Open<TPresenter>(owner, null, settings, hostOptions);
+
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new()
         {
-            options ??= new OpenOptions();
-
-            PresenterEntry ownerEntry = ResolveOwnerEntry(options.Owner);
+            PresenterEntry ownerEntry = ResolveOwnerEntry(owner);
 
             TPresenter presenter = CreatePresenter<TPresenter>();
 
@@ -467,19 +488,19 @@ namespace Mu3Library.UI.MVP
                     return null;
                 }
 
-                PrepareViewForOpen(viewResource, view.Canvas, view.RectTransform, layerCanvas, ownerHost, options.HostOptions);
-                presenter.Initialize(view, options.Arguments);
+                PrepareViewForOpen(viewResource, view.Canvas, view.RectTransform, layerCanvas, ownerHost, hostOptions);
+                presenter.Initialize(view, args);
             }
             else
             {
-                PrepareViewForOpen(viewResource, presenter.ViewCanvas, presenter.RectTransform, layerCanvas, ownerHost, options.HostOptions);
-                presenter.Initialize(options.Arguments);
+                PrepareViewForOpen(viewResource, presenter.ViewCanvas, presenter.RectTransform, layerCanvas, ownerHost, hostOptions);
+                presenter.Initialize(args);
             }
 
             PresenterEntry presenterEntry = new PresenterEntry()
             {
                 Presenter = presenter,
-                OutPanelSettings = options.OutPanelSettings,
+                OutPanelSettings = settings,
             };
 
             ownerEntry?.AddOwnedChild(presenterEntry);
@@ -494,34 +515,6 @@ namespace Mu3Library.UI.MVP
 
             return presenter;
         }
-
-        public IPresenter Open<TPresenter>(IPresenter owner) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Owner = owner,
-            });
-
-        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Owner = owner,
-                Arguments = args,
-            });
-
-        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Owner = owner,
-                OutPanelSettings = settings,
-            });
-
-        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new()
-            => Open<TPresenter>(new OpenOptions()
-            {
-                Owner = owner,
-                Arguments = args,
-                OutPanelSettings = settings,
-            });
 
         public void SetFocusIgnoredLayer(string layerName, bool ignored)
         {

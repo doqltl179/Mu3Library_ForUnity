@@ -22,11 +22,18 @@ namespace Mu3Library.UI.MVP
         public IPresenter Open<TPresenter>(Arguments args) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(OutPanelSettings settings) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
-        public IPresenter Open<TPresenter>(OpenOptions options) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(Arguments args, HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(Arguments args, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new();
 
         public IPresenter Open<TPresenter>(IPresenter owner) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(IPresenter owner, Arguments args) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings) where TPresenter : PresenterBase, new();
         public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new();
+        public IPresenter Open<TPresenter>(IPresenter owner, Arguments args, OutPanelSettings settings, HostOptions hostOptions) where TPresenter : PresenterBase, new();
     }
 }

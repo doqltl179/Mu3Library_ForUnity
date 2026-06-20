@@ -51,7 +51,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
@@ -151,15 +151,12 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 {
     private void OpenTooltip()
     {
-        OpenAsChild<TooltipPresenter>(new OpenOptions
+        OpenAsChild<TooltipPresenter>(new HostOptions
         {
-            HostOptions = new HostOptions
+            Host = _view.TooltipHost,
+            ApplyLayout = rectTransform =>
             {
-                Host = _view.TooltipHost,
-                ApplyLayout = rectTransform =>
-                {
-                    rectTransform.anchoredPosition = new Vector2(24f, -16f);
-                },
+                rectTransform.anchoredPosition = new Vector2(24f, -16f);
             },
         });
     }
@@ -167,6 +164,15 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 ```
 
 `Owner` controls lifecycle chaining, while `HostOptions` controls where the child view is attached and how its root `RectTransform` is laid out.
+
+Direct manager calls can keep the same ownership and host configuration in one overload:
+
+```csharp
+_mvpManager.Open<TooltipPresenter>(inventoryPresenter, new HostOptions
+{
+    Host = tooltipHost,
+});
+```
 
 ### Audio System
 Separate management of BGM and SFX with volume control support.
@@ -321,7 +327,7 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.14.1`
+- Current Base package version in this repository: `0.14.2`
 - Current URP package version in this repository: `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -343,7 +349,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
 - URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Made with ❤️ for Unity Developers
