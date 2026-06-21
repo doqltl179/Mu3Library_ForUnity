@@ -13,6 +13,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 この changelog はパッケージリリース変更のみを追跡します。リポジトリ開発 workflow と tooling の変更は [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md) で管理します。
 
+## [urp/0.1.5] - 2026-06-21
+
+### 削除
+- `Mu3Library_URP/Runtime/Scripts/AGENTS.md`、`Mu3Library_URP/Runtime/Shaders/AGENTS.md`、`Mu3Library_URP/Samples~/AGENTS.md`: import 対象の URP パッケージ表面から package-local agent routing 文書を削除し、Unity package import 時に `.meta` とずれた AGENTS 文書が含まれないよう整理しました。
+
+### 変更
+- `Mu3Library_URP/package.json`、`README.md`、各ローカライズ README: URP パッケージ version を `0.1.5` へ更新し、公開 UPM install tag 参照もあわせて更新しました。
+
 ## [base/0.14.2] - 2026-06-20
 
 ### 変更
