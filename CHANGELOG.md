@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
+## [urp/0.1.5] - 2026-06-21
+
+### Removed
+- `Mu3Library_URP/Runtime/Scripts/AGENTS.md`, `Mu3Library_URP/Runtime/Shaders/AGENTS.md`, and `Mu3Library_URP/Samples~/AGENTS.md`: Removed package-local agent routing documents from the importable URP package surface so Unity package import no longer includes AGENTS docs that can drift from their `.meta` counterparts.
+
+### Changed
+- `Mu3Library_URP/package.json`, `README.md`, and localized READMEs: Bumped the URP package to `0.1.5` and updated the public UPM install tag references.
+
 ## [base/0.14.2] - 2026-06-20
 
 ### Changed

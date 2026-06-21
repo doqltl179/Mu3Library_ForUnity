@@ -54,7 +54,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.5
    ```
 
 ### Option 2: Package Manager (Local Disk)
@@ -328,7 +328,7 @@ protected override void Start()
 ## 📝 Recent Updates
 
 - Current Base package version in this repository: `0.14.2`
-- Current URP package version in this repository: `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- Current URP package version in this repository: `0.1.5` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -350,6 +350,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.5` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Made with ❤️ for Unity Developers
