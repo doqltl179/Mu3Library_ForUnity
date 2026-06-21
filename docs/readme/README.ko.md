@@ -53,7 +53,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.3
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.5
    ```
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
@@ -327,7 +327,7 @@ protected override void Start()
 ## 📝 최근 업데이트
 
 - 이 저장소의 현재 Base 패키지 버전: `0.14.2`
-- 이 저장소의 현재 URP 패키지 버전: `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- 이 저장소의 현재 URP 패키지 버전: `0.1.5` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
@@ -349,6 +349,6 @@ protected override void Start()
 
 **패키지 정보:**
 - Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.4` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- URP: `com.github.doqltl179.mu3library.urp` `0.1.5` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Unity 개발자를 위해 제작됨
