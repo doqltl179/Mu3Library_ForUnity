@@ -13,6 +13,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 この changelog はパッケージリリース変更のみを追跡します。リポジトリ開発 workflow と tooling の変更は [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md) で管理します。
 
+## [urp/0.1.6] - 2026-06-21
+
+### 追加
+- `Mu3Library.URP.UI.MVP.MVPManagerExtensions`: `SetCameraStackAsFirst`、`SetCameraStack(Camera)`、`SetCameraStack(Camera, int)` helper を追加し、target URP camera stack へ MVP render camera を重複 overlay なしで挿入しつつ、必要に応じて挿入 index を制御できるようにしました。
+
+### 変更
+- `Mu3Library_URP/package.json`、`README.md`、各ローカライズ README: URP パッケージ version を `0.1.6` へ更新し、公開 UPM install tag 参照もあわせて更新しました。
+
 ## [urp/0.1.5] - 2026-06-21
 
 ### 削除
