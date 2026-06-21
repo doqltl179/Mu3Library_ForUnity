@@ -32,3 +32,4 @@
 - Keep this page as inventory only.
 - Detailed behavior stays in the owning prompt, skill, or linked workflow page.
 - Promote a repeatable flow to a durable owner only after `role-governor` suitability review.
+- Startup docs should link here for prompt/skill inventory instead of embedding long asset lists.

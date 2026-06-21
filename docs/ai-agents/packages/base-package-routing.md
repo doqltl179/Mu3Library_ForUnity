@@ -1,23 +1,16 @@
 ﻿# Base Package Routing
 
-## When
+Use this page when the work is clearly inside `Mu3Library_Base` but the exact surface is not chosen yet.
 
-- the work is clearly inside `Mu3Library_Base`,
-- you still need to choose between runtime, editor, or samples,
-- you want the base-package router before opening a local `AGENTS.md`.
+## Open
 
-## Route Away When
-
-- base-package boundary selection is no longer the question: go back to [package-surface-routing.md](package-surface-routing.md) or [README.md](README.md).
-
-## Surface Map
-
-| Area | Open | Use When |
+| If you need to... | Open | Why |
 |---|---|---|
-| Base runtime code | [../../../Mu3Library_Base/Runtime/Scripts/AGENTS.md](../../../Mu3Library_Base/Runtime/Scripts/AGENTS.md) | Editing reusable non-editor C# under the base package |
-| Base editor code | [../../../Mu3Library_Base/Editor/Scripts/AGENTS.md](../../../Mu3Library_Base/Editor/Scripts/AGENTS.md) | Editing base-package editor tooling, drawers, or editor utilities |
-| Base samples | [../../../Mu3Library_Base/Samples~/AGENTS.md](../../../Mu3Library_Base/Samples~/AGENTS.md) | Editing importable base-package samples, scenes, or sample assets |
+| Edit reusable non-editor C# under `Mu3Library_Base/Runtime/Scripts` | [base-runtime.md](base-runtime.md) | Owns base-package runtime rules |
+| Edit editor tooling under `Mu3Library_Base/Editor/Scripts` | [base-editor.md](base-editor.md) | Owns base-package editor rules |
+| Edit importable sample scenes or sample assets under `Mu3Library_Base/Samples~` | [base-samples.md](base-samples.md) | Owns base-package sample rules |
 
-## Rule
+## Notes
 
-- Use this page as the base-package boundary router, not as a replacement for the local `AGENTS.md` rules.
+- If base-package family selection is no longer the question, return to [README.md](README.md).
+- Stop after choosing the first matching leaf page.

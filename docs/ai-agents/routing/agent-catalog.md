@@ -12,6 +12,8 @@ Route away for shared matrices: [control-plane-routing.md](control-plane-routing
 
 This page owns long-lived agent inventory only. Individual specs own role-specific deltas; shared routing rules live in routing pages; workflow assets live in [workflow-assets.md](../workflow/workflow-assets.md).
 
+Startup docs should link here for owner/spec inventory instead of embedding long agent lists.
+
 ## Active Agents
 
 | Agent | Plane | Status | Owns | Spec |

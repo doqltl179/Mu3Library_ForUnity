@@ -22,7 +22,8 @@ description: "Compact multi-agent framework rules for Mu3Library routing and bou
 - Expand only when the user explicitly asks for detail or the task is high-risk enough that brevity would hide a material risk.
 - For the detailed procedure, use `docs/ai-agents/workflow/token-budget.md`.
 - Open `docs/ai-agents/README.md` only when the next page is not obvious.
-- Use folder indexes as routers: `routing/`, `contracts/`, `workflow/`, `guides/`, then the smallest matching leaf page.
+- Use section indexes as routers: `routing/`, `packages/`, `contracts/`, `workflow/`, `plans/`, `guides/`, then the smallest matching leaf page.
+- Keep startup docs and section indexes thin; move detailed rules into selectable leaf pages.
 - Do not read every agent spec during framework discovery. Use `routing/agent-catalog.md` for inventory and open a spec only after that owner is selected.
 - Prefer links over repeated summaries in agent specs, instructions, and wiki indexes.
 - Summarize large command output instead of copying it into handoff or review text.
@@ -49,7 +50,7 @@ After any non-trivial agent-framework change, check:
 ## AI-Agent Doc Change Rules
 
 - When adding or editing agent-framework docs, keep one canonical owner per rule and replace nearby duplicates with links.
-- Prefer extending an existing router, contract, workflow page, or local `AGENTS.md` before creating a new document.
+- Prefer extending an existing router, leaf rule page, contract, or workflow page before creating a new document.
 - Add a new document only when it owns a distinct question shape, boundary, or reusable contract that does not already have an owner.
 - If a new owning page is introduced, update the smallest relevant router instead of adding broad cross-links or parallel indexes.
 - Remove or shrink stale pointer files, duplicated summaries, and completed plan artifacts as soon as the owning page fully absorbs their role.
