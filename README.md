@@ -54,7 +54,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.5
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
    ```
 
 ### Option 2: Package Manager (Local Disk)
@@ -286,8 +286,17 @@ Base package (**Mu3 Library**):
 
 URP package (**Mu3 Library URP**):
 - **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
+- **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
 
 In this repository, the base sample sources live under `Mu3Library_Base/Samples~` and the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`.
+
+To stack an MVP render camera with the new helper, pass the render camera explicitly:
+
+```csharp
+using Mu3Library.URP.Cam;
+
+CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
+```
 
 **Template Key Components:**
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
@@ -328,7 +337,7 @@ protected override void Start()
 ## 📝 Recent Updates
 
 - Current Base package version in this repository: `0.14.2`
-- Current URP package version in this repository: `0.1.5` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -350,6 +359,6 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.5` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
 
 Made with ❤️ for Unity Developers
