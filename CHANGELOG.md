@@ -13,13 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
-## [urp/0.1.6] - 2026-06-21
+## [urp/0.2.0] - 2026-06-24
 
 ### Added
-- `Mu3Library.URP.UI.MVP.MVPManagerExtensions`: Added `SetCameraStackAsFirst`, `SetCameraStack(Camera)`, and `SetCameraStack(Camera, int)` helpers so the MVP render camera can be inserted into a target URP camera stack without duplicate overlay entries and with optional insertion index control.
+- `Mu3Library.URP.Cam.CameraStackSetter`: Added `SetCameraStackToMainAsFirst`, `SetCameraStackToMain(Camera)`, `SetCameraStackToMain(Camera, int)`, `SetCameraStackAsFirst(Camera, Camera)`, `SetCameraStack(Camera, Camera)`, and `SetCameraStack(Camera, Camera, int)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack.
 
 ### Changed
-- `Mu3Library_URP/package.json`, `README.md`, and localized READMEs: Bumped the URP package to `0.1.6` and updated the public UPM install tag references.
+- `Mu3Library_URP/package.json`, `README.md`, localized READMEs, and localized changelogs: Bumped the URP package to `0.2.0` and updated the public UPM install tag references.
 
 ## [urp/0.1.5] - 2026-06-21
 

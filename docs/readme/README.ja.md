@@ -53,7 +53,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
 
     # URP パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.6
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
    ```
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
@@ -285,9 +285,17 @@ Base パッケージ (**Mu3 Library**):
 
 URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
-- **MVP Camera Stack Helper**: `Mu3Library.URP.UI.MVP.MVPManagerExtensions` が、MVP render camera を target URP camera stack に挿入する `SetCameraStack` helper を提供し、必要に応じて挿入 index を制御できます。
+- **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` が `SetCameraStackToMain(...)` と `SetCameraStack(...)` helper を提供し、任意の URP overlay camera を `Camera.main` または明示的な root camera stack に挿入しつつ、必要に応じて挿入 index を制御できます。
 
 このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect` にあります。
+
+新しい helper で MVP render camera を stack したい場合は、render camera を明示的に渡してください:
+
+```csharp
+using Mu3Library.URP.Cam;
+
+CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
+```
 
 **Template 主要構成:**
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
@@ -328,7 +336,7 @@ protected override void Start()
 ## 📝 最近のアップデート
 
 - このリポジトリ上の現在の Base パッケージ版: `0.14.2`
-- このリポジトリ上の現在の URP パッケージ版: `0.1.6`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
+- このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
@@ -350,6 +358,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.1.6`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
 
 Unity開発者のために制作

@@ -11,13 +11,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
-## [urp/0.1.6] - 2026-06-21
+## [urp/0.2.0] - 2026-06-24
 
 ### 추가됨
-- `Mu3Library.URP.UI.MVP.MVPManagerExtensions`: `SetCameraStackAsFirst`, `SetCameraStack(Camera)`, `SetCameraStack(Camera, int)` 헬퍼를 추가하여 target URP camera stack에 MVP render camera를 중복 overlay 없이 넣고 필요하면 삽입 인덱스를 제어할 수 있도록 함.
+- `Mu3Library.URP.Cam.CameraStackSetter`: `SetCameraStackToMainAsFirst`, `SetCameraStackToMain(Camera)`, `SetCameraStackToMain(Camera, int)`, `SetCameraStackAsFirst(Camera, Camera)`, `SetCameraStack(Camera, Camera)`, `SetCameraStack(Camera, Camera, int)` 정적 헬퍼를 추가하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣을 수 있도록 함.
 
 ### 변경됨
-- `Mu3Library_URP/package.json`, `README.md`, 현지화 README: URP 패키지 버전을 `0.1.6`으로 올리고 공개 UPM 설치 태그 참조를 함께 업데이트함.
+- `Mu3Library_URP/package.json`, `README.md`, 현지화 README, 현지화 changelog: URP 패키지 버전을 `0.2.0`으로 올리고 공개 UPM 설치 태그 참조를 함께 업데이트함.
 
 ## [urp/0.1.5] - 2026-06-21
 
