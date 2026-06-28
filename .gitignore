@@ -32,6 +32,7 @@
 ExportedObj/
 .consulo/
 *.csproj
+!tools/csdevkit_tests/*.csproj
 *.unityproj
 *.sln
 *.slnx
@@ -94,5 +95,8 @@ UnityProject_URP/Assets/Mu3LibrarySamplesURP/
 
 .vscode/
 .venv/
+.uv-cache/
+tools/**/[Bb]in/
+tools/**/*.egg-info/
 /log/
 tasks/todo.md

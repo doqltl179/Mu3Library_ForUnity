@@ -46,3 +46,106 @@ jobs:
           grep -q "docs/readme/README.ko.md" README.md
           grep -q "docs/readme/README.ja.md" README.md
           grep -q "CHANGELOG.md" README.md
+
+      - name: Validate tooling artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git ls-files --error-unmatch tools/csdevkit_tests/Mu3Library.CsDevKit.Tests.csproj >/dev/null
+
+          tracked_generated="$(git ls-files tools | grep -E '(^|/)(bin|obj)/|\.egg-info/' || true)"
+          if [[ -n "$tracked_generated" ]]; then
+            echo "Generated tooling artifacts are tracked:"
+            printf '%s\n' "$tracked_generated"
+            exit 1
+          fi
+
+      - name: Validate AI-agent doc shape
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f docs/ai-agents/routing/README.md
+          test ! -f docs/ai-agents/routing/agent-catalog.md
+          test ! -f docs/ai-agents/contracts/README.md
+          test ! -f docs/ai-agents/contracts/agent-spec-contract.md
+
+          stale_links="$(grep -R -n -E 'agent-catalog|agent-spec-contract|contracts/README|control-plane-routing|unity-specialist-routing|base-package-routing|urp-package-routing' .github docs tasks tools --include='*.md' --include='*.py' --include='*.yml' --exclude='repo-hygiene.yml' || true)"
+          if [[ -n "$stale_links" ]]; then
+            echo "Stale AI-agent routing references found:"
+            printf '%s\n' "$stale_links"
+            exit 1
+          fi
+
+          line_budget() {
+            local file="$1"
+            local max_lines="$2"
+            local label="$3"
+            local lines
+            lines="$(wc -l < "$file")"
+            if (( lines > max_lines )); then
+              echo "$label exceeds $max_lines lines: $file ($lines)"
+              exit 1
+            fi
+          }
+
+          line_budget ".github/copilot-instructions.md" 45 "Startup instruction"
+          line_budget ".github/instructions/agent-framework.instructions.md" 65 "Agent framework instruction"
+          line_budget "docs/ai-agents/routing/README.md" 70 "Agent routing index"
+
+          while IFS= read -r file; do
+            line_budget "$file" 65 "Instruction file"
+          done < <(find .github/instructions -name '*.instructions.md' -type f)
+
+          agent_doc_count="$(find docs/ai-agents -name '*.md' -type f | wc -l)"
+          if (( agent_doc_count > 24 )); then
+            echo "AI-agent docs exceed 24 files: $agent_doc_count"
+            exit 1
+          fi
+
+          broad_instructions="$(grep -R -n -E "^applyTo:[[:space:]]*['\"]?\*\*['\"]?[[:space:]]*$" .github/instructions --include='*.instructions.md' || true)"
+          if [[ -n "$broad_instructions" ]]; then
+            echo "Instruction files must not use broad applyTo: '**':"
+            printf '%s\n' "$broad_instructions"
+            exit 1
+          fi
+
+          missing_descriptions="$(grep -L '^description:' .github/instructions/*.instructions.md || true)"
+          if [[ -n "$missing_descriptions" ]]; then
+            echo "Instruction files are missing frontmatter descriptions:"
+            printf '%s\n' "$missing_descriptions"
+            exit 1
+          fi
+
+          while IFS= read -r file; do
+            lines="$(wc -l < "$file")"
+            if (( lines > 30 )); then
+              echo "Agent role card exceeds 30 lines: $file ($lines)"
+              exit 1
+            fi
+          done < <(find .github/agents -name '*.agent.md' -type f)
+
+          while IFS= read -r file; do
+            line_budget "$file" 30 "Prompt file"
+            if ! grep -q '^name:' "$file"; then
+              echo "Prompt file is missing frontmatter name: $file"
+              exit 1
+            fi
+            if ! grep -q '^description:' "$file"; then
+              echo "Prompt file is missing frontmatter description: $file"
+              exit 1
+            fi
+          done < <(find .github/prompts -name '*.prompt.md' -type f)
+
+          while IFS= read -r file; do
+            line_budget "$file" 60 "Skill file"
+            if ! grep -q '^name:' "$file"; then
+              echo "Skill file is missing frontmatter name: $file"
+              exit 1
+            fi
+            if ! grep -q '^description:' "$file"; then
+              echo "Skill file is missing frontmatter description: $file"
+              exit 1
+            fi
+          done < <(find .github/skills -name 'SKILL.md' -type f)

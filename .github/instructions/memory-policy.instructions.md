@@ -1,5 +1,4 @@
 ﻿---
-applyTo: '**'
 description: "Memory routing and handoff protocol for Mu3Library multi-agent work"
 ---
 

@@ -1,5 +1,6 @@
 ﻿---
 applyTo: '**/*.cs'
+description: "Baseline C# coding style for Mu3Library source files"
 ---
 
 Use these baseline coding instructions for C# files in this repository.

@@ -1,5 +1,5 @@
 ﻿---
-applyTo: '**'
+description: "Task planning, task index, progress record, and verification-reporting rules for non-trivial work"
 ---
 
 # Task Planner Rules

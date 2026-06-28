@@ -1,4 +1,4 @@
-# Unity YAML Guide
+﻿# Unity YAML Guide
 
 ## When
 
@@ -8,7 +8,7 @@
 
 ## Route Away When
 
-- the question is who should own the current Unity work: use [unity-specialist-routing.md](../routing/unity-specialist-routing.md),
+- the question is who should own the current Unity work: use [routing/README.md](../routing/README.md),
 - the asset is not stored as YAML text: stop and use Unity instead,
 - the question is about general framework process or shared contracts rather than direct YAML procedure: use the root wiki index.
 

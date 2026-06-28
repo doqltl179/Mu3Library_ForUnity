@@ -8,7 +8,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 
 - `repo info`: print key repository roots and framework document locations.
 - `agents list`: list registered agent documents under `.github/agents`.
-- `agents check`: validate that the primary agent discovery entrypoints exist.
+- `agents check`: validate primary agent discovery entrypoints, context budgets, instruction scope, prompt/skill frontmatter, obsolete docs, and compact role-card shape.
 - `agents handoff-template`: print the current handoff packet template from `docs/ai-agents/contracts/handoff-contract.md`.
 - `csdevkit context {list,show,use}`: inspect or locally switch between the Built-In default context and the URP additional context.
 - `csdevkit doctor load`: run C# Dev Kit-oriented workspace, solution, generated project, and `.NET SDK` health checks.

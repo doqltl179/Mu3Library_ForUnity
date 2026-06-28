@@ -1,5 +1,6 @@
 ﻿---
-applyTo: '**'
+applyTo: "Mu3Library_Base/**,Mu3Library_URP/**,UnityProject_BuiltIn/**,UnityProject_URP/**"
+description: "Unity package architecture, assembly-boundary, optional integration, and package safety rules"
 ---
 
 # Mu3Library Unity Architecture Rules

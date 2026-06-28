@@ -9,7 +9,7 @@ description: "Use when adding, revising, or planning Unity EditMode tests in thi
 
 Add or plan EditMode tests without repeatedly re-deriving placement, scope, and verification rules.
 
-Shared routing and Unity/package routing rules: `../../../docs/ai-agents/routing/unity-specialist-routing.md`, `../../instructions/unity-architecture.instructions.md`.
+Shared routing and Unity/package routing rules: `../../../docs/ai-agents/routing/README.md`, `../../instructions/unity-architecture.instructions.md`.
 
 ## Use This Skill When
 

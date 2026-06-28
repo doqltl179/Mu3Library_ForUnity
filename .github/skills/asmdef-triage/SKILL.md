@@ -9,7 +9,7 @@ description: "Use when diagnosing or planning changes around Unity assembly defi
 
 Diagnose `.asmdef` problems and keep assembly-definition edits smaller, safer, and less repetitive.
 
-Shared routing and Unity/package routing rules: `../../../docs/ai-agents/routing/unity-specialist-routing.md`, `../../instructions/unity-architecture.instructions.md`.
+Shared routing and Unity/package routing rules: `../../../docs/ai-agents/routing/README.md`, `../../instructions/unity-architecture.instructions.md`.
 
 ## Use This Skill When
 
