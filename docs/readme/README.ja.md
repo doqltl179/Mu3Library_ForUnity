@@ -34,7 +34,7 @@
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
 - 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライと、必要時のみのキャンセル伝播を提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
-- ⏳ **Scene 非同期 API**: phase ベースの UniTask シーン preload/activate/load/unload helper
+- ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーターと Localization 文字収集ツールを提供
 ## 📋 要件
@@ -50,7 +50,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -194,6 +194,30 @@ void Start()
 }
 ```
 
+### Scene Loader
+built-in と Addressables の両方に対して明示的な scene command を提供します。
+
+```csharp
+[Inject] private ISceneLoader _sceneLoader;
+[Inject] private ISceneLoaderEventBus _sceneLoaderEventBus;
+
+// 既存 callback は要求 target または Addressables key をそのまま渡します。
+_sceneLoaderEventBus.OnSingleSceneLoaded += target =>
+{
+    Debug.Log($"Loaded target: {target}");
+};
+
+// 構造化 lifecycle callback は実際の Unity scene name を公開します。
+// Addressables scene は runtime 名が確定するまで "UnnamedAddressableScene" を使います。
+_sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
+{
+    Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
+};
+
+await _sceneLoader.LoadSingleSceneAsync("Main");
+await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
+```
+
 ### WebRequest
 HTTPリクエストを簡単に処理します。
 
@@ -335,8 +359,8 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.14.2`
-- このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
+- このリポジトリ上の現在の Base パッケージ版: `0.15.0`
+- このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
@@ -357,7 +381,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.0`）
+- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 
 Unity開発者のために制作

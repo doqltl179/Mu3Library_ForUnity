@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
+## [base/0.15.0] - 2026-07-01
+
+### Added
+- `ISceneLoader` / `SceneLoader`: Added Addressables UniTask helpers for `PreloadSingleSceneWithAddressablesAsync`, `ActivateSingleSceneWithAddressablesAsync`, `LoadSingleSceneWithAddressablesAsync`, `PreloadAdditiveSceneWithAddressablesAsync`, `ActivateAdditiveSceneWithAddressablesAsync`, `LoadAdditiveSceneWithAddressablesAsync`, and `UnloadAdditiveSceneWithAddressablesAsync`.
+- `ISceneLoaderEventBus` / `SceneLoader`: Added structured `SceneLifecycleInfo` callbacks for single and additive scene lifecycle updates. The payload keeps the requested target/key and exposes `ResolvedSceneName`, using `UnnamedAddressableScene` until an Addressables runtime scene name is resolved.
+- `ScenePhase`: Added `Unloaded` so structured lifecycle callbacks can report additive unload completion explicitly.
+
 ## [urp/0.2.0] - 2026-06-24
 
 ### Added

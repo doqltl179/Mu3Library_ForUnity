@@ -34,7 +34,7 @@
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
-- ⏳ **Scene 비동기 API**: phase 기반 UniTask 씬 preload/activate/load/unload 헬퍼 제공
+- ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
 - 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기와 Localization 문자 수집 도구 제공
 ## 📋 요구사항
@@ -50,7 +50,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -194,6 +194,30 @@ void Start()
 }
 ```
 
+### Scene Loader
+built-in 및 Addressables 씬 모두에 대해 명시적인 씬 명령을 지원합니다.
+
+```csharp
+[Inject] private ISceneLoader _sceneLoader;
+[Inject] private ISceneLoaderEventBus _sceneLoaderEventBus;
+
+// 기존 콜백은 요청 target 또는 Addressables key를 그대로 유지합니다.
+_sceneLoaderEventBus.OnSingleSceneLoaded += target =>
+{
+    Debug.Log($"Loaded target: {target}");
+};
+
+// 구조화된 lifecycle 콜백은 실제 Unity scene name을 함께 제공합니다.
+// Addressables 씬은 runtime 이름이 확인되기 전까지 "UnnamedAddressableScene"을 사용합니다.
+_sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
+{
+    Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
+};
+
+await _sceneLoader.LoadSingleSceneAsync("Main");
+await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
+```
+
 ### WebRequest
 HTTP 요청을 간단하게 처리합니다.
 
@@ -335,8 +359,8 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.14.2`
-- 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- 이 저장소의 현재 Base 패키지 버전: `0.15.0`
+- 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
 ## 🤝 기여
@@ -357,7 +381,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨

@@ -11,6 +11,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
+## [base/0.15.0] - 2026-07-01
+
+### 추가됨
+- `ISceneLoader` / `SceneLoader`: `PreloadSingleSceneWithAddressablesAsync`, `ActivateSingleSceneWithAddressablesAsync`, `LoadSingleSceneWithAddressablesAsync`, `PreloadAdditiveSceneWithAddressablesAsync`, `ActivateAdditiveSceneWithAddressablesAsync`, `LoadAdditiveSceneWithAddressablesAsync`, `UnloadAdditiveSceneWithAddressablesAsync` Addressables UniTask helper를 추가함.
+- `ISceneLoaderEventBus` / `SceneLoader`: single/additive 씬 lifecycle 갱신을 위한 구조화된 `SceneLifecycleInfo` 콜백을 추가함. payload는 요청 target/key를 유지하면서 `ResolvedSceneName`을 함께 제공하고, Addressables runtime scene name이 아직 확인되지 않았을 때는 `UnnamedAddressableScene`을 사용함.
+- `ScenePhase`: 구조화 lifecycle 콜백에서 additive unload 완료를 명시적으로 보고할 수 있도록 `Unloaded`를 추가함.
+
 ## [urp/0.2.0] - 2026-06-24
 
 ### 추가됨

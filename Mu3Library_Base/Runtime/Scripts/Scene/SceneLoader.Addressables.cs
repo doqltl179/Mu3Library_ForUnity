@@ -230,7 +230,7 @@ namespace Mu3Library.Scene
             Debug.Log($"Addressable additive scene unload start. key: {key}");
 
             AsyncOperationHandle<SceneInstance> unloadHandle = Addressables.UnloadSceneAsync(handle, autoReleaseHandle);
-            SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, autoReleaseHandle);
+            SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, handle, autoReleaseHandle);
             operation.SceneHandle = handle.Result.Scene.handle;
             _unloadAdditiveAddressablesSceneOperations.Add(key, operation);
             EmitStatusChanged(operation, force: true);
@@ -242,6 +242,7 @@ namespace Mu3Library.Scene
             SceneOperation operation = new SceneOperation
             {
                 SceneName = key,
+                ResolvedSceneName = string.Empty,
                 IsAddressables = true,
                 AddressablesHandle = handle,
                 ActivationOperation = null,
@@ -264,11 +265,16 @@ namespace Mu3Library.Scene
             return operation;
         }
 
-        private SceneOperation CreateAddressablesUnloadOperation(string key, AsyncOperationHandle<SceneInstance> handle, bool autoReleaseHandle)
+        private SceneOperation CreateAddressablesUnloadOperation(
+            string key,
+            AsyncOperationHandle<SceneInstance> handle,
+            AsyncOperationHandle<SceneInstance> loadedHandle,
+            bool autoReleaseHandle)
         {
             SceneOperation operation = new SceneOperation
             {
                 SceneName = key,
+                ResolvedSceneName = ResolveAddressablesSceneName(loadedHandle),
                 IsAddressables = true,
                 AddressablesHandle = handle,
                 ActivationOperation = null,
@@ -311,7 +317,6 @@ namespace Mu3Library.Scene
             }
 
             string key = _singleAddressablesSceneOperation.SceneName;
-            string previousSceneName = _currentSceneName;
             bool succeeded = IsAddressablesOperationSuccessful(_singleAddressablesSceneOperation);
             Debug.Log($"Addressable single scene operation end. key: {key} succeeded={succeeded}");
 
@@ -351,7 +356,7 @@ namespace Mu3Library.Scene
 
                 if (succeeded)
                 {
-                    FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneHandle(pair.Value));
+                    FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneName(pair.Value), ResolveLoadedSceneHandle(pair.Value));
                 }
                 else
                 {
@@ -450,6 +455,8 @@ namespace Mu3Library.Scene
                 return false;
             }
 
+            TryPopulateResolvedSceneName(operation);
+
             if (!operation.AutoActivate)
             {
                 UpdateSceneOperationStatus(operation, ScenePhase.Preloaded, 1.0f);
@@ -477,6 +484,31 @@ namespace Mu3Library.Scene
             }
 
             return operation.AddressablesHandle.IsValid() && operation.AddressablesHandle.Status == AsyncOperationStatus.Succeeded;
+        }
+
+        private void TryPopulateResolvedSceneName(SceneOperation operation)
+        {
+            if (operation == null || !string.IsNullOrEmpty(operation.ResolvedSceneName))
+            {
+                return;
+            }
+
+            string resolvedSceneName = ResolveAddressablesSceneName(operation.AddressablesHandle);
+            if (!string.IsNullOrEmpty(resolvedSceneName))
+            {
+                SetResolvedSceneName(operation, resolvedSceneName);
+            }
+        }
+
+        private static string ResolveAddressablesSceneName(AsyncOperationHandle<SceneInstance> handle)
+        {
+            if (!handle.IsValid() || handle.Status != AsyncOperationStatus.Succeeded)
+            {
+                return string.Empty;
+            }
+
+            UnityEngine.SceneManagement.Scene scene = handle.Result.Scene;
+            return scene.IsValid() ? scene.name : string.Empty;
         }
     }
 }

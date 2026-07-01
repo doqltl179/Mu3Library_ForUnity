@@ -12,6 +12,7 @@ namespace Mu3Library.Scene
         private partial class SceneOperation
         {
             public string SceneName;
+            public string ResolvedSceneName;
             public bool IsAdditive;
             public bool IsUnload;
             public bool AutoActivate;
@@ -27,6 +28,8 @@ namespace Mu3Library.Scene
             public bool HasUnitySceneEvent;
             public AsyncOperation Operation;
         }
+
+        private const string UnnamedAddressableScene = "UnnamedAddressableScene";
 
         public int LoadingCount => GetTrackedOperationCount();
         public bool IsLoading => LoadingCount > 0;
@@ -48,11 +51,13 @@ namespace Mu3Library.Scene
         public event Action<string> OnSingleScenePreloaded;
         public event Action<string> OnSingleSceneLoaded;
         public event Action<string, string> OnSingleSceneChanged;
+        public event Action<SceneLifecycleInfo> OnSingleSceneLifecycle;
 
         public event Action<string> OnAdditiveSceneLoadStarted;
         public event Action<string, float> OnAdditiveScenePreloadProgress;
         public event Action<string> OnAdditiveScenePreloaded;
         public event Action<string> OnAdditiveSceneLoaded;
+        public event Action<SceneLifecycleInfo> OnAdditiveSceneLifecycle;
 
         public event Action<string, float> OnAdditiveSceneUnloadProgress;
         public event Action<string> OnAdditiveSceneUnloaded;
@@ -220,6 +225,16 @@ namespace Mu3Library.Scene
                 callback,
                 onDisposed);
 
+        public uint SubscribeOnSingleSceneLifecycleOnce(Action<SceneLifecycleInfo> callback)
+            => SubscribeOnSingleSceneLifecycleOnce(callback, null);
+
+        public uint SubscribeOnSingleSceneLifecycleOnce(Action<SceneLifecycleInfo> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnSingleSceneLifecycle += handler,
+                handler => OnSingleSceneLifecycle -= handler,
+                callback,
+                onDisposed);
+
         public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback)
             => SubscribeOnAdditiveSceneLoadStartedOnce(callback, null);
 
@@ -257,6 +272,16 @@ namespace Mu3Library.Scene
             => _subscribeHandler.SubscribeOnce(
                 handler => OnAdditiveSceneUnloaded += handler,
                 handler => OnAdditiveSceneUnloaded -= handler,
+                callback,
+                onDisposed);
+
+        public uint SubscribeOnAdditiveSceneLifecycleOnce(Action<SceneLifecycleInfo> callback)
+            => SubscribeOnAdditiveSceneLifecycleOnce(callback, null);
+
+        public uint SubscribeOnAdditiveSceneLifecycleOnce(Action<SceneLifecycleInfo> callback, Action onDisposed)
+            => _subscribeHandler.SubscribeOnce(
+                handler => OnAdditiveSceneLifecycle += handler,
+                handler => OnAdditiveSceneLifecycle -= handler,
                 callback,
                 onDisposed);
         #endregion
@@ -469,6 +494,7 @@ namespace Mu3Library.Scene
             return new SceneOperation
             {
                 SceneName = sceneName,
+                ResolvedSceneName = sceneName,
                 Operation = operation,
                 IsAdditive = isAdditive,
                 IsUnload = false,
@@ -487,6 +513,7 @@ namespace Mu3Library.Scene
             return new SceneOperation
             {
                 SceneName = sceneName,
+                ResolvedSceneName = sceneName,
                 Operation = operation,
                 IsAdditive = true,
                 IsUnload = true,
@@ -539,7 +566,7 @@ namespace Mu3Library.Scene
                     continue;
                 }
 
-                FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneHandle(pair.Value));
+                FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneName(pair.Value), ResolveLoadedSceneHandle(pair.Value));
                 completed ??= new List<string>();
                 completed.Add(pair.Key);
             }
@@ -700,6 +727,7 @@ namespace Mu3Library.Scene
             }
 
             EmitLifecycleCallbacks(status, phaseChanged, progressChanged);
+            EmitLifecycleInfo(operation);
 
             operation.HasReportedStatus = true;
             operation.LastReportedPhase = status.Phase;
@@ -763,7 +791,23 @@ namespace Mu3Library.Scene
                         OnAdditiveSceneUnloadProgress?.Invoke(status.SceneName, status.Progress);
                     }
                     break;
+
+                case ScenePhase.Loaded:
+                case ScenePhase.Unloaded:
+                    break;
             }
+        }
+
+        private void EmitLifecycleInfo(SceneOperation operation)
+        {
+            SceneLifecycleInfo info = CreateLifecycleInfo(operation);
+            if (info.IsAdditive)
+            {
+                OnAdditiveSceneLifecycle?.Invoke(info);
+                return;
+            }
+
+            OnSingleSceneLifecycle?.Invoke(info);
         }
 
         private bool TryEmitSingleSceneLoadedFromUnityEvent(UnityEngine.SceneManagement.Scene scene)
@@ -847,7 +891,7 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            FinalizeAdditiveSceneLoaded(operation, scene.handle);
+            FinalizeAdditiveSceneLoaded(operation, scene.name, scene.handle);
             return true;
         }
 
@@ -873,7 +917,7 @@ namespace Mu3Library.Scene
             Debug.Log($"Single scene load end. sceneName: {operation.SceneName}");
 
             operation.SceneHandle = sceneHandle;
-            operation.HasUnitySceneEvent = true;
+            SetResolvedSceneName(operation, loadedSceneName);
             operation.Phase = ScenePhase.Loaded;
             operation.Progress = 1.0f;
 
@@ -881,11 +925,13 @@ namespace Mu3Library.Scene
             _currentSingleSceneStatusName = operation.SceneName;
             _currentAdditiveScenes.Clear();
 
+            EmitStatusChanged(operation, force: true);
+            operation.HasUnitySceneEvent = true;
             OnSingleSceneLoaded?.Invoke(operation.SceneName);
             OnSingleSceneChanged?.Invoke(previousSceneName, _currentSceneName);
         }
 
-        private void FinalizeAdditiveSceneLoaded(SceneOperation operation, int sceneHandle)
+        private void FinalizeAdditiveSceneLoaded(SceneOperation operation, string loadedSceneName, int sceneHandle)
         {
             if (operation == null || operation.HasUnitySceneEvent)
             {
@@ -895,7 +941,7 @@ namespace Mu3Library.Scene
             Debug.Log($"Additive scene load end. sceneName: {operation.SceneName}");
 
             operation.SceneHandle = sceneHandle;
-            operation.HasUnitySceneEvent = true;
+            SetResolvedSceneName(operation, loadedSceneName);
             operation.Phase = ScenePhase.Loaded;
             operation.Progress = 1.0f;
 
@@ -907,6 +953,8 @@ namespace Mu3Library.Scene
 #endif
 
             _currentAdditiveScenes.Add(operation.SceneName);
+            EmitStatusChanged(operation, force: true);
+            operation.HasUnitySceneEvent = true;
             OnAdditiveSceneLoaded?.Invoke(operation.SceneName);
         }
 
@@ -918,8 +966,7 @@ namespace Mu3Library.Scene
             }
 
             Debug.Log($"Additive scene unload end. sceneName: {operation.SceneName}");
-
-            operation.HasUnitySceneEvent = true;
+            operation.Phase = ScenePhase.Unloaded;
             operation.Progress = 1.0f;
 
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
@@ -930,12 +977,31 @@ namespace Mu3Library.Scene
 #endif
 
             _currentAdditiveScenes.Remove(operation.SceneName);
+            EmitStatusChanged(operation, force: true);
+            operation.HasUnitySceneEvent = true;
             OnAdditiveSceneUnloaded?.Invoke(operation.SceneName);
         }
 
         private SceneStatus CreateStatus(SceneOperation operation)
         {
             return new SceneStatus(operation.SceneName, operation.IsAdditive, operation.Phase, operation.Progress);
+        }
+
+        private SceneLifecycleInfo CreateLifecycleInfo(SceneOperation operation)
+        {
+            bool hasResolvedSceneName = HasResolvedSceneName(operation);
+            return new SceneLifecycleInfo(
+                operation.SceneName,
+                GetResolvedSceneNameOrFallback(operation),
+                hasResolvedSceneName,
+                operation.IsAdditive,
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+                operation.IsAddressables,
+#else
+                false,
+#endif
+                operation.Phase,
+                operation.Progress);
         }
 
         private bool MatchesUnitySceneEvent(SceneOperation operation, UnityEngine.SceneManagement.Scene scene)
@@ -989,6 +1055,50 @@ namespace Mu3Library.Scene
 #endif
 
             return operation.SceneName;
+        }
+
+        private void SetResolvedSceneName(SceneOperation operation, string sceneName)
+        {
+            if (operation == null || string.IsNullOrEmpty(sceneName))
+            {
+                return;
+            }
+
+            operation.ResolvedSceneName = sceneName;
+        }
+
+        private string GetResolvedSceneNameOrFallback(SceneOperation operation)
+        {
+            if (!string.IsNullOrEmpty(operation.ResolvedSceneName))
+            {
+                return operation.ResolvedSceneName;
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables)
+            {
+                return UnnamedAddressableScene;
+            }
+#endif
+
+            return operation.SceneName;
+        }
+
+        private bool HasResolvedSceneName(SceneOperation operation)
+        {
+            if (!string.IsNullOrEmpty(operation.ResolvedSceneName))
+            {
+                return true;
+            }
+
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+            if (operation.IsAddressables)
+            {
+                return false;
+            }
+#endif
+
+            return !string.IsNullOrEmpty(operation.SceneName);
         }
 
         private int ResolveLoadedSceneHandle(SceneOperation operation)

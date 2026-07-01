@@ -44,6 +44,35 @@ namespace Mu3Library.Scene
         }
     }
 
+    public readonly struct SceneLifecycleInfo
+    {
+        public string Target { get; }
+        public string ResolvedSceneName { get; }
+        public bool HasResolvedSceneName { get; }
+        public bool IsAdditive { get; }
+        public bool IsAddressables { get; }
+        public ScenePhase Phase { get; }
+        public float Progress { get; }
+
+        public SceneLifecycleInfo(
+            string target,
+            string resolvedSceneName,
+            bool hasResolvedSceneName,
+            bool isAdditive,
+            bool isAddressables,
+            ScenePhase phase,
+            float progress)
+        {
+            Target = target;
+            ResolvedSceneName = resolvedSceneName;
+            HasResolvedSceneName = hasResolvedSceneName;
+            IsAdditive = isAdditive;
+            IsAddressables = isAddressables;
+            Phase = phase;
+            Progress = progress;
+        }
+    }
+
     public interface ISceneLoaderEventBus
     {
         public event Action<string> OnSingleSceneLoadStarted;
@@ -51,11 +80,13 @@ namespace Mu3Library.Scene
         public event Action<string> OnSingleScenePreloaded;
         public event Action<string> OnSingleSceneLoaded;
         public event Action<string, string> OnSingleSceneChanged;
+        public event Action<SceneLifecycleInfo> OnSingleSceneLifecycle;
 
         public event Action<string> OnAdditiveSceneLoadStarted;
         public event Action<string, float> OnAdditiveScenePreloadProgress;
         public event Action<string> OnAdditiveScenePreloaded;
         public event Action<string> OnAdditiveSceneLoaded;
+        public event Action<SceneLifecycleInfo> OnAdditiveSceneLifecycle;
 
         public event Action<string, float> OnAdditiveSceneUnloadProgress;
         public event Action<string> OnAdditiveSceneUnloaded;
@@ -70,6 +101,8 @@ namespace Mu3Library.Scene
         public uint SubscribeOnSingleSceneLoadedOnce(Action<string> callback, Action onDisposed);
         public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback);
         public uint SubscribeOnSingleSceneChangedOnce(Action<string, string> callback, Action onDisposed);
+        public uint SubscribeOnSingleSceneLifecycleOnce(Action<SceneLifecycleInfo> callback);
+        public uint SubscribeOnSingleSceneLifecycleOnce(Action<SceneLifecycleInfo> callback, Action onDisposed);
 
         public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback);
         public uint SubscribeOnAdditiveSceneLoadStartedOnce(Action<string> callback, Action onDisposed);
@@ -79,5 +112,7 @@ namespace Mu3Library.Scene
         public uint SubscribeOnAdditiveSceneLoadedOnce(Action<string> callback, Action onDisposed);
         public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback);
         public uint SubscribeOnAdditiveSceneUnloadedOnce(Action<string> callback, Action onDisposed);
+        public uint SubscribeOnAdditiveSceneLifecycleOnce(Action<SceneLifecycleInfo> callback);
+        public uint SubscribeOnAdditiveSceneLifecycleOnce(Action<SceneLifecycleInfo> callback, Action onDisposed);
     }
 }
