@@ -1,5 +1,5 @@
 ﻿---
-applyTo: '**'
+description: "Review checklist for regression, API, package-boundary, documentation, and verification quality gates"
 ---
 
 # Review Rules

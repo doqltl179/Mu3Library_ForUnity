@@ -34,7 +34,7 @@
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
-- ⏳ **Scene Async APIs**: Phase-based UniTask scene preload/activate/load/unload helpers
+- ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 - 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters plus Localization character collection tools
 
@@ -51,7 +51,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.14.2
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -195,6 +195,30 @@ void Start()
 }
 ```
 
+### Scene Loader
+Supports explicit scene commands for both built-in and Addressables scenes.
+
+```csharp
+[Inject] private ISceneLoader _sceneLoader;
+[Inject] private ISceneLoaderEventBus _sceneLoaderEventBus;
+
+// Legacy callbacks keep the requested target or Addressables key.
+_sceneLoaderEventBus.OnSingleSceneLoaded += target =>
+{
+    Debug.Log($"Loaded target: {target}");
+};
+
+// Structured lifecycle callbacks expose the resolved Unity scene name.
+// Addressables scenes use "UnnamedAddressableScene" until the runtime name is available.
+_sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
+{
+    Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
+};
+
+await _sceneLoader.LoadSingleSceneAsync("Main");
+await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
+```
+
 ### WebRequest
 Simplifies HTTP request handling.
 
@@ -336,8 +360,8 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.14.2`
-- Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- Current Base package version in this repository: `0.15.0`
+- Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -358,7 +382,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.14.2`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.0`)
+- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

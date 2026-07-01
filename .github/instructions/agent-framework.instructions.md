@@ -1,5 +1,5 @@
 ﻿---
-applyTo: '**'
+applyTo: ".github/agents/**,.github/instructions/**,.github/prompts/**,.github/skills/**,.github/workflows/repo-hygiene.yml,docs/ai-agents/**,tasks/**"
 description: "Compact multi-agent framework rules for Mu3Library routing and boundary control"
 ---
 
@@ -17,16 +17,12 @@ description: "Compact multi-agent framework rules for Mu3Library routing and bou
 
 ## Token Budget Rules
 
-- In interactive sessions, answer with the smallest clear result that completes the request.
-- Do not restate the request, repeat obvious context, or add long preambles unless they change the decision.
-- Expand only when the user explicitly asks for detail or the task is high-risk enough that brevity would hide a material risk.
-- For the detailed procedure, use `docs/ai-agents/workflow/token-budget.md`.
+- Keep interactive answers, searches, and command summaries short.
+- Use `docs/ai-agents/workflow/token-budget.md` for detailed low-token procedure.
 - Open `docs/ai-agents/README.md` only when the next page is not obvious.
-- Use section indexes as routers: `routing/`, `packages/`, `contracts/`, `workflow/`, `plans/`, `guides/`, then the smallest matching leaf page.
-- Keep startup docs and section indexes thin; move detailed rules into selectable leaf pages.
-- Do not read every agent spec during framework discovery. Use `routing/agent-catalog.md` for inventory and open a spec only after that owner is selected.
+- Route through section indexes, then stop at the smallest owning page.
+- Do not read every agent spec during framework discovery; use `routing/README.md` until an owner is selected.
 - Prefer links over repeated summaries in agent specs, instructions, and wiki indexes.
-- Summarize large command output instead of copying it into handoff or review text.
 
 ## Suitability Gate
 
@@ -42,7 +38,7 @@ After any non-trivial agent-framework change, check:
 
 ## Required Artifact Updates
 
-- Update `docs/ai-agents/routing/agent-catalog.md` when owner inventory changes.
+- Update `docs/ai-agents/routing/README.md` when owner inventory changes.
 - Update `docs/ai-agents/architecture.md` when the stable control model changes.
 - Update `.github/copilot-instructions.md` when startup routing or discovery changes.
 - Add or revise a skill only when a reusable workflow gains a stable input/output contract.

@@ -8,6 +8,7 @@ namespace Mu3Library.Scene
         Activating,
         Loaded,
         Unloading,
+        Unloaded,
     }
 
     public readonly struct SceneStatus

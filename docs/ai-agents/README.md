@@ -7,8 +7,8 @@ This is the wiki root. Use it only when task analysis shows that a wiki route is
 | Question | Open |
 |---|---|
 | Who owns this work? | [routing/README.md](routing/README.md) |
-| Which package family should this work enter before opening one package-surface leaf page? | [packages/README.md](packages/README.md) |
-| What packet, section contract, or shared format applies? | [contracts/README.md](contracts/README.md) |
+| Which package family and surface owns this work? | [packages/README.md](packages/README.md) |
+| What owner-to-owner packet format applies? | [handoff-contract.md](contracts/handoff-contract.md) |
 | What repeatable process or workflow asset applies? | [workflow/README.md](workflow/README.md) |
 | What task plan template, plan storage rule, or plan-writing convention applies? | [plans/README.md](plans/README.md) |
 | What specialized edit procedure applies? | [guides/README.md](guides/README.md) |
@@ -16,9 +16,9 @@ This is the wiki root. Use it only when task analysis shows that a wiki route is
 
 ## Navigation Rules
 
-- Prefer `README.md -> section README -> leaf page`.
-- Let the root router choose sections; let each section README mainly advertise child routers or leaf pages inside its own section.
-- Let leaf pages own the detailed rules.
+- Prefer `README.md -> section README -> smallest owning page`.
+- Let the root router choose sections; let each section README advertise only its direct child owners.
+- Let owning pages hold detailed rules.
 - Replace repeated rules with links to the smallest owning page.
 
-Related tooling lives outside this wiki: `tools/mu3_cli/README.md` and the tracked Unity project `.code-workspace` files.
+Related tooling lives outside this wiki: `tools/README.md` and the tracked Unity project `.code-workspace` files.

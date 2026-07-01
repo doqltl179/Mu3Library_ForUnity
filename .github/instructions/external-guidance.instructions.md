@@ -1,5 +1,4 @@
 ﻿---
-applyTo: '**'
 description: "External evidence, freshness, and source-routing rules for Mu3Library agent work"
 ---
 

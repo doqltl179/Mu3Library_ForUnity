@@ -4,11 +4,11 @@
 
 - a repeatable flow supports work but should not become a durable owner,
 - you need the prompt, skill, hook, or script inventory,
-- you are deciding whether a reusable procedure belongs here instead of in `agent-catalog.md`.
+- you are deciding whether a reusable procedure belongs here instead of the owner table in [routing/README.md](../routing/README.md).
 
 ## Route Away When
 
-- durable owner inventory is needed: [agent-catalog.md](../routing/agent-catalog.md),
+- durable owner inventory is needed: [routing/README.md](../routing/README.md),
 - stable framework rationale is needed: [architecture.md](../architecture.md),
 - task plan templates or task-record rules are needed: [../plans/README.md](../plans/README.md),
 - the bounded framework-change loop is needed: [iteration-process.md](iteration-process.md).
