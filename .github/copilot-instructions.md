@@ -24,7 +24,7 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 - `.github/instructions/verification.instructions.md` for compile or safety verification.
 - `.github/instructions/git-workflow.instructions.md` for branch, merge, push, or release sequencing.
 - `.github/instructions/release.instructions.md` for release, version, tag, or changelog release scope.
-- `.github/instructions/docs-sync.instructions.md` when README/CHANGELOG synchronization is part of the task.
+- `.github/instructions/docs-sync.instructions.md` when README/CHANGELOG synchronization or navigation changes are part of the task.
 
 ## Deferred Inventories
 

@@ -13,12 +13,16 @@
 
 ## 📘 Documentation
 
-- Korean README: `docs/readme/README.ko.md`
-- Japanese README: `docs/readme/README.ja.md`
-- Changelog (EN): `CHANGELOG.md`
-- Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
-- Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
-- Repository workflow changelog: `docs/repository/CHANGELOG.md`
+### Package Documentation
+
+- [Korean README](docs/readme/README.ko.md) · [Japanese README](docs/readme/README.ja.md)
+- [Package changelog (English)](CHANGELOG.md) · [Korean](docs/changelog/CHANGELOG.ko.md) · [Japanese](docs/changelog/CHANGELOG.ja.md)
+
+### Contributor Documentation
+
+- [Repository workflow changelog](docs/repository/CHANGELOG.md)
+- [AI-agent and contributor workflow](docs/ai-agents/README.md) — choose task ownership, procedures, and verification routes.
+- [Repository tooling](tools/README.md)
 
 ## ✨ Key Features
 

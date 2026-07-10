@@ -17,15 +17,15 @@
 
 | Type | Artifact | Purpose |
 |---|---|---|
-| Prompt | `.github/prompts/adapt-external-guidance.prompt.md` | External prompt/policy/workflow -> repository-safe adaptation entrypoint |
-| Prompt | `.github/prompts/compile-unity.prompt.md` | Synchronous compile-only verification entrypoint |
-| Prompt | `.github/prompts/development-idea-bank.prompt.md` | Repository-shaped package idea-bank entrypoint |
-| Prompt | `.github/prompts/framework-next-unit.prompt.md` | Bounded work -> review -> continue/rework entrypoint |
-| Skill | `.github/skills/bootstrap-python-cli/SKILL.md` | Repository-local Python CLI bootstrap |
-| Skill | `.github/skills/agent-role-audit/SKILL.md` | Structural role audit workflow |
-| Skill | `.github/skills/development-idea-bank/SKILL.md` | Package whitespace and idea-bank workflow |
-| Skill | `.github/skills/asmdef-triage/SKILL.md` | Assembly-definition diagnosis and safe change planning |
-| Skill | `.github/skills/editmode-test-addition/SKILL.md` | EditMode test planning, placement, and minimal verification |
+| Prompt | [adapt-external-guidance.prompt.md](../../../.github/prompts/adapt-external-guidance.prompt.md) | External prompt/policy/workflow -> repository-safe adaptation entrypoint |
+| Prompt | [compile-unity.prompt.md](../../../.github/prompts/compile-unity.prompt.md) | Synchronous compile-only verification entrypoint |
+| Prompt | [development-idea-bank.prompt.md](../../../.github/prompts/development-idea-bank.prompt.md) | Repository-shaped package idea-bank entrypoint |
+| Prompt | [framework-next-unit.prompt.md](../../../.github/prompts/framework-next-unit.prompt.md) | Bounded work -> review -> continue/rework entrypoint |
+| Skill | [bootstrap-python-cli](../../../.github/skills/bootstrap-python-cli/SKILL.md) | Repository-local Python CLI bootstrap |
+| Skill | [agent-role-audit](../../../.github/skills/agent-role-audit/SKILL.md) | Structural role audit workflow |
+| Skill | [development-idea-bank](../../../.github/skills/development-idea-bank/SKILL.md) | Package whitespace and idea-bank workflow |
+| Skill | [asmdef-triage](../../../.github/skills/asmdef-triage/SKILL.md) | Assembly-definition diagnosis and safe change planning |
+| Skill | [editmode-test-addition](../../../.github/skills/editmode-test-addition/SKILL.md) | EditMode test planning, placement, and minimal verification |
 
 ## Notes
 
