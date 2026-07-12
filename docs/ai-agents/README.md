@@ -7,6 +7,7 @@ This is the wiki root. Use it only when task analysis shows that a wiki route is
 | Question | Open |
 |---|---|
 | Who owns this work? | [routing/README.md](routing/README.md) |
+| Who owns a project or AI-agent documentation change? | [routing/README.md](routing/README.md) |
 | Which package family and surface owns this work? | [packages/README.md](packages/README.md) |
 | What owner-to-owner packet format applies? | [handoff-contract.md](contracts/handoff-contract.md) |
 | What repeatable process or workflow asset applies? | [workflow/README.md](workflow/README.md) |

@@ -13,12 +13,16 @@
 
 ## 📘 Documentation
 
-- Korean README: `docs/readme/README.ko.md`
-- Japanese README: `docs/readme/README.ja.md`
-- Changelog (EN): `CHANGELOG.md`
-- Changelog (KO): `docs/changelog/CHANGELOG.ko.md`
-- Changelog (JA): `docs/changelog/CHANGELOG.ja.md`
-- Repository workflow changelog: `docs/repository/CHANGELOG.md`
+### Package Documentation
+
+- [Korean README](docs/readme/README.ko.md) · [Japanese README](docs/readme/README.ja.md)
+- [Package changelog (English)](CHANGELOG.md) · [Korean](docs/changelog/CHANGELOG.ko.md) · [Japanese](docs/changelog/CHANGELOG.ja.md)
+
+### Contributor Documentation
+
+- [Repository workflow changelog](docs/repository/CHANGELOG.md)
+- [AI-agent and contributor workflow](docs/ai-agents/README.md) — choose task ownership, procedures, and verification routes.
+- [Repository tooling](tools/README.md)
 
 ## ✨ Key Features
 
@@ -96,6 +100,24 @@ public class GameCore : CoreBase
     {
         base.Start(); // Injection must be executed first!
         _audioManager.PlayBgm(_mainThemeClip);
+    }
+}
+```
+
+Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks.
+
+```csharp
+public class AudioPlaybackService
+{
+    [Inject] private IAudioManager _audioManager;
+}
+
+public class AudioCore : CoreBase
+{
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<AudioManager>();
+        RegisterClass<AudioPlaybackService>(); // [Inject] members are populated automatically
     }
 }
 ```

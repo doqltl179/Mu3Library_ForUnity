@@ -129,12 +129,16 @@ namespace Mu3Library.DI
             => _container.Register<TService>(lifetime, key);
 
         /// <summary>
-        /// Register an already created instance and track its lifecycle.
+        /// Register an already created instance, inject its members, and track its lifecycle.
         /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
         {
             _container.RegisterInstance(instance, registerInterfaces, key);
+
+            // Apply member injection to instances registered from outside the container.
+            InjectInto(instance);
+
             // Track lifecycle for pre-created instances
             TrackLifecycle(instance, ServiceLifetime.Singleton);
         }
@@ -303,17 +307,24 @@ namespace Mu3Library.DI
 
         private object CreateInstance(ServiceDescriptor descriptor, HashSet<Type> chain)
         {
+            object instance;
+
             if (descriptor.Factory != null)
             {
-                return descriptor.Factory(this);
+                instance = descriptor.Factory(this);
             }
-
-            if (descriptor.ImplementationType == null)
+            else if (descriptor.ImplementationType == null)
             {
                 return null;
             }
+            else
+            {
+                instance = CreateInstance(descriptor.ImplementationType, chain);
+            }
 
-            return CreateInstance(descriptor.ImplementationType, chain);
+            // Registered services receive member injection before lifecycle tracking.
+            InjectMembers(instance, chain);
+            return instance;
         }
 
         private object CreateInstance(Type implementationType, HashSet<Type> chain)

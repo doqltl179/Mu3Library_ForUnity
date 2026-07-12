@@ -1,5 +1,5 @@
 ---
-description: "Code review checklist focused on regressions and architecture safety"
+description: "Quality reviewer for regression, API, package-boundary, documentation, release, and verification readiness."
 name: "Mu3Library Reviewer"
 ---
 

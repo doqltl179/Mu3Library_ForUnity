@@ -11,6 +11,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
+## [base/0.16.0] - 2026-07-12
+
+### 변경됨
+- `ContainerScope`: `RegisterClass<T>()`로 생성된 클래스를 포함해 `CoreBase`에 등록된 서비스가 생성 후 생명주기 콜백 전에 `[Inject]` 필드와 프로퍼티 주입을 받도록 변경함. 팩토리 생성 인스턴스와 미리 생성해 등록한 인스턴스에도 적용함.
+
 ## [base/0.15.0] - 2026-07-01
 
 ### 추가됨

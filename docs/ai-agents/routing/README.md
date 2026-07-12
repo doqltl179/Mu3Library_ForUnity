@@ -21,7 +21,7 @@ Use this section when the question is which owner should handle the current work
 | `package-integration` | Execution | Define-gated optional package integrations | [spec](../../../.github/agents/package-integration.agent.md) |
 | `sample-integrity` | Execution | Package sample integrity | [spec](../../../.github/agents/sample-integrity.agent.md) |
 | `unity` | Execution | Genuine cross-boundary Unity package work | [spec](../../../.github/agents/unity.agent.md) |
-| `docs-sync` | Execution | Multilingual README and CHANGELOG sync | [spec](../../../.github/agents/docs-sync.agent.md) |
+| `docs-sync` | Execution | Project documentation delivery and multilingual README/CHANGELOG sync | [spec](../../../.github/agents/docs-sync.agent.md) |
 | `release-manager` | Execution | Versioning, tags, branches, and GitHub Releases | [spec](../../../.github/agents/release-manager.agent.md) |
 | `cli-platform` | Execution | Repository-local Python and CLI tooling | [spec](../../../.github/agents/cli-platform.agent.md) |
 | `reviewer` | Quality | Regression, compatibility, docs, release, and verification review | [spec](../../../.github/agents/reviewer.agent.md) |
@@ -44,6 +44,12 @@ Use this section when the question is which owner should handle the current work
 | Define-gated optional integration across runtime, editor, or package surfaces | `package-integration` | the task is mostly non-gated runtime or editor work |
 | Package samples, imported footprints, manifests, or smoke checks | `sample-integrity` | the dominant work is core runtime, editor, or optional integration |
 | Unity package work genuinely spans narrower specialists and cannot be split cleanly | `unity` | a narrower owner is dominant or the work can be split into bounded units |
+
+## Documentation
+
+| Task Shape | Primary Owner | Route Away When |
+|---|---|---|
+| Project or AI-agent documentation needs clearer content, links, navigation, or multilingual README/CHANGELOG sync | `docs-sync` | role ownership, routing topology, or framework boundaries change (`role-governor`); tooling command design dominates (`cli-platform`); release execution dominates (`release-manager`); quality approval is needed (`reviewer`) |
 
 ## Shared Rules
 

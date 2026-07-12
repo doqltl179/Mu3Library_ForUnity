@@ -13,12 +13,16 @@
 
 ## 📘 문서
 
-- English README: `../../README.md`
-- Japanese README: `README.ja.md`
-- Changelog (EN): `../../CHANGELOG.md`
-- Changelog (KO): `../changelog/CHANGELOG.ko.md`
-- Changelog (JA): `../changelog/CHANGELOG.ja.md`
-- 저장소 워크플로 변경 이력: `../repository/CHANGELOG.md`
+### 패키지 문서
+
+- [English README](../../README.md) · [Japanese README](README.ja.md)
+- [패키지 변경 이력 (English)](../../CHANGELOG.md) · [한국어](../changelog/CHANGELOG.ko.md) · [일본어](../changelog/CHANGELOG.ja.md)
+
+### 기여자 문서
+
+- [저장소 워크플로 변경 이력](../repository/CHANGELOG.md)
+- [AI agent 및 기여자 워크플로](../ai-agents/README.md) — 작업 소유자, 절차, 검증 경로를 선택합니다.
+- [저장소 도구](../../tools/README.md)
 
 ## ✨ 주요 특징
 
@@ -95,6 +99,24 @@ public class GameCore : CoreBase
     {
         base.Start(); // 주입이 먼저 실행되어야 함!
         _audioManager.PlayBgm(_mainThemeClip);
+    }
+}
+```
+
+등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다.
+
+```csharp
+public class AudioPlaybackService
+{
+    [Inject] private IAudioManager _audioManager;
+}
+
+public class AudioCore : CoreBase
+{
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<AudioManager>();
+        RegisterClass<AudioPlaybackService>(); // [Inject] 멤버가 자동으로 채워짐
     }
 }
 ```
