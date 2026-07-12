@@ -181,7 +181,7 @@ namespace Mu3Library.DI
         }
 
         /// <summary>
-        /// Register a concrete type as singleton (self + interfaces) and immediately resolve it to trigger lifecycle tracking.
+        /// Register a concrete type as singleton (self + interfaces) and immediately resolve it to trigger member injection and lifecycle tracking.
         /// </summary>
         protected void RegisterClass<T>()
             where T : class, new()

@@ -13,6 +13,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 この changelog はパッケージリリース変更のみを追跡します。リポジトリ開発 workflow と tooling の変更は [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md) で管理します。
 
+## [base/0.16.0] - 2026-07-12
+
+### 変更
+- `ContainerScope`: `RegisterClass<T>()` で生成されたクラスを含む `CoreBase` 登録サービスが、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されるようにしました。factory 生成インスタンスと事前生成して登録したインスタンスにも適用されます。
+
 ## [base/0.15.0] - 2026-07-01
 
 ### 追加

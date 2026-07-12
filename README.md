@@ -104,6 +104,24 @@ public class GameCore : CoreBase
 }
 ```
 
+Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks.
+
+```csharp
+public class AudioPlaybackService
+{
+    [Inject] private IAudioManager _audioManager;
+}
+
+public class AudioCore : CoreBase
+{
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<AudioManager>();
+        RegisterClass<AudioPlaybackService>(); // [Inject] members are populated automatically
+    }
+}
+```
+
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
 

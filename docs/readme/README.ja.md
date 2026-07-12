@@ -103,6 +103,24 @@ public class GameCore : CoreBase
 }
 ```
 
+登録されたサービスも、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されます。
+
+```csharp
+public class AudioPlaybackService
+{
+    [Inject] private IAudioManager _audioManager;
+}
+
+public class AudioCore : CoreBase
+{
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<AudioManager>();
+        RegisterClass<AudioPlaybackService>(); // [Inject] メンバーが自動的に設定される
+    }
+}
+```
+
 ### MVP (Model-View-Presenter)
 UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
 
