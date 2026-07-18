@@ -121,6 +121,8 @@ public class AudioCore : CoreBase
 }
 ```
 
+`MVPManager`도 좁은 공개 계약인 `IObjectInjector`를 사용해 컨테이너 외부에서 생성된 presenter에 `[Inject]` 필드와 프로퍼티 주입을 적용합니다. 구체적인 `ContainerScope`와 내부 주입 구현은 DI 어셈블리 내부에 유지됩니다.
+
 ### MVP (Model-View-Presenter)
 UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
 
@@ -144,6 +146,8 @@ public class MainMenuView : View
 // Presenter: 비즈니스 로직
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+
     protected override void LoadFunc()
     {
         _view.StartButton.onClick.AddListener(OnStartClicked);
@@ -164,6 +168,8 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 // 사용
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
+
+`MVPManager`를 `CoreBase`를 통해 등록하면 presenter의 `[Inject]` 필드와 프로퍼티가 초기화 전에 채워집니다. presenter를 열 때마다 달라지는 데이터는 `Arguments`에 전달합니다.
 
 presenter를 체인으로 여는 경우에는 ownership과 visual host를 분리해서 설정합니다.
 

@@ -11,6 +11,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
+## [Unreleased]
+
+### 추가됨
+- `IObjectInjector`: `ContainerScope` 내부를 공개하지 않고 컨테이너 외부에서 생성된 객체에도 기존 `[Inject]` 필드와 프로퍼티 주입을 적용할 수 있는 제한된 주입 계약을 추가함.
+- `MVPManager`: 컨테이너가 관리하는 인스턴스가 presenter 풀에서 새로 생성되거나 재사용되는 presenter에 초기화 전에 `[Inject]` 멤버 주입을 적용하도록 변경함.
+
 ## [base/0.16.0] - 2026-07-12
 
 ### 변경됨

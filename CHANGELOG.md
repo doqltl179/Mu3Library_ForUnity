@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This changelog tracks package release changes only. Repository development workflow and tooling changes are tracked in [`docs/repository/CHANGELOG.md`](docs/repository/CHANGELOG.md).
 
+## [Unreleased]
+
+### Added
+- `IObjectInjector`: Added a narrow injection capability for applying existing `[Inject]` field and property injection to objects created outside the container without exposing `ContainerScope` internals.
+- `MVPManager`: Container-managed instances now inject `[Inject]` members into presenters created or reused by the presenter pool before presenter initialization.
+
 ## [base/0.16.0] - 2026-07-12
 
 ### Changed

@@ -122,6 +122,8 @@ public class AudioCore : CoreBase
 }
 ```
 
+`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
+
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
 
@@ -145,6 +147,8 @@ public class MainMenuView : View
 // Presenter: Business logic
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+
     protected override void LoadFunc()
     {
         _view.StartButton.onClick.AddListener(OnStartClicked);
@@ -165,6 +169,8 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 // Usage
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
+
+When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization. Use `Arguments` for data that changes each time a presenter is opened.
 
 For chained presenters, ownership and visual hosting are configured separately.
 

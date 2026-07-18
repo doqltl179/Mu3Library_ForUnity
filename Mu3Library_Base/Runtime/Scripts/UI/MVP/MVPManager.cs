@@ -21,6 +21,9 @@ namespace Mu3Library.UI.MVP
     /// </summary>
     public partial class MVPManager : IMVPManager, IMVPManagerEventBus, IUpdatable, IDisposable
     {
+        [Inject]
+        private IObjectInjector _objectInjector = null;
+
         private GameObject m_root;
         private GameObject _root
         {
@@ -925,6 +928,7 @@ namespace Mu3Library.UI.MVP
             }
 
             presenter.Context(this);
+            _objectInjector?.Inject(presenter);
 
             return presenter;
         }
