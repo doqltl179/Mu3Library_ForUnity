@@ -30,11 +30,11 @@ namespace Mu3Library.Sample.Template.Addressable
         [SerializeField] private Button _backButton;
         [SerializeField] private Button _additiveSceneLoadButton;
 
-        private readonly string[] _allLabels = new string[]
+        private readonly IReadOnlyList<string> _allLabels = new string[]
         {
-            "download-all",
-            "test-image",
-            "test-label",
+            AddressableGroupKeysLabels.DownloadAll,
+            AddressableGroupKeysLabels.TestImage,
+            AddressableGroupKeysLabels.TestLabel,
             ""              // Test for none included label
         };
 

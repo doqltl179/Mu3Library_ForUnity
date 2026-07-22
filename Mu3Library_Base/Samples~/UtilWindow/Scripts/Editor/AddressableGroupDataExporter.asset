@@ -351,5 +351,4 @@ MonoBehaviour:
   _scriptSaveFolder: {fileID: 102900000, guid: 0793d5b1271890a4bb148194443ce3f7, type: 3}
   _scriptNamespace: Mu3Library.Sample.Template.Addressable
   _scriptClassName: AddressableGroupKeys
-  _splitByGroup: 0
   _foldoutGroupPreview: 0
