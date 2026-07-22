@@ -40,7 +40,7 @@
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
-- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters plus Localization character collection tools
+- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group data export with labels/groups/entries split into focused scripts, and Localization character collection tools
 
 ## 📋 Requirements
 

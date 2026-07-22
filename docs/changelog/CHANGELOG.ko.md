@@ -17,6 +17,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `IObjectInjector`: `ContainerScope` 내부를 공개하지 않고 컨테이너 외부에서 생성된 객체에도 기존 `[Inject]` 필드와 프로퍼티 주입을 적용할 수 있는 제한된 주입 계약을 추가함.
 - `MVPManager`: 컨테이너가 관리하는 인스턴스가 presenter 풀에서 새로 생성되거나 재사용되는 presenter에 초기화 전에 `[Inject]` 멤버 주입을 적용하도록 변경함.
 
+### 변경됨
+- `AddressableGroupDataExporterDrawer`: 생성되는 Addressables 데이터를 `{ClassName}Labels` 문자열 라벨 스크립트, 그룹별 `GroupData` 파생 스크립트, 중첩 `EntryData` 파생 에셋 클래스, 간결한 root 그룹 인덱스로 재구성함. split 토글과 `LabelData` 런타임 타입을 제거함.
+
 ## [base/0.16.0] - 2026-07-12
 
 ### 변경됨

@@ -19,6 +19,9 @@ This changelog tracks package release changes only. Repository development workf
 - `IObjectInjector`: Added a narrow injection capability for applying existing `[Inject]` field and property injection to objects created outside the container without exposing `ContainerScope` internals.
 - `MVPManager`: Container-managed instances now inject `[Inject]` members into presenters created or reused by the presenter pool before presenter initialization.
 
+### Changed
+- `AddressableGroupDataExporterDrawer`: Reworked generated Addressables data into a dedicated `{ClassName}Labels` string-label script, one `GroupData`-derived script per group, nested `EntryData`-derived asset classes, and a compact root group index. The split toggle and `LabelData` runtime type were removed.
+
 ## [base/0.16.0] - 2026-07-12
 
 ### Changed

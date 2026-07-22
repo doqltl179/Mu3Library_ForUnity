@@ -40,7 +40,7 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기와 Localization 문자 수집 도구 제공
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/그룹/엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 데이터 내보내기, Localization 문자 수집 도구 제공
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
