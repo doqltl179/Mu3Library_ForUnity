@@ -1,4 +1,5 @@
-﻿#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,40 +18,50 @@ namespace Mu3Library.Editor.Window.Drawer
         public const string FileName = "AddressableGroupDataExporter";
         private const string ItemName = "Addressable Group Data Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
+        private const string DefaultClassName = "AddressableGroups";
+
+        private static readonly HashSet<string> CSharpKeywords = new HashSet<string>
+        {
+            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+            "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
+            "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
+            "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
+            "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
+            "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true",
+            "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
+            "void", "volatile", "while"
+        };
 
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
         [SerializeField, HideInInspector] private string _scriptNamespace = "";
         [SerializeField, HideInInspector] private string _scriptClassName = "";
-        [SerializeField, HideInInspector] private bool _splitByGroup = false;
-
         [SerializeField, HideInInspector] private bool _foldoutGroupPreview = false;
 
-        private List<AddressableAssetGroup> _groups = new();
-        private bool _isDataLoaded = false;
+        private List<AddressableAssetGroup> _groups = new List<AddressableAssetGroup>();
+        private bool _isDataLoaded;
 
-        private SerializedObject m_serializedObject;
+        private SerializedObject _serializedObjectValue;
         private SerializedObject _serializedObject
         {
             get
             {
-                if (m_serializedObject == null)
-                    m_serializedObject = new SerializedObject(this);
-                return m_serializedObject;
+                if (_serializedObjectValue == null)
+                    _serializedObjectValue = new SerializedObject(this);
+                return _serializedObjectValue;
             }
         }
 
-        private SerializedProperty m_serializedPropScriptSaveFolder;
+        private SerializedProperty _serializedPropScriptSaveFolderValue;
         private SerializedProperty _serializedPropScriptSaveFolder
         {
             get
             {
-                if (m_serializedPropScriptSaveFolder == null)
-                    m_serializedPropScriptSaveFolder = _serializedObject.FindProperty(nameof(_scriptSaveFolder));
-                return m_serializedPropScriptSaveFolder;
+                if (_serializedPropScriptSaveFolderValue == null)
+                    _serializedPropScriptSaveFolderValue = _serializedObject.FindProperty(nameof(_scriptSaveFolder));
+                return _serializedPropScriptSaveFolderValue;
             }
         }
-
-
 
         public override void OnBecameVisible()
         {
@@ -65,7 +76,8 @@ namespace Mu3Library.Editor.Window.Drawer
 
         public override void OnGUIBody()
         {
-            if (!_foldout) return;
+            if (!_foldout)
+                return;
 
             DrawStruct(() =>
             {
@@ -74,38 +86,30 @@ namespace Mu3Library.Editor.Window.Drawer
 
                 DrawRefreshButton();
                 GUILayout.Space(4);
-
                 DrawScriptSaveFolderField();
                 GUILayout.Space(4);
-
                 DrawNamespaceField();
                 GUILayout.Space(4);
-
                 DrawClassNameField();
-                GUILayout.Space(4);
-
-                DrawSplitByGroupField();
                 GUILayout.Space(8);
-
                 DrawGroupPreview();
                 GUILayout.Space(8);
-
                 DrawValidationAndButton();
-
             }, 20, 20, 0, 0);
         }
 
         private void RefreshData()
         {
             _groups = new List<AddressableAssetGroup>();
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings != null)
             {
                 _groups = settings.groups
-                    .Where(g => g != null)
-                    .OrderBy(g => g.Name)
+                    .Where(group => group != null)
+                    .OrderBy(group => group.Name)
                     .ToList();
             }
+
             _isDataLoaded = true;
         }
 
@@ -113,9 +117,7 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
-            {
                 RefreshData();
-            }
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
         }
@@ -124,14 +126,11 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             _serializedObject.Update();
             EditorGUILayout.PropertyField(_serializedPropScriptSaveFolder, new GUIContent("Script Save Folder"));
-            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null)
+            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null && !IsAssetsFolder(_scriptSaveFolder))
             {
-                if (!IsAssetsFolder(_scriptSaveFolder))
-                {
-                    Debug.LogWarning("Selected folder is not inside the Assets folder.");
-                    _scriptSaveFolder = null;
-                    _serializedObject.ApplyModifiedProperties();
-                }
+                Debug.LogWarning("Selected folder is not inside the Assets folder.");
+                _scriptSaveFolder = null;
+                _serializedObject.ApplyModifiedProperties();
             }
         }
 
@@ -139,7 +138,7 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             DrawWithUndo(
                 () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
-                v => _scriptNamespace = v,
+                value => _scriptNamespace = value,
                 "Addressable Exporter: Namespace");
         }
 
@@ -147,31 +146,11 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             DrawWithUndo(
                 () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
-                v => _scriptClassName = v,
+                value => _scriptClassName = value,
                 "Addressable Exporter: Class Name");
 
             if (string.IsNullOrWhiteSpace(_scriptClassName))
-            {
-                EditorGUILayout.HelpBox("Default class name: AddressableGroups", MessageType.None);
-            }
-        }
-
-        private void DrawSplitByGroupField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.Toggle("Split by Group", _splitByGroup),
-                v => _splitByGroup = v,
-                "Addressable Exporter: Split by Group");
-
-            if (_splitByGroup)
-            {
-                string baseClass = !string.IsNullOrWhiteSpace(_scriptClassName)
-                    ? SanitizeIdentifier(_scriptClassName.Trim())
-                    : "AddressableGroups";
-                EditorGUILayout.HelpBox(
-                    $"Generates one file per group.  Class name: {baseClass}{{GroupName}}",
-                    MessageType.None);
-            }
+                EditorGUILayout.HelpBox($"Default class name: {DefaultClassName}", MessageType.None);
         }
 
         private void DrawGroupPreview()
@@ -182,98 +161,73 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
-            string countLabel = $"Addressable Groups Preview  ({_groups.Count} group(s))";
-            DrawFoldoutHeader2(countLabel, ref _foldoutGroupPreview);
-
-            if (!_foldoutGroupPreview) return;
+            DrawFoldoutHeader2($"Addressable Groups Preview  ({_groups.Count} group(s))", ref _foldoutGroupPreview);
+            if (!_foldoutGroupPreview)
+                return;
 
             DrawStruct(() =>
             {
                 foreach (AddressableAssetGroup group in _groups)
                 {
-                    var entries = group.entries?.OrderBy(e => e.address).ToList();
-                    int entryCount = entries?.Count ?? 0;
-
-                    EditorGUILayout.LabelField($"[Group]  {group.Name}  ({entryCount} asset(s))", EditorStyles.boldLabel);
-
-                    if (entryCount > 0)
+                    List<AddressableAssetEntry> entries = GetGroupEntries(group);
+                    EditorGUILayout.LabelField($"[Group]  {group.Name}  ({entries.Count} asset(s))", EditorStyles.boldLabel);
+                    if (entries.Count == 0)
                     {
-                        DrawStruct(() =>
-                        {
-                            foreach (AddressableAssetEntry entry in entries)
-                            {
-                                bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-                                string assetName = isFolder
-                                    ? Path.GetFileName(entry.AssetPath)
-                                    : Path.GetFileNameWithoutExtension(entry.AssetPath);
-                                string labelStr = entry.labels.Count > 0
-                                    ? string.Join(", ", entry.labels.OrderBy(l => l))
-                                    : "(no labels)";
-                                string prefix = isFolder ? "• [Folder]" : "•";
-
-                                EditorGUILayout.LabelField(
-                                    $"{prefix} {assetName}  |  Address: {entry.address}  |  Labels: {labelStr}",
-                                    EditorStyles.miniLabel);
-
-                                if (isFolder)
-                                {
-                                    var subEntries = new List<AddressableAssetEntry>();
-                                    entry.GatherAllAssets(subEntries, false, true, false);
-                                    DrawStruct(() =>
-                                    {
-                                        foreach (AddressableAssetEntry sub in subEntries.OrderBy(s => s.address))
-                                        {
-                                            string subName = Path.GetFileNameWithoutExtension(sub.AssetPath);
-                                            string subLabelStr = sub.labels.Count > 0
-                                                ? string.Join(", ", sub.labels.OrderBy(l => l))
-                                                : "(no labels)";
-                                            EditorGUILayout.LabelField(
-                                                $"  \u21b3 {subName}  |  Address: {sub.address}  |  Labels: {subLabelStr}",
-                                                EditorStyles.miniLabel);
-                                        }
-                                    }, 12);
-                                }
-                            }
-                        }, 16);
+                        GUILayout.Space(4);
+                        continue;
                     }
 
+                    DrawStruct(() =>
+                    {
+                        foreach (AddressableAssetEntry entry in entries)
+                            DrawEntryPreview(entry, 0);
+                    }, 16);
                     GUILayout.Space(4);
                 }
             }, 8);
         }
 
+        private void DrawEntryPreview(AddressableAssetEntry entry, int depth)
+        {
+            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
+            string labelText = entry.labels != null && entry.labels.Count > 0
+                ? string.Join(", ", entry.labels.OrderBy(label => label))
+                : "(no labels)";
+            string prefix = isFolder ? "• [Folder]" : "•";
+            EditorGUILayout.LabelField(
+                $"{new string(' ', depth * 2)}{prefix} {GetEntryName(entry)}  |  Address: {entry.address}  |  Labels: {labelText}",
+                EditorStyles.miniLabel);
+
+            foreach (AddressableAssetEntry child in GetEntryChildren(entry))
+                DrawEntryPreview(child, depth + 1);
+        }
+
         private void DrawValidationAndButton()
         {
-            string firstWarning = GetFirstWarning();
-
-            if (firstWarning != null)
+            string warning = GetFirstWarning();
+            if (warning != null)
             {
-                EditorGUILayout.HelpBox(firstWarning, MessageType.Warning);
+                EditorGUILayout.HelpBox(warning, MessageType.Warning);
                 return;
             }
 
-            if (GUILayout.Button("Generate C# Script", GUILayout.Height(30)))
-            {
-                GenerateScript();
-            }
+            if (GUILayout.Button("Generate C# Scripts", GUILayout.Height(30)))
+                GenerateScripts();
         }
 
         private string GetFirstWarning()
         {
             if (!_isDataLoaded || _groups.Count == 0)
                 return "No Addressable Groups found. Click Refresh.";
-
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
-
             return null;
         }
 
-        private void GenerateScript()
+        private void GenerateScripts()
         {
             string assetPath = FileFinder.GetAssetPath(_scriptSaveFolder);
             string systemPath = FilePathConvertor.AssetPathToSystemPath(assetPath);
-
             if (!Directory.Exists(systemPath))
             {
                 Debug.LogWarning($"Folder not found. name: {_scriptSaveFolder.name}");
@@ -282,763 +236,463 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
-            string className = !string.IsNullOrWhiteSpace(_scriptClassName)
-                ? SanitizeIdentifier(_scriptClassName.Trim())
-                : "AddressableGroups";
+            string className = GetClassName();
+            List<GeneratedGroup> generatedGroups = BuildGeneratedGroups();
+            Dictionary<string, string> labelIdentifiers = BuildIdentifierMap(
+                generatedGroups.SelectMany(group => group.Labels));
+            string labelsClassName = GetPascalCaseIdentifier(className + "Labels");
 
-            if (_splitByGroup)
+            WriteGeneratedScript(
+                systemPath,
+                labelsClassName,
+                BuildLabelsScriptBody(labelsClassName, labelIdentifiers));
+
+            foreach (GeneratedGroup group in generatedGroups)
             {
-                foreach (AddressableAssetGroup group in _groups)
-                {
-                    string groupClassName = className + SanitizeIdentifier(group.Name);
-                    string groupScriptBody = BuildGroupScriptBody(className, group);
-                    string groupFilePath = Path.Combine(systemPath, $"{groupClassName}.cs");
-                    File.WriteAllText(groupFilePath, groupScriptBody, new UTF8Encoding(true));
-                    Debug.Log($"Addressable group script generated. path: {groupFilePath}");
-                }
-
-                string rootScriptBody = BuildSplitRootScriptBody(className);
-                string rootFilePath = Path.Combine(systemPath, $"{className}.cs");
-                File.WriteAllText(rootFilePath, rootScriptBody, new UTF8Encoding(true));
-                Debug.Log($"Addressable root script generated. path: {rootFilePath}");
-
-                AssetDatabase.Refresh();
+                string groupClassName = GetPascalCaseIdentifier(className + group.Identifier);
+                WriteGeneratedScript(
+                    systemPath,
+                    groupClassName,
+                    BuildGroupScriptBody(groupClassName, group, labelsClassName, labelIdentifiers));
             }
-            else
-            {
-                string scriptBody = BuildScriptBody(className);
-                string filePath = Path.Combine(systemPath, $"{className}.cs");
-                File.WriteAllText(filePath, scriptBody, new UTF8Encoding(true));
-                AssetDatabase.Refresh();
-                Debug.Log($"Addressable group name script generated. path: {filePath}");
-            }
+
+            WriteGeneratedScript(systemPath, className, BuildRootScriptBody(className, generatedGroups));
+            AssetDatabase.Refresh();
+            Debug.Log($"Addressable scripts generated. folder: {systemPath}");
         }
 
-        private string BuildScriptBody(string className)
+        private void WriteGeneratedScript(string systemPath, string fileName, string body)
         {
-            var lines = new List<object>();
+            string filePath = Path.Combine(systemPath, $"{fileName}.cs");
+            File.WriteAllText(filePath, body, new UTF8Encoding(true));
+            Debug.Log($"Addressable script generated. path: {filePath}");
+        }
 
-            // Root-level Labels class: individual LabelData first, then All
-            var sortedGlobalLabels = CollectAllLabels(_groups);
-            var labelsContent = new List<object>();
-            foreach (string label in sortedGlobalLabels)
-                labelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = new LabelData(\"{label}\");");
-            labelsContent.Add("");
-            var allLabelFields = sortedGlobalLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-            labelsContent.Add(new ScriptBuilder.CodeBlock
-            {
-                Header = "public static readonly IReadOnlyList<LabelData> All = new LabelData[]",
-                Content = allLabelFields,
-                Suffix = ";"
-            });
-            lines.Add(new ScriptBuilder.CodeBlock
-            {
-                Header = "public static class Labels",
-                Content = labelsContent
-            });
-            lines.Add("");
-
-            // Root-level Groups class: instances first, All dict, then sealed class definitions
-            var groupsContent = new List<object>();
-
-            // Instance fields declared before All so static init order is correct
-            foreach (AddressableAssetGroup g in _groups)
-            {
-                string gName = SanitizeIdentifier(g.Name);
-                groupsContent.Add($"public static readonly {gName}Data {gName} = new {gName}Data();");
-            }
-            groupsContent.Add("");
-
-            // All: IReadOnlyList<GroupData>
-            var allGroupEntries = _groups.Select(g =>
-            {
-                string gName = SanitizeIdentifier(g.Name);
-                return (object)$"{gName},";
-            }).ToList();
-            groupsContent.Add(new ScriptBuilder.CodeBlock
-            {
-                Header = "public static readonly IReadOnlyList<GroupData> All = new GroupData[]",
-                Content = allGroupEntries,
-                Suffix = ";"
-            });
-
-            // Sealed class definitions for each group
+        private List<GeneratedGroup> BuildGeneratedGroups()
+        {
+            var generatedGroups = new List<GeneratedGroup>();
+            var usedIdentifiers = new HashSet<string>();
             foreach (AddressableAssetGroup group in _groups)
             {
-                string groupClassName = SanitizeIdentifier(group.Name);
-                var groupLines = new List<object>();
+                string identifier = MakeUniqueIdentifier(group.Name, usedIdentifiers);
+                var generatedEntries = new List<GeneratedEntry>();
+                var ancestorIdentifiers = new HashSet<string> { identifier };
+                var siblingIdentifiers = new HashSet<string>(ancestorIdentifiers);
+                var ancestorTypeIdentifiers = new HashSet<string> { identifier };
+                var siblingTypeIdentifiers = new HashSet<string>(ancestorTypeIdentifiers);
+                foreach (AddressableAssetEntry entry in GetGroupEntries(group))
+                    generatedEntries.Add(BuildGeneratedEntry(
+                        entry,
+                        ancestorIdentifiers,
+                        siblingIdentifiers,
+                        ancestorTypeIdentifiers,
+                        siblingTypeIdentifiers));
 
-                var entries = group.entries?.OrderBy(e => e.address).ToList();
-
-                // Collect per-group unique labels (including sub-entries of folders)
-                var groupLabelsSeen = new HashSet<string>();
-                void CollectGroupLabels(AddressableAssetEntry e)
-                {
-                    foreach (string l in e.labels) groupLabelsSeen.Add(l);
-                    if (AssetDatabase.IsValidFolder(e.AssetPath))
-                    {
-                        var subs = new List<AddressableAssetEntry>();
-                        e.GatherAllAssets(subs, false, true, false);
-                        foreach (var sub in subs) CollectGroupLabels(sub);
-                    }
-                }
-                if (entries != null)
-                    foreach (AddressableAssetEntry e in entries) CollectGroupLabels(e);
-
-                var groupUniqueLabels = groupLabelsSeen.OrderBy(l => l).ToList();
-
-                // Per-group Labels inner class: LabelData refs then All
-                if (groupUniqueLabels.Count > 0)
-                {
-                    var groupLabelsContent = new List<object>();
-                    foreach (string label in groupUniqueLabels)
-                        groupLabelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = {className}.Labels.{SanitizeIdentifier(label)};");
-                    groupLabelsContent.Add("");
-                    var allGroupLabelFields = groupUniqueLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-                    groupLabelsContent.Add(new ScriptBuilder.CodeBlock
-                    {
-                        Header = "public static readonly LabelData[] All = new LabelData[]",
-                        Content = allGroupLabelFields,
-                        Suffix = ";"
-                    });
-                    groupLines.Add(new ScriptBuilder.CodeBlock
-                    {
-                        Header = "public new static class Labels",
-                        Content = groupLabelsContent
-                    });
-                    groupLines.Add("");
-                }
-
-                // Entries: top-level entries become instance fields for instance access
-                if (entries != null && entries.Count > 0)
-                {
-                    foreach (AddressableAssetEntry entry in entries)
-                        groupLines.AddRange(BuildTopLevelEntryLines(entry, group.Name, className));
-                    groupLines.Add("");
-
-                    var allNames = entries
-                        .Select(e => AssetDatabase.IsValidFolder(e.AssetPath)
-                            ? Path.GetFileName(e.AssetPath)
-                            : Path.GetFileNameWithoutExtension(e.AssetPath))
-                        .ToList();
-                    var allAddresses = entries.Select(e => e.address).ToList();
-
-                    groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = allNames });
-                    groupLines.Add("");
-                    groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = allAddresses });
-                    groupLines.Add("");
-                }
-
-                // Constructor
-                groupLines.Add($"internal {groupClassName}Data() : base(");
-                groupLines.Add($"    \"{group.Name}\",");
-                groupLines.Add("    new Dictionary<string, EntryData>");
-                groupLines.Add("    {");
-                if (entries != null)
-                {
-                    foreach (AddressableAssetEntry entry in entries)
-                    {
-                        bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-                        string entryClassName = SanitizeIdentifier(entry.address);
-                        if (isFolder)
-                        {
-                            string shortName = SanitizeIdentifier(Path.GetFileName(entry.AssetPath));
-                            groupLines.Add($"        {{ _{shortName}.Name, _{shortName} }},");
-                        }
-                        else
-                        {
-                            groupLines.Add($"        {{ _{entryClassName}.Name, _{entryClassName} }},");
-                        }
-                    }
-                }
-                groupLines.Add("    },");
-                groupLines.Add("    new Dictionary<string, LabelData>");
-                groupLines.Add("    {");
-                foreach (string label in groupUniqueLabels)
-                    groupLines.Add($"        {{ Labels.{SanitizeIdentifier(label)}.Value, Labels.{SanitizeIdentifier(label)} }},");
-                groupLines.Add("    })");
-                groupLines.Add("{ }");
-
-                groupsContent.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = $"public sealed class {groupClassName}Data : GroupData",
-                    Content = groupLines
-                });
-            }
-
-            lines.Add(new ScriptBuilder.CodeBlock
-            {
-                Header = "public static class Groups",
-                Content = groupsContent
-            });
-
-            var classBlock = new ScriptBuilder.CodeBlock
-            {
-                Header = $"public static class {className}",
-                Content = lines
-            };
-
-            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine + "using Mu3Library.Addressable.Data;" + System.Environment.NewLine + System.Environment.NewLine;
-
-            if (!string.IsNullOrWhiteSpace(_scriptNamespace))
-            {
-                var namespaceBlock = new ScriptBuilder.CodeBlock
-                {
-                    Header = $"namespace {_scriptNamespace.Trim()}",
-                    Content = new List<object> { classBlock }
-                };
-                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
-            }
-
-            return usingStatement + ScriptBuilder.Build(4, classBlock);
-        }
-
-        /// <summary>
-        /// Generates the entry lines for a top-level group entry.
-        /// Non-folder entries become instance fields (accessible via group instance).
-        /// Folder entries keep their static class structure but also get an instance field.
-        /// </summary>
-        private List<object> BuildTopLevelEntryLines(AddressableAssetEntry entry, string groupName, string rootClassName)
-        {
-            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-            string assetName = isFolder
-                ? Path.GetFileName(entry.AssetPath)
-                : Path.GetFileNameWithoutExtension(entry.AssetPath);
-            string entryClassName = SanitizeIdentifier(entry.address);
-            var result = new List<object>();
-
-            if (!isFolder)
-            {
-                var subAssets = new List<AddressableAssetEntry>();
-                entry.GatherAllAssets(subAssets, false, false, true);
-                subAssets = subAssets.OrderBy(s => s.address).ToList();
-
-                if (subAssets.Count == 0)
-                {
-                    // Simple entry: private static backing + public instance field
-                    result.Add($"private static readonly EntryData _{entryClassName} = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");");
-                    result.Add($"public readonly EntryData {entryClassName} = _{entryClassName};");
-                }
-                else
-                {
-                    // With sub-objects: XSubAssets class + private static backing + public instance field
-                    string subAssetsClassName = entryClassName + "SubAssets";
-                    var subObjectFields = subAssets
-                        .Select(s => (s, subName: GetSubObjectName(s.address), fieldName: SanitizeIdentifier(GetSubObjectName(s.address))))
-                        .ToList();
-
-                    var subAssetsContent = new List<object>();
-                    foreach (var (s, subName, fieldName) in subObjectFields)
-                        subAssetsContent.Add($"public static readonly EntryData {fieldName} = new EntryData(\"{groupName}\", \"{subName}\", \"{s.address}\");");
-                    subAssetsContent.Add("");
-                    var allFieldRefs = subObjectFields.Select(t => (object)$"{t.fieldName},").ToList();
-                    subAssetsContent.Add(new ScriptBuilder.CodeBlock
-                    {
-                        Header = "public static readonly EntryData[] All = new EntryData[]",
-                        Content = allFieldRefs,
-                        Suffix = ";"
-                    });
-                    result.Add(new ScriptBuilder.CodeBlock
-                    {
-                        Header = $"public static class {subAssetsClassName}",
-                        Content = subAssetsContent
-                    });
-                    result.Add("");
-
-                    var backingLines = new List<string>();
-                    backingLines.Add($"private static readonly EntryData _{entryClassName} = new EntryData(");
-                    backingLines.Add($"    \"{groupName}\",");
-                    backingLines.Add($"    \"{assetName}\",");
-                    backingLines.Add($"    \"{entry.address}\",");
-                    backingLines.Add($"    {subAssetsClassName}.All);");
-                    result.Add(new ScriptBuilder.RawBlock { Lines = backingLines });
-                    result.Add($"public readonly EntryData {entryClassName} = _{entryClassName};");
-                }
-            }
-            else
-            {
-                // Folder: static class structure (Data + Labels + Assets) + instance field using short name
-                var folderElement = BuildEntryElement(entry, groupName, rootClassName, null);
-                result.Add(folderElement);
-                result.Add("");
-
-                string shortName = SanitizeIdentifier(assetName);
-                result.Add($"private static readonly EntryData _{shortName} = {entryClassName}.Data;");
-                result.Add($"public readonly EntryData {shortName} = _{shortName};");
-            }
-
-            return result;
-        }
-
-        private object BuildEntryElement(AddressableAssetEntry entry, string groupName, string rootClassName, string parentClassName)
-        {
-            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-            string assetName = isFolder
-                ? Path.GetFileName(entry.AssetPath)
-                : Path.GetFileNameWithoutExtension(entry.AssetPath);
-            string entryClassName = SanitizeIdentifier(entry.address);
-
-            if (!string.IsNullOrEmpty(parentClassName) && entryClassName.StartsWith(parentClassName))
-            {
-                entryClassName = entryClassName.Substring(parentClassName.Length);
-                if (string.IsNullOrEmpty(entryClassName))
-                    entryClassName = "_";
-                else if (char.IsDigit(entryClassName[0]))
-                    entryClassName = "_" + entryClassName;
-            }
-
-            if (!isFolder)
-            {
-                // Collect sub-objects (e.g. sprites inside a texture) — excludes self
-                var subAssets = new List<AddressableAssetEntry>();
-                entry.GatherAllAssets(subAssets, false, false, true);
-                subAssets = subAssets.OrderBy(s => s.address).ToList();
-
-                if (subAssets.Count == 0)
-                {
-                    return $"public static readonly EntryData {entryClassName} = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");";
-                }
-
-                // Has sub-objects: promote to static class with Data + SubAssets
-                var subObjectFields = subAssets
-                    .Select(s => (s, subName: GetSubObjectName(s.address), fieldName: SanitizeIdentifier(GetSubObjectName(s.address))))
+                var labels = generatedEntries
+                    .SelectMany(GetAllEntryLabels)
+                    .Distinct()
+                    .OrderBy(label => label)
                     .ToList();
-
-                // SubAssets class content
-                var subAssetsContent = new List<object>();
-                foreach (var (s, subName, fieldName) in subObjectFields)
-                    subAssetsContent.Add($"public static readonly EntryData {fieldName} = new EntryData(\"{groupName}\", \"{subName}\", \"{s.address}\");");
-                subAssetsContent.Add("");
-                var allFieldRefs = subObjectFields.Select(t => (object)$"{t.fieldName},").ToList();
-                subAssetsContent.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = "public static readonly EntryData[] All = new EntryData[]",
-                    Content = allFieldRefs,
-                    Suffix = ";"
-                });
-
-                // Data field referencing SubAssets fields
-                var dataLines = new List<string>();
-                dataLines.Add($"public static readonly EntryData Data = new EntryData(");
-                dataLines.Add($"    \"{groupName}\",");
-                dataLines.Add($"    \"{assetName}\",");
-                dataLines.Add($"    \"{entry.address}\",");
-                dataLines.Add("    new EntryData[]");
-                dataLines.Add("    {");
-                foreach (var (_, _, fieldName) in subObjectFields)
-                    dataLines.Add($"        SubAssets.{fieldName},");
-                dataLines.Add("    });");
-
-                var classContent = new List<object>();
-                classContent.Add(new ScriptBuilder.RawBlock { Lines = dataLines });
-                classContent.Add("");
-                classContent.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = "public static class SubAssets",
-                    Content = subAssetsContent
-                });
-
-                return new ScriptBuilder.CodeBlock
-                {
-                    Header = $"public static class {entryClassName}",
-                    Content = classContent
-                };
+                generatedGroups.Add(new GeneratedGroup(group.Name, identifier, generatedEntries, labels));
             }
 
-            var entryLines = new List<object>();
-
-            // Collect folder sub-entries
-            var subEntries = new List<AddressableAssetEntry>();
-            entry.GatherAllAssets(subEntries, false, true, false);
-            var orderedSubs = subEntries.OrderBy(s => s.address).ToList();
-
-            // Data field for the folder entry itself, with recursively nested SubEntries
-            if (orderedSubs.Count > 0)
-            {
-                var dataLines = new List<string>();
-                dataLines.Add($"public static readonly EntryData Data = new EntryData(");
-                dataLines.Add($"    \"{groupName}\",");
-                dataLines.Add($"    \"{assetName}\",");
-                dataLines.Add($"    \"{entry.address}\",");
-                dataLines.Add("    new EntryData[]");
-                dataLines.Add("    {");
-                foreach (var sub in orderedSubs)
-                {
-                    var subLines = BuildEntryDataLines(sub, groupName, "        ");
-                    dataLines.AddRange(subLines.Take(subLines.Count - 1));
-                    dataLines.Add(subLines[subLines.Count - 1] + ",");
-                }
-                dataLines.Add("    });");
-                entryLines.Add(new ScriptBuilder.RawBlock { Lines = dataLines });
-            }
-            else
-            {
-                entryLines.Add($"public static readonly EntryData Data = new EntryData(\"{groupName}\", \"{assetName}\", \"{entry.address}\");");
-            }
-
-            // Per-folder Labels (only if this folder entry has labels)
-            if (entry.labels.Count > 0)
-            {
-                var sortedLabels = entry.labels.OrderBy(l => l).ToList();
-                var labelLines = new List<object>();
-                foreach (string label in sortedLabels)
-                    labelLines.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = {rootClassName}.Labels.{SanitizeIdentifier(label)};");
-                labelLines.Add("");
-                var allFolderLabelFields = sortedLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-                labelLines.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = "public static readonly LabelData[] All = new LabelData[]",
-                    Content = allFolderLabelFields,
-                    Suffix = ";"
-                });
-                entryLines.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = "public static class Labels",
-                    Content = labelLines
-                });
-            }
-
-            // Assets inner class for sub-entries
-            if (orderedSubs.Count > 0)
-            {
-                var subAllNames = orderedSubs
-                    .Select(s => AssetDatabase.IsValidFolder(s.AssetPath)
-                        ? Path.GetFileName(s.AssetPath)
-                        : Path.GetFileNameWithoutExtension(s.AssetPath))
-                    .ToList();
-                var subAllAddresses = orderedSubs.Select(s => s.address).ToList();
-
-                var assetsLines = new List<object>();
-                assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = subAllNames });
-                assetsLines.Add("");
-                assetsLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = subAllAddresses });
-                assetsLines.Add("");
-                foreach (var sub in orderedSubs)
-                    assetsLines.Add(BuildEntryElement(sub, groupName, rootClassName, entryClassName));
-
-                entryLines.Add(new ScriptBuilder.CodeBlock
-                {
-                    Header = "public static class Assets",
-                    Content = assetsLines
-                });
-            }
-
-            return new ScriptBuilder.CodeBlock
-            {
-                Header = $"public static class {entryClassName}",
-                Content = entryLines
-            };
+            var usedRootIdentifiers = new HashSet<string> { "All" };
+            foreach (GeneratedGroup group in generatedGroups)
+                group.RootIdentifier = MakeUniqueIdentifier(group.Name, usedRootIdentifiers);
+            return generatedGroups;
         }
 
-        /// <summary>
-        /// Recursively generates lines for a "new EntryData(...)" expression.
-        /// Sub-objects are included without self-reference (includeSelf = false).
-        /// The returned list's last line does NOT include a trailing comma or semicolon.
-        /// </summary>
-        private static List<string> BuildEntryDataLines(AddressableAssetEntry entry, string groupName, string indent)
+        private GeneratedEntry BuildGeneratedEntry(
+            AddressableAssetEntry entry,
+            ISet<string> ancestorIdentifiers,
+            ISet<string> siblingIdentifiers,
+            ISet<string> ancestorTypeIdentifiers,
+            ISet<string> siblingTypeIdentifiers)
         {
-            bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-            string name = isFolder
-                ? Path.GetFileName(entry.AssetPath)
-                : Path.GetFileNameWithoutExtension(entry.AssetPath);
+            string name = GetEntryName(entry);
+            string assetTypeName = GetEntryAssetTypeName(entry);
+            string memberIdentifier = MakeUniqueIdentifier(
+                name + assetTypeName,
+                siblingIdentifiers);
+            string typeIdentifier = MakeUniqueIdentifier(
+                name + assetTypeName,
+                siblingTypeIdentifiers);
+            var childAncestors = new HashSet<string>(ancestorIdentifiers) { memberIdentifier };
+            var childSiblingIdentifiers = new HashSet<string>(childAncestors);
+            var childTypeAncestors = new HashSet<string>(ancestorTypeIdentifiers) { typeIdentifier };
+            var childTypeSiblingIdentifiers = new HashSet<string>(childTypeAncestors);
+            var children = new List<GeneratedEntry>();
+            foreach (AddressableAssetEntry child in GetEntryChildren(entry))
+                children.Add(BuildGeneratedEntry(
+                    child,
+                    childAncestors,
+                    childSiblingIdentifiers,
+                    childTypeAncestors,
+                    childTypeSiblingIdentifiers));
 
-            var subList = new List<AddressableAssetEntry>();
-            if (isFolder)
-                entry.GatherAllAssets(subList, false, true, false);
-            else
-                entry.GatherAllAssets(subList, false, false, true);  // no self, just sub-objects
-            subList = subList.OrderBy(s => s.address).ToList();
-
-            // No deeper hierarchy: single-line expression
-            if (subList.Count == 0)
-                return new List<string> { $"{indent}new EntryData(\"{groupName}\", \"{name}\", \"{entry.address}\")" };
-
-            string innerIndent = indent + "    ";
-            string itemIndent = indent + "        ";
-            var lines = new List<string>();
-            lines.Add($"{indent}new EntryData(");
-            lines.Add($"{innerIndent}\"{groupName}\",");
-            lines.Add($"{innerIndent}\"{name}\",");
-            lines.Add($"{innerIndent}\"{entry.address}\",");
-            lines.Add($"{innerIndent}new EntryData[]");
-            lines.Add($"{innerIndent}{{");
-            foreach (var sub in subList)
-            {
-                var subLines = BuildEntryDataLines(sub, groupName, itemIndent);
-                lines.AddRange(subLines.Take(subLines.Count - 1));
-                lines.Add(subLines[subLines.Count - 1] + ",");
-            }
-            lines.Add($"{innerIndent}}}");
-            lines.Add($"{indent})");
-            return lines;
+            var labels = entry.labels == null
+                ? new List<string>()
+                : entry.labels.Where(label => !string.IsNullOrEmpty(label)).Distinct().OrderBy(label => label).ToList();
+            return new GeneratedEntry(
+                name,
+                entry.address ?? string.Empty,
+                memberIdentifier,
+                typeIdentifier,
+                labels,
+                children);
         }
 
-        /// <summary>
-        /// Extracts the sub-object name from an address of the form "Texture[SpriteName]" → "SpriteName".
-        /// </summary>
+        private static IEnumerable<string> GetAllEntryLabels(GeneratedEntry entry)
+        {
+            foreach (string label in entry.Labels)
+                yield return label;
+            foreach (GeneratedEntry child in entry.Children)
+                foreach (string label in GetAllEntryLabels(child))
+                    yield return label;
+        }
+
+        private static List<AddressableAssetEntry> GetGroupEntries(AddressableAssetGroup group)
+        {
+            return group.entries == null
+                ? new List<AddressableAssetEntry>()
+                : group.entries.Where(entry => entry != null).OrderBy(entry => entry.address).ToList();
+        }
+
+        private static List<AddressableAssetEntry> GetEntryChildren(AddressableAssetEntry entry)
+        {
+            var children = new List<AddressableAssetEntry>();
+            if (AssetDatabase.IsValidFolder(entry.AssetPath))
+                entry.GatherAllAssets(children, false, true, false);
+            else
+                entry.GatherAllAssets(children, false, false, true);
+            return children.Where(child => child != null).OrderBy(child => child.address).ToList();
+        }
+
+        private static string GetEntryName(AddressableAssetEntry entry)
+        {
+            string subObjectName = GetSubObjectName(entry.address);
+            if (subObjectName != null)
+                return subObjectName;
+            if (AssetDatabase.IsValidFolder(entry.AssetPath))
+                return Path.GetFileName(entry.AssetPath);
+            return Path.GetFileNameWithoutExtension(entry.AssetPath);
+        }
+
         private static string GetSubObjectName(string address)
         {
+            if (string.IsNullOrEmpty(address))
+                return null;
             int start = address.LastIndexOf('[');
             int end = address.LastIndexOf(']');
-            if (start >= 0 && end > start)
-                return address.Substring(start + 1, end - start - 1);
-            return Path.GetFileNameWithoutExtension(address);
+            return start >= 0 && end > start
+                ? address.Substring(start + 1, end - start - 1)
+                : null;
         }
 
-        private string BuildSplitRootScriptBody(string baseClassName)
+        private static string GetEntryAssetTypeName(AddressableAssetEntry entry)
         {
-            var classLines = new List<object>();
-            var allLabels = CollectAllLabels(_groups);
-            if (allLabels.Count > 0)
+            return entry.MainAssetType == null
+                ? "Object"
+                : entry.MainAssetType.Name;
+        }
+
+        private string BuildLabelsScriptBody(string labelsClassName, IReadOnlyDictionary<string, string> labelIdentifiers)
+        {
+            var body = new StringBuilder();
+            AppendGeneratedHeader(body);
+            AppendLine(body, 0, "using System.Collections.Generic;");
+            AppendLine(body, 0, "");
+            AppendNamespaceStart(body);
+            AppendLine(body, 0, $"public static class {labelsClassName}");
+            AppendLine(body, 0, "{");
+
+            foreach (KeyValuePair<string, string> label in labelIdentifiers)
+                AppendLine(body, 1, $"public static readonly string {label.Value} = {Quote(label.Key)};");
+
+            AppendLine(body, 1, "");
+            AppendLine(body, 1, "public static readonly IReadOnlyList<string> All = new string[]");
+            AppendLine(body, 1, "{");
+            foreach (string identifier in labelIdentifiers.Values)
+                AppendLine(body, 2, $"{identifier},");
+            AppendLine(body, 1, "};");
+            AppendLine(body, 0, "}");
+            AppendNamespaceEnd(body);
+            return body.ToString();
+        }
+
+        private string BuildGroupScriptBody(
+            string groupClassName,
+            GeneratedGroup group,
+            string labelsClassName,
+            IReadOnlyDictionary<string, string> labelIdentifiers)
+        {
+            var body = new StringBuilder();
+            AppendGeneratedHeader(body);
+            AppendLine(body, 0, "using System.Collections.Generic;");
+            AppendLine(body, 0, "using Mu3Library.Addressable.Data;");
+            AppendLine(body, 0, "");
+            AppendNamespaceStart(body);
+            AppendLine(body, 0, $"public sealed class {groupClassName} : GroupData");
+            AppendLine(body, 0, "{");
+
+            foreach (GeneratedEntry entry in group.Entries)
+                AppendEntryType(body, entry, 1, labelsClassName, labelIdentifiers);
+
+            if (group.Entries.Count > 0)
+                AppendLine(body, 1, "");
+            foreach (GeneratedEntry entry in group.Entries)
             {
-                var labelToSourceClass = new Dictionary<string, string>();
-                foreach (AddressableAssetGroup group in _groups)
+                string typeName = GetEntryTypeName(entry);
+                string privateIdentifier = GetPrivateFieldIdentifier(entry.MemberIdentifier);
+                AppendLine(body, 1, $"private static readonly {typeName} {privateIdentifier} = new {typeName}();");
+                AppendLine(body, 1, $"public readonly {typeName} {entry.MemberIdentifier} = {privateIdentifier};");
+            }
+
+            AppendLine(body, 1, "");
+            AppendLine(body, 1, "private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]");
+            AppendLine(body, 1, "{");
+            foreach (GeneratedEntry entry in group.Entries)
+                AppendLine(body, 2, $"{GetPrivateFieldIdentifier(entry.MemberIdentifier)},");
+            AppendLine(body, 1, "};");
+            AppendLine(body, 1, "");
+            AppendLine(body, 1, "private static readonly IReadOnlyList<string> _groupLabels = new string[]");
+            AppendLine(body, 1, "{");
+            foreach (string label in group.Labels)
+                AppendLine(body, 2, $"{labelsClassName}.{labelIdentifiers[label]},");
+            AppendLine(body, 1, "};");
+            AppendLine(body, 1, "");
+            AppendLine(body, 1, $"public static readonly {groupClassName} Instance = new {groupClassName}();");
+            AppendLine(body, 1, "");
+            AppendLine(body, 1, $"internal {groupClassName}() : base(");
+            AppendLine(body, 2, Quote(group.Name) + ",");
+            AppendLine(body, 2, "_groupEntries,");
+            AppendLine(body, 2, "_groupLabels)");
+            AppendLine(body, 1, "{");
+            AppendLine(body, 1, "}");
+            AppendLine(body, 0, "}");
+            AppendNamespaceEnd(body);
+            return body.ToString();
+        }
+
+        private static void AppendEntryType(
+            StringBuilder body,
+            GeneratedEntry entry,
+            int indent,
+            string labelsClassName,
+            IReadOnlyDictionary<string, string> labelIdentifiers)
+        {
+            string typeName = GetEntryTypeName(entry);
+            AppendLine(body, indent, $"public sealed class {typeName} : EntryData");
+            AppendLine(body, indent, "{");
+
+            foreach (GeneratedEntry child in entry.Children)
+                AppendEntryType(body, child, indent + 1, labelsClassName, labelIdentifiers);
+
+            if (entry.Children.Count > 0)
+                AppendLine(body, indent + 1, "");
+            foreach (GeneratedEntry child in entry.Children)
+            {
+                string childTypeName = GetEntryTypeName(child);
+                string privateIdentifier = GetPrivateFieldIdentifier(child.MemberIdentifier);
+                AppendLine(body, indent + 1, $"private static readonly {childTypeName} {privateIdentifier} = new {childTypeName}();");
+                AppendLine(body, indent + 1, $"public readonly {childTypeName} {child.MemberIdentifier} = {privateIdentifier};");
+            }
+
+            if (entry.Children.Count > 0)
+            {
+                AppendLine(body, indent + 1, "");
+                AppendLine(body, indent + 1, "private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]");
+                AppendLine(body, indent + 1, "{");
+                foreach (GeneratedEntry child in entry.Children)
+                    AppendLine(body, indent + 2, $"{GetPrivateFieldIdentifier(child.MemberIdentifier)},");
+                AppendLine(body, indent + 1, "};");
+            }
+
+            AppendLine(body, indent + 1, "");
+            AppendLine(body, indent + 1, $"public {typeName}() : base(");
+            AppendLine(body, indent + 2, Quote(entry.Name) + ",");
+            AppendLine(body, indent + 2, Quote(entry.Address) + ",");
+            AppendLine(body, indent + 2, BuildLabelsExpression(entry.Labels, labelsClassName, labelIdentifiers)
+                + (entry.Children.Count > 0 ? "," : ""));
+            if (entry.Children.Count > 0)
+                AppendLine(body, indent + 2, "_entryChildren");
+            AppendLine(body, indent + 1, ")");
+            AppendLine(body, indent + 1, "{");
+            AppendLine(body, indent + 1, "}");
+            AppendLine(body, indent, "}");
+            AppendLine(body, indent, "");
+        }
+
+        private static string BuildLabelsExpression(
+            IReadOnlyList<string> labels,
+            string labelsClassName,
+            IReadOnlyDictionary<string, string> labelIdentifiers)
+        {
+            if (labels.Count == 0)
+                return "new string[] { }";
+            return "new string[] { " + string.Join(", ", labels.Select(label => $"{labelsClassName}.{labelIdentifiers[label]}")) + " }";
+        }
+
+        private string BuildRootScriptBody(string className, IReadOnlyList<GeneratedGroup> groups)
+        {
+            var body = new StringBuilder();
+            AppendGeneratedHeader(body);
+            AppendLine(body, 0, "using System.Collections.Generic;");
+            AppendLine(body, 0, "using Mu3Library.Addressable.Data;");
+            AppendLine(body, 0, "");
+            AppendNamespaceStart(body);
+            AppendLine(body, 0, $"public static class {className}");
+            AppendLine(body, 0, "{");
+
+            foreach (GeneratedGroup group in groups)
+            {
+                string groupClassName = GetPascalCaseIdentifier(className + group.Identifier);
+                AppendLine(body, 1, $"public static readonly {groupClassName} {group.RootIdentifier} = {groupClassName}.Instance;");
+            }
+
+            if (groups.Count > 0)
+                AppendLine(body, 1, "");
+            AppendLine(body, 1, "public static readonly IReadOnlyList<GroupData> All = new GroupData[]");
+            AppendLine(body, 1, "{");
+            foreach (GeneratedGroup group in groups)
+                AppendLine(body, 2, $"{group.RootIdentifier},");
+            AppendLine(body, 1, "};");
+            AppendLine(body, 0, "}");
+            AppendNamespaceEnd(body);
+            return body.ToString();
+        }
+
+        private string GetClassName()
+        {
+            return string.IsNullOrWhiteSpace(_scriptClassName)
+                ? DefaultClassName
+                : GetPublicMemberIdentifier(SanitizeIdentifier(_scriptClassName.Trim()));
+        }
+
+        private Dictionary<string, string> BuildIdentifierMap(IEnumerable<string> values)
+        {
+            var map = new Dictionary<string, string>();
+            var usedIdentifiers = new HashSet<string>();
+            foreach (string value in values.Where(value => !string.IsNullOrEmpty(value)).Distinct().OrderBy(value => value))
+                map[value] = MakeUniqueIdentifier(value, usedIdentifiers);
+            return map;
+        }
+
+        private static string MakeUniqueIdentifier(string value, ISet<string> usedIdentifiers)
+        {
+            string baseIdentifier = GetPublicMemberIdentifier(SanitizeIdentifier(value));
+            string identifier = baseIdentifier;
+            int suffix = 2;
+            while (!usedIdentifiers.Add(identifier))
+                identifier = baseIdentifier + suffix++;
+            return identifier;
+        }
+
+        private static string GetEntryTypeName(GeneratedEntry entry)
+        {
+            return GetPascalCaseIdentifier(entry.TypeIdentifier + "Entry");
+        }
+
+        private static string GetPascalCaseIdentifier(string identifier)
+        {
+            return GetPublicMemberIdentifier(identifier);
+        }
+
+        private static string GetPublicMemberIdentifier(string identifier)
+        {
+            if (string.IsNullOrEmpty(identifier))
+                return "Item";
+
+            var builder = new StringBuilder();
+            bool capitalizeNext = true;
+            foreach (char character in identifier)
+            {
+                if (!char.IsLetterOrDigit(character))
                 {
-                    string groupScriptClass = baseClassName + SanitizeIdentifier(group.Name);
-                    foreach (string label in CollectGroupLabelsFlat(group))
-                        if (!labelToSourceClass.ContainsKey(label))
-                            labelToSourceClass[label] = groupScriptClass;
+                    capitalizeNext = true;
+                    continue;
                 }
 
-                var labelsContent = new List<object>();
-                foreach (string label in allLabels)
-                {
-                    string sourceClass = labelToSourceClass[label];
-                    labelsContent.Add($"public static LabelData {SanitizeIdentifier(label)} => {sourceClass}.Labels.{SanitizeIdentifier(label)};");
-                }
-                labelsContent.Add("");
-                var allLabelFields = allLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-                labelsContent.Add(new ScriptBuilder.CodeBlock { Header = "public static readonly IReadOnlyList<LabelData> All = new LabelData[]", Content = allLabelFields, Suffix = ";" });
-                classLines.Add(new ScriptBuilder.CodeBlock { Header = "public static class Labels", Content = labelsContent });
-                classLines.Add("");
+                if (builder.Length == 0 && char.IsDigit(character))
+                    builder.Append("Item");
+
+                if (capitalizeNext && char.IsLetter(character))
+                    builder.Append(char.ToUpperInvariant(character));
+                else
+                    builder.Append(character);
+                capitalizeNext = false;
             }
 
-            var groupsContent = new List<object>();
-            foreach (AddressableAssetGroup g in _groups)
-            {
-                string gName = SanitizeIdentifier(g.Name);
-                string gScriptClass = baseClassName + gName;
-                groupsContent.Add($"public static GroupData {gName} => {gScriptClass}.Data;");
-            }
-            groupsContent.Add("");
-            var allGroupEntries = _groups.Select(g => { string gName = SanitizeIdentifier(g.Name); return (object)$"{gName},"; }).ToList();
-            groupsContent.Add(new ScriptBuilder.CodeBlock { Header = "public static readonly IReadOnlyList<GroupData> All = new GroupData[]", Content = allGroupEntries, Suffix = ";" });
-            classLines.Add(new ScriptBuilder.CodeBlock { Header = "public static class Groups", Content = groupsContent });
-            classLines.Add("");
+            return builder.Length == 0 ? "Item" : builder.ToString();
+        }
 
-            if (_groups.Count == 1)
-            {
-                string onlyGroup = baseClassName + SanitizeIdentifier(_groups[0].Name);
-                classLines.Add($"public static readonly IReadOnlyList<EntryData> AllEntries = {onlyGroup}.Data.Entries.Values.ToList();");
-            }
-            else if (_groups.Count > 1)
-            {
-                string first = baseClassName + SanitizeIdentifier(_groups[0].Name);
-                var concatLines = new List<string>
-                {
-                    $"public static readonly IReadOnlyList<EntryData> AllEntries =",
-                    $"    {first}.Data.Entries.Values"
-                };
-                for (int i = 1; i < _groups.Count; i++)
-                {
-                    string gClass = baseClassName + SanitizeIdentifier(_groups[i].Name);
-                    bool isLast = i == _groups.Count - 1;
-                    concatLines.Add($"    .Concat({gClass}.Data.Entries.Values){(isLast ? ".ToList();" : "")}");
-                }
-                classLines.Add(new ScriptBuilder.RawBlock { Lines = concatLines });
-            }
+        private static string GetPrivateFieldIdentifier(string identifier)
+        {
+            string publicIdentifier = GetPublicMemberIdentifier(identifier);
+            return "_" + char.ToLowerInvariant(publicIdentifier[0]) + publicIdentifier.Substring(1);
+        }
 
-            var classBlock = new ScriptBuilder.CodeBlock { Header = $"public static class {baseClassName}", Content = classLines };
-            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine
-                + "using System.Linq;" + System.Environment.NewLine
-                + "using Mu3Library.Addressable.Data;" + System.Environment.NewLine + System.Environment.NewLine;
+        private static void AppendGeneratedHeader(StringBuilder body)
+        {
+            body.AppendLine("// <auto-generated />");
+            body.AppendLine("// Generated by AddressableGroupDataExporterDrawer. Do not edit manually.");
+        }
+
+        private void AppendNamespaceStart(StringBuilder body)
+        {
+            if (string.IsNullOrWhiteSpace(_scriptNamespace))
+                return;
+            AppendLine(body, 0, $"namespace {_scriptNamespace.Trim()}");
+            AppendLine(body, 0, "{");
+        }
+
+        private void AppendNamespaceEnd(StringBuilder body)
+        {
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
-            {
-                var namespaceBlock = new ScriptBuilder.CodeBlock { Header = $"namespace {_scriptNamespace.Trim()}", Content = new List<object> { classBlock } };
-                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
-            }
-            return usingStatement + ScriptBuilder.Build(4, classBlock);
+                AppendLine(body, 0, "}");
         }
 
-        private string BuildGroupScriptBody(string baseClassName, AddressableAssetGroup group)
+        private static void AppendLine(StringBuilder body, int indent, string line)
         {
-            string groupSanitizedName = SanitizeIdentifier(group.Name);
-            string className = baseClassName + groupSanitizedName;
-            var classLines = new List<object>();
-            var groupLines = new List<object>();
-
-            var entries = group.entries?.OrderBy(e => e.address).ToList();
-            var groupLabelsSeen = new HashSet<string>();
-
-            void CollectGroupLabels(AddressableAssetEntry e)
+            if (string.IsNullOrEmpty(line))
             {
-                foreach (string l in e.labels) groupLabelsSeen.Add(l);
-                if (AssetDatabase.IsValidFolder(e.AssetPath))
-                {
-                    var subs = new List<AddressableAssetEntry>();
-                    e.GatherAllAssets(subs, false, true, false);
-                    foreach (var sub in subs) CollectGroupLabels(sub);
-                }
-            }
-            if (entries != null)
-                foreach (AddressableAssetEntry e in entries) CollectGroupLabels(e);
-
-            var groupUniqueLabels = groupLabelsSeen.OrderBy(l => l).ToList();
-
-            if (groupUniqueLabels.Count > 0)
-            {
-                // Outer Labels class (on className)
-                var outerLabelsContent = new List<object>();
-                foreach (string label in groupUniqueLabels)
-                    outerLabelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = new LabelData(\"{label}\");");
-                outerLabelsContent.Add("");
-                var allOuterFields = groupUniqueLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-                outerLabelsContent.Add(new ScriptBuilder.CodeBlock { Header = "public static readonly IReadOnlyList<LabelData> All = new LabelData[]", Content = allOuterFields, Suffix = ";" });
-                classLines.Add(new ScriptBuilder.CodeBlock { Header = "public static class Labels", Content = outerLabelsContent });
-                classLines.Add("");
-
-                // Inner Labels class (on GroupData, references outer)
-                var innerLabelsContent = new List<object>();
-                foreach (string label in groupUniqueLabels)
-                    innerLabelsContent.Add($"public static readonly LabelData {SanitizeIdentifier(label)} = {className}.Labels.{SanitizeIdentifier(label)};");
-                innerLabelsContent.Add("");
-                var allInnerFields = groupUniqueLabels.Select(l => $"{SanitizeIdentifier(l)},").Cast<object>().ToList();
-                innerLabelsContent.Add(new ScriptBuilder.CodeBlock { Header = "public static readonly IReadOnlyList<LabelData> All = new LabelData[]", Content = allInnerFields, Suffix = ";" });
-                groupLines.Add(new ScriptBuilder.CodeBlock { Header = "public new static class Labels", Content = innerLabelsContent });
-                groupLines.Add("");
+                body.AppendLine();
+                return;
             }
 
-            if (entries != null && entries.Count > 0)
-            {
-                foreach (AddressableAssetEntry entry in entries)
-                    groupLines.AddRange(BuildTopLevelEntryLines(entry, group.Name, className));
-                groupLines.Add("");
-
-                var allNames = entries.Select(e => AssetDatabase.IsValidFolder(e.AssetPath)
-                    ? Path.GetFileName(e.AssetPath)
-                    : Path.GetFileNameWithoutExtension(e.AssetPath)).ToList();
-                var allAddresses = entries.Select(e => e.address).ToList();
-                groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllNames", Values = allNames });
-                groupLines.Add("");
-                groupLines.Add(new ScriptBuilder.ArrayBlock { FieldName = "AllAddresses", Values = allAddresses });
-                groupLines.Add("");
-            }
-
-            groupLines.Add($"internal {groupSanitizedName}Data() : base(");
-            groupLines.Add($"    \"{group.Name}\",");
-            groupLines.Add("    new Dictionary<string, EntryData>");
-            groupLines.Add("    {");
-            if (entries != null)
-                foreach (AddressableAssetEntry entry in entries)
-                {
-                    bool isFolder = AssetDatabase.IsValidFolder(entry.AssetPath);
-                    string entryClassName = SanitizeIdentifier(entry.address);
-                    if (isFolder)
-                    {
-                        string shortName = SanitizeIdentifier(Path.GetFileName(entry.AssetPath));
-                        groupLines.Add($"        {{ _{shortName}.Name, _{shortName} }},");
-                    }
-                    else
-                    {
-                        groupLines.Add($"        {{ _{entryClassName}.Name, _{entryClassName} }},");
-                    }
-                }
-            groupLines.Add("    },");
-            groupLines.Add("    new Dictionary<string, LabelData>");
-            groupLines.Add("    {");
-            foreach (string label in groupUniqueLabels)
-                groupLines.Add($"        {{ Labels.{SanitizeIdentifier(label)}.Value, Labels.{SanitizeIdentifier(label)} }},");
-            groupLines.Add("    })");
-            groupLines.Add("{ }");
-
-            classLines.Add(new ScriptBuilder.CodeBlock { Header = $"public sealed class {groupSanitizedName}Data : GroupData", Content = groupLines });
-            classLines.Add("");
-            classLines.Add($"public static readonly {groupSanitizedName}Data Data = new {groupSanitizedName}Data();");
-
-            var classBlock = new ScriptBuilder.CodeBlock { Header = $"public static class {className}", Content = classLines };
-            string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine
-                + "using Mu3Library.Addressable.Data;" + System.Environment.NewLine + System.Environment.NewLine;
-            if (!string.IsNullOrWhiteSpace(_scriptNamespace))
-            {
-                var namespaceBlock = new ScriptBuilder.CodeBlock { Header = $"namespace {_scriptNamespace.Trim()}", Content = new List<object> { classBlock } };
-                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
-            }
-            return usingStatement + ScriptBuilder.Build(4, classBlock);
+            body.Append(' ', indent * 4).AppendLine(line);
         }
 
-        private static List<string> CollectGroupLabelsFlat(AddressableAssetGroup group)
+        private static string Quote(string value)
         {
-            var seen = new HashSet<string>();
-            var labels = new List<string>();
-
-            void Collect(AddressableAssetEntry entry)
-            {
-                foreach (string label in entry.labels)
-                    if (seen.Add(label))
-                        labels.Add(label);
-                if (AssetDatabase.IsValidFolder(entry.AssetPath))
-                {
-                    var subs = new List<AddressableAssetEntry>();
-                    entry.GatherAllAssets(subs, false, true, false);
-                    foreach (var sub in subs.OrderBy(s => s.address)) Collect(sub);
-                }
-            }
-            foreach (AddressableAssetEntry entry in group.entries?.OrderBy(e => e.address) ?? Enumerable.Empty<AddressableAssetEntry>())
-                Collect(entry);
-            return labels;
-        }
-
-        private static List<string> CollectAllLabels(IEnumerable<AddressableAssetGroup> groups)
-        {
-            var seen = new HashSet<string>();
-            var labels = new List<string>();
-
-            void Collect(AddressableAssetEntry entry)
-            {
-                foreach (string label in entry.labels)
-                    if (seen.Add(label))
-                        labels.Add(label);
-
-                if (AssetDatabase.IsValidFolder(entry.AssetPath))
-                {
-                    var subs = new List<AddressableAssetEntry>();
-                    entry.GatherAllAssets(subs, false, true, false);
-                    foreach (var sub in subs.OrderBy(s => s.address))
-                        Collect(sub);
-                }
-            }
-
-            foreach (AddressableAssetGroup group in groups)
-                foreach (AddressableAssetEntry entry in group.entries?.OrderBy(e => e.address) ?? Enumerable.Empty<AddressableAssetEntry>())
-                    Collect(entry);
-
-            return labels.OrderBy(l => l).ToList();
+            if (value == null)
+                value = string.Empty;
+            return "\"" + value
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r", "\\r")
+                .Replace("\n", "\\n")
+                .Replace("\t", "\\t")
+                .Replace("\0", "\\0") + "\"";
         }
 
         private static string SanitizeIdentifier(string name)
         {
-            if (string.IsNullOrEmpty(name)) return "_";
+            if (string.IsNullOrEmpty(name))
+                return "_";
 
-            var sb = new StringBuilder();
+            var builder = new StringBuilder();
             bool capitalizeNext = false;
-            bool isFirst = true;
-            foreach (char c in name)
+            foreach (char character in name)
             {
-                if (char.IsLetterOrDigit(c))
+                if (char.IsLetterOrDigit(character) || character == '_')
                 {
-                    if (isFirst)
-                    {
-                        sb.Append(char.ToUpperInvariant(c));
-                        isFirst = false;
-                    }
-                    else if (capitalizeNext && char.IsLetter(c))
-                    {
-                        sb.Append(char.ToUpperInvariant(c));
-                    }
+                    if (builder.Length == 0 && char.IsDigit(character))
+                        builder.Append('_');
+                    if (capitalizeNext && char.IsLetter(character))
+                        builder.Append(char.ToUpperInvariant(character));
                     else
-                    {
-                        sb.Append(c);
-                    }
+                        builder.Append(character);
                     capitalizeNext = false;
                 }
                 else
@@ -1047,16 +701,60 @@ namespace Mu3Library.Editor.Window.Drawer
                 }
             }
 
-            if (sb.Length > 0 && char.IsDigit(sb[0]))
-                sb.Insert(0, '_');
-
-            return sb.ToString();
+            if (builder.Length == 0)
+                builder.Append('_');
+            if (CSharpKeywords.Contains(builder.ToString()))
+                builder.Insert(0, '_');
+            return builder.ToString();
         }
 
         private static bool IsAssetsFolder(DefaultAsset folder)
         {
             string path = FileFinder.GetAssetPath(folder);
             return !string.IsNullOrEmpty(path) && (path == "Assets" || path.StartsWith("Assets/"));
+        }
+
+        private sealed class GeneratedGroup
+        {
+            public readonly string Name;
+            public readonly string Identifier;
+            public readonly List<GeneratedEntry> Entries;
+            public readonly List<string> Labels;
+            public string RootIdentifier;
+
+            public GeneratedGroup(string name, string identifier, List<GeneratedEntry> entries, List<string> labels)
+            {
+                Name = name;
+                Identifier = identifier;
+                Entries = entries;
+                Labels = labels;
+            }
+        }
+
+        private sealed class GeneratedEntry
+        {
+            public readonly string Name;
+            public readonly string Address;
+            public readonly string MemberIdentifier;
+            public readonly string TypeIdentifier;
+            public readonly List<string> Labels;
+            public readonly List<GeneratedEntry> Children;
+
+            public GeneratedEntry(
+                string name,
+                string address,
+                string memberIdentifier,
+                string typeIdentifier,
+                List<string> labels,
+                List<GeneratedEntry> children)
+            {
+                Name = name;
+                Address = address;
+                MemberIdentifier = memberIdentifier;
+                TypeIdentifier = typeIdentifier;
+                Labels = labels;
+                Children = children;
+            }
         }
     }
 }

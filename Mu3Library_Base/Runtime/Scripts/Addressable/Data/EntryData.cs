@@ -4,19 +4,24 @@ using System.Collections.Generic;
 
 namespace Mu3Library.Addressable.Data
 {
-    public sealed class EntryData
+    public abstract class EntryData
     {
-        public string GroupName { get; }
         public string Name { get; }
         public string Address { get; }
-        public IReadOnlyList<EntryData> SubEntries { get; }
+        public IReadOnlyList<string> Labels { get; }
+        public IReadOnlyList<EntryData> Entries { get; }
+        public IReadOnlyList<EntryData> All => Entries;
 
-        public EntryData(string groupName, string name, string address, IReadOnlyList<EntryData> subEntries = null)
+        protected EntryData(
+            string name,
+            string address,
+            IReadOnlyList<string> labels = null,
+            IReadOnlyList<EntryData> entries = null)
         {
-            GroupName = groupName;
             Name = name;
             Address = address;
-            SubEntries = subEntries ?? System.Array.Empty<EntryData>();
+            Labels = labels ?? System.Array.Empty<string>();
+            Entries = entries ?? System.Array.Empty<EntryData>();
         }
     }
 }
