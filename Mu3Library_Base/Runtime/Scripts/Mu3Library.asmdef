@@ -3,6 +3,7 @@
     "rootNamespace": "Mu3Library",
     "references": [
         "GUID:6391e8445d9411043ab0bbeae0fbab5b",
+        "GUID:1819abc2fc0b47cb923c2edd77eec531",
         "GUID:84651a3751eca9349aac36a66bba901b",
         "GUID:75469ad4d38634e559750d17036d5f7c",
         "GUID:f51ebe6a0ceec4240a699833d6309b23",

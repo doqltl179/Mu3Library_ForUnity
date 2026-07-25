@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Mu3Library.Event
 {
@@ -49,12 +48,14 @@ namespace Mu3Library.Event
             {
                 if (_disposed)
                 {
-                    Debug.LogWarning($"Subscription is disposed. id: {_id}");
+                    // Logging is intentionally disabled in the Foundation layer for now.
+                    // Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
                     return;
                 }
                 else if (_subscribed)
                 {
-                    Debug.LogWarning($"Already subscribed. id: {_id}");
+                    // Logging is intentionally disabled in the Foundation layer for now.
+                    // Mu3Logger.Current.LogWarning($"Already subscribed. id: {_id}");
                     return;
                 }
 
@@ -66,7 +67,8 @@ namespace Mu3Library.Event
             {
                 if (_disposed)
                 {
-                    Debug.LogWarning($"Subscription is disposed. id: {_id}");
+                    // Logging is intentionally disabled in the Foundation layer for now.
+                    // Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
                     return;
                 }
 
@@ -126,7 +128,8 @@ namespace Mu3Library.Event
         {
             if (_disposed)
             {
-                Debug.LogWarning("SubscribeHandler is disposed.");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning("SubscribeHandler is disposed.");
                 return 0;
             }
 
@@ -149,7 +152,8 @@ namespace Mu3Library.Event
 
             if (!foundValidSubscriptionId)
             {
-                Debug.LogError("Valid subscription ID not found within retry limit.");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogError("Valid subscription ID not found within retry limit.");
                 return 0;
             }
 
@@ -184,18 +188,21 @@ namespace Mu3Library.Event
         {
             if (_disposed)
             {
-                Debug.LogWarning("SubscribeHandler is disposed.");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning("SubscribeHandler is disposed.");
                 return;
             }
 
             if (!_subscriptions.TryGetValue(subscriptionId, out var info))
             {
-                Debug.LogWarning($"Subscription ID not found. id: {subscriptionId}");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning($"Subscription ID not found. id: {subscriptionId}");
                 return;
             }
             else if (info == null)
             {
-                Debug.LogWarning($"Subscription info is null. id: {subscriptionId}");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning($"Subscription info is null. id: {subscriptionId}");
                 _subscriptions.Remove(subscriptionId);
                 return;
             }
@@ -207,18 +214,21 @@ namespace Mu3Library.Event
         {
             if (_disposed)
             {
-                Debug.LogWarning("SubscribeHandler is disposed.");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning("SubscribeHandler is disposed.");
                 return;
             }
 
             if (!_subscriptions.TryGetValue(subscriptionId, out var info))
             {
-                Debug.LogWarning($"Subscription ID not found. id: {subscriptionId}");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning($"Subscription ID not found. id: {subscriptionId}");
                 return;
             }
             else if (info == null)
             {
-                Debug.LogWarning($"Subscription info is null. id: {subscriptionId}");
+                // Logging is intentionally disabled in the Foundation layer for now.
+                // Mu3Logger.Current.LogWarning($"Subscription info is null. id: {subscriptionId}");
                 _subscriptions.Remove(subscriptionId);
                 return;
             }

@@ -2,6 +2,7 @@
     "name": "Mu3Library.DI",
     "rootNamespace": "Mu3Library.DI",
     "references": [
+        "GUID:1819abc2fc0b47cb923c2edd77eec531",
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
         "GUID:5c01796d064528144a599661eaab93a6"
     ],
