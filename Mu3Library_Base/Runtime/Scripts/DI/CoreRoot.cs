@@ -4,45 +4,38 @@ using UnityEngine;
 
 namespace Mu3Library.DI
 {
-    public sealed class CoreRoot : MonoBehaviour
+    public sealed class CoreRoot : MonoBehaviour, ICoreRoot
     {
-        private static CoreRoot _instance;
-        private static bool _isQuitting = false;
-
-        internal static CoreRoot Instance
+        private static CoreRoot m_instance;
+        private static CoreRoot _instance
         {
             get
             {
-                if (_isQuitting)
-                {
-                    return null;
-                }
-
-                if (_instance == null)
+                if (m_instance == null)
                 {
                     lock (_lockObj)
                     {
                         // Double-checked locking
-                        if (_instance == null)
+                        if (m_instance == null)
                         {
                             var instances = FindObjectsByType<CoreRoot>(FindObjectsSortMode.None);
                             if (instances.Length == 0)
                             {
                                 GameObject go = new GameObject(typeof(CoreRoot).Name);
-                                _instance = go.AddComponent<CoreRoot>();
-                                DontDestroyOnLoad(_instance.gameObject);
+                                m_instance = go.AddComponent<CoreRoot>();
+                                DontDestroyOnLoad(m_instance.gameObject);
                             }
                             else if (instances.Length == 1)
                             {
-                                _instance = instances[0];
-                                DontDestroyOnLoad(_instance.gameObject);
+                                m_instance = instances[0];
+                                DontDestroyOnLoad(m_instance.gameObject);
                             }
                             else
                             {
                                 Debug.LogWarning($"'{typeof(CoreRoot).Name}' already exist more than one. Cleaning up duplicates.");
 
-                                _instance = instances[0];
-                                DontDestroyOnLoad(_instance.gameObject);
+                                m_instance = instances[0];
+                                DontDestroyOnLoad(m_instance.gameObject);
 
                                 for (int i = 1; i < instances.Length; i++)
                                 {
@@ -53,9 +46,12 @@ namespace Mu3Library.DI
                     }
                 }
 
-                return _instance;
+                return m_instance;
             }
         }
+
+        internal static CoreRoot InstanceInternal => _instance;
+        public static ICoreRoot Instance => _instance;
 
         private static readonly object _lockObj = new object();
 
@@ -65,18 +61,8 @@ namespace Mu3Library.DI
 
 
 
-        private void OnApplicationQuit()
-        {
-            _isQuitting = true;
-        }
-
         private void OnDestroy()
         {
-            if (_instance == this)
-            {
-                _instance = null;
-            }
-
             var cores = new List<CoreBase>(_cores.Values);
             foreach (var core in cores)
             {
@@ -110,8 +96,46 @@ namespace Mu3Library.DI
             }
         }
 
+        #region internal
+        internal void UnregisterCore<T>(T core) where T : CoreBase
+        {
+            if (core == null)
+            {
+                return;
+            }
+
+            Type type = core.GetType();
+            if (_cores.Remove(type))
+            {
+                _orderedCores.Remove(core);
+                core.DisposeCore();
+            }
+        }
+
+        internal void RegisterCore<T>(T core) where T : CoreBase
+        {
+            if (core == null)
+            {
+                return;
+            }
+
+            Type type = core.GetType();
+            if (!_cores.TryAdd(type, core))
+            {
+                Debug.LogError($"Core is already exist. type: {type.Name}");
+                return;
+            }
+
+            _orderedCores.Add(core);
+            _orderedCores.Sort(CompareCoreOrder);
+            core.InitializeCore();
+
+            OnCoreAdded?.Invoke(type);
+        }
+        #endregion
+
         #region Utility
-        internal T GetClass<TCore, T>()
+        public T GetClass<TCore, T>()
             where TCore : CoreBase
             where T : class
         {
@@ -125,7 +149,7 @@ namespace Mu3Library.DI
             return core.GetClassFromContainer<T>();
         }
 
-        internal object GetClass(Type coreType, Type serviceType, string key)
+        public object GetClass(Type coreType, Type serviceType, string key)
         {
             if (coreType == null || serviceType == null)
             {
@@ -146,44 +170,9 @@ namespace Mu3Library.DI
             Type type = typeof(T);
             return _cores.ContainsKey(type);
         }
+        #endregion
 
-        public void UnregisterCore<T>(T core) where T : CoreBase
-        {
-            if (core == null)
-            {
-                return;
-            }
-
-            Type type = core.GetType();
-            if (_cores.Remove(type))
-            {
-                _orderedCores.Remove(core);
-                core.DisposeCore();
-            }
-        }
-
-        public void RegisterCore<T>(T core) where T : CoreBase
-        {
-            if (core == null)
-            {
-                return;
-            }
-
-            Type type = core.GetType();
-            if (!_cores.TryAdd(type, core))
-            {
-                Debug.LogError($"Core is already exist. type: {type.Name}");
-                return;
-            }
-
-            _orderedCores.Add(core);
-            _orderedCores.Sort(CompareCoreOrder);
-            core.InitializeCore();
-
-            OnCoreAdded?.Invoke(type);
-        }
-
-        private static int CompareCoreOrder(CoreBase a, CoreBase b)
+        private int CompareCoreOrder(CoreBase a, CoreBase b)
         {
             if (ReferenceEquals(a, b))
             {
@@ -208,7 +197,5 @@ namespace Mu3Library.DI
 
             return string.CompareOrdinal(a.GetType().FullName, b.GetType().FullName);
         }
-        #endregion
-
     }
 }
