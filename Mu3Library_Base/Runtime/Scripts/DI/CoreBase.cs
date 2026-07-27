@@ -119,41 +119,6 @@ namespace Mu3Library.DI
         }
         #endregion
 
-        protected void WaitForOtherCore<TCore>(Action callback)
-            where TCore : CoreBase
-        {
-            CoreRoot root = CoreRoot.InstanceInternal;
-            if (root == null)
-            {
-                return;
-            }
-
-            if (root.HasCore<TCore>())
-            {
-                callback?.Invoke();
-                return;
-            }
-
-            void HandleCoreAdded(Type addedType)
-            {
-                if (addedType != typeof(TCore))
-                {
-                    return;
-                }
-
-                CoreRoot current = CoreRoot.InstanceInternal;
-                if (current == null || !current.HasCore<TCore>())
-                {
-                    return;
-                }
-
-                current.OnCoreAdded -= HandleCoreAdded;
-                callback?.Invoke();
-            }
-
-            root.OnCoreAdded += HandleCoreAdded;
-        }
-
         protected T GetClassFromOtherCore<TCore, T>()
             where TCore : CoreBase
             where T : class

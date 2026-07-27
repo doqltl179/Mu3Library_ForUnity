@@ -10,8 +10,8 @@ namespace Mu3Library.Sample.Template.Audio3D
 {
     public class SampleAudio3DCore : CoreBase
     {
-        private IAudioManager _audioManager;
-        private ISceneLoader _sceneLoader;
+        [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+        [Inject(typeof(SceneCore))] private ISceneLoader _sceneLoader;
 
         [Title("UI Elements")]
         [SerializeField] private Button _backButton;
@@ -39,29 +39,11 @@ namespace Mu3Library.Sample.Template.Audio3D
             _mouseClickHandler.OnClick -= OnMouseClick;
         }
 
-        protected override void Start()
-        {
-            base.Start();
-
-            WaitForOtherCore<AudioCore>(OnAudioCoreAdded);
-            WaitForOtherCore<SceneCore>(OnSceneCoreAdded);
-        }
-
         protected override void OnDestroy()
         {
             base.OnDestroy();
 
             _audioManager?.Stop();
-        }
-
-        private void OnAudioCoreAdded()
-        {
-            _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
-        }
-
-        private void OnSceneCoreAdded()
-        {
-            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
         }
 
         private void RegisterUiEvents()

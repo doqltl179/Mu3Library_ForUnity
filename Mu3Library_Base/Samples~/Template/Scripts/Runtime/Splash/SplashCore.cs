@@ -7,7 +7,7 @@ namespace Mu3Library.Sample.Template.Splash
 {
     public class SplashCore : CoreBase
     {
-        private ISceneLoader _sceneLoader;
+        [Inject(typeof(SceneCore))] private ISceneLoader _sceneLoader;
 
         [Space(20)]
         [SerializeField] private SplashUIAnimation _splashAnimation;
@@ -18,8 +18,6 @@ namespace Mu3Library.Sample.Template.Splash
             base.Start();
 
             _splashAnimation.OnAnimationEnd += OnSplashAnimationEnd;
-
-            WaitForOtherCore<SceneCore>(OnSceneCoreAdded);
         }
 
         protected override void OnDestroy()
@@ -29,13 +27,6 @@ namespace Mu3Library.Sample.Template.Splash
             _splashAnimation.OnAnimationEnd -= OnSplashAnimationEnd;
         }
 
-        private void OnSceneCoreAdded()
-        {
-            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
-
-            LoadLoadingScene();
-        }
-
         private void OnSplashAnimationEnd()
         {
             LoadLoadingScene();
@@ -43,7 +34,7 @@ namespace Mu3Library.Sample.Template.Splash
 
         private void LoadLoadingScene()
         {
-            if(_sceneLoader == null ||
+            if (_sceneLoader == null ||
                 _sceneLoader.IsLoading ||
                 !_splashAnimation.IsAnimationEnded)
             {

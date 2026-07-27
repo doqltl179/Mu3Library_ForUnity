@@ -9,9 +9,9 @@ namespace Mu3Library.Sample.Template.Audio
 {
     public class SampleAudioCore : CoreBase
     {
-        private IAudioManager _audioManager;
-        private IAudioVolumeSettings _audioVolumeSettings;
-        private ISceneLoader _sceneLoader;
+        [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+        [Inject(typeof(AudioCore))] private IAudioVolumeSettings _audioVolumeSettings;
+        [Inject(typeof(SceneCore))] private ISceneLoader _sceneLoader;
 
         [Header("Volume")]
         [SerializeField] private Slider _masterVolumeSlider;
@@ -58,8 +58,9 @@ namespace Mu3Library.Sample.Template.Audio
         {
             base.Start();
 
-            WaitForOtherCore<AudioCore>(OnAudioCoreAdded);
-            WaitForOtherCore<SceneCore>(OnSceneCoreAdded);
+            _masterVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.MasterVolume);
+            _bgmVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.BgmVolume);
+            _sfxVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.SfxVolume);
         }
 
         protected override void OnDestroy()
@@ -67,26 +68,6 @@ namespace Mu3Library.Sample.Template.Audio
             base.OnDestroy();
 
             _audioManager?.Stop();
-        }
-
-        private void OnAudioCoreAdded()
-        {
-            _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
-            _audioVolumeSettings = GetClassFromOtherCore<AudioCore, IAudioVolumeSettings>();
-
-            if (_audioVolumeSettings == null)
-            {
-                return;
-            }
-
-            _masterVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.MasterVolume);
-            _bgmVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.BgmVolume);
-            _sfxVolumeSlider.SetValueWithoutNotify(_audioVolumeSettings.SfxVolume);
-        }
-
-        private void OnSceneCoreAdded()
-        {
-            _sceneLoader = GetClassFromOtherCore<SceneCore, ISceneLoader>();
         }
 
         private void RegisterUiEvents()

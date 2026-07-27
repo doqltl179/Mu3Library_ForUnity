@@ -57,7 +57,7 @@ namespace Mu3Library.DI
 
         private readonly Dictionary<Type, CoreBase> _cores = new();
         private readonly List<CoreBase> _orderedCores = new();
-        internal event Action<Type> OnCoreAdded;
+        internal event Action<Type> OnCoreInitialized;
 
 
 
@@ -128,9 +128,9 @@ namespace Mu3Library.DI
 
             _orderedCores.Add(core);
             _orderedCores.Sort(CompareCoreOrder);
-            core.InitializeCore();
 
-            OnCoreAdded?.Invoke(type);
+            core.InitializeCore();
+            OnCoreInitialized?.Invoke(type);
         }
         #endregion
 
