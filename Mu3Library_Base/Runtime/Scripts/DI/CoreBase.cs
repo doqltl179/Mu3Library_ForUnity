@@ -7,17 +7,21 @@ namespace Mu3Library.DI
     /// <summary>
     /// Base class for cores that own a DI scope and register services.
     /// </summary>
-    public abstract class CoreBase : MonoBehaviour
+    public abstract class CoreBase : MonoBehaviour, IDICore
     {
         private ContainerScope _scope;
         private Container _container;
 
         private bool _isContainerConfigured = false;
+        public bool IsContainerConfigured => _isContainerConfigured;
+
+        private bool _isPrepared = false;
+        public bool IsPrepared => _isPrepared;
 
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;
         [SerializeField] private int _executionOrder = 0;
-        internal int ExecutionOrder => _executionOrder;
+        public int ExecutionOrder => _executionOrder;
 
 
 
@@ -66,12 +70,12 @@ namespace Mu3Library.DI
         protected virtual void Start()
         {
             _scope.InjectInto(this);
-            CoreRoot.Instance?.RegisterCore(this);
+            CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
         protected virtual void OnDestroy()
         {
-            CoreRoot.Instance?.UnregisterCore(this);
+            CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 
         internal void InitializeCore()
@@ -115,10 +119,10 @@ namespace Mu3Library.DI
         }
         #endregion
 
-        protected void WaitForOtherCore<TCore>(Action onReady)
+        protected void WaitForOtherCore<TCore>(Action callback)
             where TCore : CoreBase
         {
-            CoreRoot root = CoreRoot.Instance;
+            CoreRoot root = CoreRoot.InstanceInternal;
             if (root == null)
             {
                 return;
@@ -126,7 +130,7 @@ namespace Mu3Library.DI
 
             if (root.HasCore<TCore>())
             {
-                onReady?.Invoke();
+                callback?.Invoke();
                 return;
             }
 
@@ -137,14 +141,14 @@ namespace Mu3Library.DI
                     return;
                 }
 
-                CoreRoot current = CoreRoot.Instance;
+                CoreRoot current = CoreRoot.InstanceInternal;
                 if (current == null || !current.HasCore<TCore>())
                 {
                     return;
                 }
 
                 current.OnCoreAdded -= HandleCoreAdded;
-                onReady?.Invoke();
+                callback?.Invoke();
             }
 
             root.OnCoreAdded += HandleCoreAdded;
@@ -154,7 +158,7 @@ namespace Mu3Library.DI
             where TCore : CoreBase
             where T : class
         {
-            return CoreRoot.Instance?.GetClass<TCore, T>();
+            return CoreRoot.InstanceInternal?.GetClass<TCore, T>();
         }
 
         /// <summary>

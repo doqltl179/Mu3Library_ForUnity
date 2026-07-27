@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
-using Mu3Library.Event;
+using Mu3Library.Foundation.Event;
 using Mu3Library.Extensions;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -21,6 +21,9 @@ namespace Mu3Library.UI.MVP
     /// </summary>
     public partial class MVPManager : IMVPManager, IMVPManagerEventBus, IUpdatable, IDisposable
     {
+        [Inject]
+        private IObjectInjector _objectInjector = null;
+
         private GameObject m_root;
         private GameObject _root
         {
@@ -179,40 +182,40 @@ namespace Mu3Library.UI.MVP
             CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
         }
 
-        public uint SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback)
+        public ISubscriptionInfo SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback)
             => SubscribeOnWindowLoadedOnce(callback, null);
 
-        public uint SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+        public ISubscriptionInfo SubscribeOnWindowLoadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnWindowLoaded += handler,
                 handler => OnWindowLoaded -= handler,
                 callback,
                 onDisposed);
 
-        public uint SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback)
+        public ISubscriptionInfo SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback)
             => SubscribeOnWindowOpenedOnce(callback, null);
 
-        public uint SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+        public ISubscriptionInfo SubscribeOnWindowOpenedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnWindowOpened += handler,
                 handler => OnWindowOpened -= handler,
                 callback,
                 onDisposed);
 
-        public uint SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback)
+        public ISubscriptionInfo SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback)
             => SubscribeOnWindowClosedOnce(callback, null);
 
-        public uint SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+        public ISubscriptionInfo SubscribeOnWindowClosedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnWindowClosed += handler,
                 handler => OnWindowClosed -= handler,
                 callback,
                 onDisposed);
 
-        public uint SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback)
+        public ISubscriptionInfo SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback)
             => SubscribeOnWindowUnloadedOnce(callback, null);
 
-        public uint SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
+        public ISubscriptionInfo SubscribeOnWindowUnloadedOnce(System.Action<IPresenter> callback, System.Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnWindowUnloaded += handler,
                 handler => OnWindowUnloaded -= handler,
@@ -925,6 +928,7 @@ namespace Mu3Library.UI.MVP
             }
 
             presenter.Context(this);
+            _objectInjector?.Inject(presenter);
 
             return presenter;
         }

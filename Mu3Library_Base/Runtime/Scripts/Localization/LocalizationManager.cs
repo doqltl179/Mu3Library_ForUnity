@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
-using Mu3Library.Event;
+using Mu3Library.Foundation.Event;
 using Mu3Library.Localization.Data;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -76,20 +76,20 @@ namespace Mu3Library.Localization
             UpdateInitializeProgress();
         }
 
-        public uint SubscribeOnInitializedOnce(Action callback)
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback)
             => SubscribeOnInitializedOnce(callback, null);
 
-        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback, Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnInitialized += handler,
                 handler => OnInitialized -= handler,
                 callback,
                 onDisposed);
 
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback)
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback)
             => SubscribeOnInitializeResultOnce(callback, null);
 
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnInitializeResult += handler,
                 handler => OnInitializeResult -= handler,

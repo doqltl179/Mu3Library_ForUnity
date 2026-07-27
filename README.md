@@ -40,7 +40,7 @@
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
-- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters plus Localization character collection tools
+- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group data export with labels/groups/entries split into focused scripts, and Localization character collection tools
 
 ## 📋 Requirements
 
@@ -55,7 +55,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -122,6 +122,8 @@ public class AudioCore : CoreBase
 }
 ```
 
+`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
+
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
 
@@ -145,6 +147,8 @@ public class MainMenuView : View
 // Presenter: Business logic
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+
     protected override void LoadFunc()
     {
         _view.StartButton.onClick.AddListener(OnStartClicked);
@@ -165,6 +169,8 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 // Usage
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
+
+When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization. Use `Arguments` for data that changes each time a presenter is opened.
 
 For chained presenters, ownership and visual hosting are configured separately.
 
@@ -308,7 +314,7 @@ When the following packages are installed, their features are automatically enab
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **DI**: Dependency Injection container
-- **Event**: Owner-managed subscription utilities and reusable one-shot helpers via `SubscribeHandler`
+- **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, an optional creation callback, and `Clear()` cleanup
@@ -382,7 +388,7 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.15.0`
+- Current Base package version in this repository: `0.17.0`
 - Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -404,7 +410,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

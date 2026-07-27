@@ -40,7 +40,7 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기와 Localization 문자 수집 도구 제공
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/그룹/엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 데이터 내보내기, Localization 문자 수집 도구 제공
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
@@ -54,7 +54,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -121,6 +121,8 @@ public class AudioCore : CoreBase
 }
 ```
 
+`MVPManager`도 좁은 공개 계약인 `IObjectInjector`를 사용해 컨테이너 외부에서 생성된 presenter에 `[Inject]` 필드와 프로퍼티 주입을 적용합니다. 구체적인 `ContainerScope`와 내부 주입 구현은 DI 어셈블리 내부에 유지됩니다.
+
 ### MVP (Model-View-Presenter)
 UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
 
@@ -144,6 +146,8 @@ public class MainMenuView : View
 // Presenter: 비즈니스 로직
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+
     protected override void LoadFunc()
     {
         _view.StartButton.onClick.AddListener(OnStartClicked);
@@ -164,6 +168,8 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 // 사용
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
+
+`MVPManager`를 `CoreBase`를 통해 등록하면 presenter의 `[Inject]` 필드와 프로퍼티가 초기화 전에 채워집니다. presenter를 열 때마다 달라지는 데이터는 `Arguments`에 전달합니다.
 
 presenter를 체인으로 여는 경우에는 ownership과 visual host를 분리해서 설정합니다.
 
@@ -307,7 +313,7 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute`, `ButtonInvokeAttribute` 등의 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **DI**: Dependency Injection 컨테이너
-- **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티와 재사용 가능한 일회성 helper
+- **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, 선택적 생성 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
@@ -381,7 +387,7 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.15.0`
+- 이 저장소의 현재 Base 패키지 버전: `0.17.0`
 - 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -403,7 +409,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨

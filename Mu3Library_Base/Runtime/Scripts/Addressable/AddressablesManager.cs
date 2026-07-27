@@ -3,7 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Mu3Library.DI;
-using Mu3Library.Event;
+using Mu3Library.Foundation.Event;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
@@ -78,20 +78,20 @@ namespace Mu3Library.Addressable
             UpdateDownloadProgress();
         }
 
-        public uint SubscribeOnInitializedOnce(Action callback)
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback)
             => SubscribeOnInitializedOnce(callback, null);
 
-        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback, Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnInitialized += handler,
                 handler => OnInitialized -= handler,
                 callback,
                 onDisposed);
 
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback)
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback)
             => SubscribeOnInitializeResultOnce(callback, null);
 
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed)
             => _subscribeHandler.SubscribeOnce(
                 handler => OnInitializeResult += handler,
                 handler => OnInitializeResult -= handler,

@@ -4,20 +4,21 @@ using System.Collections.Generic;
 
 namespace Mu3Library.Addressable.Data
 {
-    public class GroupData
+    public abstract class GroupData
     {
         public string Name { get; }
-        public IReadOnlyDictionary<string, EntryData> Entries { get; }
-        public IReadOnlyDictionary<string, LabelData> Labels { get; }
+        public IReadOnlyList<EntryData> Entries { get; }
+        public IReadOnlyList<EntryData> All => Entries;
+        public IReadOnlyList<string> Labels { get; }
 
-        public GroupData(
+        protected GroupData(
             string name,
-            IReadOnlyDictionary<string, EntryData> entries,
-            IReadOnlyDictionary<string, LabelData> labels)
+            IReadOnlyList<EntryData> entries,
+            IReadOnlyList<string> labels)
         {
             Name = name;
-            Entries = entries;
-            Labels = labels;
+            Entries = entries ?? System.Array.Empty<EntryData>();
+            Labels = labels ?? System.Array.Empty<string>();
         }
     }
 }

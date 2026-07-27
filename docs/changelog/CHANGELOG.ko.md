@@ -11,6 +11,22 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 이 changelog는 패키지 릴리스 변경만 추적합니다. 저장소 개발 워크플로와 툴링 변경은 [`docs/repository/CHANGELOG.md`](../../docs/repository/CHANGELOG.md)에서 관리합니다.
 
+## [Unreleased]
+
+## [base/0.17.0] - 2026-07-27
+
+### 추가됨
+- `IObjectInjector`: `ContainerScope` 내부를 공개하지 않고 컨테이너 외부에서 생성된 객체에도 기존 `[Inject]` 필드와 프로퍼티 주입을 적용할 수 있는 제한된 주입 계약을 추가함.
+- `MVPManager`: 컨테이너가 관리하는 인스턴스가 presenter 풀에서 새로 생성되거나 재사용되는 presenter에 초기화 전에 `[Inject]` 멤버 주입을 적용하도록 변경함.
+- `Mu3Library.Foundation`: 재사용 가능한 구독 인프라를 위한 Unity 비의존 런타임 어셈블리를 추가함.
+
+### 변경됨
+- `AddressableGroupDataExporterDrawer`: 생성되는 Addressables 데이터를 `{ClassName}Labels` 문자열 라벨 스크립트, 그룹별 `GroupData` 파생 스크립트, 중첩 `EntryData` 파생 에셋 클래스, 간결한 root 그룹 인덱스로 재구성함. split 토글과 `LabelData` 런타임 타입을 제거함.
+- `SubscribeHandler`: 재사용 가능한 one-shot 구독 구현을 `Mu3Library.Foundation`으로 이동했으며 `Mu3Library.Event` 네임스페이스와 public API는 유지함.
+- `SubscribeHandler`: 로깅 통합을 재설계할 때까지 Foundation 진단 로그를 일시적으로 주석 처리함.
+- `SubscribeHandler` / `SubscriptionInfo`: 구독 생명주기의 멱등적 해제, 예외 안전 정리, one-shot callback 정리, 내부 ID 충돌 방지를 보완함.
+- Event Bus 인터페이스 및 구현: 일회성 구독 메서드가 `uint` ID 대신 폐기 가능한 `ISubscriptionInfo` token을 반환하도록 변경함.
+
 ## [base/0.16.0] - 2026-07-12
 
 ### 변경됨

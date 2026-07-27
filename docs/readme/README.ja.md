@@ -40,7 +40,7 @@
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
 - ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
-- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーターと Localization 文字収集ツールを提供
+- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル・グループ・エントリを役割別スクリプトへ分ける Addressable グループデータエクスポート、Localization 文字収集ツールを提供
 ## 📋 要件
 
 - Unity 6 (6000.0+)
@@ -54,7 +54,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -121,6 +121,8 @@ public class AudioCore : CoreBase
 }
 ```
 
+`MVPManager`も、狭い公開契約である `IObjectInjector` を使って、コンテナ外で生成された presenter に `[Inject]` フィールドとプロパティの注入を適用します。具体的な `ContainerScope` と内部の注入実装は DI アセンブリ内に保持されます。
+
 ### MVP (Model-View-Presenter)
 UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
 
@@ -144,6 +146,8 @@ public class MainMenuView : View
 // Presenter: ビジネスロジック
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
+
     protected override void LoadFunc()
     {
         _view.StartButton.onClick.AddListener(OnStartClicked);
@@ -164,6 +168,8 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
 // 使用方法
 _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
+
+`MVPManager` を `CoreBase` 経由で登録すると、presenter の `[Inject]` フィールドとプロパティが初期化前に設定されます。presenter を開くたびに変わるデータは `Arguments` で渡してください。
 
 presenter を連結して開く場合は、ownership と visual host を分けて設定します。
 
@@ -307,7 +313,7 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute` や `ButtonInvokeAttribute` などのカスタム属性
 - **Audio**: BGM/SFX管理システム
 - **DI**: Dependency Injectionコンテナ
-- **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility と再利用可能な one-shot helper
+- **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
@@ -381,7 +387,7 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.15.0`
+- このリポジトリ上の現在の Base パッケージ版: `0.17.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -403,7 +409,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 
 Unity開発者のために制作

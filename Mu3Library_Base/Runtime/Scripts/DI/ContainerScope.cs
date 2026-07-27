@@ -8,7 +8,7 @@ namespace Mu3Library.DI
     /// <summary>
     /// Resolution scope that owns scoped instances and lifecycle callbacks.
     /// </summary>
-    public sealed class ContainerScope : IDisposable
+    public sealed class ContainerScope : IDisposable, IObjectInjector
     {
         private readonly Container _container;
         private readonly Dictionary<ServiceKey, object> _scopedInstances = new();
@@ -223,6 +223,12 @@ namespace Mu3Library.DI
             }
 
             chain.Add(serviceType);
+
+            if (serviceType == typeof(IObjectInjector) && string.IsNullOrEmpty(key))
+            {
+                chain.Remove(serviceType);
+                return this;
+            }
 
             if (serviceType.IsGenericType)
             {
@@ -510,6 +516,11 @@ namespace Mu3Library.DI
         internal void InjectInto(object instance)
         {
             InjectMembers(instance, new HashSet<Type>());
+        }
+
+        void IObjectInjector.Inject(object instance)
+        {
+            InjectInto(instance);
         }
 
         private static T[] FilterInjectableMembers<T>(T[] members, Func<T, bool> predicate) where T : MemberInfo

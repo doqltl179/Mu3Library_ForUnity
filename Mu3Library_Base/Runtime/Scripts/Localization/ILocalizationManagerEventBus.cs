@@ -1,5 +1,6 @@
 #if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
+using Mu3Library.Foundation.Event;
 
 namespace Mu3Library.Localization
 {
@@ -9,10 +10,10 @@ namespace Mu3Library.Localization
         public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
 
-        public uint SubscribeOnInitializedOnce(Action callback);
-        public uint SubscribeOnInitializedOnce(Action callback, Action onDisposed);
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback);
-        public uint SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback);
+        public ISubscriptionInfo SubscribeOnInitializedOnce(Action callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback);
+        public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed);
     }
 }
 #endif
