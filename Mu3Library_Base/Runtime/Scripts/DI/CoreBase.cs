@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 using System;
+using Mu3Library.Foundation.Event;
 
 namespace Mu3Library.DI
 {
@@ -22,6 +23,9 @@ namespace Mu3Library.DI
         [SerializeField] private bool _dontDestroyOnLoad = false;
         [SerializeField] private int _executionOrder = 0;
         public int ExecutionOrder => _executionOrder;
+
+        private readonly SubscribeHandler _subscribeHandler = new();
+        internal event Action OnInitialized;
 
 
 
@@ -50,6 +54,7 @@ namespace Mu3Library.DI
             }
 
             InitializeContainer();
+            CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
         private void InitializeContainer()
@@ -70,11 +75,12 @@ namespace Mu3Library.DI
         protected virtual void Start()
         {
             _scope.InjectInto(this);
-            CoreRoot.InstanceInternal?.RegisterCore(this);
+            OnInitialized?.Invoke(); // scope의 initialize와 core의 initialize 타이밍을 다르게 한다.
         }
 
         protected virtual void OnDestroy()
         {
+            _subscribeHandler.Dispose();
             CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 
@@ -117,6 +123,13 @@ namespace Mu3Library.DI
 
             return _scope.Resolve(serviceType, key);
         }
+
+        internal ISubscriptionInfo SubscribeOnInitializedOnce(Action callback)
+            => _subscribeHandler.SubscribeOnce(
+                    handler => OnInitialized += handler,
+                    handler => OnInitialized -= handler,
+                    callback
+                );
         #endregion
 
         protected T GetClassFromOtherCore<TCore, T>()
