@@ -2,7 +2,7 @@ using System;
 
 namespace Mu3Library.Foundation.Event
 {
-    public sealed class SubscriptionInfo : IDisposable
+    public sealed class SubscriptionInfo : ISubscriptionInfo
     {
         private uint _id;
         public uint Id => _id;
