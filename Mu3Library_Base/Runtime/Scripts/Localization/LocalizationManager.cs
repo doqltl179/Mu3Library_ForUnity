@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.DI;
-using Mu3Library.Event;
+using Mu3Library.Foundation.Event;
 using Mu3Library.Localization.Data;
 using UnityEngine;
 using UnityEngine.Localization;

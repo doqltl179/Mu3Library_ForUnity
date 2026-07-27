@@ -1,6 +1,6 @@
 using System;
 
-namespace Mu3Library.Event
+namespace Mu3Library.Foundation.Event
 {
     public sealed partial class SubscribeHandler
     {
