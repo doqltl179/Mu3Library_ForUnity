@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace Mu3Library.Foundation.Event
 {
@@ -15,11 +16,19 @@ namespace Mu3Library.Foundation.Event
             }
 
             uint id = 0;
+            int callbackInvoked = 0;
 
             void ActionOnce()
             {
-                Deregister(id);
-                callback();
+                if (Interlocked.Exchange(ref callbackInvoked, 1) != 0)
+                {
+                    return;
+                }
+
+                EventExceptionUtility.InvokeAndAggregate(
+                    () => Deregister(id),
+                    callback,
+                    $"One-shot subscription failed. id: {id}");
             }
 
             id = Register(
@@ -33,7 +42,27 @@ namespace Mu3Library.Foundation.Event
                 return 0;
             }
 
-            Subscribe(id);
+            try
+            {
+                Subscribe(id);
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    Deregister(id);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException(
+                        $"One-shot subscription registration failed. id: {id}",
+                        exception,
+                        cleanupException);
+                }
+
+                throw;
+            }
+
             return id;
         }
 
@@ -48,11 +77,19 @@ namespace Mu3Library.Foundation.Event
             }
 
             uint id = 0;
+            int callbackInvoked = 0;
 
             void ActionOnce(T arg)
             {
-                Deregister(id);
-                callback(arg);
+                if (Interlocked.Exchange(ref callbackInvoked, 1) != 0)
+                {
+                    return;
+                }
+
+                EventExceptionUtility.InvokeAndAggregate(
+                    () => Deregister(id),
+                    () => callback(arg),
+                    $"One-shot subscription failed. id: {id}");
             }
 
             id = Register(
@@ -66,7 +103,27 @@ namespace Mu3Library.Foundation.Event
                 return 0;
             }
 
-            Subscribe(id);
+            try
+            {
+                Subscribe(id);
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    Deregister(id);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException(
+                        $"One-shot subscription registration failed. id: {id}",
+                        exception,
+                        cleanupException);
+                }
+
+                throw;
+            }
+
             return id;
         }
 
@@ -81,11 +138,19 @@ namespace Mu3Library.Foundation.Event
             }
 
             uint id = 0;
+            int callbackInvoked = 0;
 
             void ActionOnce(T1 arg1, T2 arg2)
             {
-                Deregister(id);
-                callback(arg1, arg2);
+                if (Interlocked.Exchange(ref callbackInvoked, 1) != 0)
+                {
+                    return;
+                }
+
+                EventExceptionUtility.InvokeAndAggregate(
+                    () => Deregister(id),
+                    () => callback(arg1, arg2),
+                    $"One-shot subscription failed. id: {id}");
             }
 
             id = Register(
@@ -99,7 +164,27 @@ namespace Mu3Library.Foundation.Event
                 return 0;
             }
 
-            Subscribe(id);
+            try
+            {
+                Subscribe(id);
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    Deregister(id);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException(
+                        $"One-shot subscription registration failed. id: {id}",
+                        exception,
+                        cleanupException);
+                }
+
+                throw;
+            }
+
             return id;
         }
     }

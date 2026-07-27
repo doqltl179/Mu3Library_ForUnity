@@ -29,11 +29,31 @@ namespace Mu3Library.Foundation.Event
 
         private void OnDispose()
         {
-            foreach (var subscription in _subscriptions.Values)
+            List<Exception> exceptions = null;
+
+            foreach (var subscription in new List<SubscriptionInfo>(_subscriptions.Values))
             {
-                subscription.Dispose();
+                if (subscription == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    subscription.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    exceptions ??= new List<Exception>();
+                    exceptions.Add(exception);
+                }
             }
+
             _subscriptions.Clear();
+
+            EventExceptionUtility.ThrowIfAny(
+                exceptions,
+                "One or more subscriptions failed to dispose.");
         }
 
         #region Utility
@@ -49,34 +69,48 @@ namespace Mu3Library.Foundation.Event
                 return 0;
             }
 
-            SubscriptionInfo containedInfo = null;
-            bool foundValidSubscriptionId = false;
-
-            const int retryLimit = 1000;
-            for (int i = 0; i < retryLimit; i++)
-            {
-                _latestSubscriptionId++;
-
-                if (!_subscriptions.TryGetValue(_latestSubscriptionId, out containedInfo) ||
-                    containedInfo == null ||
-                    containedInfo.IsDisposed)
-                {
-                    foundValidSubscriptionId = true;
-                    break;
-                }
-            }
-
-            if (!foundValidSubscriptionId)
+            if (!TryGetSubscriptionId(out uint subscriptionId))
             {
                 // Logging is intentionally disabled in the Foundation layer for now.
-                // Mu3Logger.Current.LogError("Valid subscription ID not found within retry limit.");
+                // Mu3Logger.Current.LogError("No valid subscription ID is available.");
                 return 0;
             }
 
-            var info = new SubscriptionInfo(_latestSubscriptionId, subscribe, unsubscribe, onDisposed);
-            _subscriptions[_latestSubscriptionId] = info;
+            var info = new SubscriptionInfo(subscriptionId, subscribe, unsubscribe, onDisposed);
+            _subscriptions[subscriptionId] = info;
 
-            return _latestSubscriptionId;
+            return subscriptionId;
+        }
+
+        private bool TryGetSubscriptionId(out uint subscriptionId)
+        {
+            // There are uint.MaxValue usable IDs because zero is reserved as
+            // the invalid-subscription sentinel.
+            for (ulong attempt = 0; attempt <= uint.MaxValue; attempt++)
+            {
+                _latestSubscriptionId = unchecked(_latestSubscriptionId + 1);
+
+                if (_latestSubscriptionId == 0)
+                {
+                    continue;
+                }
+
+                if (_subscriptions.TryGetValue(_latestSubscriptionId, out var containedInfo))
+                {
+                    if (containedInfo != null && !containedInfo.IsDisposed)
+                    {
+                        continue;
+                    }
+
+                    _subscriptions.Remove(_latestSubscriptionId);
+                }
+
+                subscriptionId = _latestSubscriptionId;
+                return true;
+            }
+
+            subscriptionId = 0;
+            return false;
         }
 
         public void Deregister(uint subscriptionId)
@@ -96,8 +130,14 @@ namespace Mu3Library.Foundation.Event
                 return;
             }
 
-            info.Dispose();
-            _subscriptions.Remove(subscriptionId);
+            try
+            {
+                info.Dispose();
+            }
+            finally
+            {
+                _subscriptions.Remove(subscriptionId);
+            }
         }
 
         public void Subscribe(uint subscriptionId)

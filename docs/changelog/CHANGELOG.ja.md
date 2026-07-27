@@ -24,6 +24,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `AddressableGroupDataExporterDrawer`: 生成される Addressables データを `{ClassName}Labels` の文字列ラベルスクリプト、グループごとの `GroupData` 派生スクリプト、ネストした `EntryData` 派生アセットクラス、簡潔な root グループインデックスへ再構成しました。split トグルと `LabelData` ランタイム型を削除しました。
 - `SubscribeHandler`: 再利用可能な one-shot subscription 実装を `Mu3Library.Foundation` へ移動し、`Mu3Library.Event` namespace と public API は維持しました。
 - `SubscribeHandler`: logging integration を再設計するまで Foundation の診断ログを一時的にコメントアウトしました。
+- `SubscribeHandler` / `SubscriptionInfo`: 現在の戻り値型を維持したまま、`uint` ベースの subscription lifecycle に対する冪等な解除、例外安全な cleanup、one-shot callback cleanup、ID 衝突防止を強化しました。
 
 ## [base/0.16.0] - 2026-07-12
 

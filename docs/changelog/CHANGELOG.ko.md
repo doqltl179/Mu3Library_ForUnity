@@ -22,6 +22,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `AddressableGroupDataExporterDrawer`: 생성되는 Addressables 데이터를 `{ClassName}Labels` 문자열 라벨 스크립트, 그룹별 `GroupData` 파생 스크립트, 중첩 `EntryData` 파생 에셋 클래스, 간결한 root 그룹 인덱스로 재구성함. split 토글과 `LabelData` 런타임 타입을 제거함.
 - `SubscribeHandler`: 재사용 가능한 one-shot 구독 구현을 `Mu3Library.Foundation`으로 이동했으며 `Mu3Library.Event` 네임스페이스와 public API는 유지함.
 - `SubscribeHandler`: 로깅 통합을 재설계할 때까지 Foundation 진단 로그를 일시적으로 주석 처리함.
+- `SubscribeHandler` / `SubscriptionInfo`: 현재 반환 타입을 유지하면서 `uint` 기반 구독 생명주기의 멱등적 해제, 예외 안전 정리, one-shot callback 정리, ID 충돌 방지를 보완함.
 
 ## [base/0.16.0] - 2026-07-12
 
