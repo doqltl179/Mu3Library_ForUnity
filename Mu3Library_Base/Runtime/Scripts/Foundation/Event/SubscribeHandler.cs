@@ -57,29 +57,46 @@ namespace Mu3Library.Foundation.Event
         }
 
         #region Utility
-        public uint Register(Action subscribe, Action unsubscribe)
+        public ISubscriptionInfo Register(Action subscribe, Action unsubscribe)
             => Register(subscribe, unsubscribe, null);
 
-        public uint Register(Action subscribe, Action unsubscribe, Action onDisposed)
+        public ISubscriptionInfo Register(Action subscribe, Action unsubscribe, Action onDisposed)
         {
             if (_disposed)
             {
                 // Logging is intentionally disabled in the Foundation layer for now.
                 // Mu3Logger.Current.LogWarning("SubscribeHandler is disposed.");
-                return 0;
+                return null;
             }
 
             if (!TryGetSubscriptionId(out uint subscriptionId))
             {
                 // Logging is intentionally disabled in the Foundation layer for now.
                 // Mu3Logger.Current.LogError("No valid subscription ID is available.");
-                return 0;
+                return null;
             }
 
-            var info = new SubscriptionInfo(subscriptionId, subscribe, unsubscribe, onDisposed);
+            SubscriptionInfo info = null;
+            info = new SubscriptionInfo(
+                subscriptionId,
+                subscribe,
+                unsubscribe,
+                () => HandleSubscriptionDisposed(info, onDisposed));
             _subscriptions[subscriptionId] = info;
 
-            return subscriptionId;
+            return info;
+        }
+
+        private void HandleSubscriptionDisposed(SubscriptionInfo info, Action onDisposed)
+        {
+            if (info != null &&
+                _subscriptions.TryGetValue(info.Id, out var containedInfo) &&
+                ReferenceEquals(containedInfo, info))
+            {
+                _subscriptions.Remove(info.Id);
+            }
+
+            onDisposed?.Invoke();
         }
 
         private bool TryGetSubscriptionId(out uint subscriptionId)
@@ -130,13 +147,39 @@ namespace Mu3Library.Foundation.Event
                 return;
             }
 
+            DisposeSubscription(info);
+        }
+
+        public void Deregister(ISubscriptionInfo subscription)
+        {
+            if (_disposed || subscription == null)
+            {
+                return;
+            }
+
+            if (!_subscriptions.TryGetValue(subscription.Id, out var info) ||
+                info == null ||
+                !ReferenceEquals(info, subscription))
+            {
+                return;
+            }
+
+            DisposeSubscription(info);
+        }
+
+        private void DisposeSubscription(SubscriptionInfo info)
+        {
             try
             {
                 info.Dispose();
             }
             finally
             {
-                _subscriptions.Remove(subscriptionId);
+                if (_subscriptions.TryGetValue(info.Id, out var containedInfo) &&
+                    ReferenceEquals(containedInfo, info))
+                {
+                    _subscriptions.Remove(info.Id);
+                }
             }
         }
 

@@ -54,7 +54,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -313,7 +313,7 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute` や `ButtonInvokeAttribute` などのカスタム属性
 - **Audio**: BGM/SFX管理システム
 - **DI**: Dependency Injectionコンテナ
-- **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility と再利用可能な one-shot helper
+- **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
@@ -387,7 +387,7 @@ protected override void Start()
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.15.0`
+- このリポジトリ上の現在の Base パッケージ版: `0.17.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -409,7 +409,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 
 Unity開発者のために制作

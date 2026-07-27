@@ -1,4 +1,5 @@
 using System;
+using Mu3Library.Foundation.Event;
 
 namespace Mu3Library.UI.MVP
 {
@@ -9,13 +10,13 @@ namespace Mu3Library.UI.MVP
         public event Action<IPresenter> OnWindowClosed;
         public event Action<IPresenter> OnWindowUnloaded;
 
-        public uint SubscribeOnWindowLoadedOnce(Action<IPresenter> callback);
-        public uint SubscribeOnWindowLoadedOnce(Action<IPresenter> callback, Action onDisposed);
-        public uint SubscribeOnWindowOpenedOnce(Action<IPresenter> callback);
-        public uint SubscribeOnWindowOpenedOnce(Action<IPresenter> callback, Action onDisposed);
-        public uint SubscribeOnWindowClosedOnce(Action<IPresenter> callback);
-        public uint SubscribeOnWindowClosedOnce(Action<IPresenter> callback, Action onDisposed);
-        public uint SubscribeOnWindowUnloadedOnce(Action<IPresenter> callback);
-        public uint SubscribeOnWindowUnloadedOnce(Action<IPresenter> callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnWindowLoadedOnce(Action<IPresenter> callback);
+        public ISubscriptionInfo SubscribeOnWindowLoadedOnce(Action<IPresenter> callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnWindowOpenedOnce(Action<IPresenter> callback);
+        public ISubscriptionInfo SubscribeOnWindowOpenedOnce(Action<IPresenter> callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnWindowClosedOnce(Action<IPresenter> callback);
+        public ISubscriptionInfo SubscribeOnWindowClosedOnce(Action<IPresenter> callback, Action onDisposed);
+        public ISubscriptionInfo SubscribeOnWindowUnloadedOnce(Action<IPresenter> callback);
+        public ISubscriptionInfo SubscribeOnWindowUnloadedOnce(Action<IPresenter> callback, Action onDisposed);
     }
 }

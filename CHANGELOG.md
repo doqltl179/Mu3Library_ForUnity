@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.17.0] - 2026-07-27
+
 ### Added
 - `IObjectInjector`: Added a narrow injection capability for applying existing `[Inject]` field and property injection to objects created outside the container without exposing `ContainerScope` internals.
 - `MVPManager`: Container-managed instances now inject `[Inject]` members into presenters created or reused by the presenter pool before presenter initialization.
@@ -24,7 +26,8 @@ This changelog tracks package release changes only. Repository development workf
 - `AddressableGroupDataExporterDrawer`: Reworked generated Addressables data into a dedicated `{ClassName}Labels` string-label script, one `GroupData`-derived script per group, nested `EntryData`-derived asset classes, and a compact root group index. The split toggle and `LabelData` runtime type were removed.
 - `SubscribeHandler`: Moved the reusable one-shot subscription implementation into `Mu3Library.Foundation` while preserving its `Mu3Library.Event` namespace and public API.
 - `SubscribeHandler`: Temporarily commented Foundation diagnostic logging until the logging integration is redesigned.
-- `SubscribeHandler` / `SubscriptionInfo`: Hardened `uint`-based subscription lifecycle handling with idempotent unsubscribe, exception-safe cleanup, one-shot callback cleanup, and collision-safe ID allocation while keeping the current return types.
+- `SubscribeHandler` / `SubscriptionInfo`: Hardened subscription lifecycle handling with idempotent unsubscribe, exception-safe cleanup, one-shot callback cleanup, and collision-safe internal ID allocation.
+- Event Bus interfaces and implementations: Changed one-shot subscription methods to return disposable `ISubscriptionInfo` tokens instead of `uint` IDs.
 
 ## [base/0.16.0] - 2026-07-12
 

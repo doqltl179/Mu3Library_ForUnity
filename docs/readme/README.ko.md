@@ -54,7 +54,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -313,7 +313,7 @@ _playerData.Health.Set(80);
 - **Attribute**: `ConditionalHideAttribute`, `ButtonInvokeAttribute` 등의 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **DI**: Dependency Injection 컨테이너
-- **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티와 재사용 가능한 일회성 helper
+- **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, 선택적 생성 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
@@ -387,7 +387,7 @@ protected override void Start()
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.15.0`
+- 이 저장소의 현재 Base 패키지 버전: `0.17.0`
 - 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -409,7 +409,7 @@ protected override void Start()
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨

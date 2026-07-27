@@ -55,7 +55,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.15.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -314,7 +314,7 @@ When the following packages are installed, their features are automatically enab
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **DI**: Dependency Injection container
-- **Event**: Owner-managed subscription utilities and reusable one-shot helpers via `SubscribeHandler`
+- **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, an optional creation callback, and `Clear()` cleanup
@@ -388,7 +388,7 @@ protected override void Start()
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.15.0`
+- Current Base package version in this repository: `0.17.0`
 - Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -410,7 +410,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.15.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

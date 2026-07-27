@@ -5,17 +5,17 @@ namespace Mu3Library.Foundation.Event
 {
     public sealed partial class SubscribeHandler
     {
-        public uint SubscribeOnce(Action<Action> subscribe, Action<Action> unsubscribe, Action callback)
+        public ISubscriptionInfo SubscribeOnce(Action<Action> subscribe, Action<Action> unsubscribe, Action callback)
             => SubscribeOnce(subscribe, unsubscribe, callback, null);
 
-        public uint SubscribeOnce(Action<Action> subscribe, Action<Action> unsubscribe, Action callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnce(Action<Action> subscribe, Action<Action> unsubscribe, Action callback, Action onDisposed)
         {
             if (subscribe == null || unsubscribe == null || callback == null)
             {
-                return 0;
+                return null;
             }
 
-            uint id = 0;
+            ISubscriptionInfo subscription = null;
             int callbackInvoked = 0;
 
             void ActionOnce()
@@ -26,36 +26,36 @@ namespace Mu3Library.Foundation.Event
                 }
 
                 EventExceptionUtility.InvokeAndAggregate(
-                    () => Deregister(id),
+                    () => Deregister(subscription),
                     callback,
-                    $"One-shot subscription failed. id: {id}");
+                    $"One-shot subscription failed. id: {subscription?.Id ?? 0}");
             }
 
-            id = Register(
+            subscription = Register(
                 () => subscribe(ActionOnce),
                 () => unsubscribe(ActionOnce),
                 onDisposed
             );
 
-            if (id == 0)
+            if (subscription == null)
             {
-                return 0;
+                return null;
             }
 
             try
             {
-                Subscribe(id);
+                subscription.Subscribe();
             }
             catch (Exception exception)
             {
                 try
                 {
-                    Deregister(id);
+                    Deregister(subscription);
                 }
                 catch (Exception cleanupException)
                 {
                     throw new AggregateException(
-                        $"One-shot subscription registration failed. id: {id}",
+                        $"One-shot subscription registration failed. id: {subscription.Id}",
                         exception,
                         cleanupException);
                 }
@@ -63,20 +63,20 @@ namespace Mu3Library.Foundation.Event
                 throw;
             }
 
-            return id;
+            return subscription;
         }
 
-        public uint SubscribeOnce<T>(Action<Action<T>> subscribe, Action<Action<T>> unsubscribe, Action<T> callback)
+        public ISubscriptionInfo SubscribeOnce<T>(Action<Action<T>> subscribe, Action<Action<T>> unsubscribe, Action<T> callback)
             => SubscribeOnce(subscribe, unsubscribe, callback, null);
 
-        public uint SubscribeOnce<T>(Action<Action<T>> subscribe, Action<Action<T>> unsubscribe, Action<T> callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnce<T>(Action<Action<T>> subscribe, Action<Action<T>> unsubscribe, Action<T> callback, Action onDisposed)
         {
             if (subscribe == null || unsubscribe == null || callback == null)
             {
-                return 0;
+                return null;
             }
 
-            uint id = 0;
+            ISubscriptionInfo subscription = null;
             int callbackInvoked = 0;
 
             void ActionOnce(T arg)
@@ -87,36 +87,36 @@ namespace Mu3Library.Foundation.Event
                 }
 
                 EventExceptionUtility.InvokeAndAggregate(
-                    () => Deregister(id),
+                    () => Deregister(subscription),
                     () => callback(arg),
-                    $"One-shot subscription failed. id: {id}");
+                    $"One-shot subscription failed. id: {subscription?.Id ?? 0}");
             }
 
-            id = Register(
+            subscription = Register(
                 () => subscribe(ActionOnce),
                 () => unsubscribe(ActionOnce),
                 onDisposed
             );
 
-            if (id == 0)
+            if (subscription == null)
             {
-                return 0;
+                return null;
             }
 
             try
             {
-                Subscribe(id);
+                subscription.Subscribe();
             }
             catch (Exception exception)
             {
                 try
                 {
-                    Deregister(id);
+                    Deregister(subscription);
                 }
                 catch (Exception cleanupException)
                 {
                     throw new AggregateException(
-                        $"One-shot subscription registration failed. id: {id}",
+                        $"One-shot subscription registration failed. id: {subscription.Id}",
                         exception,
                         cleanupException);
                 }
@@ -124,20 +124,20 @@ namespace Mu3Library.Foundation.Event
                 throw;
             }
 
-            return id;
+            return subscription;
         }
 
-        public uint SubscribeOnce<T1, T2>(Action<Action<T1, T2>> subscribe, Action<Action<T1, T2>> unsubscribe, Action<T1, T2> callback)
+        public ISubscriptionInfo SubscribeOnce<T1, T2>(Action<Action<T1, T2>> subscribe, Action<Action<T1, T2>> unsubscribe, Action<T1, T2> callback)
             => SubscribeOnce(subscribe, unsubscribe, callback, null);
 
-        public uint SubscribeOnce<T1, T2>(Action<Action<T1, T2>> subscribe, Action<Action<T1, T2>> unsubscribe, Action<T1, T2> callback, Action onDisposed)
+        public ISubscriptionInfo SubscribeOnce<T1, T2>(Action<Action<T1, T2>> subscribe, Action<Action<T1, T2>> unsubscribe, Action<T1, T2> callback, Action onDisposed)
         {
             if (subscribe == null || unsubscribe == null || callback == null)
             {
-                return 0;
+                return null;
             }
 
-            uint id = 0;
+            ISubscriptionInfo subscription = null;
             int callbackInvoked = 0;
 
             void ActionOnce(T1 arg1, T2 arg2)
@@ -148,36 +148,36 @@ namespace Mu3Library.Foundation.Event
                 }
 
                 EventExceptionUtility.InvokeAndAggregate(
-                    () => Deregister(id),
+                    () => Deregister(subscription),
                     () => callback(arg1, arg2),
-                    $"One-shot subscription failed. id: {id}");
+                    $"One-shot subscription failed. id: {subscription?.Id ?? 0}");
             }
 
-            id = Register(
+            subscription = Register(
                 () => subscribe(ActionOnce),
                 () => unsubscribe(ActionOnce),
                 onDisposed
             );
 
-            if (id == 0)
+            if (subscription == null)
             {
-                return 0;
+                return null;
             }
 
             try
             {
-                Subscribe(id);
+                subscription.Subscribe();
             }
             catch (Exception exception)
             {
                 try
                 {
-                    Deregister(id);
+                    Deregister(subscription);
                 }
                 catch (Exception cleanupException)
                 {
                     throw new AggregateException(
-                        $"One-shot subscription registration failed. id: {id}",
+                        $"One-shot subscription registration failed. id: {subscription.Id}",
                         exception,
                         cleanupException);
                 }
@@ -185,7 +185,7 @@ namespace Mu3Library.Foundation.Event
                 throw;
             }
 
-            return id;
+            return subscription;
         }
     }
 }
