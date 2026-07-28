@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Mu3Library.Foundation.Event;
 using UnityEngine;
 
 namespace Mu3Library.DI
@@ -58,6 +59,7 @@ namespace Mu3Library.DI
         private readonly Dictionary<Type, CoreBase> _cores = new();
         private readonly List<CoreBase> _orderedCores = new();
 
+        private readonly SubscribeHandler _subscribeHandler = new();
         public event Action<Type> OnCoreInitialized;
 
 
@@ -170,6 +172,47 @@ namespace Mu3Library.DI
         {
             Type type = typeof(T);
             return _cores.ContainsKey(type);
+        }
+
+        public ISubscriptionInfo SubscribeOnCoreInitializedOnce<T>(Action callback) where T : CoreBase
+        {
+            Type type = typeof(T);
+            return SubscribeOnCoreInitializedOnce(type, callback);
+        }
+
+        public ISubscriptionInfo SubscribeOnCoreInitializedOnce(Type type, Action callback)
+        {
+            if (type == null)
+            {
+                return null;
+            }
+
+            if (_cores.TryGetValue(type, out var core))
+            {
+                return core.SubscribeOnInitializedOnce(callback);
+            }
+            else
+            {
+                ISubscriptionInfo subscription = null;
+                Action<Type> handler = initializedType =>
+                {
+                    if (initializedType != type)
+                    {
+                        return;
+                    }
+
+                    _subscribeHandler.Deregister(subscription);
+                    callback?.Invoke();
+                };
+
+                subscription = _subscribeHandler.Register(
+                    () => OnCoreInitialized += handler,
+                    () => OnCoreInitialized -= handler
+                );
+                subscription?.Subscribe();
+
+                return subscription;
+            }
         }
         #endregion
 

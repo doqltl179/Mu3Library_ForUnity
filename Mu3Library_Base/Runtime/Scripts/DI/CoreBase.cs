@@ -16,8 +16,8 @@ namespace Mu3Library.DI
         private bool _isContainerConfigured = false;
         public bool IsContainerConfigured => _isContainerConfigured;
 
-        private bool _isPrepared = false;
-        public bool IsPrepared => _isPrepared;
+        private bool _isInitialized = false;
+        public bool IsInitialized => _isInitialized;
 
         [FormerlySerializedAs("_setAsGlobal")]
         [SerializeField] private bool _dontDestroyOnLoad = false;
@@ -75,7 +75,6 @@ namespace Mu3Library.DI
         protected virtual void Start()
         {
             _scope.InjectInto(this);
-            OnInitialized?.Invoke(); // scope의 initialize와 core의 initialize 타이밍을 다르게 한다.
         }
 
         protected virtual void OnDestroy()
@@ -87,6 +86,7 @@ namespace Mu3Library.DI
         internal void InitializeCore()
         {
             _scope?.Initialize();
+            OnInitialized?.Invoke();
         }
 
         internal void UpdateCore()
@@ -125,11 +125,19 @@ namespace Mu3Library.DI
         }
 
         internal ISubscriptionInfo SubscribeOnInitializedOnce(Action callback)
-            => _subscribeHandler.SubscribeOnce(
+        {
+            if (_isInitialized)
+            {
+                callback?.Invoke();
+                return null;
+            }
+
+            return _subscribeHandler.SubscribeOnce(
                     handler => OnInitialized += handler,
                     handler => OnInitialized -= handler,
                     callback
                 );
+        }
         #endregion
 
         protected T GetClassFromOtherCore<TCore, T>()

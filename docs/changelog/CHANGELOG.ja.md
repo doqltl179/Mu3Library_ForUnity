@@ -15,6 +15,19 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.18.0] - 2026-07-28
+
+### 追加
+- `ICoreRoot` / `CoreRoot`: Core の初期化完了を監視する `OnCoreInitialized` イベントと、一度だけ実行する `SubscribeOnCoreInitializedOnce<T>(Action)` / `SubscribeOnCoreInitializedOnce(Type, Action)` API を追加しました。
+
+### 変更
+- `CoreBase` / `IDICore`: `IsPrepared` を `IsInitialized` に改名し、DI scope の初期化完了後に Core 初期化通知が発生するようにしました。
+- `CoreRoot`: Core 初期化通知を Core scope の初期化後に行うようにし、初期化購読が破棄可能な `ISubscriptionInfo` token を返すようにしました。
+- Template サンプル: `WaitForOtherCore` callback を Core 間の `[Inject]` 依存性に置き換えました。
+
+### 削除
+- `CoreBase.WaitForOtherCore<TCore>`: 旧 Core 間準備状態待機 helper を削除しました。
+
 ## [base/0.17.0] - 2026-07-27
 
 ### 追加
