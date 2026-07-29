@@ -61,6 +61,7 @@ namespace Mu3Library.DI
 
         private readonly SubscribeHandler _subscribeHandler = new();
         public event Action<Type> OnCoreInitialized;
+        public event Action<Type> OnCorePrepared;
 
 
 
@@ -134,6 +135,8 @@ namespace Mu3Library.DI
 
             core.SubscribeOnInitializedOnce(() => OnCoreInitialized?.Invoke(type));
             core.InitializeCore();
+
+            core.SubscribeOnPreparedOnce(() => OnCorePrepared?.Invoke(type));
         }
         #endregion
 
@@ -208,6 +211,47 @@ namespace Mu3Library.DI
                 subscription = _subscribeHandler.Register(
                     () => OnCoreInitialized += handler,
                     () => OnCoreInitialized -= handler
+                );
+                subscription?.Subscribe();
+
+                return subscription;
+            }
+        }
+
+        public ISubscriptionInfo SubscribeOnCorePreparedOnce<T>(Action callback) where T : CoreBase
+        {
+            Type type = typeof(T);
+            return SubscribeOnCorePreparedOnce(type, callback);
+        }
+
+        public ISubscriptionInfo SubscribeOnCorePreparedOnce(Type type, Action callback)
+        {
+            if (type == null)
+            {
+                return null;
+            }
+
+            if (_cores.TryGetValue(type, out var core))
+            {
+                return core.SubscribeOnPreparedOnce(callback);
+            }
+            else
+            {
+                ISubscriptionInfo subscription = null;
+                Action<Type> handler = initializedType =>
+                {
+                    if (initializedType != type)
+                    {
+                        return;
+                    }
+
+                    _subscribeHandler.Deregister(subscription);
+                    callback?.Invoke();
+                };
+
+                subscription = _subscribeHandler.Register(
+                    () => OnCorePrepared += handler,
+                    () => OnCorePrepared -= handler
                 );
                 subscription?.Subscribe();
 

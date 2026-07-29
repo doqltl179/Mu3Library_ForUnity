@@ -4,6 +4,8 @@ namespace Mu3Library.DI
     {
         public bool IsContainerConfigured { get; }
         public bool IsInitialized { get; }
+        public bool IsPreparing { get; }
+        public bool IsPrepared { get; }
 
         public int ExecutionOrder { get; }
     }
