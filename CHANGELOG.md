@@ -15,6 +15,25 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.19.0] - 2026-07-29
+
+### Added
+- `ICoreRoot` / `CoreRoot`: Added the `OnCorePrepared` event and one-shot `SubscribeOnCorePreparedOnce<T>(Action)` / `SubscribeOnCorePreparedOnce(Type, Action)` APIs for observing core preparation completion.
+- `CoreBase` / `IDICore`: Added `IsPreparing` and `IsPrepared` states for tracking core preparation.
+
+## [base/0.18.0] - 2026-07-28
+
+### Added
+- `ICoreRoot` / `CoreRoot`: Added the `OnCoreInitialized` event and one-shot `SubscribeOnCoreInitializedOnce<T>(Action)` / `SubscribeOnCoreInitializedOnce(Type, Action)` APIs for observing core initialization completion.
+
+### Changed
+- `CoreBase` / `IDICore`: Renamed `IsPrepared` to `IsInitialized` and aligned core initialization notifications with completion of DI scope initialization.
+- `CoreRoot`: Core initialization notifications now occur after the core scope initializes, and initialization subscriptions return disposable `ISubscriptionInfo` tokens.
+- Template samples: Replaced `WaitForOtherCore` callbacks with cross-core `[Inject]` dependencies.
+
+### Removed
+- `CoreBase.WaitForOtherCore<TCore>`: Removed the old cross-core readiness helper.
+
 ## [base/0.17.0] - 2026-07-27
 
 ### Added

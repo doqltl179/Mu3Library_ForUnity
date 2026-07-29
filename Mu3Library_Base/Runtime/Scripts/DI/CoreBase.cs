@@ -1,6 +1,15 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 using System;
+using Mu3Library.Foundation.Event;
+using System.Collections;
+using Mu3Library.Coroutine.Foundation;
+
+
+#if MU3LIBRARY_UNITASK_SUPPORT
+using System.Threading;
+using Cysharp.Threading.Tasks;
+#endif
 
 namespace Mu3Library.DI
 {
@@ -15,6 +24,12 @@ namespace Mu3Library.DI
         private bool _isContainerConfigured = false;
         public bool IsContainerConfigured => _isContainerConfigured;
 
+        private bool _isInitialized = false;
+        public bool IsInitialized => _isInitialized;
+
+        private bool _isPreparing = false;
+        public bool IsPreparing => _isPreparing;
+
         private bool _isPrepared = false;
         public bool IsPrepared => _isPrepared;
 
@@ -22,6 +37,16 @@ namespace Mu3Library.DI
         [SerializeField] private bool _dontDestroyOnLoad = false;
         [SerializeField] private int _executionOrder = 0;
         public int ExecutionOrder => _executionOrder;
+
+#if MU3LIBRARY_UNITASK_SUPPORT
+        private CancellationTokenSource _prepareCoreCts = null;
+#else
+        private IEnumerator _prepareCoreCoroutine = null;
+#endif
+
+        private readonly SubscribeHandler _subscribeHandler = new();
+        internal event Action OnInitialized;
+        internal event Action OnPrepared;
 
 
 
@@ -32,6 +57,12 @@ namespace Mu3Library.DI
         {
         }
 
+        /// <summary>
+        /// Initializes this core's container and registers it with <see cref="CoreRoot"/>.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.Awake()</c> to preserve the core lifecycle.
+        /// </remarks>
         protected virtual void Awake()
         {
             if (_dontDestroyOnLoad)
@@ -50,6 +81,7 @@ namespace Mu3Library.DI
             }
 
             InitializeContainer();
+            CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
         private void InitializeContainer()
@@ -67,21 +99,157 @@ namespace Mu3Library.DI
             _isContainerConfigured = true;
         }
 
+        /// <summary>
+        /// Injects dependencies into this core and starts its preparation lifecycle.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.Start()</c> to preserve the core lifecycle.
+        /// </remarks>
         protected virtual void Start()
         {
             _scope.InjectInto(this);
-            CoreRoot.InstanceInternal?.RegisterCore(this);
+            PrepareCore();
         }
 
         protected virtual void OnDestroy()
         {
+            StopPrepareCore();
+
+            _subscribeHandler.Dispose();
             CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 
         internal void InitializeCore()
         {
             _scope?.Initialize();
+            _isInitialized = true;
+
+            OnInitialized?.Invoke();
         }
+
+        internal void PrepareCore()
+        {
+            if (this == null || _isPreparing || _isPrepared)
+            {
+                return;
+            }
+
+#if MU3LIBRARY_UNITASK_SUPPORT
+            if (_prepareCoreCts == null)
+            {
+                _prepareCoreCts = new CancellationTokenSource();
+                PrepareCoreHandler(_prepareCoreCts.Token);
+            }
+#else
+            if (_prepareCoreCoroutine == null && gameObject.activeSelf)
+            {
+                _prepareCoreCoroutine = PrepareCoreHandler();
+                StartCoroutine(_prepareCoreCoroutine);
+            }
+#endif
+        }
+
+#if MU3LIBRARY_UNITASK_SUPPORT
+        private async void PrepareCoreHandler(CancellationToken token)
+        {
+            _isPreparing = true;
+
+            try
+            {
+                _isPrepared = await PrepareCoreAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.LogWarning($"Core prepare canceled. type: {GetType().Name}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                _prepareCoreCts?.Dispose();
+                _prepareCoreCts = null;
+
+                _isPreparing = false;
+            }
+
+            if (_isPrepared)
+            {
+                OnPrepared?.Invoke();
+            }
+        }
+
+        protected async virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
+        {
+            return true;
+        }
+
+        private void StopPrepareCore()
+        {
+            if (_prepareCoreCts != null)
+            {
+                _prepareCoreCts.Cancel();
+                _prepareCoreCts.Dispose();
+                _prepareCoreCts = null;
+            }
+        }
+#else
+        private IEnumerator PrepareCoreHandler()
+        {
+            _isPreparing = true;
+
+            Exception error = null;
+            bool isSucceed = false;
+
+            IEnumerator routine = null;
+            try
+            {
+                routine = PrepareCoreAsync(() => isSucceed = true);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            if (error == null)
+            {
+                yield return CoroutineSafeRunner.Run(
+                    routine,
+                    exception => error = exception
+                );
+            }
+
+            _isPreparing = false;
+            _isPrepared = error == null && isSucceed;
+
+            _prepareCoreCoroutine = null;
+
+            if (_isPrepared)
+            {
+                OnPrepared?.Invoke();
+            }
+            else if (error != null)
+            {
+                Debug.LogException(error);
+            }
+        }
+
+        protected virtual IEnumerator PrepareCoreAsync(Action onSucceed)
+        {
+            onSucceed?.Invoke();
+            yield break;
+        }
+
+        private void StopPrepareCore()
+        {
+            if (_prepareCoreCoroutine != null)
+            {
+                StopCoroutine(_prepareCoreCoroutine);
+                _prepareCoreCoroutine = null;
+            }
+        }
+#endif
 
         internal void UpdateCore()
         {
@@ -117,42 +285,37 @@ namespace Mu3Library.DI
 
             return _scope.Resolve(serviceType, key);
         }
-        #endregion
 
-        protected void WaitForOtherCore<TCore>(Action callback)
-            where TCore : CoreBase
+        internal ISubscriptionInfo SubscribeOnInitializedOnce(Action callback)
         {
-            CoreRoot root = CoreRoot.InstanceInternal;
-            if (root == null)
-            {
-                return;
-            }
-
-            if (root.HasCore<TCore>())
+            if (_isInitialized)
             {
                 callback?.Invoke();
-                return;
+                return null;
             }
 
-            void HandleCoreAdded(Type addedType)
-            {
-                if (addedType != typeof(TCore))
-                {
-                    return;
-                }
-
-                CoreRoot current = CoreRoot.InstanceInternal;
-                if (current == null || !current.HasCore<TCore>())
-                {
-                    return;
-                }
-
-                current.OnCoreAdded -= HandleCoreAdded;
-                callback?.Invoke();
-            }
-
-            root.OnCoreAdded += HandleCoreAdded;
+            return _subscribeHandler.SubscribeOnce(
+                    handler => OnInitialized += handler,
+                    handler => OnInitialized -= handler,
+                    callback
+                );
         }
+
+        internal ISubscriptionInfo SubscribeOnPreparedOnce(Action callback)
+        {
+            if (_isPrepared)
+            {
+                callback?.Invoke();
+                return null;
+            }
+
+            return _subscribeHandler.SubscribeOnce(
+                    handler => OnPrepared += handler,
+                    handler => OnPrepared -= handler,
+                    callback
+                );
+        }
+        #endregion
 
         protected T GetClassFromOtherCore<TCore, T>()
             where TCore : CoreBase

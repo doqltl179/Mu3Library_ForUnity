@@ -54,7 +54,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.17.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -385,9 +385,31 @@ protected override void Start()
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
+特定の Core の初期化完了後に一度だけコードを実行するには、`ICoreRoot` 経由で購読します:
+
+```csharp
+CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
+{
+    _audioManager = CoreRoot.Instance.GetClass<AudioCore, IAudioManager>();
+});
+```
+
+callback は対象 Core の初期化完了後に一度だけ呼び出されます。
+
+非同期の準備処理がある場合は、準備完了通知を購読できます:
+
+```csharp
+CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
+{
+    // AudioCore の準備完了後にコードを実行します。
+});
+```
+
+callback は対象 Core の準備処理完了後に一度だけ呼び出されます。
+
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.17.0`
+- このリポジトリ上の現在の Base パッケージ版: `0.19.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -409,7 +431,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.17.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.19.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 
 Unity開発者のために制作
