@@ -396,6 +396,17 @@ CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
 
 callback は対象 Core の初期化完了後に一度だけ呼び出されます。
 
+非同期の準備処理がある場合は、準備完了通知を購読できます:
+
+```csharp
+CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
+{
+    // AudioCore の準備完了後にコードを実行します。
+});
+```
+
+callback は対象 Core の準備処理完了後に一度だけ呼び出されます。
+
 ## 📝 最近のアップデート
 
 - このリポジトリ上の現在の Base パッケージ版: `0.18.0`

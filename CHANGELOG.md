@@ -15,6 +15,10 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `ICoreRoot` / `CoreRoot`: Added the `OnCorePrepared` event and one-shot `SubscribeOnCorePreparedOnce<T>(Action)` / `SubscribeOnCorePreparedOnce(Type, Action)` APIs for observing core preparation completion.
+- `CoreBase` / `IDICore`: Added `IsPreparing` and `IsPrepared` states for tracking core preparation.
+
 ## [base/0.18.0] - 2026-07-28
 
 ### Added

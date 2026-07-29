@@ -397,6 +397,17 @@ CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
 
 The callback is invoked once after the target Core has completed its initialization.
 
+For asynchronous preparation work, subscribe to the preparation completion notification:
+
+```csharp
+CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
+{
+    // Run code after AudioCore preparation completes.
+});
+```
+
+The callback is invoked once after the target Core has completed its preparation.
+
 ## 📝 Recent Updates
 
 - Current Base package version in this repository: `0.18.0`

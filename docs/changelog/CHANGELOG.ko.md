@@ -13,6 +13,10 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `ICoreRoot` / `CoreRoot`: Core 준비 완료를 감시할 수 있도록 `OnCorePrepared` 이벤트와 일회성 `SubscribeOnCorePreparedOnce<T>(Action)` / `SubscribeOnCorePreparedOnce(Type, Action)` API를 추가함.
+- `CoreBase` / `IDICore`: Core 준비 상태를 확인할 수 있도록 `IsPreparing` 및 `IsPrepared` 상태를 추가함.
+
 ## [base/0.18.0] - 2026-07-28
 
 ### 추가됨

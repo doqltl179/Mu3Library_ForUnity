@@ -396,6 +396,17 @@ CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
 
 callback은 대상 Core의 초기화가 완료된 후 한 번 호출됩니다.
 
+비동기 준비 작업이 있는 경우, 준비 완료 알림을 구독할 수 있습니다:
+
+```csharp
+CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
+{
+    // AudioCore의 준비가 완료된 뒤 코드를 실행합니다.
+});
+```
+
+callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니다.
+
 ## 📝 최근 업데이트
 
 - 이 저장소의 현재 Base 패키지 버전: `0.18.0`
