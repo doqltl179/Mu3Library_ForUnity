@@ -54,7 +54,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.18.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -409,7 +409,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.18.0`
+- 이 저장소의 현재 Base 패키지 버전: `0.19.0`
 - 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -431,7 +431,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.18.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.19.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨
