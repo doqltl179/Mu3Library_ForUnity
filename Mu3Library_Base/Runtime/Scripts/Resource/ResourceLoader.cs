@@ -169,7 +169,7 @@ namespace Mu3Library.Resource
 
                 if (asset != null)
                 {
-                    Resources.UnloadAsset(asset);
+                    UnloadIfSupported(asset);
                     released = true;
                 }
 
@@ -191,7 +191,7 @@ namespace Mu3Library.Resource
                         Object listAsset = listAssets[i];
                         if (listAsset != null)
                         {
-                            Resources.UnloadAsset(listAsset);
+                            UnloadIfSupported(listAsset);
                         }
                     }
 
@@ -261,7 +261,7 @@ namespace Mu3Library.Resource
 
             foreach (Object asset in uniqueAssets)
             {
-                Resources.UnloadAsset(asset);
+                UnloadIfSupported(asset);
             }
 
             if (hasResources)
@@ -311,7 +311,7 @@ namespace Mu3Library.Resource
 
             foreach (Object asset in uniqueAssets)
             {
-                Resources.UnloadAsset(asset);
+                UnloadIfSupported(asset);
             }
 
             _resources.Clear();
@@ -386,6 +386,19 @@ namespace Mu3Library.Resource
             }
 
             pathResources[type] = assets;
+        }
+
+        private static void UnloadIfSupported(Object asset)
+        {
+            if (asset == null ||
+                asset is GameObject ||
+                asset is Component ||
+                asset is AssetBundle)
+            {
+                return;
+            }
+
+            Resources.UnloadAsset(asset);
         }
 
         private string NormalizePath(string path)
