@@ -13,6 +13,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.19.1] - 2026-08-02
+
+### 수정됨
+- `AddressablesManager`: `MU3LIBRARY_ADDRESSABLES_SUPPORT` 및 `MU3LIBRARY_UNITASK_SUPPORT`가 모두 정의된 경우에만 UniTask 구현이 컴파일되도록 보호함.
+- `ResourceLoader`: 캐시된 `GameObject`, `Component`, `AssetBundle` 인스턴스는 로더 캐시에서 해제하되, `Resources.UnloadAsset`를 직접 호출하지 않도록 수정함.
+
 ## [base/0.19.0] - 2026-07-29
 
 ### 추가됨

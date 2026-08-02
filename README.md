@@ -55,7 +55,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.1
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -410,7 +410,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.19.0`
+- Current Base package version in this repository: `0.19.1`
 - Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -432,7 +432,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.19.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.19.1`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

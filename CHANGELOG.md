@@ -15,6 +15,12 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.19.1] - 2026-08-02
+
+### Fixed
+- `AddressablesManager`: Guard the UniTask implementation with both `MU3LIBRARY_ADDRESSABLES_SUPPORT` and `MU3LIBRARY_UNITASK_SUPPORT`.
+- `ResourceLoader`: Skip direct `Resources.UnloadAsset` calls for cached `GameObject`, `Component`, and `AssetBundle` instances while still releasing them from the loader cache.
+
 ## [base/0.19.0] - 2026-07-29
 
 ### Added
