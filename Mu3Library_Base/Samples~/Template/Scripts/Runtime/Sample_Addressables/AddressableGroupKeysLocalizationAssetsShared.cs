@@ -5,41 +5,41 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysLocalizationAssetsShared : GroupData
-{
-    public sealed class TestStringTableSharedDataSharedTableDataEntry : EntryData
+    public sealed class AddressableGroupKeysLocalizationAssetsShared : GroupData
     {
+        public sealed class TestStringTableSharedDataSharedTableDataEntry : EntryData
+        {
 
-        public TestStringTableSharedDataSharedTableDataEntry() : base(
-            "TestStringTable Shared Data",
-            "Assets/Mu3LibraryAssets/Samples~/Sample_Localization/Localization/Tables/TestStringTable Shared Data.asset",
-            new string[] { AddressableGroupKeysLabels.BaseDownload }
-        )
+            public TestStringTableSharedDataSharedTableDataEntry() : base(
+                "TestStringTable Shared Data",
+                "Assets/Mu3LibraryAssets/Samples~/Sample_Localization/Localization/Tables/TestStringTable Shared Data.asset",
+                new string[] { AddressableGroupKeysLabels.BaseDownload }
+            )
+            {
+            }
+        }
+
+
+        private static readonly TestStringTableSharedDataSharedTableDataEntry _testStringTableSharedDataSharedTableData = new TestStringTableSharedDataSharedTableDataEntry();
+        public readonly TestStringTableSharedDataSharedTableDataEntry TestStringTableSharedDataSharedTableData = _testStringTableSharedDataSharedTableData;
+
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
+        {
+            _testStringTableSharedDataSharedTableData,
+        };
+
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+            AddressableGroupKeysLabels.BaseDownload,
+        };
+
+        public static readonly AddressableGroupKeysLocalizationAssetsShared Instance = new AddressableGroupKeysLocalizationAssetsShared();
+
+        internal AddressableGroupKeysLocalizationAssetsShared() : base(
+            "Localization-Assets-Shared",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly TestStringTableSharedDataSharedTableDataEntry _testStringTableSharedDataSharedTableData = new TestStringTableSharedDataSharedTableDataEntry();
-    public readonly TestStringTableSharedDataSharedTableDataEntry TestStringTableSharedDataSharedTableData = _testStringTableSharedDataSharedTableData;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _testStringTableSharedDataSharedTableData,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-        AddressableGroupKeysLabels.BaseDownload,
-    };
-
-    public static readonly AddressableGroupKeysLocalizationAssetsShared Instance = new AddressableGroupKeysLocalizationAssetsShared();
-
-    internal AddressableGroupKeysLocalizationAssetsShared() : base(
-        "Localization-Assets-Shared",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }

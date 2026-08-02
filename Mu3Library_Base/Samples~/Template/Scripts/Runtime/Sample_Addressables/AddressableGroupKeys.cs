@@ -5,29 +5,29 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public static class AddressableGroupKeys
-{
-    public static readonly AddressableGroupKeysDefaultLocalGroup DefaultLocalGroup = AddressableGroupKeysDefaultLocalGroup.Instance;
-    public static readonly AddressableGroupKeysLocalizationAssetsShared LocalizationAssetsShared = AddressableGroupKeysLocalizationAssetsShared.Instance;
-    public static readonly AddressableGroupKeysLocalizationLocales LocalizationLocales = AddressableGroupKeysLocalizationLocales.Instance;
-    public static readonly AddressableGroupKeysLocalizationStringTablesEnglishEn LocalizationStringTablesEnglishEn = AddressableGroupKeysLocalizationStringTablesEnglishEn.Instance;
-    public static readonly AddressableGroupKeysLocalizationStringTablesJapaneseJa LocalizationStringTablesJapaneseJa = AddressableGroupKeysLocalizationStringTablesJapaneseJa.Instance;
-    public static readonly AddressableGroupKeysLocalizationStringTablesKoreanKo LocalizationStringTablesKoreanKo = AddressableGroupKeysLocalizationStringTablesKoreanKo.Instance;
-    public static readonly AddressableGroupKeysTestPack TestPack = AddressableGroupKeysTestPack.Instance;
-    public static readonly AddressableGroupKeysTestPack02 TestPack02 = AddressableGroupKeysTestPack02.Instance;
-    public static readonly AddressableGroupKeysTestScene TestScene = AddressableGroupKeysTestScene.Instance;
-
-    public static readonly IReadOnlyList<GroupData> All = new GroupData[]
+    public static class AddressableGroupKeys
     {
-        DefaultLocalGroup,
-        LocalizationAssetsShared,
-        LocalizationLocales,
-        LocalizationStringTablesEnglishEn,
-        LocalizationStringTablesJapaneseJa,
-        LocalizationStringTablesKoreanKo,
-        TestPack,
-        TestPack02,
-        TestScene,
-    };
-}
+        public static readonly AddressableGroupKeysDefaultLocalGroup DefaultLocalGroup = AddressableGroupKeysDefaultLocalGroup.Instance;
+        public static readonly AddressableGroupKeysLocalizationAssetsShared LocalizationAssetsShared = AddressableGroupKeysLocalizationAssetsShared.Instance;
+        public static readonly AddressableGroupKeysLocalizationLocales LocalizationLocales = AddressableGroupKeysLocalizationLocales.Instance;
+        public static readonly AddressableGroupKeysLocalizationStringTablesEnglishEn LocalizationStringTablesEnglishEn = AddressableGroupKeysLocalizationStringTablesEnglishEn.Instance;
+        public static readonly AddressableGroupKeysLocalizationStringTablesJapaneseJa LocalizationStringTablesJapaneseJa = AddressableGroupKeysLocalizationStringTablesJapaneseJa.Instance;
+        public static readonly AddressableGroupKeysLocalizationStringTablesKoreanKo LocalizationStringTablesKoreanKo = AddressableGroupKeysLocalizationStringTablesKoreanKo.Instance;
+        public static readonly AddressableGroupKeysTestPack TestPack = AddressableGroupKeysTestPack.Instance;
+        public static readonly AddressableGroupKeysTestPack02 TestPack02 = AddressableGroupKeysTestPack02.Instance;
+        public static readonly AddressableGroupKeysTestScene TestScene = AddressableGroupKeysTestScene.Instance;
+
+        public static readonly IReadOnlyList<GroupData> All = new GroupData[]
+        {
+            DefaultLocalGroup,
+            LocalizationAssetsShared,
+            LocalizationLocales,
+            LocalizationStringTablesEnglishEn,
+            LocalizationStringTablesJapaneseJa,
+            LocalizationStringTablesKoreanKo,
+            TestPack,
+            TestPack02,
+            TestScene,
+        };
+    }
 }

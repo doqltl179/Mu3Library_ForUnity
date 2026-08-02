@@ -5,42 +5,42 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysLocalizationStringTablesEnglishEn : GroupData
-{
-    public sealed class TestStringTableEnStringTableEntry : EntryData
+    public sealed class AddressableGroupKeysLocalizationStringTablesEnglishEn : GroupData
     {
+        public sealed class TestStringTableEnStringTableEntry : EntryData
+        {
 
-        public TestStringTableEnStringTableEntry() : base(
-            "TestStringTable_en",
-            "TestStringTable_en",
-            new string[] { AddressableGroupKeysLabels.BaseDownload, AddressableGroupKeysLabels.LocaleEn }
-        )
+            public TestStringTableEnStringTableEntry() : base(
+                "TestStringTable_en",
+                "TestStringTable_en",
+                new string[] { AddressableGroupKeysLabels.BaseDownload, AddressableGroupKeysLabels.LocaleEn }
+            )
+            {
+            }
+        }
+
+
+        private static readonly TestStringTableEnStringTableEntry _testStringTableEnStringTable = new TestStringTableEnStringTableEntry();
+        public readonly TestStringTableEnStringTableEntry TestStringTableEnStringTable = _testStringTableEnStringTable;
+
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
+        {
+            _testStringTableEnStringTable,
+        };
+
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+            AddressableGroupKeysLabels.BaseDownload,
+            AddressableGroupKeysLabels.LocaleEn,
+        };
+
+        public static readonly AddressableGroupKeysLocalizationStringTablesEnglishEn Instance = new AddressableGroupKeysLocalizationStringTablesEnglishEn();
+
+        internal AddressableGroupKeysLocalizationStringTablesEnglishEn() : base(
+            "Localization-String-Tables-English (en)",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly TestStringTableEnStringTableEntry _testStringTableEnStringTable = new TestStringTableEnStringTableEntry();
-    public readonly TestStringTableEnStringTableEntry TestStringTableEnStringTable = _testStringTableEnStringTable;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _testStringTableEnStringTable,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-        AddressableGroupKeysLabels.BaseDownload,
-        AddressableGroupKeysLabels.LocaleEn,
-    };
-
-    public static readonly AddressableGroupKeysLocalizationStringTablesEnglishEn Instance = new AddressableGroupKeysLocalizationStringTablesEnglishEn();
-
-    internal AddressableGroupKeysLocalizationStringTablesEnglishEn() : base(
-        "Localization-String-Tables-English (en)",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }

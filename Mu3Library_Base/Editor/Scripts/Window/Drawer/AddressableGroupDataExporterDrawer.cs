@@ -400,8 +400,8 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var body = new StringBuilder();
             AppendGeneratedHeader(body);
-            AppendLine(body, 0, "using System.Collections.Generic;");
-            AppendLine(body, 0, "");
+            AppendOuterLine(body, 0, "using System.Collections.Generic;");
+            AppendOuterLine(body, 0, "");
             AppendNamespaceStart(body);
             AppendLine(body, 0, $"public static class {labelsClassName}");
             AppendLine(body, 0, "{");
@@ -428,9 +428,9 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var body = new StringBuilder();
             AppendGeneratedHeader(body);
-            AppendLine(body, 0, "using System.Collections.Generic;");
-            AppendLine(body, 0, "using Mu3Library.Addressable.Data;");
-            AppendLine(body, 0, "");
+            AppendOuterLine(body, 0, "using System.Collections.Generic;");
+            AppendOuterLine(body, 0, "using Mu3Library.Addressable.Data;");
+            AppendOuterLine(body, 0, "");
             AppendNamespaceStart(body);
             AppendLine(body, 0, $"public sealed class {groupClassName} : GroupData");
             AppendLine(body, 0, "{");
@@ -474,7 +474,7 @@ namespace Mu3Library.Editor.Window.Drawer
             return body.ToString();
         }
 
-        private static void AppendEntryType(
+        private void AppendEntryType(
             StringBuilder body,
             GeneratedEntry entry,
             int indent,
@@ -537,9 +537,9 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             var body = new StringBuilder();
             AppendGeneratedHeader(body);
-            AppendLine(body, 0, "using System.Collections.Generic;");
-            AppendLine(body, 0, "using Mu3Library.Addressable.Data;");
-            AppendLine(body, 0, "");
+            AppendOuterLine(body, 0, "using System.Collections.Generic;");
+            AppendOuterLine(body, 0, "using Mu3Library.Addressable.Data;");
+            AppendOuterLine(body, 0, "");
             AppendNamespaceStart(body);
             AppendLine(body, 0, $"public static class {className}");
             AppendLine(body, 0, "{");
@@ -642,17 +642,23 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             if (string.IsNullOrWhiteSpace(_scriptNamespace))
                 return;
-            AppendLine(body, 0, $"namespace {_scriptNamespace.Trim()}");
-            AppendLine(body, 0, "{");
+            AppendOuterLine(body, 0, $"namespace {_scriptNamespace.Trim()}");
+            AppendOuterLine(body, 0, "{");
         }
 
         private void AppendNamespaceEnd(StringBuilder body)
         {
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
-                AppendLine(body, 0, "}");
+                AppendOuterLine(body, 0, "}");
         }
 
-        private static void AppendLine(StringBuilder body, int indent, string line)
+        private void AppendLine(StringBuilder body, int indent, string line)
+        {
+            int namespaceIndent = string.IsNullOrWhiteSpace(_scriptNamespace) ? 0 : 1;
+            AppendOuterLine(body, indent + namespaceIndent, line);
+        }
+
+        private static void AppendOuterLine(StringBuilder body, int indent, string line)
         {
             if (string.IsNullOrEmpty(line))
             {

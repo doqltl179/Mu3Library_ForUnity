@@ -5,100 +5,100 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysTestPack02 : GroupData
-{
-    public sealed class TestImageTexture2DEntry : EntryData
+    public sealed class AddressableGroupKeysTestPack02 : GroupData
     {
-        public sealed class TestImageSpriteEntry : EntryData
+        public sealed class TestImageTexture2DEntry : EntryData
         {
+            public sealed class TestImageSpriteEntry : EntryData
+            {
 
-            public TestImageSpriteEntry() : base(
+                public TestImageSpriteEntry() : base(
+                    "TestImage",
+                    "TestImage[TestImage]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+
+            private static readonly TestImageSpriteEntry _testImageSprite = new TestImageSpriteEntry();
+            public readonly TestImageSpriteEntry TestImageSprite = _testImageSprite;
+
+            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            {
+                _testImageSprite,
+            };
+
+            public TestImageTexture2DEntry() : base(
                 "TestImage",
-                "TestImage[TestImage]",
-                new string[] { }
+                "TestImage",
+                new string[] { AddressableGroupKeysLabels.TestImage, AddressableGroupKeysLabels.TestLabel },
+                _entryChildren
             )
             {
             }
         }
 
-
-        private static readonly TestImageSpriteEntry _testImageSprite = new TestImageSpriteEntry();
-        public readonly TestImageSpriteEntry TestImageSprite = _testImageSprite;
-
-        private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+        public sealed class TestImage02Texture2DEntry : EntryData
         {
-            _testImageSprite,
-        };
+            public sealed class TestImage02SpriteEntry : EntryData
+            {
 
-        public TestImageTexture2DEntry() : base(
-            "TestImage",
-            "TestImage",
-            new string[] { AddressableGroupKeysLabels.TestImage, AddressableGroupKeysLabels.TestLabel },
-            _entryChildren
-        )
-        {
-        }
-    }
+                public TestImage02SpriteEntry() : base(
+                    "TestImage02",
+                    "TestImage02[TestImage02]",
+                    new string[] { }
+                )
+                {
+                }
+            }
 
-    public sealed class TestImage02Texture2DEntry : EntryData
-    {
-        public sealed class TestImage02SpriteEntry : EntryData
-        {
 
-            public TestImage02SpriteEntry() : base(
+            private static readonly TestImage02SpriteEntry _testImage02Sprite = new TestImage02SpriteEntry();
+            public readonly TestImage02SpriteEntry TestImage02Sprite = _testImage02Sprite;
+
+            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            {
+                _testImage02Sprite,
+            };
+
+            public TestImage02Texture2DEntry() : base(
                 "TestImage02",
-                "TestImage02[TestImage02]",
-                new string[] { }
+                "TestImage02",
+                new string[] { AddressableGroupKeysLabels.DownloadAll, AddressableGroupKeysLabels.TestImage },
+                _entryChildren
             )
             {
             }
         }
 
 
-        private static readonly TestImage02SpriteEntry _testImage02Sprite = new TestImage02SpriteEntry();
-        public readonly TestImage02SpriteEntry TestImage02Sprite = _testImage02Sprite;
+        private static readonly TestImageTexture2DEntry _testImageTexture2D = new TestImageTexture2DEntry();
+        public readonly TestImageTexture2DEntry TestImageTexture2D = _testImageTexture2D;
+        private static readonly TestImage02Texture2DEntry _testImage02Texture2D = new TestImage02Texture2DEntry();
+        public readonly TestImage02Texture2DEntry TestImage02Texture2D = _testImage02Texture2D;
 
-        private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
         {
-            _testImage02Sprite,
+            _testImageTexture2D,
+            _testImage02Texture2D,
         };
 
-        public TestImage02Texture2DEntry() : base(
-            "TestImage02",
-            "TestImage02",
-            new string[] { AddressableGroupKeysLabels.DownloadAll, AddressableGroupKeysLabels.TestImage },
-            _entryChildren
-        )
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+            AddressableGroupKeysLabels.DownloadAll,
+            AddressableGroupKeysLabels.TestImage,
+            AddressableGroupKeysLabels.TestLabel,
+        };
+
+        public static readonly AddressableGroupKeysTestPack02 Instance = new AddressableGroupKeysTestPack02();
+
+        internal AddressableGroupKeysTestPack02() : base(
+            "TestPack02",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly TestImageTexture2DEntry _testImageTexture2D = new TestImageTexture2DEntry();
-    public readonly TestImageTexture2DEntry TestImageTexture2D = _testImageTexture2D;
-    private static readonly TestImage02Texture2DEntry _testImage02Texture2D = new TestImage02Texture2DEntry();
-    public readonly TestImage02Texture2DEntry TestImage02Texture2D = _testImage02Texture2D;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _testImageTexture2D,
-        _testImage02Texture2D,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-        AddressableGroupKeysLabels.DownloadAll,
-        AddressableGroupKeysLabels.TestImage,
-        AddressableGroupKeysLabels.TestLabel,
-    };
-
-    public static readonly AddressableGroupKeysTestPack02 Instance = new AddressableGroupKeysTestPack02();
-
-    internal AddressableGroupKeysTestPack02() : base(
-        "TestPack02",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }
