@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- `LocalizationDataExporterDrawer`: Removed the Split by Table toggle and now always generates a shared `{ClassName}Locales` script, one `TableData`-derived script per table with its `EntryData` instances, and a compact root table index.
+
 ## [base/0.19.1] - 2026-08-02
 
 ### Fixed

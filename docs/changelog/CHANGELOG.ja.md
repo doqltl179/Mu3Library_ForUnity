@@ -15,6 +15,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 変更
+- `LocalizationDataExporterDrawer`: `Split by Table` トグルを削除し、共有 `{ClassName}Locales` スクリプト、各テーブルの `EntryData` インスタンスを含むテーブルごとの `TableData` 派生スクリプト、簡潔な root テーブルインデックスを常に生成するようにしました。
+
 ## [base/0.19.1] - 2026-08-02
 
 ### 修正
