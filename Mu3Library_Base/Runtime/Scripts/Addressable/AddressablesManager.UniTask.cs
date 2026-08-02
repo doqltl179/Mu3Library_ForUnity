@@ -1,4 +1,4 @@
-#if MU3LIBRARY_UNITASK_SUPPORT
+#if MU3LIBRARY_ADDRESSABLES_SUPPORT && MU3LIBRARY_UNITASK_SUPPORT
 using System;
 using System.Collections;
 using System.Collections.Generic;
