@@ -5,6 +5,9 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 ## Always-On Guardrails
 
 - Answer with the smallest clear result that completes the request; search narrowly with `rg` or a small file list.
+- Before implementing a requested task, assess its functional feasibility and intended scope.
+- If the requested outcome is functionally impossible, stop and report why work cannot proceed; if it is feasible but requires a material scope expansion, major change, or unspecified user choice, pause and request the necessary decision.
+- Do not invent workaround rules or alternate behavior to make an unimplementable or underspecified request appear complete; clarify or re-scope it so the original request can be fulfilled correctly.
 - Keep one owner per concern and prefer bounded, non-overlapping work units.
 - Prefer package-first edits under `Mu3Library_Base` or `Mu3Library_URP`.
 - Preserve Unity package stability: public APIs, `.asmdef` boundaries, `.meta` files, define symbols, samples, and package metadata.
