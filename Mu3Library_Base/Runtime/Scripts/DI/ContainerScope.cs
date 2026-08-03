@@ -187,9 +187,11 @@ namespace Mu3Library.DI
             }
 
             List<object> results = new(descriptors.Count);
+            HashSet<Type> chain = new();
             foreach (ServiceDescriptor descriptor in descriptors)
             {
-                object instance = GetInstance(descriptor, serviceType, key, new HashSet<Type>());
+                chain.Clear();
+                object instance = GetInstance(descriptor, serviceType, key, chain);
                 if (instance != null)
                 {
                     results.Add(instance);
@@ -295,7 +297,6 @@ namespace Mu3Library.DI
                 ServiceKey skey = new(serviceType, descriptor.ImplementationType ?? serviceType, key);
                 if (_scopedInstances.TryGetValue(skey, out instance))
                 {
-                    TrackLifecycle(instance, ServiceLifetime.Scoped);
                     return instance;
                 }
 
