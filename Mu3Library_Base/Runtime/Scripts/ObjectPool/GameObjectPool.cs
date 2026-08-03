@@ -18,9 +18,8 @@ namespace Mu3Library.ObjectPool
             public int InstanceId { get; }
         }
 
-        private System.Type m_type;
-        private System.Type _type => m_type ??= typeof(T);
-        public System.Type Type => _type;
+        private static readonly System.Type ComponentType = typeof(T);
+        public System.Type Type => ComponentType;
 
         private readonly Queue<PooledItem> _pool = new();
         private readonly HashSet<int> _instanceIds = new();
@@ -47,14 +46,15 @@ namespace Mu3Library.ObjectPool
                 return;
             }
 
-            int instanceId = obj.GetInstanceID();
+            PooledItem pooledItem = new(obj);
+            int instanceId = pooledItem.InstanceId;
             if (_instanceIds.Contains(instanceId))
             {
                 Debug.LogWarning($"Object with instance ID {instanceId} is already in the pool. Skipping enqueue.");
                 return;
             }
 
-            _pool.Enqueue(new PooledItem(obj));
+            _pool.Enqueue(pooledItem);
             _instanceIds.Add(instanceId);
         }
 
