@@ -49,7 +49,14 @@ namespace Mu3Library.UI.MVP
             {
                 if (m_sortingLayers == null)
                 {
-                    m_sortingLayers = SortingLayer.layers.Select(t => t.name).ToArray();
+                    SortingLayer[] layers = SortingLayer.layers;
+                    string[] sortingLayers = new string[layers.Length];
+                    for (int i = 0; i < layers.Length; i++)
+                    {
+                        sortingLayers[i] = layers[i].name;
+                    }
+
+                    m_sortingLayers = sortingLayers;
                 }
 
                 return m_sortingLayers;
@@ -84,14 +91,11 @@ namespace Mu3Library.UI.MVP
                     m_eventSystem = EventSystem.current;
                     if (m_eventSystem == null)
                     {
-                        List<System.Type> components = new List<System.Type>();
-                        components.Add(typeof(EventSystem));
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT
-                        components.Add(typeof(InputSystemUIInputModule));
+                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 #else
-                        components.Add(typeof(StandaloneInputModule));
+                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 #endif
-                        GameObject go = new GameObject("EventSystem", components.ToArray());
                         m_eventSystem = go.GetComponent<EventSystem>();
 
                         Object.DontDestroyOnLoad(go);
@@ -299,6 +303,11 @@ namespace Mu3Library.UI.MVP
         {
             CleanupDestroyedPresenters();
 
+            if (_openedPresenters.Count == 0 && _presenterOpenChecker.Count == 0)
+            {
+                return;
+            }
+
             // Pre-allocate list with capacity estimate to reduce allocations
             List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
 
@@ -324,6 +333,11 @@ namespace Mu3Library.UI.MVP
         public void CloseAll(bool forceClose = false)
         {
             CleanupDestroyedPresenters();
+
+            if (_openedPresenters.Count == 0 && _presenterOpenChecker.Count == 0)
+            {
+                return;
+            }
 
             // Pre-allocate list with exact capacity to avoid allocations
             List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
@@ -866,11 +880,29 @@ namespace Mu3Library.UI.MVP
 
         private IEnumerable<PresenterEntry> RunningPresenterEntries()
         {
-            return Enumerable.Empty<PresenterEntry>()
-                .Concat(_presenterCloseChecker)
-                .Concat(_openedPresenters)
-                .Concat(_presenterOpenChecker)
-                .Where(param => param.Presenter.IsViewExist);
+            foreach (PresenterEntry param in _presenterCloseChecker)
+            {
+                if (param.Presenter.IsViewExist)
+                {
+                    yield return param;
+                }
+            }
+
+            foreach (PresenterEntry param in _openedPresenters)
+            {
+                if (param.Presenter.IsViewExist)
+                {
+                    yield return param;
+                }
+            }
+
+            foreach (PresenterEntry param in _presenterOpenChecker)
+            {
+                if (param.Presenter.IsViewExist)
+                {
+                    yield return param;
+                }
+            }
         }
 
         private OutPanel CreateOutPanel(Transform parent = null)

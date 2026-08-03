@@ -1,6 +1,5 @@
+using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP.Animation
@@ -43,16 +42,24 @@ namespace Mu3Library.UI.MVP.Animation
 
         public void Open()
         {
-            Animation(0.0f, 1.0f, AnimationState.Opening, AnimationState.Opened, _animationConfigs
-                .Where(t => t != null)
-                .Select(t => t.AnimateOpen()));
+            AnimationConfig[] animationConfigs = _animationConfigs;
+            if (animationConfigs == null)
+            {
+                throw new ArgumentNullException("source");
+            }
+
+            Animation(0.0f, 1.0f, AnimationState.Opening, AnimationState.Opened, animationConfigs, true);
         }
 
         public void Close()
         {
-            Animation(1.0f, 0.0f, AnimationState.Closing, AnimationState.Closed, _animationConfigs
-                .Where(t => t != null)
-                .Select(t => t.AnimateClose()));
+            AnimationConfig[] animationConfigs = _animationConfigs;
+            if (animationConfigs == null)
+            {
+                throw new ArgumentNullException("source");
+            }
+
+            Animation(1.0f, 0.0f, AnimationState.Closing, AnimationState.Closed, animationConfigs, false);
         }
 
         public void Stop()
@@ -91,7 +98,7 @@ namespace Mu3Library.UI.MVP.Animation
             }
         }
 
-        private void Animation(float factorFrom, float factorTo, AnimationState stayState, AnimationState endState, IEnumerable<AnimateFunc> animateFunc)
+        private void Animation(float factorFrom, float factorTo, AnimationState stayState, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)
         {
             if (_useTransition)
             {
@@ -106,7 +113,7 @@ namespace Mu3Library.UI.MVP.Animation
             {
                 _state = stayState;
 
-                _animationCoroutine = AnimationCoroutine(factorFrom, factorTo, endState, animateFunc);
+                _animationCoroutine = AnimationCoroutine(factorFrom, factorTo, endState, animationConfigs, isOpening);
                 StartCoroutine(_animationCoroutine);
             }
             else
@@ -115,9 +122,9 @@ namespace Mu3Library.UI.MVP.Animation
             }
         }
 
-        private IEnumerator AnimationCoroutine(float factorFrom, float factorTo, AnimationState endState, IEnumerable<AnimateFunc> animateFunc)
+        private IEnumerator AnimationCoroutine(float factorFrom, float factorTo, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)
         {
-            if (animateFunc == null || !animateFunc.Any())
+            if (!HasAnimationConfig(animationConfigs, isOpening))
             {
                 _timeFactor = factorTo;
                 _state = endState;
@@ -131,26 +138,54 @@ namespace Mu3Library.UI.MVP.Animation
                 timer += Time.deltaTime;
                 _timeFactor = Mathf.Lerp(factorFrom, factorTo, timer / _animationTime);
 
-                Animate(animateFunc);
+                Animate(animationConfigs, isOpening);
 
                 yield return null;
             }
 
             // 범위를 벗어나거나 while이 적용되지 않는 부분에 대한 후처리
             _timeFactor = factorTo;
-            Animate(animateFunc);
+            Animate(animationConfigs, isOpening);
 
             _state = endState;
 
             _animationCoroutine = null;
         }
 
-        private void Animate(IEnumerable<AnimateFunc> animateFunc)
+        private static bool HasAnimationConfig(AnimationConfig[] animationConfigs, bool isOpening)
         {
-            foreach (AnimateFunc animate in animateFunc)
+            for (int i = 0; i < animationConfigs.Length; i++)
             {
+                AnimationConfig animationConfig = animationConfigs[i];
+                if (animationConfig == null)
+                {
+                    continue;
+                }
+
+                // Mirror the previous LINQ Any() evaluation, which invoked the first factory.
+                GetAnimateFunc(animationConfig, isOpening);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void Animate(AnimationConfig[] animationConfigs, bool isOpening)
+        {
+            for (int i = 0; i < animationConfigs.Length; i++)
+            {
+                AnimationConfig animationConfig = animationConfigs[i];
+                if (animationConfig == null)
+                {
+                    continue;
+                }
+
+                AnimateFunc animate = GetAnimateFunc(animationConfig, isOpening);
                 animate(_view, _timeFactor);
             }
         }
+
+        private static AnimateFunc GetAnimateFunc(AnimationConfig animationConfig, bool isOpening)
+            => isOpening ? animationConfig.AnimateOpen() : animationConfig.AnimateClose();
     }
 }
