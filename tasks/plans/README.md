@@ -1,10 +1,11 @@
 ﻿# Task Plans
 
-This folder stores detailed execution plans for non-trivial repository work.
+This folder stores detailed execution plans for active non-trivial repository work; it is not an archive.
 
 - Use the standard template from [docs/ai-agents/plans/plan-template.md](../../docs/ai-agents/plans/plan-template.md).
+- Name each new plan file according to the UTC creation-timestamp rule in the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md), and do not change that timestamp while the plan is active.
 - Keep `tasks/todo.md` as the index that links to the active plan.
 - Prefer keeping at most one active plan file here during normal work.
 - Prefer one file per bounded unit of work.
-- Delete completed low-value plans by default once their durable outcome has been absorbed elsewhere.
-- Keep a completed plan only by explicit request or when reusable decision context still lives only in that file.
+- At task completion, first move durable outcomes to their owning record, then delete the plan in the same closeout.
+- Do not retain, archive, or rename completed plan files. See the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md).

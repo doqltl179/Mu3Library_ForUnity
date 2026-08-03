@@ -8,8 +8,8 @@ agent: "agent"
 Continue the next bounded Mu3Library agent-framework unit.
 
 - Work on one bounded unit only.
-- Create or update the detailed plan in `tasks/plans/` first, then keep `tasks/todo.md` aligned as the index.
-- When the unit completes, remove the finished low-value plan unless reusable decision context still lives only there.
+- Create or update the detailed plan in `tasks/plans/` first, using the UTC creation-timestamp name required by the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md), then keep `tasks/todo.md` aligned as the index.
+- When the unit completes, move reusable decision context to its owning record, update `tasks/todo.md`, and delete the finished plan in the same closeout; never retain completed plans as history.
 - If compile verification is requested, use editor-safe `dotnet build` on the affected generated Unity `.csproj` files before continuing.
 - Run structural suitability review through `role-governor`.
 - Run `reviewer` when quality, verification, docs, or release-sensitive surfaces changed.

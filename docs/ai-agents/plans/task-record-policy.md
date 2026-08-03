@@ -2,20 +2,20 @@
 
 ## Purpose
 
-Keep planning lightweight while preserving one durable place to find current work.
+Keep planning lightweight while preserving one durable place to find current work. A plan file represents active work only, so completed work cannot be mistaken for an active request in a later session.
 
 ## Canonical Split
 
 - `tasks/todo.md` is the persistent local index.
-- `tasks/plans/*.md` stores the detailed execution plans for non-trivial tasks.
+- `tasks/plans/*.md` stores detailed execution plans only while their non-trivial task is active.
 - `tasks/lessons.md` stores durable lessons only after a correction, durable approach change, or explicit user preference.
 
 ## Usage Rules
 
-1. Create or update a plan file in `tasks/plans/` for non-trivial work.
+1. Create or update a plan file in `tasks/plans/` for non-trivial work. Name each new file according to the required timestamp format below.
 2. Add one entry in `tasks/todo.md` that links to the active plan and records its current status.
-3. Delete a completed plan by default once its durable outcome is reflected in wiki pages, instructions, code, or `tasks/lessons.md`.
-4. Keep a completed plan only when the user explicitly requests retention or when the file still holds reusable decision context not captured elsewhere.
+3. At task completion, first reflect every durable outcome in its owning wiki page, instruction, code, or `tasks/lessons.md`, then delete the plan file in the same closeout.
+4. Never retain, archive, or rename a completed plan file. If it contains reusable decision context, promote that context to its owning record before deletion.
 5. Do not duplicate the full plan table in `tasks/todo.md`; keep only the active index-level summary there.
 
 ## Recommended Layout
@@ -25,15 +25,17 @@ tasks/
   todo.md
   lessons.md
   plans/
-    2026-06-11-active-task.md
+    2026-08-03T14-30-52-123Z-active-task.md
 ```
 
 ## Naming
 
-- Use `YYYY-MM-DD-<short-slug>.md`.
+- Use `YYYY-MM-DDTHH-mm-ss-fffZ-<short-slug>.md`, where the timestamp is the plan creation time in UTC. For example: `2026-08-03T14-30-52-123Z-active-task.md`.
+- Keep the creation timestamp unchanged while updating an active plan. Lexical filename order must reflect the order in which work was requested and began across sessions.
 - Prefer concise slugs that describe one bounded unit.
 
 ## Completion Rule
 
 - When closing a task, first promote any durable lesson into the owning wiki page, instruction file, code comment, or `tasks/lessons.md`.
-- If no such durable residue remains, delete the completed plan instead of archiving it in the repository.
+- Delete the plan in the same closeout and remove or update its `tasks/todo.md` entry so it no longer appears active.
+- A task is not fully closed while its completed plan file remains in the repository. Do not archive completed plans.

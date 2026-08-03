@@ -49,7 +49,7 @@ After any non-trivial agent-framework change, check:
 - Prefer extending an existing router, leaf rule page, contract, or workflow page before creating a new document.
 - Add a new document only when it owns a distinct question shape, boundary, or reusable contract that does not already have an owner.
 - If a new owning page is introduced, update the smallest relevant router instead of adding broad cross-links or parallel indexes.
-- Remove or shrink stale pointer files, duplicated summaries, and completed plan artifacts as soon as the owning page fully absorbs their role.
+- Remove or shrink stale pointer files and duplicated summaries as soon as the owning page fully absorbs their role. At task closeout, follow the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md): completed plans are removed, not retained as repository history.
 
 ## Boundaries
 
