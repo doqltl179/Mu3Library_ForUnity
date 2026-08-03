@@ -98,12 +98,7 @@ namespace Mu3Library.WebRequest
                     string payload = SerializeBody(body);
                     byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
 
-                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
-                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                    request.downloadHandler = CreateDownloadHandler<TResponse>();
-                    request.SetRequestHeader("Content-Type", contentType);
-                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-                    return request;
+                    return CreatePostRequest<TResponse>(url, bodyRaw, contentType, requestHeaders, timeoutSeconds);
                 },
                 parseResult: request => ParseResult<TResponse>(url, request, "POST"),
                 retryCount: retryCount,
@@ -131,13 +126,7 @@ namespace Mu3Library.WebRequest
             return await ExecuteWithRetryAsync(
                 method: "HEAD",
                 url: url,
-                createRequest: () =>
-                {
-                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
-                    request.downloadHandler = new DownloadHandlerBuffer();
-                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-                    return request;
-                },
+                createRequest: () => CreateHeadRequest(url, requestHeaders, timeoutSeconds),
                 parseResult: request => ParseDownloadSizeResult(url, request),
                 retryCount: retryCount,
                 retryDelaySeconds: retryDelaySeconds,
@@ -190,7 +179,7 @@ namespace Mu3Library.WebRequest
                     bool canRetry = attempt + 1 < maxAttempts;
                     if (!canRetry)
                     {
-                        return CreateUnexpectedFailure<T>(method, url, ex);
+                        return CreateUnexpectedFailureResult<T>(method, url, ex);
                     }
                 }
 
@@ -221,13 +210,6 @@ namespace Mu3Library.WebRequest
         {
             string error = $"WebRequest {method} canceled. url: {url}";
             Debug.LogWarning(error);
-            return WebRequestResult<T>.Failure(-1, error, null);
-        }
-
-        private WebRequestResult<T> CreateUnexpectedFailure<T>(string method, string url, Exception exception)
-        {
-            string error = $"WebRequest {method} failed with exception. url: {url}\r\n{exception.GetType().Name}: {exception.Message}";
-            Debug.LogError(error);
             return WebRequestResult<T>.Failure(-1, error, null);
         }
     }

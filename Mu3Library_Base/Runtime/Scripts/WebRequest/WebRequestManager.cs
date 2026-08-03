@@ -91,15 +91,7 @@ namespace Mu3Library.WebRequest
             ExecuteWithRetry(
                 method: UnityWebRequest.kHttpVerbPOST,
                 retryCount: retryCount,
-                createRequest: () =>
-                {
-                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
-                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                    request.downloadHandler = CreateDownloadHandler<TResponse>();
-                    request.SetRequestHeader("Content-Type", contentType);
-                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-                    return request;
-                },
+                createRequest: () => CreatePostRequest<TResponse>(url, bodyRaw, contentType, requestHeaders, timeoutSeconds),
                 onComplete: request =>
                 {
                     WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, "POST");
@@ -121,13 +113,7 @@ namespace Mu3Library.WebRequest
             ExecuteWithRetry(
                 method: UnityWebRequest.kHttpVerbHEAD,
                 retryCount: retryCount,
-                createRequest: () =>
-                {
-                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
-                    request.downloadHandler = new DownloadHandlerBuffer();
-                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
-                    return request;
-                },
+                createRequest: () => CreateHeadRequest(url, requestHeaders, timeoutSeconds),
                 onComplete: request =>
                 {
                     WebRequestResult<long> result = ParseDownloadSizeResult(url, request);
@@ -303,6 +289,32 @@ namespace Mu3Library.WebRequest
 
                 request.SetRequestHeader(header.Key, header.Value ?? string.Empty);
             }
+        }
+
+        private static UnityWebRequest CreateHeadRequest(
+            string url,
+            IDictionary<string, string> requestHeaders,
+            int timeoutSeconds)
+        {
+            UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+            return request;
+        }
+
+        private UnityWebRequest CreatePostRequest<TResponse>(
+            string url,
+            byte[] bodyRaw,
+            string contentType,
+            IDictionary<string, string> requestHeaders,
+            int timeoutSeconds)
+        {
+            UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = CreateDownloadHandler<TResponse>();
+            request.SetRequestHeader("Content-Type", contentType);
+            ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+            return request;
         }
 
         private UnityWebRequest CreateGetRequest<T>(string url)
