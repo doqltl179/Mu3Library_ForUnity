@@ -21,6 +21,20 @@ namespace Mu3Library.Addressable
             return Equals(_key, other._key) && _type == other._type;
         }
 
+        public override bool Equals(object obj)
+        {
+            return obj is ListCacheKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int keyHashCode = _key != null ? _key.GetHashCode() : 0;
+                return (keyHashCode * 397) ^ (_type != null ? _type.GetHashCode() : 0);
+            }
+        }
+
         public static ListCacheKey Create(object key, Type type)
         {
             return new ListCacheKey(key, type);

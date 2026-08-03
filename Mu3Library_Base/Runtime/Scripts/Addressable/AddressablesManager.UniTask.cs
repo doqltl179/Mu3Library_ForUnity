@@ -22,7 +22,7 @@ namespace Mu3Library.Addressable
                 return cached;
             }
 
-            if (_assetHandleCache.TryGetValue(key, out AsyncOperationHandle existing) && existing.IsValid())
+            if (TryGetValidCachedHandle(key, out AsyncOperationHandle existing))
             {
                 if (!existing.IsDone)
                 {
@@ -67,7 +67,7 @@ namespace Mu3Library.Addressable
                 return cached;
             }
 
-            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
+            if (TryGetValidCachedHandle(cacheKey, out AsyncOperationHandle existing))
             {
                 if (!existing.IsDone)
                 {
@@ -111,7 +111,7 @@ namespace Mu3Library.Addressable
                 return cached;
             }
 
-            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
+            if (TryGetValidCachedHandle(cacheKey, out AsyncOperationHandle existing))
             {
                 if (!existing.IsDone)
                 {
@@ -327,8 +327,7 @@ namespace Mu3Library.Addressable
             T asset = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result as T : null;
             if (asset != null)
             {
-                _assetCache[key] = asset;
-                _cachedAssetKeyMap[asset] = key;
+                CacheLoadedAsset(key, asset);
             }
             else
             {
