@@ -327,6 +327,23 @@ When the following packages are installed, their features are automatically enab
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 
+## 🧩 Inspector Attributes
+
+Apply `ButtonInvokeAttribute` to a parameterless instance method that returns `void`. Its label and height are optional; an omitted label is displayed as `Invoke {method name}`. Buttons are appended after the default serialized properties by the fallback Inspector, so source declaration order cannot position them among fields. A type with its own custom Inspector must render its `ButtonInvoke` buttons there.
+
+```csharp
+[ButtonInvoke("Refresh Data", ButtonHeight = 36f)]
+private void RefreshData()
+{
+}
+
+[ButtonInvoke]
+private void ResetData()
+{
+    // Inspector label: Invoke ResetData
+}
+```
+
 ## 📖 Complete Module List
 
 - **Addressable**: Addressables integration (optional)

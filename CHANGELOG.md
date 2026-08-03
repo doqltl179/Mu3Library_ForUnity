@@ -15,6 +15,12 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- `ButtonInvokeAttribute`: Replaced serialized-field usage with parameterless instance-method usage. The decorated method is invoked directly, so overloaded method names no longer cause `AmbiguousMatchException`; its label and height are optional, and omitting the label displays `Invoke {method name}`.
+
+### Removed
+- `ButtonInvokeAttribute` field attachment, method-name argument, and `drawProperty` option.
+
 ## [base/0.20.0] - 2026-08-03
 
 ### Added

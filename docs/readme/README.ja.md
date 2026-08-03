@@ -326,6 +326,23 @@ _playerData.Health.Set(80);
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
 
+## 🧩 Inspector 属性
+
+`ButtonInvokeAttribute` は、引数なしで `void` を返すインスタンスメソッドに適用します。label とボタン高さは任意であり、label を省略すると `Invoke {method name}` 形式で表示されます。ボタンは fallback Inspector が既定のシリアライズ済みプロパティを描画した後に追加されるため、ソースの宣言順でフィールド間の位置を指定することはできません。独自の Custom Inspector を持つ型では、その Inspector で `ButtonInvoke` ボタンを描画する必要があります。
+
+```csharp
+[ButtonInvoke("Refresh Data", ButtonHeight = 36f)]
+private void RefreshData()
+{
+}
+
+[ButtonInvoke]
+private void ResetData()
+{
+    // Inspector label: Invoke ResetData
+}
+```
+
 ## 📖 全モジュールリスト
 
 - **Addressable**: Addressables統合（オプション）

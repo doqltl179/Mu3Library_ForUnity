@@ -1,34 +1,25 @@
 using System;
-using UnityEngine;
 
 namespace Mu3Library.Attribute {
-    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
-    public class ButtonInvokeAttribute : PropertyAttribute {
-        public string MethodName => methodName;
-        private string methodName = string.Empty;
-
+    [AttributeUsage(AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
+    public class ButtonInvokeAttribute : System.Attribute {
         public string ButtonLabel => buttonLabel;
         private string buttonLabel = string.Empty;
 
-        public bool DrawProperty => drawProperty;
-        private bool drawProperty = true;
+        public float ButtonHeight { get; set; }
 
 
 
-        public ButtonInvokeAttribute(string methodName) {
-            this.methodName = methodName;
-            buttonLabel = methodName;
+        public ButtonInvokeAttribute() {
         }
 
-        public ButtonInvokeAttribute(string methodName, string buttonLabel) {
-            this.methodName = methodName;
-            this.buttonLabel = string.IsNullOrEmpty(buttonLabel) ? methodName : buttonLabel;
+        public ButtonInvokeAttribute(string buttonLabel) {
+            this.buttonLabel = buttonLabel;
         }
 
-        public ButtonInvokeAttribute(string methodName, string buttonLabel, bool drawProperty) {
-            this.methodName = methodName;
-            this.buttonLabel = string.IsNullOrEmpty(buttonLabel) ? methodName : buttonLabel;
-            this.drawProperty = drawProperty;
+        public ButtonInvokeAttribute(string buttonLabel, float buttonHeight) {
+            this.buttonLabel = buttonLabel;
+            ButtonHeight = buttonHeight;
         }
     }
 }

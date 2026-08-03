@@ -13,6 +13,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- `ButtonInvokeAttribute`: 직렬화된 필드 방식 대신 매개변수가 없고 `void`를 반환하는 인스턴스 메서드 방식으로 전환했습니다. 적용된 메서드를 직접 호출하므로 동일한 이름의 오버로드가 있어도 `AmbiguousMatchException`이 발생하지 않으며, label과 버튼 높이는 선택 사항이고 label을 생략하면 `Invoke {method name}` 형식으로 표시됩니다.
+
+### 제거됨
+- `ButtonInvokeAttribute`의 필드 적용 방식, 메서드 이름 인자, `drawProperty` 옵션.
+
 ## [base/0.20.0] - 2026-08-03
 
 ### 추가됨
