@@ -8,6 +8,8 @@ namespace Mu3Library.IS
 {
     public class InputSystemManager : IInputSystemManager, IInputSystemManagerEventBus
     {
+        private const string DefaultInputActionAssetId = "Default";
+
         private readonly Dictionary<string, InputActionAsset> _inputActionAssets = new();
         public int InputActionAssetCount => _inputActionAssets.Count;
 
@@ -28,7 +30,7 @@ namespace Mu3Library.IS
 
         public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
             => StartInteractiveRebindWithName(
-                "Default",
+                DefaultInputActionAssetId,
                 actionMapName,
                 actionName,
                 bindingIndex,
@@ -71,10 +73,11 @@ namespace Mu3Library.IS
                 // OnPotentialMatch 방식과 달리 입력 시스템 단에서 원천 차단한다.
                 foreach (var device in InputSystem.devices)
                 {
+                    Type deviceType = device.GetType();
                     bool isTarget = false;
                     foreach (var type in targetDeviceTypes)
                     {
-                        if (type != null && type.IsAssignableFrom(device.GetType()))
+                        if (type != null && type.IsAssignableFrom(deviceType))
                         {
                             isTarget = true;
                             break;
@@ -132,7 +135,7 @@ namespace Mu3Library.IS
         }
 
         public void RemoveInputActionBindingOverrideWithName(string actionMapName, string actionName, int bindingIndex)
-            => RemoveInputActionBindingOverrideWithName("Default", actionMapName, actionName, bindingIndex);
+            => RemoveInputActionBindingOverrideWithName(DefaultInputActionAssetId, actionMapName, actionName, bindingIndex);
 
         public void RemoveInputActionBindingOverrideWithName(string assetId, string actionMapName, string actionName, int bindingIndex)
         {
@@ -158,7 +161,7 @@ namespace Mu3Library.IS
         }
 
         public string GetOverrideJsonOfInputActionWithName(string actionMapName, string actionName)
-            => GetOverrideJsonOfInputActionWithName("Default", actionMapName, actionName);
+            => GetOverrideJsonOfInputActionWithName(DefaultInputActionAssetId, actionMapName, actionName);
 
         public string GetOverrideJsonOfInputActionWithName(string assetId, string actionMapName, string actionName)
         {
@@ -190,7 +193,7 @@ namespace Mu3Library.IS
         }
 
         public void ApplyInputActionBindingOverrideFromJsonWithName(string actionMapName, string actionName, string actionJson)
-            => ApplyInputActionBindingOverrideFromJsonWithName("Default", actionMapName, actionName, actionJson);
+            => ApplyInputActionBindingOverrideFromJsonWithName(DefaultInputActionAssetId, actionMapName, actionName, actionJson);
 
         public void ApplyInputActionBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionName, string actionJson)
         {
@@ -222,7 +225,7 @@ namespace Mu3Library.IS
         }
 
         public string GetOverrideJsonOfInputActionMapWithName(string actionMapName)
-            => GetOverrideJsonOfInputActionMapWithName("Default", actionMapName);
+            => GetOverrideJsonOfInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
 
         public string GetOverrideJsonOfInputActionMapWithName(string assetId, string actionMapName)
         {
@@ -247,7 +250,7 @@ namespace Mu3Library.IS
         }
 
         public string GetJsonOfInputActionMapWithName(string actionMapName)
-            => GetJsonOfInputActionMapWithName("Default", actionMapName);
+            => GetJsonOfInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
 
         public string GetJsonOfInputActionMapWithName(string assetId, string actionMapName)
         {
@@ -279,7 +282,7 @@ namespace Mu3Library.IS
         }
 
         public void ApplyInputActionMapBindingOverrideFromJsonWithName(string actionMapName, string actionMapJson)
-            => ApplyInputActionMapBindingOverrideFromJsonWithName("Default", actionMapName, actionMapJson);
+            => ApplyInputActionMapBindingOverrideFromJsonWithName(DefaultInputActionAssetId, actionMapName, actionMapJson);
 
         public void ApplyInputActionMapBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionMapJson)
         {
@@ -300,7 +303,7 @@ namespace Mu3Library.IS
         }
 
         public void RemoveAllInputActionAssetBindingOverrides()
-            => RemoveAllInputActionAssetBindingOverrides("Default");
+            => RemoveAllInputActionAssetBindingOverrides(DefaultInputActionAssetId);
 
         public void RemoveAllInputActionAssetBindingOverrides(string assetId)
         {
@@ -315,7 +318,7 @@ namespace Mu3Library.IS
         }
 
         public string GetOverrideJsonOfInputActionAsset()
-            => GetOverrideJsonOfInputActionAsset("Default");
+            => GetOverrideJsonOfInputActionAsset(DefaultInputActionAssetId);
 
         public string GetOverrideJsonOfInputActionAsset(string assetId)
         {
@@ -330,7 +333,7 @@ namespace Mu3Library.IS
         }
 
         public string GetJsonOfInputActionAsset()
-            => GetJsonOfInputActionAsset("Default");
+            => GetJsonOfInputActionAsset(DefaultInputActionAssetId);
 
         public string GetJsonOfInputActionAsset(string assetId)
         {
@@ -345,7 +348,7 @@ namespace Mu3Library.IS
         }
 
         public void ApplyInputActionAssetBindingOverrideFromJson(string assetJson)
-            => ApplyInputActionAssetBindingOverrideFromJson("Default", assetJson);
+            => ApplyInputActionAssetBindingOverrideFromJson(DefaultInputActionAssetId, assetJson);
 
         public void ApplyInputActionAssetBindingOverrideFromJson(string assetId, string assetJson)
         {
@@ -367,10 +370,10 @@ namespace Mu3Library.IS
         }
 
         public void AddInputActionAssetFromJson(string assetJson)
-            => AddInputActionAssetFromJson("Default", assetJson, false);
+            => AddInputActionAssetFromJson(DefaultInputActionAssetId, assetJson, false);
 
         public void AddInputActionAssetFromJson(string assetJson, bool enable)
-            => AddInputActionAssetFromJson("Default", assetJson, enable);
+            => AddInputActionAssetFromJson(DefaultInputActionAssetId, assetJson, enable);
 
         public void AddInputActionAssetFromJson(string assetId, string assetJson)
             => AddInputActionAssetFromJson(assetId, assetJson, false);
@@ -405,7 +408,7 @@ namespace Mu3Library.IS
         }
 
         public InputAction GetInputActionWithName(string actionMapName, string actionName)
-            => GetInputActionWithName("Default", actionMapName, actionName);
+            => GetInputActionWithName(DefaultInputActionAssetId, actionMapName, actionName);
 
         public InputAction GetInputActionWithName(string assetId, string actionMapName, string actionName)
         {
@@ -431,7 +434,7 @@ namespace Mu3Library.IS
         }
 
         public InputActionMap GetInputActionMapWithName(string actionMapName)
-            => GetInputActionMapWithName("Default", actionMapName);
+            => GetInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
 
         public InputActionMap GetInputActionMapWithName(string assetId, string actionMapName)
         {
@@ -446,7 +449,7 @@ namespace Mu3Library.IS
         }
 
         public InputActionAsset GetInputActionAsset()
-            => GetInputActionAsset("Default");
+            => GetInputActionAsset(DefaultInputActionAssetId);
 
         public InputActionAsset GetInputActionAsset(string assetId)
         {
@@ -459,7 +462,7 @@ namespace Mu3Library.IS
         }
 
         public void SetInputActionAssetEnable(bool enable)
-            => SetInputActionAssetEnable("Default", enable);
+            => SetInputActionAssetEnable(DefaultInputActionAssetId, enable);
 
         public void SetInputActionAssetEnable(string assetId, bool enable)
         {
@@ -485,10 +488,10 @@ namespace Mu3Library.IS
         }
 
         public void AddInputActionAsset(InputActionAsset asset)
-            => AddInputActionAsset(asset, "Default", false);
+            => AddInputActionAsset(asset, DefaultInputActionAssetId, false);
 
         public void AddInputActionAsset(InputActionAsset asset, bool enable)
-            => AddInputActionAsset(asset, "Default", enable);
+            => AddInputActionAsset(asset, DefaultInputActionAssetId, enable);
 
         public void AddInputActionAsset(InputActionAsset asset, string assetId)
             => AddInputActionAsset(asset, assetId, false);
