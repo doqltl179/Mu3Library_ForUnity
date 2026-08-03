@@ -29,6 +29,12 @@ namespace Mu3Library.Foundation.Event
 
         private void OnDispose()
         {
+            if (_subscriptions.Count == 0)
+            {
+                _subscriptions.Clear();
+                return;
+            }
+
             List<Exception> exceptions = null;
 
             foreach (var subscription in new List<SubscriptionInfo>(_subscriptions.Values))

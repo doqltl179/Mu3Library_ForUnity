@@ -36,7 +36,7 @@ namespace Mu3Library.Coroutine.Foundation
 
             try
             {
-                while (routine != null && error == null)
+                while (error == null)
                 {
                     bool hasNext;
                     object current = null;
