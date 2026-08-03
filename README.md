@@ -55,7 +55,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.20.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -221,6 +221,25 @@ void Start()
     // Play SFX
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
 }
+```
+
+### Addressables
+With Addressables support enabled, load all assets resolved by a key into a `Dictionary<string, T>` indexed by the matching resource location's `PrimaryKey`. `PrimaryKey` values must be non-empty and unique; otherwise the load operation fails.
+
+```csharp
+[Inject] private IAddressablesManager _addressablesManager;
+
+_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
+{
+    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
+    {
+        Debug.Log(texture.name);
+    }
+});
+
+// When UniTask support is also enabled:
+Dictionary<string, Texture2D> textures =
+    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
 ### Scene Loader
@@ -410,7 +429,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.19.1`
+- Current Base package version in this repository: `0.20.0`
 - Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -432,7 +451,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.19.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.20.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

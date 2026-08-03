@@ -13,6 +13,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.20.0] - 2026-08-03
+
+### 추가됨
+- `IAddressablesManager` / `AddressablesManager`: 여러 에셋을 로드하고 각 resource location의 `PrimaryKey`로 인덱싱한 `Dictionary<string, T>`를 반환하는 `LoadAssetsWithKeys<T>` 및 `LoadAssetsWithKeysAsync<T>`를 추가함.
+
 ### 변경됨
 - `LocalizationDataExporterDrawer`: `Split by Table` 토글을 제거하고, 공유 `{ClassName}Locales` 스크립트, 각 테이블의 `EntryData` 인스턴스를 포함하는 테이블별 `TableData` 파생 스크립트, 간결한 root 테이블 인덱스를 항상 생성하도록 변경함.
 

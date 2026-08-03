@@ -54,7 +54,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.20.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -220,6 +220,25 @@ void Start()
     // SFX再生
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
 }
+```
+
+### Addressables
+Addressables サポートが有効な場合、key から解決したすべてのアセットを、対応する resource location の `PrimaryKey` でインデックスした `Dictionary<string, T>` としてロードできます。`PrimaryKey` は空でなく一意である必要があり、満たさない場合はロード操作が失敗します。
+
+```csharp
+[Inject] private IAddressablesManager _addressablesManager;
+
+_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
+{
+    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
+    {
+        Debug.Log(texture.name);
+    }
+});
+
+// UniTask サポートも有効な場合:
+Dictionary<string, Texture2D> textures =
+    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
 ### Scene Loader
@@ -409,7 +428,7 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.19.1`
+- このリポジトリ上の現在の Base パッケージ版: `0.20.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
@@ -431,7 +450,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.19.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.20.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
 
 Unity開発者のために制作

@@ -15,6 +15,11 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.20.0] - 2026-08-03
+
+### Added
+- `IAddressablesManager` / `AddressablesManager`: Added `LoadAssetsWithKeys<T>` and `LoadAssetsWithKeysAsync<T>` to load multiple assets and return a `Dictionary<string, T>` indexed by each resource location's `PrimaryKey`.
+
 ### Changed
 - `LocalizationDataExporterDrawer`: Removed the Split by Table toggle and now always generates a shared `{ClassName}Locales` script, one `TableData`-derived script per table with its `EntryData` instances, and a compact root table index.
 
