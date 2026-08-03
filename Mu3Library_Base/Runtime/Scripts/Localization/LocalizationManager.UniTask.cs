@@ -1,6 +1,5 @@
 #if MU3LIBRARY_LOCALIZATION_SUPPORT && MU3LIBRARY_UNITASK_SUPPORT
 using System;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -80,9 +79,7 @@ namespace Mu3Library.Localization
                 return "";
             }
 
-            StringTable table = handle.Result;
-            StringTableEntry entry = table != null ? table.GetEntry(key) : null;
-            return entry != null ? entry.LocalizedValue : "";
+            return GetTableEntryValue(handle.Result, key);
         }
 
         public async UniTask ChangeLocaleToNativeAsync()
@@ -93,11 +90,7 @@ namespace Mu3Library.Localization
 
         public async UniTask ChangeLocaleWithEnglishNameAsync(string englishName)
         {
-            Locale locale = LocalizationSettings.AvailableLocales.Locales
-                .Where(t => t.Identifier.CultureInfo.EnglishName == englishName)
-                .FirstOrDefault();
-
-            await ChangeLocaleAsync(locale);
+            await ChangeLocaleAsync(FindLocaleByEnglishName(englishName));
         }
 
         public async UniTask ChangeLocaleAsync(Locale locale)

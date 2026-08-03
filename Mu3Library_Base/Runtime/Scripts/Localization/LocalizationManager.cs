@@ -168,9 +168,7 @@ namespace Mu3Library.Localization
             {
                 if (operation.Status == AsyncOperationStatus.Succeeded)
                 {
-                    StringTable table = operation.Result;
-                    StringTableEntry entry = table != null ? table.GetEntry(key) : null;
-                    string value = entry != null ? entry.LocalizedValue : "";
+                    string value = GetTableEntryValue(operation.Result, key);
                     callback?.Invoke(value);
                 }
                 else
@@ -196,8 +194,7 @@ namespace Mu3Library.Localization
         {
             LocalizedStringDatabase sdb = LocalizationSettings.StringDatabase;
             StringTable table = sdb != null ? sdb.GetTable(tableName) : null;
-            StringTableEntry entry = table != null ? table.GetEntry(key) : null;
-            return entry != null ? entry.LocalizedValue : "";
+            return GetTableEntryValue(table, key);
         }
 
         public string GetString(EntryData entryData)
@@ -220,7 +217,13 @@ namespace Mu3Library.Localization
                 return new List<string>();
             }
 
-            return table.Values.Select(entry => entry.Key).ToList();
+            List<string> keys = new();
+            foreach (StringTableEntry entry in table.Values)
+            {
+                keys.Add(entry.Key);
+            }
+
+            return keys;
         }
 
         public void ChangeLocaleToNative()
@@ -231,11 +234,7 @@ namespace Mu3Library.Localization
 
         public void ChangeLocaleWithEnglishName(string englishName)
         {
-            Locale locale = LocalizationSettings.AvailableLocales.Locales
-                .Where(t => t.Identifier.CultureInfo.EnglishName == englishName)
-                .FirstOrDefault();
-
-            ChangeLocale(locale);
+            ChangeLocale(FindLocaleByEnglishName(englishName));
         }
 
         public void ChangeLocale(Locale locale)
@@ -247,6 +246,18 @@ namespace Mu3Library.Localization
 
             _currentLocale = locale;
             LocalizationSettings.SelectedLocale = locale;
+        }
+
+        private Locale FindLocaleByEnglishName(string englishName)
+        {
+            return LocalizationSettings.AvailableLocales.Locales
+                .FirstOrDefault(locale => locale.Identifier.CultureInfo.EnglishName == englishName);
+        }
+
+        private static string GetTableEntryValue(StringTable table, string key)
+        {
+            StringTableEntry entry = table != null ? table.GetEntry(key) : null;
+            return entry != null ? entry.LocalizedValue : "";
         }
 
         public void GetSelectedLocale(Action<Locale> callback)
