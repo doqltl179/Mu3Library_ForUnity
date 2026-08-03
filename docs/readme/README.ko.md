@@ -41,6 +41,7 @@
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
 - 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
@@ -359,7 +360,7 @@ private void ResetData()
 - **Scene**: phase/status 조회, lifecycle/progress callback, 일회성 lifecycle 구독 helper, 통합 rejection event를 제공하는 씬 로딩 추상화
 - **UI**: MVP 패턴 구현
 - **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
-- **Utility**: Singleton, EasingFunctions, Settings
+- **Utility**: Singleton, EasingFunctions, Settings, 카메라 뷰포트에 `SpriteRenderer` 배경을 맞추는 `Mellow.Utility.WorldSpaceBackground`
 - **WebRequest**: HTTP 요청 관리
 
 ## 🎓 샘플

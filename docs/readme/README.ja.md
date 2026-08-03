@@ -41,6 +41,7 @@
 - ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分ける Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
+- 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
 ## 📋 要件
 
 - Unity 6 (6000.0+)
@@ -359,7 +360,7 @@ private void ResetData()
 - **Scene**: phase/status 参照、lifecycle/progress callback、one-shot lifecycle 購読 helper、統合 rejection event を提供するシーンローディング抽象化
 - **UI**: MVPパターン実装
 - **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
-- **Utility**: Singleton、EasingFunctions、Settings
+- **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mellow.Utility.WorldSpaceBackground`
 - **WebRequest**: HTTPリクエスト管理
 
 ## 🎓 サンプル

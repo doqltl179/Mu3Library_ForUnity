@@ -41,6 +41,7 @@
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 - 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts, and Localization character collection tools
+- 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
 
 ## 📋 Requirements
 
@@ -360,7 +361,7 @@ private void ResetData()
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation
 - **IS**: Unity Input System wrapper and binding manager (optional)
-- **Utility**: Singleton, EasingFunctions, Settings
+- **Utility**: Singleton, EasingFunctions, Settings, and `Mellow.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport
 - **WebRequest**: HTTP request management
 
 ## 🎓 Samples
