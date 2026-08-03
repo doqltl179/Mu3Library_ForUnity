@@ -73,15 +73,7 @@ namespace Mu3Library.Observable
                 return;
             }
 
-            _dictionary.Clear();
-            if (value != null)
-            {
-                foreach (KeyValuePair<TKey, TValue> pair in value)
-                {
-                    _dictionary[pair.Key] = pair.Value;
-                }
-            }
-
+            ReplaceContents(value);
             Notify();
         }
 
@@ -89,6 +81,11 @@ namespace Mu3Library.Observable
         {
             EnsureDictionary();
 
+            ReplaceContents(value);
+        }
+
+        private void ReplaceContents(Dictionary<TKey, TValue> value)
+        {
             _dictionary.Clear();
             if (value != null)
             {
@@ -210,7 +207,8 @@ namespace Mu3Library.Observable
                 return;
             }
 
-            _dictionary = new Dictionary<TKey, TValue>();
+            int entryCount = _entries?.Count ?? 0;
+            _dictionary = new Dictionary<TKey, TValue>(entryCount);
             if (_entries == null)
             {
                 return;
