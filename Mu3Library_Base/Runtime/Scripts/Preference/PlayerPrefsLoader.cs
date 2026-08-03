@@ -26,31 +26,19 @@ namespace Mu3Library.Preference
         public void SetInt(string key, int value, bool saveImmediately = false)
         {
             PlayerPrefs.SetInt(key, value);
-
-            if (saveImmediately)
-            {
-                PlayerPrefs.Save();
-            }
+            SaveIfRequested(saveImmediately);
         }
 
         public void SetFloat(string key, float value, bool saveImmediately = false)
         {
             PlayerPrefs.SetFloat(key, value);
-
-            if (saveImmediately)
-            {
-                PlayerPrefs.Save();
-            }
+            SaveIfRequested(saveImmediately);
         }
 
         public void SetString(string key, string value, bool saveImmediately = false)
         {
             PlayerPrefs.SetString(key, value);
-
-            if (saveImmediately)
-            {
-                PlayerPrefs.Save();
-            }
+            SaveIfRequested(saveImmediately);
         }
 
         public int GetInt(string key)
@@ -110,6 +98,14 @@ namespace Mu3Library.Preference
         public void Save()
         {
             PlayerPrefs.Save();
+        }
+
+        private static void SaveIfRequested(bool saveImmediately)
+        {
+            if (saveImmediately)
+            {
+                PlayerPrefs.Save();
+            }
         }
     }
 }
