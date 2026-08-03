@@ -17,6 +17,7 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Added
 - `Mu3Library.Base`: Added `Mellow.Utility.WorldSpaceBackground`, which fits a required `SpriteRenderer` background to a camera viewport with optional fit-on-enable, camera-front placement, configurable distance, and renderer display settings.
+- `GameObjectPool<T, TArgs>`: Added typed creation callbacks that accept `CreateArguments` subclasses while preserving the existing `GameObjectPool<T>` API.
 
 ## [base/0.21.0] - 2026-08-03
 

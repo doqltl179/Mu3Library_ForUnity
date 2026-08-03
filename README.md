@@ -354,7 +354,7 @@ private void ResetData()
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
-- **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, an optional creation callback, and `Clear()` cleanup
+- **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, optional no-argument or typed `CreateArguments` creation callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading

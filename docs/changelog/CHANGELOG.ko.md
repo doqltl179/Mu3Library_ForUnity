@@ -15,6 +15,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 추가됨
 - `Mu3Library.Base`: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추는 `Mellow.Utility.WorldSpaceBackground`를 추가했습니다. 활성화 시 자동 맞춤, 카메라 전면 배치, 거리 설정, 렌더러 표시 설정을 선택적으로 사용할 수 있습니다.
+- `GameObjectPool<T, TArgs>`: `CreateArguments` 파생 클래스를 받는 타입 안전한 생성 콜백을 추가했으며, 기존 `GameObjectPool<T>` API는 유지합니다.
 
 ## [base/0.21.0] - 2026-08-03
 

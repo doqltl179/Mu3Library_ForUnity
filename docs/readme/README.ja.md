@@ -353,7 +353,7 @@ private void ResetData()
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
-- **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
+- **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の引数なしまたは型安全な `CreateArguments` 生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング

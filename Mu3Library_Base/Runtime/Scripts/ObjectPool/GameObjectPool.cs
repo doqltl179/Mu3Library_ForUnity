@@ -97,4 +97,37 @@ namespace Mu3Library.ObjectPool
             _instanceIds.Clear();
         }
     }
+
+
+
+    public class GameObjectPool<T, TArgs> : GameObjectPool<T>
+        where T : Component
+        where TArgs : CreateArguments
+    {
+        public delegate T CreateWithArguments(TArgs args);
+
+        private readonly CreateWithArguments _onCreateWithArguments;
+
+
+
+        public GameObjectPool() : this(null)
+        {
+        }
+
+        public GameObjectPool(CreateWithArguments onCreate)
+        {
+            _onCreateWithArguments = onCreate;
+        }
+
+        public T Dequeue(TArgs args)
+        {
+            T result = base.Dequeue();
+            if (result == null && _onCreateWithArguments != null)
+            {
+                result = _onCreateWithArguments(args);
+            }
+
+            return result;
+        }
+    }
 }
