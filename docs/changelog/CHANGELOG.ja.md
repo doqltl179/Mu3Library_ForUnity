@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.21.0] - 2026-08-03
+
 ### 変更
 - `ButtonInvokeAttribute`: シリアライズされたフィールド方式を、引数なしで `void` を返すインスタンスメソッド方式へ置き換えました。適用されたメソッドを直接呼び出すため、同名のオーバーロードがあっても `AmbiguousMatchException` は発生しません。label とボタン高さは任意で、label を省略すると `Invoke {method name}` 形式で表示されます。
 
