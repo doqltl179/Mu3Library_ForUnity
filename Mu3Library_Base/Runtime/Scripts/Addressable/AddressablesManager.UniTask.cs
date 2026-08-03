@@ -103,6 +103,50 @@ namespace Mu3Library.Addressable
             return assets;
         }
 
+        public async UniTask<Dictionary<string, T>> LoadAssetsWithKeysAsync<T>(object key)
+        {
+            ListCacheKey cacheKey = ListCacheKey.Create(key, typeof(AssetsWithKeysCacheMarker<T>));
+            if (TryGetCachedAsset(cacheKey, out Dictionary<string, T> cached))
+            {
+                return cached;
+            }
+
+            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
+            {
+                if (!existing.IsDone)
+                {
+                    Dictionary<string, T> existingAssets = null;
+                    try
+                    {
+                        await existing.ToUniTask();
+                    }
+                    finally
+                    {
+                        existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+                    }
+
+                    return existingAssets;
+                }
+
+                return FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+            }
+
+            AsyncOperationHandle<Dictionary<string, T>> handle = CreateLoadAssetsWithKeysOperation<T>(key);
+            _assetHandleCache[cacheKey] = handle;
+
+            Dictionary<string, T> assets = null;
+            try
+            {
+                await handle.ToUniTask();
+            }
+            finally
+            {
+                assets = FinalizeAssetsWithKeysLoad<T>(cacheKey, handle);
+            }
+
+            return assets;
+        }
+
         public async UniTask<long> GetDownloadSizeAsync(object key)
         {
             AsyncOperationHandle<long> handle = Addressables.GetDownloadSizeAsync(key);

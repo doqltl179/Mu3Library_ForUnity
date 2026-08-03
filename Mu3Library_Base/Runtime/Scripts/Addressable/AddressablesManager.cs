@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceLocations;
 
 namespace Mu3Library.Addressable
 {
@@ -328,6 +329,41 @@ namespace Mu3Library.Addressable
             };
         }
 
+        public void LoadAssetsWithKeys<T>(object key, Action<Dictionary<string, T>> callback = null)
+        {
+            ListCacheKey cacheKey = ListCacheKey.Create(key, typeof(AssetsWithKeysCacheMarker<T>));
+            if (TryGetCachedAsset(cacheKey, out Dictionary<string, T> cached))
+            {
+                callback?.Invoke(cached);
+                return;
+            }
+
+            if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle existing) && existing.IsValid())
+            {
+                if (existing.IsDone)
+                {
+                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+                    callback?.Invoke(existingAssets);
+                    return;
+                }
+
+                existing.Completed += operation =>
+                {
+                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, operation);
+                    callback?.Invoke(existingAssets);
+                };
+                return;
+            }
+
+            AsyncOperationHandle<Dictionary<string, T>> handle = CreateLoadAssetsWithKeysOperation<T>(key);
+            _assetHandleCache[cacheKey] = handle;
+            handle.Completed += operation =>
+            {
+                Dictionary<string, T> assets = FinalizeAssetsWithKeysLoad<T>(cacheKey, operation);
+                callback?.Invoke(assets);
+            };
+        }
+
         public void GetDownloadSize(object key, Action<long> callback)
         {
             AsyncOperationHandle<long> handle = Addressables.GetDownloadSizeAsync(key);
@@ -527,6 +563,133 @@ namespace Mu3Library.Addressable
             _assetHandleCache.Clear();
             _assetCache.Clear();
             _cachedAssetKeyMap.Clear();
+        }
+
+        private AsyncOperationHandle<Dictionary<string, T>> CreateLoadAssetsWithKeysOperation<T>(object key)
+        {
+            AsyncOperationHandle<IList<IResourceLocation>> locationsHandle =
+                Addressables.LoadResourceLocationsAsync(key, typeof(T));
+
+            AsyncOperationHandle<Dictionary<string, T>> operation =
+                Addressables.ResourceManager.CreateChainOperation<Dictionary<string, T>, IList<IResourceLocation>>(
+                    locationsHandle,
+                    locationsOperation =>
+                    {
+                        if (locationsOperation.Status != AsyncOperationStatus.Succeeded || locationsOperation.Result == null)
+                        {
+                            return CreateFailedLoadAssetsWithKeysOperation<T>("Failed to resolve Addressables resource locations.");
+                        }
+
+                        IList<IResourceLocation> locations = locationsOperation.Result;
+                        if (!TryValidatePrimaryKeys(locations, out string errorMessage))
+                        {
+                            return CreateFailedLoadAssetsWithKeysOperation<T>(errorMessage);
+                        }
+
+                        if (locations.Count == 0)
+                        {
+                            return Addressables.ResourceManager.CreateCompletedOperation(new Dictionary<string, T>(), null);
+                        }
+
+                        List<AsyncOperationHandle> loadOperations = new(locations.Count);
+                        Dictionary<string, AsyncOperationHandle<T>> operationsByKey = new(locations.Count);
+                        foreach (IResourceLocation location in locations)
+                        {
+                            string primaryKey = location.PrimaryKey;
+                            AsyncOperationHandle<T> loadHandle = Addressables.LoadAssetAsync<T>(location);
+                            loadOperations.Add(loadHandle);
+                            operationsByKey.Add(primaryKey, loadHandle);
+                        }
+
+                        AsyncOperationHandle<IList<AsyncOperationHandle>> groupHandle =
+                            Addressables.ResourceManager.CreateGenericGroupOperation(loadOperations, true);
+
+                        AsyncOperationHandle<Dictionary<string, T>> groupOperationHandle =
+                            Addressables.ResourceManager.CreateChainOperation<Dictionary<string, T>, IList<AsyncOperationHandle>>(
+                                groupHandle,
+                                groupOperation =>
+                                {
+                                    if (groupOperation.Status != AsyncOperationStatus.Succeeded)
+                                    {
+                                        return CreateFailedLoadAssetsWithKeysOperation<T>("Failed to load one or more Addressables assets.");
+                                    }
+
+                                    Dictionary<string, T> assets = new(operationsByKey.Count);
+                                    foreach (KeyValuePair<string, AsyncOperationHandle<T>> operationByKey in operationsByKey)
+                                    {
+                                        assets.Add(operationByKey.Key, operationByKey.Value.Result);
+                                    }
+
+                                    return Addressables.ResourceManager.CreateCompletedOperation(assets, null);
+                                });
+
+                        Addressables.Release(groupHandle);
+                        return groupOperationHandle;
+                    });
+
+            Addressables.Release(locationsHandle);
+            return operation;
+        }
+
+        private Dictionary<string, T> FinalizeAssetsWithKeysLoad<T>(object cacheKey, AsyncOperationHandle handle)
+        {
+            if (!handle.IsValid())
+            {
+                return null;
+            }
+
+            Dictionary<string, T> assets = handle.Status == AsyncOperationStatus.Succeeded
+                ? handle.Result as Dictionary<string, T>
+                : null;
+            if (assets != null)
+            {
+                if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle cachedHandle) && cachedHandle.Equals(handle))
+                {
+                    _assetCache[cacheKey] = assets;
+                    _cachedAssetKeyMap[assets] = cacheKey;
+                }
+            }
+            else
+            {
+                if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle cachedHandle) && cachedHandle.Equals(handle))
+                {
+                    _assetHandleCache.Remove(cacheKey);
+                    Addressables.Release(cachedHandle);
+                }
+            }
+
+            return assets;
+        }
+
+        private AsyncOperationHandle<Dictionary<string, T>> CreateFailedLoadAssetsWithKeysOperation<T>(string errorMessage)
+        {
+            return Addressables.ResourceManager.CreateCompletedOperation<Dictionary<string, T>>(null, errorMessage);
+        }
+
+        private static bool TryValidatePrimaryKeys(IList<IResourceLocation> locations, out string errorMessage)
+        {
+            HashSet<string> primaryKeys = new();
+            foreach (IResourceLocation location in locations)
+            {
+                if (location == null || string.IsNullOrEmpty(location.PrimaryKey))
+                {
+                    errorMessage = "LoadAssetsWithKeys requires every resource location to have a non-empty PrimaryKey.";
+                    return false;
+                }
+
+                if (!primaryKeys.Add(location.PrimaryKey))
+                {
+                    errorMessage = "LoadAssetsWithKeys requires unique resource location PrimaryKey values.";
+                    return false;
+                }
+            }
+
+            errorMessage = null;
+            return true;
+        }
+
+        private sealed class AssetsWithKeysCacheMarker<T>
+        {
         }
 
         private void UpdateInitializeProgress()
