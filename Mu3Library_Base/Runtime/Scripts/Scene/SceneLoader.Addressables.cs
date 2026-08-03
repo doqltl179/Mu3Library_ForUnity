@@ -256,11 +256,7 @@ namespace Mu3Library.Scene
                 AutoReleaseHandle = false,
             };
 
-            handle.Completed += completed =>
-            {
-                operation.HasCompletionResult = true;
-                operation.CompletedSuccessfully = completed.Status == AsyncOperationStatus.Succeeded;
-            };
+            TrackAddressablesCompletion(handle, operation);
 
             return operation;
         }
@@ -288,13 +284,18 @@ namespace Mu3Library.Scene
                 AutoReleaseHandle = autoReleaseHandle,
             };
 
+            TrackAddressablesCompletion(handle, operation);
+
+            return operation;
+        }
+
+        private static void TrackAddressablesCompletion(AsyncOperationHandle<SceneInstance> handle, SceneOperation operation)
+        {
             handle.Completed += completed =>
             {
                 operation.HasCompletionResult = true;
                 operation.CompletedSuccessfully = completed.Status == AsyncOperationStatus.Succeeded;
             };
-
-            return operation;
         }
 
         partial void UpdateAddressablesOperations()

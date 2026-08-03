@@ -30,6 +30,7 @@ namespace Mu3Library.Scene
         }
 
         private const string UnnamedAddressableScene = "UnnamedAddressableScene";
+        private const float BuiltInScenePreloadCompletionProgress = 0.9f;
 
         public int LoadingCount => GetTrackedOperationCount();
         public bool IsLoading => LoadingCount > 0;
@@ -625,9 +626,10 @@ namespace Mu3Library.Scene
                 return UpdateUnloadOperation(operation);
             }
 
-            float progress = GetLoadOperationProgress(operation);
+            float operationProgress = operation.Operation.progress;
+            float progress = Mathf.Clamp01(operationProgress / BuiltInScenePreloadCompletionProgress);
 
-            if (operation.Operation.progress < 0.9f)
+            if (operationProgress < BuiltInScenePreloadCompletionProgress)
             {
                 UpdateSceneOperationStatus(operation, ScenePhase.Preloading, progress);
                 return false;
@@ -663,11 +665,6 @@ namespace Mu3Library.Scene
             UpdateSceneOperationStatus(operation, ScenePhase.Unloading, progress);
 
             return operation.Operation.isDone;
-        }
-
-        private float GetLoadOperationProgress(SceneOperation operation)
-        {
-            return Mathf.Clamp01(operation.Operation.progress / 0.9f);
         }
 
         private void RequestActivation(SceneOperation operation)
@@ -1157,31 +1154,15 @@ namespace Mu3Library.Scene
 
         private bool TryGetSingleSceneOperation(out SceneOperation operation)
         {
-            if (_singleSceneOperation != null)
+            if (TryGetPendingSceneOperation(ref _singleSceneOperation, out operation))
             {
-                if (_singleSceneOperation.HasUnitySceneEvent)
-                {
-                    _singleSceneOperation = null;
-                }
-                else
-                {
-                    operation = _singleSceneOperation;
-                    return true;
-                }
+                return true;
             }
 
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
-            if (_singleAddressablesSceneOperation != null)
+            if (TryGetPendingSceneOperation(ref _singleAddressablesSceneOperation, out operation))
             {
-                if (_singleAddressablesSceneOperation.HasUnitySceneEvent)
-                {
-                    _singleAddressablesSceneOperation = null;
-                }
-                else
-                {
-                    operation = _singleAddressablesSceneOperation;
-                    return true;
-                }
+                return true;
             }
 #endif
 
@@ -1191,55 +1172,67 @@ namespace Mu3Library.Scene
 
         private bool TryGetAdditiveSceneOperation(string sceneName, out SceneOperation operation)
         {
-            if (_loadAdditiveSceneOperations.TryGetValue(sceneName, out operation))
+            if (TryGetPendingSceneOperation(_loadAdditiveSceneOperations, sceneName, out operation))
             {
-                if (operation.HasUnitySceneEvent)
-                {
-                    _loadAdditiveSceneOperations.Remove(sceneName);
-                }
-                else
-                {
-                    return true;
-                }
+                return true;
             }
 
-            if (_unloadAdditiveSceneOperations.TryGetValue(sceneName, out operation))
+            if (TryGetPendingSceneOperation(_unloadAdditiveSceneOperations, sceneName, out operation))
             {
-                if (operation.HasUnitySceneEvent)
-                {
-                    _unloadAdditiveSceneOperations.Remove(sceneName);
-                }
-                else
-                {
-                    return true;
-                }
+                return true;
             }
 
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
-            if (_loadAdditiveAddressablesSceneOperations.TryGetValue(sceneName, out operation))
+            if (TryGetPendingSceneOperation(_loadAdditiveAddressablesSceneOperations, sceneName, out operation))
             {
-                if (operation.HasUnitySceneEvent)
+                return true;
+            }
+
+            if (TryGetPendingSceneOperation(_unloadAdditiveAddressablesSceneOperations, sceneName, out operation))
+            {
+                return true;
+            }
+#endif
+
+            operation = null;
+            return false;
+        }
+
+        private static bool TryGetPendingSceneOperation(ref SceneOperation candidate, out SceneOperation operation)
+        {
+            if (candidate != null)
+            {
+                if (candidate.HasUnitySceneEvent)
                 {
-                    _loadAdditiveAddressablesSceneOperations.Remove(sceneName);
+                    candidate = null;
                 }
                 else
                 {
+                    operation = candidate;
                     return true;
                 }
             }
 
-            if (_unloadAdditiveAddressablesSceneOperations.TryGetValue(sceneName, out operation))
+            operation = null;
+            return false;
+        }
+
+        private static bool TryGetPendingSceneOperation(
+            Dictionary<string, SceneOperation> operations,
+            string sceneName,
+            out SceneOperation operation)
+        {
+            if (operations.TryGetValue(sceneName, out operation))
             {
                 if (operation.HasUnitySceneEvent)
                 {
-                    _unloadAdditiveAddressablesSceneOperations.Remove(sceneName);
+                    operations.Remove(sceneName);
                 }
                 else
                 {
                     return true;
                 }
             }
-#endif
 
             operation = null;
             return false;
