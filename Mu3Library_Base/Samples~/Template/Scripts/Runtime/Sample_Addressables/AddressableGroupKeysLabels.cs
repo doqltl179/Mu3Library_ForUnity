@@ -4,29 +4,29 @@ using System.Collections.Generic;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public static class AddressableGroupKeysLabels
-{
-    public static readonly string BaseDownload = "base-download";
-    public static readonly string DownloadAll = "download-all";
-    public static readonly string Locale = "Locale";
-    public static readonly string LocaleEn = "Locale-en";
-    public static readonly string LocaleJa = "Locale-ja";
-    public static readonly string LocaleKo = "Locale-ko";
-    public static readonly string TestImage = "test-image";
-    public static readonly string TestLabel = "test-label";
-    public static readonly string TestScene = "test-scene";
-
-    public static readonly IReadOnlyList<string> All = new string[]
+    public static class AddressableGroupKeysLabels
     {
-        BaseDownload,
-        DownloadAll,
-        Locale,
-        LocaleEn,
-        LocaleJa,
-        LocaleKo,
-        TestImage,
-        TestLabel,
-        TestScene,
-    };
-}
+        public static readonly string BaseDownload = "base-download";
+        public static readonly string DownloadAll = "download-all";
+        public static readonly string Locale = "Locale";
+        public static readonly string LocaleEn = "Locale-en";
+        public static readonly string LocaleJa = "Locale-ja";
+        public static readonly string LocaleKo = "Locale-ko";
+        public static readonly string TestImage = "test-image";
+        public static readonly string TestLabel = "test-label";
+        public static readonly string TestScene = "test-scene";
+
+        public static readonly IReadOnlyList<string> All = new string[]
+        {
+            BaseDownload,
+            DownloadAll,
+            Locale,
+            LocaleEn,
+            LocaleJa,
+            LocaleKo,
+            TestImage,
+            TestLabel,
+            TestScene,
+        };
+    }
 }

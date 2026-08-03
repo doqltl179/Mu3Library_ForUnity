@@ -18,6 +18,7 @@ namespace Mu3Library.Addressable
 
         public void LoadAsset<T>(object key, Action<T> callback = null) where T : class;
         public void LoadAssets<T>(object key, Action<T> perAssetCallback = null, Action<IList<T>> callback = null);
+        public void LoadAssetsWithKeys<T>(object key, Action<Dictionary<string, T>> callback = null);
 
         public void GetDownloadSize(object key, Action<long> callback);
         public void GetDownloadSize(IEnumerable keys, Addressables.MergeMode mergeMode, Action<long> callback);

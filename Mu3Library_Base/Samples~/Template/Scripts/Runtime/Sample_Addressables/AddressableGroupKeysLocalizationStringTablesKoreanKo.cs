@@ -5,42 +5,42 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysLocalizationStringTablesKoreanKo : GroupData
-{
-    public sealed class TestStringTableKoStringTableEntry : EntryData
+    public sealed class AddressableGroupKeysLocalizationStringTablesKoreanKo : GroupData
     {
+        public sealed class TestStringTableKoStringTableEntry : EntryData
+        {
 
-        public TestStringTableKoStringTableEntry() : base(
-            "TestStringTable_ko",
-            "TestStringTable_ko",
-            new string[] { AddressableGroupKeysLabels.BaseDownload, AddressableGroupKeysLabels.LocaleKo }
-        )
+            public TestStringTableKoStringTableEntry() : base(
+                "TestStringTable_ko",
+                "TestStringTable_ko",
+                new string[] { AddressableGroupKeysLabels.BaseDownload, AddressableGroupKeysLabels.LocaleKo }
+            )
+            {
+            }
+        }
+
+
+        private static readonly TestStringTableKoStringTableEntry _testStringTableKoStringTable = new TestStringTableKoStringTableEntry();
+        public readonly TestStringTableKoStringTableEntry TestStringTableKoStringTable = _testStringTableKoStringTable;
+
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
+        {
+            _testStringTableKoStringTable,
+        };
+
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+            AddressableGroupKeysLabels.BaseDownload,
+            AddressableGroupKeysLabels.LocaleKo,
+        };
+
+        public static readonly AddressableGroupKeysLocalizationStringTablesKoreanKo Instance = new AddressableGroupKeysLocalizationStringTablesKoreanKo();
+
+        internal AddressableGroupKeysLocalizationStringTablesKoreanKo() : base(
+            "Localization-String-Tables-Korean (ko)",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly TestStringTableKoStringTableEntry _testStringTableKoStringTable = new TestStringTableKoStringTableEntry();
-    public readonly TestStringTableKoStringTableEntry TestStringTableKoStringTable = _testStringTableKoStringTable;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _testStringTableKoStringTable,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-        AddressableGroupKeysLabels.BaseDownload,
-        AddressableGroupKeysLabels.LocaleKo,
-    };
-
-    public static readonly AddressableGroupKeysLocalizationStringTablesKoreanKo Instance = new AddressableGroupKeysLocalizationStringTablesKoreanKo();
-
-    internal AddressableGroupKeysLocalizationStringTablesKoreanKo() : base(
-        "Localization-String-Tables-Korean (ko)",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }

@@ -12,6 +12,7 @@ namespace Mu3Library.Addressable
     {
         public UniTask<T> LoadAssetAsync<T>(object key) where T : class;
         public UniTask<IList<T>> LoadAssetsAsync<T>(object key, Action<T> perAssetCallback = null);
+        public UniTask<Dictionary<string, T>> LoadAssetsWithKeysAsync<T>(object key);
 
         public UniTask<long> GetDownloadSizeAsync(object key);
         public UniTask<long> GetDownloadSizeAsync(IEnumerable keys, Addressables.MergeMode mergeMode);

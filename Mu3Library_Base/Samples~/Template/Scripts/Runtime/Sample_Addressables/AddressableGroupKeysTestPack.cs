@@ -5,135 +5,163 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysTestPack : GroupData
-{
-    public sealed class SceneThumbnailsDefaultAssetEntry : EntryData
+    public sealed class AddressableGroupKeysTestPack : GroupData
     {
-        public sealed class ThumbnailAudioManagerTexture2DEntry : EntryData
+        public sealed class SceneThumbnailsDefaultAssetEntry : EntryData
         {
-            public sealed class ThumbnailAudioManagerSpriteEntry : EntryData
+            public sealed class ThumbnailAudioManagerTexture2DEntry : EntryData
             {
+                public sealed class ThumbnailAudioManagerSpriteEntry : EntryData
+                {
 
-                public ThumbnailAudioManagerSpriteEntry() : base(
+                    public ThumbnailAudioManagerSpriteEntry() : base(
+                        "Thumbnail_AudioManager",
+                        "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png[Thumbnail_AudioManager]",
+                        new string[] { }
+                    )
+                    {
+                    }
+                }
+
+
+                private static readonly ThumbnailAudioManagerSpriteEntry _thumbnailAudioManagerSprite = new ThumbnailAudioManagerSpriteEntry();
+                public readonly ThumbnailAudioManagerSpriteEntry ThumbnailAudioManagerSprite = _thumbnailAudioManagerSprite;
+
+                private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+                {
+                    _thumbnailAudioManagerSprite,
+                };
+
+                public ThumbnailAudioManagerTexture2DEntry() : base(
                     "Thumbnail_AudioManager",
-                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png[Thumbnail_AudioManager]",
-                    new string[] { }
+                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png",
+                    new string[] { AddressableGroupKeysLabels.DownloadAll },
+                    _entryChildren
                 )
                 {
                 }
             }
 
-
-            private static readonly ThumbnailAudioManagerSpriteEntry _thumbnailAudioManagerSprite = new ThumbnailAudioManagerSpriteEntry();
-            public readonly ThumbnailAudioManagerSpriteEntry ThumbnailAudioManagerSprite = _thumbnailAudioManagerSprite;
-
-            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            public sealed class ThumbnailAudioManagerFor3DSFXTexture2DEntry : EntryData
             {
-                _thumbnailAudioManagerSprite,
-            };
+                public sealed class ThumbnailAudioManagerFor3DSFXSpriteEntry : EntryData
+                {
 
-            public ThumbnailAudioManagerTexture2DEntry() : base(
-                "Thumbnail_AudioManager",
-                "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManager.png",
-                new string[] { AddressableGroupKeysLabels.DownloadAll },
-                _entryChildren
-            )
-            {
-            }
-        }
+                    public ThumbnailAudioManagerFor3DSFXSpriteEntry() : base(
+                        "Thumbnail_AudioManagerFor3DSFX",
+                        "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png[Thumbnail_AudioManagerFor3DSFX]",
+                        new string[] { }
+                    )
+                    {
+                    }
+                }
 
-        public sealed class ThumbnailAudioManagerFor3DSFXTexture2DEntry : EntryData
-        {
-            public sealed class ThumbnailAudioManagerFor3DSFXSpriteEntry : EntryData
-            {
 
-                public ThumbnailAudioManagerFor3DSFXSpriteEntry() : base(
+                private static readonly ThumbnailAudioManagerFor3DSFXSpriteEntry _thumbnailAudioManagerFor3DSFXSprite = new ThumbnailAudioManagerFor3DSFXSpriteEntry();
+                public readonly ThumbnailAudioManagerFor3DSFXSpriteEntry ThumbnailAudioManagerFor3DSFXSprite = _thumbnailAudioManagerFor3DSFXSprite;
+
+                private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+                {
+                    _thumbnailAudioManagerFor3DSFXSprite,
+                };
+
+                public ThumbnailAudioManagerFor3DSFXTexture2DEntry() : base(
                     "Thumbnail_AudioManagerFor3DSFX",
-                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png[Thumbnail_AudioManagerFor3DSFX]",
-                    new string[] { }
+                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png",
+                    new string[] { AddressableGroupKeysLabels.DownloadAll },
+                    _entryChildren
                 )
                 {
                 }
             }
 
-
-            private static readonly ThumbnailAudioManagerFor3DSFXSpriteEntry _thumbnailAudioManagerFor3DSFXSprite = new ThumbnailAudioManagerFor3DSFXSpriteEntry();
-            public readonly ThumbnailAudioManagerFor3DSFXSpriteEntry ThumbnailAudioManagerFor3DSFXSprite = _thumbnailAudioManagerFor3DSFXSprite;
-
-            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            public sealed class ThumbnailInputSystemManagerTexture2DEntry : EntryData
             {
-                _thumbnailAudioManagerFor3DSFXSprite,
-            };
+                public sealed class ThumbnailInputSystemManagerSpriteEntry : EntryData
+                {
 
-            public ThumbnailAudioManagerFor3DSFXTexture2DEntry() : base(
-                "Thumbnail_AudioManagerFor3DSFX",
-                "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_AudioManagerFor3DSFX.png",
-                new string[] { AddressableGroupKeysLabels.DownloadAll },
-                _entryChildren
-            )
-            {
-            }
-        }
+                    public ThumbnailInputSystemManagerSpriteEntry() : base(
+                        "Thumbnail_InputSystemManager",
+                        "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png[Thumbnail_InputSystemManager]",
+                        new string[] { }
+                    )
+                    {
+                    }
+                }
 
-        public sealed class ThumbnailInputSystemManagerTexture2DEntry : EntryData
-        {
-            public sealed class ThumbnailInputSystemManagerSpriteEntry : EntryData
-            {
 
-                public ThumbnailInputSystemManagerSpriteEntry() : base(
+                private static readonly ThumbnailInputSystemManagerSpriteEntry _thumbnailInputSystemManagerSprite = new ThumbnailInputSystemManagerSpriteEntry();
+                public readonly ThumbnailInputSystemManagerSpriteEntry ThumbnailInputSystemManagerSprite = _thumbnailInputSystemManagerSprite;
+
+                private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+                {
+                    _thumbnailInputSystemManagerSprite,
+                };
+
+                public ThumbnailInputSystemManagerTexture2DEntry() : base(
                     "Thumbnail_InputSystemManager",
-                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png[Thumbnail_InputSystemManager]",
-                    new string[] { }
+                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png",
+                    new string[] { AddressableGroupKeysLabels.DownloadAll },
+                    _entryChildren
                 )
                 {
                 }
             }
 
-
-            private static readonly ThumbnailInputSystemManagerSpriteEntry _thumbnailInputSystemManagerSprite = new ThumbnailInputSystemManagerSpriteEntry();
-            public readonly ThumbnailInputSystemManagerSpriteEntry ThumbnailInputSystemManagerSprite = _thumbnailInputSystemManagerSprite;
-
-            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            public sealed class ThumbnailLocalizationTexture2DEntry : EntryData
             {
-                _thumbnailInputSystemManagerSprite,
-            };
+                public sealed class ThumbnailLocalizationSpriteEntry : EntryData
+                {
 
-            public ThumbnailInputSystemManagerTexture2DEntry() : base(
-                "Thumbnail_InputSystemManager",
-                "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_InputSystemManager.png",
-                new string[] { AddressableGroupKeysLabels.DownloadAll },
-                _entryChildren
-            )
-            {
-            }
-        }
+                    public ThumbnailLocalizationSpriteEntry() : base(
+                        "Thumbnail_Localization",
+                        "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png[Thumbnail_Localization]",
+                        new string[] { }
+                    )
+                    {
+                    }
+                }
 
-        public sealed class ThumbnailLocalizationTexture2DEntry : EntryData
-        {
-            public sealed class ThumbnailLocalizationSpriteEntry : EntryData
-            {
 
-                public ThumbnailLocalizationSpriteEntry() : base(
+                private static readonly ThumbnailLocalizationSpriteEntry _thumbnailLocalizationSprite = new ThumbnailLocalizationSpriteEntry();
+                public readonly ThumbnailLocalizationSpriteEntry ThumbnailLocalizationSprite = _thumbnailLocalizationSprite;
+
+                private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+                {
+                    _thumbnailLocalizationSprite,
+                };
+
+                public ThumbnailLocalizationTexture2DEntry() : base(
                     "Thumbnail_Localization",
-                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png[Thumbnail_Localization]",
-                    new string[] { }
+                    "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png",
+                    new string[] { AddressableGroupKeysLabels.DownloadAll },
+                    _entryChildren
                 )
                 {
                 }
             }
 
 
-            private static readonly ThumbnailLocalizationSpriteEntry _thumbnailLocalizationSprite = new ThumbnailLocalizationSpriteEntry();
-            public readonly ThumbnailLocalizationSpriteEntry ThumbnailLocalizationSprite = _thumbnailLocalizationSprite;
+            private static readonly ThumbnailAudioManagerTexture2DEntry _thumbnailAudioManagerTexture2D = new ThumbnailAudioManagerTexture2DEntry();
+            public readonly ThumbnailAudioManagerTexture2DEntry ThumbnailAudioManagerTexture2D = _thumbnailAudioManagerTexture2D;
+            private static readonly ThumbnailAudioManagerFor3DSFXTexture2DEntry _thumbnailAudioManagerFor3DSFXTexture2D = new ThumbnailAudioManagerFor3DSFXTexture2DEntry();
+            public readonly ThumbnailAudioManagerFor3DSFXTexture2DEntry ThumbnailAudioManagerFor3DSFXTexture2D = _thumbnailAudioManagerFor3DSFXTexture2D;
+            private static readonly ThumbnailInputSystemManagerTexture2DEntry _thumbnailInputSystemManagerTexture2D = new ThumbnailInputSystemManagerTexture2DEntry();
+            public readonly ThumbnailInputSystemManagerTexture2DEntry ThumbnailInputSystemManagerTexture2D = _thumbnailInputSystemManagerTexture2D;
+            private static readonly ThumbnailLocalizationTexture2DEntry _thumbnailLocalizationTexture2D = new ThumbnailLocalizationTexture2DEntry();
+            public readonly ThumbnailLocalizationTexture2DEntry ThumbnailLocalizationTexture2D = _thumbnailLocalizationTexture2D;
 
             private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
             {
-                _thumbnailLocalizationSprite,
+                _thumbnailAudioManagerTexture2D,
+                _thumbnailAudioManagerFor3DSFXTexture2D,
+                _thumbnailInputSystemManagerTexture2D,
+                _thumbnailLocalizationTexture2D,
             };
 
-            public ThumbnailLocalizationTexture2DEntry() : base(
-                "Thumbnail_Localization",
-                "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails/Thumbnail_Localization.png",
+            public SceneThumbnailsDefaultAssetEntry() : base(
+                "SceneThumbnails",
+                "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails",
                 new string[] { AddressableGroupKeysLabels.DownloadAll },
                 _entryChildren
             )
@@ -141,92 +169,64 @@ public sealed class AddressableGroupKeysTestPack : GroupData
             }
         }
 
-
-        private static readonly ThumbnailAudioManagerTexture2DEntry _thumbnailAudioManagerTexture2D = new ThumbnailAudioManagerTexture2DEntry();
-        public readonly ThumbnailAudioManagerTexture2DEntry ThumbnailAudioManagerTexture2D = _thumbnailAudioManagerTexture2D;
-        private static readonly ThumbnailAudioManagerFor3DSFXTexture2DEntry _thumbnailAudioManagerFor3DSFXTexture2D = new ThumbnailAudioManagerFor3DSFXTexture2DEntry();
-        public readonly ThumbnailAudioManagerFor3DSFXTexture2DEntry ThumbnailAudioManagerFor3DSFXTexture2D = _thumbnailAudioManagerFor3DSFXTexture2D;
-        private static readonly ThumbnailInputSystemManagerTexture2DEntry _thumbnailInputSystemManagerTexture2D = new ThumbnailInputSystemManagerTexture2DEntry();
-        public readonly ThumbnailInputSystemManagerTexture2DEntry ThumbnailInputSystemManagerTexture2D = _thumbnailInputSystemManagerTexture2D;
-        private static readonly ThumbnailLocalizationTexture2DEntry _thumbnailLocalizationTexture2D = new ThumbnailLocalizationTexture2DEntry();
-        public readonly ThumbnailLocalizationTexture2DEntry ThumbnailLocalizationTexture2D = _thumbnailLocalizationTexture2D;
-
-        private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+        public sealed class TestImage03Texture2DEntry : EntryData
         {
-            _thumbnailAudioManagerTexture2D,
-            _thumbnailAudioManagerFor3DSFXTexture2D,
-            _thumbnailInputSystemManagerTexture2D,
-            _thumbnailLocalizationTexture2D,
-        };
+            public sealed class TestImage03SpriteEntry : EntryData
+            {
 
-        public SceneThumbnailsDefaultAssetEntry() : base(
-            "SceneThumbnails",
-            "Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails",
-            new string[] { AddressableGroupKeysLabels.DownloadAll },
-            _entryChildren
-        )
-        {
-        }
-    }
+                public TestImage03SpriteEntry() : base(
+                    "TestImage03",
+                    "TestImage03[TestImage03]",
+                    new string[] { }
+                )
+                {
+                }
+            }
 
-    public sealed class TestImage03Texture2DEntry : EntryData
-    {
-        public sealed class TestImage03SpriteEntry : EntryData
-        {
 
-            public TestImage03SpriteEntry() : base(
+            private static readonly TestImage03SpriteEntry _testImage03Sprite = new TestImage03SpriteEntry();
+            public readonly TestImage03SpriteEntry TestImage03Sprite = _testImage03Sprite;
+
+            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            {
+                _testImage03Sprite,
+            };
+
+            public TestImage03Texture2DEntry() : base(
                 "TestImage03",
-                "TestImage03[TestImage03]",
-                new string[] { }
+                "TestImage03",
+                new string[] { AddressableGroupKeysLabels.TestImage },
+                _entryChildren
             )
             {
             }
         }
 
 
-        private static readonly TestImage03SpriteEntry _testImage03Sprite = new TestImage03SpriteEntry();
-        public readonly TestImage03SpriteEntry TestImage03Sprite = _testImage03Sprite;
+        private static readonly SceneThumbnailsDefaultAssetEntry _sceneThumbnailsDefaultAsset = new SceneThumbnailsDefaultAssetEntry();
+        public readonly SceneThumbnailsDefaultAssetEntry SceneThumbnailsDefaultAsset = _sceneThumbnailsDefaultAsset;
+        private static readonly TestImage03Texture2DEntry _testImage03Texture2D = new TestImage03Texture2DEntry();
+        public readonly TestImage03Texture2DEntry TestImage03Texture2D = _testImage03Texture2D;
 
-        private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
         {
-            _testImage03Sprite,
+            _sceneThumbnailsDefaultAsset,
+            _testImage03Texture2D,
         };
 
-        public TestImage03Texture2DEntry() : base(
-            "TestImage03",
-            "TestImage03",
-            new string[] { AddressableGroupKeysLabels.TestImage },
-            _entryChildren
-        )
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+            AddressableGroupKeysLabels.DownloadAll,
+            AddressableGroupKeysLabels.TestImage,
+        };
+
+        public static readonly AddressableGroupKeysTestPack Instance = new AddressableGroupKeysTestPack();
+
+        internal AddressableGroupKeysTestPack() : base(
+            "TestPack",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly SceneThumbnailsDefaultAssetEntry _sceneThumbnailsDefaultAsset = new SceneThumbnailsDefaultAssetEntry();
-    public readonly SceneThumbnailsDefaultAssetEntry SceneThumbnailsDefaultAsset = _sceneThumbnailsDefaultAsset;
-    private static readonly TestImage03Texture2DEntry _testImage03Texture2D = new TestImage03Texture2DEntry();
-    public readonly TestImage03Texture2DEntry TestImage03Texture2D = _testImage03Texture2D;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _sceneThumbnailsDefaultAsset,
-        _testImage03Texture2D,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-        AddressableGroupKeysLabels.DownloadAll,
-        AddressableGroupKeysLabels.TestImage,
-    };
-
-    public static readonly AddressableGroupKeysTestPack Instance = new AddressableGroupKeysTestPack();
-
-    internal AddressableGroupKeysTestPack() : base(
-        "TestPack",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }

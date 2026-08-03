@@ -5,331 +5,331 @@ using Mu3Library.Addressable.Data;
 
 namespace Mu3Library.Sample.Template.Addressable
 {
-public sealed class AddressableGroupKeysDefaultLocalGroup : GroupData
-{
-    public sealed class InputSystemActionsInputActionAssetEntry : EntryData
+    public sealed class AddressableGroupKeysDefaultLocalGroup : GroupData
     {
-        public sealed class PlayerAttackInputActionReferenceEntry : EntryData
+        public sealed class InputSystemActionsInputActionAssetEntry : EntryData
         {
+            public sealed class PlayerAttackInputActionReferenceEntry : EntryData
+            {
 
-            public PlayerAttackInputActionReferenceEntry() : base(
-                "Player/Attack",
-                "Sample_IS/InputSystemActions[Player/Attack]",
-                new string[] { }
+                public PlayerAttackInputActionReferenceEntry() : base(
+                    "Player/Attack",
+                    "Sample_IS/InputSystemActions[Player/Attack]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerCrouchInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerCrouchInputActionReferenceEntry() : base(
+                    "Player/Crouch",
+                    "Sample_IS/InputSystemActions[Player/Crouch]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerInteractInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerInteractInputActionReferenceEntry() : base(
+                    "Player/Interact",
+                    "Sample_IS/InputSystemActions[Player/Interact]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerJumpInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerJumpInputActionReferenceEntry() : base(
+                    "Player/Jump",
+                    "Sample_IS/InputSystemActions[Player/Jump]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerLookInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerLookInputActionReferenceEntry() : base(
+                    "Player/Look",
+                    "Sample_IS/InputSystemActions[Player/Look]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerMoveInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerMoveInputActionReferenceEntry() : base(
+                    "Player/Move",
+                    "Sample_IS/InputSystemActions[Player/Move]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerNextInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerNextInputActionReferenceEntry() : base(
+                    "Player/Next",
+                    "Sample_IS/InputSystemActions[Player/Next]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerPreviousInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerPreviousInputActionReferenceEntry() : base(
+                    "Player/Previous",
+                    "Sample_IS/InputSystemActions[Player/Previous]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class PlayerSprintInputActionReferenceEntry : EntryData
+            {
+
+                public PlayerSprintInputActionReferenceEntry() : base(
+                    "Player/Sprint",
+                    "Sample_IS/InputSystemActions[Player/Sprint]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UICancelInputActionReferenceEntry : EntryData
+            {
+
+                public UICancelInputActionReferenceEntry() : base(
+                    "UI/Cancel",
+                    "Sample_IS/InputSystemActions[UI/Cancel]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UIClickInputActionReferenceEntry : EntryData
+            {
+
+                public UIClickInputActionReferenceEntry() : base(
+                    "UI/Click",
+                    "Sample_IS/InputSystemActions[UI/Click]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UIMiddleClickInputActionReferenceEntry : EntryData
+            {
+
+                public UIMiddleClickInputActionReferenceEntry() : base(
+                    "UI/MiddleClick",
+                    "Sample_IS/InputSystemActions[UI/MiddleClick]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UINavigateInputActionReferenceEntry : EntryData
+            {
+
+                public UINavigateInputActionReferenceEntry() : base(
+                    "UI/Navigate",
+                    "Sample_IS/InputSystemActions[UI/Navigate]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UIPointInputActionReferenceEntry : EntryData
+            {
+
+                public UIPointInputActionReferenceEntry() : base(
+                    "UI/Point",
+                    "Sample_IS/InputSystemActions[UI/Point]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UIRightClickInputActionReferenceEntry : EntryData
+            {
+
+                public UIRightClickInputActionReferenceEntry() : base(
+                    "UI/RightClick",
+                    "Sample_IS/InputSystemActions[UI/RightClick]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UIScrollWheelInputActionReferenceEntry : EntryData
+            {
+
+                public UIScrollWheelInputActionReferenceEntry() : base(
+                    "UI/ScrollWheel",
+                    "Sample_IS/InputSystemActions[UI/ScrollWheel]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UISubmitInputActionReferenceEntry : EntryData
+            {
+
+                public UISubmitInputActionReferenceEntry() : base(
+                    "UI/Submit",
+                    "Sample_IS/InputSystemActions[UI/Submit]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UITrackedDeviceOrientationInputActionReferenceEntry : EntryData
+            {
+
+                public UITrackedDeviceOrientationInputActionReferenceEntry() : base(
+                    "UI/TrackedDeviceOrientation",
+                    "Sample_IS/InputSystemActions[UI/TrackedDeviceOrientation]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+            public sealed class UITrackedDevicePositionInputActionReferenceEntry : EntryData
+            {
+
+                public UITrackedDevicePositionInputActionReferenceEntry() : base(
+                    "UI/TrackedDevicePosition",
+                    "Sample_IS/InputSystemActions[UI/TrackedDevicePosition]",
+                    new string[] { }
+                )
+                {
+                }
+            }
+
+
+            private static readonly PlayerAttackInputActionReferenceEntry _playerAttackInputActionReference = new PlayerAttackInputActionReferenceEntry();
+            public readonly PlayerAttackInputActionReferenceEntry PlayerAttackInputActionReference = _playerAttackInputActionReference;
+            private static readonly PlayerCrouchInputActionReferenceEntry _playerCrouchInputActionReference = new PlayerCrouchInputActionReferenceEntry();
+            public readonly PlayerCrouchInputActionReferenceEntry PlayerCrouchInputActionReference = _playerCrouchInputActionReference;
+            private static readonly PlayerInteractInputActionReferenceEntry _playerInteractInputActionReference = new PlayerInteractInputActionReferenceEntry();
+            public readonly PlayerInteractInputActionReferenceEntry PlayerInteractInputActionReference = _playerInteractInputActionReference;
+            private static readonly PlayerJumpInputActionReferenceEntry _playerJumpInputActionReference = new PlayerJumpInputActionReferenceEntry();
+            public readonly PlayerJumpInputActionReferenceEntry PlayerJumpInputActionReference = _playerJumpInputActionReference;
+            private static readonly PlayerLookInputActionReferenceEntry _playerLookInputActionReference = new PlayerLookInputActionReferenceEntry();
+            public readonly PlayerLookInputActionReferenceEntry PlayerLookInputActionReference = _playerLookInputActionReference;
+            private static readonly PlayerMoveInputActionReferenceEntry _playerMoveInputActionReference = new PlayerMoveInputActionReferenceEntry();
+            public readonly PlayerMoveInputActionReferenceEntry PlayerMoveInputActionReference = _playerMoveInputActionReference;
+            private static readonly PlayerNextInputActionReferenceEntry _playerNextInputActionReference = new PlayerNextInputActionReferenceEntry();
+            public readonly PlayerNextInputActionReferenceEntry PlayerNextInputActionReference = _playerNextInputActionReference;
+            private static readonly PlayerPreviousInputActionReferenceEntry _playerPreviousInputActionReference = new PlayerPreviousInputActionReferenceEntry();
+            public readonly PlayerPreviousInputActionReferenceEntry PlayerPreviousInputActionReference = _playerPreviousInputActionReference;
+            private static readonly PlayerSprintInputActionReferenceEntry _playerSprintInputActionReference = new PlayerSprintInputActionReferenceEntry();
+            public readonly PlayerSprintInputActionReferenceEntry PlayerSprintInputActionReference = _playerSprintInputActionReference;
+            private static readonly UICancelInputActionReferenceEntry _uICancelInputActionReference = new UICancelInputActionReferenceEntry();
+            public readonly UICancelInputActionReferenceEntry UICancelInputActionReference = _uICancelInputActionReference;
+            private static readonly UIClickInputActionReferenceEntry _uIClickInputActionReference = new UIClickInputActionReferenceEntry();
+            public readonly UIClickInputActionReferenceEntry UIClickInputActionReference = _uIClickInputActionReference;
+            private static readonly UIMiddleClickInputActionReferenceEntry _uIMiddleClickInputActionReference = new UIMiddleClickInputActionReferenceEntry();
+            public readonly UIMiddleClickInputActionReferenceEntry UIMiddleClickInputActionReference = _uIMiddleClickInputActionReference;
+            private static readonly UINavigateInputActionReferenceEntry _uINavigateInputActionReference = new UINavigateInputActionReferenceEntry();
+            public readonly UINavigateInputActionReferenceEntry UINavigateInputActionReference = _uINavigateInputActionReference;
+            private static readonly UIPointInputActionReferenceEntry _uIPointInputActionReference = new UIPointInputActionReferenceEntry();
+            public readonly UIPointInputActionReferenceEntry UIPointInputActionReference = _uIPointInputActionReference;
+            private static readonly UIRightClickInputActionReferenceEntry _uIRightClickInputActionReference = new UIRightClickInputActionReferenceEntry();
+            public readonly UIRightClickInputActionReferenceEntry UIRightClickInputActionReference = _uIRightClickInputActionReference;
+            private static readonly UIScrollWheelInputActionReferenceEntry _uIScrollWheelInputActionReference = new UIScrollWheelInputActionReferenceEntry();
+            public readonly UIScrollWheelInputActionReferenceEntry UIScrollWheelInputActionReference = _uIScrollWheelInputActionReference;
+            private static readonly UISubmitInputActionReferenceEntry _uISubmitInputActionReference = new UISubmitInputActionReferenceEntry();
+            public readonly UISubmitInputActionReferenceEntry UISubmitInputActionReference = _uISubmitInputActionReference;
+            private static readonly UITrackedDeviceOrientationInputActionReferenceEntry _uITrackedDeviceOrientationInputActionReference = new UITrackedDeviceOrientationInputActionReferenceEntry();
+            public readonly UITrackedDeviceOrientationInputActionReferenceEntry UITrackedDeviceOrientationInputActionReference = _uITrackedDeviceOrientationInputActionReference;
+            private static readonly UITrackedDevicePositionInputActionReferenceEntry _uITrackedDevicePositionInputActionReference = new UITrackedDevicePositionInputActionReferenceEntry();
+            public readonly UITrackedDevicePositionInputActionReferenceEntry UITrackedDevicePositionInputActionReference = _uITrackedDevicePositionInputActionReference;
+
+            private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
+            {
+                _playerAttackInputActionReference,
+                _playerCrouchInputActionReference,
+                _playerInteractInputActionReference,
+                _playerJumpInputActionReference,
+                _playerLookInputActionReference,
+                _playerMoveInputActionReference,
+                _playerNextInputActionReference,
+                _playerPreviousInputActionReference,
+                _playerSprintInputActionReference,
+                _uICancelInputActionReference,
+                _uIClickInputActionReference,
+                _uIMiddleClickInputActionReference,
+                _uINavigateInputActionReference,
+                _uIPointInputActionReference,
+                _uIRightClickInputActionReference,
+                _uIScrollWheelInputActionReference,
+                _uISubmitInputActionReference,
+                _uITrackedDeviceOrientationInputActionReference,
+                _uITrackedDevicePositionInputActionReference,
+            };
+
+            public InputSystemActionsInputActionAssetEntry() : base(
+                "InputSystemActions",
+                "Sample_IS/InputSystemActions",
+                new string[] { },
+                _entryChildren
             )
             {
             }
         }
 
-        public sealed class PlayerCrouchInputActionReferenceEntry : EntryData
+
+        private static readonly InputSystemActionsInputActionAssetEntry _inputSystemActionsInputActionAsset = new InputSystemActionsInputActionAssetEntry();
+        public readonly InputSystemActionsInputActionAssetEntry InputSystemActionsInputActionAsset = _inputSystemActionsInputActionAsset;
+
+        private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
         {
-
-            public PlayerCrouchInputActionReferenceEntry() : base(
-                "Player/Crouch",
-                "Sample_IS/InputSystemActions[Player/Crouch]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerInteractInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerInteractInputActionReferenceEntry() : base(
-                "Player/Interact",
-                "Sample_IS/InputSystemActions[Player/Interact]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerJumpInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerJumpInputActionReferenceEntry() : base(
-                "Player/Jump",
-                "Sample_IS/InputSystemActions[Player/Jump]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerLookInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerLookInputActionReferenceEntry() : base(
-                "Player/Look",
-                "Sample_IS/InputSystemActions[Player/Look]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerMoveInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerMoveInputActionReferenceEntry() : base(
-                "Player/Move",
-                "Sample_IS/InputSystemActions[Player/Move]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerNextInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerNextInputActionReferenceEntry() : base(
-                "Player/Next",
-                "Sample_IS/InputSystemActions[Player/Next]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerPreviousInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerPreviousInputActionReferenceEntry() : base(
-                "Player/Previous",
-                "Sample_IS/InputSystemActions[Player/Previous]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class PlayerSprintInputActionReferenceEntry : EntryData
-        {
-
-            public PlayerSprintInputActionReferenceEntry() : base(
-                "Player/Sprint",
-                "Sample_IS/InputSystemActions[Player/Sprint]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UICancelInputActionReferenceEntry : EntryData
-        {
-
-            public UICancelInputActionReferenceEntry() : base(
-                "UI/Cancel",
-                "Sample_IS/InputSystemActions[UI/Cancel]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UIClickInputActionReferenceEntry : EntryData
-        {
-
-            public UIClickInputActionReferenceEntry() : base(
-                "UI/Click",
-                "Sample_IS/InputSystemActions[UI/Click]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UIMiddleClickInputActionReferenceEntry : EntryData
-        {
-
-            public UIMiddleClickInputActionReferenceEntry() : base(
-                "UI/MiddleClick",
-                "Sample_IS/InputSystemActions[UI/MiddleClick]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UINavigateInputActionReferenceEntry : EntryData
-        {
-
-            public UINavigateInputActionReferenceEntry() : base(
-                "UI/Navigate",
-                "Sample_IS/InputSystemActions[UI/Navigate]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UIPointInputActionReferenceEntry : EntryData
-        {
-
-            public UIPointInputActionReferenceEntry() : base(
-                "UI/Point",
-                "Sample_IS/InputSystemActions[UI/Point]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UIRightClickInputActionReferenceEntry : EntryData
-        {
-
-            public UIRightClickInputActionReferenceEntry() : base(
-                "UI/RightClick",
-                "Sample_IS/InputSystemActions[UI/RightClick]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UIScrollWheelInputActionReferenceEntry : EntryData
-        {
-
-            public UIScrollWheelInputActionReferenceEntry() : base(
-                "UI/ScrollWheel",
-                "Sample_IS/InputSystemActions[UI/ScrollWheel]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UISubmitInputActionReferenceEntry : EntryData
-        {
-
-            public UISubmitInputActionReferenceEntry() : base(
-                "UI/Submit",
-                "Sample_IS/InputSystemActions[UI/Submit]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UITrackedDeviceOrientationInputActionReferenceEntry : EntryData
-        {
-
-            public UITrackedDeviceOrientationInputActionReferenceEntry() : base(
-                "UI/TrackedDeviceOrientation",
-                "Sample_IS/InputSystemActions[UI/TrackedDeviceOrientation]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-        public sealed class UITrackedDevicePositionInputActionReferenceEntry : EntryData
-        {
-
-            public UITrackedDevicePositionInputActionReferenceEntry() : base(
-                "UI/TrackedDevicePosition",
-                "Sample_IS/InputSystemActions[UI/TrackedDevicePosition]",
-                new string[] { }
-            )
-            {
-            }
-        }
-
-
-        private static readonly PlayerAttackInputActionReferenceEntry _playerAttackInputActionReference = new PlayerAttackInputActionReferenceEntry();
-        public readonly PlayerAttackInputActionReferenceEntry PlayerAttackInputActionReference = _playerAttackInputActionReference;
-        private static readonly PlayerCrouchInputActionReferenceEntry _playerCrouchInputActionReference = new PlayerCrouchInputActionReferenceEntry();
-        public readonly PlayerCrouchInputActionReferenceEntry PlayerCrouchInputActionReference = _playerCrouchInputActionReference;
-        private static readonly PlayerInteractInputActionReferenceEntry _playerInteractInputActionReference = new PlayerInteractInputActionReferenceEntry();
-        public readonly PlayerInteractInputActionReferenceEntry PlayerInteractInputActionReference = _playerInteractInputActionReference;
-        private static readonly PlayerJumpInputActionReferenceEntry _playerJumpInputActionReference = new PlayerJumpInputActionReferenceEntry();
-        public readonly PlayerJumpInputActionReferenceEntry PlayerJumpInputActionReference = _playerJumpInputActionReference;
-        private static readonly PlayerLookInputActionReferenceEntry _playerLookInputActionReference = new PlayerLookInputActionReferenceEntry();
-        public readonly PlayerLookInputActionReferenceEntry PlayerLookInputActionReference = _playerLookInputActionReference;
-        private static readonly PlayerMoveInputActionReferenceEntry _playerMoveInputActionReference = new PlayerMoveInputActionReferenceEntry();
-        public readonly PlayerMoveInputActionReferenceEntry PlayerMoveInputActionReference = _playerMoveInputActionReference;
-        private static readonly PlayerNextInputActionReferenceEntry _playerNextInputActionReference = new PlayerNextInputActionReferenceEntry();
-        public readonly PlayerNextInputActionReferenceEntry PlayerNextInputActionReference = _playerNextInputActionReference;
-        private static readonly PlayerPreviousInputActionReferenceEntry _playerPreviousInputActionReference = new PlayerPreviousInputActionReferenceEntry();
-        public readonly PlayerPreviousInputActionReferenceEntry PlayerPreviousInputActionReference = _playerPreviousInputActionReference;
-        private static readonly PlayerSprintInputActionReferenceEntry _playerSprintInputActionReference = new PlayerSprintInputActionReferenceEntry();
-        public readonly PlayerSprintInputActionReferenceEntry PlayerSprintInputActionReference = _playerSprintInputActionReference;
-        private static readonly UICancelInputActionReferenceEntry _uICancelInputActionReference = new UICancelInputActionReferenceEntry();
-        public readonly UICancelInputActionReferenceEntry UICancelInputActionReference = _uICancelInputActionReference;
-        private static readonly UIClickInputActionReferenceEntry _uIClickInputActionReference = new UIClickInputActionReferenceEntry();
-        public readonly UIClickInputActionReferenceEntry UIClickInputActionReference = _uIClickInputActionReference;
-        private static readonly UIMiddleClickInputActionReferenceEntry _uIMiddleClickInputActionReference = new UIMiddleClickInputActionReferenceEntry();
-        public readonly UIMiddleClickInputActionReferenceEntry UIMiddleClickInputActionReference = _uIMiddleClickInputActionReference;
-        private static readonly UINavigateInputActionReferenceEntry _uINavigateInputActionReference = new UINavigateInputActionReferenceEntry();
-        public readonly UINavigateInputActionReferenceEntry UINavigateInputActionReference = _uINavigateInputActionReference;
-        private static readonly UIPointInputActionReferenceEntry _uIPointInputActionReference = new UIPointInputActionReferenceEntry();
-        public readonly UIPointInputActionReferenceEntry UIPointInputActionReference = _uIPointInputActionReference;
-        private static readonly UIRightClickInputActionReferenceEntry _uIRightClickInputActionReference = new UIRightClickInputActionReferenceEntry();
-        public readonly UIRightClickInputActionReferenceEntry UIRightClickInputActionReference = _uIRightClickInputActionReference;
-        private static readonly UIScrollWheelInputActionReferenceEntry _uIScrollWheelInputActionReference = new UIScrollWheelInputActionReferenceEntry();
-        public readonly UIScrollWheelInputActionReferenceEntry UIScrollWheelInputActionReference = _uIScrollWheelInputActionReference;
-        private static readonly UISubmitInputActionReferenceEntry _uISubmitInputActionReference = new UISubmitInputActionReferenceEntry();
-        public readonly UISubmitInputActionReferenceEntry UISubmitInputActionReference = _uISubmitInputActionReference;
-        private static readonly UITrackedDeviceOrientationInputActionReferenceEntry _uITrackedDeviceOrientationInputActionReference = new UITrackedDeviceOrientationInputActionReferenceEntry();
-        public readonly UITrackedDeviceOrientationInputActionReferenceEntry UITrackedDeviceOrientationInputActionReference = _uITrackedDeviceOrientationInputActionReference;
-        private static readonly UITrackedDevicePositionInputActionReferenceEntry _uITrackedDevicePositionInputActionReference = new UITrackedDevicePositionInputActionReferenceEntry();
-        public readonly UITrackedDevicePositionInputActionReferenceEntry UITrackedDevicePositionInputActionReference = _uITrackedDevicePositionInputActionReference;
-
-        private static readonly IReadOnlyList<EntryData> _entryChildren = new EntryData[]
-        {
-            _playerAttackInputActionReference,
-            _playerCrouchInputActionReference,
-            _playerInteractInputActionReference,
-            _playerJumpInputActionReference,
-            _playerLookInputActionReference,
-            _playerMoveInputActionReference,
-            _playerNextInputActionReference,
-            _playerPreviousInputActionReference,
-            _playerSprintInputActionReference,
-            _uICancelInputActionReference,
-            _uIClickInputActionReference,
-            _uIMiddleClickInputActionReference,
-            _uINavigateInputActionReference,
-            _uIPointInputActionReference,
-            _uIRightClickInputActionReference,
-            _uIScrollWheelInputActionReference,
-            _uISubmitInputActionReference,
-            _uITrackedDeviceOrientationInputActionReference,
-            _uITrackedDevicePositionInputActionReference,
+            _inputSystemActionsInputActionAsset,
         };
 
-        public InputSystemActionsInputActionAssetEntry() : base(
-            "InputSystemActions",
-            "Sample_IS/InputSystemActions",
-            new string[] { },
-            _entryChildren
-        )
+        private static readonly IReadOnlyList<string> _groupLabels = new string[]
+        {
+        };
+
+        public static readonly AddressableGroupKeysDefaultLocalGroup Instance = new AddressableGroupKeysDefaultLocalGroup();
+
+        internal AddressableGroupKeysDefaultLocalGroup() : base(
+            "Default Local Group",
+            _groupEntries,
+            _groupLabels)
         {
         }
     }
-
-
-    private static readonly InputSystemActionsInputActionAssetEntry _inputSystemActionsInputActionAsset = new InputSystemActionsInputActionAssetEntry();
-    public readonly InputSystemActionsInputActionAssetEntry InputSystemActionsInputActionAsset = _inputSystemActionsInputActionAsset;
-
-    private static readonly IReadOnlyList<EntryData> _groupEntries = new EntryData[]
-    {
-        _inputSystemActionsInputActionAsset,
-    };
-
-    private static readonly IReadOnlyList<string> _groupLabels = new string[]
-    {
-    };
-
-    public static readonly AddressableGroupKeysDefaultLocalGroup Instance = new AddressableGroupKeysDefaultLocalGroup();
-
-    internal AddressableGroupKeysDefaultLocalGroup() : base(
-        "Default Local Group",
-        _groupEntries,
-        _groupLabels)
-    {
-    }
-}
 }

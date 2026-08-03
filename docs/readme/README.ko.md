@@ -40,7 +40,7 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/그룹/엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 ## 📋 요구사항
 
 - Unity 6 (6000.0+)
@@ -54,7 +54,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.19.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.20.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -220,6 +220,25 @@ void Start()
     // SFX 재생
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
 }
+```
+
+### Addressables
+Addressables 지원이 활성화된 경우, key로 해석되는 모든 에셋을 해당 resource location의 `PrimaryKey`로 인덱싱한 `Dictionary<string, T>`로 로드할 수 있습니다. `PrimaryKey`는 비어 있지 않고 고유해야 하며, 그렇지 않으면 로드 작업이 실패합니다.
+
+```csharp
+[Inject] private IAddressablesManager _addressablesManager;
+
+_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
+{
+    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
+    {
+        Debug.Log(texture.name);
+    }
+});
+
+// UniTask 지원도 활성화된 경우:
+Dictionary<string, Texture2D> textures =
+    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
 ### Scene Loader
@@ -409,7 +428,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.19.1`
+- 이 저장소의 현재 Base 패키지 버전: `0.20.0`
 - 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -431,7 +450,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.19.1`
+- Base: `com.github.doqltl179.mu3library.base` `0.20.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨
