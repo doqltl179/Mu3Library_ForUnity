@@ -19,10 +19,8 @@ namespace Mu3Library.Attribute {
             this.showIfTrue = showIfTrue;
         }
 
-        public ConditionalHideAttribute(string enumVariableName, int enumIndex, bool showIfTrue) {
-            conditionalSourceField = enumVariableName;
+        public ConditionalHideAttribute(string enumVariableName, int enumIndex, bool showIfTrue) : this(enumVariableName, showIfTrue) {
             this.enumIndex = enumIndex;
-            this.showIfTrue = showIfTrue;
         }
 
     }

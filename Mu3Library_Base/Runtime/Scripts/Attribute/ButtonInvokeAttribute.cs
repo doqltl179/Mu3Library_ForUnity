@@ -17,8 +17,7 @@ namespace Mu3Library.Attribute {
             this.buttonLabel = buttonLabel;
         }
 
-        public ButtonInvokeAttribute(string buttonLabel, float buttonHeight) {
-            this.buttonLabel = buttonLabel;
+        public ButtonInvokeAttribute(string buttonLabel, float buttonHeight) : this(buttonLabel) {
             ButtonHeight = buttonHeight;
         }
     }

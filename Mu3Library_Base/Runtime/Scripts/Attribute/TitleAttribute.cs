@@ -15,7 +15,6 @@ namespace Mu3Library.Attribute {
 
         public TitleAttribute(string text) {
             titleText = text;
-            titleColor = Color.white;
         }
 
         public TitleAttribute(string text, float r, float g, float b) {
