@@ -8,17 +8,16 @@ namespace Mu3Library.Extensions
         {
             go.layer = layer;
 
-            foreach (Transform child in go.transform)
+            Transform transform = go.transform;
+            for (int i = 0; i < transform.childCount; i++)
             {
-                child.gameObject.SetLayerWithChildren(layer);
+                transform.GetChild(i).gameObject.SetLayerWithChildren(layer);
             }
         }
 
         public static T GetOrAddComponent<T>(this GameObject go) where T : Component
         {
-            T result = go.GetComponent<T>();
-
-            if (result == null)
+            if (!go.TryGetComponent(out T result))
             {
                 result = go.AddComponent<T>();
             }
