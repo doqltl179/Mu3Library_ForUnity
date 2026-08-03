@@ -11,8 +11,9 @@ Use these rules for non-trivial work that needs 3+ steps, architectural decision
 - Plan before editing, but keep the plan proportional to the task.
 - Maintain `tasks/todo.md` as the persistent local task index.
 - Store non-trivial execution plans in `tasks/plans/*.md`.
+- Name each new plan file with the UTC creation timestamp required by the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md), and keep that timestamp unchanged while the plan is active.
 - Use `docs/ai-agents/plans/plan-template.md` for the repository-standard plan shape.
-- When a bounded unit finishes, reset `tasks/todo.md` to the next active state and delete the completed low-value plan by default once its durable outcome is captured elsewhere.
+- Treat each `tasks/plans/*.md` file as an active-work artifact, never task history. When a bounded unit finishes, first capture durable outcomes in their owning record, reset `tasks/todo.md` to the next active state, and delete the completed plan in the same closeout. Do not retain or archive completed plan files; see the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md).
 - Use `update_plan` or another interactive tracker when available, but do not block if it is unavailable.
 - Execute in small, verifiable steps and update status immediately after each step.
 - If the current unit needs a different owner or structural review, route back to `orchestrator` or `role-governor`; do not create a second control plane.

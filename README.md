@@ -55,7 +55,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.20.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.21.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -327,6 +327,23 @@ When the following packages are installed, their features are automatically enab
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 
+## 🧩 Inspector Attributes
+
+Apply `ButtonInvokeAttribute` to a parameterless instance method that returns `void`. Its label and height are optional; an omitted label is displayed as `Invoke {method name}`. Buttons are appended after the default serialized properties by the fallback Inspector, so source declaration order cannot position them among fields. A type with its own custom Inspector must render its `ButtonInvoke` buttons there.
+
+```csharp
+[ButtonInvoke("Refresh Data", ButtonHeight = 36f)]
+private void RefreshData()
+{
+}
+
+[ButtonInvoke]
+private void ResetData()
+{
+    // Inspector label: Invoke ResetData
+}
+```
+
 ## 📖 Complete Module List
 
 - **Addressable**: Addressables integration (optional)
@@ -429,7 +446,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.20.0`
+- Current Base package version in this repository: `0.21.0`
 - Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
@@ -451,7 +468,7 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.20.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.21.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Made with ❤️ for Unity Developers

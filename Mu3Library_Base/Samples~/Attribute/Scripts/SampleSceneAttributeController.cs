@@ -17,7 +17,6 @@ namespace Mu3Library.Sample.Attribute
         [SerializeField] private string testConditionHideProperty = "";
 
         [Title("Button Invoke Attribute")]
-        [ButtonInvoke(nameof(OnTestButtonInvoke), "Increment Counter")]
         [SerializeField] private int testButtonInvokeProperty = 0;
 #pragma warning restore 0414
 
@@ -37,6 +36,7 @@ namespace Mu3Library.Sample.Attribute
             _observableFloat.RemoveEvent(OnObservableFloatChanged);
         }
 
+        [ButtonInvoke("Increment Counter", ButtonHeight = 36f)]
         private void OnTestButtonInvoke()
         {
             testButtonInvokeProperty++;

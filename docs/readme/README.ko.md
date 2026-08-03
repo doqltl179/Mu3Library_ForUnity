@@ -54,7 +54,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.20.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.21.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
@@ -326,6 +326,23 @@ _playerData.Health.Set(80);
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
 
+## 🧩 Inspector 속성
+
+`ButtonInvokeAttribute`는 매개변수가 없고 `void`를 반환하는 인스턴스 메서드에 적용합니다. label과 버튼 높이는 선택 사항이며, label을 생략하면 `Invoke {method name}` 형식으로 표시됩니다. 버튼은 fallback Inspector가 기본 직렬화 프로퍼티를 그린 뒤 추가하므로 소스 선언 순서로 필드 사이 위치를 지정할 수 없습니다. 자체 Custom Inspector가 있는 타입은 해당 Inspector에서 `ButtonInvoke` 버튼을 직접 그려야 합니다.
+
+```csharp
+[ButtonInvoke("Refresh Data", ButtonHeight = 36f)]
+private void RefreshData()
+{
+}
+
+[ButtonInvoke]
+private void ResetData()
+{
+    // Inspector label: Invoke ResetData
+}
+```
+
 ## 📖 전체 모듈 목록
 
 - **Addressable**: Addressables 통합 (선택)
@@ -428,7 +445,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.20.0`
+- 이 저장소의 현재 Base 패키지 버전: `0.21.0`
 - 이 저장소의 현재 URP 패키지 버전: `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 - 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
 
@@ -450,7 +467,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.20.0`
+- Base: `com.github.doqltl179.mu3library.base` `0.21.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.14.2`)
 
 Unity 개발자를 위해 제작됨
