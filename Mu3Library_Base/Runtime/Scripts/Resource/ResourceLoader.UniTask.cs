@@ -55,16 +55,10 @@ namespace Mu3Library.Resource
 
             await UniTask.SwitchToMainThread();
 
-            Object[] loadedObjects = Resources.LoadAll(path, typeof(T));
-            if (loadedObjects == null || loadedObjects.Length == 0)
+            T[] loaded = Resources.LoadAll<T>(path);
+            if (loaded == null || loaded.Length == 0)
             {
                 return Array.Empty<T>();
-            }
-
-            T[] loaded = new T[loadedObjects.Length];
-            for (int i = 0; i < loadedObjects.Length; i++)
-            {
-                loaded[i] = loadedObjects[i] as T;
             }
 
             CacheAll(path, loaded);

@@ -44,8 +44,7 @@ namespace Mu3Library.Resource
                 return cached as T;
             }
 
-            Object loaded = Resources.Load<T>(path);
-            T result = loaded as T;
+            T result = Resources.Load<T>(path);
 
             if (result == null)
             {
@@ -102,11 +101,16 @@ namespace Mu3Library.Resource
                 return;
             }
 
+            RequestLoad(path, onLoaded);
+        }
+
+        private void RequestLoad<T>(string path, Action<T> onLoaded) where T : Object
+        {
             ResourceRequest request = Resources.LoadAsync<T>(path);
             request.completed += _ =>
             {
                 Object loaded = request.asset;
-                result = loaded as T;
+                T result = loaded as T;
 
                 if (result == null)
                 {
@@ -139,8 +143,7 @@ namespace Mu3Library.Resource
                 return true;
             }
 
-            Object loaded = Resources.Load<T>(path);
-            asset = loaded as T;
+            asset = Resources.Load<T>(path);
 
             if (asset == null)
             {
@@ -277,6 +280,11 @@ namespace Mu3Library.Resource
 
         public void ReleaseAll()
         {
+            if (_resources.Count == 0 && _resourceListCache.Count == 0)
+            {
+                return;
+            }
+
             HashSet<Object> uniqueAssets = new HashSet<Object>();
             foreach (Dictionary<Type, Object> entry in _resources.Values)
             {
