@@ -75,7 +75,6 @@ namespace Mu3Library.Audio
 
         public void StopBgmPlaylist()
         {
-            CancelPlaylist();
             StopBgm();
         }
 

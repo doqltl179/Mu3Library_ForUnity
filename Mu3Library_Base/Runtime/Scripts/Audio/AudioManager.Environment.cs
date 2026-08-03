@@ -58,7 +58,7 @@ namespace Mu3Library.Audio
                 }
                 else
                 {
-                    AudioSource source = CreateEnvironmentSource();
+                    AudioSource source = CreateAudioSource("EnvironmentSource");
                     controller = CreateAudioController<EnvironmentController>(source, clip, AudioSourceSettings.EnvironmentStandard);
                 }
             }
@@ -221,7 +221,7 @@ namespace Mu3Library.Audio
                 }
                 else
                 {
-                    AudioSource source = CreateEnvironmentSource();
+                    AudioSource source = CreateAudioSource("EnvironmentSource");
                     controller = CreateAudioController<EnvironmentController>(source, clip, settings);
                 }
             }
@@ -332,17 +332,6 @@ namespace Mu3Library.Audio
             OnEnvironmentVolumeChanged?.Invoke(_environmentVolume);
         }
 
-        private AudioSource CreateEnvironmentSource()
-        {
-            GameObject instance = new GameObject("EnvironmentSource");
-            instance.transform.SetParent(_rootTransform);
-
-            AudioSource source = instance.AddComponent<AudioSource>();
-            source.playOnAwake = false;
-
-            return source;
-        }
-
         private void PoolEnvironmentAll()
         {
             foreach (AudioController controller in _environmentControllers)
@@ -360,16 +349,7 @@ namespace Mu3Library.Audio
 
         private void CleanupEnvironmentControllers()
         {
-            for (int i = 0; i < _environmentControllers.Count; i++)
-            {
-                if (_environmentControllers[i] != null)
-                {
-                    continue;
-                }
-
-                _environmentControllers.RemoveAt(i);
-                i--;
-            }
+            RemoveDestroyedControllers(_environmentControllers);
         }
     }
 }

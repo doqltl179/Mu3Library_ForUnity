@@ -85,7 +85,7 @@ namespace Mu3Library.Audio
             }
             else
             {
-                AudioSource source = CreateBgmSource();
+                AudioSource source = CreateAudioSource("BgmSource");
                 _bgmMainController = CreateAudioController<BgmController>(source, clip, settings);
             }
 
@@ -166,7 +166,7 @@ namespace Mu3Library.Audio
             AudioController to = _bgmSubController;
             if (to == null)
             {
-                AudioSource source = CreateBgmSource();
+                AudioSource source = CreateAudioSource("BgmSource");
                 to = CreateAudioController<BgmController>(source, clip, settings);
             }
 
@@ -230,15 +230,5 @@ namespace Mu3Library.Audio
             OnBgmVolumeChanged?.Invoke(_bgmVolume);
         }
 
-        private AudioSource CreateBgmSource()
-        {
-            GameObject instance = new GameObject("BgmSource");
-            instance.transform.SetParent(_rootTransform);
-
-            AudioSource source = instance.AddComponent<AudioSource>();
-            source.playOnAwake = false;
-
-            return source;
-        }
     }
 }

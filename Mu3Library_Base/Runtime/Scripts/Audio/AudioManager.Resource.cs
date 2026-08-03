@@ -11,11 +11,11 @@ namespace Mu3Library.Audio
 
         public void RegisterAudioResource(string key, AudioClip clip)
         {
-            if (_audioResourceMap.ContainsKey(key))
+            if (!_audioResourceMap.TryAdd(key, clip))
             {
                 Debug.LogWarning($"Audio resource with key '{key}' is already registered. Overwriting the existing resource.");
+                _audioResourceMap[key] = clip;
             }
-            _audioResourceMap[key] = clip;
         }
 
         public void RegisterAudioResources(Dictionary<string, AudioClip> resources)

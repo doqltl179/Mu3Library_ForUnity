@@ -196,19 +196,34 @@ namespace Mu3Library.Audio
             pool.Enqueue(controller);
         }
 
+        private static void RemoveDestroyedControllers(List<AudioController> controllers)
+        {
+            for (int i = controllers.Count - 1; i >= 0; i--)
+            {
+                if (controllers[i] == null)
+                {
+                    controllers.RemoveAt(i);
+                }
+            }
+        }
+
+        private AudioSource CreateAudioSource(string name)
+        {
+            GameObject instance = new GameObject(name);
+            instance.transform.SetParent(_rootTransform);
+
+            AudioSource source = instance.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+
+            return source;
+        }
+
         private void InitializeAudioController(AudioController controller, AudioClip clip, AudioSourceSettings settings)
         {
             // Always stop before re-initializing to clean up any active loop or fade coroutines.
             controller.Stop();
 
-            AudioSourceSettings p = settings;
-
-            controller.SetVolumeSettings(this);
-            controller.SetLoopSettings(p.LoopCount, p.LoopInterval);
-            controller.SetClip(clip);
-            controller.SetClipVolume(p.Volume);
-            controller.SetAudioParameters(p.BaseSettings);
-            controller.SetAudioParameters(p.SoundSettings);
+            ConfigureAudioController(controller, clip, settings);
         }
 
         private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioSourceSettings settings) where T : AudioController
@@ -219,13 +234,20 @@ namespace Mu3Library.Audio
                 return null;
             }
 
-            AudioSourceSettings p = settings;
-
             AudioController controller = source.gameObject.GetComponent<T>();
             if (controller == null)
             {
                 controller = source.gameObject.AddComponent<T>();
             }
+
+            ConfigureAudioController(controller, clip, settings);
+
+            return controller;
+        }
+
+        private void ConfigureAudioController(AudioController controller, AudioClip clip, AudioSourceSettings settings)
+        {
+            AudioSourceSettings p = settings;
 
             controller.SetVolumeSettings(this);
             controller.SetLoopSettings(p.LoopCount, p.LoopInterval);
@@ -233,8 +255,6 @@ namespace Mu3Library.Audio
             controller.SetClipVolume(p.Volume);
             controller.SetAudioParameters(p.BaseSettings);
             controller.SetAudioParameters(p.SoundSettings);
-
-            return controller;
         }
     }
 }

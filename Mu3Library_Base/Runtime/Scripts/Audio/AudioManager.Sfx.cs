@@ -58,7 +58,7 @@ namespace Mu3Library.Audio
                 }
                 else
                 {
-                    AudioSource source = CreateSfxSource();
+                    AudioSource source = CreateAudioSource("SfxSource");
                     controller = CreateAudioController<SfxController>(source, clip, AudioSourceSettings.SfxStandard);
                 }
             }
@@ -221,7 +221,7 @@ namespace Mu3Library.Audio
                 }
                 else
                 {
-                    AudioSource source = CreateSfxSource();
+                    AudioSource source = CreateAudioSource("SfxSource");
                     controller = CreateAudioController<SfxController>(source, clip, settings);
                 }
             }
@@ -332,17 +332,6 @@ namespace Mu3Library.Audio
             OnSfxVolumeChanged?.Invoke(_sfxVolume);
         }
 
-        private AudioSource CreateSfxSource()
-        {
-            GameObject instance = new GameObject("SfxSource");
-            instance.transform.SetParent(_rootTransform);
-
-            AudioSource source = instance.AddComponent<AudioSource>();
-            source.playOnAwake = false;
-
-            return source;
-        }
-
         private void PoolSfxAll()
         {
             foreach (AudioController controller in _sfxControllers)
@@ -360,16 +349,7 @@ namespace Mu3Library.Audio
 
         private void CleanupSfxControllers()
         {
-            for (int i = 0; i < _sfxControllers.Count; i++)
-            {
-                if (_sfxControllers[i] != null)
-                {
-                    continue;
-                }
-
-                _sfxControllers.RemoveAt(i);
-                i--;
-            }
+            RemoveDestroyedControllers(_sfxControllers);
         }
     }
 }
