@@ -14,6 +14,8 @@ namespace Mellow.Utility
         [SerializeField] private bool _moveToFrontWhenFit = true;
         [SerializeField, Min(0f)] private float _distance = 10f;
 
+        private bool _fitPending;
+
         public bool FitOnEnable
         {
             get => _fitOnEnable;
@@ -68,7 +70,21 @@ namespace Mellow.Utility
         {
             if (_fitOnEnable)
             {
-                Fit();
+                _fitPending = true;
+                TryFitWhenCameraReady();
+            }
+        }
+
+        private void OnDisable()
+        {
+            _fitPending = false;
+        }
+
+        private void LateUpdate()
+        {
+            if (_fitPending)
+            {
+                TryFitWhenCameraReady();
             }
         }
 
@@ -82,7 +98,7 @@ namespace Mellow.Utility
 
         public void Fit(Camera cam, Sprite sprite)
         {
-            if (cam == null || sprite == null)
+            if (!IsCameraReady(cam) || sprite == null)
             {
                 return;
             }
@@ -121,6 +137,28 @@ namespace Mellow.Utility
                 transform.SetPositionAndRotation(viewportCenter, cam.transform.rotation);
                 transform.position += viewportCenter - _renderer.bounds.center;
             }
+        }
+
+        private void TryFitWhenCameraReady()
+        {
+            Camera cam = Camera.main;
+            if (!IsCameraReady(cam))
+            {
+                return;
+            }
+
+            Fit(cam, _renderer.sprite);
+            _fitPending = false;
+        }
+
+        private static bool IsCameraReady(Camera cam)
+        {
+            return cam != null
+                && cam.isActiveAndEnabled
+                && cam.rect.width > 0f
+                && cam.rect.height > 0f
+                && cam.pixelWidth > 0
+                && cam.pixelHeight > 0;
         }
         #endregion
     }
