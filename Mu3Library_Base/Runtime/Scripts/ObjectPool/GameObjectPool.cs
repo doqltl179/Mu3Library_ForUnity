@@ -28,7 +28,6 @@ namespace Mu3Library.ObjectPool
         private readonly Create _onCreate;
 
 
-
         public GameObjectPool() : this(null)
         {
         }
@@ -58,6 +57,20 @@ namespace Mu3Library.ObjectPool
             _instanceIds.Add(instanceId);
         }
 
+        public void Enqueue(List<T> objects)
+        {
+            if (objects == null)
+            {
+                Debug.LogWarning("Trying to enqueue a null list to the pool.");
+                return;
+            }
+
+            foreach (T obj in objects)
+            {
+                Enqueue(obj);
+            }
+        }
+
         public T Dequeue()
         {
             T result = null;
@@ -80,6 +93,27 @@ namespace Mu3Library.ObjectPool
             }
 
             return result;
+        }
+
+        public void Dequeue(List<T> objects)
+        {
+            if (objects == null)
+            {
+                Debug.LogWarning("Trying to dequeue into a null list from the pool.");
+                return;
+            }
+
+            while (_pool.Count > 0)
+            {
+                PooledItem pooledItem = _pool.Dequeue();
+                _instanceIds.Remove(pooledItem.InstanceId);
+
+                T obj = pooledItem.Object;
+                if (obj != null)
+                {
+                    objects.Add(obj);
+                }
+            }
         }
 
         public void Clear()
