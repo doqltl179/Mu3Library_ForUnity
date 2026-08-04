@@ -95,25 +95,28 @@ namespace Mu3Library.ObjectPool
             return result;
         }
 
-        public void Dequeue(List<T> objects)
+        public List<T> Dequeue(int count)
         {
-            if (objects == null)
+            List<T> objects = new();
+            if (count <= 0)
             {
-                Debug.LogWarning("Trying to dequeue into a null list from the pool.");
-                return;
+                return objects;
             }
 
-            while (_pool.Count > 0)
+            while (objects.Count < count)
             {
-                PooledItem pooledItem = _pool.Dequeue();
-                _instanceIds.Remove(pooledItem.InstanceId);
-
-                T obj = pooledItem.Object;
+                T obj = Dequeue();
                 if (obj != null)
                 {
                     objects.Add(obj);
                 }
+                else
+                {
+                    break;
+                }
             }
+
+            return objects;
         }
 
         public void Clear()
@@ -162,6 +165,51 @@ namespace Mu3Library.ObjectPool
             }
 
             return result;
+        }
+
+        public List<T> Dequeue(int count, TArgs args)
+        {
+            List<T> objects = new();
+            if (count <= 0)
+            {
+                return objects;
+            }
+
+            while (objects.Count < count)
+            {
+                T obj = Dequeue(args);
+                if (obj != null)
+                {
+                    objects.Add(obj);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return objects;
+        }
+
+        public List<T> Dequeue(List<TArgs> argsList)
+        {
+            List<T> objects = new();
+            if (argsList == null)
+            {
+                Debug.LogWarning("Trying to dequeue with a null argument list from the pool.");
+                return objects;
+            }
+
+            foreach (TArgs args in argsList)
+            {
+                T obj = Dequeue(args);
+                if (obj != null)
+                {
+                    objects.Add(obj);
+                }
+            }
+
+            return objects;
         }
     }
 }
