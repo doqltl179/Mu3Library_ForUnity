@@ -15,9 +15,34 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.22.0] - 2026-08-07
+
 ### 追加
-- `Mu3Library.Base`: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせる `Mellow.Utility.WorldSpaceBackground` を追加しました。Enable 時の自動フィット、カメラ前面への配置、距離設定、レンダラー表示設定を任意で利用できます。
-- `GameObjectPool<T, TArgs>`: `CreateArguments` 派生クラスを受け取る型安全な生成コールバックを追加し、既存の `GameObjectPool<T>` API は維持します。
+- `Mu3Library.Base`: `ParticleSystem` を必須コンポーネントとする `ParticleHandler` を追加し、再生、一時停止、停止、クリア、再起動、loop 制御、自然終了 `OnCompleted` を含むライフサイクルイベントを提供します。
+- `Mu3Library.Base`: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせる `Mellow.Utility.WorldSpaceBackground` を追加しました。
+- `GameObjectPool<T>` と `GameObjectPool<T, TArgs>`: 一括 enqueue/dequeue overload と、新規生成・pool から取得したオブジェクトへ適用できる任意の初期化 callback を追加しました。
+- `GameObjectPool<T, TArgs>`: 生成 callback を引数なしに変更し、`CreateArguments` 派生クラスを受け取る型安全な初期化 callback を追加しました。
+
+## [urp/0.2.1] - 2026-08-07
+
+### 追加
+- `Mu3Library.URP.Cam.CameraStackSetter`: 再利用可能な sample で Universal Camera Data を安全に保証する `EnsureUniversalCameraData(Camera)` を追加しました。
+
+## [watermelon/0.1.0] - 2026-08-07
+
+### 追加
+- `Mu3Library.Game.WatermelonGame`: board、item、merge、configuration、input の runtime assembly を追加しました。
+- `BoardArea`: board fitting、collision boundary、正規化位置変換、camera projection helper、初期化安全な `Try...` variant を追加しました。
+- `BoardItemsConfig`: 0 始まりの index で扱う 11 個の固定 fruit item を追加しました。
+- `BoardItemScoreRule`: 標準の三角数 progression を提供する virtual `GetScore(int)` score extension point を追加しました。
+- Watermelon Game sample: `BoardConfig` asset、fruit/background image、sample manager/core script、プレイ可能な `Demo` scene を追加しました。
+
+### 変更
+- `BoardItemScaleRule`: item size が board area の local 幅を使用し、orthographic / perspective camera 計算に対応するよう変更しました。
+
+### 修正
+- `BoardArea`: board bounds と生成された boundary collider の配置を修正しました。
+- `BoardItem`: 設定 sprite に合わせて円形 collider の半径を同期しました。
 
 ## [base/0.21.0] - 2026-08-03
 

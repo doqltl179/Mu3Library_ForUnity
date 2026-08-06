@@ -15,9 +15,34 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.22.0] - 2026-08-07
+
 ### Added
-- `Mu3Library.Base`: Added `Mellow.Utility.WorldSpaceBackground`, which fits a required `SpriteRenderer` background to a camera viewport with optional fit-on-enable, camera-front placement, configurable distance, and renderer display settings.
-- `GameObjectPool<T, TArgs>`: Added typed creation callbacks that accept `CreateArguments` subclasses while preserving the existing `GameObjectPool<T>` API.
+- `Mu3Library.Base`: Added `ParticleHandler`, a `MonoBehaviour` requiring a `ParticleSystem` and providing play, pause, stop, clear, restart, loop controls, and lifecycle events including natural-completion `OnCompleted`.
+- `Mu3Library.Base`: Added `Mellow.Utility.WorldSpaceBackground`, which fits a required `SpriteRenderer` background to a camera viewport with optional fit-on-enable and camera-front placement.
+- `GameObjectPool<T>` and `GameObjectPool<T, TArgs>`: Added batch enqueue/dequeue overloads and optional initialization callbacks for newly created and pooled objects.
+- `GameObjectPool<T, TArgs>`: Changed creation callbacks to use no arguments and added typed initialization callbacks that accept `CreateArguments` subclasses.
+
+## [urp/0.2.1] - 2026-08-07
+
+### Added
+- `Mu3Library.URP.Cam.CameraStackSetter`: Added `EnsureUniversalCameraData(Camera)` for safe Universal Camera Data bootstrap in reusable samples.
+
+## [watermelon/0.1.0] - 2026-08-07
+
+### Added
+- `Mu3Library.Game.WatermelonGame`: Added the reusable board, item, merge, configuration, and input runtime assembly.
+- `BoardArea`: Added board fitting, collision boundaries, normalized-position conversions, camera projection helpers, and initialization-safe `Try...` variants.
+- `BoardItemsConfig`: Added eleven fixed fruit entries addressed by zero-based index.
+- `BoardItemScoreRule`: Added the virtual `GetScore(int)` scoring extension point with the default triangular progression.
+- Watermelon Game sample: Added the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and playable `Demo` scene.
+
+### Changed
+- `BoardItemScaleRule`: Item sizing now uses the board area's local width and supports orthographic and perspective camera calculations.
+
+### Fixed
+- `BoardArea`: Corrected board bounds and generated boundary collider placement.
+- `BoardItem`: Synchronized the circle collider radius with the configured sprite.
 
 ## [base/0.21.0] - 2026-08-03
 

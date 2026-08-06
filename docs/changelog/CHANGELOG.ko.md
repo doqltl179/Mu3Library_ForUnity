@@ -13,9 +13,34 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.22.0] - 2026-08-07
+
 ### 추가됨
-- `Mu3Library.Base`: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추는 `Mellow.Utility.WorldSpaceBackground`를 추가했습니다. 활성화 시 자동 맞춤, 카메라 전면 배치, 거리 설정, 렌더러 표시 설정을 선택적으로 사용할 수 있습니다.
-- `GameObjectPool<T, TArgs>`: `CreateArguments` 파생 클래스를 받는 타입 안전한 생성 콜백을 추가했으며, 기존 `GameObjectPool<T>` API는 유지합니다.
+- `Mu3Library.Base`: `ParticleSystem`을 필수 컴포넌트로 요구하는 `ParticleHandler`를 추가하고 재생, 일시정지, 정지, 초기화, 재시작, loop 제어와 자연 종료 `OnCompleted`를 포함한 생명주기 이벤트를 제공합니다.
+- `Mu3Library.Base`: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추는 `Mellow.Utility.WorldSpaceBackground`를 추가했습니다.
+- `GameObjectPool<T>` 및 `GameObjectPool<T, TArgs>`: 일괄 enqueue/dequeue 오버로드와 새로 생성되거나 풀에서 꺼낸 오브젝트에 적용되는 선택적 초기화 콜백을 추가했습니다.
+- `GameObjectPool<T, TArgs>`: 생성 콜백을 무인자로 변경하고 `CreateArguments` 파생 클래스를 받는 타입 안전한 초기화 콜백을 추가했습니다.
+
+## [urp/0.2.1] - 2026-08-07
+
+### 추가됨
+- `Mu3Library.URP.Cam.CameraStackSetter`: 재사용 가능한 샘플에서 Universal Camera Data를 안전하게 보장하는 `EnsureUniversalCameraData(Camera)`를 추가했습니다.
+
+## [watermelon/0.1.0] - 2026-08-07
+
+### 추가됨
+- `Mu3Library.Game.WatermelonGame`: 보드, 아이템, 병합, 설정, 입력 runtime 어셈블리를 추가했습니다.
+- `BoardArea`: 보드 맞춤, 충돌 경계, 정규화 위치 변환, 카메라 투영 helper, 초기화 안전 `Try...` 변형을 추가했습니다.
+- `BoardItemsConfig`: 0부터 시작하는 index로 접근하는 11개 고정 과일 항목을 추가했습니다.
+- `BoardItemScoreRule`: 기본 삼각수 progression을 제공하는 가상 `GetScore(int)` 점수 확장 지점을 추가했습니다.
+- Watermelon Game 샘플: `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, 플레이 가능한 `Demo` 씬을 추가했습니다.
+
+### 변경됨
+- `BoardItemScaleRule`: 아이템 크기가 board area 로컬 가로 길이를 사용하고 직교/원근 카메라 계산을 지원하도록 변경했습니다.
+
+### 수정됨
+- `BoardArea`: 보드 bounds와 생성된 경계 collider 배치를 수정했습니다.
+- `BoardItem`: 설정된 sprite에 맞춰 원형 collider 반지름을 동기화했습니다.
 
 ## [base/0.21.0] - 2026-08-03
 

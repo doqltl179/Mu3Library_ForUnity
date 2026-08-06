@@ -1,0 +1,30 @@
+{
+  "name": "com.github.doqltl179.mu3library.game.watermelon",
+  "version": "0.1.0",
+  "displayName": "Mu3 Library Game - Watermelon",
+  "description": "A reusable 2D Watermelon Game board runtime with merge rules, configuration assets, and a playable sample scene.",
+  "unity": "6000.0",
+  "author": {
+    "name": "Mu3",
+    "url": "https://github.com/doqltl179"
+  },
+  "keywords": [
+    "Mu3Library",
+    "Watermelon Game",
+    "2D Game",
+    "Board",
+    "Merge"
+  ],
+  "dependencies": {
+    "com.github.doqltl179.mu3library.base": "0.22.0",
+    "com.github.doqltl179.mu3library.urp": "0.2.1",
+    "com.unity.ugui": "2.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Watermelon Game",
+      "description": "Playable 2D Watermelon Game sample with a BoardConfig asset, fruit/background images, and sample scripts.",
+      "path": "Samples~/WatermelonGame"
+    }
+  ]
+}
