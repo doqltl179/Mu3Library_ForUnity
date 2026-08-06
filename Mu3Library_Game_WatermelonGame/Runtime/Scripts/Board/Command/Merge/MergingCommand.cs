@@ -115,7 +115,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Merge
             {
                 if (effect == null)
                 {
-                    return;
+                    continue;
                 }
 
                 effect.Stop();
