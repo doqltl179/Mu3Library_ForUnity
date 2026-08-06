@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-07
+
+- Added optional `ParticleHandler` merge effects to `BoardItemInfo` and cleaned up spawned effects after completion.
+- Made merge effect processing skip null effect entries instead of stopping the full merge command.
+
 ## [0.1.0] - 2026-08-07
 
 - Added the reusable `Mu3Library.Game.WatermelonGame` runtime assembly with board, item, merge, configuration, and input helpers.

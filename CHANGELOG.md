@@ -15,6 +15,14 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [watermelon/0.1.1] - 2026-08-07
+
+### Added
+- `BoardItemInfo`: Added optional `ParticleHandler` resources for merge effects and automatic cleanup after spawned effects complete.
+
+### Fixed
+- `MergingCommand`: Null merge effects are skipped instead of stopping the full merge command.
+
 ## [base/0.22.0] - 2026-08-07
 
 ### Added

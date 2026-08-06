@@ -387,6 +387,7 @@ Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
 - **Board collision boundaries**: `BoardArea.SetOutColliders()` creates or updates left, right, and bottom `BoxCollider2D` boundaries from the item-area viewport padding while keeping the top open
 - **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants
+- **Merge effects**: `BoardItemInfo` supports optional `ParticleHandler` resources for merge effects, with completed spawned effects cleaned up automatically
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
 - **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
 
@@ -462,7 +463,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 - Current Base package version in this repository: `0.22.0`
 - Current URP package version in this repository: `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Current Watermelon Game package version in this repository: `0.1.0` (depends on Base `0.22.0` and URP `0.2.1`)
+- Current Watermelon Game package version in this repository: `0.1.1` (depends on Base `0.22.0` and URP `0.2.1`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -485,6 +486,6 @@ This project is distributed under the MIT License.
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base` `0.22.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.0` (depends on Base `0.22.0` and URP `0.2.1`)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.1` (depends on Base `0.22.0` and URP `0.2.1`)
 
 Made with ❤️ for Unity Developers

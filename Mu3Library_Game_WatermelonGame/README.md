@@ -8,6 +8,8 @@ Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `
 
 `BoardController` coordinates falling items and merges through `BoardItem`, `BoardConfig`, and `BoardItemsConfig`. The board configuration contains exactly eleven fruit entries addressed by zero-based list index.
 
+`BoardItemInfo` can reference optional `ParticleHandler` resources for merge effects. The board controller plays the merged effect and destroys the spawned effect instance after completion.
+
 `BoardItemScoreRule.GetScore(int)` is virtual and defaults to the triangular Watermelon Game score progression, allowing external projects to override scoring.
 
 `BoardArea` also calculates aspect-preserving local, screen, and world rectangles, mathematical screen-to-board-plane conversions, boundary-aware area checks, and position clamping helpers.

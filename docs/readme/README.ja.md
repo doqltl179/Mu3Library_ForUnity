@@ -386,6 +386,7 @@ Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
 - **Board fitting**: `BoardArea.Fit(...)` で設定したカメラビューポートの padding 内にボードスプライトを合わせられます。
 - **Board collision boundaries**: `BoardArea.SetOutColliders()` で item-area viewport padding を基準に left、right、bottom の `BoxCollider2D` 境界を生成・更新でき、top は開いたままにします。
 - **Board-relative coordinate conversions**: `BoardArea` は world、screen、local の正規化位置変換と初期化安全な `Try...` variant を提供します。
+- **Merge effects**: `BoardItemInfo` は任意の merge effect 用 `ParticleHandler` resource をサポートし、完了した生成 effect instance を自動的に cleanup します。
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)` を override して標準の三角数 score progression をカスタマイズできます。
 - **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
 
@@ -461,7 +462,7 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 - このリポジトリ上の現在の Base パッケージ版: `0.22.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.1.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.1.1`（Base `0.22.0`、URP `0.2.1` に依存）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
@@ -484,6 +485,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base` `0.22.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.1`（Base `0.22.0`、URP `0.2.1` に依存）
 
 Unity開発者のために制作

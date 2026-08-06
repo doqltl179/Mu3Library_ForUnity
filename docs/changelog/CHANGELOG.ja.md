@@ -15,6 +15,14 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [watermelon/0.1.1] - 2026-08-07
+
+### 追加
+- `BoardItemInfo`: merge effect 用の任意 `ParticleHandler` resource と、生成 effect 完了後の自動 cleanup を追加しました。
+
+### 修正
+- `MergingCommand`: null の merge effect があっても merge command 全体を停止せずスキップするようにしました。
+
 ## [base/0.22.0] - 2026-08-07
 
 ### 追加

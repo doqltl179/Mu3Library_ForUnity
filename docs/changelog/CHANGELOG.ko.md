@@ -13,6 +13,14 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [watermelon/0.1.1] - 2026-08-07
+
+### 추가됨
+- `BoardItemInfo`: 병합 효과용 선택적 `ParticleHandler` 리소스와 생성된 효과 완료 후 자동 정리를 추가했습니다.
+
+### 수정됨
+- `MergingCommand`: null 병합 효과를 만나도 전체 병합 명령을 중단하지 않고 건너뛰도록 수정했습니다.
+
 ## [base/0.22.0] - 2026-08-07
 
 ### 추가됨
