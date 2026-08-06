@@ -11,10 +11,11 @@ Branch and push flow: `docs/ai-agents/workflow/git-workflow.md`.
 
 ## Package Model
 
-This repository contains two independent UPM packages:
+This repository contains three independent UPM packages:
 
 - Base: `Mu3Library_Base/`
 - URP: `Mu3Library_URP/`, depends on Base.
+- Watermelon Game: `Mu3Library_Game_WatermelonGame/`, depends on Base and URP.
 
 Each package has its own version and release tag. Change only the package version that is being released unless both packages are explicitly in scope.
 
@@ -24,6 +25,7 @@ Each package has its own version and release tag. Change only the package versio
 |---|---|---|
 | Base | `base/vX.Y.Z` | `base/v0.10.0` |
 | URP | `urp/vX.Y.Z` | `urp/v0.1.2` |
+| Watermelon Game | `watermelon/vX.Y.Z` | `watermelon/v0.1.0` |
 
 Legacy plain `vX.Y.Z` tags are historical only.
 
@@ -33,6 +35,7 @@ Legacy plain `vX.Y.Z` tags are historical only.
 - Update `CHANGELOG.md` under the correct package header:
   - `## [base/X.Y.Z] - YYYY-MM-DD`
   - `## [urp/X.Y.Z] - YYYY-MM-DD`
+  - `## [watermelon/X.Y.Z] - YYYY-MM-DD`
 - Apply `.github/instructions/docs-sync.instructions.md` so localized changelogs stay synchronized unless the user explicitly requests otherwise.
 - Update README install URLs and localized variants when a new public tag changes install guidance.
 - Complete reviewer approval for release-sensitive surfaces before publishing.

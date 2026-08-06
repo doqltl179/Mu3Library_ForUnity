@@ -13,10 +13,11 @@
 
 ## Package Model
 
-This repository contains two independent UPM packages:
+This repository contains three independent UPM packages:
 
 - Base: `Mu3Library_Base/`
 - URP: `Mu3Library_URP/`, depends on Base.
+- Watermelon Game: `Mu3Library_Game_WatermelonGame/`, depends on Base and URP.
 
 Change `Mu3Library_Base/package.json` only for Base releases and `Mu3Library_URP/package.json` only for URP releases. Both packages may release from one commit when both changed.
 
@@ -26,6 +27,7 @@ Change `Mu3Library_Base/package.json` only for Base releases and `Mu3Library_URP
 |---|---|---|
 | Base | `base/vX.Y.Z` | `base/v0.10.0` |
 | URP | `urp/vX.Y.Z` | `urp/v0.1.2` |
+| Watermelon Game | `watermelon/vX.Y.Z` | `watermelon/v0.1.0` |
 
 Legacy tags `v0.0.20` through `v0.6.0` used plain `vX.Y.Z` and are historical.
 
@@ -35,6 +37,9 @@ git push origin base/v0.10.0
 
 git tag urp/v0.1.2
 git push origin urp/v0.1.2
+
+git tag watermelon/v0.1.0
+git push origin watermelon/v0.1.0
 ```
 
 UPM install URL pattern:
@@ -42,6 +47,7 @@ UPM install URL pattern:
 ```text
 https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.10.0
 https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.1.2
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#watermelon/v0.1.0
 ```
 
 Update README and localized variants when a new release tag changes public install guidance.

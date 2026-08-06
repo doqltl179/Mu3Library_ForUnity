@@ -32,6 +32,7 @@
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
 - 📦 **オプションパッケージサポート**: UniTask、Addressables、Localizationの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX分離管理とボリューム制御
+- ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST、ダウンロードサイズクエリ、UniTaskサポート
 - 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
 - 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
@@ -42,6 +43,7 @@
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分ける Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
+- 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper、プレイ可能な sample scene を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
 ## 📋 要件
 
 - Unity 6 (6000.0+)
@@ -55,10 +57,10 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.21.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
 
     # URP パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
    ```
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
@@ -68,6 +70,7 @@
 4. 以下のいずれかを選択:
     - `Mu3Library_Base/package.json`
     - `Mu3Library_URP/package.json`（先に Base をインストール）
+    - `Mu3Library_Game_WatermelonGame/package.json`（先に Base と URP をインストール）
 
 ## 📚 コアモジュール
 
@@ -349,11 +352,12 @@ private void ResetData()
 - **Addressable**: Addressables統合（オプション）
 - **Attribute**: `ConditionalHideAttribute` や `ButtonInvokeAttribute` などのカスタム属性
 - **Audio**: BGM/SFX管理システム
+- **Particle**: `ParticleSystem` の便利な操作、loop 設定、`OnPlayed`、`OnStopped`、`OnPaused`、`OnUnPaused`、`OnCleared`、`OnRestarted`、`OnLoopChanged`、`OnCompleted` イベントを提供する `ParticleHandler` MonoBehaviour
 - **DI**: Dependency Injectionコンテナ
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
-- **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、任意の引数なしまたは型安全な `CreateArguments` 生成コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
+- **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング
@@ -376,7 +380,16 @@ URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` が `SetCameraStackToMain(...)` と `SetCameraStack(...)` helper を提供し、任意の URP overlay camera を `Camera.main` または明示的な root camera stack に挿入しつつ、必要に応じて挿入 index を制御できます。
 
-このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect` にあります。
+Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
+- **Watermelon Game**: 設定可能なボード、フルーツ sprite、sample manager/core script を含むプレイ可能な 2D 落下フルーツマージ scene
+- **Fruit item indexes**: ボード設定は常に11個のフルーツ項目を含み、0始まりのリスト index でアクセスします。
+- **Board fitting**: `BoardArea.Fit(...)` で設定したカメラビューポートの padding 内にボードスプライトを合わせられます。
+- **Board collision boundaries**: `BoardArea.SetOutColliders()` で item-area viewport padding を基準に left、right、bottom の `BoxCollider2D` 境界を生成・更新でき、top は開いたままにします。
+- **Board-relative coordinate conversions**: `BoardArea` は world、screen、local の正規化位置変換と初期化安全な `Try...` variant を提供します。
+- **Scoring extension point**: `BoardItemScoreRule.GetScore(int)` を override して標準の三角数 score progression をカスタマイズできます。
+- **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
+
+このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect`、Watermelon Game サンプルのソースは `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame` にあります。
 
 新しい helper で MVP render camera を stack したい場合は、render camera を明示的に渡してください:
 
@@ -446,8 +459,9 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.21.0`
-- このリポジトリ上の現在の URP パッケージ版: `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
+- このリポジトリ上の現在の Base パッケージ版: `0.22.0`
+- このリポジトリ上の現在の URP パッケージ版: `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
+- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.1.0`（Base `0.22.0`、URP `0.2.1` に依存）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
@@ -468,7 +482,8 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.21.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.0`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.14.2`）
+- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.0`（Base `0.22.0`、URP `0.2.1` に依存）
 
 Unity開発者のために制作

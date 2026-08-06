@@ -32,6 +32,7 @@
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
 - 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization
 - 🎵 **Audio System**: Separate BGM/SFX management with volume control
+- ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST, download size queries, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
@@ -42,6 +43,7 @@
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 - 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts, and Localization character collection tools
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
+- 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, board fitting and coordinate helpers, and a playable sample scene
 
 ## 📋 Requirements
 
@@ -56,10 +58,10 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.21.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
    ```
 
 ### Option 2: Package Manager (Local Disk)
@@ -69,6 +71,7 @@
 4. Select one of the following:
     - `Mu3Library_Base/package.json`
     - `Mu3Library_URP/package.json` (install Base first)
+    - `Mu3Library_Game_WatermelonGame/package.json` (install Base and URP first)
 
 ## 📚 Core Modules
 
@@ -350,11 +353,12 @@ private void ResetData()
 - **Addressable**: Addressables integration (optional)
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
+- **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
 - **DI**: Dependency Injection container
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
-- **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, optional no-argument or typed `CreateArguments` creation callbacks, and `Clear()` cleanup
+- **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
@@ -377,7 +381,16 @@ URP package (**Mu3 Library URP**):
 - **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
 
-In this repository, the base sample sources live under `Mu3Library_Base/Samples~` and the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`.
+Watermelon Game package (**Mu3 Library Watermelon Game**):
+- **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
+- **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
+- **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
+- **Board collision boundaries**: `BoardArea.SetOutColliders()` creates or updates left, right, and bottom `BoxCollider2D` boundaries from the item-area viewport padding while keeping the top open
+- **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants
+- **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
+- **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
+
+In this repository, the base sample sources live under `Mu3Library_Base/Samples~`, the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`, and the Watermelon Game sample source lives under `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`.
 
 To stack an MVP render camera with the new helper, pass the render camera explicitly:
 
@@ -447,8 +460,9 @@ The callback is invoked once after the target Core has completed its preparation
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.21.0`
-- Current URP package version in this repository: `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
+- Current Base package version in this repository: `0.22.0`
+- Current URP package version in this repository: `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
+- Current Watermelon Game package version in this repository: `0.1.0` (depends on Base `0.22.0` and URP `0.2.1`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -469,7 +483,8 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.21.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.0` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.14.2`)
+- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
+- URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.0` (depends on Base `0.22.0` and URP `0.2.1`)
 
 Made with ❤️ for Unity Developers
