@@ -25,16 +25,25 @@ namespace Mu3Library.ObjectPool
         private readonly HashSet<int> _instanceIds = new();
 
         public delegate T Create();
+        public delegate void Initialize(T obj);
+
         private readonly Create _onCreate;
+        private readonly Initialize _onInitialize;
 
 
-        public GameObjectPool() : this(null)
+        public GameObjectPool() : this(null, null)
         {
         }
 
         public GameObjectPool(Create onCreate)
+            : this(onCreate, null)
+        {
+        }
+
+        public GameObjectPool(Create onCreate, Initialize onInitialize)
         {
             _onCreate = onCreate;
+            _onInitialize = onInitialize;
         }
 
         public void Enqueue(T obj)
@@ -92,6 +101,11 @@ namespace Mu3Library.ObjectPool
                 result = _onCreate();
             }
 
+            if (result != null)
+            {
+                _onInitialize?.Invoke(result);
+            }
+
             return result;
         }
 
@@ -141,27 +155,35 @@ namespace Mu3Library.ObjectPool
         where T : Component
         where TArgs : CreateArguments
     {
-        public delegate T CreateWithArguments(TArgs args);
+        public delegate void InitializeWithArguments(T obj, TArgs args);
 
-        private readonly CreateWithArguments _onCreateWithArguments;
+        private readonly InitializeWithArguments _onInitializeWithArguments;
 
 
 
-        public GameObjectPool() : this(null)
+        public GameObjectPool() : this(null, null)
         {
         }
 
-        public GameObjectPool(CreateWithArguments onCreate)
+        public GameObjectPool(GameObjectPool<T>.Create onCreate)
+            : this(onCreate, null)
         {
-            _onCreateWithArguments = onCreate;
+        }
+
+        public GameObjectPool(
+            GameObjectPool<T>.Create onCreate,
+            InitializeWithArguments onInitialize)
+            : base(onCreate)
+        {
+            _onInitializeWithArguments = onInitialize;
         }
 
         public T Dequeue(TArgs args)
         {
             T result = base.Dequeue();
-            if (result == null && _onCreateWithArguments != null)
+            if (result != null)
             {
-                result = _onCreateWithArguments(args);
+                _onInitializeWithArguments?.Invoke(result, args);
             }
 
             return result;
