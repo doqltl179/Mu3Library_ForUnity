@@ -1,0 +1,19 @@
+{
+    "name": "Mu3Library.Game.WatermelonGame",
+    "rootNamespace": "Mu3Library.Game.WatermelonGame",
+    "references": [
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
+        "GUID:6391e8445d9411043ab0bbeae0fbab5b",
+        "GUID:c71a1365bf39aaf4abb8b1fe53275ceb",
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,17 @@
+{
+    "folders": [
+        {
+            "path": "..",
+            "name": "Mu3Library_ForUnity"
+        }
+    ],
+    "extensions": {
+        "recommendations": [
+            "ms-dotnettools.csdevkit",
+            "ms-dotnettools.csharp"
+        ]
+    },
+    "settings": {
+        "dotnet.defaultSolution": "UnityProject_Game_WatermelonGame/UnityProject_Game_WatermelonGame.slnx"
+    }
+}
