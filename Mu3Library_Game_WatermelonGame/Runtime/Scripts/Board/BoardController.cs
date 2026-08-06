@@ -8,7 +8,6 @@ using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
 using Mu3Library.Game.WatermelonGame.Board.Item.Rule;
 using Mu3Library.ObjectPool;
-using Mu3Library.Particle;
 using UnityEngine;
 
 namespace Mu3Library.Game.WatermelonGame.Board
@@ -307,7 +306,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
                     nextItem.ColliderEnabled = true;
 
                     nextItem.transform.localPosition = localMiddlePos;
-                    PlayEffect(nextInfo.MergedEffect, nextItem.transform.position);
                 }
             }
 
@@ -318,31 +316,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _commands.Add(command);
 
             return true;
-        }
-
-        protected virtual void PlayEffect(ParticleHandler effectResource, Vector3 position)
-        {
-            if (effectResource == null)
-            {
-                return;
-            }
-
-            ParticleHandler effect = Instantiate(effectResource, position, Quaternion.identity);
-            effect.gameObject.SetActive(true);
-
-            void OnCompleted()
-            {
-                if (effect == null)
-                {
-                    return;
-                }
-
-                effect.OnCompleted -= OnCompleted;
-                Destroy(effect.gameObject);
-            }
-
-            effect.OnCompleted += OnCompleted;
-            effect.Play();
         }
 
         protected void SetHoldingItemPosition(Vector2 screenPos)
