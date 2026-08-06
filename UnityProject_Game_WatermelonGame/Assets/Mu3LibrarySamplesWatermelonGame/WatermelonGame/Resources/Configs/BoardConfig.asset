@@ -17,13 +17,35 @@ MonoBehaviour:
   _itemConfig:
     _itemInfos:
     - _sprite: {fileID: 21300000, guid: d389462c018d7044c82c8ddd639a6df6, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: b5a59e1746680f249b26037dd50252dd, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 6625972bd87a80c41ab08295f8861e09, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: ed4a3cb8f29ef304ebe35d9210890bd8, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: cd3b27ace1aad0a47ade25cf36612605, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 31c68afa0f81a4f4f8d36372684aed65, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 45a91690b855bb1448acddb4ac04beb5, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 5fc90e980ec0ffd41b1f5587ad052451, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: c386d2149619931489ab42d64d28ce86, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 62d26cb607124974880e0082319b5c17, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}
     - _sprite: {fileID: 21300000, guid: 8fae46ca3d524af5ab7d20cc1482b801, type: 3}
+      _mergingEffect: {fileID: 7000000000000000001, guid: 17c0a8d1e2f34b5697a8c9d0e1f2a3b4, type: 3}
+      _mergedEffect: {fileID: 7000000000000000001, guid: 28d1b9e2f3045c67a8b9d0e1f2a3b4c5, type: 3}

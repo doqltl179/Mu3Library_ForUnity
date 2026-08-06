@@ -22,4 +22,4 @@ Add this package to a project that already references `Mu3Library_Base` and `Mu3
 "com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
 ```
 
-Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and playable `Demo` scene.
+Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background images, static merge VFX textures and prefabs, sample manager/core scripts, and playable `Demo` scene.

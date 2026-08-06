@@ -5,6 +5,7 @@
 ## [0.1.1] - 2026-08-07
 
 - Added optional `ParticleHandler` merge effects to `BoardItemInfo` and cleaned up spawned effects after completion.
+- Added static Watermelon merge VFX textures and `WatermelonMergingEffect` / `WatermelonMergedEffect` prefabs to the sample, wired through `BoardConfig`.
 - Made merge effect processing skip null effect entries instead of stopping the full merge command.
 
 ## [0.1.0] - 2026-08-07
