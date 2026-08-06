@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Mu3Library.Attribute;
 using Mu3Library.Game.WatermelonGame.Board.Command;
 using Mu3Library.Game.WatermelonGame.Board.Command.Merge;
@@ -14,9 +13,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
 {
     public class BoardController : MonoBehaviour
     {
-        private BoardCommandHandler m_commandHandler;
-        protected BoardCommandHandler _commandHandler => m_commandHandler ??= new BoardCommandHandler(this);
-
         [Title("Board")]
         [SerializeField] protected BoardArea _boardArea;
 
@@ -56,6 +52,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected readonly List<IBoardCommand> _commands = new();
 
+        protected bool _isPrepared;
+        public bool IsPrepared => _isPrepared;
+
+        protected bool _isRunning;
+        public bool IsRunning => _isRunning;
+
+        protected bool _isEnded;
+        public bool IsEnded => _isEnded;
+
         protected int _score;
         public int Score => _score;
 
@@ -67,7 +72,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public event Action OnBoardPrepared;
         public event Action OnGameStarted;
-        public event Action OnGamePaused;
         public event Action OnGameEnded;
 
         public event Action<int> OnScoreChanged;
@@ -90,7 +94,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected virtual void OnDestory()
         {
-            _commandHandler.Dispose();
+            ClearAllCommands();
         }
 
         protected virtual void Start()
@@ -100,6 +104,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected virtual void Update()
         {
+            if (!_isRunning)
+            {
+                return;
+            }
+
             for (int i = 0; i < _commands.Count; i++)
             {
                 var cmd = _commands[i];
@@ -125,6 +134,19 @@ namespace Mu3Library.Game.WatermelonGame.Board
         }
 
         #region Utility
+        public virtual void GameStart()
+        {
+            if (!_isPrepared)
+            {
+                Debug.LogWarning("Board is not prepared. Please prepare board first.");
+                return;
+            }
+
+            _isRunning = true;
+
+            OnGameStarted?.Invoke();
+        }
+
         public virtual void Prepare(BoardSnapshot snapshot = null)
         {
             _score = 0;
@@ -132,12 +154,19 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _mergeCount = 0;
 
             PoolItemAll();
+            ClearAllCommands();
+
+            _isPrepared = false;
+            _isRunning = false;
+            _isEnded = false;
 
             _boardArea.CalculateBounds();
 
             if (snapshot != null)
             {
                 _score = snapshot.Score;
+                _spawnCount = snapshot.SpawnCount;
+                _mergeCount = snapshot.MergeCount;
 
                 foreach (var itemSnapshot in snapshot.BoardItemsSnapshot)
                 {
@@ -159,6 +188,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             Debug.Log("Game Prepared");
+
+            _isPrepared = true;
 
             OnBoardPrepared?.Invoke();
         }
@@ -202,6 +233,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         #region Event
         public virtual void OnDragStart(Vector2 screenPos)
         {
+            if (!_isRunning)
+            {
+                return;
+            }
+
             if (_holdingItem != null)
             {
                 Debug.LogWarning("Holding item already exist.");
@@ -216,7 +252,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 }
 
                 var item = _pool.Dequeue(info);
-                _createdItems.Add(item);
 
                 item.BodyType = RigidbodyType2D.Kinematic;
                 item.ColliderEnabled = false;
@@ -249,8 +284,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
             var item = _holdingItem;
             _holdingItem = null;
 
+            _createdItems.Add(item);
             item.BodyType = RigidbodyType2D.Dynamic;
             item.ColliderEnabled = true;
+
+            _spawnCount++;
         }
         #endregion
 
@@ -307,6 +345,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
                     nextItem.transform.localPosition = localMiddlePos;
                 }
+
+                _mergeCount++;
             }
 
             _createdItems.Remove(item01);
@@ -316,6 +356,21 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _commands.Add(command);
 
             return true;
+        }
+
+        protected void ClearAllCommands()
+        {
+            foreach (var command in _commands)
+            {
+                if (command == null)
+                {
+                    continue;
+                }
+
+                command.Dispose();
+            }
+
+            _commands.Clear();
         }
 
         protected void SetHoldingItemPosition(Vector2 screenPos)

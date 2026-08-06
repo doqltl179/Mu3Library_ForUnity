@@ -46,7 +46,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Merge
             _onComplete = onComplete;
         }
 
-        public override async void Run()
+        public override void Run()
         {
             _isRunning = true;
 

@@ -7,6 +7,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
     public class BoardSnapshot
     {
         public int Score;
+        public int SpawnCount;
+        public int MergeCount;
 
         public List<BoardItemSnapshot> BoardItemsSnapshot = new();
     }
