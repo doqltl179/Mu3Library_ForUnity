@@ -13,6 +13,9 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         [SerializeField] protected Sprite _boardSprite;
         public Sprite BoardSprite => _boardSprite;
 
+        [SerializeField] protected Sprite _boardLineSprite;
+        public Sprite BoardLineSprite => _boardLineSprite;
+
         [Space(20)]
         [SerializeField] protected BoardItemsConfig _itemConfig;
         public BoardItemsConfig ItemConfig => _itemConfig;
