@@ -17,17 +17,32 @@ namespace Mu3Library.Sample.Game.WatermelonGame.Service
             Object.FindFirstObjectByType<BoardController>(FindObjectsInactive.Exclude);
 
         public event Action OnBoardPrepared;
+        public event Action OnGameStarted;
+        public event Action OnGameEnded;
+
+        public event Action<int> OnScoreChanged;
 
 
 
         public virtual void Initialize()
         {
             _controller.OnBoardPrepared += OnBoardPreparedEvent;
+            _controller.OnGameStarted += OnGameStartedEvent;
+            _controller.OnGameEnded += OnGameEndedEvent;
+            _controller.OnScoreChanged += OnScoreChangedEvent;
         }
 
         public virtual void Dispose()
         {
             _controller.OnBoardPrepared -= OnBoardPreparedEvent;
+            _controller.OnGameStarted -= OnGameStartedEvent;
+            _controller.OnGameEnded -= OnGameEndedEvent;
+            _controller.OnScoreChanged -= OnScoreChangedEvent;
+        }
+
+        public virtual void GameStart()
+        {
+            _controller.GameStart();
         }
 
         public virtual void Prepare(BoardSnapshot snapshot = null)
@@ -45,6 +60,21 @@ namespace Mu3Library.Sample.Game.WatermelonGame.Service
             }
 
             _controller.Prepare(snapshot);
+        }
+
+        protected virtual void OnScoreChangedEvent(int score)
+        {
+            OnScoreChanged?.Invoke(score);
+        }
+
+        protected virtual void OnGameEndedEvent()
+        {
+            OnGameEnded?.Invoke();
+        }
+
+        protected virtual void OnGameStartedEvent()
+        {
+            OnGameStarted?.Invoke();
         }
 
         protected virtual void OnBoardPreparedEvent()

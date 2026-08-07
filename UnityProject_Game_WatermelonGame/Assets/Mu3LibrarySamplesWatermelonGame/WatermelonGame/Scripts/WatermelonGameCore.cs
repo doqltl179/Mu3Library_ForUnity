@@ -20,7 +20,21 @@ namespace Mu3Library.Sample.Game.WatermelonGame
         {
             base.Start();
 
+            _gameManagerEventBus.OnBoardPrepared += OnBoardPrepared;
+
             _gameManager.Prepare();
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            _gameManagerEventBus.OnBoardPrepared -= OnBoardPrepared;
+        }
+
+        protected virtual void OnBoardPrepared()
+        {
+            _gameManager.GameStart();
         }
     }
 }
