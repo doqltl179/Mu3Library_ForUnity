@@ -44,6 +44,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         protected virtual void OnDisable()
         {
             _inputRelay.Disable();
+            _view.SetSpawnGuideLineVisible(false);
         }
 
         #region Utility
@@ -100,6 +101,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public void SetBoardSpawnImage(Sprite sprite)
         {
             _view.SetSpawnMarker(sprite, _bounds, _view.SpawnNormalizedX);
+            _view.SetSpawnGuideLine(_view.SpawnGuideLineSprite, _bounds);
 
             // The marker cannot be placed without the board rectangle,
             // and calculating it applies the sprite assigned above.
@@ -108,6 +110,31 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 CalculateBounds();
             }
         }
+
+        public void SetBoardSpawnGuideLine()
+            => SetBoardSpawnGuideLine(_view.SpawnGuideLineSprite);
+
+        /// <summary>
+        /// Assigns the vertical tiled guide line below the spawn marker.
+        /// </summary>
+        /// <param name="sprite">The one-segment guide line sprite, null hides the line.</param>
+        public void SetBoardSpawnGuideLine(Sprite sprite)
+        {
+            _view.SetSpawnGuideLine(sprite, _bounds);
+
+            // The guide line cannot be placed without the board rectangle,
+            // and calculating it applies the sprite assigned above.
+            if (sprite != null && !_bounds.IsValid)
+            {
+                CalculateBounds();
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the spawn guide line without changing its configured sprite.
+        /// </summary>
+        public void SetBoardSpawnGuideLineVisible(bool visible)
+            => _view.SetSpawnGuideLineVisible(visible);
 
         /// <summary>
         /// Moves the spawn marker along the top edge of the board area.
@@ -130,7 +157,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         /// <param name="normalizedX">The marker position as a fraction of the board width.</param>
         public void SetSpawnBoardLocalNormalizedPositionX(float normalizedX)
-            => _view.SetSpawnMarker(_view.SpawnSprite, _bounds, normalizedX);
+        {
+            _view.SetSpawnMarker(_view.SpawnSprite, _bounds, normalizedX);
+            _view.SetSpawnGuideLine(_view.SpawnGuideLineSprite, _bounds);
+        }
 
         public void SetOutColliders()
         {
@@ -179,6 +209,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _outColliders.Rebuild(ItemAreaLocalBounds);
             _view.SetItemOutLine(_view.LineSprite, bounds, BoardLocalNormalizedItemOutPosY);
             _view.SetSpawnMarker(_view.SpawnSprite, bounds, _view.SpawnNormalizedX);
+            _view.SetSpawnGuideLine(_view.SpawnGuideLineSprite, bounds);
         }
         #endregion
 

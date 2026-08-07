@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Mu3Library.Game.WatermelonGame.Board.Area
 {
     /// <summary>
-    /// Owns everything the board area draws, the board sprite itself, the item out line
-    /// <br/> and the spawn marker.
+    /// Owns everything the board area draws, the board sprite itself, the item out line,
+    /// <br/> the spawn marker and the drag-only tiled spawn guide line.
     /// <br/> It never calculates the board rectangle, it only consumes the calculated one.
     /// </summary>
     public sealed class BoardAreaView
@@ -12,13 +12,18 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         private const string LineObjectName = "Line";
         private const int LineSortingOffset = 100;
 
+        private const string SpawnGuideLineObjectName = "SpawnGuideLine";
+        private const int SpawnGuideLineSortingOffset = 1;
+
         private const string SpawnObjectName = "Spawn";
 
         /// <summary>
-        /// The marker only has to sit right above the board itself, so it leaves every
+        /// The marker sits just above the board and its guide line, so it leaves every
         /// <br/> order above it free for whatever the game draws on the board.
         /// </summary>
-        private const int SpawnSortingOffset = 1;
+        private const int SpawnSortingOffset = 2;
+
+        private const float SpawnGuideLineWidthRatio = 0.1f;
 
         /// <summary>
         /// The spawn marker width as a fraction of the board width.
@@ -31,7 +36,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         private readonly SpriteRenderer _boardRenderer;
 
         private SpriteRenderer _lineRenderer;
+        private SpriteRenderer _spawnGuideLineRenderer;
         private SpriteRenderer _spawnRenderer;
+        private Sprite _spawnGuideLineSourceSprite;
+
+        private bool _isSpawnGuideLineVisible;
 
         /// <summary>
         /// Where the spawn marker sits on the top edge, as a fraction of the board width.
@@ -53,6 +62,17 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         }
 
         /// <summary>
+        /// The tiled spawn guide line renderer, created on first use.
+        /// </summary>
+        public SpriteRenderer SpawnGuideLineRenderer
+        {
+            get
+            {
+                return GetOrCreateRenderer(ref _spawnGuideLineRenderer, SpawnGuideLineObjectName);
+            }
+        }
+
+        /// <summary>
         /// The spawn marker renderer, created on first use.
         /// </summary>
         public SpriteRenderer SpawnRenderer
@@ -66,6 +86,8 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         public Sprite BoardSprite => _boardRenderer != null ? _boardRenderer.sprite : null;
 
         public Sprite LineSprite => _lineRenderer != null ? _lineRenderer.sprite : null;
+
+        public Sprite SpawnGuideLineSprite => _spawnGuideLineRenderer != null ? _spawnGuideLineRenderer.sprite : null;
 
         public Sprite SpawnSprite => _spawnRenderer != null ? _spawnRenderer.sprite : null;
 
@@ -212,6 +234,111 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             }
 
             lineRenderer.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Draws the single source segment as a vertical tiled guide line below the spawn marker.
+        /// </summary>
+        /// <param name="sprite">The one-segment guide line sprite, null hides the line.</param>
+        /// <param name="bounds">The calculated board rectangle.</param>
+        public void SetSpawnGuideLine(Sprite sprite, BoardAreaBounds bounds)
+        {
+            // Nothing was ever shown and nothing is asked for, so the guide line renderer stays uncreated.
+            if (sprite == null && _spawnGuideLineRenderer == null)
+            {
+                return;
+            }
+
+            SpriteRenderer guideLineRenderer = SpawnGuideLineRenderer;
+            if (guideLineRenderer == null)
+            {
+                return;
+            }
+
+            guideLineRenderer.drawMode = SpriteDrawMode.Tiled;
+
+            if (_spawnGuideLineSourceSprite != sprite)
+            {
+                // Assigning from null restores the renderer's native sprite size. The board
+                // fitting below is intentionally done only through the child transform scale.
+                guideLineRenderer.sprite = null;
+                guideLineRenderer.sprite = sprite;
+                _spawnGuideLineSourceSprite = sprite;
+            }
+
+            if (sprite == null)
+            {
+                _isSpawnGuideLineVisible = false;
+                guideLineRenderer.gameObject.SetActive(false);
+                return;
+            }
+
+            if (!bounds.IsValid)
+            {
+                guideLineRenderer.gameObject.SetActive(false);
+                return;
+            }
+
+            Transform guideLineTransform = guideLineRenderer.transform;
+            float spriteWidth = sprite.bounds.size.x;
+            float spriteHeight = sprite.bounds.size.y;
+            if (spriteWidth <= Mathf.Epsilon || spriteHeight <= Mathf.Epsilon)
+            {
+                guideLineRenderer.gameObject.SetActive(false);
+                return;
+            }
+
+            // The renderer keeps its native size and all board-relative fitting is done through
+            // scale, like the other board sprite renderers. Its width is one tenth of the actual
+            // spawn renderer width.
+            float spawnWidth = GetSpawnRendererLocalWidth(bounds);
+            Vector3 guideLineScale = guideLineTransform.localScale;
+            guideLineScale.x = spawnWidth * SpawnGuideLineWidthRatio / spriteWidth;
+            guideLineScale.y = bounds.Local.Size.y / spriteHeight;
+            guideLineTransform.localScale = new Vector3(guideLineScale.x, guideLineScale.y, guideLineScale.z);
+
+            Vector2 lineCenter = bounds.Local.Lerp(new Vector2(_spawnNormalizedX, 0.5f));
+            guideLineTransform.localPosition = new Vector3(
+                lineCenter.x,
+                lineCenter.y,
+                guideLineTransform.localPosition.z);
+
+            if (_boardRenderer != null)
+            {
+                guideLineRenderer.sortingOrder = _boardRenderer.sortingOrder + SpawnGuideLineSortingOffset;
+            }
+
+            guideLineRenderer.gameObject.SetActive(_isSpawnGuideLineVisible);
+        }
+
+        private float GetSpawnRendererLocalWidth(BoardAreaBounds bounds)
+        {
+            if (_spawnRenderer != null && _spawnRenderer.sprite != null)
+            {
+                float spawnWidth = _spawnRenderer.sprite.bounds.size.x * Mathf.Abs(_spawnRenderer.transform.localScale.x);
+                if (spawnWidth > Mathf.Epsilon)
+                {
+                    return spawnWidth;
+                }
+            }
+
+            // The spawn renderer is configured after the guide line during initial setup.
+            // Its configured width is SpawnBoardWidthRatio of the board width, so this fallback
+            // keeps the same ratio until the marker renderer has been created.
+            return bounds.Local.Size.x * SpawnBoardWidthRatio;
+        }
+
+        /// <summary>
+        /// Shows or hides the configured spawn guide line without changing its position.
+        /// </summary>
+        public void SetSpawnGuideLineVisible(bool visible)
+        {
+            _isSpawnGuideLineVisible = visible;
+
+            if (_spawnGuideLineRenderer != null)
+            {
+                _spawnGuideLineRenderer.gameObject.SetActive(visible && _spawnGuideLineRenderer.sprite != null);
+            }
         }
 
         /// <summary>

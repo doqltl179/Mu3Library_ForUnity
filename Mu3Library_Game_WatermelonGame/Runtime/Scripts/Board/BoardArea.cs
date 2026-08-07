@@ -11,7 +11,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
     /// <br/> <see cref="Mu3Library.Game.WatermelonGame.Board.Area"/>:
     /// <br/> <see cref="BoardAreaBoundsCalculator"/> measures the rectangle,
     /// <br/> <see cref="BoardAreaCoordinateConverter"/> converts positions,
-    /// <br/> <see cref="BoardAreaView"/> draws the board, the item out line and the spawn marker,
+    /// <br/> <see cref="BoardAreaView"/> draws the board, the item out line, the spawn marker and
+    /// <br/> the drag-only tiled spawn guide line,
     /// <br/> <see cref="BoardAreaOutColliders"/> keeps the items inside,
     /// <br/> <see cref="BoardAreaInputRelay"/> reports the touches that belong to the board.
     /// </summary>

@@ -26,6 +26,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.SetBoardImage(config.BoardSprite);
             _boardArea.SetBoardLocalItemOutLine(config.BoardLineSprite);
             _boardArea.SetBoardSpawnImage(config.BoardSpawnSprite);
+            _boardArea.SetBoardSpawnGuideLine(config.BoardSpawnGuideLineSprite);
 
             for (int index = 0; index < _createdItems.Count; index++)
             {

@@ -81,10 +81,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // created here when the touch came first.
             if (_holdingItem == null && !TryStandbyHoldingItem())
             {
+                _boardArea.SetBoardSpawnGuideLineVisible(false);
                 return;
             }
 
             SetHoldingItemPosition(screenPos);
+            _boardArea.SetBoardSpawnGuideLineVisible(true);
         }
 
         public virtual void OnDragging(Vector2 screenPos)
@@ -99,6 +101,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public virtual void OnDragEnd(Vector2 screenPos)
         {
+            _boardArea?.SetBoardSpawnGuideLineVisible(false);
+
             if (_holdingItem == null || _boardArea == null)
             {
                 return;
@@ -128,6 +132,14 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             SetHoldingItemNormalizedX(StandbyNormalizedX);
+
+            // A touch may have started during the drop cooldown. The board is still dragging
+            // when the item becomes available, so the guide line has to appear here as well as
+            // in OnDragStart.
+            if (_boardArea != null && _boardArea.IsDragging)
+            {
+                _boardArea.SetBoardSpawnGuideLineVisible(true);
+            }
         }
 
         /// <summary>

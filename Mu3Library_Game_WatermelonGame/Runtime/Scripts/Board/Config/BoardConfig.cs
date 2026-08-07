@@ -20,6 +20,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         [SerializeField] protected Sprite _boardSpawnSprite;
         public Sprite BoardSpawnSprite => _boardSpawnSprite;
 
+        [Tooltip("The vertical guide line drawn below the spawn image while the player is dragging.\nIt is rendered in Tiled mode, so this sprite should contain one repeatable line segment.")]
+        [SerializeField] protected Sprite _boardSpawnGuideLineSprite;
+        public Sprite BoardSpawnGuideLineSprite => _boardSpawnGuideLineSprite;
+
         [Space(20)]
         [SerializeField] protected BoardItemsConfig _itemConfig;
         public BoardItemsConfig ItemConfig => _itemConfig;
