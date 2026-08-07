@@ -18,6 +18,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         private bool _gravityWarningLogged;
 
+        /// <summary>
+        /// The scale an item is drawn at. The diameter range belongs to <see cref="ScaleRule"/>,
+        /// <br/> the board only tells it how wide the board is.
+        /// </summary>
         protected virtual float GetItemScale(int index, BoardItemInfo info)
         {
             if (info == null || _boardArea == null)
@@ -25,12 +29,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return 0.0f;
             }
 
-            return _scaleRule.GetBoardScale(
-                index,
-                info.Sprite,
-                _boardArea.LocalSize,
-                _smallestItemBoardWidthRatio,
-                _largestItemBoardWidthRatio);
+            return _scaleRule.GetBoardScale(index, info.Sprite, _boardArea.LocalSize);
         }
 
         /// <summary>
@@ -188,6 +187,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected void ReleaseHoldingItem()
         {
+            _boardArea?.SetBoardSpawnGuideLineVisible(false);
+
             if (_holdingItem == null)
             {
                 return;

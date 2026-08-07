@@ -14,10 +14,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         [Title("Board Item")]
         [SerializeField] protected BoardItem _itemResource;
-        [Tooltip("The smallest item diameter as a fraction of the board area's local width.")]
-        [SerializeField, Range(0.01f, 0.5f)] protected float _smallestItemBoardWidthRatio = BoardItemScaleRule.DefaultSmallestBoardWidthRatio;
-        [Tooltip("The largest item diameter as a fraction of the board area's local width.\nEvery item in between is spread linearly over this range.")]
-        [SerializeField, Range(0.05f, 1.0f)] protected float _largestItemBoardWidthRatio = BoardItemScaleRule.DefaultLargestBoardWidthRatio;
 
         [Title("Drop")]
         [Tooltip("Seconds the player has to wait between two items.")]
@@ -85,6 +81,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected virtual void OnDisable()
         {
+            _boardArea?.SetBoardSpawnGuideLineVisible(false);
+
             if (_boardArea == null || !_isBoardAreaSubscribed)
             {
                 return;

@@ -167,8 +167,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Mu3Library.Game.WatermelonGame::Mu3Library.Game.WatermelonGame.Board.BoardController
   _boardArea: {fileID: 1942010723}
   _itemResource: {fileID: 349857574}
-  _smallestItemBoardWidthRatio: 0.05
-  _largestItemBoardWidthRatio: 0.4
   _dropInterval: 0.5
   _dropSpeedBoardHeightRatio: 0.5
   _gravityBoardHeightRatio: 1.5
@@ -365,7 +363,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 10
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: db9d26c06fc12a84283196e6d6b33fa2, type: 3}
+  m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -373,7 +371,7 @@ SpriteRenderer:
   m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
 --- !u!114 &349857574
 MonoBehaviour:

@@ -7,9 +7,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
     /// Decides how big every fruit is.
     /// <br/> The size is always measured as a diameter relative to the board area width, so the fruits
     /// <br/> keep their proportions on every screen resolution:
-    /// <br/> the smallest fruit is <see cref="DefaultSmallestBoardWidthRatio"/> of the board width,
-    /// <br/> the largest one is <see cref="DefaultLargestBoardWidthRatio"/>,
+    /// <br/> the smallest fruit is <see cref="SmallestBoardWidthRatio"/> of the board width,
+    /// <br/> the largest one is <see cref="LargestBoardWidthRatio"/>,
     /// <br/> and the fruits in between are spread linearly over that range.
+    /// <br/> The range is owned here, nobody else decides how big a fruit is.
     /// </summary>
     public class BoardItemScaleRule
     {
@@ -24,6 +25,39 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         public const float DefaultLargestBoardWidthRatio = 2.0f / 5.0f;
 
         private const int IndexMax = BoardItemsConfig.FruitItemCount - 1;
+
+        protected float _smallestBoardWidthRatio = DefaultSmallestBoardWidthRatio;
+        /// <summary>
+        /// The smallest fruit's diameter as a fraction of the board area width,
+        /// <see cref="DefaultSmallestBoardWidthRatio"/> until it is set. Negative values are ignored.
+        /// </summary>
+        public float SmallestBoardWidthRatio
+        {
+            get => _smallestBoardWidthRatio;
+            set => _smallestBoardWidthRatio = Mathf.Max(0.0f, value);
+        }
+
+        protected float _largestBoardWidthRatio = DefaultLargestBoardWidthRatio;
+        /// <summary>
+        /// The largest fruit's diameter as a fraction of the board area width,
+        /// <see cref="DefaultLargestBoardWidthRatio"/> until it is set. Negative values are ignored.
+        /// </summary>
+        public float LargestBoardWidthRatio
+        {
+            get => _largestBoardWidthRatio;
+            set => _largestBoardWidthRatio = Mathf.Max(0.0f, value);
+        }
+
+        /// <summary>
+        /// Sets the diameter range every fruit is spread over.
+        /// </summary>
+        /// <param name="smallestBoardWidthRatio">The smallest fruit's diameter as a fraction of the board area width.</param>
+        /// <param name="largestBoardWidthRatio">The largest fruit's diameter as a fraction of the board area width.</param>
+        public void SetBoardWidthRatios(float smallestBoardWidthRatio, float largestBoardWidthRatio)
+        {
+            SmallestBoardWidthRatio = smallestBoardWidthRatio;
+            LargestBoardWidthRatio = largestBoardWidthRatio;
+        }
 
         public float GetScreenSize(int index, Sprite sprite)
         {
@@ -146,13 +180,13 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 
         /// <summary>
         /// Returns the local scale needed to make the item size relative to the board width,
-        /// using the default diameter range.
+        /// using the diameter range this rule carries.
         /// </summary>
         /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
         /// <param name="sprite">The sprite assigned to the item.</param>
         /// <param name="boardSize">The board area's local size.</param>
         public float GetBoardScale(int index, Sprite sprite, Vector2 boardSize)
-            => GetBoardScale(index, sprite, boardSize, DefaultSmallestBoardWidthRatio, DefaultLargestBoardWidthRatio);
+            => GetBoardScale(index, sprite, boardSize, _smallestBoardWidthRatio, _largestBoardWidthRatio);
 
         /// <summary>
         /// Returns the local scale needed to make the item size relative to the board width.
@@ -186,10 +220,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         }
 
         /// <summary>
-        /// Returns the item's diameter as a fraction of the board area width, using the default range.
+        /// Returns the item's diameter as a fraction of the board area width,
+        /// using the range this rule carries.
         /// </summary>
         public float GetBoardWidthDiameterRatio(int index)
-            => GetBoardWidthDiameterRatio(index, DefaultSmallestBoardWidthRatio, DefaultLargestBoardWidthRatio);
+            => GetBoardWidthDiameterRatio(index, _smallestBoardWidthRatio, _largestBoardWidthRatio);
 
         /// <summary>
         /// Returns the item's diameter as a fraction of the board area width.
