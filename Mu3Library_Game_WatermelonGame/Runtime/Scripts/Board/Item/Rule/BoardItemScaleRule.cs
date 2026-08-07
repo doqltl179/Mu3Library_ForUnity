@@ -3,8 +3,28 @@ using Mu3Library.Game.WatermelonGame.Board.Config;
 
 namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 {
+    /// <summary>
+    /// Decides how big every fruit is.
+    /// <br/> The size is always measured as a diameter relative to the board area width, so the fruits
+    /// <br/> keep their proportions on every screen resolution:
+    /// <br/> the smallest fruit is <see cref="DefaultSmallestBoardWidthRatio"/> of the board width,
+    /// <br/> the largest one is <see cref="DefaultLargestBoardWidthRatio"/>,
+    /// <br/> and the fruits in between are spread linearly over that range.
+    /// </summary>
     public class BoardItemScaleRule
     {
+        /// <summary>
+        /// The smallest fruit's diameter as a fraction of the board area width. (1/20)
+        /// </summary>
+        public const float DefaultSmallestBoardWidthRatio = 1.0f / 20.0f;
+
+        /// <summary>
+        /// The largest fruit's diameter as a fraction of the board area width. (2/5)
+        /// </summary>
+        public const float DefaultLargestBoardWidthRatio = 2.0f / 5.0f;
+
+        private const int IndexMax = BoardItemsConfig.FruitItemCount - 1;
+
         public float GetScreenSize(int index, Sprite sprite)
         {
             Camera cam = Camera.main;
@@ -125,19 +145,31 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         }
 
         /// <summary>
+        /// Returns the local scale needed to make the item size relative to the board width,
+        /// using the default diameter range.
+        /// </summary>
+        /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
+        /// <param name="sprite">The sprite assigned to the item.</param>
+        /// <param name="boardSize">The board area's local size.</param>
+        public float GetBoardScale(int index, Sprite sprite, Vector2 boardSize)
+            => GetBoardScale(index, sprite, boardSize, DefaultSmallestBoardWidthRatio, DefaultLargestBoardWidthRatio);
+
+        /// <summary>
         /// Returns the local scale needed to make the item size relative to the board width.
         /// </summary>
         /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
         /// <param name="sprite">The sprite assigned to the item.</param>
         /// <param name="boardSize">The board area's local size.</param>
-        /// <param name="smallestItemWidthRatio">The smallest item's width as a fraction of the board width.</param>
+        /// <param name="smallestItemWidthRatio">The smallest item's diameter as a fraction of the board width.</param>
+        /// <param name="largestItemWidthRatio">The largest item's diameter as a fraction of the board width.</param>
         public virtual float GetBoardScale(
             int index,
             Sprite sprite,
             Vector2 boardSize,
-            float smallestItemWidthRatio)
+            float smallestItemWidthRatio,
+            float largestItemWidthRatio)
         {
-            if (sprite == null || boardSize.x <= 0.0f || smallestItemWidthRatio <= 0.0f)
+            if (sprite == null || boardSize.x <= 0.0f || smallestItemWidthRatio <= 0.0f || largestItemWidthRatio <= 0.0f)
             {
                 return 0.0f;
             }
@@ -149,26 +181,26 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
                 return 0.0f;
             }
 
-            float targetDiameter = boardSize.x * smallestItemWidthRatio * GetNormalizedDiameter(index);
+            float targetDiameter = boardSize.x * GetBoardWidthDiameterRatio(index, smallestItemWidthRatio, largestItemWidthRatio);
             return targetDiameter / spriteDiameter;
         }
 
-        public virtual float GetNormalizedArea(int index)
+        /// <summary>
+        /// Returns the item's diameter as a fraction of the board area width, using the default range.
+        /// </summary>
+        public float GetBoardWidthDiameterRatio(int index)
+            => GetBoardWidthDiameterRatio(index, DefaultSmallestBoardWidthRatio, DefaultLargestBoardWidthRatio);
+
+        /// <summary>
+        /// Returns the item's diameter as a fraction of the board area width.
+        /// <br/> Index 0 gets <paramref name="smallestItemWidthRatio"/>, the last item gets
+        /// <br/> <paramref name="largestItemWidthRatio"/>, and every item in between is placed on the
+        /// <br/> straight line connecting them.
+        /// </summary>
+        public virtual float GetBoardWidthDiameterRatio(int index, float smallestItemWidthRatio, float largestItemWidthRatio)
         {
-            const float multiplyMax = 2.0f;
-            const float multiplyInterval = 0.1f;
-            const int indexMax = BoardItemsConfig.FruitItemCount - 1;
-
-            float area = Mathf.PI * 0.25f; // Area of a circle with diameter 1.
-            int clampedIndex = Mathf.Clamp(index, 0, indexMax);
-
-            for (int i = 1; i <= clampedIndex; i++)
-            {
-                float multiplyFactor = multiplyMax - ((i - 1) * multiplyInterval);
-                area *= multiplyFactor;
-            }
-
-            return area;
+            int clampedIndex = Mathf.Clamp(index, 0, IndexMax);
+            return Mathf.Lerp(smallestItemWidthRatio, largestItemWidthRatio, clampedIndex / (float)Mathf.Max(1, IndexMax));
         }
 
         /// <summary>
@@ -176,8 +208,22 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         /// </summary>
         public virtual float GetNormalizedDiameter(int index)
         {
-            float normalizedArea = GetNormalizedArea(index);
-            return 2.0f * Mathf.Sqrt(normalizedArea / Mathf.PI);
+            float smallestRatio = GetBoardWidthDiameterRatio(0);
+            if (smallestRatio <= Mathf.Epsilon)
+            {
+                return 0.0f;
+            }
+
+            return GetBoardWidthDiameterRatio(index) / smallestRatio;
+        }
+
+        /// <summary>
+        /// <br/> index 0: the area of a circle with diameter 1
+        /// </summary>
+        public virtual float GetNormalizedArea(int index)
+        {
+            float normalizedDiameter = GetNormalizedDiameter(index);
+            return Mathf.PI * normalizedDiameter * normalizedDiameter * 0.25f;
         }
     }
 }

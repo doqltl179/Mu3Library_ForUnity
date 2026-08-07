@@ -1,10 +1,21 @@
 using System;
 using Mu3Library.Attribute;
+using Mu3Library.Game.WatermelonGame.Board.Area;
 using Mu3Library.Game.WatermelonGame.Helpers;
 using UnityEngine;
 
 namespace Mu3Library.Game.WatermelonGame.Board
 {
+    /// <summary>
+    /// The playable board rectangle.
+    /// <br/> This component only owns the board settings and hands the work to the parts in
+    /// <br/> <see cref="Mu3Library.Game.WatermelonGame.Board.Area"/>:
+    /// <br/> <see cref="BoardAreaBoundsCalculator"/> measures the rectangle,
+    /// <br/> <see cref="BoardAreaCoordinateConverter"/> converts positions,
+    /// <br/> <see cref="BoardAreaView"/> draws the board, the item out line and the spawn marker,
+    /// <br/> <see cref="BoardAreaOutColliders"/> keeps the items inside,
+    /// <br/> <see cref="BoardAreaInputRelay"/> reports the touches that belong to the board.
+    /// </summary>
     [RequireComponent(typeof(InputHandler))]
     [RequireComponent(typeof(SpriteRenderer))]
     public class BoardArea : MonoBehaviour
@@ -22,7 +33,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         [SerializeField] protected Vector2 _pivot = new Vector2(0.5f, 0.5f);
 
         /// <summary>
-        /// 아이템이 쌓이는 허용 경계
+        /// 아이템 기준선(표시용)의 위치.
+        /// <br/> 게임 오버 판정은 board area 상단(<see cref="LocalRect"/>의 yMax)을 사용하므로 이 값과 무관하다.
         /// </summary>
         [Space(20)]
         [SerializeField, Range(0.0f, 1.0f)] protected float _boardLocalNormalizedItemOutPosY = 0.9f;
@@ -39,53 +51,32 @@ namespace Mu3Library.Game.WatermelonGame.Board
         protected SpriteRenderer m_boardRenderer;
         protected SpriteRenderer _boardRenderer => m_boardRenderer ??= GetComponent<SpriteRenderer>();
 
-        protected SpriteRenderer m_boardLineRenderer;
-        protected SpriteRenderer _boardLineRenderer
-        {
-            get
-            {
-                if (m_boardLineRenderer == null)
-                {
-                    GameObject obj = new GameObject("Line");
-                    obj.transform.SetParent(transform);
+        private BoardAreaView m_view;
+        protected BoardAreaView _view => m_view ??= new BoardAreaView(transform, _boardRenderer);
 
-                    m_boardLineRenderer = obj.AddComponent<SpriteRenderer>();
-                }
+        private BoardAreaCoordinateConverter m_converter;
+        protected BoardAreaCoordinateConverter _converter => m_converter ??= new BoardAreaCoordinateConverter(transform);
 
-                return m_boardLineRenderer;
-            }
-        }
+        private BoardAreaOutColliders m_outColliders;
+        protected BoardAreaOutColliders _outColliders => m_outColliders ??= new BoardAreaOutColliders(transform);
 
-        private float _aspectRatio => _boardRenderer != null && _boardRenderer.sprite != null ?
-            _boardRenderer.sprite.rect.size.x / _boardRenderer.sprite.rect.size.y :
-            1.0f;
-        public float AspectRatio => _aspectRatio;
+        private BoardAreaInputRelay m_inputRelay;
+        protected BoardAreaInputRelay _inputRelay => m_inputRelay ??= CreateInputRelay();
 
-        private bool _isDragging = false;
-        public bool IsDragging => _isDragging;
+        /// <summary>
+        /// The board rectangle in every coordinate space, invalid until it has been calculated.
+        /// </summary>
+        protected BoardAreaBounds _bounds => _converter.Bounds;
 
-        private CoordinateBounds _localBounds;
-        private CoordinateBounds _screenBounds;
-        private CoordinateBounds _worldBounds;
+        public float AspectRatio => _view.AspectRatio;
 
-        private bool _hasCalculatedPositions;
+        public bool IsDragging => _inputRelay.IsDragging;
 
-        private const float OutColliderThickness = 10.0f;
-        private const float OutColliderHeight = 100.0f;
-        private const string LeftOutColliderName = "OutCollider_Left";
-        private const string RightOutColliderName = "OutCollider_Right";
-        private const string BottomOutColliderName = "OutCollider_Bottom";
-
-        private BoxCollider2D m_bottomOutCollider;
         /// <summary>
         /// The floor an item can rest on.
         /// <br/> The left and right walls are not exposed on purpose, they cannot hold an item up.
         /// </summary>
-        internal Collider2D BottomOutCollider => m_bottomOutCollider;
-
-        private Camera _lastCalculationCamera;
-        private Camera _calculationCamera =>
-            _lastCalculationCamera != null ? _lastCalculationCamera : Camera.main;
+        internal Collider2D BottomOutCollider => _outColliders.Bottom;
 
         public Vector4 ViewportPadding
         {
@@ -99,37 +90,42 @@ namespace Mu3Library.Game.WatermelonGame.Board
             set => _pivot = Clamp01(value);
         }
 
-        public Vector2 LocalLB => _localBounds.Min;
-        public Vector2 LocalRT => _localBounds.Max;
-        public Vector2 ScreenLB => _screenBounds.Min;
-        public Vector2 ScreenRT => _screenBounds.Max;
-        public Vector2 WorldLB => _worldBounds.Min;
-        public Vector2 WorldRT => _worldBounds.Max;
+        public Vector2 LocalLB => _bounds.Local.Min;
+        public Vector2 LocalRT => _bounds.Local.Max;
+        public Vector2 ScreenLB => _bounds.Screen.Min;
+        public Vector2 ScreenRT => _bounds.Screen.Max;
+        public Vector2 WorldLB => _bounds.World.Min;
+        public Vector2 WorldRT => _bounds.World.Max;
 
-        public Vector2 LocalSize => _localBounds.Size;
-        public Vector2 ScreenSize => _screenBounds.Size;
-        public Vector2 WorldSize => _worldBounds.Size;
+        public Vector2 LocalSize => _bounds.Local.Size;
+        public Vector2 ScreenSize => _bounds.Screen.Size;
+        public Vector2 WorldSize => _bounds.World.Size;
 
-        public Vector2 LocalCenter => _localBounds.Center;
-        public Vector2 ScreenCenter => _screenBounds.Center;
-        public Vector2 WorldCenter => _worldBounds.Center;
+        public Vector2 LocalCenter => _bounds.Local.Center;
+        public Vector2 ScreenCenter => _bounds.Screen.Center;
+        public Vector2 WorldCenter => _bounds.World.Center;
 
         /// <summary>
         /// Gets the calculated local XY rectangle.
         /// </summary>
-        public Rect LocalRect => _localBounds.Rect;
+        public Rect LocalRect => _bounds.Local.Rect;
 
-        internal Rect ItemAreaLocalRect => GetItemAreaBounds().Rect;
+        internal Rect ItemAreaLocalRect => ItemAreaLocalBounds.Rect;
 
         /// <summary>
         /// Gets the calculated screen rectangle in pixels.
         /// </summary>
-        public Rect ScreenRect => _screenBounds.Rect;
+        public Rect ScreenRect => _bounds.Screen.Rect;
 
         /// <summary>
         /// Gets the calculated world XY rectangle.
         /// </summary>
-        public Rect WorldRect => _worldBounds.Rect;
+        public Rect WorldRect => _bounds.World.Rect;
+
+        /// <summary>
+        /// The area the items are allowed to fall into, the board rectangle shrunk by the item padding.
+        /// </summary>
+        protected CoordinateBounds ItemAreaLocalBounds => _bounds.GetPaddedLocal(Clamp01(_itemAreaViewportPadding));
 
         public Action<Vector2> OnTouchBegan;
         public Action<Vector2> OnTouchMoved;
@@ -140,16 +136,25 @@ namespace Mu3Library.Game.WatermelonGame.Board
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {
-            if (!_hasCalculatedPositions)
+            if (!_bounds.IsValid)
             {
                 return;
             }
 
+            CoordinateBounds world = _bounds.World;
+
             Gizmos.color = Color.magenta;
-            Gizmos.DrawLine(new Vector2(_worldBounds.Min.x, _worldBounds.Min.y), new Vector2(_worldBounds.Min.x, _worldBounds.Max.y));
-            Gizmos.DrawLine(new Vector2(_worldBounds.Min.x, _worldBounds.Max.y), new Vector2(_worldBounds.Max.x, _worldBounds.Max.y));
-            Gizmos.DrawLine(new Vector2(_worldBounds.Max.x, _worldBounds.Max.y), new Vector2(_worldBounds.Max.x, _worldBounds.Min.y));
-            Gizmos.DrawLine(new Vector2(_worldBounds.Max.x, _worldBounds.Min.y), new Vector2(_worldBounds.Min.x, _worldBounds.Min.y));
+            Gizmos.DrawLine(new Vector2(world.Min.x, world.Min.y), new Vector2(world.Min.x, world.Max.y));
+            Gizmos.DrawLine(new Vector2(world.Min.x, world.Max.y), new Vector2(world.Max.x, world.Max.y));
+            Gizmos.DrawLine(new Vector2(world.Max.x, world.Max.y), new Vector2(world.Max.x, world.Min.y));
+            Gizmos.DrawLine(new Vector2(world.Max.x, world.Min.y), new Vector2(world.Min.x, world.Min.y));
+
+            Gizmos.color = Color.cyan;
+            Vector2 lineNormalizedPosition = Vector2.up * _boardLocalNormalizedItemOutPosY;
+            Vector3 lineLeft = BoardLocalNormalizedPositionToWorld(lineNormalizedPosition);
+            lineNormalizedPosition.x = 1.0f;
+            Vector3 lineRight = BoardLocalNormalizedPositionToWorld(lineNormalizedPosition);
+            Gizmos.DrawLine(lineLeft, lineRight);
         }
 #endif
 
@@ -161,116 +166,28 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 CalculateBounds();
             }
 
-            _inputHandler.OnTouchBegan.AddListener(OnTouchBeganEvent);
-            _inputHandler.OnTouchMoved.AddListener(OnTouchMovedEvent);
-            _inputHandler.OnTouchEnded.AddListener(OnTouchEndedEvent);
+            _inputRelay.Enable();
         }
 
         protected virtual void OnDisable()
         {
-            _inputHandler.OnTouchBegan.RemoveListener(OnTouchBeganEvent);
-            _inputHandler.OnTouchMoved.RemoveListener(OnTouchMovedEvent);
-            _inputHandler.OnTouchEnded.RemoveListener(OnTouchEndedEvent);
-        }
-
-        private void OnTouchBeganEvent(Vector2 screenPos)
-        {
-            if (_isDragging || !IsInScreenArea(screenPos))
-            {
-                return;
-            }
-
-            _isDragging = true;
-
-            OnTouchBegan?.Invoke(screenPos);
-        }
-
-        private void OnTouchMovedEvent(Vector2 screenPos)
-        {
-            if (!_isDragging || !IsInScreenArea(screenPos))
-            {
-                return;
-            }
-
-            OnTouchMoved?.Invoke(screenPos);
-        }
-
-        private void OnTouchEndedEvent(Vector2 screenPos)
-        {
-            if (!_isDragging)
-            {
-                return;
-            }
-
-            _isDragging = false;
-
-            OnTouchEnded?.Invoke(screenPos);
+            _inputRelay.Disable();
         }
 
         #region Utility
         [ButtonInvoke("Fit Board", ButtonHeight = 30f)]
         public void Fit()
-        {
-            SpriteRenderer renderer = _boardRenderer;
-            if (renderer == null)
-            {
-                return;
-            }
-
-            Fit(Camera.main, renderer.sprite);
-        }
+            => Fit(Camera.main, _view.BoardSprite);
 
         public void Fit(Sprite sprite)
             => Fit(Camera.main, sprite);
 
         public void Fit(Camera cam, Sprite sprite)
         {
-            SpriteRenderer renderer = _boardRenderer;
-            if (renderer == null || !IsCameraReady(cam) || sprite == null)
+            if (!_view.Fit(cam, sprite, Clamp01(_viewportPadding)))
             {
                 return;
             }
-
-            renderer.sprite = sprite;
-
-            Vector2 spriteSize = sprite.bounds.size;
-            if (spriteSize.x <= 0f || spriteSize.y <= 0f)
-            {
-                return;
-            }
-
-            Vector4 padding = Clamp01(_viewportPadding);
-            float left = padding.x;
-            float right = 1f - padding.y;
-            float bottom = padding.w;
-            float top = 1f - padding.z;
-            if (right - left <= Mathf.Epsilon || top - bottom <= Mathf.Epsilon)
-            {
-                return;
-            }
-
-            float distance = Vector3.Dot(transform.position - cam.transform.position, cam.transform.forward);
-            if (distance < cam.nearClipPlane || distance > cam.farClipPlane)
-            {
-                return;
-            }
-
-            Vector3 lowerLeft = cam.ViewportToWorldPoint(new Vector3(left, bottom, distance));
-            Vector3 lowerRight = cam.ViewportToWorldPoint(new Vector3(right, bottom, distance));
-            Vector3 upperLeft = cam.ViewportToWorldPoint(new Vector3(left, top, distance));
-            float viewportWidth = Vector3.Distance(lowerLeft, lowerRight);
-            float viewportHeight = Vector3.Distance(lowerLeft, upperLeft);
-            float fitScale = Mathf.Min(viewportWidth / spriteSize.x, viewportHeight / spriteSize.y);
-
-            Vector3 localScale = transform.localScale;
-            transform.localScale = new Vector3(fitScale, fitScale, localScale.z);
-
-            Vector3 viewportCenter = cam.ViewportToWorldPoint(new Vector3(
-                (left + right) * 0.5f,
-                (bottom + top) * 0.5f,
-                distance));
-            transform.SetPositionAndRotation(viewportCenter, cam.transform.rotation);
-            transform.position += viewportCenter - renderer.bounds.center;
 
             CalculateBounds(cam);
         }
@@ -282,108 +199,86 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
-            _boardRenderer.sprite = boardSprite;
+            _view.SetBoardSprite(boardSprite);
             Fit();
         }
 
         public void SetBoardLocalItemOutLine()
-            => SetBoardLocalItemOutLine(_boardLineRenderer?.sprite);
+            => SetBoardLocalItemOutLine(_view.LineSprite);
 
         public void SetBoardLocalItemOutLine(Sprite sprite)
         {
-            if (_boardLineRenderer == null)
-            {
-                return;
-            }
+            _view.SetItemOutLine(sprite, _bounds, BoardLocalNormalizedItemOutPosY);
 
-            _boardLineRenderer.sprite = sprite;
-            if (sprite == null)
-            {
-                _boardLineRenderer.gameObject.SetActive(false);
-                return;
-            }
-
-            if (!_hasCalculatedPositions)
+            // The line cannot be placed without the board rectangle,
+            // and calculating it applies the sprite assigned above.
+            if (sprite != null && !_bounds.IsValid)
             {
                 CalculateBounds();
-                if (!_hasCalculatedPositions)
-                {
-                    return;
-                }
             }
-
-            Transform outlineTransform = _boardLineRenderer.transform;
-            Vector2 normalizedPosition = new Vector2(0.5f, Mathf.Clamp01(_boardLocalNormalizedItemOutPosY));
-            Vector3 outlineLocalPosition = BoardLocalNormalizedPositionToLocal(normalizedPosition);
-            outlineLocalPosition.z = WorldToLocal(outlineTransform.position).z;
-            outlineTransform.position = LocalToWorld(outlineLocalPosition);
-
-            float spriteWidth = sprite.bounds.size.x;
-            if (spriteWidth > Mathf.Epsilon && _localBounds.Size.x > Mathf.Epsilon)
-            {
-                Vector3 localScale = outlineTransform.localScale;
-                localScale.x = _localBounds.Size.x / spriteWidth;
-                outlineTransform.localScale = localScale;
-            }
-
-            _boardLineRenderer.gameObject.SetActive(true);
         }
+
+        public void SetBoardSpawnImage()
+            => SetBoardSpawnImage(_view.SpawnSprite);
+
+        /// <summary>
+        /// Assigns the image that hangs on the top edge of the board area and follows the held item.
+        /// </summary>
+        /// <param name="sprite">The spawn sprite, null hides the marker.</param>
+        public void SetBoardSpawnImage(Sprite sprite)
+        {
+            _view.SetSpawnMarker(sprite, _bounds, _view.SpawnNormalizedX);
+
+            // The marker cannot be placed without the board rectangle,
+            // and calculating it applies the sprite assigned above.
+            if (sprite != null && !_bounds.IsValid)
+            {
+                CalculateBounds();
+            }
+        }
+
+        /// <summary>
+        /// Moves the spawn marker along the top edge of the board area.
+        /// </summary>
+        /// <param name="localX">The marker position in the board local space.</param>
+        public void SetSpawnLocalPositionX(float localX)
+        {
+            // Without the board rectangle the local position cannot be normalized,
+            // and a wrong fraction would move the marker once the board is calculated.
+            if (!_bounds.IsValid)
+            {
+                return;
+            }
+
+            SetSpawnBoardLocalNormalizedPositionX(_bounds.Local.Normalize(new Vector2(localX, 0.0f)).x);
+        }
+
+        /// <summary>
+        /// Moves the spawn marker along the top edge of the board area.
+        /// </summary>
+        /// <param name="normalizedX">The marker position as a fraction of the board width.</param>
+        public void SetSpawnBoardLocalNormalizedPositionX(float normalizedX)
+            => _view.SetSpawnMarker(_view.SpawnSprite, _bounds, normalizedX);
 
         public void SetOutColliders()
         {
-            if (!_hasCalculatedPositions)
+            if (!_bounds.IsValid)
             {
                 CalculateBounds();
-            }
-
-            if (!_hasCalculatedPositions)
-            {
                 return;
             }
 
-            CoordinateBounds itemAreaBounds = GetItemAreaBounds();
-            if (itemAreaBounds.Size.x <= Mathf.Epsilon || itemAreaBounds.Size.y <= Mathf.Epsilon)
-            {
-                return;
-            }
-
-            Vector2 itemAreaCenter = itemAreaBounds.Center;
-            SetOutCollider(
-                GetOrCreateOutCollider(LeftOutColliderName),
-                new Vector2(itemAreaBounds.Min.x, itemAreaCenter.y),
-                new Vector2(OutColliderThickness, OutColliderHeight),
-                new Vector2(1.0f, 0.5f));
-            SetOutCollider(
-                GetOrCreateOutCollider(RightOutColliderName),
-                new Vector2(itemAreaBounds.Max.x, itemAreaCenter.y),
-                new Vector2(OutColliderThickness, OutColliderHeight),
-                new Vector2(0.0f, 0.5f));
-            m_bottomOutCollider = GetOrCreateOutCollider(BottomOutColliderName);
-            SetOutCollider(
-                m_bottomOutCollider,
-                new Vector2(itemAreaCenter.x, itemAreaBounds.Min.y),
-                new Vector2(itemAreaBounds.Size.x, OutColliderThickness),
-                new Vector2(0.5f, 1.0f));
+            _outColliders.Rebuild(ItemAreaLocalBounds);
         }
 
         public Vector3 BoardLocalNormalizedPositionToWorld(Vector2 position)
-            => TryGetLocalPosition(position, out Vector3 local) ? LocalToWorld(local) : default;
+            => _converter.BoardLocalNormalizedPositionToWorld(position);
 
         public Vector3 BoardLocalNormalizedPositionToScreen(Vector2 position)
-        {
-            if (!TryGetLocalPosition(position, out Vector3 local))
-            {
-                return default;
-            }
-
-            Camera camera = _calculationCamera;
-            return camera != null
-                ? camera.WorldToScreenPoint(LocalToWorld(local))
-                : BoardScreenNormalizedPositionToScreen(position);
-        }
+            => _converter.BoardLocalNormalizedPositionToScreen(position);
 
         public Vector3 BoardLocalNormalizedPositionToLocal(Vector2 position)
-            => TryGetLocalPosition(position, out Vector3 local) ? local : default;
+            => _converter.BoardLocalNormalizedPositionToLocal(position);
 
         public Vector3 BoardWorldNormalizedPositionToWorld(Vector2 position)
             => BoardLocalNormalizedPositionToWorld(position);
@@ -395,38 +290,28 @@ namespace Mu3Library.Game.WatermelonGame.Board
             => BoardLocalNormalizedPositionToLocal(position);
 
         public Vector3 BoardScreenNormalizedPositionToWorld(Vector2 position)
-            => TryGetBoardScreenNormalizedWorldPosition(position, out Vector3 world) ? world : default;
+            => _converter.BoardScreenNormalizedPositionToWorld(position);
 
         public Vector3 BoardScreenNormalizedPositionToScreen(Vector2 position)
-        {
-            if (!_hasCalculatedPositions)
-            {
-                return default;
-            }
-
-            Vector2 screenPosition = _screenBounds.Lerp(position);
-            Camera camera = _calculationCamera;
-            float depth = camera == null ? 0.0f : camera.WorldToScreenPoint(transform.position).z;
-            return new Vector3(screenPosition.x, screenPosition.y, depth);
-        }
+            => _converter.BoardScreenNormalizedPositionToScreen(position);
 
         public Vector3 BoardScreenNormalizedPositionToLocal(Vector2 position)
-            => TryGetBoardScreenNormalizedWorldPosition(position, out Vector3 world) ? WorldToLocal(world) : default;
+            => _converter.BoardScreenNormalizedPositionToLocal(position);
 
         public Vector2 WorldToBoardWorldNormalizedPosition(Vector3 worldPos)
-            => TryGetBoardWorldNormalizedPosition(WorldToLocal(worldPos), out Vector2 normalized) ? normalized : default;
+            => TryWorldToBoardWorldNormalizedPosition(worldPos, out Vector2 normalized) ? normalized : default;
 
         /// <summary>
         /// Converts a world position to normalized board world coordinates when the board has been calculated.
         /// </summary>
         public bool TryWorldToBoardWorldNormalizedPosition(Vector3 worldPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardWorldNormalizedPosition(WorldToLocal(worldPos), out boardNormalizedPosition);
+            => _converter.TryWorldToBoardLocalNormalizedPosition(worldPos, out boardNormalizedPosition);
 
         public Vector2 ScreenToBoardWorldNormalizedPosition(Vector3 screenPos)
             => TryScreenToBoardWorldNormalizedPosition(screenPos, out Vector2 normalized) ? normalized : default;
 
         public Vector2 LocalToBoardWorldNormalizedPosition(Vector3 localPos)
-            => TryGetBoardWorldNormalizedPosition(localPos, out Vector2 normalized) ? normalized : default;
+            => TryLocalToBoardWorldNormalizedPosition(localPos, out Vector2 normalized) ? normalized : default;
 
         /// <summary>
         /// Converts a world position to normalized board local coordinates when the board has been calculated.
@@ -438,7 +323,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Converts a world position to normalized board local coordinates when the board has been calculated.
         /// </summary>
         public bool TryWorldToBoardLocalNormalizedPosition(Vector3 worldPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardWorldNormalizedPosition(WorldToLocal(worldPos), out boardNormalizedPosition);
+            => _converter.TryWorldToBoardLocalNormalizedPosition(worldPos, out boardNormalizedPosition);
 
         /// <summary>
         /// Converts a screen position to normalized board local coordinates when the board has been calculated.
@@ -450,7 +335,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Converts a screen position to normalized board local coordinates when the board has been calculated.
         /// </summary>
         public bool TryScreenToBoardLocalNormalizedPosition(Vector3 screenPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardWorldNormalizedPositionFromScreen(screenPos, out boardNormalizedPosition);
+            => _converter.TryScreenToBoardLocalNormalizedPosition(screenPos, out boardNormalizedPosition);
 
         /// <summary>
         /// Converts a local position to normalized board local coordinates when the board has been calculated.
@@ -462,7 +347,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Converts a local position to normalized board local coordinates when the board has been calculated.
         /// </summary>
         public bool TryLocalToBoardLocalNormalizedPosition(Vector3 localPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardWorldNormalizedPosition(localPos, out boardNormalizedPosition);
+            => _converter.TryLocalToBoardLocalNormalizedPosition(localPos, out boardNormalizedPosition);
 
         /// <summary>
         /// Converts a local position to normalized board world coordinates when the board has been calculated.
@@ -471,40 +356,28 @@ namespace Mu3Library.Game.WatermelonGame.Board
             => TryLocalToBoardLocalNormalizedPosition(localPos, out boardNormalizedPosition);
 
         public Vector2 WorldToBoardScreenNormalizedPosition(Vector3 worldPos)
-        {
-            return TryWorldToBoardScreenNormalizedPosition(worldPos, out Vector2 normalized)
-                ? normalized : default;
-        }
+            => TryWorldToBoardScreenNormalizedPosition(worldPos, out Vector2 normalized) ? normalized : default;
 
         /// <summary>
         /// Converts a world position to normalized board screen coordinates when the board has been calculated.
         /// </summary>
         public bool TryWorldToBoardScreenNormalizedPosition(Vector3 worldPos, out Vector2 boardNormalizedPosition)
-        {
-            Camera camera = _calculationCamera;
-            if (camera == null)
-            {
-                boardNormalizedPosition = default;
-                return false;
-            }
-
-            return TryGetBoardScreenNormalizedPosition(camera.WorldToScreenPoint(worldPos), out boardNormalizedPosition);
-        }
+            => _converter.TryWorldToBoardScreenNormalizedPosition(worldPos, out boardNormalizedPosition);
 
         public Vector2 ScreenToBoardScreenNormalizedPosition(Vector3 screenPos)
-            => TryGetBoardScreenNormalizedPosition(screenPos, out Vector2 normalized) ? normalized : default;
+            => TryScreenToBoardScreenNormalizedPosition(screenPos, out Vector2 normalized) ? normalized : default;
 
         /// <summary>
         /// Converts a screen position to normalized board screen coordinates when the board has been calculated.
         /// </summary>
         public bool TryScreenToBoardScreenNormalizedPosition(Vector3 screenPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardScreenNormalizedPosition(screenPos, out boardNormalizedPosition);
+            => _converter.TryScreenToBoardScreenNormalizedPosition(screenPos, out boardNormalizedPosition);
 
         /// <summary>
         /// Converts a screen position to normalized board world coordinates when the board has been calculated.
         /// </summary>
         public bool TryScreenToBoardWorldNormalizedPosition(Vector3 screenPos, out Vector2 boardNormalizedPosition)
-            => TryGetBoardWorldNormalizedPositionFromScreen(screenPos, out boardNormalizedPosition);
+            => _converter.TryScreenToBoardLocalNormalizedPosition(screenPos, out boardNormalizedPosition);
 
         public Vector2 LocalToBoardScreenNormalizedPosition(Vector3 localPos)
             => TryLocalToBoardScreenNormalizedPosition(localPos, out Vector2 normalized) ? normalized : default;
@@ -513,25 +386,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Converts a local position to normalized board screen coordinates when the board has been calculated.
         /// </summary>
         public bool TryLocalToBoardScreenNormalizedPosition(Vector3 localPos, out Vector2 boardNormalizedPosition)
-            => TryWorldToBoardScreenNormalizedPosition(LocalToWorld(localPos), out boardNormalizedPosition);
+            => _converter.TryLocalToBoardScreenNormalizedPosition(localPos, out boardNormalizedPosition);
 
         /// <summary>
         /// Converts a screen position to a point on the board plane using the specified camera.
         /// </summary>
         public bool TryScreenToWorld(Camera cam, Vector2 screenPosition, out Vector3 worldPosition)
-            => TryScreenToWorldOnBoardPlane(cam, screenPosition, out worldPosition);
+            => _converter.TryScreenToWorld(cam, screenPosition, out worldPosition);
 
         public bool TryScreenToWorld(Vector3 screenPos, out Vector3 worldPos)
-        {
-            Camera camera = _calculationCamera;
-            if (camera == null)
-            {
-                worldPos = default;
-                return false;
-            }
-
-            return TryScreenToWorld(camera, new Vector2(screenPos.x, screenPos.y), out worldPos);
-        }
+            => _converter.TryScreenToWorld(screenPos, out worldPos);
 
         public Vector3 WorldToLocal(Vector3 worldPos)
             => transform.InverseTransformPoint(worldPos);
@@ -543,19 +407,19 @@ namespace Mu3Library.Game.WatermelonGame.Board
             => IsInWorldArea(worldPos, false);
 
         public bool IsInWorldArea(Vector3 worldPos, bool includeBoundary)
-            => IsInLocalArea(WorldToLocal(worldPos), includeBoundary);
+            => _converter.IsInWorldArea(worldPos, includeBoundary);
 
         public bool IsInLocalArea(Vector3 localPos)
             => IsInLocalArea(localPos, false);
 
         public bool IsInLocalArea(Vector3 localPos, bool includeBoundary)
-            => IsInBounds(_localBounds, localPos, includeBoundary);
+            => _converter.IsInLocalArea(localPos, includeBoundary);
 
         public bool IsInScreenArea(Vector3 screenPos)
             => IsInScreenArea(screenPos, false);
 
         public bool IsInScreenArea(Vector3 screenPos, bool includeBoundary)
-            => IsInBounds(_screenBounds, screenPos, includeBoundary);
+            => _converter.IsInScreenArea(screenPos, includeBoundary);
 
         /// <summary>
         /// Clamps normalized board coordinates to the board area.
@@ -567,19 +431,19 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Clamps a local position to the calculated board rectangle while preserving its local Z value.
         /// </summary>
         public Vector3 ClampLocalPosition(Vector3 localPos)
-            => _localBounds.Clamp(localPos);
+            => _converter.ClampLocalPosition(localPos);
 
         /// <summary>
         /// Clamps a world position to the calculated board rectangle while preserving its distance from the board plane.
         /// </summary>
         public Vector3 ClampWorldPosition(Vector3 worldPos)
-            => LocalToWorld(ClampLocalPosition(WorldToLocal(worldPos)));
+            => _converter.ClampWorldPosition(worldPos);
 
         /// <summary>
         /// Clamps a screen position to the calculated board rectangle while preserving its screen Z value.
         /// </summary>
         public Vector3 ClampScreenPosition(Vector3 screenPos)
-            => _screenBounds.Clamp(screenPos);
+            => _converter.ClampScreenPosition(screenPos);
 
         public void Refresh()
             => CalculateBounds();
@@ -588,263 +452,48 @@ namespace Mu3Library.Game.WatermelonGame.Board
             => CalculateBounds(Camera.main);
 
         public void CalculateBounds(Camera cam)
-            => CalculateBounds(cam, _pivot, _aspectRatio);
+            => CalculateBounds(cam, _pivot, AspectRatio);
 
         public void CalculateBounds(Camera cam, Vector2 pivot)
-            => CalculateBounds(cam, pivot, _aspectRatio);
+            => CalculateBounds(cam, pivot, AspectRatio);
 
         public void CalculateBounds(Camera cam, float aspectRatio)
             => CalculateBounds(cam, _pivot, aspectRatio);
 
         public void CalculateBounds(Camera cam, Vector2 pivot, float aspectRatio)
         {
-            _lastCalculationCamera = cam;
-            _hasCalculatedPositions = false;
-            ClearCalculatedBounds();
+            _converter.SetCamera(cam);
+            _converter.ClearBounds();
 
-            if (!TryGetBoardScreenRect(cam, pivot, aspectRatio, out Rect boardRect))
+            if (!BoardAreaBoundsCalculator.TryCalculate(
+                    cam,
+                    transform,
+                    Clamp01(_viewportPadding),
+                    Clamp01(pivot),
+                    aspectRatio,
+                    out BoardAreaBounds bounds))
             {
                 return;
             }
 
-            if (!TryGetBoardWorldBounds(cam, boardRect, out CoordinateBounds worldBounds))
-            {
-                Debug.LogWarning("Cannot calculate board screen positions because the board plane cannot be intersected mathematically from the camera.", this);
-                return;
-            }
+            _converter.SetBounds(bounds);
 
-            _screenBounds = new CoordinateBounds(boardRect.min, boardRect.max);
-            _worldBounds = worldBounds;
-
-            Vector3 localMin = WorldToLocal(ToVector3(worldBounds.Min));
-            Vector3 localMax = WorldToLocal(ToVector3(worldBounds.Max));
-            _localBounds = new CoordinateBounds(new Vector2(localMin.x, localMin.y), new Vector2(localMax.x, localMax.y));
-
-            _hasCalculatedPositions = true;
-
-            SetOutColliders();
-            SetBoardLocalItemOutLine();
+            _outColliders.Rebuild(ItemAreaLocalBounds);
+            _view.SetItemOutLine(_view.LineSprite, bounds, BoardLocalNormalizedItemOutPosY);
+            _view.SetSpawnMarker(_view.SpawnSprite, bounds, _view.SpawnNormalizedX);
         }
         #endregion
 
-        private BoxCollider2D GetOrCreateOutCollider(string colliderName)
+        private BoardAreaInputRelay CreateInputRelay()
         {
-            Transform colliderTransform = transform.Find(colliderName);
-            if (colliderTransform == null)
-            {
-                GameObject colliderObject = new GameObject(colliderName);
-                colliderObject.layer = gameObject.layer;
-                colliderTransform = colliderObject.transform;
-                colliderTransform.SetParent(transform, false);
-            }
+            BoardAreaInputRelay relay = new BoardAreaInputRelay(_inputHandler, screenPos => IsInScreenArea(screenPos));
 
-            BoxCollider2D collider = colliderTransform.GetComponent<BoxCollider2D>();
-            if (collider == null)
-            {
-                collider = colliderTransform.gameObject.AddComponent<BoxCollider2D>();
-            }
+            relay.TouchBegan += screenPos => OnTouchBegan?.Invoke(screenPos);
+            relay.TouchMoved += screenPos => OnTouchMoved?.Invoke(screenPos);
+            relay.TouchEnded += screenPos => OnTouchEnded?.Invoke(screenPos);
 
-            return collider;
+            return relay;
         }
-
-        private static void SetOutCollider(BoxCollider2D collider, Vector2 pivotPosition, Vector2 size, Vector2 pivot)
-        {
-            Transform colliderTransform = collider.transform;
-            Vector2 centerPosition = pivotPosition + (new Vector2(0.5f, 0.5f) - pivot) * size;
-            colliderTransform.localPosition = ToVector3(centerPosition);
-            colliderTransform.localRotation = Quaternion.identity;
-            colliderTransform.localScale = Vector3.one;
-
-            collider.offset = Vector2.zero;
-            collider.size = size;
-            collider.enabled = true;
-        }
-
-        private static bool IsCameraReady(Camera cam)
-        {
-            return cam != null
-                && cam.isActiveAndEnabled
-                && cam.rect.width > 0f
-                && cam.rect.height > 0f
-                && cam.pixelWidth > 0
-                && cam.pixelHeight > 0;
-        }
-
-        private bool TryGetLocalPosition(Vector2 normalizedPosition, out Vector3 localPosition)
-        {
-            if (!_hasCalculatedPositions)
-            {
-                localPosition = default;
-                return false;
-            }
-
-            localPosition = ToVector3(_localBounds.Lerp(normalizedPosition));
-            return true;
-        }
-
-        private bool TryGetBoardWorldNormalizedPosition(Vector3 localPosition, out Vector2 normalizedPosition)
-            => TryGetBoardNormalizedPosition(_localBounds, ToVector2(localPosition), out normalizedPosition);
-
-        private bool TryGetBoardScreenNormalizedPosition(Vector3 screenPosition, out Vector2 normalizedPosition)
-            => TryGetBoardNormalizedPosition(_screenBounds, ToVector2(screenPosition), out normalizedPosition);
-
-        private bool TryGetBoardNormalizedPosition(CoordinateBounds bounds, Vector2 position, out Vector2 normalizedPosition)
-        {
-            if (!_hasCalculatedPositions)
-            {
-                normalizedPosition = default;
-                return false;
-            }
-
-            normalizedPosition = bounds.Normalize(position);
-            return true;
-        }
-
-        private bool TryGetBoardWorldNormalizedPositionFromScreen(Vector3 screenPosition, out Vector2 normalizedPosition)
-        {
-            if (!TryScreenToWorld(screenPosition, out Vector3 worldPosition))
-            {
-                normalizedPosition = default;
-                return false;
-            }
-
-            return TryGetBoardWorldNormalizedPosition(WorldToLocal(worldPosition), out normalizedPosition);
-        }
-
-        private bool TryGetBoardScreenNormalizedWorldPosition(Vector2 normalizedPosition, out Vector3 worldPosition)
-        {
-            Camera camera = _calculationCamera;
-            if (!_hasCalculatedPositions || camera == null)
-            {
-                worldPosition = default;
-                return false;
-            }
-
-            return TryScreenToWorldOnBoardPlane(camera, ToVector2(BoardScreenNormalizedPositionToScreen(normalizedPosition)), out worldPosition);
-        }
-
-        private bool TryScreenToWorldOnBoardPlane(Camera cam, Vector2 screenPosition, out Vector3 worldPosition)
-        {
-            if (cam == null)
-            {
-                worldPosition = default;
-                return false;
-            }
-
-            Ray ray = cam.ScreenPointToRay(screenPosition);
-            Vector3 planeNormal = transform.forward;
-            float denominator = Vector3.Dot(planeNormal, ray.direction);
-            if (Mathf.Abs(denominator) <= Mathf.Epsilon)
-            {
-                worldPosition = default;
-                return false;
-            }
-
-            float distance = Vector3.Dot(planeNormal, transform.position - ray.origin) / denominator;
-            if (distance < 0.0f)
-            {
-                worldPosition = default;
-                return false;
-            }
-
-            worldPosition = ray.GetPoint(distance);
-            return true;
-        }
-
-        private bool TryGetBoardScreenRect(Camera cam, Vector2 pivot, float aspectRatio, out Rect boardRect)
-        {
-            boardRect = default;
-            if (cam == null)
-            {
-                Debug.LogWarning("Cannot calculate board screen positions without a camera.", this);
-                return false;
-            }
-
-            Rect pixelRect = cam.pixelRect;
-            if (pixelRect.width <= Mathf.Epsilon || pixelRect.height <= Mathf.Epsilon)
-            {
-                Debug.LogWarning("Cannot calculate board screen positions from an empty camera pixel rect.", this);
-                return false;
-            }
-
-            Vector4 padding = Clamp01(_viewportPadding);
-            Rect viewportRect = Rect.MinMaxRect(
-                pixelRect.xMin + pixelRect.width * padding.x,
-                pixelRect.yMin + pixelRect.height * padding.w,
-                pixelRect.xMax - pixelRect.width * padding.y,
-                pixelRect.yMax - pixelRect.height * padding.z);
-            if (viewportRect.width <= Mathf.Epsilon || viewportRect.height <= Mathf.Epsilon)
-            {
-                Debug.LogWarning("Cannot calculate board screen positions because viewport padding leaves no area.", this);
-                return false;
-            }
-
-            float boardWidth = viewportRect.width;
-            float boardHeight = viewportRect.height;
-            if (boardWidth / boardHeight > _aspectRatio)
-            {
-                boardWidth = boardHeight * _aspectRatio;
-            }
-            else
-            {
-                boardHeight = boardWidth / _aspectRatio;
-            }
-            Vector2 clampedPivot = Clamp01(pivot);
-            float boardLeft = viewportRect.xMin + (viewportRect.width - boardWidth) * clampedPivot.x;
-            float boardBottom = viewportRect.yMin + (viewportRect.height - boardHeight) * clampedPivot.y;
-            boardRect = new Rect(boardLeft, boardBottom, boardWidth, boardHeight);
-            return true;
-        }
-
-        private bool TryGetBoardWorldBounds(Camera cam, Rect screenRect, out CoordinateBounds worldBounds)
-        {
-            Vector2 bottomLeft = new Vector2(screenRect.xMin, screenRect.yMin);
-            Vector2 topLeft = new Vector2(screenRect.xMin, screenRect.yMax);
-            Vector2 bottomRight = new Vector2(screenRect.xMax, screenRect.yMin);
-            Vector2 topRight = new Vector2(screenRect.xMax, screenRect.yMax);
-
-            if (!TryScreenToWorldOnBoardPlane(cam, bottomLeft, out Vector3 worldBottomLeft) ||
-                !TryScreenToWorldOnBoardPlane(cam, topLeft, out Vector3 worldTopLeft) ||
-                !TryScreenToWorldOnBoardPlane(cam, bottomRight, out Vector3 worldBottomRight) ||
-                !TryScreenToWorldOnBoardPlane(cam, topRight, out Vector3 worldTopRight))
-            {
-                worldBounds = default;
-                return false;
-            }
-
-            Vector2 worldMin = new Vector2(
-                Mathf.Min(Mathf.Min(worldBottomLeft.x, worldTopLeft.x), Mathf.Min(worldBottomRight.x, worldTopRight.x)),
-                Mathf.Min(Mathf.Min(worldBottomLeft.y, worldTopLeft.y), Mathf.Min(worldBottomRight.y, worldTopRight.y)));
-            Vector2 worldMax = new Vector2(
-                Mathf.Max(Mathf.Max(worldBottomLeft.x, worldTopLeft.x), Mathf.Max(worldBottomRight.x, worldTopRight.x)),
-                Mathf.Max(Mathf.Max(worldBottomLeft.y, worldTopLeft.y), Mathf.Max(worldBottomRight.y, worldTopRight.y)));
-
-            worldBounds = new CoordinateBounds(
-                worldMin,
-                worldMax);
-            return true;
-        }
-
-        private void ClearCalculatedBounds()
-        {
-            _localBounds = default;
-            _screenBounds = default;
-            _worldBounds = default;
-        }
-
-        private CoordinateBounds GetItemAreaBounds()
-        {
-            Vector4 padding = Clamp01(_itemAreaViewportPadding);
-            return new CoordinateBounds(
-                _localBounds.Lerp(new Vector2(padding.x, padding.w)),
-                _localBounds.Lerp(new Vector2(1.0f - padding.y, 1.0f - padding.z)));
-        }
-
-        private static bool IsInBounds(
-            CoordinateBounds bounds,
-            Vector3 position,
-            bool includeBoundary)
-            => bounds.Contains(new Vector2(position.x, position.y), includeBoundary);
 
         private void OnValidate()
         {
@@ -855,51 +504,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
         }
 
         private static Vector2 Clamp01(Vector2 value)
-            => new Vector2(Mathf.Clamp01(value.x), Mathf.Clamp01(value.y));
+            => BoardAreaGeometry.Clamp01(value);
 
         private static Vector4 Clamp01(Vector4 value)
-            => new Vector4(
-                Mathf.Clamp01(value.x),
-                Mathf.Clamp01(value.y),
-                Mathf.Clamp01(value.z),
-                Mathf.Clamp01(value.w));
-
-        private static Vector3 ToVector3(Vector2 value)
-            => new Vector3(value.x, value.y, 0.0f);
-
-        private static Vector2 ToVector2(Vector3 value)
-            => new Vector2(value.x, value.y);
-
-        private struct CoordinateBounds
-        {
-            public CoordinateBounds(Vector2 min, Vector2 max)
-            {
-                Min = min;
-                Max = max;
-            }
-
-            public Vector2 Min;
-            public Vector2 Max;
-            public Vector2 Size => Max - Min;
-            public Vector2 Center => (Min + Max) * 0.5f;
-            public Rect Rect => Rect.MinMaxRect(Min.x, Min.y, Max.x, Max.y);
-
-            public Vector2 Lerp(Vector2 normalizedPosition)
-                => new Vector2(Mathf.Lerp(Min.x, Max.x, normalizedPosition.x), Mathf.Lerp(Min.y, Max.y, normalizedPosition.y));
-
-            public Vector2 Normalize(Vector2 position)
-                => new Vector2(SafeInverseLerp(Min.x, Max.x, position.x), SafeInverseLerp(Min.y, Max.y, position.y));
-
-            public Vector3 Clamp(Vector3 position)
-                => new Vector3(Mathf.Clamp(position.x, Min.x, Max.x), Mathf.Clamp(position.y, Min.y, Max.y), position.z);
-
-            public bool Contains(Vector2 position, bool includeBoundary)
-                => includeBoundary
-                    ? Min.x <= position.x && position.x <= Max.x && Min.y <= position.y && position.y <= Max.y
-                    : Min.x < position.x && position.x < Max.x && Min.y < position.y && position.y < Max.y;
-
-            private static float SafeInverseLerp(float min, float max, float value)
-                => Mathf.Abs(max - min) <= Mathf.Epsilon ? 0.0f : Mathf.InverseLerp(min, max, value);
-        }
+            => BoardAreaGeometry.Clamp01(value);
     }
 }

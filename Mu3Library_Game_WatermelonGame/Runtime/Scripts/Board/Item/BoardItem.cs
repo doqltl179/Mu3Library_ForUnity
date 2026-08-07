@@ -38,6 +38,17 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         }
 
         /// <summary>
+        /// The multiplier applied to the project gravity while this item falls.
+        /// <br/> The board scales it with the board size, so the item keeps falling the same way
+        /// <br/> on every screen resolution, and the project gravity itself stays untouched.
+        /// </summary>
+        public float GravityScale
+        {
+            get => _rb.gravityScale;
+            set => _rb.gravityScale = value;
+        }
+
+        /// <summary>
         /// The collider radius measured in the parent(board) local space.
         /// </summary>
         public float BoardLocalRadius
@@ -64,10 +75,17 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         public bool IsMerging => _isMerging;
 
         /// <summary>
-        /// True from the moment the item is placed on the board until it first hits something.
+        /// True from the moment the item is placed on the board until it lands
+        /// on the board floor or on another item.
         /// </summary>
         protected bool _isFalling = false;
         public bool IsFalling => _isFalling;
+
+        /// <summary>
+        /// The board floor this item can land on.
+        /// <br/> The side walls are never assigned here, they can neither end a fall nor hold an item up.
+        /// </summary>
+        protected Collider2D _floorCollider;
 
         private static readonly Collider2D[] ContactBuffer = new Collider2D[16];
 
@@ -83,6 +101,18 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
 
         protected virtual void OnCollisionEnter2D(Collision2D collision)
         {
+            if (!_isFalling)
+            {
+                return;
+            }
+
+            // Only the board floor and other items end a fall.
+            // Sliding along a side wall is still falling, the wall cannot hold the item up.
+            if (!IsLandingContact(collision.collider))
+            {
+                return;
+            }
+
             _isFalling = false;
         }
 
@@ -120,19 +150,35 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         /// <summary>
         /// Marks the item as falling. Call it whenever the item is placed on the board,
         /// because every item is placed above the board line and has to drop first.
+        /// <br/> The fall ends once the item touches <paramref name="floorCollider"/> or another item.
         /// </summary>
-        public void SetFallState(bool value) => _isFalling = value;
+        /// <param name="floorCollider">The board floor the item can land on.</param>
+        public void SetFallState(bool value, Collider2D floorCollider)
+        {
+            _floorCollider = floorCollider;
+            _isFalling = value;
+        }
 
         /// <summary>
-        /// <br/> Returns true when this item is stacked above the board line.
-        /// <br/> An item counts as stacked only while it rests on <paramref name="floorCollider"/>
+        /// Gives the item the velocity it starts its fall with, in world units per second.
+        /// <br/> A velocity is used instead of a force because the items differ in size, and therefore
+        /// <br/> in mass, so the same force would push every item differently.
+        /// </summary>
+        public void SetDropVelocity(Vector2 worldVelocity)
+        {
+            _rb.linearVelocity = worldVelocity;
+            _rb.angularVelocity = 0.0f;
+        }
+
+        /// <summary>
+        /// <br/> Returns true when this item is stacked above the out line.
+        /// <br/> An item counts as stacked only while it rests on the board floor
         /// <br/> or on other board items. The side walls are never a support, they cannot hold an item up.
-        /// <br/> Every item is placed above the board line, so an item that has not landed yet
+        /// <br/> Every item is placed at the top of the board, so an item that has not landed yet
         /// <br/> is excluded through <see cref="IsFalling"/>.
         /// </summary>
-        /// <param name="boardLocalOutLineY">The board line position in the board local space.</param>
-        /// <param name="floorCollider">The board floor items can rest on.</param>
-        internal bool IsStackedOverLine(float boardLocalOutLineY, Collider2D floorCollider)
+        /// <param name="boardLocalOutLineY">The out line position in the board local space, the top edge of the board area.</param>
+        internal bool IsStackedOverLine(float boardLocalOutLineY)
         {
             // A held item is kinematic and a merging item is about to disappear.
             if (_isFalling || _isMerging || BodyType != RigidbodyType2D.Dynamic || !_collider.enabled)
@@ -145,7 +191,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
                 return false;
             }
 
-            return IsSupported(floorCollider);
+            return IsSupported();
         }
 
         public virtual void Init(int index, BoardItemInfo info)
@@ -163,8 +209,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
 
             if (info.Sprite != null)
             {
+                // The sprite usually carries transparent padding, so the collider is shrunk
+                // to the part of it that should actually touch the other items.
                 Vector2 spriteSize = info.Sprite.bounds.size;
-                _collider.radius = Mathf.Max(spriteSize.x, spriteSize.y) * 0.5f;
+                _collider.radius = Mathf.Max(spriteSize.x, spriteSize.y) * 0.5f * info.ColliderScale;
             }
 
             _info = info;
@@ -182,31 +230,39 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         /// <summary>
         /// True while the item touches the board floor or another board item.
         /// </summary>
-        private bool IsSupported(Collider2D floorCollider)
+        private bool IsSupported()
         {
             int contactCount = _rb.GetContacts(ContactBuffer);
 
             for (int i = 0; i < contactCount; i++)
             {
-                Collider2D contact = ContactBuffer[i];
-                if (contact == null)
-                {
-                    continue;
-                }
-
-                if (floorCollider != null && contact == floorCollider)
-                {
-                    return true;
-                }
-
-                // The side walls are skipped here, only other items can stack this one up.
-                if (contact.TryGetComponent(out BoardItem _))
+                if (IsLandingContact(ContactBuffer[i]))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// True when the contact can end a fall and hold the item up,
+        /// which only the board floor and other board items can do.
+        /// </summary>
+        private bool IsLandingContact(Collider2D contact)
+        {
+            if (contact == null)
+            {
+                return false;
+            }
+
+            if (_floorCollider != null && contact == _floorCollider)
+            {
+                return true;
+            }
+
+            // The side walls are skipped here, only other items can stack this one up.
+            return contact.TryGetComponent(out BoardItem _);
         }
     }
 }

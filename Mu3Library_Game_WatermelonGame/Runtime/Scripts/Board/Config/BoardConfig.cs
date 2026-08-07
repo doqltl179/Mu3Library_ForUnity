@@ -16,6 +16,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         [SerializeField] protected Sprite _boardLineSprite;
         public Sprite BoardLineSprite => _boardLineSprite;
 
+        [Tooltip("The image hung on the top edge of the board area, following the item the player is holding.\nIts pivot has to be (0.5, 0.0), so that it is drawn straight above the edge.")]
+        [SerializeField] protected Sprite _boardSpawnSprite;
+        public Sprite BoardSpawnSprite => _boardSpawnSprite;
+
         [Space(20)]
         [SerializeField] protected BoardItemsConfig _itemConfig;
         public BoardItemsConfig ItemConfig => _itemConfig;
