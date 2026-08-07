@@ -116,6 +116,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         protected int _drawCount;
 
+        /// <summary>
+        /// The indices a restored board was saved with, the item in hand followed by the preview.
+        /// <br/> They are handed out before the spawn rule is asked again, so the player keeps the
+        /// <br/> items they were already promised.
+        /// </summary>
+        protected readonly Queue<int> _restoredItemIndices = new();
+
         protected int _nextItemIndex = -1;
         /// <summary>
         /// The zero-based index of the item that follows the one the player is about to drop,
@@ -245,6 +252,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _isRunning = false;
             _isEnded = false;
 
+            _restoredItemIndices.Clear();
+
             ClearAllCommands();
             ReleaseHoldingItem();
             PoolItemAll();
@@ -253,33 +262,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             if (snapshot != null)
             {
-                _score = snapshot.Score;
-                _spawnCount = snapshot.SpawnCount;
-                _mergeCount = snapshot.MergeCount;
-
-                foreach (var itemSnapshot in snapshot.BoardItemsSnapshot)
-                {
-                    int itemIndex = itemSnapshot.Index;
-                    var info = _boardConfig.ItemConfig.GetInfoByIndex(itemIndex);
-                    if (info == null)
-                    {
-                        continue;
-                    }
-
-                    var item = _pool.Dequeue(info);
-                    if (item == null)
-                    {
-                        continue;
-                    }
-
-                    item.transform.localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(itemSnapshot.NormalizedLocalPosition);
-
-                    DropItem(item);
-                }
+                RestoreSnapshot(snapshot);
             }
 
             // The preview runs one item ahead, so the first one is drawn before the game starts.
-            _drawCount = _spawnCount;
+            // A restored board hands out the items it was saved with first, so the draws they
+            // already took are counted here.
+            _drawCount = _spawnCount + _restoredItemIndices.Count;
             SetNextItemIndex(DrawNextItemIndex());
 
             Debug.Log("Game Prepared");
@@ -324,6 +313,145 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             _boardConfig = config;
+        }
+        #endregion
+
+        #region Snapshot
+        /// <summary>
+        /// Writes the board as it stands into a snapshot, which <see cref="Prepare"/> brings back.
+        /// <br/> Items that are about to merge are saved as the two items they still are, so the
+        /// <br/> restored board merges them again and scores them then.
+        /// </summary>
+        public virtual BoardSnapshot ExportSnapshot()
+        {
+            BoardSnapshot snapshot = new BoardSnapshot
+            {
+                Score = _score,
+                SpawnCount = _spawnCount,
+                MergeCount = _mergeCount,
+
+                // The held item never reached the board, it travels as an index and is put
+                // back into the player's hand.
+                HoldingItemIndex = _holdingItem != null ? _holdingItem.Index : -1,
+                NextItemIndex = _nextItemIndex,
+            };
+
+            foreach (var item in _createdItems)
+            {
+                if (!TryExportItemSnapshot(item, out BoardItemSnapshot itemSnapshot))
+                {
+                    continue;
+                }
+
+                snapshot.BoardItemsSnapshot.Add(itemSnapshot);
+            }
+
+            return snapshot;
+        }
+
+        /// <summary>
+        /// Writes the board as it stands as JSON, ready to be stored or sent.
+        /// </summary>
+        public string ExportSnapshotJson(bool prettyPrint = false)
+            => ExportSnapshot().ToJson(prettyPrint);
+
+        /// <summary>
+        /// Prepares the board on the snapshot written by <see cref="ExportSnapshotJson"/>.
+        /// <br/> An unreadable text prepares an empty board.
+        /// </summary>
+        public void ImportSnapshotJson(string json)
+            => Prepare(BoardSnapshot.FromJson(json));
+
+        /// <summary>
+        /// Puts a saved board back on the prepared board. Called by <see cref="Prepare"/> once the
+        /// <br/> board has been cleared, so it only fills in what the snapshot holds.
+        /// </summary>
+        protected virtual void RestoreSnapshot(BoardSnapshot snapshot)
+        {
+            _score = snapshot.Score;
+            _spawnCount = snapshot.SpawnCount;
+            _mergeCount = snapshot.MergeCount;
+
+            // The saved items are drawn again before the spawn rule takes over.
+            if (snapshot.HoldingItemIndex >= 0)
+            {
+                _restoredItemIndices.Enqueue(snapshot.HoldingItemIndex);
+            }
+            if (snapshot.NextItemIndex >= 0)
+            {
+                _restoredItemIndices.Enqueue(snapshot.NextItemIndex);
+            }
+
+            if (snapshot.BoardItemsSnapshot == null)
+            {
+                return;
+            }
+
+            if (_boardConfig == null)
+            {
+                Debug.LogWarning("BoardConfig not found. The saved items cannot be restored.");
+                return;
+            }
+
+            foreach (var itemSnapshot in snapshot.BoardItemsSnapshot)
+            {
+                if (itemSnapshot == null)
+                {
+                    continue;
+                }
+
+                int itemIndex = itemSnapshot.Index;
+                var info = _boardConfig.ItemConfig.GetInfoByIndex(itemIndex);
+                if (info == null)
+                {
+                    continue;
+                }
+
+                var item = _pool.Dequeue(info);
+                if (item == null)
+                {
+                    continue;
+                }
+
+                item.transform.SetLocalPositionAndRotation(
+                    _boardArea.BoardLocalNormalizedPositionToLocal(itemSnapshot.NormalizedLocalPosition),
+                    Quaternion.Euler(0.0f, 0.0f, itemSnapshot.LocalRotation));
+
+                DropItem(item);
+            }
+        }
+
+        /// <summary>
+        /// Writes a single board item into a snapshot, false when it does not belong on a saved board.
+        /// </summary>
+        protected virtual bool TryExportItemSnapshot(BoardItem item, out BoardItemSnapshot itemSnapshot)
+        {
+            itemSnapshot = null;
+
+            // The held item is not on the board yet, it is saved as 'HoldingItemIndex' instead.
+            if (item == null || item == _holdingItem || item.Index < 0)
+            {
+                return false;
+            }
+
+            // The position is saved against the board area, which follows the screen resolution,
+            // so the item lands on the same spot of the board on every device.
+            if (_boardArea == null ||
+                !_boardArea.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 normalizedPosition))
+            {
+                return false;
+            }
+
+            itemSnapshot = new BoardItemSnapshot
+            {
+                Index = item.Index,
+                NormalizedLocalPosition = normalizedPosition,
+
+                // The board is a 2D plane, so the item only ever turns around Z.
+                LocalRotation = item.transform.localEulerAngles.z,
+            };
+
+            return true;
         }
         #endregion
 
@@ -436,9 +564,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Takes the following index from the spawn rule. Every index is drawn exactly once,
         /// so the rule keeps seeing an unbroken count no matter when an item is dropped.
+        /// <br/> A restored board hands out the indices it was saved with before the rule is asked,
+        /// <br/> they were drawn from it once already.
         /// </summary>
         protected int DrawNextItemIndex()
         {
+            if (_restoredItemIndices.Count > 0)
+            {
+                return _restoredItemIndices.Dequeue();
+            }
+
             int index = _spawnRule.GetNextIndex(_drawCount);
             _drawCount++;
 
@@ -843,6 +978,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             item.Init(index, info);
             item.transform.localScale = Vector3.one * GetItemScale(index, info);
+
+            // A pooled item rolled while it was on the board, so it is set upright again.
+            // A restored item is turned back to its saved rotation after it leaves the pool.
+            item.transform.localRotation = Quaternion.identity;
         }
 
         /// <summary>
