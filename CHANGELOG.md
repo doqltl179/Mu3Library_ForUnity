@@ -29,6 +29,12 @@ This changelog tracks package release changes only. Repository development workf
 - `BoardController`: Added `IsGameEndCheckPaused`, which suspends the game-end check for the drop interval after an item is released. A dropped item lands on a high stack almost immediately, so the stack now gets that time to slide into place before it is judged.
 
 ### Changed
+- `BoardController`: Board configuration now goes through validated `SetBoardConfig(BoardConfig)` (`SetBoareConfig` remains as a compatibility alias), updating active and held items atomically, including their scale and board-relative physics.
+- `BoardItemsConfig`: Catalog entries beyond the eleven default fruits are now preserved for future rules, while the default spawn and merge rules remain limited to those eleven entries.
+- `BoardController`: Merge matching now groups active items by index before checking contacts, and board child renderers and out colliders are cached during layout rebuilds.
+- `BoardArea`: Local board bounds now remain correct for camera-aligned and tilted board planes while the public world XY bounds API is retained.
+- `WatermelonGame` sample: Preparation now validates and caches its dependencies, and game start is triggered only after a successful board preparation.
+- `BoardItemInfo`: Increased the default collider diameter ratio from `0.96` to `0.98` so fruit contacts better match the configured sprite size.
 - `BoardController`: The item to drop now waits at the top of the board as soon as the drop interval has passed, instead of being created on the next touch. It waits where the previous item was dropped from, and a touch only picks it up.
 - `BoardArea`: Split the component into single-purpose parts under `Board/Area` — `BoardAreaBoundsCalculator` measures the board rectangle, `BoardAreaCoordinateConverter` converts positions, `BoardAreaView` draws the board and the item-out line, `BoardAreaOutColliders` keeps the items inside, and `BoardAreaInputRelay` reports the touches that belong to the board, with the rectangle itself carried by the new `BoardAreaBounds` and `CoordinateBounds` types. The component keeps its public API and only forwards to those parts.
 - `BoardItemScaleRule`: Item diameters are now spread linearly over the board area width, from `1/20` for the smallest fruit to `2/5` for the largest one, instead of growing by a shrinking area multiplier. `GetBoardScale` takes the largest ratio next to the smallest one, and `GetBoardWidthDiameterRatio(int)` returns an item's diameter as a fraction of the board width.
@@ -37,6 +43,9 @@ This changelog tracks package release changes only. Repository development workf
 - Merge effects: Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures. The prefabs were saved in the legacy Unity 5 prefab format, so their `ParticleSystemRenderer` had no `serializedVersion`, was missing most of its fields, and held a null material at index 0; instantiating one crashed the Editor natively in `ParticleSystemRenderer::PrepareForRender` on the first merge.
 
 ### Fixed
+- `MergingCommand`: Merge reservations are released for invalid, canceled, and failed commands without mutating a pooled item that has already been reused.
+- `BoardItem`: Pooled instances now reset their presentation, collider, physics, support, and merge state before reuse.
+- `InputHandler`: Touch moves and ends now stay tied to the finger that began the drag.
 - `BoardArea`: `CalculateBounds(Camera, float)` and `CalculateBounds(Camera, Vector2, float)` now use the aspect ratio they are given, they always fell back to the board sprite's own ratio.
 - `BoardController`: Game-end detection now ends the game when an item whose top edge is above the board line rests on the board floor or on other items. Items are always placed above the line, so an item that has not landed yet is excluded through its falling state. The side walls are never treated as a support.
 - `BoardController`: Merging items stay registered on the board until their command completes and the same item can no longer be registered twice, so preparing the board again collects every item instead of leaking it or leaving stale duplicates that grew the board without bound. Renamed the misspelled `OnDestory` so commands are actually disposed.

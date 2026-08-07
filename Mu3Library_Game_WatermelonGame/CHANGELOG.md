@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+- Fixed the package sample lifecycle so a successfully prepared board starts running.
+- Configured the package sample board with its item-out line and spawn-marker images.
+- Added `BoardController.SetBoardConfig(BoardConfig)` as the validated configuration boundary; `SetBoareConfig` remains as a compatibility alias.
+- Changed default item catalog validation to preserve entries after the eleven default fruits without enabling them in the default spawn or merge rules.
+- Changed board configuration application to update active and held items atomically, including their scale and board-relative physics.
+- Changed merge matching to group active items by index before checking contacts, avoiding unrelated pair comparisons and per-frame group allocations after warmup.
+- Fixed merge reservations to be released for invalid, canceled, and failed commands without changing a pooled instance that has already been reused.
+- Fixed pooled `BoardItem` instances to reset presentation, collider, physics, support, and merge state before reuse.
+- Fixed board local bounds calculation for camera-aligned or tilted board planes while retaining the public world XY bounds API.
+- Fixed touch handling to track the finger that began a drag, preventing another finger's move/end event from changing it.
+- Improved cached board child renderers and out colliders to avoid repeated hierarchy/component lookups during layout rebuilds.
+- Improved sample preparation so absent scene/config dependencies do not publish a prepared board state, and its resource lookup is cached.
+- Changed the default `BoardItemInfo` collider diameter ratio from `0.96` to `0.98` so fruit contacts better match the configured sprite size.
 - Added configurable item-out line placement and board-width fitting for `BoardArea`.
 - Added a drop interval to `BoardController`, 0.5 seconds by default, so a touch can no longer spawn items back to back.
 - Added an initial downward speed for a released item, set as a fraction of the board area height per second so every screen resolution gives the same push.

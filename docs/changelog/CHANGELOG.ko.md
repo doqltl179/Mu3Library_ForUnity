@@ -27,6 +27,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardController`: 아이템을 놓은 뒤 drop interval 동안 게임 종료 판정을 중단하는 `IsGameEndCheckPaused`를 추가했습니다. 아이템이 높이 쌓인 상태에서는 낙하 아이템이 거의 즉시 착지 판정을 받기 때문에, 이제 그 시간 동안 아이템이 미끄러져 자리를 잡은 뒤에 판정합니다.
 
 ### 변경됨
+- `BoardController`: 보드 설정을 검증된 `SetBoardConfig(BoardConfig)` 경계로 적용하도록 변경했습니다(`SetBoareConfig`은 호환성 별칭으로 유지). 활성 및 보유 아이템의 크기와 보드 기준 물리를 원자적으로 갱신합니다.
+- `BoardItemsConfig`: 11개 기본 과일 이후의 카탈로그 항목을 향후 규칙을 위해 보존하며, 기본 생성·병합 규칙은 11개 항목만 사용하도록 변경했습니다.
+- `BoardController`: 병합 후보를 접촉 확인 전에 인덱스별로 그룹화하고, 레이아웃 재구성 중 보드 자식 렌더러와 초과 경계 콜라이더를 캐시하도록 변경했습니다.
+- `BoardArea`: 공개 world XY bounds API는 유지하면서 카메라 정렬 또는 기울어진 보드 평면에서도 로컬 보드 bounds가 올바르게 계산되도록 변경했습니다.
+- `WatermelonGame` 샘플: 의존성을 검증·캐시하고 보드 준비가 성공한 뒤에만 게임을 시작하도록 변경했습니다.
+- `BoardItemInfo`: 과일 접촉이 설정된 스프라이트 크기에 더 잘 맞도록 기본 콜라이더 지름 비율을 `0.96`에서 `0.98`로 변경했습니다.
 - `BoardController`: 떨어뜨릴 아이템이 터치 시점이 아니라 drop interval이 끝나는 즉시 보드 상단에서 대기하도록 변경했습니다. 직전 아이템을 떨어뜨린 위치에서 대기하며, 터치는 그 아이템을 집어 옮기기만 합니다.
 - `BoardArea`: 컴포넌트를 `Board/Area` 아래의 단일 책임 파트로 분할했습니다. `BoardAreaBoundsCalculator`는 보드 사각형을 계산하고, `BoardAreaCoordinateConverter`는 좌표를 변환하며, `BoardAreaView`는 보드와 아이템 기준선을 그리고, `BoardAreaOutColliders`는 아이템을 보드 안에 가두며, `BoardAreaInputRelay`는 보드에 속한 터치만 전달합니다. 사각형 자체는 새로 추가한 `BoardAreaBounds`와 `CoordinateBounds` 타입이 담습니다. 컴포넌트의 공개 API는 그대로이며 각 파트로 위임만 합니다.
 - `BoardItemScaleRule`: 아이템 지름을 점점 줄어드는 넓이 배율 대신 board area 가로 길이 기준으로 선형 분배합니다. 가장 작은 과일은 `1/20`, 가장 큰 과일은 `2/5`입니다. `GetBoardScale`은 가장 작은 비율과 함께 가장 큰 비율도 받으며, `GetBoardWidthDiameterRatio(int)`는 보드 가로 길이 대비 아이템 지름 비율을 반환합니다.
@@ -35,6 +41,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 병합 이펙트: `BoardItemInfo.MergingEffect` / `MergedEffect`, `MergingCommand`의 이펙트 재생, 그리고 샘플의 병합 이펙트 프리팹·머티리얼·텍스처를 제거했습니다. 해당 프리팹은 Unity 5 시절의 레거시 프리팹 포맷으로 저장되어 `ParticleSystemRenderer`에 `serializedVersion`이 없고 대부분의 필드가 누락되었으며 0번 머티리얼이 null이었습니다. 이로 인해 첫 병합에서 이펙트가 생성되는 순간 `ParticleSystemRenderer::PrepareForRender`에서 에디터가 네이티브 크래시로 종료됐습니다.
 
 ### 수정됨
+- `MergingCommand`: 유효하지 않거나 취소·실패한 커맨드의 병합 예약을 해제하되, 이미 재사용된 풀 아이템은 변경하지 않도록 수정했습니다.
+- `BoardItem`: 풀에서 재사용되는 인스턴스가 다시 초기화되기 전에 표시, 콜라이더, 물리, 지지, 병합 상태를 초기화하도록 수정했습니다.
+- `InputHandler`: 터치 이동과 종료가 드래그를 시작한 손가락에 계속 연결되도록 수정했습니다.
 - `BoardArea`: `CalculateBounds(Camera, float)`와 `CalculateBounds(Camera, Vector2, float)`가 전달받은 aspect ratio를 실제로 사용하도록 수정했습니다. 기존에는 항상 보드 스프라이트의 비율로 대체되었습니다.
 - `BoardController`: 게임 종료 판정을 접촉 기반으로 수정했습니다. 상단이 보드 라인을 넘은 아이템이 바닥 또는 다른 아이템에 지지되어 있으면 게임을 종료합니다. 아이템은 항상 라인 위에 놓이므로 아직 착지하지 않은 아이템은 낙하 상태로 제외되며, 좌우 벽은 지지 대상에서 제외됩니다.
 - `BoardController`: 병합 중인 아이템이 커맨드 완료까지 보드에 등록된 상태를 유지하고 동일 아이템이 중복 등록되지 않도록 수정해, 보드를 다시 준비할 때 모든 아이템이 회수됩니다. 기존에는 아이템이 누락되거나 중복 항목이 남아 보드가 무한히 증가했습니다. 오타였던 `OnDestory`를 수정해 커맨드가 실제로 해제되게 했습니다.

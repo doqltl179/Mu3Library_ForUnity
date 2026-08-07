@@ -29,6 +29,12 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardController`: item を落とした後の drop interval の間、game end 判定を停止する `IsGameEndCheckPaused` を追加しました。item が高く積まれた状態では落下 item がほぼ即座に着地判定となるため、その間に item が滑って落ち着いてから判定します。
 
 ### 変更
+- `BoardController`: board 設定を検証済みの `SetBoardConfig(BoardConfig)` 境界から適用するように変更しました（`SetBoareConfig` は compatibility alias として維持）。active item と holding item の scale、board 基準の physics を atomic に更新します。
+- `BoardItemsConfig`: 11 個の default fruit より後ろの catalog entry を将来の rule 用に保持し、default spawn / merge rule は 11 個の entry のみに制限するように変更しました。
+- `BoardController`: merge candidate を contact 確認前に index ごとに group 化し、layout rebuild 中の board child renderer と out collider を cache するように変更しました。
+- `BoardArea`: 公開している world XY bounds API を維持しつつ、camera に aligned または tilted な board plane でも local board bounds が正しくなるように変更しました。
+- `WatermelonGame` sample: dependency を検証・cache し、board の prepare が成功した後だけ game start するように変更しました。
+- `BoardItemInfo`: fruit の contact が設定した sprite size により近くなるよう、default collider diameter ratio を `0.96` から `0.98` に変更しました。
 - `BoardController`: 落とす item が touch 時ではなく drop interval の終了と同時に board 上端で待機するようにしました。直前の item を落とした位置で待機し、touch はその item を掴んで動かすだけになります。
 - `BoardArea`: component を `Board/Area` 配下の単一責務の部品へ分割しました。`BoardAreaBoundsCalculator` が board の矩形を計算し、`BoardAreaCoordinateConverter` が座標を変換し、`BoardAreaView` が board と item 基準線を描画し、`BoardAreaOutColliders` が item を board 内に留め、`BoardAreaInputRelay` が board に属する touch のみを通知します。矩形そのものは新規の `BoardAreaBounds` と `CoordinateBounds` が保持します。component の public API は変更なく、各部品へ委譲するだけです。
 - `BoardItemScaleRule`: item の直径を、減少していく面積倍率ではなく board area の幅を基準に線形配分するようにしました。最小の果物は `1/20`、最大の果物は `2/5` です。`GetBoardScale` は最小比率に加えて最大比率も受け取り、`GetBoardWidthDiameterRatio(int)` は board 幅に対する item 直径の比率を返します。
@@ -37,6 +43,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - merge effect: `BoardItemInfo.MergingEffect` / `MergedEffect`、`MergingCommand` の effect 再生、および sample の merge effect prefab・material・texture を削除しました。当該 prefab は Unity 5 時代の legacy prefab format で保存されており、`ParticleSystemRenderer` に `serializedVersion` が無く大半の field が欠落し、0 番の material が null でした。このため最初の merge で effect を生成した瞬間に `ParticleSystemRenderer::PrepareForRender` で editor が native crash していました。
 
 ### 修正
+- `MergingCommand`: 無効・cancel・failure となった command の merge reservation を解放し、すでに pool で再利用された item を変更しないように修正しました。
+- `BoardItem`: pool から再利用する instance の presentation、collider、physics、support、merge state を次の初期化前に reset するように修正しました。
+- `InputHandler`: touch の移動と終了が drag を開始した finger に紐づいたままになるように修正しました。
 - `BoardArea`: `CalculateBounds(Camera, float)` と `CalculateBounds(Camera, Vector2, float)` が渡された aspect ratio を実際に使用するようにしました。従来は常に board sprite の比率にフォールバックしていました。
 - `BoardController`: game end 判定を接触ベースに変更しました。上端が board line を越えた item が床または他の item に支えられている場合に game end とします。item は必ず line より上に置かれるため、まだ着地していない item は落下状態として除外され、左右の壁は支持対象から除外されます。
 - `BoardController`: merge 中の item が command 完了まで board に登録されたままになり、同一 item の重複登録を防ぐようにしました。board を再準備するとすべての item が回収されます。従来は item が失われたり重複 entry が残って board が際限なく増えていました。誤記だった `OnDestory` を修正し、command が実際に破棄されるようにしました。
