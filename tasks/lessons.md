@@ -7,3 +7,4 @@
 - When a fixed default rule retains future catalog data, explicitly gate the default simulation to its supported range so extension-only entries are neither activated nor destroyed prematurely.
 - For oversized Unity MonoBehaviours, keep the serialized façade at its existing path and GUID, then group partial responsibility files under named subfolders such as `Controller`, `Area`, and `Item`.
 - Keep sample `Prepare` and `GameStart` as distinct lifecycle stages: subscribe before preparation and start only from the prepared event, so failed preparation cannot publish a running board.
+- For tile-rendered guide sprites, keep the generated asset to one source segment and let the Unity `SpriteRenderer` repeat it; do not bake the repeated pattern into the image.
