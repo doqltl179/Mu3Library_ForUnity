@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Added configurable item-out line placement and board-width fitting for `BoardArea`.
+- Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures; the prefabs were saved in the legacy Unity 5 prefab format and crashed the Editor natively inside the particle renderer when instantiated.
+- Fixed `BoardController` game-end detection to end the game when an item above the board line rests on the board floor or on other items, excluding items that have not landed yet and the side walls.
+- Fixed board item bookkeeping so merging items stay registered until their command completes and the same item cannot be registered twice, preventing leaked items and stale duplicates that grew the board without bound.
+- Fixed `MergingCommand` so a merge cannot start or complete more than once and never completes after disposal.
+
 ## [0.1.1] - 2026-08-07
 
 - Added optional `ParticleHandler` merge effects to `BoardItemInfo` and cleaned up spawned effects after completion.

@@ -15,6 +15,17 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `BoardArea`: Added configurable item-out line placement and board-width fitting for the optional outline sprite.
+
+### Removed
+- Merge effects: Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures. The prefabs were saved in the legacy Unity 5 prefab format, so their `ParticleSystemRenderer` had no `serializedVersion`, was missing most of its fields, and held a null material at index 0; instantiating one crashed the Editor natively in `ParticleSystemRenderer::PrepareForRender` on the first merge.
+
+### Fixed
+- `BoardController`: Game-end detection now ends the game when an item whose top edge is above the board line rests on the board floor or on other items. Items are always placed above the line, so an item that has not landed yet is excluded through its falling state. The side walls are never treated as a support.
+- `BoardController`: Merging items stay registered on the board until their command completes and the same item can no longer be registered twice, so preparing the board again collects every item instead of leaking it or leaving stale duplicates that grew the board without bound. Renamed the misspelled `OnDestory` so commands are actually disposed.
+- `MergingCommand`: A merge can no longer start or complete more than once, and never completes after the command has been disposed.
+
 ## [watermelon/0.1.1] - 2026-08-07
 
 ### Added

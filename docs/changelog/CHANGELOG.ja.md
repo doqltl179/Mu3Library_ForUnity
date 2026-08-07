@@ -15,6 +15,17 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `BoardArea`: 任意の outline sprite を設定した board 幅に合わせ、item 超過境界へ配置する機能を追加しました。
+
+### 削除
+- merge effect: `BoardItemInfo.MergingEffect` / `MergedEffect`、`MergingCommand` の effect 再生、および sample の merge effect prefab・material・texture を削除しました。当該 prefab は Unity 5 時代の legacy prefab format で保存されており、`ParticleSystemRenderer` に `serializedVersion` が無く大半の field が欠落し、0 番の material が null でした。このため最初の merge で effect を生成した瞬間に `ParticleSystemRenderer::PrepareForRender` で editor が native crash していました。
+
+### 修正
+- `BoardController`: game end 判定を接触ベースに変更しました。上端が board line を越えた item が床または他の item に支えられている場合に game end とします。item は必ず line より上に置かれるため、まだ着地していない item は落下状態として除外され、左右の壁は支持対象から除外されます。
+- `BoardController`: merge 中の item が command 完了まで board に登録されたままになり、同一 item の重複登録を防ぐようにしました。board を再準備するとすべての item が回収されます。従来は item が失われたり重複 entry が残って board が際限なく増えていました。誤記だった `OnDestory` を修正し、command が実際に破棄されるようにしました。
+- `MergingCommand`: merge が二度以上開始・完了せず、command 破棄後には完了しないように修正しました。
+
 ## [watermelon/0.1.1] - 2026-08-07
 
 ### 追加
