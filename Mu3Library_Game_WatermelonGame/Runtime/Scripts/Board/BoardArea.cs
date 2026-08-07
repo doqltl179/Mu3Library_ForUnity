@@ -13,22 +13,51 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Left, Right, Top, Bottom
         /// </summary>
         [Tooltip("x: Left\ny: Right\nz: Top\nw: Bottom")]
-        [SerializeField] private Vector4 _viewportPadding = new Vector4(0.1f, 0.1f, 0.1f, 0.1f);
+        [SerializeField] protected Vector4 _viewportPadding = new Vector4(0.1f, 0.1f, 0.1f, 0.1f);
         /// <summary>
         /// Left, Right, Top, Bottom
         /// </summary>
         [Tooltip("x: Left\ny: Right\nz: Top\nw: Bottom")]
-        [SerializeField] private Vector4 _itemAreaViewportPadding = new Vector4(0.04f, 0.04f, 0.0f, 0.04f);
-        [SerializeField] private Vector2 _pivot = new Vector2(0.5f, 0.5f);
+        [SerializeField] protected Vector4 _itemAreaViewportPadding = new Vector4(0.04f, 0.04f, 0.0f, 0.04f);
+        [SerializeField] protected Vector2 _pivot = new Vector2(0.5f, 0.5f);
+
+        /// <summary>
+        /// 아이템이 쌓이는 허용 경계
+        /// </summary>
+        [Space(20)]
+        [SerializeField, Range(0.0f, 1.0f)] protected float _boardLocalNormalizedItemOutPosY = 0.9f;
+
+        public float BoardLocalNormalizedItemOutPosY
+        {
+            get => Mathf.Clamp01(_boardLocalNormalizedItemOutPosY);
+            set => _boardLocalNormalizedItemOutPosY = Mathf.Clamp01(value);
+        }
 
         protected InputHandler m_inputHandler;
         protected InputHandler _inputHandler => m_inputHandler ??= GetComponent<InputHandler>();
 
-        protected SpriteRenderer m_renderer;
-        protected SpriteRenderer _renderer => m_renderer ??= GetComponent<SpriteRenderer>();
+        protected SpriteRenderer m_boardRenderer;
+        protected SpriteRenderer _boardRenderer => m_boardRenderer ??= GetComponent<SpriteRenderer>();
 
-        private float _aspectRatio => _renderer != null && _renderer.sprite != null ?
-            _renderer.sprite.rect.size.x / _renderer.sprite.rect.size.y :
+        protected SpriteRenderer m_boardLineRenderer;
+        protected SpriteRenderer _boardLineRenderer
+        {
+            get
+            {
+                if (m_boardLineRenderer == null)
+                {
+                    GameObject obj = new GameObject("Line");
+                    obj.transform.SetParent(transform);
+
+                    m_boardLineRenderer = obj.AddComponent<SpriteRenderer>();
+                }
+
+                return m_boardLineRenderer;
+            }
+        }
+
+        private float _aspectRatio => _boardRenderer != null && _boardRenderer.sprite != null ?
+            _boardRenderer.sprite.rect.size.x / _boardRenderer.sprite.rect.size.y :
             1.0f;
         public float AspectRatio => _aspectRatio;
 
@@ -46,6 +75,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
         private const string LeftOutColliderName = "OutCollider_Left";
         private const string RightOutColliderName = "OutCollider_Right";
         private const string BottomOutColliderName = "OutCollider_Bottom";
+
+        private BoxCollider2D m_bottomOutCollider;
+        /// <summary>
+        /// The floor an item can rest on.
+        /// <br/> The left and right walls are not exposed on purpose, they cannot hold an item up.
+        /// </summary>
+        internal Collider2D BottomOutCollider => m_bottomOutCollider;
 
         private Camera _lastCalculationCamera;
         private Camera _calculationCamera =>
@@ -82,6 +118,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Gets the calculated local XY rectangle.
         /// </summary>
         public Rect LocalRect => _localBounds.Rect;
+
+        internal Rect ItemAreaLocalRect => GetItemAreaBounds().Rect;
 
         /// <summary>
         /// Gets the calculated screen rectangle in pixels.
@@ -173,7 +211,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         [ButtonInvoke("Fit Board", ButtonHeight = 30f)]
         public void Fit()
         {
-            SpriteRenderer renderer = _renderer;
+            SpriteRenderer renderer = _boardRenderer;
             if (renderer == null)
             {
                 return;
@@ -187,7 +225,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public void Fit(Camera cam, Sprite sprite)
         {
-            SpriteRenderer renderer = _renderer;
+            SpriteRenderer renderer = _boardRenderer;
             if (renderer == null || !IsCameraReady(cam) || sprite == null)
             {
                 return;
@@ -237,15 +275,58 @@ namespace Mu3Library.Game.WatermelonGame.Board
             CalculateBounds(cam);
         }
 
-        public void SetBoardImage(Sprite sprite)
+        public void SetBoardImage(Sprite boardSprite)
         {
-            if (sprite == null)
+            if (boardSprite == null)
             {
                 return;
             }
 
-            _renderer.sprite = sprite;
+            _boardRenderer.sprite = boardSprite;
             Fit();
+        }
+
+        public void SetBoardLocalItemOutLine()
+            => SetBoardLocalItemOutLine(_boardLineRenderer?.sprite);
+
+        public void SetBoardLocalItemOutLine(Sprite sprite)
+        {
+            if (_boardLineRenderer == null)
+            {
+                return;
+            }
+
+            _boardLineRenderer.sprite = sprite;
+            if (sprite == null)
+            {
+                _boardLineRenderer.gameObject.SetActive(false);
+                return;
+            }
+
+            if (!_hasCalculatedPositions)
+            {
+                CalculateBounds();
+                if (!_hasCalculatedPositions)
+                {
+                    return;
+                }
+            }
+
+            Transform outlineTransform = _boardLineRenderer.transform;
+            Vector2 normalizedPosition = new Vector2(0.5f, Mathf.Clamp01(_boardLocalNormalizedItemOutPosY));
+            Vector3 outlineLocalPosition = BoardLocalNormalizedPositionToLocal(normalizedPosition);
+            outlineLocalPosition.z = WorldToLocal(outlineTransform.position).z;
+            outlineTransform.position = LocalToWorld(outlineLocalPosition);
+
+            float spriteWidth = sprite.bounds.size.x;
+            if (spriteWidth > Mathf.Epsilon && _localBounds.Size.x > Mathf.Epsilon)
+            {
+                Vector3 localScale = outlineTransform.localScale;
+                localScale.x = _localBounds.Size.x / spriteWidth;
+                outlineTransform.localScale = localScale;
+            }
+
+            _boardLineRenderer.gameObject.SetActive(true);
         }
 
         public void SetOutColliders()
@@ -260,29 +341,28 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
-            Vector4 padding = Clamp01(_itemAreaViewportPadding);
-            Vector2 itemAreaMin = _localBounds.Lerp(new Vector2(padding.x, padding.w));
-            Vector2 itemAreaMax = _localBounds.Lerp(new Vector2(1.0f - padding.y, 1.0f - padding.z));
-            if (itemAreaMax.x - itemAreaMin.x <= Mathf.Epsilon || itemAreaMax.y - itemAreaMin.y <= Mathf.Epsilon)
+            CoordinateBounds itemAreaBounds = GetItemAreaBounds();
+            if (itemAreaBounds.Size.x <= Mathf.Epsilon || itemAreaBounds.Size.y <= Mathf.Epsilon)
             {
                 return;
             }
 
-            Vector2 itemAreaCenter = (itemAreaMin + itemAreaMax) * 0.5f;
+            Vector2 itemAreaCenter = itemAreaBounds.Center;
             SetOutCollider(
                 GetOrCreateOutCollider(LeftOutColliderName),
-                new Vector2(itemAreaMin.x, itemAreaCenter.y),
+                new Vector2(itemAreaBounds.Min.x, itemAreaCenter.y),
                 new Vector2(OutColliderThickness, OutColliderHeight),
                 new Vector2(1.0f, 0.5f));
             SetOutCollider(
                 GetOrCreateOutCollider(RightOutColliderName),
-                new Vector2(itemAreaMax.x, itemAreaCenter.y),
+                new Vector2(itemAreaBounds.Max.x, itemAreaCenter.y),
                 new Vector2(OutColliderThickness, OutColliderHeight),
                 new Vector2(0.0f, 0.5f));
+            m_bottomOutCollider = GetOrCreateOutCollider(BottomOutColliderName);
             SetOutCollider(
-                GetOrCreateOutCollider(BottomOutColliderName),
-                new Vector2(itemAreaCenter.x, itemAreaMin.y),
-                new Vector2(itemAreaMax.x - itemAreaMin.x, OutColliderThickness),
+                m_bottomOutCollider,
+                new Vector2(itemAreaCenter.x, itemAreaBounds.Min.y),
+                new Vector2(itemAreaBounds.Size.x, OutColliderThickness),
                 new Vector2(0.5f, 1.0f));
         }
 
@@ -541,7 +621,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _localBounds = new CoordinateBounds(new Vector2(localMin.x, localMin.y), new Vector2(localMax.x, localMax.y));
 
             _hasCalculatedPositions = true;
+
             SetOutColliders();
+            SetBoardLocalItemOutLine();
         }
         #endregion
 
@@ -750,6 +832,14 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _worldBounds = default;
         }
 
+        private CoordinateBounds GetItemAreaBounds()
+        {
+            Vector4 padding = Clamp01(_itemAreaViewportPadding);
+            return new CoordinateBounds(
+                _localBounds.Lerp(new Vector2(padding.x, padding.w)),
+                _localBounds.Lerp(new Vector2(1.0f - padding.y, 1.0f - padding.z)));
+        }
+
         private static bool IsInBounds(
             CoordinateBounds bounds,
             Vector3 position,
@@ -761,6 +851,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _viewportPadding = Clamp01(_viewportPadding);
             _itemAreaViewportPadding = Clamp01(_itemAreaViewportPadding);
             _pivot = Clamp01(_pivot);
+            _boardLocalNormalizedItemOutPosY = Mathf.Clamp01(_boardLocalNormalizedItemOutPosY);
         }
 
         private static Vector2 Clamp01(Vector2 value)

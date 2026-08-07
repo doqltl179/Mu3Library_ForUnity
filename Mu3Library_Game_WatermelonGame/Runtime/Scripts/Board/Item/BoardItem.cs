@@ -20,7 +20,15 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         public RigidbodyType2D BodyType
         {
             get => _rb.bodyType;
-            set => _rb.bodyType = value;
+            set
+            {
+                _rb.bodyType = value;
+
+                if (value == RigidbodyType2D.Dynamic)
+                {
+                    _rb.WakeUp();
+                }
+            }
         }
 
         public bool ColliderEnabled
@@ -28,6 +36,23 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
             get => _collider.enabled;
             set => _collider.enabled = value;
         }
+
+        /// <summary>
+        /// The collider radius measured in the parent(board) local space.
+        /// </summary>
+        public float BoardLocalRadius
+        {
+            get
+            {
+                Vector3 scale = transform.localScale;
+                return _collider.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
+            }
+        }
+
+        /// <summary>
+        /// The local Y of the item's top edge, in the parent(board) local space.
+        /// </summary>
+        public float BoardLocalTopY => GetBoardLocalTopY(transform.localPosition.y);
 
         protected BoardItemInfo _info;
         public BoardItemInfo Info => _info;
@@ -38,11 +63,27 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         protected bool _isMerging = false;
         public bool IsMerging => _isMerging;
 
+        /// <summary>
+        /// True from the moment the item is placed on the board until it first hits something.
+        /// </summary>
+        protected bool _isFalling = false;
+        public bool IsFalling => _isFalling;
+
+        private static readonly Collider2D[] ContactBuffer = new Collider2D[16];
+
 
 
         protected virtual void OnDisable()
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
+
+            // A pooled item is always dropped again before it can be judged.
+            _isFalling = true;
+        }
+
+        protected virtual void OnCollisionEnter2D(Collision2D collision)
+        {
+            _isFalling = false;
         }
 
         #region Utility
@@ -76,6 +117,37 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
 
         public void SetMergeState(bool value) => _isMerging = value;
 
+        /// <summary>
+        /// Marks the item as falling. Call it whenever the item is placed on the board,
+        /// because every item is placed above the board line and has to drop first.
+        /// </summary>
+        public void SetFallState(bool value) => _isFalling = value;
+
+        /// <summary>
+        /// <br/> Returns true when this item is stacked above the board line.
+        /// <br/> An item counts as stacked only while it rests on <paramref name="floorCollider"/>
+        /// <br/> or on other board items. The side walls are never a support, they cannot hold an item up.
+        /// <br/> Every item is placed above the board line, so an item that has not landed yet
+        /// <br/> is excluded through <see cref="IsFalling"/>.
+        /// </summary>
+        /// <param name="boardLocalOutLineY">The board line position in the board local space.</param>
+        /// <param name="floorCollider">The board floor items can rest on.</param>
+        internal bool IsStackedOverLine(float boardLocalOutLineY, Collider2D floorCollider)
+        {
+            // A held item is kinematic and a merging item is about to disappear.
+            if (_isFalling || _isMerging || BodyType != RigidbodyType2D.Dynamic || !_collider.enabled)
+            {
+                return false;
+            }
+
+            if (BoardLocalTopY <= boardLocalOutLineY)
+            {
+                return false;
+            }
+
+            return IsSupported(floorCollider);
+        }
+
         public virtual void Init(int index, BoardItemInfo info)
         {
             _index = index;
@@ -100,5 +172,41 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
 
         public virtual void Init(BoardItemInfo info) => Init(-1, info);
         #endregion
+
+        private float GetBoardLocalTopY(float localY)
+        {
+            Vector3 scale = transform.localScale;
+            return localY + _collider.offset.y * scale.y + BoardLocalRadius;
+        }
+
+        /// <summary>
+        /// True while the item touches the board floor or another board item.
+        /// </summary>
+        private bool IsSupported(Collider2D floorCollider)
+        {
+            int contactCount = _rb.GetContacts(ContactBuffer);
+
+            for (int i = 0; i < contactCount; i++)
+            {
+                Collider2D contact = ContactBuffer[i];
+                if (contact == null)
+                {
+                    continue;
+                }
+
+                if (floorCollider != null && contact == floorCollider)
+                {
+                    return true;
+                }
+
+                // The side walls are skipped here, only other items can stack this one up.
+                if (contact.TryGetComponent(out BoardItem _))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

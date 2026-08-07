@@ -92,7 +92,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.OnTouchEnded -= OnDragEnd;
         }
 
-        protected virtual void OnDestory()
+        protected virtual void OnDestroy()
         {
             ClearAllCommands();
         }
@@ -109,28 +109,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
-            for (int i = 0; i < _commands.Count; i++)
-            {
-                var cmd = _commands[i];
-
-                if (cmd == null)
-                {
-                    _commands.RemoveAt(i);
-                    i--;
-                }
-                else if (cmd.IsCompleted)
-                {
-                    cmd.Dispose();
-                    _commands.RemoveAt(i);
-                    i--;
-                }
-                else if (!cmd.IsRunning)
-                {
-                    cmd.Run();
-                }
-            }
-
+            UpdateCommands();
             CreateMergingCommands();
+
+            if (CheckGameEnd())
+            {
+                GameEnd();
+            }
         }
 
         #region Utility
@@ -147,18 +132,35 @@ namespace Mu3Library.Game.WatermelonGame.Board
             OnGameStarted?.Invoke();
         }
 
+        public virtual void GameEnd()
+        {
+            if (_isEnded)
+            {
+                return;
+            }
+
+            _isRunning = false;
+            _isEnded = true;
+
+            // The player can still be holding an item when the board overflows.
+            ReleaseHoldingItem();
+
+            OnGameEnded?.Invoke();
+        }
+
         public virtual void Prepare(BoardSnapshot snapshot = null)
         {
             _score = 0;
             _spawnCount = 0;
             _mergeCount = 0;
 
-            PoolItemAll();
-            ClearAllCommands();
-
             _isPrepared = false;
             _isRunning = false;
             _isEnded = false;
+
+            ClearAllCommands();
+            ReleaseHoldingItem();
+            PoolItemAll();
 
             _boardArea.CalculateBounds();
 
@@ -178,12 +180,18 @@ namespace Mu3Library.Game.WatermelonGame.Board
                     }
 
                     var item = _pool.Dequeue(info);
-                    _createdItems.Add(item);
+                    if (item == null)
+                    {
+                        continue;
+                    }
 
+                    item.transform.localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(itemSnapshot.NormalizedLocalPosition);
+
+                    item.SetFallState(true);
                     item.BodyType = RigidbodyType2D.Dynamic;
                     item.ColliderEnabled = true;
 
-                    item.transform.localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(itemSnapshot.NormalizedLocalPosition);
+                    AddCreatedItem(item);
                 }
             }
 
@@ -202,6 +210,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             _boardArea.SetBoardImage(config.BoardSprite);
+            _boardArea.SetBoardLocalItemOutLine(config.BoardLineSprite);
 
             foreach (var item in _createdItems)
             {
@@ -252,6 +261,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 }
 
                 var item = _pool.Dequeue(info);
+                if (item == null)
+                {
+                    return;
+                }
 
                 item.BodyType = RigidbodyType2D.Kinematic;
                 item.ColliderEnabled = false;
@@ -284,25 +297,96 @@ namespace Mu3Library.Game.WatermelonGame.Board
             var item = _holdingItem;
             _holdingItem = null;
 
-            _createdItems.Add(item);
+            item.SetFallState(true);
             item.BodyType = RigidbodyType2D.Dynamic;
             item.ColliderEnabled = true;
+
+            AddCreatedItem(item);
 
             _spawnCount++;
         }
         #endregion
+
+        protected void UpdateCommands()
+        {
+            for (int i = 0; i < _commands.Count; i++)
+            {
+                var cmd = _commands[i];
+
+                if (cmd == null)
+                {
+                    _commands.RemoveAt(i);
+                    i--;
+                }
+                else if (cmd.IsCompleted)
+                {
+                    cmd.Dispose();
+                    _commands.RemoveAt(i);
+                    i--;
+                }
+                else if (!cmd.IsRunning)
+                {
+                    cmd.Run();
+                }
+            }
+        }
+
+        protected bool CheckGameEnd()
+        {
+            if (_boardArea == null)
+            {
+                return false;
+            }
+
+            Rect boardRect = _boardArea.LocalRect;
+            if (boardRect.width <= Mathf.Epsilon || boardRect.height <= Mathf.Epsilon)
+            {
+                return false;
+            }
+
+            float itemOutPosY = _boardArea.BoardLocalNormalizedPositionToLocal(
+                new Vector2(0.0f, _boardArea.BoardLocalNormalizedItemOutPosY)).y;
+
+            // Items resting on the floor or on other items are stacked, the side walls do not count.
+            Collider2D floorCollider = _boardArea.BottomOutCollider;
+
+            foreach (var item in _createdItems)
+            {
+                if (item == null || item == _holdingItem)
+                {
+                    continue;
+                }
+
+                if (item.IsStackedOverLine(itemOutPosY, floorCollider))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         protected void CreateMergingCommands()
         {
             for (int i = 0; i < _createdItems.Count - 1; i++)
             {
                 BoardItem item01 = _createdItems[i];
+                if (item01 == null || item01.IsMerging)
+                {
+                    continue;
+                }
+
                 for (int j = i + 1; j < _createdItems.Count; j++)
                 {
                     BoardItem item02 = _createdItems[j];
+                    if (item02 == null || item02.IsMerging)
+                    {
+                        continue;
+                    }
+
+                    // item01 is merging from now on, so it cannot pair with anything else.
                     if (CreateMergingCommand(item01, item02))
                     {
-                        i--;
                         break;
                     }
                 }
@@ -311,7 +395,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected bool CreateMergingCommand(BoardItem item01, BoardItem item02)
         {
-            if (!item01.CanMerge(item02))
+            if (item01 == null || item02 == null || !item01.CanMerge(item02))
             {
                 return false;
             }
@@ -329,29 +413,34 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 _score += _scoreRule.GetScore(itemIndex);
                 OnScoreChanged?.Invoke(_score);
 
-                _pool.Enqueue(item01);
-                _pool.Enqueue(item02);
+                PoolItem(item01);
+                PoolItem(item02);
 
                 int nextIndex = itemIndex + 1;
-                BoardItemInfo nextInfo = _boardConfig.ItemConfig.GetInfoByIndex(nextIndex);
+                BoardItemInfo nextInfo = _boardConfig != null
+                    ? _boardConfig.ItemConfig.GetInfoByIndex(nextIndex)
+                    : null;
 
                 if (nextInfo != null)
                 {
                     BoardItem nextItem = _pool.Dequeue(nextInfo);
-                    _createdItems.Add(nextItem);
+                    if (nextItem != null)
+                    {
+                        nextItem.transform.localPosition = localMiddlePos;
 
-                    nextItem.BodyType = RigidbodyType2D.Dynamic;
-                    nextItem.ColliderEnabled = true;
+                        nextItem.SetFallState(true);
+                        nextItem.BodyType = RigidbodyType2D.Dynamic;
+                        nextItem.ColliderEnabled = true;
 
-                    nextItem.transform.localPosition = localMiddlePos;
+                        AddCreatedItem(nextItem);
+                    }
                 }
 
                 _mergeCount++;
             }
 
-            _createdItems.Remove(item01);
-            _createdItems.Remove(item02);
-
+            // The items stay in '_createdItems' until the command completes, so that
+            // 'PoolItemAll' can still collect them when the board is prepared again.
             MergingCommand command = new MergingCommand(item01, item02, OnStart, OnComplete);
             _commands.Add(command);
 
@@ -377,6 +466,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         {
             Vector2 normalizedBoardLocalPos = _boardArea.ScreenToBoardLocalNormalizedPosition(screenPos);
             Vector2 holderLocalPos = _boardArea.BoardLocalNormalizedPositionToLocal(new Vector2(normalizedBoardLocalPos.x, 1.0f));
+            Rect itemAreaLocalRect = _boardArea.ItemAreaLocalRect;
 
             Sprite sprite = _holdingItem.Info != null ? _holdingItem.Info.Sprite : null;
             float itemScale = _holdingItem.Info != null
@@ -385,10 +475,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             float itemMinX = sprite != null ? sprite.bounds.min.x * itemScale : 0.0f;
             float itemMaxX = sprite != null ? sprite.bounds.max.x * itemScale : 0.0f;
 
-            float boardMinX = _boardArea.LocalLB.x;
-            float boardMaxX = _boardArea.LocalRT.x;
-            float minHolderX = boardMinX - itemMinX;
-            float maxHolderX = boardMaxX - itemMaxX;
+            float minHolderX = itemAreaLocalRect.xMin - itemMinX;
+            float maxHolderX = itemAreaLocalRect.xMax - itemMaxX;
             holderLocalPos.x = minHolderX <= maxHolderX
                 ? Mathf.Clamp(holderLocalPos.x, minHolderX, maxHolderX)
                 : (minHolderX + maxHolderX) * 0.5f;
@@ -410,20 +498,69 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 _smallestItemBoardWidthRatio);
         }
 
-        protected void PoolItemAll()
+        /// <summary>
+        /// Adds an item to the board. The same instance is never registered twice,
+        /// otherwise it could be pooled while another entry still keeps it alive.
+        /// </summary>
+        protected void AddCreatedItem(BoardItem item)
         {
-            foreach (var item in _createdItems)
+            if (item == null || _createdItems.Contains(item))
             {
-                if (item == null)
-                {
-                    return;
-                }
-
-                item.gameObject.SetActive(false);
+                return;
             }
 
-            _pool.Enqueue(_createdItems);
-            _createdItems.Clear();
+            _createdItems.Add(item);
+        }
+
+        /// <summary>
+        /// Removes an item from the board and returns it to the pool.
+        /// </summary>
+        protected void PoolItem(BoardItem item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            while (_createdItems.Remove(item))
+            {
+            }
+
+            item.SetMergeState(false);
+            item.gameObject.SetActive(false);
+
+            _pool.Enqueue(item);
+        }
+
+        protected void ReleaseHoldingItem()
+        {
+            if (_holdingItem == null)
+            {
+                return;
+            }
+
+            var item = _holdingItem;
+            _holdingItem = null;
+
+            PoolItem(item);
+        }
+
+        protected void PoolItemAll()
+        {
+            // 'PoolItem' removes every entry of the item, so the count always decreases.
+            while (_createdItems.Count > 0)
+            {
+                int lastIndex = _createdItems.Count - 1;
+                BoardItem item = _createdItems[lastIndex];
+
+                if (item == null)
+                {
+                    _createdItems.RemoveAt(lastIndex);
+                    continue;
+                }
+
+                PoolItem(item);
+            }
         }
 
         protected void InitBoardItem(BoardItem item, BoardItemInfo info)
