@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Mu3Library.Game.WatermelonGame.Board.Item;
@@ -19,7 +18,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
                 return _itemInfos;
             }
         }
-
 
 
 
