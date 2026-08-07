@@ -92,6 +92,7 @@ crashlytics-build.properties
 # Symlink/Junction targets for package samples (source of truth is Samples~)
 UnityProject_BuiltIn/Assets/Mu3LibrarySamples/
 UnityProject_URP/Assets/Mu3LibrarySamplesURP/
+UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame/
 
 .vscode/
 .venv/

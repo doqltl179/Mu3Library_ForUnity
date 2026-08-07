@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Mu3Library.Game.WatermelonGame::Mu3Library.Game.WatermelonGame.Board.Config.BoardConfig
   _configId: default
   _boardSprite: {fileID: 21300000, guid: 6fda3f5350e74c18880a6a2e2c97d8f0, type: 3}
+  _boardLineSprite: {fileID: 21300000, guid: f3146b10b65c4cb3b4292f6f38c1987a, type: 3}
+  _boardSpawnSprite: {fileID: 21300000, guid: 93aab754409b4b7fb461067eb3d569d3, type: 3}
   _itemConfig:
     _itemInfos:
     - _sprite: {fileID: 21300000, guid: d389462c018d7044c82c8ddd639a6df6, type: 3}

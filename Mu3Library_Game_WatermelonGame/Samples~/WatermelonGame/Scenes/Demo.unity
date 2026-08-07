@@ -168,6 +168,10 @@ MonoBehaviour:
   _boardArea: {fileID: 1942010723}
   _itemResource: {fileID: 349857574}
   _smallestItemBoardWidthRatio: 0.05
+  _largestItemBoardWidthRatio: 0.4
+  _dropInterval: 0.5
+  _dropSpeedBoardHeightRatio: 0.5
+  _gravityBoardHeightRatio: 1.5
 --- !u!1 &339814340
 GameObject:
   m_ObjectHideFlags: 0
@@ -554,6 +558,7 @@ MonoBehaviour:
   _viewportPadding: {x: 0.04, y: 0.04, z: 0.1, w: 0.1}
   _itemAreaViewportPadding: {x: 0.04, y: 0.04, z: 0, w: 0.04}
   _pivot: {x: 0.5, y: 0.5}
+  _boardLocalNormalizedItemOutPosY: 0.9
 --- !u!212 &1942010724
 SpriteRenderer:
   serializedVersion: 2
