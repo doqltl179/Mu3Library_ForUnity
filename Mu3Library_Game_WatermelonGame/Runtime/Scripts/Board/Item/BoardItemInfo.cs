@@ -10,7 +10,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         public Sprite Sprite => _sprite;
 
         [Tooltip("The collider diameter as a fraction of the sprite size.")]
-        [SerializeField, Range(0.01f, 1.0f)] private float _colliderScale = 0.96f;
+        [SerializeField, Range(0.01f, 1.0f)] private float _colliderScale = 0.98f;
         /// <summary>
         /// The collider diameter as a fraction of the sprite size.
         /// <br/> An entry serialized before this field existed carries 0, which the range never
