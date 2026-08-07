@@ -6,8 +6,8 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
 {
     /// <summary>
     /// Forwards the raw touches of an <see cref="InputHandler"/> as board touches.
-    /// <br/> A drag only starts inside the board area and every touch of that drag is reported
-    /// <br/> until it ends, so the board never reacts to a touch that began somewhere else.
+    /// <br/> A drag only starts inside the board area. Moves are reported while they remain inside,
+    /// <br/> while the end is always reported so the board never reacts to a touch that began elsewhere.
     /// </summary>
     public sealed class BoardAreaInputRelay
     {

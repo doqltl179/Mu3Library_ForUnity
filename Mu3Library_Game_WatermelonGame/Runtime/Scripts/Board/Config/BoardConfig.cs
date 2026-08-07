@@ -34,10 +34,12 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
 
         [Tooltip("The rigidbody values applied to every board item.")]
         [SerializeField] protected BoardItemRigidbodySettings _itemRigidbodySettings = new();
+        [System.NonSerialized] private BoardItemRigidbodySettings m_runtimeItemRigidbodySettings;
         /// <summary>
         /// The rigidbody values every board item is given, never null.
         /// </summary>
-        public BoardItemRigidbodySettings ItemRigidbodySettings => _itemRigidbodySettings ??= new BoardItemRigidbodySettings();
+        public BoardItemRigidbodySettings ItemRigidbodySettings =>
+            _itemRigidbodySettings ?? (m_runtimeItemRigidbodySettings ??= new BoardItemRigidbodySettings());
 
 
         private void OnValidate()

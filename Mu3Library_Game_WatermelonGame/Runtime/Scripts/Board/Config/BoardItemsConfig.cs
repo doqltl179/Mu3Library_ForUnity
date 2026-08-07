@@ -9,15 +9,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
     {
         public const int FruitItemCount = 11;
 
+        private static readonly IReadOnlyList<BoardItemInfo> EmptyItemInfos = new BoardItemInfo[0];
+
         [SerializeField] protected List<BoardItemInfo> _itemInfos = CreateDefaultItemInfos();
-        public IReadOnlyList<BoardItemInfo> ItemInfos
-        {
-            get
-            {
-                EnsureItemInfoCount();
-                return _itemInfos;
-            }
-        }
+        public IReadOnlyList<BoardItemInfo> ItemInfos => _itemInfos ?? EmptyItemInfos;
 
 
 
@@ -30,11 +25,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
                 return;
             }
 
-            if (_itemInfos.Count > FruitItemCount)
-            {
-                _itemInfos.RemoveRange(FruitItemCount, _itemInfos.Count - FruitItemCount);
-            }
-
             while (_itemInfos.Count < FruitItemCount)
             {
                 _itemInfos.Add(null);
@@ -45,13 +35,30 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         {
             EnsureItemInfoCount();
 
-            if (index < 0 || index >= FruitItemCount)
+            if (TryGetInfoByIndex(index, out BoardItemInfo itemInfo))
             {
-                Debug.LogWarning($"Requested item info index is out of range. index: {index}");
-                return null;
+                return itemInfo;
             }
 
-            return _itemInfos[index];
+            if (index < 0 || index >= _itemInfos.Count)
+            {
+                Debug.LogWarning($"Requested item info index is out of range. index: {index}");
+            }
+
+            return null;
+        }
+
+        internal bool TryGetInfoByIndex(int index, out BoardItemInfo itemInfo)
+        {
+            itemInfo = null;
+
+            if (_itemInfos == null || index < 0 || index >= _itemInfos.Count)
+            {
+                return false;
+            }
+
+            itemInfo = _itemInfos[index];
+            return itemInfo != null;
         }
 
         public int GetIndex(BoardItemInfo info)

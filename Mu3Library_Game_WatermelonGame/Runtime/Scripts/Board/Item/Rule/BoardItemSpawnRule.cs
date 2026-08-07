@@ -5,7 +5,9 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 {
     public class BoardItemSpawnRule
     {
-        private readonly List<int> _indexBag = new();
+        private const int IndexBagCapacity = 100;
+
+        private readonly List<int> _indexBag = new(IndexBagCapacity);
 
 
 
@@ -62,8 +64,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
                     AddWeightedIndex(4, 10);
                     break;
             }
-
-            ShuffleIndexBag();
         }
 
         private void AddWeightedIndex(int index, int weight)
@@ -74,15 +74,5 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
             }
         }
 
-        private void ShuffleIndexBag()
-        {
-            for (int i = _indexBag.Count - 1; i > 0; i--)
-            {
-                int randomIndex = Random.Range(0, i + 1);
-                int value = _indexBag[i];
-                _indexBag[i] = _indexBag[randomIndex];
-                _indexBag[randomIndex] = value;
-            }
-        }
     }
 }

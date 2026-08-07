@@ -36,17 +36,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
                 return false;
             }
 
-            if (!TryGetWorldBounds(cam, board, screenRect, out CoordinateBounds worldBounds))
+            if (!TryGetBoardBounds(cam, board, screenRect, out CoordinateBounds localBounds, out CoordinateBounds worldBounds))
             {
                 Debug.LogWarning("Cannot calculate board screen positions because the board plane cannot be intersected mathematically from the camera.", board);
                 return false;
             }
-
-            Vector3 localMin = board.InverseTransformPoint(BoardAreaGeometry.ToVector3(worldBounds.Min));
-            Vector3 localMax = board.InverseTransformPoint(BoardAreaGeometry.ToVector3(worldBounds.Max));
-            CoordinateBounds localBounds = new CoordinateBounds(
-                new Vector2(localMin.x, localMin.y),
-                new Vector2(localMax.x, localMax.y));
 
             bounds = new BoardAreaBounds(
                 localBounds,
@@ -113,8 +107,16 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             return true;
         }
 
-        private static bool TryGetWorldBounds(Camera cam, Transform board, Rect screenRect, out CoordinateBounds worldBounds)
+        private static bool TryGetBoardBounds(
+            Camera cam,
+            Transform board,
+            Rect screenRect,
+            out CoordinateBounds localBounds,
+            out CoordinateBounds worldBounds)
         {
+            localBounds = default;
+            worldBounds = default;
+
             Vector2 bottomLeft = new Vector2(screenRect.xMin, screenRect.yMin);
             Vector2 topLeft = new Vector2(screenRect.xMin, screenRect.yMax);
             Vector2 bottomRight = new Vector2(screenRect.xMax, screenRect.yMin);
@@ -125,9 +127,24 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
                 !BoardAreaGeometry.TryScreenToWorldOnPlane(cam, board, bottomRight, out Vector3 worldBottomRight) ||
                 !BoardAreaGeometry.TryScreenToWorldOnPlane(cam, board, topRight, out Vector3 worldTopRight))
             {
-                worldBounds = default;
                 return false;
             }
+
+            // The public world bounds remain an XY AABB for compatibility. The local bounds,
+            // however, must come from the actual plane intersections so tilted cameras and boards
+            // do not lose their world Z coordinates before the inverse transform.
+            Vector3 localBottomLeft = board.InverseTransformPoint(worldBottomLeft);
+            Vector3 localTopLeft = board.InverseTransformPoint(worldTopLeft);
+            Vector3 localBottomRight = board.InverseTransformPoint(worldBottomRight);
+            Vector3 localTopRight = board.InverseTransformPoint(worldTopRight);
+
+            Vector2 localMin = new Vector2(
+                Mathf.Min(Mathf.Min(localBottomLeft.x, localTopLeft.x), Mathf.Min(localBottomRight.x, localTopRight.x)),
+                Mathf.Min(Mathf.Min(localBottomLeft.y, localTopLeft.y), Mathf.Min(localBottomRight.y, localTopRight.y)));
+            Vector2 localMax = new Vector2(
+                Mathf.Max(Mathf.Max(localBottomLeft.x, localTopLeft.x), Mathf.Max(localBottomRight.x, localTopRight.x)),
+                Mathf.Max(Mathf.Max(localBottomLeft.y, localTopLeft.y), Mathf.Max(localBottomRight.y, localTopRight.y)));
+            localBounds = new CoordinateBounds(localMin, localMax);
 
             Vector2 worldMin = new Vector2(
                 Mathf.Min(Mathf.Min(worldBottomLeft.x, worldTopLeft.x), Mathf.Min(worldBottomRight.x, worldTopRight.x)),

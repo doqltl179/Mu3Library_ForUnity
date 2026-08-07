@@ -13,7 +13,19 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         private const int LineSortingOffset = 100;
 
         private const string SpawnObjectName = "Spawn";
-        private const int SpawnSortingOffset = 100;
+
+        /// <summary>
+        /// The marker only has to sit right above the board itself, so it leaves every
+        /// <br/> order above it free for whatever the game draws on the board.
+        /// </summary>
+        private const int SpawnSortingOffset = 1;
+
+        /// <summary>
+        /// The spawn marker width as a fraction of the board width.
+        /// <br/> The board follows the screen resolution, so the marker keeps the same size
+        /// <br/> relative to the board on every device, whatever the sprite resolution is.
+        /// </summary>
+        public const float SpawnBoardWidthRatio = 0.2f;
 
         private readonly Transform _board;
         private readonly SpriteRenderer _boardRenderer;
@@ -36,15 +48,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         {
             get
             {
-                if (_lineRenderer == null && _board != null)
-                {
-                    GameObject lineObject = new GameObject(LineObjectName);
-                    lineObject.transform.SetParent(_board);
-
-                    _lineRenderer = lineObject.AddComponent<SpriteRenderer>();
-                }
-
-                return _lineRenderer;
+                return GetOrCreateRenderer(ref _lineRenderer, LineObjectName);
             }
         }
 
@@ -55,18 +59,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         {
             get
             {
-                if (_spawnRenderer == null && _board != null)
-                {
-                    GameObject spawnObject = new GameObject(SpawnObjectName);
-
-                    // The local scale is kept at one, so the marker is scaled by the board
-                    // exactly like the board sprite and keeps its size on every screen resolution.
-                    spawnObject.transform.SetParent(_board, false);
-
-                    _spawnRenderer = spawnObject.AddComponent<SpriteRenderer>();
-                }
-
-                return _spawnRenderer;
+                return GetOrCreateRenderer(ref _spawnRenderer, SpawnObjectName);
             }
         }
 
@@ -262,9 +255,13 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             Transform spawnTransform = spawnRenderer.transform;
             Vector2 topEdgePosition = bounds.Local.Lerp(new Vector2(_spawnNormalizedX, 1.0f));
 
+            // The marker is sized against the board, so the position below is measured
+            // on the size it really takes.
+            Vector3 spawnScale = GetSpawnLocalScale(sprite, bounds, spawnTransform.localScale);
+            spawnTransform.localScale = spawnScale;
+
             // The sprite bounds are measured from the pivot, so removing them from the edge position
             // puts the bottom center of the sprite on the edge. A (0.5, 0.0) pivot removes nothing.
-            Vector3 spawnScale = spawnTransform.localScale;
             spawnTransform.localPosition = new Vector3(
                 topEdgePosition.x - sprite.bounds.center.x * spawnScale.x,
                 topEdgePosition.y - sprite.bounds.min.y * spawnScale.y,
@@ -276,6 +273,51 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             }
 
             spawnRenderer.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// The scale that makes the spawn marker <see cref="SpawnBoardWidthRatio"/> of the board wide.
+        /// <br/> Both axes are scaled the same way, so the sprite keeps its shape.
+        /// </summary>
+        /// <param name="currentScale">The scale to keep when the marker cannot be measured.</param>
+        private static Vector3 GetSpawnLocalScale(Sprite sprite, BoardAreaBounds bounds, Vector3 currentScale)
+        {
+            float spriteWidth = sprite.bounds.size.x;
+            float boardWidth = bounds.Local.Size.x;
+            if (spriteWidth <= Mathf.Epsilon || boardWidth <= Mathf.Epsilon)
+            {
+                return currentScale;
+            }
+
+            float scale = boardWidth * SpawnBoardWidthRatio / spriteWidth;
+
+            return new Vector3(scale, scale, currentScale.z);
+        }
+
+        private SpriteRenderer GetOrCreateRenderer(ref SpriteRenderer renderer, string objectName)
+        {
+            if (renderer != null || _board == null)
+            {
+                return renderer;
+            }
+
+            Transform rendererTransform = _board.Find(objectName);
+            if (rendererTransform == null)
+            {
+                GameObject rendererObject = new GameObject(objectName);
+                rendererTransform = rendererObject.transform;
+
+                // The local pose starts at identity, so child rendering stays in board space.
+                rendererTransform.SetParent(_board, false);
+            }
+
+            renderer = rendererTransform.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                renderer = rendererTransform.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            return renderer;
         }
     }
 }
