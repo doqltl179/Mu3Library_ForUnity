@@ -24,6 +24,20 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         [SerializeField] protected BoardItemsConfig _itemConfig;
         public BoardItemsConfig ItemConfig => _itemConfig;
 
+        [Space(20)]
+        [Tooltip("Optional. Applied to the collider of every board item.\nNone leaves the item prefab with the material it already carries.")]
+        [SerializeField] protected PhysicsMaterial2D _itemPhysicsMaterial;
+        /// <summary>
+        /// The material every board item rubs and bounces with, null to keep the one on the item prefab.
+        /// </summary>
+        public PhysicsMaterial2D ItemPhysicsMaterial => _itemPhysicsMaterial;
+
+        [Tooltip("The rigidbody values applied to every board item.")]
+        [SerializeField] protected BoardItemRigidbodySettings _itemRigidbodySettings = new();
+        /// <summary>
+        /// The rigidbody values every board item is given, never null.
+        /// </summary>
+        public BoardItemRigidbodySettings ItemRigidbodySettings => _itemRigidbodySettings ??= new BoardItemRigidbodySettings();
 
 
         private void OnValidate()

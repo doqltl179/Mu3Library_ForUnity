@@ -49,6 +49,35 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         }
 
         /// <summary>
+        /// How quickly the item loses its speed while it falls and slides.
+        /// </summary>
+        public float LinearDamping
+        {
+            get => _rb.linearDamping;
+            set => _rb.linearDamping = value;
+        }
+
+        /// <summary>
+        /// How quickly the item loses its spin, which is what decides how far it rolls
+        /// <br/> on the board floor before it comes to rest.
+        /// </summary>
+        public float AngularDamping
+        {
+            get => _rb.angularDamping;
+            set => _rb.angularDamping = value;
+        }
+
+        /// <summary>
+        /// The material the item rubs and bounces with.
+        /// <br/> Null hands the collider back to the material of the rigidbody or the project.
+        /// </summary>
+        public PhysicsMaterial2D PhysicsMaterial
+        {
+            get => _collider.sharedMaterial;
+            set => _collider.sharedMaterial = value;
+        }
+
+        /// <summary>
         /// The collider radius measured in the parent(board) local space.
         /// </summary>
         public float BoardLocalRadius

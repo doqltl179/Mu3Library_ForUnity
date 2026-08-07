@@ -310,6 +310,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 // Change Skin(Sprite)
                 var info = config.ItemConfig.GetInfoByIndex(itemIndex);
                 item.Init(itemIndex, info);
+
+                // The items already on the board move by the new config from now on.
+                ApplyItemPhysics(item, config);
             }
 
             _boardConfig = config;
@@ -837,6 +840,31 @@ namespace Mu3Library.Game.WatermelonGame.Board
         }
 
         /// <summary>
+        /// Hands the item the physics the board config asks for, so every item on the board
+        /// <br/> slides, rolls and bounces the same way without the item prefab carrying the values.
+        /// <br/> The gravity is left out, <see cref="ApplyItemGravity"/> scales that one with the board.
+        /// </summary>
+        protected virtual void ApplyItemPhysics(BoardItem item, BoardConfig config)
+        {
+            if (item == null || config == null)
+            {
+                return;
+            }
+
+            // The material is optional, a config without one leaves the item prefab alone.
+            if (config.ItemPhysicsMaterial != null)
+            {
+                item.PhysicsMaterial = config.ItemPhysicsMaterial;
+            }
+
+            BoardItemRigidbodySettings rigidbodySettings = config.ItemRigidbodySettings;
+
+            // The damping is what stops an item from rolling on until it reaches a side wall.
+            item.LinearDamping = rigidbodySettings.LinearDamping;
+            item.AngularDamping = rigidbodySettings.AngularDamping;
+        }
+
+        /// <summary>
         /// Scales the item's own gravity to <see cref="GetDropAcceleration"/>.
         /// <br/> Only the board items are scaled, the project gravity keeps serving the rest of the scene.
         /// </summary>
@@ -982,6 +1010,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // A pooled item rolled while it was on the board, so it is set upright again.
             // A restored item is turned back to its saved rotation after it leaves the pool.
             item.transform.localRotation = Quaternion.identity;
+
+            ApplyItemPhysics(item, _boardConfig);
         }
 
         /// <summary>
