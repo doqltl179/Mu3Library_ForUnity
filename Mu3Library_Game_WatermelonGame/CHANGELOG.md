@@ -8,6 +8,8 @@
 - Added a board-relative fall acceleration, set as a fraction of the board area height per second squared and applied through the item gravity scale, so the whole fall stays the same on every screen resolution without touching the project gravity.
 - Added JSON serialization and deserialization to `BoardSnapshot` through `ToJson` and `FromJson`, preserving board counters, the held and preview item indices, item positions, and rotations.
 - Added `BoardController.ExportSnapshot`, `ExportSnapshotJson`, and `ImportSnapshotJson` to save and restore the board, including the held item, preview item, and board item positions and rotations.
+- Added optional `BoardConfig.ItemPhysicsMaterial` and `BoardConfig.ItemRigidbodySettings` settings for the physics material, linear damping, and angular damping applied to every board item.
+- Added `BoardItem.PhysicsMaterial`, `LinearDamping`, and `AngularDamping` so board-wide physics can be configured without changing the item prefab.
 - Added a next-item preview to `BoardController`(`NextItemIndex`, `NextItemInfo`, `OnNextItemChanged`), drawn one item ahead of the one in hand.
 - Added `BoardController.IsGameEndCheckPaused`, which suspends the game-end check for the drop interval so a freshly dropped stack can slide into place before it is judged.
 - Changed the item to drop to wait at the top of the board as soon as the drop interval has passed, at the place the previous item was dropped from, instead of being created on the next touch.

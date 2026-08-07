@@ -20,6 +20,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardController`: 낙하 가속도를 board area 높이 대비 비율(초 제곱당)로 설정하고, 아이템을 놓을 때 `BoardItem.GravityScale`로 적용하도록 추가했습니다. 초기 속도와 함께 적용되어 낙하의 시작뿐 아니라 전 구간이 어떤 해상도에서도 보드 대비 같은 비율을 같은 시간에 이동합니다. 보드 아이템만 조정하며 프로젝트 중력 설정은 변경하지 않습니다.
 - `BoardSnapshot`: `ToJson`과 `FromJson`을 통한 JSON 직렬화·역직렬화를 추가해 점수, 생성·병합 횟수, 들고 있는 아이템과 미리보기 아이템의 인덱스, 보드 기준 아이템 위치와 회전을 저장합니다.
 - `BoardController`: 들고 있는 아이템, 미리보기 아이템, 보드 아이템의 위치와 회전을 포함해 보드를 저장·복원하는 `ExportSnapshot`, `ExportSnapshotJson`, `ImportSnapshotJson`을 추가했습니다.
+- `BoardConfig`: 모든 보드 아이템에 적용할 물리 머티리얼, 선형 감쇠, 각 감쇠를 설정하는 선택적 `ItemPhysicsMaterial`과 `ItemRigidbodySettings`를 추가했습니다.
+- `BoardItem`: 아이템 프리팹을 변경하지 않고 보드 전체 물리를 설정할 수 있도록 `PhysicsMaterial`, `LinearDamping`, `AngularDamping` 프로퍼티를 추가했습니다.
 
 - `BoardController`: 다음 아이템 미리보기를 `NextItemIndex`, `NextItemInfo`, `OnNextItemChanged`로 추가했습니다. spawn rule에서 한 개를 미리 뽑아두므로 현재 들고 있는 아이템 다음에 무엇이 나올지 확인할 수 있으며, 들고 있는 아이템 자체는 `HoldingItem`으로 노출됩니다.
 - `BoardController`: 아이템을 놓은 뒤 drop interval 동안 게임 종료 판정을 중단하는 `IsGameEndCheckPaused`를 추가했습니다. 아이템이 높이 쌓인 상태에서는 낙하 아이템이 거의 즉시 착지 판정을 받기 때문에, 이제 그 시간 동안 아이템이 미끄러져 자리를 잡은 뒤에 판정합니다.

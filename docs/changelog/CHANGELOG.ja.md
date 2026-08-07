@@ -22,6 +22,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardController`: 落下加速度を board area 高さに対する比率（1 秒の 2 乗あたり）で設定し、item を落とす際に `BoardItem.GravityScale` として適用するようにしました。初速度と併せて、落下の開始だけでなく全区間が、どの解像度でも board に対して同じ割合を同じ時間で移動します。調整されるのは board item のみで、project の gravity 設定は変更しません。
 - `BoardSnapshot`: `ToJson` と `FromJson` による JSON の serialize / deserialize を追加し、score、spawn / merge count、holding item と preview item の index、board 基準の item 位置と回転を保存できるようにしました。
 - `BoardController`: holding item、preview item、board item の位置と回転を含めて board を保存・復元する `ExportSnapshot`、`ExportSnapshotJson`、`ImportSnapshotJson` を追加しました。
+- `BoardConfig`: すべての board item に適用する physics material、linear damping、angular damping を設定する任意の `ItemPhysicsMaterial` と `ItemRigidbodySettings` を追加しました。
+- `BoardItem`: item prefab を変更せず board 全体の physics を設定できる `PhysicsMaterial`、`LinearDamping`、`AngularDamping` property を追加しました。
 
 - `BoardController`: 次の item の preview を `NextItemIndex`、`NextItemInfo`、`OnNextItemChanged` として追加しました。spawn rule から 1 つ先に引いておくため、手持ちの item の次に何が来るかを確認でき、手持ちの item 自体は `HoldingItem` で公開されます。
 - `BoardController`: item を落とした後の drop interval の間、game end 判定を停止する `IsGameEndCheckPaused` を追加しました。item が高く積まれた状態では落下 item がほぼ即座に着地判定となるため、その間に item が滑って落ち着いてから判定します。
