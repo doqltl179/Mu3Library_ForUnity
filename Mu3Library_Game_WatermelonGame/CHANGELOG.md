@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [watermelon/0.2.0] - 2026-08-08
+
+- Fixed the spawn guide line disappearing when its board-relative dimensions were applied through `SpriteRenderer.size`; it now fits through its child transform scale.
+- Fixed the spawn guide line staying hidden when a drag begins during the drop cooldown and the held item becomes available afterward.
+- Added a configurable drag-only vertical tiled spawn guide line; it is one tenth of the spawn marker's width, renders at board sorting order `+1`, and moves the spawn marker to `+2`.
 - Fixed the package sample lifecycle so a successfully prepared board starts running.
 - Configured the package sample board with its item-out line and spawn-marker images.
 - Added `BoardController.SetBoardConfig(BoardConfig)` as the validated configuration boundary; `SetBoareConfig` remains as a compatibility alias.

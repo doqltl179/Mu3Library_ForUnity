@@ -15,8 +15,11 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [watermelon/0.2.0] - 2026-08-08
+
 ### Added
 - `BoardArea`: Added configurable item-out line placement and board-width fitting for the optional outline sprite.
+- `BoardConfig`: Added a configurable drag-only tiled spawn guide line sprite, rendered below the spawn marker at board sorting order `+1` while the marker renders at `+2`.
 - `BoardController`: Added a drop interval, 0.5 seconds by default, so a touch can no longer spawn items back to back, exposed through `CanSpawnItem` and `DropCooldown`.
 - `BoardController`: Added an initial downward speed for a released item, configured as a fraction of the board area height per second. The board area follows the screen resolution, so the same push is applied on every device. `BoardItem.SetDropVelocity(Vector2)` applies it as a velocity instead of a force, because the items differ in mass.
 - `BoardController`: Added a board-relative fall acceleration, configured as a fraction of the board area height per second squared and applied through `BoardItem.GravityScale` when an item is dropped. Together with the drop speed the whole fall, and not only its start, covers the same fraction of the board in the same time on every screen resolution. Only the board items are scaled, the project gravity is never modified.
@@ -43,6 +46,7 @@ This changelog tracks package release changes only. Repository development workf
 - Merge effects: Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures. The prefabs were saved in the legacy Unity 5 prefab format, so their `ParticleSystemRenderer` had no `serializedVersion`, was missing most of its fields, and held a null material at index 0; instantiating one crashed the Editor natively in `ParticleSystemRenderer::PrepareForRender` on the first merge.
 
 ### Fixed
+- `BoardArea`: The spawn guide line now appears when a drag began during the drop cooldown and the held item becomes available afterward, and its board-relative dimensions are applied through transform scale.
 - `MergingCommand`: Merge reservations are released for invalid, canceled, and failed commands without mutating a pooled item that has already been reused.
 - `BoardItem`: Pooled instances now reset their presentation, collider, physics, support, and merge state before reuse.
 - `InputHandler`: Touch moves and ends now stay tied to the finger that began the drag.

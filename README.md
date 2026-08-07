@@ -463,7 +463,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 - Current Base package version in this repository: `0.22.0`
 - Current URP package version in this repository: `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Current Watermelon Game package version in this repository: `0.1.1` (depends on Base `0.22.0` and URP `0.2.1`)
+- Current Watermelon Game package version in this repository: `0.2.0` (depends on Base `0.22.0` and URP `0.2.1`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -486,6 +486,6 @@ This project is distributed under the MIT License.
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base` `0.22.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.1.1` (depends on Base `0.22.0` and URP `0.2.1`)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.2.0` (depends on Base `0.22.0` and URP `0.2.1`)
 
 Made with ❤️ for Unity Developers

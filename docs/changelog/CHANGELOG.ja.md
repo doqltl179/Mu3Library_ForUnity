@@ -15,8 +15,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [watermelon/0.2.0] - 2026-08-08
+
 ### 追加
 - `BoardArea`: 任意の outline sprite を設定した board 幅に合わせ、item 超過境界へ配置する機能を追加しました。
+- `BoardConfig`: drag 中だけ表示する tiled 方式の spawn guide line sprite 設定を追加しました。guide line は board sorting order `+1`、spawn marker は `+2` で描画されます。
 - `BoardController`: item の生成間隔（既定 0.5 秒）を追加し、touch のたびに item が連続生成されないようにしました。状態は `CanSpawnItem` と `DropCooldown` で確認できます。
 - `BoardController`: item を放した瞬間に下方向へ与える初速度を追加しました。値は 1 秒あたりの board area 高さの比率として設定し、board area は画面解像度に応じて大きさが変わるため、どの端末でも同じ力が加わります。item ごとに質量が異なるため、`BoardItem.SetDropVelocity(Vector2)` は force ではなく velocity として適用します。
 - `BoardController`: 落下加速度を board area 高さに対する比率（1 秒の 2 乗あたり）で設定し、item を落とす際に `BoardItem.GravityScale` として適用するようにしました。初速度と併せて、落下の開始だけでなく全区間が、どの解像度でも board に対して同じ割合を同じ時間で移動します。調整されるのは board item のみで、project の gravity 設定は変更しません。
@@ -43,6 +46,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - merge effect: `BoardItemInfo.MergingEffect` / `MergedEffect`、`MergingCommand` の effect 再生、および sample の merge effect prefab・material・texture を削除しました。当該 prefab は Unity 5 時代の legacy prefab format で保存されており、`ParticleSystemRenderer` に `serializedVersion` が無く大半の field が欠落し、0 番の material が null でした。このため最初の merge で effect を生成した瞬間に `ParticleSystemRenderer::PrepareForRender` で editor が native crash していました。
 
 ### 修正
+- `BoardArea`: drop cooldown 中に開始した drag でも holding item の準備後に guide line が表示されるようにし、guide line の board 基準サイズを renderer size ではなく transform scale で適用するようにしました。
 - `MergingCommand`: 無効・cancel・failure となった command の merge reservation を解放し、すでに pool で再利用された item を変更しないように修正しました。
 - `BoardItem`: pool から再利用する instance の presentation、collider、physics、support、merge state を次の初期化前に reset するように修正しました。
 - `InputHandler`: touch の移動と終了が drag を開始した finger に紐づいたままになるように修正しました。

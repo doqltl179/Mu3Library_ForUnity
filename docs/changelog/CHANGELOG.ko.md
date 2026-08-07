@@ -13,8 +13,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [watermelon/0.2.0] - 2026-08-08
+
 ### 추가됨
 - `BoardArea`: 선택적 아웃라인 스프라이트를 설정된 보드 폭에 맞추고 아이템 초과 경계에 배치하는 기능을 추가했습니다.
+- `BoardConfig`: 드래그 중에만 보이는 타일 방식 spawn guide line 스프라이트 설정을 추가했습니다. guide line은 보드 sorting order `+1`, spawn marker는 `+2`로 렌더링됩니다.
 - `BoardController`: 아이템 생성 간격(기본 0.5초)을 추가해 터치할 때마다 아이템이 연속으로 생성되지 않게 했으며, `CanSpawnItem`과 `DropCooldown`으로 상태를 확인할 수 있습니다.
 - `BoardController`: 아이템을 놓는 순간 아래 방향으로 가해지는 초기 속도를 추가했습니다. 이 값은 초당 board area 높이의 비율로 설정되며, board area는 화면 해상도에 따라 크기가 달라지므로 어떤 기기에서도 동일한 힘이 적용됩니다. 아이템마다 질량이 다르므로 `BoardItem.SetDropVelocity(Vector2)`는 힘이 아닌 속도로 적용합니다.
 - `BoardController`: 낙하 가속도를 board area 높이 대비 비율(초 제곱당)로 설정하고, 아이템을 놓을 때 `BoardItem.GravityScale`로 적용하도록 추가했습니다. 초기 속도와 함께 적용되어 낙하의 시작뿐 아니라 전 구간이 어떤 해상도에서도 보드 대비 같은 비율을 같은 시간에 이동합니다. 보드 아이템만 조정하며 프로젝트 중력 설정은 변경하지 않습니다.
@@ -41,6 +44,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 병합 이펙트: `BoardItemInfo.MergingEffect` / `MergedEffect`, `MergingCommand`의 이펙트 재생, 그리고 샘플의 병합 이펙트 프리팹·머티리얼·텍스처를 제거했습니다. 해당 프리팹은 Unity 5 시절의 레거시 프리팹 포맷으로 저장되어 `ParticleSystemRenderer`에 `serializedVersion`이 없고 대부분의 필드가 누락되었으며 0번 머티리얼이 null이었습니다. 이로 인해 첫 병합에서 이펙트가 생성되는 순간 `ParticleSystemRenderer::PrepareForRender`에서 에디터가 네이티브 크래시로 종료됐습니다.
 
 ### 수정됨
+- `BoardArea`: drop cooldown 중 시작한 드래그에서 보유 아이템이 준비된 뒤에도 guide line이 표시되도록 수정했으며, guide line의 보드 기준 크기를 renderer size가 아닌 transform scale로 적용하도록 수정했습니다.
 - `MergingCommand`: 유효하지 않거나 취소·실패한 커맨드의 병합 예약을 해제하되, 이미 재사용된 풀 아이템은 변경하지 않도록 수정했습니다.
 - `BoardItem`: 풀에서 재사용되는 인스턴스가 다시 초기화되기 전에 표시, 콜라이더, 물리, 지지, 병합 상태를 초기화하도록 수정했습니다.
 - `InputHandler`: 터치 이동과 종료가 드래그를 시작한 손가락에 계속 연결되도록 수정했습니다.
