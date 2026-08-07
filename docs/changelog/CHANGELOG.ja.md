@@ -17,11 +17,23 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - `BoardArea`: 任意の outline sprite を設定した board 幅に合わせ、item 超過境界へ配置する機能を追加しました。
+- `BoardController`: item の生成間隔（既定 0.5 秒）を追加し、touch のたびに item が連続生成されないようにしました。状態は `CanSpawnItem` と `DropCooldown` で確認できます。
+- `BoardController`: item を放した瞬間に下方向へ与える初速度を追加しました。値は 1 秒あたりの board area 高さの比率として設定し、board area は画面解像度に応じて大きさが変わるため、どの端末でも同じ力が加わります。item ごとに質量が異なるため、`BoardItem.SetDropVelocity(Vector2)` は force ではなく velocity として適用します。
+- `BoardController`: 落下加速度を board area 高さに対する比率（1 秒の 2 乗あたり）で設定し、item を落とす際に `BoardItem.GravityScale` として適用するようにしました。初速度と併せて、落下の開始だけでなく全区間が、どの解像度でも board に対して同じ割合を同じ時間で移動します。調整されるのは board item のみで、project の gravity 設定は変更しません。
+
+- `BoardController`: 次の item の preview を `NextItemIndex`、`NextItemInfo`、`OnNextItemChanged` として追加しました。spawn rule から 1 つ先に引いておくため、手持ちの item の次に何が来るかを確認でき、手持ちの item 自体は `HoldingItem` で公開されます。
+- `BoardController`: item を落とした後の drop interval の間、game end 判定を停止する `IsGameEndCheckPaused` を追加しました。item が高く積まれた状態では落下 item がほぼ即座に着地判定となるため、その間に item が滑って落ち着いてから判定します。
+
+### 変更
+- `BoardController`: 落とす item が touch 時ではなく drop interval の終了と同時に board 上端で待機するようにしました。直前の item を落とした位置で待機し、touch はその item を掴んで動かすだけになります。
+- `BoardArea`: component を `Board/Area` 配下の単一責務の部品へ分割しました。`BoardAreaBoundsCalculator` が board の矩形を計算し、`BoardAreaCoordinateConverter` が座標を変換し、`BoardAreaView` が board と item 基準線を描画し、`BoardAreaOutColliders` が item を board 内に留め、`BoardAreaInputRelay` が board に属する touch のみを通知します。矩形そのものは新規の `BoardAreaBounds` と `CoordinateBounds` が保持します。component の public API は変更なく、各部品へ委譲するだけです。
+- `BoardItemScaleRule`: item の直径を、減少していく面積倍率ではなく board area の幅を基準に線形配分するようにしました。最小の果物は `1/20`、最大の果物は `2/5` です。`GetBoardScale` は最小比率に加えて最大比率も受け取り、`GetBoardWidthDiameterRatio(int)` は board 幅に対する item 直径の比率を返します。
 
 ### 削除
 - merge effect: `BoardItemInfo.MergingEffect` / `MergedEffect`、`MergingCommand` の effect 再生、および sample の merge effect prefab・material・texture を削除しました。当該 prefab は Unity 5 時代の legacy prefab format で保存されており、`ParticleSystemRenderer` に `serializedVersion` が無く大半の field が欠落し、0 番の material が null でした。このため最初の merge で effect を生成した瞬間に `ParticleSystemRenderer::PrepareForRender` で editor が native crash していました。
 
 ### 修正
+- `BoardArea`: `CalculateBounds(Camera, float)` と `CalculateBounds(Camera, Vector2, float)` が渡された aspect ratio を実際に使用するようにしました。従来は常に board sprite の比率にフォールバックしていました。
 - `BoardController`: game end 判定を接触ベースに変更しました。上端が board line を越えた item が床または他の item に支えられている場合に game end とします。item は必ず line より上に置かれるため、まだ着地していない item は落下状態として除外され、左右の壁は支持対象から除外されます。
 - `BoardController`: merge 中の item が command 完了まで board に登録されたままになり、同一 item の重複登録を防ぐようにしました。board を再準備するとすべての item が回収されます。従来は item が失われたり重複 entry が残って board が際限なく増えていました。誤記だった `OnDestory` を修正し、command が実際に破棄されるようにしました。
 - `MergingCommand`: merge が二度以上開始・完了せず、command 破棄後には完了しないように修正しました。

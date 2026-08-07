@@ -15,11 +15,23 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 추가됨
 - `BoardArea`: 선택적 아웃라인 스프라이트를 설정된 보드 폭에 맞추고 아이템 초과 경계에 배치하는 기능을 추가했습니다.
+- `BoardController`: 아이템 생성 간격(기본 0.5초)을 추가해 터치할 때마다 아이템이 연속으로 생성되지 않게 했으며, `CanSpawnItem`과 `DropCooldown`으로 상태를 확인할 수 있습니다.
+- `BoardController`: 아이템을 놓는 순간 아래 방향으로 가해지는 초기 속도를 추가했습니다. 이 값은 초당 board area 높이의 비율로 설정되며, board area는 화면 해상도에 따라 크기가 달라지므로 어떤 기기에서도 동일한 힘이 적용됩니다. 아이템마다 질량이 다르므로 `BoardItem.SetDropVelocity(Vector2)`는 힘이 아닌 속도로 적용합니다.
+- `BoardController`: 낙하 가속도를 board area 높이 대비 비율(초 제곱당)로 설정하고, 아이템을 놓을 때 `BoardItem.GravityScale`로 적용하도록 추가했습니다. 초기 속도와 함께 적용되어 낙하의 시작뿐 아니라 전 구간이 어떤 해상도에서도 보드 대비 같은 비율을 같은 시간에 이동합니다. 보드 아이템만 조정하며 프로젝트 중력 설정은 변경하지 않습니다.
+
+- `BoardController`: 다음 아이템 미리보기를 `NextItemIndex`, `NextItemInfo`, `OnNextItemChanged`로 추가했습니다. spawn rule에서 한 개를 미리 뽑아두므로 현재 들고 있는 아이템 다음에 무엇이 나올지 확인할 수 있으며, 들고 있는 아이템 자체는 `HoldingItem`으로 노출됩니다.
+- `BoardController`: 아이템을 놓은 뒤 drop interval 동안 게임 종료 판정을 중단하는 `IsGameEndCheckPaused`를 추가했습니다. 아이템이 높이 쌓인 상태에서는 낙하 아이템이 거의 즉시 착지 판정을 받기 때문에, 이제 그 시간 동안 아이템이 미끄러져 자리를 잡은 뒤에 판정합니다.
+
+### 변경됨
+- `BoardController`: 떨어뜨릴 아이템이 터치 시점이 아니라 drop interval이 끝나는 즉시 보드 상단에서 대기하도록 변경했습니다. 직전 아이템을 떨어뜨린 위치에서 대기하며, 터치는 그 아이템을 집어 옮기기만 합니다.
+- `BoardArea`: 컴포넌트를 `Board/Area` 아래의 단일 책임 파트로 분할했습니다. `BoardAreaBoundsCalculator`는 보드 사각형을 계산하고, `BoardAreaCoordinateConverter`는 좌표를 변환하며, `BoardAreaView`는 보드와 아이템 기준선을 그리고, `BoardAreaOutColliders`는 아이템을 보드 안에 가두며, `BoardAreaInputRelay`는 보드에 속한 터치만 전달합니다. 사각형 자체는 새로 추가한 `BoardAreaBounds`와 `CoordinateBounds` 타입이 담습니다. 컴포넌트의 공개 API는 그대로이며 각 파트로 위임만 합니다.
+- `BoardItemScaleRule`: 아이템 지름을 점점 줄어드는 넓이 배율 대신 board area 가로 길이 기준으로 선형 분배합니다. 가장 작은 과일은 `1/20`, 가장 큰 과일은 `2/5`입니다. `GetBoardScale`은 가장 작은 비율과 함께 가장 큰 비율도 받으며, `GetBoardWidthDiameterRatio(int)`는 보드 가로 길이 대비 아이템 지름 비율을 반환합니다.
 
 ### 제거됨
 - 병합 이펙트: `BoardItemInfo.MergingEffect` / `MergedEffect`, `MergingCommand`의 이펙트 재생, 그리고 샘플의 병합 이펙트 프리팹·머티리얼·텍스처를 제거했습니다. 해당 프리팹은 Unity 5 시절의 레거시 프리팹 포맷으로 저장되어 `ParticleSystemRenderer`에 `serializedVersion`이 없고 대부분의 필드가 누락되었으며 0번 머티리얼이 null이었습니다. 이로 인해 첫 병합에서 이펙트가 생성되는 순간 `ParticleSystemRenderer::PrepareForRender`에서 에디터가 네이티브 크래시로 종료됐습니다.
 
 ### 수정됨
+- `BoardArea`: `CalculateBounds(Camera, float)`와 `CalculateBounds(Camera, Vector2, float)`가 전달받은 aspect ratio를 실제로 사용하도록 수정했습니다. 기존에는 항상 보드 스프라이트의 비율로 대체되었습니다.
 - `BoardController`: 게임 종료 판정을 접촉 기반으로 수정했습니다. 상단이 보드 라인을 넘은 아이템이 바닥 또는 다른 아이템에 지지되어 있으면 게임을 종료합니다. 아이템은 항상 라인 위에 놓이므로 아직 착지하지 않은 아이템은 낙하 상태로 제외되며, 좌우 벽은 지지 대상에서 제외됩니다.
 - `BoardController`: 병합 중인 아이템이 커맨드 완료까지 보드에 등록된 상태를 유지하고 동일 아이템이 중복 등록되지 않도록 수정해, 보드를 다시 준비할 때 모든 아이템이 회수됩니다. 기존에는 아이템이 누락되거나 중복 항목이 남아 보드가 무한히 증가했습니다. 오타였던 `OnDestory`를 수정해 커맨드가 실제로 해제되게 했습니다.
 - `MergingCommand`: 병합이 두 번 이상 시작되거나 완료되지 않으며, 커맨드 해제 후에는 완료되지 않도록 수정했습니다.
