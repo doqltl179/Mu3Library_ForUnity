@@ -554,6 +554,7 @@ MonoBehaviour:
   _viewportPadding: {x: 0.04, y: 0.04, z: 0.1, w: 0.1}
   _itemAreaViewportPadding: {x: 0.04, y: 0.04, z: 0, w: 0.04}
   _pivot: {x: 0.5, y: 0.5}
+  _boardLocalNormalizedItemOutPosY: 0.92
 --- !u!212 &1942010724
 SpriteRenderer:
   serializedVersion: 2
