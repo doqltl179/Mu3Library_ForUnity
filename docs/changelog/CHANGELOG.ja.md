@@ -15,6 +15,15 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `BoardController`: `OnScoreAdded`、`OnBoardConfigChanged`、`OnHoldingItemChanged`、`OnHoldingItemMoved`、`OnItemDropped`、`OnItemAdded`、`OnItemRemoved`、`OnItemMerged`、`OnMergeComboChanged` event を追加しました。外部 project は board を polling せずに UI や演出を更新できます。`OnScoreAdded` は 1 回の変更が実際に支払った点数を渡し、0 での clamp により変化しなかった場合は発生しません。`OnItemRemoved` は item が catalog 情報と位置を保持したまま呼ばれます。
+- `BoardController`: 保持中の item が待機する位置を board 領域の幅比率で読む `HoldingNormalizedX` を追加しました。`OnHoldingItemMoved` が渡す値と同じです。
+- `BoardMergeInfo`: `BoardController.OnItemMerged` に渡す merge 情報を追加しました。合成された catalog index、生成された index と instance、board 正規化位置、支払った点数、`IsValid` を保持します。
+- `BoardController.CountMerge(BoardMergeInfo)` と `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 内容を併せて報告する merge 集計を追加しました。board と `MergingCommand` が行うすべての merge がこの経路を使用します。既存の `CountMerge()` は内容なしで集計し、`BoardMergeInfo.Unknown` を報告します。
+
+### 変更
+- `MergingCommand`: merge sound を集計より先に再生するよう変更しました。`OnItemMerged` の購読者はその merge の combo 段階をそのまま参照できます。merge 追跡のために `CountMerge()` を override していた `BoardController` 派生クラスは `CountMerge(BoardMergeInfo)` を override してください。
+
 ## [watermelon/0.3.0] - 2026-08-09
 
 ### 追加

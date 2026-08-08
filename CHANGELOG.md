@@ -15,6 +15,15 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `BoardController`: Added the `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, and `OnMergeComboChanged` events, so a project can drive its UI and effects from what the board reports instead of polling it. `OnScoreAdded` carries the points a single change paid out and skips a change the zero clamp swallowed, and `OnItemRemoved` runs while the item still carries its catalog entry and its place.
+- `BoardController`: Added `HoldingNormalizedX`, the place the held item waits on as a fraction of the board area width, which is what `OnHoldingItemMoved` reports.
+- `BoardMergeInfo`: Added the merge report handed to `BoardController.OnItemMerged`, carrying the catalog index that merged, the index and the instance it became, the board-normalized position it happened at, the score it paid out, and `IsValid`.
+- `BoardController.CountMerge(BoardMergeInfo)` and `IBoardCommandContext.CountMerge(BoardMergeInfo)`: Added the merge count that reports what it merged, which every merge the board and `MergingCommand` carry out now uses. `CountMerge()` still counts a merge without detail and reports `BoardMergeInfo.Unknown`.
+
+### Changed
+- `MergingCommand`: The merge now plays its sound before it counts itself, so a listener of `OnItemMerged` already sees the merge combo step the merge landed on. A `BoardController` subclass that overrode `CountMerge()` to follow merges should override `CountMerge(BoardMergeInfo)` instead.
+
 ## [watermelon/0.3.0] - 2026-08-09
 
 ### Added
