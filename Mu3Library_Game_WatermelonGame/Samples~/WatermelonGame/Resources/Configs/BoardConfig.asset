@@ -44,14 +44,20 @@ MonoBehaviour:
   _soundConfig:
     _sfxVolume: 1
     _bgmVolume: 0.8
-    _bgmClips: []
+    _bgmClips:
+    - {fileID: 8300000, guid: 0c9d1a2b3e4f456789abcdef01234567, type: 3}
     _bgmShuffle: 0
     _bgmTrackInterval: 1
     _bgmLoopCount: -1
-    _gameStartClip: {fileID: 0}
-    _gameEndClip: {fileID: 0}
-    _itemDropClip: {fileID: 0}
-    _itemMergeClips: []
+    _gameStartClip: {fileID: 8300000, guid: 1d9e2b3c4f5a467890abcdef01234567, type: 3}
+    _gameEndClip: {fileID: 8300000, guid: 2eaf3c4d5a6b478901abcdef01234567, type: 3}
+    _itemDropClip: {fileID: 8300000, guid: 3fba4d5e6b7c489012abcdef01234567, type: 3}
+    _itemMergeClips:
+    - {fileID: 8300000, guid: 4abc5e6f7d8e490123abcdef01234567, type: 3}
+    - {fileID: 8300000, guid: 5bcd6f7e8a9b401234abcdef01234567, type: 3}
+    - {fileID: 8300000, guid: 6cde7f8a9b0c412345abcdef01234567, type: 3}
+    - {fileID: 8300000, guid: 7def8a9b0c1d423456abcdef01234567, type: 3}
+    - {fileID: 8300000, guid: 8efa9b0c1d2e434567abcdef01234567, type: 3}
     _mergeComboInterval: 5
   _itemPhysicsMaterial: {fileID: 6200000, guid: 58effcbf8e3c9a649b4b24e823f23c62, type: 2}
   _itemRigidbodySettings:
