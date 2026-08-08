@@ -42,8 +42,6 @@ MonoBehaviour:
     - _sprite: {fileID: 21300000, guid: 8fae46ca3d524af5ab7d20cc1482b801, type: 3}
       _colliderScale: 0.97
   _soundConfig:
-    _sfxVolume: 1
-    _bgmVolume: 0.8
     _bgmClips:
     - {fileID: 8300000, guid: 0c9d1a2b3e4f456789abcdef01234567, type: 3}
     _bgmShuffle: 0

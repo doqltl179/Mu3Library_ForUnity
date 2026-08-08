@@ -13,11 +13,11 @@ namespace Mu3Library.Sample.Game.WatermelonGame.Service
     {
         private const string BoardConfigResourcePath = "Configs/BoardConfig";
 
-        private BoardController m_controller;
         private BoardController m_subscribedController;
         private BoardConfig m_boardConfig;
         private bool m_hasLoadedBoardConfig;
 
+        private BoardController m_controller;
         protected BoardController _controller
         {
             get

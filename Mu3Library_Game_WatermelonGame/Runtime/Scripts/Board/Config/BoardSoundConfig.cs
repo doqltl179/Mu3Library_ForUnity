@@ -7,27 +7,15 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
     /// The sounds the board plays, through <see cref="Mu3Library.Audio.AudioManager"/>.
     /// <br/> Every clip is optional and a moment without one stays silent, so a board can be
     /// <br/> configured with only the sounds a project already has.
+    /// <br/> The volumes they are played at are not part of the configuration; they belong to the
+    /// <br/> project, which sets them through <see cref="Mu3Library.Game.WatermelonGame.Board.BoardController.SfxVolume"/>
+    /// <br/> and <see cref="Mu3Library.Game.WatermelonGame.Board.BoardController.BgmVolume"/>.
     /// </summary>
     [System.Serializable]
     public class BoardSoundConfig
     {
         private static readonly AudioClip[] EmptyClips = new AudioClip[0];
 
-        [Tooltip("The volume every board sound effect is played at.\nIt is passed to the AudioManager per sound, which scales it with its own SFX and master volume.")]
-        [SerializeField, Range(0.0f, 1.0f)] protected float _sfxVolume = 1.0f;
-        /// <summary>
-        /// The volume every board sound effect is played at, 0 to 1.
-        /// </summary>
-        public float SfxVolume => Mathf.Clamp01(_sfxVolume);
-
-        [Tooltip("The BGM volume the board asks for.\nIt is only applied to the AudioManager the board creates for itself; an AudioManager the project assigns keeps the BGM volume it already has.")]
-        [SerializeField, Range(0.0f, 1.0f)] protected float _bgmVolume = 0.8f;
-        /// <summary>
-        /// The BGM volume the board asks for, 0 to 1.
-        /// </summary>
-        public float BgmVolume => Mathf.Clamp01(_bgmVolume);
-
-        [Space(20)]
         [Tooltip("Optional. Played as a playlist while the game is running, started on game start and stopped on game end.\nEmpty entries are skipped.")]
         [SerializeField] protected AudioClip[] _bgmClips = new AudioClip[0];
         /// <summary>

@@ -6,6 +6,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
 {
     public partial class BoardController
     {
+        private const float DefaultSfxVolume = 1.0f;
+        private const float DefaultBgmVolume = 0.8f;
+
         /// <summary>
         /// The audio manager the board built for itself. It is created with the first sound the
         /// <br/> board actually plays, so a configuration without any clip never builds one, and the
@@ -46,6 +49,41 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         public BoardSoundConfig SoundConfig => _boardConfig != null ? _boardConfig.SoundConfig : null;
 
+        private float _sfxVolume = DefaultSfxVolume;
+        /// <summary>
+        /// The volume every board sound effect is played at, 0 to 1. A value outside that range
+        /// <br/> is clamped into it.
+        /// <br/> It is passed to the audio manager per sound, which scales it with its own SFX and
+        /// <br/> master volume, so a project that already keeps a volume setting can hand it here
+        /// <br/> without the board touching the volumes of a manager it shares.
+        /// </summary>
+        public float SfxVolume
+        {
+            get => _sfxVolume;
+            set => _sfxVolume = Mathf.Clamp01(value);
+        }
+
+        private float _bgmVolume = DefaultBgmVolume;
+        /// <summary>
+        /// The BGM volume the board asks for, 0 to 1. A value outside that range is clamped into it.
+        /// <br/> It is only applied to the audio manager the board creates for itself, and takes
+        /// <br/> effect right away while that one is playing; an audio manager the project assigns
+        /// <br/> keeps the BGM volume it already has.
+        /// </summary>
+        public float BgmVolume
+        {
+            get => _bgmVolume;
+            set
+            {
+                _bgmVolume = Mathf.Clamp01(value);
+
+                if (_assignedAudioManager == null && m_ownedAudioManager != null)
+                {
+                    m_ownedAudioManager.BgmVolume = _bgmVolume;
+                }
+            }
+        }
+
         /// <summary>
         /// True while the board is the one playing the BGM playlist, so it only ever stops a
         /// <br/> playlist it started itself on a manager it shares with the rest of the project.
@@ -82,7 +120,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
-            PlayBoardSoundEffect(soundConfig.GetClip(soundType), soundConfig);
+            PlayBoardSoundEffect(soundConfig.GetClip(soundType));
         }
 
         /// <summary>
@@ -107,7 +145,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 : 0;
             _lastMergeSoundTime = Time.time;
 
-            PlayBoardSoundEffect(soundConfig.GetMergeClip(_mergeComboIndex), soundConfig);
+            PlayBoardSoundEffect(soundConfig.GetMergeClip(_mergeComboIndex));
         }
 
         /// <summary>
@@ -119,7 +157,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _lastMergeSoundTime = float.NegativeInfinity;
         }
 
-        private void PlayBoardSoundEffect(AudioClip clip, BoardSoundConfig soundConfig)
+        private void PlayBoardSoundEffect(AudioClip clip)
         {
             if (clip == null)
             {
@@ -135,7 +173,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // The board asks for its own volume instead of changing the manager's SFX volume,
             // which the rest of the project shares when the manager was assigned from outside.
             AudioSourceSettings settings = AudioSourceSettings.SfxStandard;
-            settings.Volume = soundConfig.SfxVolume;
+            settings.Volume = _sfxVolume;
 
             audioManager.PlaySfx(clip, settings);
         }
@@ -169,7 +207,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // the project set on it.
             if (m_ownedAudioManager != null && ReferenceEquals(audioManager, m_ownedAudioManager))
             {
-                m_ownedAudioManager.BgmVolume = soundConfig.BgmVolume;
+                m_ownedAudioManager.BgmVolume = _bgmVolume;
             }
 
             audioManager.PlayBgmPlaylist(
