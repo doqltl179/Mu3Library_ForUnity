@@ -70,6 +70,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         public BoardItem HoldingItem => _holdingItem;
 
+        /// <summary>
+        /// Where the held item waits, as a fraction of the board area width.
+        /// <br/> It is the place the last item was placed on while no item is held, which is where
+        /// <br/> the next one appears.
+        /// </summary>
+        public float HoldingNormalizedX => _holdingNormalizedX;
+
         #region Event
         public virtual void OnDragStart(Vector2 screenPos)
         {
@@ -112,7 +119,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             SetHoldingItemPosition(screenPos);
 
             var item = _holdingItem;
-            _holdingItem = null;
+            SetHoldingItem(null);
 
             DropItem(item, true);
 
@@ -120,6 +127,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _spawnCount++;
 
             PlayBoardSound(BoardSoundType.ItemDrop);
+
+            // The drop is reported once the item is falling and counted, so a listener reads the
+            // board as it stands after the drop.
+            OnItemDropped?.Invoke(item);
         }
         #endregion
 
@@ -182,12 +193,28 @@ namespace Mu3Library.Game.WatermelonGame.Board
             item.BodyType = RigidbodyType2D.Kinematic;
             item.ColliderEnabled = false;
 
-            _holdingItem = item;
+            SetHoldingItem(item);
 
             // The preview always shows the item after the one now in hand.
             SetNextItemIndex(DrawNextItemIndex());
 
             return true;
+        }
+
+        /// <summary>
+        /// Puts an item into the player's hand, or empties it with null, and reports the change
+        /// <br/> through <see cref="OnHoldingItemChanged"/>.
+        /// </summary>
+        protected void SetHoldingItem(BoardItem item)
+        {
+            if (_holdingItem == item)
+            {
+                return;
+            }
+
+            _holdingItem = item;
+
+            OnHoldingItemChanged?.Invoke(item);
         }
 
         /// <summary>
@@ -262,7 +289,18 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // The item was clamped into the item area, so the place it really took is remembered.
             if (_boardArea.TryLocalToBoardLocalNormalizedPosition(holderLocalPos, out Vector2 placedNormalizedPos))
             {
-                _holdingNormalizedX = Mathf.Clamp01(placedNormalizedPos.x);
+                float placedNormalizedX = Mathf.Clamp01(placedNormalizedPos.x);
+
+                // A drag reaches this every frame, and the clamp keeps the place still while the
+                // finger runs past the board edge, so only a place that moved is reported.
+                bool hasMoved = !Mathf.Approximately(_holdingNormalizedX, placedNormalizedX);
+
+                _holdingNormalizedX = placedNormalizedX;
+
+                if (hasMoved)
+                {
+                    OnHoldingItemMoved?.Invoke(placedNormalizedX);
+                }
             }
 
             // The spawn marker rides on the top edge, above the middle of the held item.

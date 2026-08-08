@@ -168,6 +168,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             _createdItems.Add(item);
+
+            OnItemAdded?.Invoke(item);
         }
 
         /// <summary>
@@ -180,8 +182,17 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
+            bool wasOnBoard = false;
             while (_createdItems.Remove(item))
             {
+                wasOnBoard = true;
+            }
+
+            // The item is reported while it still carries its catalog entry and its place,
+            // returning it to the pool takes both away.
+            if (wasOnBoard)
+            {
+                OnItemRemoved?.Invoke(item);
             }
 
             item.ResetForPool();
@@ -200,7 +211,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             var item = _holdingItem;
-            _holdingItem = null;
+            SetHoldingItem(null);
 
             PoolItem(item);
         }

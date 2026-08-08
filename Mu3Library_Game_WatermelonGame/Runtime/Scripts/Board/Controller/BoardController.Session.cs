@@ -34,7 +34,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         #region Utility
         /// <summary>
-        /// Adds to the board score and reports it through <see cref="OnScoreChanged"/>.
+        /// Adds to the board score and reports it through <see cref="OnScoreChanged"/> and
+        /// <see cref="OnScoreAdded"/>.
         /// <br/> Merges count themselves through here, and so does a command that awards points,
         /// <br/> which keeps every score change on one path.
         /// <br/> A negative amount takes points away but never pushes the score below zero.
@@ -46,18 +47,38 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
+            int previousScore = _score;
             _score = Mathf.Max(0, _score + amount);
 
             OnScoreChanged?.Invoke(_score);
+
+            // The score stops at zero, so what was really paid out can be less than what the
+            // amount asked for, and a change that moved nothing is worth no popup.
+            int addedScore = _score - previousScore;
+            if (addedScore != 0)
+            {
+                OnScoreAdded?.Invoke(addedScore, _score);
+            }
         }
 
         /// <summary>
-        /// Counts one merge. Every merge runs through here, the ones the board found by itself
-        /// <br/> and the ones a command carried out.
+        /// Counts one merge without telling what it merged, which reports
+        /// <see cref="BoardMergeInfo.Unknown"/> through <see cref="OnItemMerged"/>.
+        /// <br/> Prefer <see cref="CountMerge(BoardMergeInfo)"/>, which is what the board's own
+        /// <br/> merges use, so a project listening for merges learns what happened.
         /// </summary>
         public virtual void CountMerge()
+            => CountMerge(BoardMergeInfo.Unknown);
+
+        /// <summary>
+        /// Counts one merge and reports it through <see cref="OnItemMerged"/>. Every merge runs
+        /// <br/> through here, the ones the board found by itself and the ones a command carried out.
+        /// </summary>
+        public virtual void CountMerge(BoardMergeInfo mergeInfo)
         {
             _mergeCount++;
+
+            OnItemMerged?.Invoke(mergeInfo);
         }
 
         public virtual void GameStart()

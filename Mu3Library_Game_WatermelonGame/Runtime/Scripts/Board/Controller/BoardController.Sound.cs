@@ -140,10 +140,19 @@ namespace Mu3Library.Game.WatermelonGame.Board
             bool continuesCombo = _mergeComboIndex >= 0 &&
                 Time.time - _lastMergeSoundTime <= soundConfig.MergeComboInterval;
 
+            int previousComboIndex = _mergeComboIndex;
+
             _mergeComboIndex = continuesCombo
                 ? Mathf.Min(_mergeComboIndex + 1, soundConfig.MergeComboIndexMax)
                 : 0;
             _lastMergeSoundTime = Time.time;
+
+            // A combo that already reached its last step keeps running on the same clip,
+            // so there is nothing new to report.
+            if (_mergeComboIndex != previousComboIndex)
+            {
+                OnMergeComboChanged?.Invoke(_mergeComboIndex);
+            }
 
             PlayBoardSoundEffect(soundConfig.GetMergeClip(_mergeComboIndex));
         }
@@ -153,8 +162,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         protected void ResetMergeCombo()
         {
+            bool hadCombo = _mergeComboIndex >= 0;
+
             _mergeComboIndex = -1;
             _lastMergeSoundTime = float.NegativeInfinity;
+
+            if (hadCombo)
+            {
+                OnMergeComboChanged?.Invoke(_mergeComboIndex);
+            }
         }
 
         private void PlayBoardSoundEffect(AudioClip clip)

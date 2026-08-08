@@ -115,13 +115,21 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Item
             _context.RemoveItem(_item01);
             _context.RemoveItem(_item02);
 
-            _context.AddScore(GetMergeScore(_itemIndex));
+            int mergeScore = GetMergeScore(_itemIndex);
+            _context.AddScore(mergeScore);
 
             _mergedItem = SpawnMergedItem(GetMergedIndex(_itemIndex), boardNormalizedPosition);
 
-            _context.CountMerge();
-
+            // The sound runs before the merge is reported, so whoever listens for the merge
+            // already sees the combo step it landed on.
             PlayMergeSound();
+
+            _context.CountMerge(new BoardMergeInfo(
+                _itemIndex,
+                _mergedItem != null ? _mergedItem.Index : -1,
+                _mergedItem,
+                boardNormalizedPosition,
+                mergeScore));
 
             Complete();
         }

@@ -43,6 +43,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             {
                 SetHoldingItemNormalizedX(_holdingNormalizedX);
             }
+
+            OnBoardConfigChanged?.Invoke(config);
         }
 
         public void SetBoareConfig(BoardConfig config)

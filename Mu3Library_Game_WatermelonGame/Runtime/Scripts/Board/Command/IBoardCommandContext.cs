@@ -92,10 +92,19 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command
         public void AddScore(int amount);
 
         /// <summary>
-        /// Counts one merge into <see cref="BoardController.MergeCount"/>, so a merge a command
-        /// <br/> carried out is counted like one the board found by itself.
+        /// Counts one merge into <see cref="BoardController.MergeCount"/> without telling what it
+        /// <br/> merged, so a merge a command carried out is counted like one the board found by
+        /// <br/> itself.
         /// </summary>
         public void CountMerge();
+
+        /// <summary>
+        /// Counts one merge and reports what it did through
+        /// <see cref="BoardController.OnItemMerged"/>, which is how a project outside the board
+        /// <br/> answers a merge with an effect, a popup, or a counter.
+        /// <br/> Prefer this one over <see cref="CountMerge()"/> whenever the merge is known.
+        /// </summary>
+        public void CountMerge(BoardMergeInfo mergeInfo);
 
         /// <summary>
         /// Plays one of the sounds the board configuration carries. A moment without a clip
