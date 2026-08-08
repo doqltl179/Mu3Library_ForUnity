@@ -26,7 +26,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         /// <summary>
         /// The guide line width as a fraction of the spawn marker width.
         /// </summary>
-        private const float SpawnGuideLineWidthRatio = 0.2f;
+        private const float SpawnGuideLineWidthRatio = 0.4f;
 
         /// <summary>
         /// The spawn marker width as a fraction of the board width.
@@ -289,7 +289,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             // A tiled renderer draws over its own size and not over the sprite bounds, so the two
             // have to be separated. The scale decides how big one repeated segment is drawn, and
             // it stays the same on both axes so every segment keeps the shape it was drawn in.
-            // The line is one fifth of the actual spawn renderer width.
+            // The line is two fifths of the actual spawn renderer width.
             float lineWidth = GetSpawnRendererLocalWidth(bounds) * SpawnGuideLineWidthRatio;
             float lineHeight = bounds.Local.Size.y;
             float segmentScale = lineWidth / spriteWidth;
