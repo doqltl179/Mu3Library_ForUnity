@@ -20,13 +20,52 @@ The volumes are not part of the configuration; the project sets them on the boar
 
 `BoardItemScoreRule.GetScore(int)` is virtual and defaults to the triangular Watermelon Game score progression, allowing external projects to override scoring.
 
+## Events
+
+`BoardController` reports what happens on it so a project can drive its UI and its effects without polling the board:
+
+| Event | Raised with |
+| --- | --- |
+| `OnBoardPrepared` / `OnGameStarted` / `OnGameEnded` | Nothing; the session moved on. |
+| `OnScoreChanged` | The new score. |
+| `OnScoreAdded` | The points a single change paid out, and the score they were added to. A change that moves nothing, because the score stops at zero, is not reported. |
+| `OnNextItemChanged` | `NextItemIndex`, the preview one item ahead. |
+| `OnBoardConfigChanged` | The configuration that was applied to the board and to every item on it. |
+| `OnHoldingItemChanged` | The item now in the player's hand, null when the hand was emptied. |
+| `OnHoldingItemMoved` | Where the held item was moved to, as a fraction of the board area width; `HoldingNormalizedX` reads the same value. |
+| `OnItemDropped` | The item the player released, already falling and counted. |
+| `OnItemAdded` / `OnItemRemoved` | An item that joined or left the board, whoever put it there. A removed item still carries its catalog entry and its place while the event runs. |
+| `OnItemMerged` | A `BoardMergeInfo`: the entry that merged, the entry it became, the item it became, where it happened, and the points it paid. |
+| `OnMergeComboChanged` | The merge combo step, -1 when the combo is dropped. |
+| `OnCommandEnqueued` / `OnCommandFinished` / `OnCommandFailed` | The board command that was taken, finished, or threw. |
+
+```csharp
+boardController.OnItemMerged += info =>
+{
+    if (!info.IsValid)
+    {
+        return;
+    }
+
+    Vector2 localPosition = boardArea.BoardLocalNormalizedPositionToLocal(info.BoardNormalizedPosition);
+    ShowScorePopup(localPosition, info.Score);
+
+    if (info.MergedItemIndex < 0)
+    {
+        ShowLastItemBanner();
+    }
+};
+```
+
+Every merge is reported, the ones the board finds by itself and the ones a command carries out, because both run through `CountMerge(BoardMergeInfo)`. `CountMerge()` still counts a merge that cannot tell what it merged, and reports `BoardMergeInfo.Unknown`.
+
 ## Commands
 
 The board runs its work as commands, and a project can hand it its own. `BoardController.EnqueueCommand(IBoardCommand)` takes a command, `CancelCommand`, `CancelCommands<T>()` and `CancelAllCommands()` stop one, `HasCommand<T>()` and `Commands` report what is queued, and `OnCommandEnqueued`, `OnCommandFinished` and `OnCommandFailed` follow it. Commands are advanced only while the board runs, so one given to a prepared board waits for `GameStart()`, and `Prepare` drops whatever is left.
 
 `IBoardCommand` is the whole contract: `Run()` until it reports `IsRunning` or `IsCompleted`, then `Dispose()`. Add `IUpdatableBoardCommand` to be advanced every frame and `ICancelableBoardCommand` to be stoppable. `BoardCommand` implements all three and hands out the lifecycle hooks instead, so a command only overrides `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel` and `OnDispose`, and closes itself with `Complete()` or `Cancel()`. `BoardCommandRunner` drives one command through the optional parts of the contract; the board queue and the command groups both run on it, and it can host commands outside a board as well.
 
-`BoardController.CommandContext` is what a command is given to reach the board: `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`, and the `Area`, `Config`, `ScoreRule`, `Items` and `HoldingItem` it reads. A command written outside this package only takes `IBoardCommandContext`, so it never reaches into the board itself.
+`BoardController.CommandContext` is what a command is given to reach the board: `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `AddScore`, `CountMerge()`, `CountMerge(BoardMergeInfo)`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`, and the `Area`, `Config`, `ScoreRule`, `Items` and `HoldingItem` it reads. A command written outside this package only takes `IBoardCommandContext`, so it never reaches into the board itself.
 
 The package carries these commands:
 
