@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Changed the spawn guide line width from one tenth to one fifth of the spawn marker width.
+- Fixed the spawn guide line being drawn at an unintended size; the tiled renderer is now fitted through `SpriteRenderer.size`, and its transform scale, which sizes one repeated segment, stays the same on both axes.
+
 ## [watermelon/0.2.0] - 2026-08-08
 
 - Fixed the spawn guide line disappearing when its board-relative dimensions were applied through `SpriteRenderer.size`; it now fits through its child transform scale.

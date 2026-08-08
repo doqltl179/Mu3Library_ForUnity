@@ -23,7 +23,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         /// </summary>
         private const int SpawnSortingOffset = 2;
 
-        private const float SpawnGuideLineWidthRatio = 0.1f;
+        /// <summary>
+        /// The guide line width as a fraction of the spawn marker width.
+        /// </summary>
+        private const float SpawnGuideLineWidthRatio = 0.2f;
 
         /// <summary>
         /// The spawn marker width as a fraction of the board width.
@@ -38,7 +41,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         private SpriteRenderer _lineRenderer;
         private SpriteRenderer _spawnGuideLineRenderer;
         private SpriteRenderer _spawnRenderer;
-        private Sprite _spawnGuideLineSourceSprite;
 
         private bool _isSpawnGuideLineVisible;
 
@@ -256,14 +258,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             }
 
             guideLineRenderer.drawMode = SpriteDrawMode.Tiled;
+            guideLineRenderer.tileMode = SpriteTileMode.Continuous;
 
-            if (_spawnGuideLineSourceSprite != sprite)
+            if (guideLineRenderer.sprite != sprite)
             {
-                // Assigning from null restores the renderer's native sprite size. The board
-                // fitting below is intentionally done only through the child transform scale.
-                guideLineRenderer.sprite = null;
                 guideLineRenderer.sprite = sprite;
-                _spawnGuideLineSourceSprite = sprite;
             }
 
             if (sprite == null)
@@ -279,7 +278,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
                 return;
             }
 
-            Transform guideLineTransform = guideLineRenderer.transform;
             float spriteWidth = sprite.bounds.size.x;
             float spriteHeight = sprite.bounds.size.y;
             if (spriteWidth <= Mathf.Epsilon || spriteHeight <= Mathf.Epsilon)
@@ -288,14 +286,29 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
                 return;
             }
 
-            // The renderer keeps its native size and all board-relative fitting is done through
-            // scale, like the other board sprite renderers. Its width is one tenth of the actual
-            // spawn renderer width.
-            float spawnWidth = GetSpawnRendererLocalWidth(bounds);
-            Vector3 guideLineScale = guideLineTransform.localScale;
-            guideLineScale.x = spawnWidth * SpawnGuideLineWidthRatio / spriteWidth;
-            guideLineScale.y = bounds.Local.Size.y / spriteHeight;
-            guideLineTransform.localScale = new Vector3(guideLineScale.x, guideLineScale.y, guideLineScale.z);
+            // A tiled renderer draws over its own size and not over the sprite bounds, so the two
+            // have to be separated. The scale decides how big one repeated segment is drawn, and
+            // it stays the same on both axes so every segment keeps the shape it was drawn in.
+            // The line is one fifth of the actual spawn renderer width.
+            float lineWidth = GetSpawnRendererLocalWidth(bounds) * SpawnGuideLineWidthRatio;
+            float lineHeight = bounds.Local.Size.y;
+            float segmentScale = lineWidth / spriteWidth;
+            if (segmentScale <= Mathf.Epsilon || lineHeight <= Mathf.Epsilon)
+            {
+                guideLineRenderer.gameObject.SetActive(false);
+                return;
+            }
+
+            Transform guideLineTransform = guideLineRenderer.transform;
+            guideLineTransform.localScale = new Vector3(
+                segmentScale,
+                segmentScale,
+                guideLineTransform.localScale.z);
+
+            // The size is measured before the scale above is applied. One segment wide keeps the
+            // line at lineWidth, and the height is divided back so that the drawn line covers the
+            // board height with as many whole segments as fit into it.
+            guideLineRenderer.size = new Vector2(spriteWidth, lineHeight / segmentScale);
 
             Vector2 lineCenter = bounds.Local.Lerp(new Vector2(_spawnNormalizedX, 0.5f));
             guideLineTransform.localPosition = new Vector3(

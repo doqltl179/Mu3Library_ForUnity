@@ -8,7 +8,7 @@ Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `
 
 `BoardController` coordinates falling items and merges through `BoardItem`, `BoardConfig`, and `BoardItemsConfig`. Call `SetBoardConfig(BoardConfig)` before `Prepare`, then call `GameStart()` after a successful preparation; the legacy `SetBoareConfig` spelling remains as a compatibility alias. The default Watermelon Game uses the first eleven fruit entries addressed by zero-based list index. Extra catalog entries are preserved for future rules but are not spawned or merged by the default rules.
 
-`BoardConfig.BoardSpawnGuideLineSprite` configures the one-segment sprite used for the vertical, tiled spawn guide line. The guide line appears only during a drag, is one tenth of the spawn marker's width, and renders at board sorting order `+1`; the spawn marker is drawn at `+2`.
+`BoardConfig.BoardSpawnGuideLineSprite` configures the one-segment sprite used for the vertical, tiled spawn guide line. The guide line appears only during a drag, is one fifth of the spawn marker's width, and renders at board sorting order `+1`; the spawn marker is drawn at `+2`.
 
 `BoardItemScoreRule.GetScore(int)` is virtual and defaults to the triangular Watermelon Game score progression, allowing external projects to override scoring.
 

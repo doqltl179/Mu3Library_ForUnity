@@ -15,6 +15,12 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- `BoardArea`: The spawn guide line width is now one fifth of the spawn marker width instead of one tenth, which is one twenty-fifth of the board width.
+
+### Fixed
+- `BoardArea`: The spawn guide line is drawn at the intended size again. A tiled `SpriteRenderer` draws over `SpriteRenderer.size` and not over the sprite bounds, so the line is now sized through that size while the child transform scale, which decides how big one repeated segment is drawn, stays the same on both axes.
+
 ## [watermelon/0.2.0] - 2026-08-08
 
 ### Added

@@ -13,6 +13,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- `BoardArea`: spawn guide line의 가로 크기를 spawn marker 가로의 1/10에서 1/5로 변경했습니다. board 가로 기준으로는 1/25입니다.
+
+### 수정됨
+- `BoardArea`: spawn guide line이 다시 의도한 크기로 그려집니다. tiled `SpriteRenderer`는 스프라이트 경계가 아니라 `SpriteRenderer.size` 영역에 그리므로, 이제 크기는 renderer size로 맞추고 자식 transform scale은 반복되는 한 세그먼트의 크기만 결정하도록 두 축을 동일하게 유지합니다.
+
 ## [watermelon/0.2.0] - 2026-08-08
 
 ### 추가됨

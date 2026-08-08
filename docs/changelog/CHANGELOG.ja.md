@@ -15,6 +15,12 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 変更
+- `BoardArea`: spawn guide line の横幅を spawn marker の 1/10 から 1/5 に変更しました。board の横幅に対しては 1/25 です。
+
+### 修正
+- `BoardArea`: spawn guide line が意図したサイズで描画されるようにしました。tiled の `SpriteRenderer` は sprite の bounds ではなく `SpriteRenderer.size` の領域に描画するため、サイズは renderer size で合わせ、子 transform の scale は繰り返される 1 セグメントの大きさだけを決めるように両軸を同じ値に保ちます。
+
 ## [watermelon/0.2.0] - 2026-08-08
 
 ### 追加
