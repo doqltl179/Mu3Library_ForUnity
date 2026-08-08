@@ -389,6 +389,8 @@ Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants
 - **Merge effects**: `BoardItemInfo` supports optional `ParticleHandler` resources for merge effects, with completed spawned effects cleaned up automatically
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
+- **Board commands**: `BoardController.EnqueueCommand(...)` runs public board commands, with optional update/cancellation contracts, lifecycle-based `BoardCommand`, command flow groups, item/score commands, and `BoardController.CommandContext` for external commands
+- **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
 - **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
 
 In this repository, the base sample sources live under `Mu3Library_Base/Samples~`, the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`, and the Watermelon Game sample source lives under `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`.
@@ -463,7 +465,7 @@ The callback is invoked once after the target Core has completed its preparation
 
 - Current Base package version in this repository: `0.22.0`
 - Current URP package version in this repository: `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Current Watermelon Game package version in this repository: `0.2.0` (depends on Base `0.22.0` and URP `0.2.1`)
+- Current Watermelon Game package version in this repository: `0.3.0` (depends on Base `0.22.0` and URP `0.2.1`)
 - See `CHANGELOG.md` for the repository release notes and draft version history.
 
 ## 🤝 Contributing
@@ -486,6 +488,6 @@ This project is distributed under the MIT License.
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base` `0.22.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.2.0` (depends on Base `0.22.0` and URP `0.2.1`)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0` (depends on Base `0.22.0` and URP `0.2.1`)
 
 Made with ❤️ for Unity Developers

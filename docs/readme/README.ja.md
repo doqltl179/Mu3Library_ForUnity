@@ -389,6 +389,7 @@ Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
 - **Merge effects**: `BoardItemInfo` は任意の merge effect 用 `ParticleHandler` resource をサポートし、完了した生成 effect instance を自動的に cleanup します。
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)` を override して標準の三角数 score progression をカスタマイズできます。
 - **Board commands**: `BoardController.EnqueueCommand(...)` で公開 command queue を使い、`IUpdatableBoardCommand` / `ICancelableBoardCommand` と `BoardCommand` の lifecycle hook でフレーム単位の実行・cancel を組み立てられます。`BoardController.CommandContext` は外部 command が item・score・sound に触れるための狭い surface を提供し、Flow / Item / Score command と `MergingCommand` も用意されています。
+- **Board sound volumes**: `BoardController.SfxVolume` と `BoardController.BgmVolume` で `BoardConfig.SoundConfig` とは別に board の再生 volume を設定でき、両方とも 0–1 に clamp されます。
 - **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
 
 このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect`、Watermelon Game サンプルのソースは `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame` にあります。
@@ -463,7 +464,7 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 - このリポジトリ上の現在の Base パッケージ版: `0.22.0`
 - このリポジトリ上の現在の URP パッケージ版: `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.2.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
 - リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
 
 ## 🤝 貢献
@@ -486,6 +487,6 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base` `0.22.0`
 - URP: `com.github.doqltl179.mu3library.urp` `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.2.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
 
 Unity開発者のために制作

@@ -15,17 +15,32 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [watermelon/0.3.0] - 2026-08-09
+
 ### Added
-- `BoardConfig`: Added an optional `SoundConfig` that carries the board sounds: separate SFX and BGM volumes, and one clip per `BoardSoundType`, `GameStart`, `GameEnd`, and `ItemDrop`. Every clip can be left empty and a moment without one stays silent, so a board can be configured with only the sounds a project already has.
+- `BoardController`: Added a public board command queue through `EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`, and the `OnCommandEnqueued`, `OnCommandFinished`, and `OnCommandFailed` events. Commands added or canceled while the queue is advancing are applied after the current pass, and a throwing command is logged, canceled, and removed without stopping the rest.
+- `IUpdatableBoardCommand` and `ICancelableBoardCommand`: Added optional update and cancellation contracts while keeping `IBoardCommand` minimal.
+- `BoardCommand`: Changed the base to lifecycle hooks through `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel`, and `OnDispose`, with `Complete`, `Cancel`, and `BoardCommandState`; commands with their own state machine can implement `IBoardCommand` directly.
+- `BoardCommandRunner`: Added a shared runner for the board queue, command groups, and hosts outside a board.
+- `IBoardCommandContext` and `BoardController.CommandContext`: Added the narrow board surface external commands use for item operations, score, merge count, sounds, queueing, and board state.
+- Flow commands: Added `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, and `CompositeBoardCommand`.
+- Board commands: Added `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, and `AddScoreCommand`.
+- `MergingCommand`: Changed merge execution to use `IBoardCommandContext`, so the board and external projects can use the same merge command, with protected virtual hooks for merge index, score, spawn position, and sound.
+- `MergingCommand`: Moved the command to `Board.Command.Item` and removed the old `Board.Command.Merge` namespace and folder.
+- `BoardController`: Added `AddScore`, `CountMerge`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem`, and public `GetItemInfo`; score and merge updates now use one path, and negative score changes clamp at zero.
+- `BoardItem`: Added `AddVelocity(Vector2, float)` for pushing an item without replacing its existing velocity.
+- `BoardConfig`: Added an optional `SoundConfig` that carries the board sounds: one clip per `BoardSoundType`, `GameStart`, `GameEnd`, and `ItemDrop`. Every clip can be left empty and a moment without one stays silent, so a board can be configured with only the sounds a project already has.
+- `BoardController`: Changed sound volume ownership to `SfxVolume` and `BgmVolume`, which clamp to 0–1; BGM changes apply immediately to the board-owned audio manager while an assigned manager keeps its own volume.
 - `BoardSoundConfig`: Added an optional BGM playlist through `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, and `BgmLoopCount`. The board starts it on game start and stops it on game end, and it only ever stops a playlist it started itself.
 - `BoardSoundConfig`: Added combo-driven merge sounds through `ItemMergeClips` and `MergeComboInterval`. The first merge plays the first clip, and every merge that lands within the interval, 5 seconds by default, steps one clip further until the last one is reached; a merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step and `PlayItemMergeSound()` is `protected virtual`.
 - `BoardController`: Added `SoundConfig`, `AudioManager`, and the `protected virtual PlayBoardSound(BoardSoundType)` hook. Board sounds go through `Mu3Library.Audio.AudioManager` instead of a second playback path built into this package. Assign the `IAudioManager` a project already runs to share it, volumes and instance limit included, and the board leaves its lifetime alone. While none is assigned the board creates one of its own with the first sound it plays, so a configuration without any clip never builds one, drives it from `Update` because it is a plain class, and disposes it with the board.
 
 ### Changed
-- `BoardArea`: The spawn guide line width is now one fifth of the spawn marker width instead of one tenth, which is one twenty-fifth of the board width.
+- `BoardArea`: The spawn guide line width is now two fifths of the spawn marker width instead of one tenth, which is one twenty-fifth of the board width.
 
 ### Fixed
 - `BoardArea`: The spawn guide line is drawn at the intended size again. A tiled `SpriteRenderer` draws over `SpriteRenderer.size` and not over the sprite bounds, so the line is now sized through that size while the child transform scale, which decides how big one repeated segment is drawn, stays the same on both axes.
+- `BoardArea` and Watermelon sample: Added the item-area rectangle to board gizmos and refreshed the sample board background and sound configuration.
 
 ## [watermelon/0.2.0] - 2026-08-08
 

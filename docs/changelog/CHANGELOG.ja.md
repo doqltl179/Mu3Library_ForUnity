@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [watermelon/0.3.0] - 2026-08-09
+
 ### 追加
 - `BoardController`: 公開 board command queue（`EnqueueCommand`、`CancelCommand`、`CancelCommands<T>`、`CancelAllCommands`、`HasCommand<T>`、`Commands`、`CommandCount`）と `OnCommandEnqueued`、`OnCommandFinished`、`OnCommandFailed` event を追加しました。実行中の command が追加・cancel した変更は現在の command の advance 後に適用され、例外が発生した command は log を残して cancel・破棄しますが、残りの command は継続します。
 - `IUpdatableBoardCommand` と `ICancelableBoardCommand` を command contract の任意部分として追加しました。`IBoardCommand` は最小 contract のまま、frame 更新と事前 cancel をサポートします。
@@ -27,16 +29,18 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `MergingCommand` を他の item command と同じ `Board.Command.Item` に移動し、`Board.Command.Merge` namespace と folder を削除しました。
 - `BoardController.AddScore(int)`、`CountMerge()`、`Items`、`Config`、`Area`、`ItemIndexCount`、`ContainsItem(BoardItem)`、public `GetItemInfo(int)` を追加しました。すべての score 変更と merge count が 1 つの経路を通り、負の score は 0 未満になりません。
 - `BoardItem.AddVelocity(Vector2, float)` を追加し、board 上にすでにある item の速度を保ったまま押せるようにしました。
-- `BoardConfig`: board の sound を保持する任意の `SoundConfig` を追加しました。SFX と BGM の volume を個別に持ち、`BoardSoundType` ごとの clip（`GameStart`、`GameEnd`、`ItemDrop`）で構成されます。すべての clip は空のままにでき、clip がない場面は無音になるため、すでに用意できている sound だけを設定して使えます。
+- `BoardConfig`: board の sound を保持する任意の `SoundConfig` を追加しました。`BoardSoundType` ごとの clip（`GameStart`、`GameEnd`、`ItemDrop`）で構成され、すべての clip は空のままにでき、clip がない場面は無音になるため、すでに用意できている sound だけを設定して使えます。
 - `BoardSoundConfig`: `BgmClips`、`BgmShuffle`、`BgmTrackInterval`、`BgmLoopCount` で構成する任意の BGM playlist を追加しました。game start で再生を開始し game end で停止します。停止するのは board 自身が開始した playlist だけです。
 - `BoardSoundConfig`: `ItemMergeClips` と `MergeComboInterval` により、連続 merge に応じて変わる merge 効果音を追加しました。最初の merge は先頭の clip を再生し、その interval（既定 5 秒）以内に続く merge ごとに index が 1 つ進み、最後の clip で止まります。interval を過ぎてからの merge は連続性を最初からやり直します。現在の段階は `BoardController.MergeComboIndex` で確認でき、`PlayItemMergeSound()` は `protected virtual` です。
-- `BoardController`: `SoundConfig`、`AudioManager`、および `protected virtual PlayBoardSound(BoardSoundType)` の hook を追加しました。この package に再生経路を別途作らず、board の sound は `Mu3Library.Audio.AudioManager` で再生します。project がすでに動かしている `IAudioManager` を割り当てれば volume や同時再生数の設定をそのまま共有し、board はその lifetime に関与しません。割り当てがない間は、board が実際に再生する最初の sound で自前の instance を作り（clip が 1 つもない設定では作られません）、`Update` で自ら駆動し、board と一緒に破棄します。
+- `BoardController`: `SoundConfig`、`AudioManager`、および `protected virtual PlayBoardSound(BoardSoundType)` の hook を追加しました。この package に再生経路を別途作らず、board の sound は `Mu3Library.Audio.AudioManager` で再生します。project がすでに動かしている `IAudioManager` を割り当てれば同時再生数の設定をそのまま共有し、board はその lifetime や volume に関与しません。割り当てがない間は、board が実際に再生する最初の sound で自前の instance を作り（clip が 1 つもない設定では作られません）、`Update` で自ら駆動し、board と一緒に破棄します。
+- `BoardController`: board sound の volume を `SfxVolume` と `BgmVolume` に移動しました。両方とも 0–1 に clamp され、`BgmVolume` は board 所有の audio manager に即時反映されます。
 
 ### 変更
-- `BoardArea`: spawn guide line の横幅を spawn marker の 1/10 から 1/5 に変更しました。board の横幅に対しては 1/25 です。
+- `BoardArea`: spawn guide line の横幅を spawn marker の 1/10 から 2/5 に変更しました。board の横幅に対しては 1/25 です。
 
 ### 修正
 - `BoardArea`: spawn guide line が意図したサイズで描画されるようにしました。tiled の `SpriteRenderer` は sprite の bounds ではなく `SpriteRenderer.size` の領域に描画するため、サイズは renderer size で合わせ、子 transform の scale は繰り返される 1 セグメントの大きさだけを決めるように両軸を同じ値に保ちます。
+- `BoardArea` と Watermelon sample: board Gizmo に item area の矩形を追加し、sample board の背景と sound 設定を更新しました。
 
 ## [watermelon/0.2.0] - 2026-08-08
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [watermelon/0.3.0] - 2026-08-09
+
 - Added a public board command queue to `BoardController`: `EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`, and the `OnCommandEnqueued`, `OnCommandFinished` and `OnCommandFailed` events. A command that throws is logged, canceled and dropped without stopping the rest, and commands enqueued or canceled from a running command are applied once the board is done advancing the current ones.
 - Added `IUpdatableBoardCommand` and `ICancelableBoardCommand` as the optional parts of the command contract, so a command can be advanced every frame and stopped before its end while `IBoardCommand` stays the minimal one.
 - Changed `BoardCommand` into a lifecycle base with the `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel` and `OnDispose` hooks, the `Complete` and `Cancel` transitions, and a `State` of `BoardCommandState`. A command that owns its own state machine implements `IBoardCommand` directly instead.
@@ -13,12 +15,14 @@
 - Changed `MergingCommand` to live in `Board.Command.Item` with the other item commands; the `Board.Command.Merge` namespace and folder are gone.
 - Added `BoardController.AddScore(int)`, `CountMerge()`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem(BoardItem)` and a public `GetItemInfo(int)`; every score change and every merge count, the board's own merges included, now runs through them, and a negative score amount never pushes the score below zero.
 - Added `BoardItem.AddVelocity(Vector2, float)`, which pushes an item that already rests on the board without wiping the speed it carries.
-- Added an optional board sound configuration to `BoardConfig`, with separate SFX and BGM volumes and optional game start, game end, and item drop clips. Every clip can be left empty, and a moment without one stays silent.
+- Added an optional board sound configuration to `BoardConfig`, with optional game start, game end, and item drop clips. Every clip can be left empty, and a moment without one stays silent.
+- Changed the board sound volumes into `BoardController.SfxVolume` and `BoardController.BgmVolume`, so a project sets them on the board instead of carrying them in `BoardSoundConfig`, where a volume setting the player changes could not reach them. Both clamp to 0 to 1, and `BgmVolume` reaches the audio manager the board owns right away.
 - Added an optional board BGM playlist to `BoardConfig.SoundConfig`, with shuffle, an inter-track interval, and a cycle count. It starts on game start and stops on game end.
 - Added combo-driven merge sounds; the first merge plays the first clip of `BoardSoundConfig.ItemMergeClips` and every merge that follows within the combo interval, 5 seconds by default, steps one clip further until the last one is reached. `BoardController.MergeComboIndex` exposes the current step.
 - Added `BoardController.AudioManager`, which the board plays every sound through. The board creates and drives a `Mu3Library.Audio.AudioManager` of its own with the first sound it plays; assign the one a project already runs to share it instead.
-- Changed the spawn guide line width from one tenth to one fifth of the spawn marker width.
+- Changed the spawn guide line width from one tenth to two fifths of the spawn marker width.
 - Fixed the spawn guide line being drawn at an unintended size; the tiled renderer is now fitted through `SpriteRenderer.size`, and its transform scale, which sizes one repeated segment, stays the same on both axes.
+- Added the item-area rectangle to the `BoardArea` gizmos and refreshed the Watermelon sample board background and sound configuration.
 
 ## [watermelon/0.2.0] - 2026-08-08
 
