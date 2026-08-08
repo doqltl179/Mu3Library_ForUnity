@@ -8,6 +8,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
     public partial class BoardController
     {
         protected BoardConfig _boardConfig;
+        /// <summary>
+        /// The configuration the board runs on, null until one was applied.
+        /// </summary>
+        public BoardConfig Config => _boardConfig;
 
         /// <summary>
         /// Applies a complete board configuration to the board and all currently active items.
@@ -151,7 +155,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
             ApplyItemGravity(item);
         }
 
-        private BoardItemInfo GetItemInfo(int index)
+        /// <summary>
+        /// The catalog entry of an item index, null when the configuration the board runs on
+        /// <br/> does not carry it.
+        /// </summary>
+        public BoardItemInfo GetItemInfo(int index)
         {
             if (_boardConfig == null ||
                 _boardConfig.ItemConfig == null ||

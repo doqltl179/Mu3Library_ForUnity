@@ -77,6 +77,27 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         }
 
         /// <summary>
+        /// Adds to the speed the item already carries, in world units per second, which is how a
+        /// <br/> command pushes an item that is already resting on the board.
+        /// <br/> Like <see cref="SetDropVelocity"/> it changes the speed and not the force, so the
+        /// <br/> item size, and with it the item mass, does not decide how far it is pushed.
+        /// <br/> An item that is not falling under its own weight, the one in the player's hand or
+        /// <br/> one that is back in the pool, cannot be pushed.
+        /// </summary>
+        /// <param name="worldVelocity">The speed added to the item, in world units per second.</param>
+        /// <param name="angularVelocity">The spin added to the item, in degrees per second.</param>
+        public void AddVelocity(Vector2 worldVelocity, float angularVelocity = 0.0f)
+        {
+            if (_rb.bodyType != RigidbodyType2D.Dynamic)
+            {
+                return;
+            }
+
+            _rb.linearVelocity += worldVelocity;
+            _rb.angularVelocity += angularVelocity;
+        }
+
+        /// <summary>
         /// <br/> Returns true when this item is stacked above the out line.
         /// <br/> An item counts as stacked only while it rests on the board floor
         /// <br/> or on other board items. The side walls are never a support, they cannot hold an item up.

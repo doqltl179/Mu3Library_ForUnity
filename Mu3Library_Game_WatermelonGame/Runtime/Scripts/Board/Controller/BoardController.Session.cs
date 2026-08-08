@@ -33,6 +33,33 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public int MergeCount => _mergeCount;
 
         #region Utility
+        /// <summary>
+        /// Adds to the board score and reports it through <see cref="OnScoreChanged"/>.
+        /// <br/> Merges count themselves through here, and so does a command that awards points,
+        /// <br/> which keeps every score change on one path.
+        /// <br/> A negative amount takes points away but never pushes the score below zero.
+        /// </summary>
+        public virtual void AddScore(int amount)
+        {
+            if (amount == 0)
+            {
+                return;
+            }
+
+            _score = Mathf.Max(0, _score + amount);
+
+            OnScoreChanged?.Invoke(_score);
+        }
+
+        /// <summary>
+        /// Counts one merge. Every merge runs through here, the ones the board found by itself
+        /// <br/> and the ones a command carried out.
+        /// </summary>
+        public virtual void CountMerge()
+        {
+            _mergeCount++;
+        }
+
         public virtual void GameStart()
         {
             if (CurrentSessionState != SessionState.Prepared)

@@ -1,8 +1,7 @@
 using System.Collections.Generic;
-using Mu3Library.Game.WatermelonGame.Board.Command.Merge;
+using Mu3Library.Game.WatermelonGame.Board.Command.Item;
 using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
-using UnityEngine;
 
 namespace Mu3Library.Game.WatermelonGame.Board
 {
@@ -38,7 +37,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                         }
 
                         // item01 is reserved from now on, so it cannot pair with anything else.
-                        if (CreateMergingCommand(item01, item02))
+                        if (TryCreateMergingCommand(item01, item02))
                         {
                             break;
                         }
@@ -90,7 +89,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _activeMergeIndices.Clear();
         }
 
-        protected bool CreateMergingCommand(BoardItem item01, BoardItem item02)
+        /// <summary>
+        /// Puts a pair the board found into a merge command.
+        /// <br/> Touching is the board's own condition; the merge itself only asks for two items of
+        /// <br/> one catalog entry, which is why a project can merge a pair that never met.
+        /// </summary>
+        protected bool TryCreateMergingCommand(BoardItem item01, BoardItem item02)
         {
             if (item01 == null ||
                 item02 == null ||
@@ -101,55 +105,29 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
-            int itemIndex = item01.Index;
-            Vector3 localMiddlePos = (item01.transform.localPosition + item02.transform.localPosition) * 0.5f;
-
-            void OnStart()
+            MergingCommand command = CreateMergingCommand(item01, item02);
+            if (command == null)
             {
-                item01.gameObject.SetActive(false);
-                item02.gameObject.SetActive(false);
-            }
-            void OnComplete()
-            {
-                _score += _scoreRule.GetScore(itemIndex);
-                OnScoreChanged?.Invoke(_score);
-
-                PoolItem(item01);
-                PoolItem(item02);
-
-                int nextIndex = itemIndex + 1;
-                BoardItemInfo nextInfo = nextIndex < BoardItemsConfig.FruitItemCount
-                    ? GetItemInfo(nextIndex)
-                    : null;
-
-                if (nextInfo != null)
-                {
-                    BoardItem nextItem = _pool.Dequeue(nextInfo);
-                    if (nextItem != null)
-                    {
-                        nextItem.transform.localPosition = localMiddlePos;
-
-                        DropItem(nextItem);
-                    }
-                }
-
-                _mergeCount++;
-
-                PlayItemMergeSound();
+                return false;
             }
 
-            // The items stay in '_createdItems' until the command completes, so that
-            // 'PoolItemAll' can still collect them when the board is prepared again.
-            MergingCommand command = new MergingCommand(item01, item02, OnStart, OnComplete);
-            if (!command.IsValid || !command.HasActiveMergeReservation)
+            // The items stay in '_createdItems' until the command runs, so that 'PoolItemAll'
+            // can still collect them when the board is prepared again.
+            if (!command.IsValid || !command.HasMergeReservation || !EnqueueCommand(command))
             {
                 command.Dispose();
                 return false;
             }
 
-            _commands.Add(command);
-
             return true;
         }
+
+        /// <summary>
+        /// Builds the merge for a pair the board found.
+        /// <br/> Return a <see cref="MergingCommand"/> subclass here to give the whole board a merge
+        /// <br/> that scores, grows, or sounds differently.
+        /// </summary>
+        protected virtual MergingCommand CreateMergingCommand(BoardItem item01, BoardItem item02)
+            => new MergingCommand(CommandContext, item01, item02);
     }
 }

@@ -9,6 +9,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
     public partial class BoardController
     {
         protected readonly List<BoardItem> _createdItems = new();
+        /// <summary>
+        /// The items that are on the board right now, the held one excluded.
+        /// <br/> It is the board's own list and not a copy, so copy it before removing anything.
+        /// </summary>
+        public IReadOnlyList<BoardItem> Items => _createdItems;
 
         private GameObjectPool<BoardItem, BoardItemInfo> m_pool;
         protected GameObjectPool<BoardItem, BoardItemInfo> _pool => m_pool ??= new GameObjectPool<BoardItem, BoardItemInfo>(CreateBoardItem, InitBoardItem);
