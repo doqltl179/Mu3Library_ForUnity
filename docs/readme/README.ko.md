@@ -388,6 +388,7 @@ Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
 - **Board-relative coordinate conversions**: `BoardArea`는 world, screen, local 정규화 위치 변환과 초기화 안전성을 위한 `Try...` 변형을 제공합니다.
 - **Merge effects**: `BoardItemInfo`는 선택적 병합 효과용 `ParticleHandler` 리소스를 지원하며, 완료된 생성 효과 인스턴스는 자동으로 정리됩니다.
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
+- **Board commands**: `BoardController.EnqueueCommand(...)`로 공개 커맨드 큐를 사용하고, `IUpdatableBoardCommand`/`ICancelableBoardCommand`와 `BoardCommand` lifecycle hook으로 프레임 단위 실행·취소를 구성할 수 있습니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면을 제공하며, Flow/Item/Score 커맨드와 `MergingCommand`를 함께 제공합니다.
 - **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서, Watermelon Game 샘플 소스를 `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`에서 확인할 수 있습니다.

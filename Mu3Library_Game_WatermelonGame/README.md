@@ -18,6 +18,79 @@ Board sounds are played through `Mu3Library.Audio.AudioManager`. `BoardControlle
 
 `BoardItemScoreRule.GetScore(int)` is virtual and defaults to the triangular Watermelon Game score progression, allowing external projects to override scoring.
 
+## Commands
+
+The board runs its work as commands, and a project can hand it its own. `BoardController.EnqueueCommand(IBoardCommand)` takes a command, `CancelCommand`, `CancelCommands<T>()` and `CancelAllCommands()` stop one, `HasCommand<T>()` and `Commands` report what is queued, and `OnCommandEnqueued`, `OnCommandFinished` and `OnCommandFailed` follow it. Commands are advanced only while the board runs, so one given to a prepared board waits for `GameStart()`, and `Prepare` drops whatever is left.
+
+`IBoardCommand` is the whole contract: `Run()` until it reports `IsRunning` or `IsCompleted`, then `Dispose()`. Add `IUpdatableBoardCommand` to be advanced every frame and `ICancelableBoardCommand` to be stoppable. `BoardCommand` implements all three and hands out the lifecycle hooks instead, so a command only overrides `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel` and `OnDispose`, and closes itself with `Complete()` or `Cancel()`. `BoardCommandRunner` drives one command through the optional parts of the contract; the board queue and the command groups both run on it, and it can host commands outside a board as well.
+
+`BoardController.CommandContext` is what a command is given to reach the board: `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`, and the `Area`, `Config`, `ScoreRule`, `Items` and `HoldingItem` it reads. A command written outside this package only takes `IBoardCommandContext`, so it never reaches into the board itself.
+
+The package carries these commands:
+
+| Command | What it does |
+| --- | --- |
+| `Flow.ActionCommand` | Runs one callback. |
+| `Flow.DelayCommand` | Waits for a while. |
+| `Flow.WaitUntilCommand` | Waits until the board is in a given state, with an optional timeout that cancels it. |
+| `Flow.SequenceCommand` | Runs commands one after another; a step that gives up cancels the sequence. |
+| `Flow.ParallelCommand` | Runs commands side by side and finishes with the last one. |
+| `Flow.CompositeBoardCommand` | The base the two groups above are built on, for an order this package does not carry. |
+| `Item.MergingCommand` | Merges a pair of equal items: both leave, the points are paid, the next entry falls in where they met. |
+| `Item.SpawnItemCommand` | Drops an item onto the board without the player holding it. |
+| `Item.RemoveItemsCommand` | Takes items off the board, optionally paying out their merge score. |
+| `Item.PromoteItemCommand` | Grows a single item into a later catalog entry where it stands. |
+| `Item.ShakeBoardCommand` | Pushes every item around for a while, measured against the board height. |
+| `Score.AddScoreCommand` | Pays points into the board score, negative for a penalty. |
+
+`MergingCommand` is the one merge of this package. The board builds one for every touching pair it finds, and a project builds one for a pair it picked itself, a magnet power-up pulling together two items that never touched — touching is only the board's own condition, the command asks for nothing but the same catalog index. It reserves the pair while it waits its turn, so nothing else can claim it. `GetMergedIndex`, `GetMergeScore`, `SpawnMergedItem`, `TryGetMergedPosition` and `PlayMergeSound` are `protected virtual`, and `BoardController.CreateMergingCommand(BoardItem, BoardItem)` is the factory to override so the whole board runs a subclass.
+
+A scripted board moment is those pieces put together:
+
+```csharp
+IBoardCommandContext context = boardController.CommandContext;
+
+boardController.EnqueueCommand(new SequenceCommand(
+    new SpawnItemCommand(context, 0, new Vector2(0.5f, 0.95f)),
+    new DelayCommand(0.5f),
+    new ShakeBoardCommand(context, 0.4f),
+    new AddScoreCommand(context, 100)));
+```
+
+A project's own command derives from `BoardCommand` and reaches the board through the context:
+
+```csharp
+public class ClearRowCommand : BoardCommand
+{
+    private readonly IBoardCommandContext _context;
+    private readonly float _normalizedY;
+
+    public ClearRowCommand(IBoardCommandContext context, float normalizedY)
+    {
+        _context = context;
+        _normalizedY = normalizedY;
+    }
+
+    protected override void OnRun()
+    {
+        List<BoardItem> items = new();
+        foreach (var item in _context.Items)
+        {
+            if (item != null &&
+                _context.Area.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 position) &&
+                Mathf.Abs(position.y - _normalizedY) < 0.05f)
+            {
+                items.Add(item);
+            }
+        }
+
+        _context.EnqueueCommand(new RemoveItemsCommand(_context, items, true));
+
+        Complete();
+    }
+}
+```
+
 `BoardArea` also calculates aspect-preserving local, screen, and world rectangles, mathematical screen-to-board-plane conversions, boundary-aware area checks, and position clamping helpers.
 
 Runtime configuration changes validate the complete default catalog before updating the board, active items, and the held item together. Pool reuse resets item presentation and physics state before the next item is initialized.

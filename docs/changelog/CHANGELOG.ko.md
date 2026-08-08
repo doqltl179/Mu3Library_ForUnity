@@ -14,6 +14,17 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ## [Unreleased]
 
 ### 추가됨
+- `BoardController`: 공개 보드 커맨드 큐(`EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`)와 `OnCommandEnqueued`, `OnCommandFinished`, `OnCommandFailed` 이벤트를 추가했습니다. 실행 중 커맨드가 추가·취소한 변경은 현재 커맨드 진행이 끝난 뒤 적용되며, 예외가 난 커맨드는 로그를 남기고 취소·제거하되 나머지 커맨드는 계속 실행합니다.
+- `IUpdatableBoardCommand`와 `ICancelableBoardCommand`를 커맨드 계약의 선택적 부분으로 추가했습니다. `IBoardCommand`는 최소 계약으로 유지하면서 프레임 업데이트와 사전 취소를 지원합니다.
+- `BoardCommand`를 `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel`, `OnDispose` hook과 `Complete`, `Cancel` 전환, `BoardCommandState` 상태를 제공하는 lifecycle base로 변경했습니다. 자체 상태 머신이 필요한 커맨드는 `IBoardCommand`를 직접 구현할 수 있습니다.
+- `BoardCommandRunner`를 추가해 선택적 계약을 포함한 단일 커맨드를 실행하며, 보드 큐·커맨드 그룹·보드 외부 host가 공유하도록 했습니다.
+- `IBoardCommandContext`와 `BoardController.CommandContext`를 추가했습니다. 외부 커맨드는 이 표면을 통해 아이템 생성·교체·삭제, 점수·병합 카운트, 사운드, 큐와 보드 상태를 사용합니다.
+- `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, `CompositeBoardCommand` flow 커맨드를 추가해 보드 작업을 순서화·지연·그룹화할 수 있습니다.
+- 보너스 아이템, 삭제 power-up, 단일 아이템 승급, 보드 흔들기, 점수 보너스를 위한 `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, `AddScoreCommand`를 추가했습니다.
+- `MergingCommand`가 보드가 전달한 두 callback을 실행하는 대신 `IBoardCommandContext`를 통해 병합 자체를 수행하도록 변경했습니다. 보드가 찾은 쌍과 프로젝트가 선택한 쌍에 같은 커맨드를 사용할 수 있고, 병합 index·점수·생성 위치·사운드 hook은 `protected virtual`로 확장할 수 있습니다.
+- `MergingCommand`를 다른 아이템 커맨드와 함께 `Board.Command.Item`으로 이동하고 `Board.Command.Merge` namespace와 폴더를 제거했습니다.
+- `BoardController.AddScore(int)`, `CountMerge()`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem(BoardItem)`, public `GetItemInfo(int)`를 추가했습니다. 모든 점수 변경과 병합 카운트가 한 경로를 사용하며 음수 점수는 0 아래로 내려가지 않습니다.
+- `BoardItem.AddVelocity(Vector2, float)`를 추가해 보드에 이미 놓인 아이템의 기존 속도를 유지하면서 밀어낼 수 있습니다.
 - `BoardConfig`: 보드 사운드를 담는 선택적 `SoundConfig`를 추가했습니다. SFX와 BGM 볼륨을 각각 두고, `BoardSoundType`별 클립(`GameStart`, `GameEnd`, `ItemDrop`)으로 구성됩니다. 모든 클립은 비워둘 수 있고 클립이 없는 시점은 소리를 내지 않으므로, 이미 준비된 사운드만 설정해 사용할 수 있습니다.
 - `BoardSoundConfig`: `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, `BgmLoopCount`로 구성되는 선택적 BGM 플레이리스트를 추가했습니다. 게임 시작에 재생을 시작하고 게임 종료에 정지하며, 보드가 직접 시작한 플레이리스트만 정지합니다.
 - `BoardSoundConfig`: `ItemMergeClips`와 `MergeComboInterval`로 연속 머지에 따라 달라지는 머지 효과음을 추가했습니다. 첫 머지는 첫 클립을 재생하고, 해당 간격(기본 5초) 안에 이어지는 머지마다 인덱스가 하나씩 올라가 마지막 클립에서 멈춥니다. 간격을 넘겨 발생한 머지는 연속성을 처음부터 다시 시작합니다. 현재 단계는 `BoardController.MergeComboIndex`로 확인할 수 있고 `PlayItemMergeSound()`는 `protected virtual`입니다.

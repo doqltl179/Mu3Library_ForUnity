@@ -16,6 +16,17 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [Unreleased]
 
 ### 追加
+- `BoardController`: 公開 board command queue（`EnqueueCommand`、`CancelCommand`、`CancelCommands<T>`、`CancelAllCommands`、`HasCommand<T>`、`Commands`、`CommandCount`）と `OnCommandEnqueued`、`OnCommandFinished`、`OnCommandFailed` event を追加しました。実行中の command が追加・cancel した変更は現在の command の advance 後に適用され、例外が発生した command は log を残して cancel・破棄しますが、残りの command は継続します。
+- `IUpdatableBoardCommand` と `ICancelableBoardCommand` を command contract の任意部分として追加しました。`IBoardCommand` は最小 contract のまま、frame 更新と事前 cancel をサポートします。
+- `BoardCommand` を `OnRun`、`OnUpdate`、`OnComplete`、`OnCancel`、`OnDispose` hook、`Complete` / `Cancel` transition、`BoardCommandState` state を持つ lifecycle base に変更しました。独自 state machine が必要な command は `IBoardCommand` を直接実装できます。
+- `BoardCommandRunner` を追加し、任意 contract を含む単一 command を実行します。board queue、command group、board 外部の host で共有できます。
+- `IBoardCommandContext` と `BoardController.CommandContext` を追加しました。外部 command はこの surface を通じて item の生成・置換・削除、score・merge count、sound、queue、board state を利用します。
+- `ActionCommand`、`DelayCommand`、`WaitUntilCommand`、`SequenceCommand`、`ParallelCommand`、`CompositeBoardCommand` の flow command を追加し、board work を順序化・遅延・group 化できるようにしました。
+- bonus item、削除 power-up、単一 item の昇格、board の shake、score bonus 用に `SpawnItemCommand`、`RemoveItemsCommand`、`PromoteItemCommand`、`ShakeBoardCommand`、`AddScoreCommand` を追加しました。
+- `MergingCommand` が board から渡された 2 つの callback を実行する代わりに `IBoardCommandContext` を通じて merge 自体を行うように変更しました。board が見つけた pair と project が選んだ pair に同じ command を使え、merge index・score・生成位置・sound hook を `protected virtual` で拡張できます。
+- `MergingCommand` を他の item command と同じ `Board.Command.Item` に移動し、`Board.Command.Merge` namespace と folder を削除しました。
+- `BoardController.AddScore(int)`、`CountMerge()`、`Items`、`Config`、`Area`、`ItemIndexCount`、`ContainsItem(BoardItem)`、public `GetItemInfo(int)` を追加しました。すべての score 変更と merge count が 1 つの経路を通り、負の score は 0 未満になりません。
+- `BoardItem.AddVelocity(Vector2, float)` を追加し、board 上にすでにある item の速度を保ったまま押せるようにしました。
 - `BoardConfig`: board の sound を保持する任意の `SoundConfig` を追加しました。SFX と BGM の volume を個別に持ち、`BoardSoundType` ごとの clip（`GameStart`、`GameEnd`、`ItemDrop`）で構成されます。すべての clip は空のままにでき、clip がない場面は無音になるため、すでに用意できている sound だけを設定して使えます。
 - `BoardSoundConfig`: `BgmClips`、`BgmShuffle`、`BgmTrackInterval`、`BgmLoopCount` で構成する任意の BGM playlist を追加しました。game start で再生を開始し game end で停止します。停止するのは board 自身が開始した playlist だけです。
 - `BoardSoundConfig`: `ItemMergeClips` と `MergeComboInterval` により、連続 merge に応じて変わる merge 効果音を追加しました。最初の merge は先頭の clip を再生し、その interval（既定 5 秒）以内に続く merge ごとに index が 1 つ進み、最後の clip で止まります。interval を過ぎてからの merge は連続性を最初からやり直します。現在の段階は `BoardController.MergeComboIndex` で確認でき、`PlayItemMergeSound()` は `protected virtual` です。
