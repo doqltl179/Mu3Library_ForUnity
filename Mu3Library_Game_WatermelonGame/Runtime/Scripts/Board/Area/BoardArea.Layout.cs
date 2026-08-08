@@ -22,6 +22,18 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Gizmos.DrawLine(new Vector2(world.Max.x, world.Max.y), new Vector2(world.Max.x, world.Min.y));
             Gizmos.DrawLine(new Vector2(world.Max.x, world.Min.y), new Vector2(world.Min.x, world.Min.y));
 
+            CoordinateBounds itemArea = ItemAreaLocalBounds;
+            Vector3 itemAreaBottomLeft = transform.TransformPoint(new Vector3(itemArea.Min.x, itemArea.Min.y, 0.0f));
+            Vector3 itemAreaTopLeft = transform.TransformPoint(new Vector3(itemArea.Min.x, itemArea.Max.y, 0.0f));
+            Vector3 itemAreaTopRight = transform.TransformPoint(new Vector3(itemArea.Max.x, itemArea.Max.y, 0.0f));
+            Vector3 itemAreaBottomRight = transform.TransformPoint(new Vector3(itemArea.Max.x, itemArea.Min.y, 0.0f));
+
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(itemAreaBottomLeft, itemAreaTopLeft);
+            Gizmos.DrawLine(itemAreaTopLeft, itemAreaTopRight);
+            Gizmos.DrawLine(itemAreaTopRight, itemAreaBottomRight);
+            Gizmos.DrawLine(itemAreaBottomRight, itemAreaBottomLeft);
+
             Gizmos.color = Color.cyan;
             Vector2 lineNormalizedPosition = Vector2.up * _boardLocalNormalizedItemOutPosY;
             Vector3 lineLeft = BoardLocalNormalizedPositionToWorld(lineNormalizedPosition);
