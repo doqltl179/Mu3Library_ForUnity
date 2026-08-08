@@ -97,6 +97,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
         protected virtual void OnDestroy()
         {
             ClearAllCommands();
+
+            StopBoardBgm();
+            DisposeOwnedAudioManager();
         }
 
         protected virtual void Start()
@@ -113,6 +116,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected virtual void Update()
         {
+            // The board's own audio manager is a plain class, so nothing else advances its
+            // SFX pooling and its BGM playlist. It is driven even while the board is idle,
+            // so a game-end sound is still cleaned up after the board stopped running.
+            UpdateOwnedAudioManager();
+
             if (!_isRunning)
             {
                 return;

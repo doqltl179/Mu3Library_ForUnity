@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
 using UnityEngine;
 
@@ -117,6 +118,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             _lastDropTime = Time.time;
             _spawnCount++;
+
+            PlayBoardSound(BoardSoundType.ItemDrop);
         }
         #endregion
 

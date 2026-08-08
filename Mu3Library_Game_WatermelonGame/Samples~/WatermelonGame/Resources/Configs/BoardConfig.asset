@@ -41,6 +41,18 @@ MonoBehaviour:
       _colliderScale: 0.97
     - _sprite: {fileID: 21300000, guid: 8fae46ca3d524af5ab7d20cc1482b801, type: 3}
       _colliderScale: 0.97
+  _soundConfig:
+    _sfxVolume: 1
+    _bgmVolume: 0.8
+    _bgmClips: []
+    _bgmShuffle: 0
+    _bgmTrackInterval: 1
+    _bgmLoopCount: -1
+    _gameStartClip: {fileID: 0}
+    _gameEndClip: {fileID: 0}
+    _itemDropClip: {fileID: 0}
+    _itemMergeClips: []
+    _mergeComboInterval: 5
   _itemPhysicsMaterial: {fileID: 6200000, guid: 58effcbf8e3c9a649b4b24e823f23c62, type: 2}
   _itemRigidbodySettings:
     _linearDamping: 0.05

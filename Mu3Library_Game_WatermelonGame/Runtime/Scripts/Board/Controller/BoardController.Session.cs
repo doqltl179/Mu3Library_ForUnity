@@ -1,3 +1,4 @@
+using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
 using UnityEngine;
 
@@ -44,6 +45,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             Debug.Log("Game Started");
 
+            PlayBoardSound(BoardSoundType.GameStart);
+            StartBoardBgm();
+
             OnGameStarted?.Invoke();
         }
 
@@ -62,6 +66,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Debug.Log("Game Ended");
             Debug.Log($"Score: {_score}");
 
+            // The playlist stops first, so the sound that closes the game is not buried under it.
+            StopBoardBgm();
+            PlayBoardSound(BoardSoundType.GameEnd);
+
             OnGameEnded?.Invoke();
         }
 
@@ -79,6 +87,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _holdingNormalizedX = 0.5f;
 
             SetSessionState(SessionState.Unprepared);
+
+            StopBoardBgm();
+            ResetMergeCombo();
 
             _restoredItemIndices.Clear();
 

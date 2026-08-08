@@ -29,6 +29,16 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
         public BoardItemsConfig ItemConfig => _itemConfig;
 
         [Space(20)]
+        [Tooltip("Optional board sounds. Every clip can be left empty, the board stays silent without one.")]
+        [SerializeField] protected BoardSoundConfig _soundConfig = new();
+        [System.NonSerialized] private BoardSoundConfig m_runtimeSoundConfig;
+        /// <summary>
+        /// The sounds the board plays, never null. A sound without a clip is skipped.
+        /// </summary>
+        public BoardSoundConfig SoundConfig =>
+            _soundConfig ?? (m_runtimeSoundConfig ??= new BoardSoundConfig());
+
+        [Space(20)]
         [Tooltip("Optional. Applied to the collider of every board item.\nNone leaves the item prefab with the material it already carries.")]
         [SerializeField] protected PhysicsMaterial2D _itemPhysicsMaterial;
         /// <summary>

@@ -134,6 +134,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 }
 
                 _mergeCount++;
+
+                PlayItemMergeSound();
             }
 
             // The items stay in '_createdItems' until the command completes, so that
