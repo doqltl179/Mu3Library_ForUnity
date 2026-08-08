@@ -1,6 +1,5 @@
 using System;
 using Mu3Library.Attribute;
-using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
 using Mu3Library.Game.WatermelonGame.Board.Item.Rule;
 using UnityEngine;
