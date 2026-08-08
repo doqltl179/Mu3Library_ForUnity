@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Added an optional board sound configuration to `BoardConfig`, with separate SFX and BGM volumes and optional game start, game end, and item drop clips. Every clip can be left empty, and a moment without one stays silent.
+- Added an optional board BGM playlist to `BoardConfig.SoundConfig`, with shuffle, an inter-track interval, and a cycle count. It starts on game start and stops on game end.
+- Added combo-driven merge sounds; the first merge plays the first clip of `BoardSoundConfig.ItemMergeClips` and every merge that follows within the combo interval, 5 seconds by default, steps one clip further until the last one is reached. `BoardController.MergeComboIndex` exposes the current step.
+- Added `BoardController.AudioManager`, which the board plays every sound through. The board creates and drives a `Mu3Library.Audio.AudioManager` of its own with the first sound it plays; assign the one a project already runs to share it instead.
 - Changed the spawn guide line width from one tenth to one fifth of the spawn marker width.
 - Fixed the spawn guide line being drawn at an unintended size; the tiled renderer is now fitted through `SpriteRenderer.size`, and its transform scale, which sizes one repeated segment, stays the same on both axes.
 

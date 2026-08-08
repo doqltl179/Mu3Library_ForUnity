@@ -15,6 +15,12 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `BoardConfig`: board の sound を保持する任意の `SoundConfig` を追加しました。SFX と BGM の volume を個別に持ち、`BoardSoundType` ごとの clip（`GameStart`、`GameEnd`、`ItemDrop`）で構成されます。すべての clip は空のままにでき、clip がない場面は無音になるため、すでに用意できている sound だけを設定して使えます。
+- `BoardSoundConfig`: `BgmClips`、`BgmShuffle`、`BgmTrackInterval`、`BgmLoopCount` で構成する任意の BGM playlist を追加しました。game start で再生を開始し game end で停止します。停止するのは board 自身が開始した playlist だけです。
+- `BoardSoundConfig`: `ItemMergeClips` と `MergeComboInterval` により、連続 merge に応じて変わる merge 効果音を追加しました。最初の merge は先頭の clip を再生し、その interval（既定 5 秒）以内に続く merge ごとに index が 1 つ進み、最後の clip で止まります。interval を過ぎてからの merge は連続性を最初からやり直します。現在の段階は `BoardController.MergeComboIndex` で確認でき、`PlayItemMergeSound()` は `protected virtual` です。
+- `BoardController`: `SoundConfig`、`AudioManager`、および `protected virtual PlayBoardSound(BoardSoundType)` の hook を追加しました。この package に再生経路を別途作らず、board の sound は `Mu3Library.Audio.AudioManager` で再生します。project がすでに動かしている `IAudioManager` を割り当てれば volume や同時再生数の設定をそのまま共有し、board はその lifetime に関与しません。割り当てがない間は、board が実際に再生する最初の sound で自前の instance を作り（clip が 1 つもない設定では作られません）、`Update` で自ら駆動し、board と一緒に破棄します。
+
 ### 変更
 - `BoardArea`: spawn guide line の横幅を spawn marker の 1/10 から 1/5 に変更しました。board の横幅に対しては 1/25 です。
 

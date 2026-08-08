@@ -15,6 +15,12 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `BoardConfig`: Added an optional `SoundConfig` that carries the board sounds: separate SFX and BGM volumes, and one clip per `BoardSoundType`, `GameStart`, `GameEnd`, and `ItemDrop`. Every clip can be left empty and a moment without one stays silent, so a board can be configured with only the sounds a project already has.
+- `BoardSoundConfig`: Added an optional BGM playlist through `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, and `BgmLoopCount`. The board starts it on game start and stops it on game end, and it only ever stops a playlist it started itself.
+- `BoardSoundConfig`: Added combo-driven merge sounds through `ItemMergeClips` and `MergeComboInterval`. The first merge plays the first clip, and every merge that lands within the interval, 5 seconds by default, steps one clip further until the last one is reached; a merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step and `PlayItemMergeSound()` is `protected virtual`.
+- `BoardController`: Added `SoundConfig`, `AudioManager`, and the `protected virtual PlayBoardSound(BoardSoundType)` hook. Board sounds go through `Mu3Library.Audio.AudioManager` instead of a second playback path built into this package. Assign the `IAudioManager` a project already runs to share it, volumes and instance limit included, and the board leaves its lifetime alone. While none is assigned the board creates one of its own with the first sound it plays, so a configuration without any clip never builds one, drives it from `Update` because it is a plain class, and disposes it with the board.
+
 ### Changed
 - `BoardArea`: The spawn guide line width is now one fifth of the spawn marker width instead of one tenth, which is one twenty-fifth of the board width.
 

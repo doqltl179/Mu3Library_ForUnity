@@ -13,6 +13,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `BoardConfig`: 보드 사운드를 담는 선택적 `SoundConfig`를 추가했습니다. SFX와 BGM 볼륨을 각각 두고, `BoardSoundType`별 클립(`GameStart`, `GameEnd`, `ItemDrop`)으로 구성됩니다. 모든 클립은 비워둘 수 있고 클립이 없는 시점은 소리를 내지 않으므로, 이미 준비된 사운드만 설정해 사용할 수 있습니다.
+- `BoardSoundConfig`: `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, `BgmLoopCount`로 구성되는 선택적 BGM 플레이리스트를 추가했습니다. 게임 시작에 재생을 시작하고 게임 종료에 정지하며, 보드가 직접 시작한 플레이리스트만 정지합니다.
+- `BoardSoundConfig`: `ItemMergeClips`와 `MergeComboInterval`로 연속 머지에 따라 달라지는 머지 효과음을 추가했습니다. 첫 머지는 첫 클립을 재생하고, 해당 간격(기본 5초) 안에 이어지는 머지마다 인덱스가 하나씩 올라가 마지막 클립에서 멈춥니다. 간격을 넘겨 발생한 머지는 연속성을 처음부터 다시 시작합니다. 현재 단계는 `BoardController.MergeComboIndex`로 확인할 수 있고 `PlayItemMergeSound()`는 `protected virtual`입니다.
+- `BoardController`: `SoundConfig`, `AudioManager`와 `protected virtual PlayBoardSound(BoardSoundType)` 훅을 추가했습니다. 이 패키지에 재생 경로를 따로 만들지 않고 보드 사운드를 `Mu3Library.Audio.AudioManager`로 재생합니다. 프로젝트가 이미 사용 중인 `IAudioManager`를 지정하면 볼륨과 동시 재생 개수 설정을 그대로 공유하며, 보드는 그 수명에 관여하지 않습니다. 지정하지 않으면 보드가 실제로 재생하는 첫 사운드에서 자체 인스턴스를 만들어(클립이 하나도 없는 설정에서는 생성되지 않습니다) `Update`에서 직접 구동하고, 보드와 함께 정리합니다.
+
 ### 변경됨
 - `BoardArea`: spawn guide line의 가로 크기를 spawn marker 가로의 1/10에서 1/5로 변경했습니다. board 가로 기준으로는 1/25입니다.
 
