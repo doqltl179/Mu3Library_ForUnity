@@ -25,19 +25,19 @@ jobs:
           echo "head=$HEAD"
 
           if [[ "$BASE" == "main" ]]; then
-            if [[ "$HEAD" == "develop" ]] || [[ "$HEAD" =~ ^hotfix/.+$ ]] || [[ "$HEAD" =~ ^docs/.+$ ]]; then
+            if [[ "$HEAD" == "develop" ]]; then
               exit 0
             fi
-            echo "PRs into main must come from develop, hotfix/*, or docs/*."
+            echo "PRs into main must come from develop."
             exit 1
           fi
 
           if [[ "$BASE" == "develop" ]]; then
-            if [[ "$HEAD" =~ ^(feature|fix|hotfix|chore|refactor|docs|test|perf|build|ci)/.+$ ]] || [[ "$HEAD" == "develop" ]] || [[ "$HEAD" == "main" ]]; then
+            if [[ "$HEAD" == "main" ]]; then
               exit 0
             fi
 
-            echo "PRs into develop must come from a working branch (e.g. feature/*, fix/*, chore/*) or from main for release sync."
+            echo "PRs into develop must come from main for release sync."
             exit 1
           fi
 

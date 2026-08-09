@@ -6,6 +6,9 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 
 - Answer with the smallest clear result that completes the request; search narrowly with `rg` or a small file list.
 - Before implementing a requested task, assess its functional feasibility and intended scope.
+- Before editing or committing, run a branch preflight: `git status --short --branch`, `git branch --show-current`, and the relevant upstream/ahead-behind check.
+- Normal work is allowed only on `develop`; `main` is release-only. If any other branch is checked out, stop before editing or committing and report it for explicit resolution.
+- Never create, switch to, merge, push, or delete a task branch automatically. A non-`main`/`develop` branch requires explicit user authorization with its exact name and cleanup destination.
 - If the requested outcome is functionally impossible, stop and report why work cannot proceed; if it is feasible but requires a material scope expansion, major change, or unspecified user choice, pause and request the necessary decision.
 - Do not invent workaround rules or alternate behavior to make an unimplementable or underspecified request appear complete; clarify or re-scope it so the original request can be fulfilled correctly.
 - Keep one owner per concern and prefer bounded, non-overlapping work units.
