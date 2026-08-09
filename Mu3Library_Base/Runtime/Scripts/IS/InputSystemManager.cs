@@ -393,7 +393,7 @@ namespace Mu3Library.IS
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"Failed to parse InputActionAsset from json. Exception: {ex}");
+                Debug.LogException(ex);
             }
         }
 

@@ -526,7 +526,7 @@ namespace Mu3Library.Editor.Window.Drawer
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LocalizationCharacterCollector] Failed to save files: {e.Message}");
+                Debug.LogException(e);
             }
         }
 

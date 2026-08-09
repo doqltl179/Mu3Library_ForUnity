@@ -51,7 +51,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
             catch (Exception e)
             {
-                Debug.LogError($"Board snapshot could not be read. message: {e.Message}");
+                Debug.LogException(e);
                 return null;
             }
         }
