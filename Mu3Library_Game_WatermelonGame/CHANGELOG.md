@@ -7,6 +7,9 @@
 - Added `BoardMergeInfo`, the merge report handed to `OnItemMerged`: the catalog index that merged, the index and the instance it became, the board-normalized position it happened at, the score it paid out, and `IsValid`.
 - Added `BoardController.CountMerge(BoardMergeInfo)` and `IBoardCommandContext.CountMerge(BoardMergeInfo)`, which every merge the board and `MergingCommand` carry out now counts through, so a merge a project's own command performs is reported like one the board found by itself. `CountMerge()` still counts a merge that cannot tell what it merged and reports `BoardMergeInfo.Unknown`; a subclass that overrode it to follow merges should override the overload instead.
 - Changed `MergingCommand` to play its merge sound before it counts the merge, so a listener of `OnItemMerged` already sees the combo step the merge landed on.
+- Removed `BoardController.SetBoareConfig(BoardConfig)`, the misspelled compatibility alias of `SetBoardConfig(BoardConfig)`. Call `SetBoardConfig(BoardConfig)` instead.
+- Changed `BoardSnapshot.FromJson` to report a snapshot it cannot read with `Debug.LogException` instead of a `Debug.LogError` that stringified the exception, so the exception type and its stack trace survive in the console.
+- Removed the `BoardArea` "board world normalized" conversions, which only forwarded to their board local counterparts and named the same coordinate space twice: `BoardWorldNormalizedPositionToWorld`, `BoardWorldNormalizedPositionToScreen`, `BoardWorldNormalizedPositionToLocal`, `WorldToBoardWorldNormalizedPosition`, `TryWorldToBoardWorldNormalizedPosition`, `ScreenToBoardWorldNormalizedPosition`, `TryScreenToBoardWorldNormalizedPosition`, `LocalToBoardWorldNormalizedPosition` and `TryLocalToBoardWorldNormalizedPosition`. Use the matching `BoardLocalNormalized` conversion instead.
 
 ## [game/watermelon/0.3.0] - 2026-08-09
 
