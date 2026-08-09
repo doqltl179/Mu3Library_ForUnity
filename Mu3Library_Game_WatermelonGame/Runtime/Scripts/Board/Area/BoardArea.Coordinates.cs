@@ -13,15 +13,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public Vector3 BoardLocalNormalizedPositionToLocal(Vector2 position)
             => _converter.BoardLocalNormalizedPositionToLocal(position);
 
-        public Vector3 BoardWorldNormalizedPositionToWorld(Vector2 position)
-            => BoardLocalNormalizedPositionToWorld(position);
-
-        public Vector3 BoardWorldNormalizedPositionToScreen(Vector2 position)
-            => BoardLocalNormalizedPositionToScreen(position);
-
-        public Vector3 BoardWorldNormalizedPositionToLocal(Vector2 position)
-            => BoardLocalNormalizedPositionToLocal(position);
-
         public Vector3 BoardScreenNormalizedPositionToWorld(Vector2 position)
             => _converter.BoardScreenNormalizedPositionToWorld(position);
 
@@ -30,21 +21,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public Vector3 BoardScreenNormalizedPositionToLocal(Vector2 position)
             => _converter.BoardScreenNormalizedPositionToLocal(position);
-
-        public Vector2 WorldToBoardWorldNormalizedPosition(Vector3 worldPos)
-            => TryWorldToBoardWorldNormalizedPosition(worldPos, out Vector2 normalized) ? normalized : default;
-
-        /// <summary>
-        /// Converts a world position to normalized board world coordinates when the board has been calculated.
-        /// </summary>
-        public bool TryWorldToBoardWorldNormalizedPosition(Vector3 worldPos, out Vector2 boardNormalizedPosition)
-            => _converter.TryWorldToBoardLocalNormalizedPosition(worldPos, out boardNormalizedPosition);
-
-        public Vector2 ScreenToBoardWorldNormalizedPosition(Vector3 screenPos)
-            => TryScreenToBoardWorldNormalizedPosition(screenPos, out Vector2 normalized) ? normalized : default;
-
-        public Vector2 LocalToBoardWorldNormalizedPosition(Vector3 localPos)
-            => TryLocalToBoardWorldNormalizedPosition(localPos, out Vector2 normalized) ? normalized : default;
 
         /// <summary>
         /// Converts a world position to normalized board local coordinates when the board has been calculated.
@@ -82,12 +58,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public bool TryLocalToBoardLocalNormalizedPosition(Vector3 localPos, out Vector2 boardNormalizedPosition)
             => _converter.TryLocalToBoardLocalNormalizedPosition(localPos, out boardNormalizedPosition);
 
-        /// <summary>
-        /// Converts a local position to normalized board world coordinates when the board has been calculated.
-        /// </summary>
-        public bool TryLocalToBoardWorldNormalizedPosition(Vector3 localPos, out Vector2 boardNormalizedPosition)
-            => TryLocalToBoardLocalNormalizedPosition(localPos, out boardNormalizedPosition);
-
         public Vector2 WorldToBoardScreenNormalizedPosition(Vector3 worldPos)
             => TryWorldToBoardScreenNormalizedPosition(worldPos, out Vector2 normalized) ? normalized : default;
 
@@ -105,12 +75,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// </summary>
         public bool TryScreenToBoardScreenNormalizedPosition(Vector3 screenPos, out Vector2 boardNormalizedPosition)
             => _converter.TryScreenToBoardScreenNormalizedPosition(screenPos, out boardNormalizedPosition);
-
-        /// <summary>
-        /// Converts a screen position to normalized board world coordinates when the board has been calculated.
-        /// </summary>
-        public bool TryScreenToBoardWorldNormalizedPosition(Vector3 screenPos, out Vector2 boardNormalizedPosition)
-            => _converter.TryScreenToBoardLocalNormalizedPosition(screenPos, out boardNormalizedPosition);
 
         public Vector2 LocalToBoardScreenNormalizedPosition(Vector3 localPos)
             => TryLocalToBoardScreenNormalizedPosition(localPos, out Vector2 normalized) ? normalized : default;

@@ -47,9 +47,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
             OnBoardConfigChanged?.Invoke(config);
         }
 
-        public void SetBoareConfig(BoardConfig config)
-            => SetBoardConfig(config);
-
         private bool CanApplyBoardConfig(BoardConfig config)
         {
             if (_boardArea == null)
