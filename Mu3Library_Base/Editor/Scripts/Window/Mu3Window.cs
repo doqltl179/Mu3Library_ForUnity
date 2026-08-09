@@ -10,7 +10,7 @@ namespace Mu3Library.Editor.Window
     {
         protected const string MenuRoot = "Mu3Library/Windows";
 
-        #region Window Propertyies
+        #region Window Properties
 
         protected Rect _windowRect;
         protected float _windowWidth;
