@@ -71,8 +71,7 @@ Before pushing local `develop` or `main` to its remote counterpart:
 
 ## Hotfix Flow
 
-1. Create `hotfix/<topic>` from `main`.
-2. Implement and verify the fix on the hotfix branch.
-3. Merge `hotfix/<topic>` into `main`.
-4. Publish the patch release.
-5. Sync `main` back into `develop`.
+1. Implement and verify the hotfix on `develop`; do not create a `hotfix/*` branch automatically.
+2. If the user explicitly requests a release, synchronize the verified `develop` into `main`.
+3. Publish the patch release from `main`.
+4. Sync `main` back into `develop` after the release succeeds.
