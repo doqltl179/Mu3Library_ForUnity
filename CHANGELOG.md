@@ -24,7 +24,7 @@ This changelog tracks package release changes only. Repository development workf
 ### Changed
 - `MergingCommand`: The merge now plays its sound before it counts itself, so a listener of `OnItemMerged` already sees the merge combo step the merge landed on. A `BoardController` subclass that overrode `CountMerge()` to follow merges should override `CountMerge(BoardMergeInfo)` instead.
 
-## [watermelon/0.3.0] - 2026-08-09
+## [game/watermelon/0.3.0] - 2026-08-09
 
 ### Added
 - `BoardController`: Added a public board command queue through `EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`, and the `OnCommandEnqueued`, `OnCommandFinished`, and `OnCommandFailed` events. Commands added or canceled while the queue is advancing are applied after the current pass, and a throwing command is logged, canceled, and removed without stopping the rest.
@@ -51,7 +51,7 @@ This changelog tracks package release changes only. Repository development workf
 - `BoardArea`: The spawn guide line is drawn at the intended size again. A tiled `SpriteRenderer` draws over `SpriteRenderer.size` and not over the sprite bounds, so the line is now sized through that size while the child transform scale, which decides how big one repeated segment is drawn, stays the same on both axes.
 - `BoardArea` and Watermelon sample: Added the item-area rectangle to board gizmos and refreshed the sample board background and sound configuration.
 
-## [watermelon/0.2.0] - 2026-08-08
+## [game/watermelon/0.2.0] - 2026-08-08
 
 ### Added
 - `BoardArea`: Added configurable item-out line placement and board-width fitting for the optional outline sprite.
@@ -91,7 +91,7 @@ This changelog tracks package release changes only. Repository development workf
 - `BoardController`: Merging items stay registered on the board until their command completes and the same item can no longer be registered twice, so preparing the board again collects every item instead of leaking it or leaving stale duplicates that grew the board without bound. Renamed the misspelled `OnDestory` so commands are actually disposed.
 - `MergingCommand`: A merge can no longer start or complete more than once, and never completes after the command has been disposed.
 
-## [watermelon/0.1.1] - 2026-08-07
+## [game/watermelon/0.1.1] - 2026-08-07
 
 ### Added
 - `BoardItemInfo`: Added optional `ParticleHandler` resources for merge effects and automatic cleanup after spawned effects complete.
@@ -112,7 +112,7 @@ This changelog tracks package release changes only. Repository development workf
 ### Added
 - `Mu3Library.URP.Cam.CameraStackSetter`: Added `EnsureUniversalCameraData(Camera)` for safe Universal Camera Data bootstrap in reusable samples.
 
-## [watermelon/0.1.0] - 2026-08-07
+## [game/watermelon/0.1.0] - 2026-08-07
 
 ### Added
 - `Mu3Library.Game.WatermelonGame`: Added the reusable board, item, merge, configuration, and input runtime assembly.

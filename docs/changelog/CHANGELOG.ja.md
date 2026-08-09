@@ -24,7 +24,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 変更
 - `MergingCommand`: merge sound を集計より先に再生するよう変更しました。`OnItemMerged` の購読者はその merge の combo 段階をそのまま参照できます。merge 追跡のために `CountMerge()` を override していた `BoardController` 派生クラスは `CountMerge(BoardMergeInfo)` を override してください。
 
-## [watermelon/0.3.0] - 2026-08-09
+## [game/watermelon/0.3.0] - 2026-08-09
 
 ### 追加
 - `BoardController`: 公開 board command queue（`EnqueueCommand`、`CancelCommand`、`CancelCommands<T>`、`CancelAllCommands`、`HasCommand<T>`、`Commands`、`CommandCount`）と `OnCommandEnqueued`、`OnCommandFinished`、`OnCommandFailed` event を追加しました。実行中の command が追加・cancel した変更は現在の command の advance 後に適用され、例外が発生した command は log を残して cancel・破棄しますが、残りの command は継続します。
@@ -51,7 +51,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardArea`: spawn guide line が意図したサイズで描画されるようにしました。tiled の `SpriteRenderer` は sprite の bounds ではなく `SpriteRenderer.size` の領域に描画するため、サイズは renderer size で合わせ、子 transform の scale は繰り返される 1 セグメントの大きさだけを決めるように両軸を同じ値に保ちます。
 - `BoardArea` と Watermelon sample: board Gizmo に item area の矩形を追加し、sample board の背景と sound 設定を更新しました。
 
-## [watermelon/0.2.0] - 2026-08-08
+## [game/watermelon/0.2.0] - 2026-08-08
 
 ### 追加
 - `BoardArea`: 任意の outline sprite を設定した board 幅に合わせ、item 超過境界へ配置する機能を追加しました。
@@ -91,7 +91,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardController`: merge 中の item が command 完了まで board に登録されたままになり、同一 item の重複登録を防ぐようにしました。board を再準備するとすべての item が回収されます。従来は item が失われたり重複 entry が残って board が際限なく増えていました。誤記だった `OnDestory` を修正し、command が実際に破棄されるようにしました。
 - `MergingCommand`: merge が二度以上開始・完了せず、command 破棄後には完了しないように修正しました。
 
-## [watermelon/0.1.1] - 2026-08-07
+## [game/watermelon/0.1.1] - 2026-08-07
 
 ### 追加
 - `BoardItemInfo`: merge effect 用の任意 `ParticleHandler` resource と、生成 effect 完了後の自動 cleanup を追加しました。
@@ -112,7 +112,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 追加
 - `Mu3Library.URP.Cam.CameraStackSetter`: 再利用可能な sample で Universal Camera Data を安全に保証する `EnsureUniversalCameraData(Camera)` を追加しました。
 
-## [watermelon/0.1.0] - 2026-08-07
+## [game/watermelon/0.1.0] - 2026-08-07
 
 ### 追加
 - `Mu3Library.Game.WatermelonGame`: board、item、merge、configuration、input の runtime assembly を追加しました。

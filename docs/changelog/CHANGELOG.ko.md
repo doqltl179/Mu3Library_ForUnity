@@ -22,7 +22,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 변경됨
 - `MergingCommand`: merge sound를 집계보다 먼저 재생하도록 변경했습니다. `OnItemMerged` 구독자가 해당 merge의 combo 단계를 바로 확인할 수 있습니다. merge 추적을 위해 `CountMerge()`를 override 하던 `BoardController` 파생 클래스는 `CountMerge(BoardMergeInfo)`를 override 해야 합니다.
 
-## [watermelon/0.3.0] - 2026-08-09
+## [game/watermelon/0.3.0] - 2026-08-09
 
 ### 추가됨
 - `BoardController`: 공개 보드 커맨드 큐(`EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`)와 `OnCommandEnqueued`, `OnCommandFinished`, `OnCommandFailed` 이벤트를 추가했습니다. 실행 중 커맨드가 추가·취소한 변경은 현재 커맨드 진행이 끝난 뒤 적용되며, 예외가 난 커맨드는 로그를 남기고 취소·제거하되 나머지 커맨드는 계속 실행합니다.
@@ -49,7 +49,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardArea`: spawn guide line이 다시 의도한 크기로 그려집니다. tiled `SpriteRenderer`는 스프라이트 경계가 아니라 `SpriteRenderer.size` 영역에 그리므로, 이제 크기는 renderer size로 맞추고 자식 transform scale은 반복되는 한 세그먼트의 크기만 결정하도록 두 축을 동일하게 유지합니다.
 - `BoardArea`와 Watermelon 샘플: 보드 Gizmo에 아이템 영역 사각형을 추가하고 샘플 보드 배경과 사운드 설정을 갱신했습니다.
 
-## [watermelon/0.2.0] - 2026-08-08
+## [game/watermelon/0.2.0] - 2026-08-08
 
 ### 추가됨
 - `BoardArea`: 선택적 아웃라인 스프라이트를 설정된 보드 폭에 맞추고 아이템 초과 경계에 배치하는 기능을 추가했습니다.
@@ -89,7 +89,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardController`: 병합 중인 아이템이 커맨드 완료까지 보드에 등록된 상태를 유지하고 동일 아이템이 중복 등록되지 않도록 수정해, 보드를 다시 준비할 때 모든 아이템이 회수됩니다. 기존에는 아이템이 누락되거나 중복 항목이 남아 보드가 무한히 증가했습니다. 오타였던 `OnDestory`를 수정해 커맨드가 실제로 해제되게 했습니다.
 - `MergingCommand`: 병합이 두 번 이상 시작되거나 완료되지 않으며, 커맨드 해제 후에는 완료되지 않도록 수정했습니다.
 
-## [watermelon/0.1.1] - 2026-08-07
+## [game/watermelon/0.1.1] - 2026-08-07
 
 ### 추가됨
 - `BoardItemInfo`: 병합 효과용 선택적 `ParticleHandler` 리소스와 생성된 효과 완료 후 자동 정리를 추가했습니다.
@@ -110,7 +110,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 추가됨
 - `Mu3Library.URP.Cam.CameraStackSetter`: 재사용 가능한 샘플에서 Universal Camera Data를 안전하게 보장하는 `EnsureUniversalCameraData(Camera)`를 추가했습니다.
 
-## [watermelon/0.1.0] - 2026-08-07
+## [game/watermelon/0.1.0] - 2026-08-07
 
 ### 추가됨
 - `Mu3Library.Game.WatermelonGame`: 보드, 아이템, 병합, 설정, 입력 runtime 어셈블리를 추가했습니다.

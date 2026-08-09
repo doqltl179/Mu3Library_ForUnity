@@ -8,7 +8,7 @@
 - Added `BoardController.CountMerge(BoardMergeInfo)` and `IBoardCommandContext.CountMerge(BoardMergeInfo)`, which every merge the board and `MergingCommand` carry out now counts through, so a merge a project's own command performs is reported like one the board found by itself. `CountMerge()` still counts a merge that cannot tell what it merged and reports `BoardMergeInfo.Unknown`; a subclass that overrode it to follow merges should override the overload instead.
 - Changed `MergingCommand` to play its merge sound before it counts the merge, so a listener of `OnItemMerged` already sees the combo step the merge landed on.
 
-## [watermelon/0.3.0] - 2026-08-09
+## [game/watermelon/0.3.0] - 2026-08-09
 
 - Added a public board command queue to `BoardController`: `EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`, and the `OnCommandEnqueued`, `OnCommandFinished` and `OnCommandFailed` events. A command that throws is logged, canceled and dropped without stopping the rest, and commands enqueued or canceled from a running command are applied once the board is done advancing the current ones.
 - Added `IUpdatableBoardCommand` and `ICancelableBoardCommand` as the optional parts of the command contract, so a command can be advanced every frame and stopped before its end while `IBoardCommand` stays the minimal one.
@@ -30,7 +30,7 @@
 - Fixed the spawn guide line being drawn at an unintended size; the tiled renderer is now fitted through `SpriteRenderer.size`, and its transform scale, which sizes one repeated segment, stays the same on both axes.
 - Added the item-area rectangle to the `BoardArea` gizmos and refreshed the Watermelon sample board background and sound configuration.
 
-## [watermelon/0.2.0] - 2026-08-08
+## [game/watermelon/0.2.0] - 2026-08-08
 
 - Fixed the spawn guide line disappearing when its board-relative dimensions were applied through `SpriteRenderer.size`; it now fits through its child transform scale.
 - Fixed the spawn guide line staying hidden when a drag begins during the drop cooldown and the held item becomes available afterward.
