@@ -27,6 +27,9 @@ This changelog tracks package release changes only. Repository development workf
 - `NotificationArguments.CancelmText`: Renamed to `CancelText` in the Template sample, matching the neighbouring `ConfirmText`.
 - Caught exceptions are now reported with `Debug.LogException` instead of a `Debug.LogError` that stringified them, so the exception type and its stack trace survive in the console: `LocalizationCharacterCollectorDrawer`, `InputSystemManager.AddInputActionAsset(string, ...)`, `WebRequestManager.CreateUnexpectedFailureResult` and `WebRequestManager.ParseResult`, and `BoardSnapshot.FromJson`. The two `WebRequestManager` sites still return the same failure message on `WebRequestResult`, so the url and method context is unchanged for callers. A project that filtered these through `Application.logMessageReceived` now sees `LogType.Exception` where it saw `LogType.Error`.
 
+### Fixed
+- `CanvasExtensions.CopyTo`: `overwriteScaler` now copies `CanvasScaler` settings and `overwriteRaycaster` copies `GraphicRaycaster` settings, matching the option names instead of applying them in reverse.
+
 ### Removed
 - `BoardController.SetBoareConfig(BoardConfig)`: Removed the misspelled compatibility alias of `SetBoardConfig(BoardConfig)`, which only forwarded to it. Call `SetBoardConfig(BoardConfig)` instead.
 - `BoardArea`: Removed the "board world normalized" conversions, which only forwarded to their board local counterparts and gave one coordinate space two names: `BoardWorldNormalizedPositionToWorld`, `BoardWorldNormalizedPositionToScreen`, `BoardWorldNormalizedPositionToLocal`, `WorldToBoardWorldNormalizedPosition`, `TryWorldToBoardWorldNormalizedPosition`, `ScreenToBoardWorldNormalizedPosition`, `TryScreenToBoardWorldNormalizedPosition`, `LocalToBoardWorldNormalizedPosition`, and `TryLocalToBoardWorldNormalizedPosition`. Use the matching `BoardLocalNormalized` conversion instead.

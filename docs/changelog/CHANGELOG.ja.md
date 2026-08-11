@@ -27,6 +27,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `NotificationArguments.CancelmText`: Template sample で隣の `ConfirmText` と表記を合わせ、`CancelText` に改名しました。
 - catch した exception を文字列にして `Debug.LogError` で出力していた箇所を、すべて `Debug.LogException` に変更しました。exception の型と stack trace が console にそのまま残ります: `LocalizationCharacterCollectorDrawer`、`InputSystemManager.AddInputActionAsset(string, ...)`、`WebRequestManager.CreateUnexpectedFailureResult` と `WebRequestManager.ParseResult`、`BoardSnapshot.FromJson`。`WebRequestManager` の 2 箇所は従来の失敗メッセージを `WebRequestResult` でそのまま返すため、呼び出し側が受け取る url・method の情報は変わりません。`Application.logMessageReceived` でこれらを判別していた project は、`LogType.Error` の代わりに `LogType.Exception` を受け取ります。
 
+### 修正
+- `CanvasExtensions.CopyTo`: `overwriteScaler` が `CanvasScaler` 設定を、`overwriteRaycaster` が `GraphicRaycaster` 設定をコピーするよう修正し、option 名と実際の動作が逆にならないようにしました。
+
 ### 削除
 - `BoardController.SetBoareConfig(BoardConfig)`: `SetBoardConfig(BoardConfig)` を呼ぶだけだった誤字の互換 alias を削除しました。`SetBoardConfig(BoardConfig)` を使用してください。
 - `BoardArea`: board local 版へ転送するだけで 1 つの座標空間に 2 つの名前を与えていた "board world normalized" 変換を削除しました: `BoardWorldNormalizedPositionToWorld`、`BoardWorldNormalizedPositionToScreen`、`BoardWorldNormalizedPositionToLocal`、`WorldToBoardWorldNormalizedPosition`、`TryWorldToBoardWorldNormalizedPosition`、`ScreenToBoardWorldNormalizedPosition`、`TryScreenToBoardWorldNormalizedPosition`、`LocalToBoardWorldNormalizedPosition`、`TryLocalToBoardWorldNormalizedPosition`。対応する `BoardLocalNormalized` 変換を使用してください。

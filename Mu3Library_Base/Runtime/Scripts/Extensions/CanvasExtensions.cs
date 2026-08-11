@@ -24,17 +24,17 @@ namespace Mu3Library.Extensions
             target.additionalShaderChannels = source.additionalShaderChannels;
 
             if (overwriteScaler &&
-                source.TryGetComponent(out GraphicRaycaster raycasterSource) &&
-                target.TryGetComponent(out GraphicRaycaster raycasterTarget))
-            {
-                raycasterSource.CopyTo(raycasterTarget);
-            }
-
-            if (overwriteRaycaster &&
                 source.TryGetComponent(out CanvasScaler scalerSource) &&
                 target.TryGetComponent(out CanvasScaler scalerTarget))
             {
                 scalerSource.CopyTo(scalerTarget);
+            }
+
+            if (overwriteRaycaster &&
+                source.TryGetComponent(out GraphicRaycaster raycasterSource) &&
+                target.TryGetComponent(out GraphicRaycaster raycasterTarget))
+            {
+                raycasterSource.CopyTo(raycasterTarget);
             }
         }
     }
