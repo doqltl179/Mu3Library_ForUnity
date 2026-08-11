@@ -1,3 +1,4 @@
+using Mu3Library.Extensions;
 using UnityEngine;
 
 namespace Mu3Library.Game.WatermelonGame.Board.Area
@@ -134,7 +135,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         /// <returns>True when the board transform was updated, the caller has to recalculate the bounds.</returns>
         public bool Fit(Camera cam, Sprite sprite, Vector4 viewportPadding)
         {
-            if (_board == null || _boardRenderer == null || sprite == null || !BoardAreaGeometry.IsCameraReady(cam))
+            if (_board == null || _boardRenderer == null || sprite == null || !cam.IsReady())
             {
                 return false;
             }

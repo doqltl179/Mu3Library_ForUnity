@@ -39,16 +39,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             return true;
         }
 
-        public static bool IsCameraReady(Camera cam)
-        {
-            return cam != null
-                && cam.isActiveAndEnabled
-                && cam.rect.width > 0f
-                && cam.rect.height > 0f
-                && cam.pixelWidth > 0
-                && cam.pixelHeight > 0;
-        }
-
         public static Vector2 Clamp01(Vector2 value)
             => new Vector2(Mathf.Clamp01(value.x), Mathf.Clamp01(value.y));
 
