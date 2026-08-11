@@ -20,15 +20,30 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardController`: 保持中の item が待機する位置を board 領域の幅比率で読む `HoldingNormalizedX` を追加しました。`OnHoldingItemMoved` が渡す値と同じです。
 - `BoardMergeInfo`: `BoardController.OnItemMerged` に渡す merge 情報を追加しました。合成された catalog index、生成された index と instance、board 正規化位置、支払った点数、`IsValid` を保持します。
 - `BoardController.CountMerge(BoardMergeInfo)` と `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 内容を併せて報告する merge 集計を追加しました。board と `MergingCommand` が行うすべての merge がこの経路を使用します。既存の `CountMerge()` は内容なしで集計し、`BoardMergeInfo.Unknown` を報告します。
+- `ScriptIdentifier`: script exporter が使用する C# 識別子の規則を 1 箇所で持つ editor utility を追加しました。keyword を避ける `Sanitize`、先頭文字も大文字にする `SanitizePascal`、元の表記を保ち使用できない文字だけを下線に置き換える `SanitizeUnderscore`、public member 名を作る `ToPublicMember` を提供します。従来は各 exporter drawer が必要な規則を個別に複製していたため、同じ修正を drawer ごとに繰り返す必要がありました。
+- `FileCreator.WriteScript(string, string, string)`: 生成 script を書き出す単一の経路を追加しました。指定した system folder に `{fileName}.cs` を UTF-8 BOM 付きで保存し、書き出した path を返します。
+- `FileFinder.IsAssetsFolder(Object)`: asset が project の `Assets` folder 内にあるかを確認する検査を追加しました。exporter drawer 群と MVP helper drawer がそれぞれ同じ複製を持っていました。
+- `CameraExtensions.IsReady(Camera)`: 表示に合わせて配置する処理が待つべき camera の準備状態の検査を追加しました。camera が存在し、描画しており、viewport rect と pixel サイズが面積を持つかを確認します。`WorldSpaceBackground` と Watermelon の board 領域がそれぞれ同じ複製を持っていました。
+- `Mu3WindowDrawer`: exporter drawer 群がそれぞれ複製していた `DrawRefreshButton(Action)`、`DrawAssetsFolderField(SerializedObject, SerializedProperty, string)`、`DrawNamespaceField(string, Action<string>, string)`、`DrawClassNameField(string, Action<string>, string, string)` を追加しました。`DrawAssetsFolderField` は `Assets` 外の folder を空にしつつ警告を残します。MVP helper の folder 行は従来、警告なしで空にするだけでした。
+- `CompositeBoardCommand`: `CompositeBoardCommand(Action, IBoardCommand[])` constructor と `Step(float)` hook を追加しました。command のまとまりは子を 1 段進める方法だけを記述すれば済みます。`SequenceCommand` と `ParallelCommand` がそれぞれ完了 callback と `OnRun`/`OnUpdate`/`OnComplete` の配線を持っていました。`OnRun` と `OnUpdate` を override して子を自前で駆動しているまとまりはそのまま動作します。
 
 ### 変更
 - `MergingCommand`: merge sound を集計より先に再生するよう変更しました。`OnItemMerged` の購読者はその merge の combo 段階をそのまま参照できます。merge 追跡のために `CountMerge()` を override していた `BoardController` 派生クラスは `CountMerge(BoardMergeInfo)` を override してください。
 - `SubscribeHandler.UnSubscribe(uint)`: `ISubscriptionInfo` と `SubscriptionInfo` がすでに使用している表記に合わせ、`Unsubscribe(uint)` に改名しました。
 - `NotificationArguments.CancelmText`: Template sample で隣の `ConfirmText` と表記を合わせ、`CancelText` に改名しました。
+- `WorldSpaceBackground`: namespace を `Mellow.Utility` から、folder の位置と package の他と揃う `Mu3Library.Utility` に移しました。この型を参照していた project は `using` の修正が必要です。
+- `CoroutineSafeRunner`: namespace を `Mu3Library.Coroutine.Foundation` から、`Foundation/Coroutine` folder と隣の `Mu3Library.Foundation.Event` に揃う `Mu3Library.Foundation.Coroutine` に移しました。この型を参照していた project は `using` の修正が必要です。
+- `MVPManager.Dispose()`: `OnWindowLoaded`、`OnWindowOpened`、`OnWindowClosed`、`OnWindowUnloaded` を片付け、manager root・render camera・out panel の参照を空にし、自身が作った `EventSystem` を破棄するよう変更しました。scene に元からあった `EventSystem` は project の所有物なので触りません。従来は作った `EventSystem` が `DontDestroyOnLoad` object として manager より長く残り、event も購読者を保持したままでした。
+- `LocalizationManager`: fallback locale を最大 1 つだけ作り、`Dispose()` で破棄するよう変更しました。project 設定から取得した locale は asset なので破棄しません。従来は cache した既定 locale が空になるたびに、誰も解放しない fallback が作られる可能性がありました。
+- `SceneLoader`: built-in・editor・Addressables の scene command がそれぞれ複製していた command guard を 1 箇所にまとめました: `GuardSingleScenePreload`、`GuardAdditiveScenePreload`、`GuardAdditiveSceneUnload`、`ActivatePreloadedSingleScene`、`ActivatePreloadedAdditiveScene`。拒否理由と検査順、発生する event は変わらず、build settings の検査・scene asset の検査・Addressables handle の参照といった backend 固有の部分だけが各自に残ります。
+- `LocalizationManager`: `IDisposable` を実装するよう変更しました。`AddressablesManager` や `SceneLoader` と同じく、所有する DI scope が core と一緒に破棄します。dispose 時に one-shot 購読を解除し、Localization 初期化 operation に付けた完了 handler を外し、進行中の locale 変更を取り消し、event と cache した locale を片付けます。初期化 operation 自体は Localization package の所有物なので release しません。
+- MVP Helper: 生成した MVP script を `FileCreator.WriteScript` 経由で UTF-8 BOM 付きで保存するよう変更しました。従来はこの drawer だけが platform 既定の encoding で書き出しており、他の exporter と異なっていました。
 - catch した exception を文字列にして `Debug.LogError` で出力していた箇所を、すべて `Debug.LogException` に変更しました。exception の型と stack trace が console にそのまま残ります: `LocalizationCharacterCollectorDrawer`、`InputSystemManager.AddInputActionAsset(string, ...)`、`WebRequestManager.CreateUnexpectedFailureResult` と `WebRequestManager.ParseResult`、`BoardSnapshot.FromJson`。`WebRequestManager` の 2 箇所は従来の失敗メッセージを `WebRequestResult` でそのまま返すため、呼び出し側が受け取る url・method の情報は変わりません。`Application.logMessageReceived` でこれらを判別していた project は、`LogType.Error` の代わりに `LogType.Exception` を受け取ります。
 
 ### 修正
 - `CanvasExtensions.CopyTo`: `overwriteScaler` が `CanvasScaler` 設定を、`overwriteRaycaster` が `GraphicRaycaster` 設定をコピーするよう修正し、option 名と実際の動作が逆にならないようにしました。
+- `AddressablesManager.Initialize(Action)`、`AddressablesManager.InitializeWithResult(Action<bool, string>)`、`LocalizationManager.Initialize(Action)`、`LocalizationManager.InitializeWithResult(Action<bool, string>)`: callback を `OnInitialized`・`OnInitializeResult` に残したままにせず、これらの manager がすでに備えていた one-shot 購読で登録するよう修正しました。初期化が失敗した後に再度初期化を呼んでも、先の呼び出しに渡した callback が再び呼ばれることはなく、初期化が終わった後も callback とそれが捕捉した対象が manager の寿命の間残り続けることはありません。
+- `CoreRoot`: 破棄時に購読 handler を dispose し、`OnCoreInitialized` と `OnCorePrepared` を片付けるよう修正しました。自身が作った core 待ち購読が自身より長く残りません。`CoreBase` は破棄時にすでに同じ処理を行っていました。
 
 ### 削除
 - `BoardController.SetBoareConfig(BoardConfig)`: `SetBoardConfig(BoardConfig)` を呼ぶだけだった誤字の互換 alias を削除しました。`SetBoardConfig(BoardConfig)` を使用してください。
