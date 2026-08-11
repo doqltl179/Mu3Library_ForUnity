@@ -83,3 +83,19 @@ mu3-cli --help
 - The command tree is intentionally small. Add new groups only when a workflow becomes stable and reusable.
 - The CLI remains tooling-safe: it can write local support artifacts under `log/`, but it does not edit shipped Unity runtime or editor package surfaces.
 - Governance policy still lives in the framework docs and instructions.
+
+## Planned Unity Automation Surface
+
+Keep `compile-unity.sh` as the dependency-light repository entrypoint while the workflow stabilizes. When compile selection, diagnostics, and CI contracts are mature, move orchestration behind a `mu3-cli unity` group and leave the shell script as a compatibility wrapper.
+
+Recommended command groups:
+
+- `unity doctor`: Editor versions, modules, license/auth state, project locks, package mappings, and writable log paths.
+- `unity changes`: changed-file classification, owning packages, selected projects, and optional dependent-package expansion.
+- `unity compile`: current change-aware batchmode compilation with explicit `--package`, `--all`, and `--base` controls.
+- `unity test`: EditMode/PlayMode execution, XML results, filters, retries, and timeout policy.
+- `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
+- `unity logs`: per-run log directories, warning/error summaries, durations, and reproducible invocation metadata.
+- `unity cache`: cache size/status inspection and opt-in cleanup; never purge a Unity `Library` implicitly.
+
+The current `unity-cli-packages.tsv` is intentionally minimal: target key, package root, and representative Unity project. Replace it with a richer versioned TOML model only when dependencies, test matrices, or player-build profiles need structured fields. At that point, keep package ownership, dependency edges, Unity version source, test suites, and build profiles in one configuration rather than spreading them across shell conditionals and CI YAML.
