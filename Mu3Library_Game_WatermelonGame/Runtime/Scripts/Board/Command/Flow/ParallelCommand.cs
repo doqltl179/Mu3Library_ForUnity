@@ -11,10 +11,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
     /// </summary>
     public class ParallelCommand : CompositeBoardCommand
     {
-        private readonly Action _onComplete;
-
-
-
         public ParallelCommand(params IBoardCommand[] commands)
             : this(null, commands)
         {
@@ -23,27 +19,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
         /// <param name="onComplete">Called once every command is done, never on a canceled group.</param>
         /// <param name="commands">The commands, all started on the same frame.</param>
         public ParallelCommand(Action onComplete, params IBoardCommand[] commands)
-            : base(commands)
+            : base(onComplete, commands)
         {
-            _onComplete = onComplete;
         }
 
-        protected override void OnRun()
-        {
-            Step(0.0f);
-        }
-
-        protected override void OnUpdate(float deltaTime)
-        {
-            Step(deltaTime);
-        }
-
-        protected override void OnComplete()
-        {
-            _onComplete?.Invoke();
-        }
-
-        private void Step(float deltaTime)
+        protected override void Step(float deltaTime)
         {
             bool hasWorkLeft = false;
 
