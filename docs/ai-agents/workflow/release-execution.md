@@ -19,7 +19,7 @@ This repository contains three independent UPM packages:
 - URP: `Mu3Library_URP/`, depends on Base.
 - Watermelon Game: `Mu3Library_Game_WatermelonGame/`, depends on Base and URP.
 
-Change `Mu3Library_Base/package.json` only for Base releases and `Mu3Library_URP/package.json` only for URP releases. Both packages may release from one commit when both changed.
+Change only the `package.json` files for packages included in the release scope. Multiple packages may release from one commit when each of them changed.
 
 ## Tags And Install URLs
 
@@ -63,6 +63,7 @@ Changelog headers:
 ```md
 ## [base/X.Y.Z] - YYYY-MM-DD
 ## [urp/X.Y.Z] - YYYY-MM-DD
+## [game/watermelon/X.Y.Z] - YYYY-MM-DD
 ```
 
 Apply docs-sync instructions so English, Korean, and Japanese changelogs stay synchronized.
