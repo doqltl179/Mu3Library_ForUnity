@@ -312,29 +312,15 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            if (_currentSceneName == sceneName && !TryGetSingleSceneOperation(out _))
+            if (IsSingleSceneAlreadyCurrent(sceneName, _currentSceneName))
             {
                 return true;
             }
 
-            if (TryGetSingleSceneOperation(out SceneOperation existingOperation))
+            SceneCommandGate gate = GuardSingleScenePreload(sceneName, commandType, autoActivate);
+            if (gate.IsSettled)
             {
-                if (existingOperation.SceneName != sceneName)
-                {
-                    return RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy);
-                }
-
-                if (autoActivate)
-                {
-                    RequestActivation(existingOperation);
-                }
-
-                return true;
-            }
-
-            if (IsAdditiveSceneOperationInProgress())
-            {
-                return RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             if (!IsSceneInBuild(sceneName))
@@ -359,23 +345,7 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            if (_currentSceneName == sceneName && !TryGetSingleSceneOperation(out _))
-            {
-                return true;
-            }
-
-            if (!TryGetSingleSceneOperation(out SceneOperation operation) || operation.SceneName != sceneName)
-            {
-                return RejectSceneCommand(sceneName, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
-            {
-                return RejectSceneCommand(sceneName, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            RequestActivation(operation);
-            return true;
+            return ActivatePreloadedSingleScene(sceneName, _currentSceneName);
         }
 
         private bool TryPreloadAdditiveScene(string sceneName, bool autoActivate)
@@ -386,29 +356,15 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            if (_currentAdditiveScenes.Contains(sceneName) && !TryGetAdditiveSceneOperation(sceneName, out _))
+            if (IsAdditiveSceneAlreadyLoaded(sceneName))
             {
                 return true;
             }
 
-            if (TryGetAdditiveSceneOperation(sceneName, out SceneOperation existingOperation))
+            SceneCommandGate gate = GuardAdditiveScenePreload(sceneName, commandType, autoActivate);
+            if (gate.IsSettled)
             {
-                if (existingOperation.IsUnload)
-                {
-                    return RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy);
-                }
-
-                if (autoActivate)
-                {
-                    RequestActivation(existingOperation);
-                }
-
-                return true;
-            }
-
-            if (IsSingleSceneOperationInProgress())
-            {
-                return RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             if (!IsSceneInBuild(sceneName))
@@ -434,23 +390,7 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            if (_currentAdditiveScenes.Contains(sceneName) && !TryGetAdditiveSceneOperation(sceneName, out _))
-            {
-                return true;
-            }
-
-            if (!TryGetAdditiveSceneOperation(sceneName, out SceneOperation operation) || operation.IsUnload)
-            {
-                return RejectSceneCommand(sceneName, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
-            {
-                return RejectSceneCommand(sceneName, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            RequestActivation(operation);
-            return true;
+            return ActivatePreloadedAdditiveScene(sceneName);
         }
 
         private bool TryStartUnloadAdditiveScene(string sceneName)
@@ -460,24 +400,10 @@ namespace Mu3Library.Scene
                 return false;
             }
 
-            if (!_currentAdditiveScenes.Contains(sceneName) && !TryGetAdditiveSceneOperation(sceneName, out _))
+            SceneCommandGate gate = GuardAdditiveSceneUnload(sceneName);
+            if (gate.IsSettled)
             {
-                return RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.NotLoaded);
-            }
-
-            if (TryGetAdditiveSceneOperation(sceneName, out SceneOperation existingOperation))
-            {
-                if (existingOperation.IsUnload)
-                {
-                    return true;
-                }
-
-                return RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
-            }
-
-            if (IsSingleSceneOperationInProgress())
-            {
-                return RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             Debug.Log($"Additive scene unload start. sceneName: {sceneName}");
@@ -1130,6 +1056,192 @@ namespace Mu3Library.Scene
 
             return RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.InvalidSceneName);
         }
+
+        #region Command Guards
+        /// <summary>
+        /// The answer of a shared guard sequence: either the command may go on to start its own
+        /// <br/> work, or the guard already settled it and the caller returns <see cref="Result"/>.
+        /// </summary>
+        private readonly struct SceneCommandGate
+        {
+            private SceneCommandGate(bool isSettled, bool result)
+            {
+                IsSettled = isSettled;
+                Result = result;
+            }
+
+            public bool IsSettled { get; }
+            public bool Result { get; }
+
+            public static SceneCommandGate Proceed => new(false, false);
+
+            public static SceneCommandGate Settled(bool result) => new(true, result);
+        }
+
+        /// <summary>
+        /// Whether the single scene is the one already standing, with nothing pending for it.
+        /// </summary>
+        /// <param name="currentSceneName">
+        /// What the backend compares against: the loaded scene name for the built-in and editor
+        /// <br/> commands, the requested key for the Addressables ones.
+        /// </param>
+        private bool IsSingleSceneAlreadyCurrent(string sceneName, string currentSceneName)
+            => currentSceneName == sceneName && !TryGetSingleSceneOperation(out _);
+
+        /// <summary>
+        /// Whether the additive scene is already loaded, with nothing pending for it.
+        /// </summary>
+        private bool IsAdditiveSceneAlreadyLoaded(string sceneName)
+            => _currentAdditiveScenes.Contains(sceneName) && !TryGetAdditiveSceneOperation(sceneName, out _);
+
+        private static bool IsActivatablePhase(SceneOperation operation)
+            => operation.Phase == ScenePhase.Preloaded || operation.Phase == ScenePhase.Activating;
+
+        /// <summary>
+        /// The checks every single scene preload shares once its name is validated and the
+        /// <br/> already-current case is out of the way: a pending single operation takes the
+        /// <br/> command over or rejects it, and an additive operation in progress blocks it.
+        /// </summary>
+        private SceneCommandGate GuardSingleScenePreload(string sceneName, SceneCommandType commandType, bool autoActivate)
+        {
+            if (TryGetSingleSceneOperation(out SceneOperation existingOperation))
+            {
+                if (existingOperation.SceneName != sceneName)
+                {
+                    return SceneCommandGate.Settled(
+                        RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy));
+                }
+
+                if (autoActivate)
+                {
+                    RequestActivation(existingOperation);
+                }
+
+                return SceneCommandGate.Settled(true);
+            }
+
+            if (IsAdditiveSceneOperationInProgress())
+            {
+                return SceneCommandGate.Settled(
+                    RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy));
+            }
+
+            return SceneCommandGate.Proceed;
+        }
+
+        /// <summary>
+        /// The checks every additive scene preload shares once its name is validated and the
+        /// <br/> already-loaded case is out of the way.
+        /// </summary>
+        private SceneCommandGate GuardAdditiveScenePreload(string sceneName, SceneCommandType commandType, bool autoActivate)
+        {
+            if (TryGetAdditiveSceneOperation(sceneName, out SceneOperation existingOperation))
+            {
+                if (existingOperation.IsUnload)
+                {
+                    return SceneCommandGate.Settled(
+                        RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy));
+                }
+
+                if (autoActivate)
+                {
+                    RequestActivation(existingOperation);
+                }
+
+                return SceneCommandGate.Settled(true);
+            }
+
+            if (IsSingleSceneOperationInProgress())
+            {
+                return SceneCommandGate.Settled(
+                    RejectSceneCommand(sceneName, commandType, SceneCommandRejectReason.Busy));
+            }
+
+            return SceneCommandGate.Proceed;
+        }
+
+        /// <summary>
+        /// The checks every additive scene unload shares once its name is validated: a scene that
+        /// <br/> is neither loaded nor pending cannot be unloaded, an unload already running is the
+        /// <br/> command itself, and any other pending operation blocks it.
+        /// </summary>
+        private SceneCommandGate GuardAdditiveSceneUnload(string sceneName)
+        {
+            if (!_currentAdditiveScenes.Contains(sceneName) && !TryGetAdditiveSceneOperation(sceneName, out _))
+            {
+                return SceneCommandGate.Settled(
+                    RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.NotLoaded));
+            }
+
+            if (TryGetAdditiveSceneOperation(sceneName, out SceneOperation existingOperation))
+            {
+                if (existingOperation.IsUnload)
+                {
+                    return SceneCommandGate.Settled(true);
+                }
+
+                return SceneCommandGate.Settled(
+                    RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy));
+            }
+
+            if (IsSingleSceneOperationInProgress())
+            {
+                return SceneCommandGate.Settled(
+                    RejectSceneCommand(sceneName, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy));
+            }
+
+            return SceneCommandGate.Proceed;
+        }
+
+        /// <summary>
+        /// Activates the preloaded single scene. Every backend activates through this, the scene
+        /// <br/> is already loaded by then and there is nothing backend-specific left to do.
+        /// </summary>
+        private bool ActivatePreloadedSingleScene(string sceneName, string currentSceneName)
+        {
+            if (IsSingleSceneAlreadyCurrent(sceneName, currentSceneName))
+            {
+                return true;
+            }
+
+            if (!TryGetSingleSceneOperation(out SceneOperation operation) || operation.SceneName != sceneName)
+            {
+                return RejectSceneCommand(sceneName, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            if (!IsActivatablePhase(operation))
+            {
+                return RejectSceneCommand(sceneName, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            RequestActivation(operation);
+            return true;
+        }
+
+        /// <summary>
+        /// Activates the preloaded additive scene, shared by every backend.
+        /// </summary>
+        private bool ActivatePreloadedAdditiveScene(string sceneName)
+        {
+            if (IsAdditiveSceneAlreadyLoaded(sceneName))
+            {
+                return true;
+            }
+
+            if (!TryGetAdditiveSceneOperation(sceneName, out SceneOperation operation) || operation.IsUnload)
+            {
+                return RejectSceneCommand(sceneName, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            if (!IsActivatablePhase(operation))
+            {
+                return RejectSceneCommand(sceneName, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
+            }
+
+            RequestActivation(operation);
+            return true;
+        }
+        #endregion
 
         private bool RejectSceneCommand(string sceneName, SceneCommandType commandType, SceneCommandRejectReason reason)
         {

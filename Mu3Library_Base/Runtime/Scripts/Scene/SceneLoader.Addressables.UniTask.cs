@@ -70,7 +70,7 @@ namespace Mu3Library.Scene
 
         private bool IsSingleAddressableScenePreloaded(string key)
         {
-            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
+            if (IsSingleSceneAlreadyCurrent(key, _currentSingleSceneStatusName))
             {
                 return true;
             }
@@ -82,7 +82,7 @@ namespace Mu3Library.Scene
 
         private bool IsSingleAddressableSceneLoaded(string key)
         {
-            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
+            if (IsSingleSceneAlreadyCurrent(key, _currentSingleSceneStatusName))
             {
                 return true;
             }

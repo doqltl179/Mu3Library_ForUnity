@@ -68,29 +68,15 @@ namespace Mu3Library.Scene
                 return RejectSceneCommand(key, commandType, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
+            if (IsSingleSceneAlreadyCurrent(key, _currentSingleSceneStatusName))
             {
                 return true;
             }
 
-            if (TryGetSingleSceneOperation(out SceneOperation existingOperation))
+            SceneCommandGate gate = GuardSingleScenePreload(key, commandType, autoActivate);
+            if (gate.IsSettled)
             {
-                if (existingOperation.SceneName != key)
-                {
-                    return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
-                }
-
-                if (autoActivate)
-                {
-                    RequestActivation(existingOperation);
-                }
-
-                return true;
-            }
-
-            if (IsAdditiveSceneOperationInProgress())
-            {
-                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             Debug.Log($"Addressable single scene preload start. key: {key}");
@@ -108,23 +94,7 @@ namespace Mu3Library.Scene
                 return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (_currentSingleSceneStatusName == key && !TryGetSingleSceneOperation(out _))
-            {
-                return true;
-            }
-
-            if (!TryGetSingleSceneOperation(out SceneOperation operation) || operation.SceneName != key)
-            {
-                return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
-            {
-                return RejectSceneCommand(key, SceneCommandType.ActivateSingle, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            RequestActivation(operation);
-            return true;
+            return ActivatePreloadedSingleScene(key, _currentSingleSceneStatusName);
         }
 
         private bool TryPreloadAdditiveSceneWithAddressables(string key, bool autoActivate)
@@ -135,29 +105,15 @@ namespace Mu3Library.Scene
                 return RejectSceneCommand(key, commandType, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
+            if (IsAdditiveSceneAlreadyLoaded(key))
             {
                 return true;
             }
 
-            if (TryGetAdditiveSceneOperation(key, out SceneOperation existingOperation))
+            SceneCommandGate gate = GuardAdditiveScenePreload(key, commandType, autoActivate);
+            if (gate.IsSettled)
             {
-                if (existingOperation.IsUnload)
-                {
-                    return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
-                }
-
-                if (autoActivate)
-                {
-                    RequestActivation(existingOperation);
-                }
-
-                return true;
-            }
-
-            if (IsSingleSceneOperationInProgress())
-            {
-                return RejectSceneCommand(key, commandType, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             Debug.Log($"Addressable additive scene preload start. key: {key}");
@@ -176,23 +132,7 @@ namespace Mu3Library.Scene
                 return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
-            {
-                return true;
-            }
-
-            if (!TryGetAdditiveSceneOperation(key, out SceneOperation operation) || operation.IsUnload)
-            {
-                return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            if (operation.Phase != ScenePhase.Preloaded && operation.Phase != ScenePhase.Activating)
-            {
-                return RejectSceneCommand(key, SceneCommandType.ActivateAdditive, SceneCommandRejectReason.NotPreloaded);
-            }
-
-            RequestActivation(operation);
-            return true;
+            return ActivatePreloadedAdditiveScene(key);
         }
 
         private bool TryStartUnloadAdditiveSceneWithAddressables(string key, bool autoReleaseHandle)
@@ -202,24 +142,10 @@ namespace Mu3Library.Scene
                 return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.InvalidSceneName);
             }
 
-            if (!_currentAdditiveScenes.Contains(key) && !TryGetAdditiveSceneOperation(key, out _))
+            SceneCommandGate gate = GuardAdditiveSceneUnload(key);
+            if (gate.IsSettled)
             {
-                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.NotLoaded);
-            }
-
-            if (TryGetAdditiveSceneOperation(key, out SceneOperation existingOperation))
-            {
-                if (existingOperation.IsUnload)
-                {
-                    return true;
-                }
-
-                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
-            }
-
-            if (IsSingleSceneOperationInProgress())
-            {
-                return RejectSceneCommand(key, SceneCommandType.UnloadAdditive, SceneCommandRejectReason.Busy);
+                return gate.Result;
             }
 
             if (!_loadedAddressableSceneHandles.TryGetValue(key, out AsyncOperationHandle<SceneInstance> handle) || !handle.IsValid())
