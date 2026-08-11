@@ -364,7 +364,7 @@ private void ResetData()
 - **Scene**: phase/status 参照、lifecycle/progress callback、one-shot lifecycle 購読 helper、統合 rejection event を提供するシーンローディング抽象化
 - **UI**: MVPパターン実装
 - **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
-- **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mellow.Utility.WorldSpaceBackground`
+- **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mu3Library.Utility.WorldSpaceBackground`
 - **WebRequest**: HTTPリクエスト管理
 
 ## 🎓 サンプル

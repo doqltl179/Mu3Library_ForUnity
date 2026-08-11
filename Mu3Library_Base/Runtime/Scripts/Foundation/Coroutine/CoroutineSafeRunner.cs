@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 
-namespace Mu3Library.Coroutine.Foundation
+namespace Mu3Library.Foundation.Coroutine
 {
     /// <summary>
     /// Runs an IEnumerator while forwarding exceptions from the iterator and nested iterators to a callback.

@@ -1,7 +1,8 @@
 using Mu3Library.Attribute;
+using Mu3Library.Extensions;
 using UnityEngine;
 
-namespace Mellow.Utility
+namespace Mu3Library.Utility
 {
     [RequireComponent(typeof(SpriteRenderer))]
     public class WorldSpaceBackground : MonoBehaviour
@@ -98,7 +99,7 @@ namespace Mellow.Utility
 
         public void Fit(Camera cam, Sprite sprite)
         {
-            if (!IsCameraReady(cam) || sprite == null)
+            if (!cam.IsReady() || sprite == null)
             {
                 return;
             }
@@ -142,23 +143,13 @@ namespace Mellow.Utility
         private void TryFitWhenCameraReady()
         {
             Camera cam = Camera.main;
-            if (!IsCameraReady(cam))
+            if (!cam.IsReady())
             {
                 return;
             }
 
             Fit(cam, _renderer.sprite);
             _fitPending = false;
-        }
-
-        private static bool IsCameraReady(Camera cam)
-        {
-            return cam != null
-                && cam.isActiveAndEnabled
-                && cam.rect.width > 0f
-                && cam.rect.height > 0f
-                && cam.pixelWidth > 0
-                && cam.pixelHeight > 0;
         }
         #endregion
     }

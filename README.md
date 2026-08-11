@@ -365,7 +365,7 @@ private void ResetData()
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation
 - **IS**: Unity Input System wrapper and binding manager (optional)
-- **Utility**: Singleton, EasingFunctions, Settings, and `Mellow.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport
+- **Utility**: Singleton, EasingFunctions, Settings, and `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport
 - **WebRequest**: HTTP request management
 
 ## 🎓 Samples
