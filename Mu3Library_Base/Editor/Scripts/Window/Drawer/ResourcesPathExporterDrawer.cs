@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Mu3Library.Editor.FileUtil;
 using UnityEditor;
 using UnityEngine;
@@ -14,6 +13,7 @@ namespace Mu3Library.Editor.Window.Drawer
         public const string FileName = "ResourcesPathExporter";
         private const string ItemName = "Resources Path Exporter";
         private const string MenuName = MenuRoot + "/" + ItemName;
+        private const string DefaultClassName = "ResourcePaths";
 
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
         [SerializeField, HideInInspector] private string _scriptNamespace = "";
@@ -84,16 +84,16 @@ namespace Mu3Library.Editor.Window.Drawer
                 if (!_isDataLoaded)
                     RefreshData();
 
-                DrawRefreshButton();
+                DrawRefreshButton(RefreshData);
                 GUILayout.Space(4);
 
-                DrawScriptSaveFolderField();
+                DrawAssetsFolderField(_serializedObject, _serializedPropScriptSaveFolder);
                 GUILayout.Space(4);
 
-                DrawNamespaceField();
+                DrawNamespaceField(_scriptNamespace, v => _scriptNamespace = v, "Resources Exporter: Namespace");
                 GUILayout.Space(4);
 
-                DrawClassNameField();
+                DrawClassNameField(_scriptClassName, v => _scriptClassName = v, "Resources Exporter: Class Name", DefaultClassName);
                 GUILayout.Space(8);
 
                 DrawResourcesPreview();
@@ -135,53 +135,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 .Where(e => !string.IsNullOrEmpty(e.ResourcePath))
                 .OrderBy(e => e.ResourcePath)
                 .ToList();
-        }
-
-        private void DrawRefreshButton()
-        {
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
-            {
-                RefreshData();
-            }
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-        }
-
-        private void DrawScriptSaveFolderField()
-        {
-            _serializedObject.Update();
-            EditorGUILayout.PropertyField(_serializedPropScriptSaveFolder, new GUIContent("Script Save Folder"));
-            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null)
-            {
-                if (!IsAssetsFolder(_scriptSaveFolder))
-                {
-                    Debug.LogWarning("Selected folder is not inside the Assets folder.");
-                    _scriptSaveFolder = null;
-                    _serializedObject.ApplyModifiedProperties();
-                }
-            }
-        }
-
-        private void DrawNamespaceField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
-                v => _scriptNamespace = v,
-                "Resources Exporter: Namespace");
-        }
-
-        private void DrawClassNameField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
-                v => _scriptClassName = v,
-                "Resources Exporter: Class Name");
-
-            if (string.IsNullOrWhiteSpace(_scriptClassName))
-            {
-                EditorGUILayout.HelpBox("Default class name: ResourcePaths", MessageType.None);
-            }
         }
 
         private void DrawResourcesPreview()
@@ -275,11 +228,9 @@ namespace Mu3Library.Editor.Window.Drawer
 
             string className = !string.IsNullOrWhiteSpace(_scriptClassName)
                 ? SanitizeIdentifier(_scriptClassName.Trim())
-                : "ResourcePaths";
+                : DefaultClassName;
             string scriptBody = BuildScriptBody(className);
-            string filePath = Path.Combine(systemPath, $"{className}.cs");
-
-            File.WriteAllText(filePath, scriptBody, new UTF8Encoding(true));
+            string filePath = FileCreator.WriteScript(systemPath, className, scriptBody);
 
             AssetDatabase.Refresh();
 
@@ -406,47 +357,6 @@ namespace Mu3Library.Editor.Window.Drawer
         }
 
         private static string SanitizeIdentifier(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return "_";
-
-            var sb = new StringBuilder();
-            bool capitalizeNext = false;
-            bool isFirst = true;
-            foreach (char c in name)
-            {
-                if (char.IsLetterOrDigit(c))
-                {
-                    if (isFirst)
-                    {
-                        sb.Append(char.ToUpperInvariant(c));
-                        isFirst = false;
-                    }
-                    else if (capitalizeNext && char.IsLetter(c))
-                    {
-                        sb.Append(char.ToUpperInvariant(c));
-                    }
-                    else
-                    {
-                        sb.Append(c);
-                    }
-                    capitalizeNext = false;
-                }
-                else
-                {
-                    capitalizeNext = true;
-                }
-            }
-
-            if (sb.Length > 0 && char.IsDigit(sb[0]))
-                sb.Insert(0, '_');
-
-            return sb.ToString();
-        }
-
-        private static bool IsAssetsFolder(DefaultAsset folder)
-        {
-            string path = FileFinder.GetAssetPath(folder);
-            return !string.IsNullOrEmpty(path) && (path == "Assets" || path.StartsWith("Assets/"));
-        }
+            => ScriptIdentifier.SanitizePascal(name);
     }
 }

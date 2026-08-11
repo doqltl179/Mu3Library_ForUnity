@@ -1,4 +1,5 @@
 using System;
+using Mu3Library.Editor.FileUtil;
 using UnityEditor;
 using UnityEngine;
 
@@ -235,6 +236,90 @@ namespace Mu3Library.Editor.Window.Drawer
                 Undo.RecordObject(this, undoName);
                 setter(newValue);
                 EditorUtility.SetDirty(this);
+            }
+        }
+
+        /// <summary>
+        /// 왼쪽에 Refresh 버튼 한 줄을 그린다.
+        /// </summary>
+        /// <param name="onRefresh"> 버튼을 눌렀을 때 데이터를 다시 읽는 동작 </param>
+        protected void DrawRefreshButton(Action onRefresh)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
+            {
+                onRefresh?.Invoke();
+            }
+
+            GUILayout.FlexibleSpace();
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// Assets 폴더 안의 폴더만 받는 폴더 필드를 그린다.
+        /// <br/> Assets 밖의 폴더가 선택되면 경고를 남기고 선택을 비운다.
+        /// </summary>
+        /// <param name="serializedObject"> 폴더 프로퍼티를 소유한 SerializedObject </param>
+        /// <param name="folderProperty"> 폴더를 담는 프로퍼티 </param>
+        /// <param name="label"> 필드에 표시할 이름 </param>
+        protected void DrawAssetsFolderField(
+            SerializedObject serializedObject,
+            SerializedProperty folderProperty,
+            string label = "Script Save Folder")
+        {
+            if (serializedObject == null || folderProperty == null)
+            {
+                return;
+            }
+
+            serializedObject.Update();
+
+            EditorGUILayout.PropertyField(folderProperty, new GUIContent(label));
+
+            if (!serializedObject.ApplyModifiedProperties())
+            {
+                return;
+            }
+
+            Object folder = folderProperty.objectReferenceValue;
+            if (folder == null || FileFinder.IsAssetsFolder(folder))
+            {
+                return;
+            }
+
+            Debug.LogWarning("Selected folder is not inside the Assets folder.");
+
+            folderProperty.objectReferenceValue = null;
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        /// <summary>
+        /// 생성 스크립트의 namespace 입력 필드를 그린다.
+        /// </summary>
+        protected void DrawNamespaceField(string value, Action<string> setter, string undoName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Namespace (optional)", value),
+                setter,
+                undoName);
+        }
+
+        /// <summary>
+        /// 생성 스크립트의 클래스 이름 입력 필드를 그린다.
+        /// </summary>
+        /// <param name="defaultClassName"> 입력이 비었을 때 사용할 이름, 비어 있으면 안내를 표시하지 않는다. </param>
+        protected void DrawClassNameField(string value, Action<string> setter, string undoName, string defaultClassName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Class Name (optional)", value),
+                setter,
+                undoName);
+
+            if (string.IsNullOrWhiteSpace(value) && !string.IsNullOrEmpty(defaultClassName))
+            {
+                EditorGUILayout.HelpBox($"Default class name: {defaultClassName}", MessageType.None);
             }
         }
 

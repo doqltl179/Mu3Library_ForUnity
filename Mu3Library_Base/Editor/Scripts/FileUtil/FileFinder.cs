@@ -225,6 +225,21 @@ namespace Mu3Library.Editor.FileUtil
             string assetPath = GetAssetPath(obj);
             return AssetDatabase.IsValidFolder(assetPath);
         }
+
+        /// <summary>
+        /// 오브젝트가 프로젝트의 Assets 폴더 안에 있는지 확인한다.
+        /// </summary>
+        public static bool IsAssetsFolder(Object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            string assetPath = AssetDatabase.GetAssetPath(obj);
+            return !string.IsNullOrEmpty(assetPath) &&
+                (assetPath == "Assets" || assetPath.StartsWith("Assets/"));
+        }
         #endregion
 
         /// <summary>

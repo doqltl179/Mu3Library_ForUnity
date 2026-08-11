@@ -1,7 +1,6 @@
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using Mu3Library.Editor.FileUtil;
 using UnityEditor;
 using UnityEngine;
@@ -75,16 +74,16 @@ namespace Mu3Library.Editor.Window.Drawer
                 DrawInputActionAssetField();
                 GUILayout.Space(4);
 
-                DrawScriptSaveFolderField();
+                DrawAssetsFolderField(_serializedObject, _serializedPropScriptSaveFolder);
                 GUILayout.Space(4);
 
                 DrawAssetIdField();
                 GUILayout.Space(4);
 
-                DrawNamespaceField();
+                DrawNamespaceField(_scriptNamespace, v => _scriptNamespace = v, "InputSystem Exporter: Namespace");
                 GUILayout.Space(4);
 
-                DrawClassNameField();
+                DrawClassNameField(_scriptClassName, v => _scriptClassName = v, "InputSystem Exporter: Class Name", GetDefaultClassName());
                 GUILayout.Space(8);
 
                 DrawActionMapPreview();
@@ -108,43 +107,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 () => EditorGUILayout.TextField("Asset ID", _assetId),
                 v => _assetId = v,
                 "InputSystem Exporter: Asset ID");
-        }
-
-        private void DrawNamespaceField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
-                v => _scriptNamespace = v,
-                "InputSystem Exporter: Namespace");
-        }
-
-        private void DrawClassNameField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
-                v => _scriptClassName = v,
-                "InputSystem Exporter: Class Name");
-
-            if (string.IsNullOrWhiteSpace(_scriptClassName) && _inputActionAsset != null)
-            {
-                string placeholder = SanitizeIdentifier(_inputActionAsset.name);
-                EditorGUILayout.HelpBox($"Default class name: {placeholder}", MessageType.None);
-            }
-        }
-
-        private void DrawScriptSaveFolderField()
-        {
-            _serializedObject.Update();
-            EditorGUILayout.PropertyField(_serializedPropScriptSaveFolder, new GUIContent("Script Save Folder"));
-            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null)
-            {
-                if (!IsAssetsFolder(_scriptSaveFolder))
-                {
-                    Debug.LogWarning("Selected folder is not inside the Assets folder.");
-                    _scriptSaveFolder = null;
-                    _serializedObject.ApplyModifiedProperties();
-                }
-            }
         }
 
         private void DrawActionMapPreview()
@@ -222,6 +184,14 @@ namespace Mu3Library.Editor.Window.Drawer
             return null;
         }
 
+        /// <summary>
+        /// 클래스 이름을 입력하지 않았을 때 사용할 이름. 에셋이 없으면 빈 문자열을 반환한다.
+        /// </summary>
+        private string GetDefaultClassName()
+            => _inputActionAsset != null
+                ? SanitizeIdentifier(_inputActionAsset.name)
+                : string.Empty;
+
         private void GenerateScript()
         {
             string assetPath = FileFinder.GetAssetPath(_scriptSaveFolder);
@@ -237,11 +207,9 @@ namespace Mu3Library.Editor.Window.Drawer
 
             string className = !string.IsNullOrWhiteSpace(_scriptClassName)
                 ? SanitizeIdentifier(_scriptClassName.Trim())
-                : SanitizeIdentifier(_inputActionAsset.name);
+                : GetDefaultClassName();
             string scriptBody = BuildScriptBody(className);
-            string filePath = Path.Combine(systemPath, $"{className}.cs");
-
-            File.WriteAllText(filePath, scriptBody, new UTF8Encoding(true));
+            string filePath = FileCreator.WriteScript(systemPath, className, scriptBody);
 
             AssetDatabase.Refresh();
 
@@ -307,30 +275,7 @@ namespace Mu3Library.Editor.Window.Drawer
         }
 
         private static string SanitizeIdentifier(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return "_";
-
-            var sb = new StringBuilder();
-            foreach (char c in name)
-            {
-                if (char.IsLetterOrDigit(c))
-                    sb.Append(c);
-                else
-                    sb.Append('_');
-            }
-
-            // Identifier must not start with a digit
-            if (sb.Length > 0 && char.IsDigit(sb[0]))
-                sb.Insert(0, '_');
-
-            return sb.ToString();
-        }
-
-        private static bool IsAssetsFolder(DefaultAsset folder)
-        {
-            string path = FileFinder.GetAssetPath(folder);
-            return !string.IsNullOrEmpty(path) && (path == "Assets" || path.StartsWith("Assets/"));
-        }
+            => ScriptIdentifier.SanitizeUnderscore(name);
     }
 }
 #endif

@@ -20,19 +20,6 @@ namespace Mu3Library.Editor.Window.Drawer
         private const string MenuName = MenuRoot + "/" + ItemName;
         private const string DefaultClassName = "LocalizationKeys";
 
-        private static readonly HashSet<string> CSharpKeywords = new HashSet<string>
-        {
-            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
-            "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
-            "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
-            "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
-            "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
-            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
-            "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true",
-            "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
-            "void", "volatile", "while"
-        };
-
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
         [SerializeField, HideInInspector] private string _scriptNamespace = "";
         [SerializeField, HideInInspector] private string _scriptClassName = "";
@@ -87,13 +74,13 @@ namespace Mu3Library.Editor.Window.Drawer
                 if (!_isDataLoaded)
                     RefreshData();
 
-                DrawRefreshButton();
+                DrawRefreshButton(RefreshData);
                 GUILayout.Space(4);
-                DrawScriptSaveFolderField();
+                DrawAssetsFolderField(_serializedObject, _serializedPropScriptSaveFolder);
                 GUILayout.Space(4);
-                DrawNamespaceField();
+                DrawNamespaceField(_scriptNamespace, value => _scriptNamespace = value, "Localization Exporter: Namespace");
                 GUILayout.Space(4);
-                DrawClassNameField();
+                DrawClassNameField(_scriptClassName, value => _scriptClassName = value, "Localization Exporter: Class Name", DefaultClassName);
                 GUILayout.Space(8);
                 DrawTablePreview();
                 GUILayout.Space(8);
@@ -109,46 +96,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 .ToList();
             _locales = LocalizationEditorSettings.GetLocales()?.ToList() ?? new List<Locale>();
             _isDataLoaded = true;
-        }
-
-        private void DrawRefreshButton()
-        {
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
-                RefreshData();
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-        }
-
-        private void DrawScriptSaveFolderField()
-        {
-            _serializedObject.Update();
-            EditorGUILayout.PropertyField(_serializedPropScriptSaveFolder, new GUIContent("Script Save Folder"));
-            if (_serializedObject.ApplyModifiedProperties() && _scriptSaveFolder != null && !IsAssetsFolder(_scriptSaveFolder))
-            {
-                Debug.LogWarning("Selected folder is not inside the Assets folder.");
-                _scriptSaveFolder = null;
-                _serializedObject.ApplyModifiedProperties();
-            }
-        }
-
-        private void DrawNamespaceField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Namespace (optional)", _scriptNamespace),
-                value => _scriptNamespace = value,
-                "Localization Exporter: Namespace");
-        }
-
-        private void DrawClassNameField()
-        {
-            DrawWithUndo(
-                () => EditorGUILayout.TextField("Class Name (optional)", _scriptClassName),
-                value => _scriptClassName = value,
-                "Localization Exporter: Class Name");
-
-            if (string.IsNullOrWhiteSpace(_scriptClassName))
-                EditorGUILayout.HelpBox($"Default class name: {DefaultClassName}", MessageType.None);
         }
 
         private void DrawTablePreview()
@@ -269,8 +216,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void WriteGeneratedScript(string systemPath, string fileName, string body)
         {
-            string filePath = Path.Combine(systemPath, $"{fileName}.cs");
-            File.WriteAllText(filePath, body, new UTF8Encoding(true));
+            string filePath = FileCreator.WriteScript(systemPath, fileName, body);
             Debug.Log($"Localization script generated. path: {filePath}");
         }
 
@@ -490,12 +436,12 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             return string.IsNullOrWhiteSpace(_scriptClassName)
                 ? DefaultClassName
-                : GetPublicMemberIdentifier(SanitizeIdentifier(_scriptClassName.Trim()));
+                : ScriptIdentifier.ToPublicMember(ScriptIdentifier.Sanitize(_scriptClassName.Trim()));
         }
 
         private static string MakeUniqueIdentifier(string value, ISet<string> usedIdentifiers)
         {
-            string baseIdentifier = GetPublicMemberIdentifier(SanitizeIdentifier(value));
+            string baseIdentifier = ScriptIdentifier.ToPublicMember(ScriptIdentifier.Sanitize(value));
             string identifier = baseIdentifier;
             int suffix = 2;
             while (!usedIdentifiers.Add(identifier))
@@ -505,40 +451,12 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private static string GetPascalCaseIdentifier(string identifier)
         {
-            return GetPublicMemberIdentifier(identifier);
-        }
-
-        private static string GetPublicMemberIdentifier(string identifier)
-        {
-            if (string.IsNullOrEmpty(identifier))
-                return "Item";
-
-            var builder = new StringBuilder();
-            bool capitalizeNext = true;
-            foreach (char character in identifier)
-            {
-                if (!char.IsLetterOrDigit(character))
-                {
-                    capitalizeNext = true;
-                    continue;
-                }
-
-                if (builder.Length == 0 && char.IsDigit(character))
-                    builder.Append("Item");
-
-                if (capitalizeNext && char.IsLetter(character))
-                    builder.Append(char.ToUpperInvariant(character));
-                else
-                    builder.Append(character);
-                capitalizeNext = false;
-            }
-
-            return builder.Length == 0 ? "Item" : builder.ToString();
+            return ScriptIdentifier.ToPublicMember(identifier);
         }
 
         private static string GetPrivateFieldIdentifier(string identifier)
         {
-            string publicIdentifier = GetPublicMemberIdentifier(identifier);
+            string publicIdentifier = ScriptIdentifier.ToPublicMember(identifier);
             return "_" + char.ToLowerInvariant(publicIdentifier[0]) + publicIdentifier.Substring(1);
         }
 
@@ -590,44 +508,6 @@ namespace Mu3Library.Editor.Window.Drawer
                 .Replace("\n", "\\n")
                 .Replace("\t", "\\t")
                 .Replace("\0", "\\0") + "\"";
-        }
-
-        private static string SanitizeIdentifier(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return "_";
-
-            var builder = new StringBuilder();
-            bool capitalizeNext = false;
-            foreach (char character in name)
-            {
-                if (char.IsLetterOrDigit(character) || character == '_')
-                {
-                    if (builder.Length == 0 && char.IsDigit(character))
-                        builder.Append('_');
-                    if (capitalizeNext && char.IsLetter(character))
-                        builder.Append(char.ToUpperInvariant(character));
-                    else
-                        builder.Append(character);
-                    capitalizeNext = false;
-                }
-                else
-                {
-                    capitalizeNext = true;
-                }
-            }
-
-            if (builder.Length == 0)
-                builder.Append('_');
-            if (CSharpKeywords.Contains(builder.ToString()))
-                builder.Insert(0, '_');
-            return builder.ToString();
-        }
-
-        private static bool IsAssetsFolder(DefaultAsset folder)
-        {
-            string path = FileFinder.GetAssetPath(folder);
-            return !string.IsNullOrEmpty(path) && (path == "Assets" || path.StartsWith("Assets/"));
         }
 
         private sealed class GeneratedLocale

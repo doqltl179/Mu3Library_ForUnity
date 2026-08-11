@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -40,6 +41,26 @@ namespace Mu3Library.Editor.FileUtil {
             //Debug.Log($"ScriptableObject Created. path: {relativeFilePath}");
 
             return instance;
+        }
+
+        /// <summary>
+        /// 생성한 스크립트를 UTF-8 BOM으로 저장한다.
+        /// </summary>
+        /// <param name="systemDirectory"> 저장 폴더의 시스템 경로 </param>
+        /// <param name="fileName"> 확장자를 제외한 파일 이름 </param>
+        /// <param name="body"> 스크립트 본문 </param>
+        /// <returns> 저장한 파일의 시스템 경로 </returns>
+        public static string WriteScript(string systemDirectory, string fileName, string body) {
+            if(string.IsNullOrEmpty(systemDirectory) || string.IsNullOrEmpty(fileName)) {
+                Debug.LogError($"Property not enough. directory: {systemDirectory}, fileName: {fileName}");
+
+                return "";
+            }
+
+            string filePath = Path.Combine(systemDirectory, $"{fileName}.cs");
+            File.WriteAllText(filePath, body, new UTF8Encoding(true));
+
+            return filePath;
         }
         #endregion
     }

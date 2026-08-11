@@ -142,23 +142,7 @@ namespace Mu3Library.Editor.Window.Drawer
         }
 
         private void DrawScriptSaveFolderField()
-        {
-            _scriptSaveFolderObject.Update();
-
-            EditorGUILayout.PropertyField(_scriptSaveFolderProperties);
-
-            if (!_scriptSaveFolderObject.ApplyModifiedProperties() || _scriptSaveFolder == null)
-            {
-                return;
-            }
-
-            if (!IsAssetsFolder(_scriptSaveFolder))
-            {
-                _scriptSaveFolder = null;
-
-                _scriptSaveFolderObject.ApplyModifiedProperties();
-            }
-        }
+            => DrawAssetsFolderField(_scriptSaveFolderObject, _scriptSaveFolderProperties);
 
         private void CreateMVPComponents(string folderSystemPath, string scriptNamespace, string scriptName, int spaces, bool ignoreTypeOverlap, bool applyAnimationView)
         {
@@ -200,17 +184,6 @@ namespace Mu3Library.Editor.Window.Drawer
             AssetDatabase.Refresh();
         }
 
-        private bool IsAssetsFolder(DefaultAsset folder)
-        {
-            string path = FileFinder.GetAssetPath(folder);
-
-            if (string.IsNullOrEmpty(path))
-            {
-                return false;
-            }
-
-            return path == "Assets" || path.StartsWith("Assets/");
-        }
 
         private string GetPresenterBody(string scriptNamespace, string className, string viewClassName, string modelClassName, string argumentsClassName, int spaces, bool ignoreTypeOverlap)
         {
@@ -449,8 +422,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void WriteComponent(string folder, string fileName, string body)
         {
-            string path = $"{folder}/{fileName}.cs";
-            System.IO.File.WriteAllText(path, body);
+            FileCreator.WriteScript(folder, fileName, body);
         }
     }
 }
