@@ -3,10 +3,24 @@ using Mu3Library.Extensions;
 
 namespace Mu3Library.UI.Area
 {
+    /// <summary>
+    /// Anchors the owning RectTransform to the safe area of the screen.
+    /// <para>
+    /// The safe area drives the RectTransform properties it owns, which the inspector then shows as read only:
+    /// the anchors, the position, the size and the pivot. The rotation and the scale are never driven.
+    /// </para>
+    /// </summary>
     [RequireComponent(typeof(RectTransform))]
     [DisallowMultipleComponent]
+    [ExecuteAlways]
     public class SafeRect : MonoBehaviour
     {
+        private const DrivenTransformProperties DrivenProperties =
+            DrivenTransformProperties.Anchors |
+            DrivenTransformProperties.AnchoredPosition |
+            DrivenTransformProperties.SizeDelta |
+            DrivenTransformProperties.Pivot;
+
         private RectTransform m_rectTransform;
         protected RectTransform _rectTransform => m_rectTransform ??= gameObject.GetOrAddComponent<RectTransform>();
         public RectTransform RectTransform => _rectTransform;
@@ -14,11 +28,18 @@ namespace Mu3Library.UI.Area
         private Rect _appliedSafeArea = Rect.zero;
         private Vector2Int _appliedScreenSize = Vector2Int.zero;
 
+        private DrivenRectTransformTracker _drivenTracker;
+
 
 
         protected virtual void OnEnable()
         {
             Calculate();
+        }
+
+        protected virtual void OnDisable()
+        {
+            _drivenTracker.Clear();
         }
 
         protected virtual void Update()
@@ -55,11 +76,10 @@ namespace Mu3Library.UI.Area
 
             RectTransform rectTransform = _rectTransform;
 
+            UpdateDrivenProperties(rectTransform);
+
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            rectTransform.anchorMin = anchorMin;
-            rectTransform.anchorMax = anchorMax;
-            rectTransform.offsetMin = Vector2.zero;
-            rectTransform.offsetMax = Vector2.zero;
+            rectTransform.AnchorTo(anchorMin, anchorMax);
 
             _appliedSafeArea = safeAreaRect;
             _appliedScreenSize = new Vector2Int(Screen.width, Screen.height);
@@ -69,6 +89,18 @@ namespace Mu3Library.UI.Area
         #endregion
 
         protected virtual void OnCalculated(Rect safeArea) { }
+
+        private void UpdateDrivenProperties(RectTransform rectTransform)
+        {
+            _drivenTracker.Clear();
+
+            if (rectTransform == null)
+            {
+                return;
+            }
+
+            _drivenTracker.Add(this, rectTransform, DrivenProperties);
+        }
 
         private bool IsScreenChanged()
         {
