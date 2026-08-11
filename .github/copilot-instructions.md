@@ -12,7 +12,7 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 - If the requested outcome is functionally impossible, stop and report why work cannot proceed; if it is feasible but requires a material scope expansion, major change, or unspecified user choice, pause and request the necessary decision.
 - Do not invent workaround rules or alternate behavior to make an unimplementable or underspecified request appear complete; clarify or re-scope it so the original request can be fulfilled correctly.
 - Keep one owner per concern and prefer bounded, non-overlapping work units.
-- Prefer package-first edits under `Mu3Library_Base` or `Mu3Library_URP`.
+- Prefer package-first edits under `Mu3Library_Base`, `Mu3Library_URP`, or `Mu3Library_Game_WatermelonGame`.
 - Preserve Unity package stability: public APIs, `.asmdef` boundaries, `.meta` files, define symbols, samples, and package metadata.
 - Sync README/CHANGELOG files when behavior or public API changes.
 - Keep Markdown prose docs (`README*`, `CHANGELOG*`, instruction files, and `docs/ai-agents/**`) encoded as UTF-8 BOM with LF line endings. Keep frontmatter-driven agent, prompt, and skill files parser-compatible.
@@ -34,15 +34,12 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 
 ## Deferred Inventories
 
-- Owner/spec inventory: `docs/ai-agents/routing/README.md`
-- Prompt/skill inventory: `docs/ai-agents/workflow/workflow-assets.md`
+- Inventories: owner/spec at `docs/ai-agents/routing/README.md`; prompt/skill at `docs/ai-agents/workflow/workflow-assets.md`.
 - Open `.github/agents/*.agent.md`, `.github/skills/*.md`, or `.github/prompts/*.md` only after a router or inventory page selects that artifact.
 
 ## Wiki Routing
 
-- Open `docs/ai-agents/README.md` only when a wiki route is needed and the next section is not already obvious.
-- Choose one section router by question shape: `routing/`, `packages/`, `contracts/`, `workflow/`, `plans/`, or `guides/`.
+- Open `docs/ai-agents/README.md` only when a wiki route is needed and the next section router (`routing/`, `packages/`, `contracts/`, `workflow/`, `plans/`, or `guides/`) is not already obvious.
 - Open `architecture.md` directly only when stable design rationale is the question.
 - In `packages/`, choose one package-family page and then the smallest matching surface on that page.
-- Stop after the first owning child page is found.
-- Keep shared repeated rules in the smallest owning page instead of recreating parallel procedures.
+- Stop after the first owning child page is found, and keep shared repeated rules there instead of recreating parallel procedures.

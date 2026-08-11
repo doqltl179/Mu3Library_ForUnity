@@ -39,7 +39,7 @@ Use this section when the question is which owner should handle the current work
 
 | Task Shape | Primary Owner | Route Away When |
 |---|---|---|
-| Non-gated runtime behavior under Base or URP runtime scripts | `unity-runtime` | editor tooling, define-gated integration, sample integrity, or cross-boundary Unity work dominates |
+| Non-gated runtime behavior under Base, URP, or Watermelon Game runtime scripts | `unity-runtime` | editor tooling, define-gated integration, sample integrity, or cross-boundary Unity work dominates |
 | Non-gated editor tooling under Base or URP editor scripts | `unity-editor` | runtime behavior, define-gated integration, sample integrity, or cross-boundary Unity work dominates |
 | Define-gated optional integration across runtime, editor, or package surfaces | `package-integration` | the task is mostly non-gated runtime or editor work |
 | Package samples, imported footprints, manifests, or smoke checks | `sample-integrity` | the dominant work is core runtime, editor, or optional integration |
