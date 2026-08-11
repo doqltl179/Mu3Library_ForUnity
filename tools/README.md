@@ -4,8 +4,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 
 | Path | Owns |
 |---|---|
-| [mu3_cli/](mu3_cli/README.md) | Python CLI for agent-framework and C# Dev Kit support workflows |
-| `csdevkit_tests/` | Narrow xUnit metadata tests for C# Dev Kit integration checks |
+| [cli/](cli/README.md) | Python CLI for repository, C# Dev Kit, and Unity automation workflows |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
 
 Generated files under `bin/`, `obj/`, `.venv/`, and `*.egg-info/` are local artifacts and should not be tracked.

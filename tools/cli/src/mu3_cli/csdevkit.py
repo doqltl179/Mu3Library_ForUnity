@@ -612,6 +612,26 @@ def run_drift_checks(root: Path | None = None) -> list[DiagnosticResult]:
         )
 
     for spec in specs.values():
+        manifest = _package_manifest(spec.package_path / "package.json")
+        actual_package_name = str(manifest.get("name", ""))
+        if actual_package_name == spec.package_name:
+            results.append(
+                _diagnostic(
+                    "PASS",
+                    f"Package identity ({spec.key})",
+                    f"Package manifest name matches {spec.package_name}.",
+                )
+            )
+        else:
+            results.append(
+                _diagnostic(
+                    "FAIL",
+                    f"Package identity ({spec.key})",
+                    f"Expected {spec.package_name}, but package.json declares {actual_package_name or '<empty>'}.",
+                    "Restore the canonical package name or update the context mapping intentionally.",
+                )
+            )
+
         results.append(_check_workspace_default_solution(spec, root))
 
         missing_targets: list[str] = []

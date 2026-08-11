@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mu3-cli"
 version = "0.1.0"
-description = "Auxiliary repository CLI for Mu3Library agent-framework and tooling workflows"
+description = "Auxiliary repository CLI for Mu3Library development and Unity automation workflows"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

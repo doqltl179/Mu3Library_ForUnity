@@ -7,6 +7,13 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-08-11
+
+### Changed
+- Renamed the outer Python tooling directory from `tools/mu3_cli` to `tools/cli` while retaining the `mu3_cli` import namespace and `mu3-cli` command name.
+- Added change-aware Unity compile orchestration and environment diagnostics under `mu3-cli unity`.
+- Moved package-identity metadata validation into `mu3-cli csdevkit drift check` and removed the redundant standalone `tools/csdevkit_tests` xUnit project.
+
 ## 2026-06-21
 
 ### Removed

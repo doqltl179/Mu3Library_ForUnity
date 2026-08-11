@@ -6,6 +6,7 @@ import typer
 
 from mu3_cli.csdevkit import csdevkit_app
 from mu3_cli.repository import agent_paths, parse_agent_name, read_handoff_template, repo_root
+from mu3_cli.unity import unity_app
 
 
 app = typer.Typer(
@@ -18,6 +19,7 @@ agents_app = typer.Typer(no_args_is_help=True, help="Agent framework discovery c
 app.add_typer(repo_app, name="repo")
 app.add_typer(agents_app, name="agents")
 app.add_typer(csdevkit_app, name="csdevkit")
+app.add_typer(unity_app, name="unity")
 
 
 AGENT_DOC_FILE_LIMIT = 24
@@ -42,7 +44,7 @@ def repo_info() -> None:
     typer.echo(f"Base package: {root / 'Mu3Library_Base'}")
     typer.echo(f"URP package: {root / 'Mu3Library_URP'}")
     typer.echo(f"Agent docs: {root / 'docs' / 'ai-agents'}")
-    typer.echo(f"CLI tooling: {root / 'tools' / 'mu3_cli'}")
+    typer.echo(f"CLI tooling: {root / 'tools' / 'cli'}")
 
 
 @agents_app.command("list")

@@ -14,7 +14,10 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `csdevkit doctor load`: run C# Dev Kit-oriented workspace, solution, generated project, and `.NET SDK` health checks.
 - `csdevkit build-profile {list,show,run}`: inspect or execute compile-only build profiles mapped to the generated Unity `.slnx` and `.csproj` files.
 - `csdevkit logs {guide,bundle}`: print the recommended `Collect C# Dev Kit Logs` flow and create a repo-local support bundle under `log/mu3_cli/csdevkit/`.
-- `csdevkit drift check`: detect workspace-default, package-version, build-target, and local-context drift across Base, Built-In, and URP surfaces.
+- `csdevkit drift check`: detect workspace-default, package-identity, package-version, build-target, and local-context drift across Base, Built-In, and URP surfaces.
+- `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
+- `unity changes`: explain which package projects are selected by the current Git changes or a `--base` ref.
+- `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
 
 ## C# Dev Kit Workflow
 
@@ -42,34 +45,31 @@ mu3-cli csdevkit logs guide
 mu3-cli csdevkit logs bundle --context built-in
 ```
 
-## Pure C# Test Surface
-
-`tools/csdevkit_tests/Mu3Library.CsDevKit.Tests.csproj` is a standalone xUnit project that validates tracked repository metadata without depending on Unity assemblies. It exists so C# Dev Kit can light up Test Explorer and code coverage against a narrow, non-Unity surface.
-
-This test surface targets `net10.0`, so use a `.NET 10 SDK` or newer when running it locally or through C# Dev Kit.
-
-Run it directly with:
-
-```powershell
-dotnet test tools/csdevkit_tests/Mu3Library.CsDevKit.Tests.csproj --nologo --verbosity minimal
-```
-
 ## Environment Bootstrap
 
 Preferred flow with `uv`:
 
 ```powershell
-cd tools/mu3_cli
+cd tools/cli
 uv venv .venv
 .\.venv\Scripts\Activate.ps1
 uv pip install -e .
 mu3-cli --help
 ```
 
+## Verification
+
+Run the dependency-light CLI unit tests from the repository root:
+
+```powershell
+$env:PYTHONPATH = "tools/cli/src"
+python -m unittest discover -s tools/cli/tests -v
+```
+
 Portable fallback with standard `venv`:
 
 ```powershell
-cd tools/mu3_cli
+cd tools/cli
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -86,16 +86,24 @@ mu3-cli --help
 
 ## Planned Unity Automation Surface
 
-Keep `compile-unity.sh` as the dependency-light repository entrypoint while the workflow stabilizes. When compile selection, diagnostics, and CI contracts are mature, move orchestration behind a `mu3-cli unity` group and leave the shell script as a compatibility wrapper.
+Keep `compile-unity.sh` as the dependency-light repository entrypoint while the workflow stabilizes. The `mu3-cli unity` group now orchestrates it, while the shell script remains a compatibility wrapper for CI and dependency-light use.
 
 Recommended command groups:
 
 - `unity doctor`: Editor versions, modules, license/auth state, project locks, package mappings, and writable log paths.
 - `unity changes`: changed-file classification, owning packages, selected projects, and optional dependent-package expansion.
-- `unity compile`: current change-aware batchmode compilation with explicit `--package`, `--all`, and `--base` controls.
+- `unity compile`: current change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
 - `unity test`: EditMode/PlayMode execution, XML results, filters, retries, and timeout policy.
 - `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
 - `unity logs`: per-run log directories, warning/error summaries, durations, and reproducible invocation metadata.
 - `unity cache`: cache size/status inspection and opt-in cleanup; never purge a Unity `Library` implicitly.
+
+The first three commands are now available:
+
+```powershell
+mu3-cli unity doctor --target built-in
+mu3-cli unity changes --base origin/develop
+mu3-cli unity compile --dry-run
+```
 
 The current `unity-cli-packages.tsv` is intentionally minimal: target key, package root, and representative Unity project. Replace it with a richer versioned TOML model only when dependencies, test matrices, or player-build profiles need structured fields. At that point, keep package ownership, dependency edges, Unity version source, test suites, and build profiles in one configuration rather than spreading them across shell conditionals and CI YAML.
