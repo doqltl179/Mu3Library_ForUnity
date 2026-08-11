@@ -46,13 +46,23 @@ namespace Mu3Library.URP.ScreenEffect
                 return;
             }
 
-            var entry = _effects.Find(t => t.Effect == effect);
-            if (entry.Effect == null)
+            int effectIndex = -1;
+            for (int i = 0; i < _effects.Count; i++)
+            {
+                if (_effects[i].Effect == effect)
+                {
+                    effectIndex = i;
+                    break;
+                }
+            }
+
+            if (effectIndex < 0)
             {
                 return;
             }
 
-            _effects.Remove(entry);
+            EffectEntry entry = _effects[effectIndex];
+            _effects.RemoveAt(effectIndex);
 
             if (dispose)
             {
@@ -134,4 +144,3 @@ namespace Mu3Library.URP.ScreenEffect
         }
     }
 }
-

@@ -56,14 +56,13 @@ namespace Mu3Library.ObjectPool
 
             PooledItem pooledItem = new(obj);
             int instanceId = pooledItem.InstanceId;
-            if (_instanceIds.Contains(instanceId))
+            if (!_instanceIds.Add(instanceId))
             {
                 Debug.LogWarning($"Object with instance ID {instanceId} is already in the pool. Skipping enqueue.");
                 return;
             }
 
             _pool.Enqueue(pooledItem);
-            _instanceIds.Add(instanceId);
         }
 
         public void Enqueue(List<T> objects)
