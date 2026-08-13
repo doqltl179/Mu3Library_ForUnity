@@ -2,6 +2,8 @@
 
 Use this template for non-trivial work that needs 3+ steps, architectural choices, or explicit verification.
 
+Use [graph-engineering.md](../workflow/graph-engineering.md) instead when at least two independently writable units can be ready concurrently. Keep one active graph plan for the whole request rather than copying this serial table into per-node plans.
+
 ```markdown
 # <Task Title>
 

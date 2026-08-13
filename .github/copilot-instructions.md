@@ -7,11 +7,11 @@ Use this file as the startup instruction SSOT. Read it once, analyze the task, t
 - Answer with the smallest clear result that completes the request; search narrowly with `rg` or a small file list.
 - Before implementing a requested task, assess its functional feasibility and intended scope.
 - Before editing or committing, run a branch preflight: `git status --short --branch`, `git branch --show-current`, and the relevant upstream/ahead-behind check.
-- Normal work is allowed only on `develop`; `main` is release-only. If any other branch is checked out, stop before editing or committing and report it for explicit resolution.
-- Never create, switch to, merge, push, or delete a task branch automatically. A non-`main`/`develop` branch requires explicit user authorization with its exact name and cleanup destination.
+- Normal serial work is allowed only on `develop`; `main` is release-only. A plan-declared `agent/<graph-id>/...` branch is allowed only in its exact allocated worktree with a matching graph dispatch packet; stop on every other branch.
+- The only automatic local task-branch exception is an activated graph-engineering plan that records exact branch names, base commits, worktree paths, `develop` destination, and cleanup gate before creation. Outside that workflow, a task branch requires explicit user authorization with its exact name, destination, and cleanup plan. Never push graph branches or delete branches/worktrees automatically. The sole approval-free file-deletion exception is the current task's agent-created completed plan under `tasks/plans/`, closed exactly by the Task Record Policy.
 - If the requested outcome is functionally impossible, stop and report why work cannot proceed; if it is feasible but requires a material scope expansion, major change, or unspecified user choice, pause and request the necessary decision.
 - Do not invent workaround rules or alternate behavior to make an unimplementable or underspecified request appear complete; clarify or re-scope it so the original request can be fulfilled correctly.
-- Keep one owner per concern and prefer bounded, non-overlapping work units.
+- Keep one owner per concern and prefer bounded, non-overlapping work units; for a complex request with two or more independently writable units, use `docs/ai-agents/workflow/graph-engineering.md`, serialize true conflicts, and admit only the minimum justified nodes within a credit budget.
 - Prefer package-first edits under `Mu3Library_Base`, `Mu3Library_URP`, or `Mu3Library_Game_WatermelonGame`.
 - Preserve Unity package stability: public APIs, `.asmdef` boundaries, `.meta` files, define symbols, samples, and package metadata.
 - Sync README/CHANGELOG files when behavior or public API changes.

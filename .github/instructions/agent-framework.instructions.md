@@ -8,12 +8,15 @@ description: "Compact multi-agent framework rules for Mu3Library routing and bou
 ## Core Rules
 
 - Development philosophy: break large features into smaller features, and break small features into independent, non-overlapping units.
+- Model complex work as a dependency graph. Run ready, non-overlapping nodes in parallel and serialize only nodes connected by artifact, decision, write-scope, or mutable-resource dependencies.
+- Treat node creation as a credit-budgeted decision: every node needs a distinct purpose, deliverable, owner, admission reason, and cost class; forbid speculative fan-out and recursive child-node creation by implementation owners.
 - Prefer modular, structural, systematic clean code over tightly coupled task-local shortcuts.
 - Work in bounded units; do not bundle unrelated framework changes.
 - Keep one owner per concern. If two agents appear to own the same concern, stop and re-scope.
 - Keep governance roles separate from execution roles.
 - Keep shared rules in one owning wiki page and link to it from nearby docs.
 - Do not create workaround-style alternate procedures for the same concern.
+- Use `docs/ai-agents/workflow/graph-engineering.md` as the canonical worktree/DAG workflow. `orchestrator` owns graph control; artifact nodes keep their existing routed implementation owners.
 
 ## Token Budget Rules
 
@@ -32,6 +35,7 @@ After any non-trivial agent-framework change, check:
 - missing ownership,
 - routing ambiguity,
 - repository-boundary violations,
+- overlapping graph-node write scopes or an unowned fan-in step,
 - required catalog or router updates.
 
 `role-governor` owns the structural continue-or-rework disposition. `orchestrator` routes to the gate but does not self-approve structural expansion.
