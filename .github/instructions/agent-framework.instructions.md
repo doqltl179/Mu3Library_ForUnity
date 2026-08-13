@@ -1,5 +1,5 @@
 ﻿---
-applyTo: ".github/agents/**,.github/instructions/**,.github/prompts/**,.github/skills/**,.github/workflows/repo-hygiene.yml,docs/ai-agents/**,tasks/**"
+applyTo: ".github/agents/**,.github/instructions/**,.github/prompts/**,.github/skills/**,docs/ai-agents/**,tasks/**,tools/cli/**"
 description: "Compact multi-agent framework rules for Mu3Library routing and boundary control"
 ---
 

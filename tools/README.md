@@ -9,6 +9,8 @@ Repository-local support tooling lives here. These tools can help agents inspect
 
 Generated files under `bin/`, `obj/`, `.venv/`, and `*.egg-info/` are local artifacts and should not be tracked.
 
+Run `mu3-cli repo check` before sharing repository-level documentation or agent-framework changes. It replaces the former remote repository-hygiene workflow with its useful checks at the local tooling boundary.
+
 ## Unity Compile Entrypoint
 
 The default command compiles only the package projects selected from staged, unstaged, and untracked Git changes:

@@ -5,7 +5,13 @@ import re
 import typer
 
 from mu3_cli.csdevkit import csdevkit_app
-from mu3_cli.repository import agent_paths, parse_agent_name, read_handoff_template, repo_root
+from mu3_cli.repository import (
+    agent_paths,
+    parse_agent_name,
+    read_handoff_template,
+    repo_root,
+    repository_hygiene_issues,
+)
 from mu3_cli.unity import unity_app
 
 
@@ -45,6 +51,21 @@ def repo_info() -> None:
     typer.echo(f"URP package: {root / 'Mu3Library_URP'}")
     typer.echo(f"Agent docs: {root / 'docs' / 'ai-agents'}")
     typer.echo(f"CLI tooling: {root / 'tools' / 'cli'}")
+
+
+@repo_app.command("check")
+def repo_check() -> None:
+    """Validate repository hygiene and the agent-framework shape."""
+    issues = repository_hygiene_issues()
+
+    if issues:
+        typer.echo("Invalid repository hygiene:")
+        for issue in issues:
+            typer.echo(f"- {issue}")
+        raise typer.Exit(code=1)
+
+    typer.echo("Repository document layout, README links, routing references, and tooling artifacts are valid.")
+    agents_check()
 
 
 @agents_app.command("list")

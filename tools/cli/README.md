@@ -7,6 +7,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 ## Initial Command Surface
 
 - `repo info`: print key repository roots and framework document locations.
+- `repo check`: validate repository document layout, README links, stale routing references, tracked tooling artifacts, and the agent-framework shape.
 - `agents list`: list registered agent documents under `.github/agents`.
 - `agents check`: validate primary agent discovery entrypoints, context budgets, instruction scope, prompt/skill frontmatter, obsolete docs, and compact role-card shape.
 - `agents handoff-template`: print the current handoff packet template from `docs/ai-agents/contracts/handoff-contract.md`.
@@ -64,6 +65,7 @@ Run the dependency-light CLI unit tests from the repository root:
 ```powershell
 $env:PYTHONPATH = "tools/cli/src"
 python -m unittest discover -s tools/cli/tests -v
+python -m mu3_cli repo check
 ```
 
 Portable fallback with standard `venv`:

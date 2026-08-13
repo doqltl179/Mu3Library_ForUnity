@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-08-13
+
+### Changed
+- Moved repository document layout, README link, stale agent-routing reference, tracked tooling artifact, and agent-framework shape validation into `mu3-cli repo check`.
+
+### Removed
+- Removed the post-push repository-hygiene GitHub Actions workflow; repository hygiene is now an explicit local tooling check.
+
 ## 2026-08-11
 
 ### Changed
