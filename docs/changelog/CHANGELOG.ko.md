@@ -13,6 +13,8 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
 ### 수정됨
 - `MVPManager`: `LoadFunc()`나 `OpenFunc()` 안에서 연 presenter가 이제 부모를 owner로 찾습니다. manager가 presenter를 상태 목록에 넣는 시점이 해당 생명주기 콜백이 이미 끝난 뒤였기 때문에, 두 콜백에서 호출한 `OpenAsChild()`는 owner 항목을 찾지 못하고 `Owner presenter not found or not active` 경고를 남긴 뒤 자식을 분리된 상태로 열었습니다. ownership 연결도, owner `RectTransform`을 host로 쓰는 것도, 연쇄 close도 모두 빠졌습니다. 이제 모든 phase 전이가 그 phase에 해당하는 콜백보다 먼저 일어나므로, presenter는 자신의 `LoadFunc()`, `OpenFunc()`, `CloseFunc()`, `UnloadFunc()`가 실행되는 동안 계속 조회됩니다.
 - `MVPManager`: 연쇄 close가 아직 loading 중인 자식까지 닫습니다. 그런 자식은 load 대기열에만 있었고 close 경로는 그 목록을 읽지 않았기 때문에, owner를 강제로 닫으면 사라지는 view 아래에 고아로 남았습니다. loading 중인 view는 한 번도 표시된 적이 없어 비활성 상태이므로, close coroutine이 돌 수 있도록 먼저 활성화합니다.

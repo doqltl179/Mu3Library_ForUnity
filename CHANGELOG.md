@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
 ### Fixed
 - `MVPManager`: A presenter opened from inside `LoadFunc()` or `OpenFunc()` now resolves its parent as owner. The manager put a presenter into its state list only after the matching lifecycle callback had already returned, so `OpenAsChild()` called from either callback found no owner entry, logged `Owner presenter not found or not active`, and opened the child detached: without the ownership link, without the owner `RectTransform` as its host, and outside the cascade close. Every phase transition now happens before the callback that belongs to it, so a presenter stays resolvable while its own `LoadFunc()`, `OpenFunc()`, `CloseFunc()`, and `UnloadFunc()` run.
 - `MVPManager`: A cascade close now reaches a child that is still loading. Such a child only ever sat in the load queue, which the close path never read, so force-closing its owner left it behind as an orphan under a view that was already going away. A loading view has never been shown and is therefore inactive, so it is activated first to let the close coroutine run.

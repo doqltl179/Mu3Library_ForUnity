@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
 ### 修正
 - `MVPManager`: `LoadFunc()` や `OpenFunc()` の中で開いた presenter が親を owner として解決するようになりました。manager が presenter を状態リストへ入れるのは対応するライフサイクルコールバックが返った後だったため、どちらのコールバックから呼んだ `OpenAsChild()` も owner エントリを見つけられず、`Owner presenter not found or not active` を記録して子を切り離した状態で開いていました。ownership の連結も、owner の `RectTransform` を host に使うことも、連鎖 close も抜け落ちていました。すべての phase 遷移がその phase に対応するコールバックより先に行われるようになり、presenter は自身の `LoadFunc()`、`OpenFunc()`、`CloseFunc()`、`UnloadFunc()` の実行中も解決できます。
 - `MVPManager`: 連鎖 close がまだ loading 中の子にも届きます。そうした子は load 待ち行列にしか存在せず close 経路はその一覧を読まなかったため、owner を強制的に閉じると消えていく view の下に孤児として残っていました。loading 中の view は一度も表示されておらず非アクティブなので、close コルーチンが動けるよう先に有効化します。
