@@ -363,12 +363,27 @@ def compile_command_arguments(
     return arguments
 
 
+def compile_script_command(script_path: Path, arguments: list[str]) -> list[str]:
+    # Windows cannot execute a shell script directly, so bash has to carry it.
+    if platform.system() == "Windows":
+        bash_path = shutil.which("bash")
+        if not bash_path:
+            raise ValueError(
+                "bash was not found on PATH. Install Git for Windows so the Unity compile entrypoint can run."
+            )
+        return [bash_path, str(script_path), *arguments]
+
+    return [str(script_path), *arguments]
+
+
 def run_compile_script(arguments: list[str], root: Path) -> int:
     script_path = compile_script_path(root)
-    if not script_path.is_file() or not os.access(script_path, os.X_OK):
-        raise ValueError(f"Unity compile entrypoint is missing or not executable: {script_path}")
+    if not script_path.is_file():
+        raise ValueError(f"Unity compile entrypoint is missing: {script_path}")
+    if platform.system() != "Windows" and not os.access(script_path, os.X_OK):
+        raise ValueError(f"Unity compile entrypoint is not executable: {script_path}")
 
-    command = [str(script_path), *arguments]
+    command = compile_script_command(script_path, arguments)
     typer.echo(f"Running: {' '.join(command)}")
     return subprocess.run(command, cwd=root, check=False).returncode
 

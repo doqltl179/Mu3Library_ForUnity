@@ -1,1 +1,6 @@
 *.md text eol=lf
+
+# The shell entrypoint and its configuration are read by bash, which treats a
+# trailing CR as part of the value and breaks on a CRLF checkout.
+*.sh text eol=lf
+*.tsv text eol=lf
