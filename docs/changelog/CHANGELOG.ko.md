@@ -13,6 +13,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 수정됨
+- `SafeRect`: anchor가 매 프레임 두 값 사이를 오가며 컴포넌트가 소유한 rect 크기를 계속 바꾸던 문제를 고쳤습니다. 기존에는 `OnRectTransformDimensionsChange`에서 `Screen`을 직접 읽었는데, 이 메시지는 canvas 재구성 중에 전달되고 `Screen`은 그 시점에 묻는 패스의 렌더 타깃을 답으로 돌려줍니다. 즉 scene view 다시 그리기에서는 scene view 크기를, game view 다시 그리기에서는 game view 크기를 보고했고, 두 답이 서로 "화면이 방금 바뀌었다"처럼 보였습니다. 이제 이 컴포넌트가 읽는 화면은 `ScreenChangeNotifier` 하나뿐이므로, 한 프레임은 하나의 화면만 보고하고 anchor가 고정됩니다.
+- `SafeRect`: safe area를 보고하지 않는 화면이 매번 "바뀐 화면"으로 취급되지 않습니다. 비어 있는 safe area를 대신하던 전체 화면 rect가 적용된 값으로 기록되었기 때문에, 기록된 rect는 화면이 보고하는 값과 절대 같아질 수 없었고 `IsScreenChanged()`가 계속 true로 남아 컴포넌트가 받는 모든 메시지마다 safe area를 다시 적용했습니다. 이제 읽은 값을 그대로 기록하며, 대체 rect는 기존처럼 anchor 계산과 `OnCalculated(Rect)`에 전달됩니다.
+- `ScreenChangeNotifier`: play mode가 도는 동안에는 에디터 루프가 화면을 읽지 않습니다. play mode는 이미 player loop에서 화면을 읽으므로, 두 루프가 같은 프레임을 읽으며 서로 다른 답으로 화면을 두 번 보고할 수 있었습니다.
+
 ## [base/0.23.1] - 2026-08-15
 
 ### 수정됨

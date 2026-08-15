@@ -16,6 +16,13 @@ namespace Mu3Library.UI.Area
     /// size or orientation, and <see cref="ScreenChangeNotifier"/> reports a safe area that changed while
     /// the screen kept its size, such as the one a device turned upside down leaves behind.
     /// </para>
+    /// <para>
+    /// <see cref="ScreenChangeNotifier"/> is the only screen this component reads. <see cref="Screen"/>
+    /// answers with the render target of whatever asks it, and the messages that bring this component back
+    /// arrive from inside a canvas rebuild, where a scene view repaint answers with the scene view and the
+    /// game view repaint answers with the game view. Reading it from here would make the same frame produce
+    /// two screens and the anchors alternate between them, so the once a frame read is what is trusted.
+    /// </para>
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     [DisallowMultipleComponent]
@@ -77,8 +84,8 @@ namespace Mu3Library.UI.Area
                 return;
             }
 
-            Rect safeAreaRect = Screen.safeArea;
-            Vector2Int screenSize = new Vector2Int(Screen.width, Screen.height);
+            Rect safeAreaRect = ScreenChangeNotifier.SafeArea;
+            Vector2Int screenSize = ScreenChangeNotifier.ScreenSize;
             float screenWidth = screenSize.x;
             float screenHeight = screenSize.y;
 
@@ -87,17 +94,18 @@ namespace Mu3Library.UI.Area
                 return;
             }
 
-            if (safeAreaRect.width <= 0.0f || safeAreaRect.height <= 0.0f)
+            Rect appliedSafeArea = safeAreaRect;
+            if (appliedSafeArea.width <= 0.0f || appliedSafeArea.height <= 0.0f)
             {
-                safeAreaRect = new Rect(0.0f, 0.0f, screenWidth, screenHeight);
+                appliedSafeArea = new Rect(0.0f, 0.0f, screenWidth, screenHeight);
             }
 
             Vector2 anchorMin = new Vector2(
-                Mathf.Clamp01(safeAreaRect.xMin / screenWidth),
-                Mathf.Clamp01(safeAreaRect.yMin / screenHeight));
+                Mathf.Clamp01(appliedSafeArea.xMin / screenWidth),
+                Mathf.Clamp01(appliedSafeArea.yMin / screenHeight));
             Vector2 anchorMax = new Vector2(
-                Mathf.Clamp01(safeAreaRect.xMax / screenWidth),
-                Mathf.Clamp01(safeAreaRect.yMax / screenHeight));
+                Mathf.Clamp01(appliedSafeArea.xMax / screenWidth),
+                Mathf.Clamp01(appliedSafeArea.yMax / screenHeight));
 
             RectTransform rectTransform = _rectTransform;
 
@@ -105,6 +113,8 @@ namespace Mu3Library.UI.Area
 
             // Anchoring resizes the rect, which sends OnRectTransformDimensionsChange back here.
             // Reporting the applied screen first is what leaves that message nothing to do.
+            // What was read is reported, not what took its place: reporting the substitute
+            // would leave a screen that reports no safe area looking changed on every check.
             _appliedSafeArea = safeAreaRect;
             _appliedScreenSize = screenSize;
 
@@ -119,7 +129,7 @@ namespace Mu3Library.UI.Area
                 _isCalculating = false;
             }
 
-            OnCalculated(safeAreaRect);
+            OnCalculated(appliedSafeArea);
         }
         #endregion
 
@@ -149,9 +159,8 @@ namespace Mu3Library.UI.Area
 
         private bool IsScreenChanged()
         {
-            return _appliedScreenSize.x != Screen.width ||
-                _appliedScreenSize.y != Screen.height ||
-                _appliedSafeArea != Screen.safeArea;
+            return _appliedScreenSize != ScreenChangeNotifier.ScreenSize ||
+                _appliedSafeArea != ScreenChangeNotifier.SafeArea;
         }
     }
 }
