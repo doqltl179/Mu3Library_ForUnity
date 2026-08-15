@@ -13,6 +13,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 수정됨
+- `UIAreaGrid`, `UIAreaElement`, `SafeCanvas`: play mode가 도는 중에 프리팹을 로드해도 `SendMessage cannot be called during Awake, CheckConsistency, or OnValidate`가 콘솔을 채우지 않습니다. Unity는 에셋이 역직렬화될 때마다 `OnValidate`를 호출하며, 여기에는 Addressables가 런타임에 로드하는 프리팹도 포함됩니다. 그런데 이 컴포넌트들은 play mode가 도는 동안 바로 그 자리에서 레이아웃을 적용했습니다. grid는 element의 anchor를 잡았고, canvas는 safe rect를 만들어 화면에 맞췄습니다. anchor를 설정하면 Unity가 자식에게 `OnRectTransformDimensionsChange`를 보내는데, 이 메시지는 어느 모드가 돌고 있든 `OnValidate` 안에서는 거부됩니다. 이제 edit mode에서 이미 그랬던 것처럼 play mode에서도 이 작업을 `OnValidate` 바깥으로 미룹니다.
+
 ## [base/0.23.2] - 2026-08-15
 
 ### 수정됨

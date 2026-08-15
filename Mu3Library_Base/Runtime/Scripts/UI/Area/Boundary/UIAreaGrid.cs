@@ -169,14 +169,8 @@ namespace Mu3Library.UI.Area
             ValidateBoundaries();
             SyncEditModes();
 
-            if (Application.isPlaying)
-            {
-                ResolveElements();
-                Apply();
-                return;
-            }
-
-            // Creating objects and touching the transform of another object are not allowed inside OnValidate.
+            // Creating objects and touching the transform of another object are not allowed inside OnValidate,
+            // which Unity also calls in play mode while an asset is deserialized.
             UnityEditor.EditorApplication.delayCall += () =>
             {
                 if (this == null)

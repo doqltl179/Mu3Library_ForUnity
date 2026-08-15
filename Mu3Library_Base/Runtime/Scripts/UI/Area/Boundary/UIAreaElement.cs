@@ -111,13 +111,8 @@ namespace Mu3Library.UI.Area
 #if UNITY_EDITOR
         protected virtual void OnValidate()
         {
-            if (Application.isPlaying)
-            {
-                ResolveArea();
-                return;
-            }
-
-            // Touching a transform is not allowed inside OnValidate.
+            // Touching a transform is not allowed inside OnValidate,
+            // which Unity also calls in play mode while an asset is deserialized.
             UnityEditor.EditorApplication.delayCall += () =>
             {
                 if (this == null)
