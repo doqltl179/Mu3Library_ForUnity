@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [game/watermelon/0.4.0] - 2026-08-15
+
 - Added the `BoardController` events a project drives its UI and its effects from: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged` and `OnMergeComboChanged`. `OnScoreAdded` carries what a single change really paid out, so a change the zero clamp swallowed is not reported, `OnItemRemoved` runs while the item still carries its catalog entry and its place, and `OnItemAdded` covers every item that joins the board, the player's drop, a merge, a command and a restored snapshot alike.
 - Added `BoardController.HoldingNormalizedX`, where the held item waits as a fraction of the board area width, which is the value `OnHoldingItemMoved` reports.
 - Added `BoardMergeInfo`, the merge report handed to `OnItemMerged`: the catalog index that merged, the index and the instance it became, the board-normalized position it happened at, the score it paid out, and `IsValid`.

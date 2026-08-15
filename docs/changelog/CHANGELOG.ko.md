@@ -13,18 +13,15 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.23.0] - 2026-08-15
+
 ### 추가됨
-- `BoardController`: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, `OnMergeComboChanged` event를 추가했습니다. 외부 프로젝트가 board를 polling 하지 않고 UI와 연출을 갱신할 수 있습니다. `OnScoreAdded`는 한 번의 변경이 실제로 지급한 점수를 전달하며 0으로 clamp 되어 변화가 없는 경우에는 발생하지 않고, `OnItemRemoved`는 item이 아직 catalog 정보와 위치를 유지한 상태에서 호출됩니다.
-- `BoardController`: 들고 있는 item이 대기하는 위치를 board 영역 너비 비율로 읽는 `HoldingNormalizedX`를 추가했습니다. `OnHoldingItemMoved`가 전달하는 값과 같습니다.
-- `BoardMergeInfo`: `BoardController.OnItemMerged`로 전달되는 merge 정보를 추가했습니다. 합쳐진 catalog index, 생성된 index와 instance, board 정규화 위치, 지급 점수, `IsValid`를 담습니다.
-- `BoardController.CountMerge(BoardMergeInfo)`와 `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 내용을 함께 보고하는 merge 집계를 추가했습니다. board와 `MergingCommand`가 수행하는 모든 merge가 이 경로를 사용합니다. 기존 `CountMerge()`는 내용 없이 집계하며 `BoardMergeInfo.Unknown`을 보고합니다.
 - `ScriptIdentifier`: script exporter가 사용하는 C# 식별자 규칙을 한곳에서 관리하는 editor utility를 추가했습니다. keyword를 회피하는 `Sanitize`, 첫 글자까지 대문자로 올리는 `SanitizePascal`, 원본 표기를 유지하고 사용할 수 없는 문자만 밑줄로 바꾸는 `SanitizeUnderscore`, public 멤버 이름을 만드는 `ToPublicMember`를 제공합니다. 기존에는 각 exporter drawer가 필요한 규칙을 각자 복사해 두고 있어서 같은 수정을 drawer마다 반복해야 했습니다.
 - `FileCreator.WriteScript(string, string, string)`: 생성 script를 저장하는 단일 경로를 추가했습니다. 지정한 시스템 폴더에 `{fileName}.cs`를 UTF-8 BOM으로 저장하고 저장한 경로를 반환합니다.
 - `FileFinder.IsAssetsFolder(Object)`: asset이 프로젝트 `Assets` 폴더 안에 있는지 확인하는 검사를 추가했습니다. exporter drawer들과 MVP helper drawer가 각각 같은 복사본을 들고 있었습니다.
 - `CameraExtensions.IsReady(Camera)`: 화면에 맞춰 배치하는 작업이 기다려야 하는 camera 준비 상태 검사를 추가했습니다. camera가 존재하고, 렌더링 중이며, viewport rect와 pixel 크기가 면적을 가지는지 확인합니다. `WorldSpaceBackground`와 Watermelon board 영역이 각각 같은 복사본을 들고 있었습니다.
 - `RectTransformExtensions.AnchorTo(RectTransform, Vector2, Vector2, bool)`: rect가 부모의 정규화된 범위를 차지할 때 거치는 anchor 적용을 추가했습니다. `fill`이 켜져 있으면 offset을 비워 rect가 그 범위를 정확히 채웁니다. 이제 `Stretch()`가 이 함수를 거치며, `UIAreaGrid.Apply(RectTransform, UIAreaType, bool)`와 `SafeRect`가 각각 같은 코드의 복사본을 들고 있었습니다.
 - `Mu3WindowDrawer`: exporter drawer들이 각각 복사해 두었던 `DrawRefreshButton(Action)`, `DrawAssetsFolderField(SerializedObject, SerializedProperty, string)`, `DrawNamespaceField(string, Action<string>, string)`, `DrawClassNameField(string, Action<string>, string, string)`를 추가했습니다. `DrawAssetsFolderField`는 `Assets` 밖의 폴더를 비우면서 경고를 남기며, MVP helper의 폴더 필드는 이전까지 경고 없이 비우기만 했습니다.
-- `CompositeBoardCommand`: `CompositeBoardCommand(Action, IBoardCommand[])` 생성자와 `Step(float)` hook을 추가했습니다. command 그룹은 자식을 한 단계 진행시키는 방법만 기술하면 됩니다. `SequenceCommand`와 `ParallelCommand`가 각각 완료 callback과 `OnRun`/`OnUpdate`/`OnComplete` 연결을 들고 있었습니다. `OnRun`, `OnUpdate`를 override 해서 자식을 직접 구동하던 그룹은 그대로 동작합니다.
 - `UIAreaGrid`와 `UIAreaElement`: 9분할 영역 anchor 편의 기능을 추가했습니다. `UIAreaGrid`는 자신의 RectTransform을 `UIAreaBoundary` 분할선으로 좌/중앙/우 column과 하단/중앙/상단 row로 나누고, 자식 `UIAreaElement`가 선택한 `UIAreaType` 영역에 anchor를 맞춥니다. 기본값은 각 축의 양쪽 끝이 0.08씩을 차지하고 가운데가 0.84를 가집니다. `GetAreaRect(UIAreaType)`, `GetAreaAnchors(UIAreaType, out Vector2, out Vector2)`, `Apply()`, `Apply(RectTransform, UIAreaType, bool)`로 같은 배치를 code에서 읽고 적용할 수 있습니다.
 - `UIAreaGrid.CreateElementsAutomatically`: 모든 영역에 자식 element를 하나씩 만들어 주는 자동 생성을 추가했으며 기본값은 켜짐입니다. `ResolveElements()`는 각 영역과 자식을 연결하고 빠진 영역을 생성하며, `GetElement(UIAreaType)`는 생성 없이 해당 영역의 element를 반환하고, `CreateElement(UIAreaType)`는 직접 하나를 추가합니다. `GetRectTransform(UIAreaType)`과 `TryGetRectTransform(UIAreaType, out RectTransform)`으로 element를 거치지 않고 해당 영역의 RectTransform을 바로 가져올 수 있습니다. 한 영역은 element 하나만 가집니다. `UIAreaElement.AreaType`은 같은 grid의 다른 element가 가진 영역으로의 변경을 거부하고, `UIAreaElement.IsAreaTaken(UIAreaType)`은 해당 영역이 비어 있는지 알려주며, `CreateElement(UIAreaType)`는 두 번째를 만드는 대신 기존 element를 반환하고, `ResolveElements()`는 복사되어 이미 사용 중인 영역에 놓인 element를 빈 영역으로 옮깁니다.
 - `UIAreaElement`: grid가 관리하는 값을 `DrivenRectTransformTracker`로 보고하여 RectTransform inspector에서 해당 항목이 읽기 전용으로 표시됩니다. anchor는 항상 관리되고 `FillArea`가 켜져 있으면 위치와 크기까지 포함되며, pivot과 rotation, scale은 관리하지 않습니다. 부모에 grid가 없는 element는 아무것도 관리하지 않습니다.
@@ -38,7 +35,6 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `SafeRect`: 이제 매 프레임 직접 확인하는 대신 화면을 알려주는 쪽을 통해 따라가므로, scene에 safe rect마다 하나씩 있던 `Update()`가 남지 않습니다. canvas가 크기나 방향이 바뀐 화면을 따라가면 Unity가 `OnRectTransformDimensionsChange`를 보내고, 화면 크기는 그대로인 채 safe area만 바뀌는 경우(예: 기기를 위아래로 뒤집은 경우)는 `ScreenChangeNotifier`가 담당합니다. component가 override 하던 `Update()`는 없어졌으므로, 이를 override 하던 하위 class는 `OnRectTransformDimensionsChange()`를 override 하거나 `ScreenChangeNotifier.OnChanged`를 구독해야 합니다.
 
 ### 변경됨
-- `MergingCommand`: merge sound를 집계보다 먼저 재생하도록 변경했습니다. `OnItemMerged` 구독자가 해당 merge의 combo 단계를 바로 확인할 수 있습니다. merge 추적을 위해 `CountMerge()`를 override 하던 `BoardController` 파생 클래스는 `CountMerge(BoardMergeInfo)`를 override 해야 합니다.
 - `SubscribeHandler.UnSubscribe(uint)`: `ISubscriptionInfo`와 `SubscriptionInfo`가 이미 사용하던 표기에 맞춰 `Unsubscribe(uint)`로 이름을 변경했습니다.
 - `NotificationArguments.CancelmText`: Template sample에서 옆에 있는 `ConfirmText`와 표기를 맞춰 `CancelText`로 이름을 변경했습니다.
 - `WorldSpaceBackground`: namespace를 `Mellow.Utility`에서 폴더 경로와 패키지 나머지에 맞는 `Mu3Library.Utility`로 옮겼습니다. 이 타입을 참조하던 프로젝트는 `using`을 수정해야 합니다.
@@ -48,12 +44,25 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `SceneLoader`: built-in·editor·Addressables scene command가 각각 복사해 두었던 command 가드를 한곳으로 모았습니다: `GuardSingleScenePreload`, `GuardAdditiveScenePreload`, `GuardAdditiveSceneUnload`, `ActivatePreloadedSingleScene`, `ActivatePreloadedAdditiveScene`. 거부 사유와 검사 순서, 발생하는 event는 그대로이며, build settings 검사·scene asset 검사·Addressables handle 조회처럼 각 backend 고유인 부분만 각자 남았습니다.
 - `LocalizationManager`: `IDisposable`을 구현하도록 변경했습니다. `AddressablesManager`와 `SceneLoader`처럼 이제 소유한 DI scope가 core와 함께 정리합니다. dispose 시 one-shot 구독을 해제하고, Localization 초기화 operation에 걸어둔 완료 handler를 회수하며, 진행 중인 locale 변경을 취소하고, event와 캐시한 locale을 정리합니다. 초기화 operation 자체는 Localization package 소유이므로 release 하지 않습니다.
 - MVP Helper: 생성한 MVP script를 `FileCreator.WriteScript`를 통해 UTF-8 BOM으로 저장하도록 변경했습니다. 기존에는 이 drawer만 플랫폼 기본 인코딩으로 저장해 다른 exporter와 달랐습니다.
-- 잡은 exception을 문자열로 만들어 `Debug.LogError`로 남기던 부분을 모두 `Debug.LogException`으로 변경했습니다. exception 타입과 stack trace가 console에 그대로 남습니다: `LocalizationCharacterCollectorDrawer`, `InputSystemManager.AddInputActionAsset(string, ...)`, `WebRequestManager.CreateUnexpectedFailureResult`와 `WebRequestManager.ParseResult`, `BoardSnapshot.FromJson`. `WebRequestManager`의 두 곳은 기존 실패 메시지를 `WebRequestResult`로 그대로 반환하므로 호출자가 받는 url·method 정보는 변하지 않습니다. `Application.logMessageReceived`로 이 로그를 걸러내던 프로젝트는 `LogType.Error` 대신 `LogType.Exception`을 받게 됩니다.
+- 잡은 exception을 문자열로 만들어 `Debug.LogError`로 남기던 부분을 모두 `Debug.LogException`으로 변경했습니다. exception 타입과 stack trace가 console에 그대로 남습니다: `LocalizationCharacterCollectorDrawer`, `InputSystemManager.AddInputActionAsset(string, ...)`, `WebRequestManager.CreateUnexpectedFailureResult`와 `WebRequestManager.ParseResult`. `WebRequestManager`의 두 곳은 기존 실패 메시지를 `WebRequestResult`로 그대로 반환하므로 호출자가 받는 url·method 정보는 변하지 않습니다. `Application.logMessageReceived`로 이 로그를 걸러내던 프로젝트는 `LogType.Error` 대신 `LogType.Exception`을 받게 됩니다.
 
 ### 수정됨
 - `CanvasExtensions.CopyTo`: `overwriteScaler`는 이제 `CanvasScaler` 설정을, `overwriteRaycaster`는 `GraphicRaycaster` 설정을 복사해 옵션 이름과 실제 동작이 뒤바뀌지 않습니다.
 - `AddressablesManager.Initialize(Action)`, `AddressablesManager.InitializeWithResult(Action<bool, string>)`, `LocalizationManager.Initialize(Action)`, `LocalizationManager.InitializeWithResult(Action<bool, string>)`: callback을 `OnInitialized`·`OnInitializeResult`에 그대로 남겨두지 않고, 이 manager들이 이미 제공하던 one-shot 구독으로 등록하도록 수정했습니다. 초기화가 실패한 뒤 다시 초기화를 호출해도 앞선 호출에 전달한 callback이 다시 호출되지 않으며, 초기화가 끝난 뒤에도 callback과 그것이 캡처한 대상이 manager 수명 동안 남아 있지 않습니다.
 - `CoreRoot`: 파괴될 때 구독 handler를 dispose 하고 `OnCoreInitialized`, `OnCorePrepared`를 정리하도록 수정했습니다. 자신이 만든 core 대기 구독이 자신보다 오래 남지 않습니다. `CoreBase`는 이미 파괴 시 같은 처리를 하고 있었습니다.
+
+## [game/watermelon/0.4.0] - 2026-08-15
+
+### 추가됨
+- `BoardController`: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, `OnMergeComboChanged` event를 추가했습니다. 외부 프로젝트가 board를 polling 하지 않고 UI와 연출을 갱신할 수 있습니다. `OnScoreAdded`는 한 번의 변경이 실제로 지급한 점수를 전달하며 0으로 clamp 되어 변화가 없는 경우에는 발생하지 않고, `OnItemRemoved`는 item이 아직 catalog 정보와 위치를 유지한 상태에서 호출됩니다.
+- `BoardController`: 들고 있는 item이 대기하는 위치를 board 영역 너비 비율로 읽는 `HoldingNormalizedX`를 추가했습니다. `OnHoldingItemMoved`가 전달하는 값과 같습니다.
+- `BoardMergeInfo`: `BoardController.OnItemMerged`로 전달되는 merge 정보를 추가했습니다. 합쳐진 catalog index, 생성된 index와 instance, board 정규화 위치, 지급 점수, `IsValid`를 담습니다.
+- `BoardController.CountMerge(BoardMergeInfo)`와 `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 내용을 함께 보고하는 merge 집계를 추가했습니다. board와 `MergingCommand`가 수행하는 모든 merge가 이 경로를 사용합니다. 기존 `CountMerge()`는 내용 없이 집계하며 `BoardMergeInfo.Unknown`을 보고합니다.
+- `CompositeBoardCommand`: `CompositeBoardCommand(Action, IBoardCommand[])` 생성자와 `Step(float)` hook을 추가했습니다. command 그룹은 자식을 한 단계 진행시키는 방법만 기술하면 됩니다. `SequenceCommand`와 `ParallelCommand`가 각각 완료 callback과 `OnRun`/`OnUpdate`/`OnComplete` 연결을 들고 있었습니다. `OnRun`, `OnUpdate`를 override 해서 자식을 직접 구동하던 그룹은 그대로 동작합니다.
+
+### 변경됨
+- `MergingCommand`: merge sound를 집계보다 먼저 재생하도록 변경했습니다. `OnItemMerged` 구독자가 해당 merge의 combo 단계를 바로 확인할 수 있습니다. merge 추적을 위해 `CountMerge()`를 override 하던 `BoardController` 파생 클래스는 `CountMerge(BoardMergeInfo)`를 override 해야 합니다.
+- `BoardSnapshot.FromJson`: 읽을 수 없는 snapshot을 문자열로 만들어 `Debug.LogError`로 남기던 것을 `Debug.LogException`으로 변경했습니다. exception 타입과 stack trace가 console에 그대로 남습니다. `Application.logMessageReceived`로 이 로그를 걸러내던 프로젝트는 `LogType.Error` 대신 `LogType.Exception`을 받게 됩니다.
 
 ### 제거됨
 - `BoardController.SetBoareConfig(BoardConfig)`: `SetBoardConfig(BoardConfig)`를 그대로 호출하기만 하던 오타 호환 별칭을 제거했습니다. `SetBoardConfig(BoardConfig)`를 사용하세요.
