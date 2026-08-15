@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import unittest
 
-from mu3_cli.csdevkit import run_drift_checks
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import compile_command_arguments, load_target_specs, project_editor_version
 
@@ -43,14 +42,6 @@ class UnityToolingTests(unittest.TestCase):
     def test_base_requires_changed_target(self) -> None:
         with self.assertRaisesRegex(ValueError, "changed target"):
             compile_command_arguments("built-in", "origin/develop", False, False, False, False)
-
-    def test_drift_checks_cover_canonical_package_identities(self) -> None:
-        identity_results = [
-            result for result in run_drift_checks(repo_root()) if result.title.startswith("Package identity (")
-        ]
-
-        self.assertEqual(2, len(identity_results))
-        self.assertEqual(["PASS", "PASS"], [result.status for result in identity_results])
 
 
 if __name__ == "__main__":

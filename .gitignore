@@ -32,7 +32,6 @@
 ExportedObj/
 .consulo/
 *.csproj
-!tools/csdevkit_tests/*.csproj
 *.unityproj
 *.sln
 *.slnx
