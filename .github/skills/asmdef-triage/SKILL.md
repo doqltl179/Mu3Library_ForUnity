@@ -26,7 +26,7 @@ Shared routing and Unity/package routing rules: `../../../docs/ai-agents/routing
 3. Check whether the change belongs in base runtime, base editor, URP runtime, URP editor, samples, or tooling before editing assembly metadata.
 4. Prefer the narrowest fix: move code, split optional integration, or adjust references only when simpler ownership fixes fail.
 5. Treat public API, package manifests, sample integrity, and docs-sync as escalation surfaces when the `.asmdef` change affects them.
-6. Define the smallest meaningful verification surface, usually compile-only on affected generated Unity `.csproj` files.
+6. Define the smallest meaningful verification surface, usually a compile-only Unity CLI run on the affected targets.
 
 ## Local Guardrails
 
