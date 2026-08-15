@@ -63,13 +63,8 @@ namespace Mu3Library.UI.Area
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (Application.isPlaying)
-            {
-                ResolveSafeRect();
-                return;
-            }
-
-            // Creating objects is not allowed inside OnValidate.
+            // Creating objects and touching the transform of another object are not allowed inside OnValidate,
+            // which Unity also calls in play mode while an asset is deserialized.
             UnityEditor.EditorApplication.delayCall += () =>
             {
                 if (this == null)

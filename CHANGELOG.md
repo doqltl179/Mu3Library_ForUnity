@@ -15,6 +15,11 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.23.3] - 2026-08-15
+
+### Fixed
+- `UIAreaGrid`, `UIAreaElement`, `SafeCanvas`: Loading a prefab while play mode runs no longer fills the console with `SendMessage cannot be called during Awake, CheckConsistency, or OnValidate`. Unity calls `OnValidate` whenever an asset is deserialized, which includes a prefab Addressables loads at runtime, and these components applied their layout right there while play mode ran: the grid anchored its elements and the canvas created and fitted its safe rect. Setting an anchor makes Unity send `OnRectTransformDimensionsChange` to the children, a message that is refused inside `OnValidate` whichever mode is running. The work is deferred out of `OnValidate` in play mode too now, the way it already was in edit mode.
+
 ## [base/0.23.2] - 2026-08-15
 
 ### Fixed

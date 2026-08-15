@@ -4,7 +4,6 @@ import re
 
 import typer
 
-from mu3_cli.csdevkit import csdevkit_app
 from mu3_cli.repository import (
     agent_paths,
     parse_agent_name,
@@ -24,7 +23,6 @@ repo_app = typer.Typer(no_args_is_help=True, help="Repository discovery commands
 agents_app = typer.Typer(no_args_is_help=True, help="Agent framework discovery commands.")
 app.add_typer(repo_app, name="repo")
 app.add_typer(agents_app, name="agents")
-app.add_typer(csdevkit_app, name="csdevkit")
 app.add_typer(unity_app, name="unity")
 
 

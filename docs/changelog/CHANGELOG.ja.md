@@ -15,6 +15,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.23.3] - 2026-08-15
+
+### 修正
+- `UIAreaGrid`、`UIAreaElement`、`SafeCanvas`: play mode の実行中にプレハブを読み込んでも、`SendMessage cannot be called during Awake, CheckConsistency, or OnValidate` がコンソールを埋め尽くさなくなりました。Unity はアセットがデシリアライズされるたびに `OnValidate` を呼び出し、これには Addressables がランタイムで読み込むプレハブも含まれます。しかしこれらのコンポーネントは play mode の実行中、その場でレイアウトを適用していました。grid は element の anchor を設定し、canvas は safe rect を作成して画面に合わせていました。anchor を設定すると Unity は子に `OnRectTransformDimensionsChange` を送りますが、このメッセージはどのモードが動いていても `OnValidate` の中では拒否されます。現在は edit mode と同じように play mode でもこの処理を `OnValidate` の外へ遅らせます。
+
 ## [base/0.23.2] - 2026-08-15
 
 ### 修正

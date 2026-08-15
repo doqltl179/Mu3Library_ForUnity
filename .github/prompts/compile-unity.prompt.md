@@ -7,8 +7,9 @@ agent: "agent"
 
 Run compile-only verification for the requested Mu3Library Unity project.
 
-- Use editor-safe `dotnet build` on the affected generated Unity `.csproj` files.
+- Compile through the Unity Editor CLI with `./compile-unity.sh <target>`, or `mu3-cli unity compile` for the same entrypoint.
+- Do not verify with `dotnet build`; it compiles the generated `.csproj` rather than what Unity builds.
 - Do not add or run tests.
 - Do not continue to any follow-up task until compile completion is known.
 - Treat the compile result as evidence for `reviewer`, not as approval by itself.
-- Summarize which `.csproj` files were built, the compile result, and any residual risk.
+- Summarize which targets were compiled, the Unity exit status with the error and warning counts from its log, and any residual risk.

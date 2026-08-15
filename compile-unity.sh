@@ -28,6 +28,31 @@ fail() {
     exit 1
 }
 
+host_platform() {
+    case "$(uname -s)" in
+        Darwin)
+            printf 'macos\n'
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            printf 'windows\n'
+            ;;
+        *)
+            printf 'linux\n'
+            ;;
+    esac
+}
+
+to_windows_path() {
+    local path="$1"
+
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -w "$path"
+        return
+    fi
+
+    printf '%s\n' "$path"
+}
+
 target_index() {
     local requested_target="$1"
     local i
@@ -376,6 +401,46 @@ project_editor_version() {
     awk -F': ' '/^m_EditorVersion: / { print $2; exit }' "$version_file"
 }
 
+hub_editor_executable() {
+    local required_version="$1"
+    local program_files
+
+    case "$(host_platform)" in
+        macos)
+            printf '/Applications/Unity/Hub/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$required_version"
+            ;;
+        windows)
+            if command -v cygpath >/dev/null 2>&1; then
+                program_files="$(cygpath -u "${PROGRAMFILES:-C:\\Program Files}")"
+            else
+                program_files="/c/Program Files"
+            fi
+            printf '%s/Unity/Hub/Editor/%s/Editor/Unity.exe\n' "${program_files%/}" "$required_version"
+            ;;
+        *)
+            printf '%s/Unity/Hub/Editor/%s/Editor/Unity\n' "$HOME" "$required_version"
+            ;;
+    esac
+}
+
+# Trailing part of a Hub installation path, used to tell whether an explicit
+# override still points at the Editor version the project asks for.
+hub_editor_suffix() {
+    local required_version="$1"
+
+    case "$(host_platform)" in
+        macos)
+            printf '/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$required_version"
+            ;;
+        windows)
+            printf '/Editor/%s/Editor/Unity.exe\n' "$required_version"
+            ;;
+        *)
+            printf '/Editor/%s/Editor/Unity\n' "$required_version"
+            ;;
+    esac
+}
+
 unity_executable() {
     local target_key="$1"
     local project_path
@@ -400,12 +465,12 @@ unity_executable() {
             return 1
         fi
 
-        if [[ "$candidate" != *"/Editor/$required_version/Unity.app/Contents/MacOS/Unity" ]]; then
+        if [[ "$candidate" != *"$(hub_editor_suffix "$required_version")" ]]; then
             printf 'warning: %s requires Unity %s but the explicit override will be used: %s\n' \
                 "$project_path" "$required_version" "$candidate" >&2
         fi
     else
-        candidate="/Applications/Unity/Hub/Editor/$required_version/Unity.app/Contents/MacOS/Unity"
+        candidate="$(hub_editor_executable "$required_version")"
         if [[ ! -x "$candidate" ]]; then
             printf 'error: required Unity Editor is not installed for %s: %s\n' \
                 "$project_path" "$candidate" >&2
@@ -422,6 +487,41 @@ project_is_open() {
 
     project_path="$(project_path_for_target "$target_key")" || return 1
     [[ -e "$REPO_ROOT/$project_path/Temp/UnityLockfile" ]]
+}
+
+# Copies the contents of a directory, following symlinks so that the samples
+# linked into a Unity project become real files in the mirror.
+# Git Bash ships no rsync, so cp takes over there.
+copy_tree_contents() {
+    local source_dir="$1"
+    local destination_dir="$2"
+
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -aL "$source_dir/" "$destination_dir/"
+        return
+    fi
+
+    cp -RL "$source_dir/." "$destination_dir/"
+}
+
+# Unity clones git-URL package dependencies into Library/PackageCache, which adds
+# roughly 130 characters to the project path. On Windows a long staging root
+# pushes that clone past MAX_PATH and package resolution fails before compiling.
+warn_long_staging_path() {
+    local staging_project="$1"
+    local windows_path
+    local path_length
+
+    [[ "$(host_platform)" == "windows" ]] || return 0
+
+    windows_path="$(to_windows_path "$staging_project")"
+    path_length="${#windows_path}"
+
+    if [[ "$path_length" -gt 120 ]]; then
+        printf 'warning: staging project path is %d characters, so Unity may fail to clone git package dependencies: %s\n' \
+            "$path_length" "$windows_path" >&2
+        printf 'warning: set TMPDIR to a shorter directory to stay inside the Windows path limit.\n' >&2
+    fi
 }
 
 prepare_isolated_project() {
@@ -447,7 +547,7 @@ prepare_isolated_project() {
     for source_dir in Assets Packages ProjectSettings; do
         [[ -d "$source_project/$source_dir" ]] || fail "missing Unity project directory: $source_project/$source_dir"
         mkdir -p "$staging_project/$source_dir"
-        rsync -aL "$source_project/$source_dir/" "$staging_project/$source_dir/"
+        copy_tree_contents "$source_project/$source_dir" "$staging_project/$source_dir"
     done
 
     [[ -f "$manifest_file" ]] || fail "Unity package manifest not found: $manifest_file"
@@ -455,9 +555,11 @@ prepare_isolated_project() {
         package_path="${PACKAGE_PATHS[$i]}"
         if grep -Fq "file:../../$package_path" "$manifest_file"; then
             mkdir -p "$STAGING_ROOT/$package_path"
-            rsync -aL "$REPO_ROOT/$package_path/" "$STAGING_ROOT/$package_path/"
+            copy_tree_contents "$REPO_ROOT/$package_path" "$STAGING_ROOT/$package_path"
         fi
     done
+
+    warn_long_staging_path "$staging_project"
 
     RUN_PROJECT_PATH="$staging_project"
 }

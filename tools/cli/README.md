@@ -11,40 +11,25 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `agents list`: list registered agent documents under `.github/agents`.
 - `agents check`: validate primary agent discovery entrypoints, context budgets, instruction scope, prompt/skill frontmatter, obsolete docs, and compact role-card shape.
 - `agents handoff-template`: print the current handoff packet template from `docs/ai-agents/contracts/handoff-contract.md`.
-- `csdevkit context {list,show,use}`: inspect or locally switch between the Built-In default context and the URP additional context.
-- `csdevkit doctor load`: run C# Dev Kit-oriented workspace, solution, generated project, and `.NET SDK` health checks.
-- `csdevkit build-profile {list,show,run}`: inspect or execute compile-only build profiles mapped to the generated Unity `.slnx` and `.csproj` files.
-- `csdevkit logs {guide,bundle}`: print the recommended `Collect C# Dev Kit Logs` flow and create a repo-local support bundle under `log/mu3_cli/csdevkit/`.
-- `csdevkit drift check`: detect workspace-default, package-identity, package-version, build-target, and local-context drift across Base, Built-In, and URP surfaces.
 - `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity changes`: explain which package projects are selected by the current Git changes or a `--base` ref.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
 
-## C# Dev Kit Workflow
+## Compile Verification
 
-- Open `UnityProject_BuiltIn/Mu3Library_ForUnity.code-workspace` first for the default Base and Built-In workflow.
-- Open `UnityProject_URP/Mu3Library_ForUnity.code-workspace` only when URP is the primary context you need to inspect or verify.
+Compile verification runs the Unity Editor, never `dotnet build` on a generated `.csproj`. Unity builds its assemblies from `.asmdef` and the package sources, so a generated project file is not part of what ships and drifts from the code it claims to build.
+
+```powershell
+mu3-cli unity doctor --target built-in
+mu3-cli unity changes --base origin/develop
+mu3-cli unity compile
+```
+
+`unity compile` wraps `compile-unity.sh`, which compiles in place when the Unity project is closed and mirrors it into a temporary project when the Editor holds the lock. An open Editor, the repository packages, and the repository `Library` are left untouched either way.
+
 - Built-In is the default development context for this repository.
 - URP is an additional context layered on top of the Base package and should not replace the Built-In baseline for shared maintenance.
 - Shared Base files can still have more than one valid project context because both Built-In and URP include them with different define sets.
-- Local context state is stored under `log/mu3_cli/csdevkit-state.json`, so switching contexts does not dirty tracked workspace files.
-- The tracked workspace files carry the C# Dev Kit extension recommendations and `dotnet.defaultSolution` values that this flow expects.
-
-Recommended command flow:
-
-```powershell
-mu3-cli csdevkit context show
-mu3-cli csdevkit doctor load
-mu3-cli csdevkit build-profile list
-mu3-cli csdevkit drift check
-```
-
-When you need repo-local support artifacts for a C# Dev Kit issue:
-
-```powershell
-mu3-cli csdevkit logs guide
-mu3-cli csdevkit logs bundle --context built-in
-```
 
 ## Environment Bootstrap
 
