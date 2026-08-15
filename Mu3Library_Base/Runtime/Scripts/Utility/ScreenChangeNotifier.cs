@@ -51,8 +51,23 @@ namespace Mu3Library.Utility
             Capture();
 
             // Edit mode runs no player loop, so the editor loop is what reads the screen there.
-            UnityEditor.EditorApplication.update -= Read;
-            UnityEditor.EditorApplication.update += Read;
+            UnityEditor.EditorApplication.update -= ReadInEditor;
+            UnityEditor.EditorApplication.update += ReadInEditor;
+        }
+
+        /// <summary>
+        /// Play mode reads the screen from the player loop it runs, so the editor loop stays out of it.
+        /// Reading from both is what would let one frame report two screens and the listeners that follow
+        /// the screen alternate between them.
+        /// </summary>
+        private static void ReadInEditor()
+        {
+            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            Read();
         }
 #endif
 
