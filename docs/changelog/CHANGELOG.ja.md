@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.23.2] - 2026-08-15
+
 ### 修正
 - `SafeRect`: anchor が毎フレーム 2 つの値の間で入れ替わり、コンポーネントが所有する rect の大きさが変わり続ける問題を修正しました。従来は `OnRectTransformDimensionsChange` の中で `Screen` を自分で読んでいましたが、このメッセージは canvas の再構築中に送られ、`Screen` は問い合わせたパスのレンダーターゲットを返します。つまり scene view の再描画では scene view の大きさを、game view の再描画では game view の大きさを報告し、どちらの答えも「画面がもう一方に変わった」ように見えていました。現在このコンポーネントが読む画面は `ScreenChangeNotifier` だけなので、1 フレームは 1 つの画面だけを報告し anchor が安定します。
 - `SafeRect`: safe area を報告しない画面が、毎回「変わった画面」として扱われなくなりました。空の safe area の代わりに使う全画面 rect を適用済みの値として記録していたため、記録した rect が画面の報告と一致することはなく、`IsScreenChanged()` が true のままとなり、コンポーネントが受け取るすべてのメッセージで safe area を適用し直していました。現在は読み取った値をそのまま記録し、代替の rect は従来どおり anchor の計算と `OnCalculated(Rect)` に渡されます。

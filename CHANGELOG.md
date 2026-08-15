@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.23.2] - 2026-08-15
+
 ### Fixed
 - `SafeRect`: The anchors no longer alternate between two sets of values every frame, which kept resizing the rect the component owns. It read `Screen` on its own from `OnRectTransformDimensionsChange`, a message Unity sends from inside a canvas rebuild, and `Screen` answers with the render target of the pass that asks it: a scene view repaint reports the scene view while the game view repaint reports the game view, so each answer looked like a screen that had just changed into the other one. `ScreenChangeNotifier` is the only screen the component reads now, so one frame reports one screen and the anchors settle.
 - `SafeRect`: A screen that reports no safe area is no longer taken for a screen that changed on every check. The full-screen rect that took the place of the empty safe area was recorded as the applied one, so the recorded rect could never match what the screen reported, `IsScreenChanged()` stayed true, and the safe area was applied again on every message the component received. What was read is recorded now, while the substitute stays what the anchors and `OnCalculated(Rect)` are given.
