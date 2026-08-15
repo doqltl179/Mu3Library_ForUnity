@@ -115,10 +115,29 @@ namespace Mu3Library.UI.MVP
 
         private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 
+        /// <summary>
+        /// Where a presenter stands in the manager lifecycle. Every phase except <see cref="PresenterPhase.None"/>
+        /// and <see cref="PresenterPhase.Released"/> owns exactly one state list, so an entry is reachable through
+        /// the registry for its whole life instead of only while it sits in one of those lists.
+        /// </summary>
+        private enum PresenterPhase
+        {
+            None = 0,
+
+            Loading = 1,
+            Opening = 2,
+            Opened = 3,
+            Closing = 4,
+            Unloading = 5,
+            Released = 6,
+        }
+
         private sealed class PresenterEntry
         {
             public PresenterBase Presenter;
             public OutPanelSettings OutPanelSettings;
+
+            public PresenterPhase Phase = PresenterPhase.None;
 
             public PresenterEntry Owner;
             public readonly List<PresenterEntry> OwnedChildren = new();
@@ -135,7 +154,24 @@ namespace Mu3Library.UI.MVP
                 Owner?.OwnedChildren.Remove(this);
                 Owner = null;
             }
+
+            public void DetachOwnedChildren()
+            {
+                for (int i = 0; i < OwnedChildren.Count; i++)
+                {
+                    OwnedChildren[i].Owner = null;
+                }
+
+                OwnedChildren.Clear();
+            }
         }
+
+        /// <summary>
+        /// Every managed presenter, from the moment it is opened until it is pooled or its view is destroyed.
+        /// Owner lookup goes through this map, so a presenter stays resolvable while its own lifecycle callback
+        /// is running and the state lists below are free to be pure per-state queues.
+        /// </summary>
+        private readonly Dictionary<PresenterBase, PresenterEntry> _presenterEntries = new();
 
         private readonly List<PresenterEntry> _openedPresenters = new();
 
@@ -167,6 +203,7 @@ namespace Mu3Library.UI.MVP
             _viewResourceMap.Clear();
             _viewLayerMap.Clear();
             _presenterPool.Clear();
+            _presenterEntries.Clear();
             _openedPresenters.Clear();
             _presenterLoadChecker.Clear();
             _presenterOpenChecker.Clear();
@@ -273,6 +310,8 @@ namespace Mu3Library.UI.MVP
                     list.RemoveAt(i);
                     i--;
 
+                    ReleaseEntry(param);
+
                     isViewDestroyed = true;
                 }
                 else if (param.Presenter.ViewState == checkState)
@@ -293,9 +332,12 @@ namespace Mu3Library.UI.MVP
         private void WindowLoadedEvent(PresenterEntry param)
         {
             param.Presenter.SetActiveView(true);
-            param.Presenter.Open();
 
-            _presenterOpenChecker.Add(param);
+            // The entry enters its phase before OpenFunc() runs, so a presenter that opens a child
+            // from OpenFunc() is already resolvable as that child's owner.
+            EnterPhase(param, PresenterPhase.Opening);
+
+            param.Presenter.Open();
 
             UpdateFocus();
 
@@ -304,7 +346,7 @@ namespace Mu3Library.UI.MVP
 
         private void WindowOpenedEvent(PresenterEntry param)
         {
-            _openedPresenters.Add(param);
+            EnterPhase(param, PresenterPhase.Opened);
 
             UpdateFocus();
 
@@ -313,9 +355,9 @@ namespace Mu3Library.UI.MVP
 
         private void WindowClosedEvent(PresenterEntry param)
         {
-            param.Presenter.Unload();
+            EnterPhase(param, PresenterPhase.Unloading);
 
-            _presenterUnloadChecker.Add(param);
+            param.Presenter.Unload();
 
             UpdateFocus();
 
@@ -325,11 +367,15 @@ namespace Mu3Library.UI.MVP
         private void WindowUnloadedEvent(PresenterEntry param)
         {
             param.Presenter.SetActiveView(false);
-            PoolPresenter(param.Presenter);
+
+            PresenterBase presenter = param.Presenter;
+
+            ReleaseEntry(param);
+            PoolPresenter(presenter);
 
             UpdateFocus();
 
-            OnWindowUnloaded?.Invoke(param.Presenter);
+            OnWindowUnloaded?.Invoke(presenter);
         }
 
         #region Utility
@@ -337,48 +383,14 @@ namespace Mu3Library.UI.MVP
         {
             CleanupDestroyedPresenters();
 
-            if (_openedPresenters.Count == 0 && _presenterOpenChecker.Count == 0)
-            {
-                return;
-            }
-
-            // Pre-allocate list with capacity estimate to reduce allocations
-            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
-
-            for (int i = 0; i < _openedPresenters.Count; i++)
-            {
-                if (_openedPresenters[i].Presenter.CanvasLayerName != "Default")
-                {
-                    paramList.Add(_openedPresenters[i]);
-                }
-            }
-
-            for (int i = 0; i < _presenterOpenChecker.Count; i++)
-            {
-                if (_presenterOpenChecker[i].Presenter.CanvasLayerName != "Default")
-                {
-                    paramList.Add(_presenterOpenChecker[i]);
-                }
-            }
-
-            CloseAll(paramList, forceClose);
+            CloseAll(CollectCloseCandidates(entry => entry.Presenter.CanvasLayerName != "Default"), forceClose);
         }
 
         public void CloseAll(bool forceClose = false)
         {
             CleanupDestroyedPresenters();
 
-            if (_openedPresenters.Count == 0 && _presenterOpenChecker.Count == 0)
-            {
-                return;
-            }
-
-            // Pre-allocate list with exact capacity to avoid allocations
-            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
-            paramList.AddRange(_openedPresenters);
-            paramList.AddRange(_presenterOpenChecker);
-
-            CloseAll(paramList, forceClose);
+            CloseAll(CollectCloseCandidates(null), forceClose);
         }
 
         public void CloseAll(IEnumerable<string> layerNames, bool forceClose = false)
@@ -396,26 +408,7 @@ namespace Mu3Library.UI.MVP
 
             CleanupDestroyedPresenters();
 
-            // Pre-allocate list with capacity estimate
-            List<PresenterEntry> paramList = new List<PresenterEntry>(_openedPresenters.Count + _presenterOpenChecker.Count);
-
-            for (int i = 0; i < _openedPresenters.Count; i++)
-            {
-                if (layerNameSet.Contains(_openedPresenters[i].Presenter.CanvasLayerName))
-                {
-                    paramList.Add(_openedPresenters[i]);
-                }
-            }
-
-            for (int i = 0; i < _presenterOpenChecker.Count; i++)
-            {
-                if (layerNameSet.Contains(_presenterOpenChecker[i].Presenter.CanvasLayerName))
-                {
-                    paramList.Add(_presenterOpenChecker[i]);
-                }
-            }
-
-            CloseAll(paramList, forceClose);
+            CloseAll(CollectCloseCandidates(entry => layerNameSet.Contains(entry.Presenter.CanvasLayerName)), forceClose);
         }
 
         public void CloseFocused(bool forceClose = false)
@@ -554,15 +547,18 @@ namespace Mu3Library.UI.MVP
                 OutPanelSettings = settings,
             };
 
+            RegisterEntry(presenterEntry);
             ownerEntry?.AddOwnedChild(presenterEntry);
 
             UpdateSortingOrderAsLast(presenterEntry);
             presenter.OptimizeView();
             presenter.SetActiveView(false);
 
-            presenter.Load();
+            // The entry enters its phase before LoadFunc() runs, so a presenter that opens a child
+            // from LoadFunc() is already resolvable as that child's owner.
+            EnterPhase(presenterEntry, PresenterPhase.Loading);
 
-            _presenterLoadChecker.Add(presenterEntry);
+            presenter.Load();
 
             return presenter;
         }
@@ -614,31 +610,105 @@ namespace Mu3Library.UI.MVP
                 return null;
             }
 
-            for (int i = 0; i < _openedPresenters.Count; i++)
+            return _presenterEntries.TryGetValue(presenter, out PresenterEntry entry) ? entry : null;
+        }
+
+        private List<PresenterEntry> PhaseList(PresenterPhase phase)
+        {
+            switch (phase)
             {
-                if (_openedPresenters[i].Presenter == presenter)
-                {
-                    return _openedPresenters[i];
-                }
+                case PresenterPhase.Loading: return _presenterLoadChecker;
+                case PresenterPhase.Opening: return _presenterOpenChecker;
+                case PresenterPhase.Opened: return _openedPresenters;
+                case PresenterPhase.Closing: return _presenterCloseChecker;
+                case PresenterPhase.Unloading: return _presenterUnloadChecker;
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// Moves an entry to its next phase and its matching state list. Callers run this before invoking the
+        /// presenter callback that belongs to the phase, so code running inside that callback sees a consistent
+        /// manager state. Removing from the previous list is a no-op when <see cref="CheckLifecycle"/> already
+        /// took the entry out while iterating.
+        /// </summary>
+        private void EnterPhase(PresenterEntry entry, PresenterPhase phase)
+        {
+            if (entry == null)
+            {
+                return;
             }
 
-            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            PhaseList(entry.Phase)?.Remove(entry);
+
+            entry.Phase = phase;
+
+            PhaseList(phase)?.Add(entry);
+        }
+
+        private void RegisterEntry(PresenterEntry entry)
+        {
+            if (entry?.Presenter == null)
             {
-                if (_presenterOpenChecker[i].Presenter == presenter)
-                {
-                    return _presenterOpenChecker[i];
-                }
+                return;
             }
 
-            for (int i = 0; i < _presenterLoadChecker.Count; i++)
+            if (_presenterEntries.TryGetValue(entry.Presenter, out PresenterEntry stale))
             {
-                if (_presenterLoadChecker[i].Presenter == presenter)
-                {
-                    return _presenterLoadChecker[i];
-                }
+                Debug.LogWarning($"Presenter is already registered. The stale entry is discarded. type: {entry.Presenter.GetType()}");
+                ReleaseEntry(stale);
             }
 
-            return null;
+            _presenterEntries[entry.Presenter] = entry;
+        }
+
+        /// <summary>
+        /// Drops an entry out of the manager: its state list, the registry, the owner chain, and the focus slot.
+        /// The presenter itself is left alone so the caller can decide whether it is poolable.
+        /// </summary>
+        private void ReleaseEntry(PresenterEntry entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            PhaseList(entry.Phase)?.Remove(entry);
+            entry.Phase = PresenterPhase.Released;
+
+            entry.DetachFromOwner();
+            entry.DetachOwnedChildren();
+
+            if (entry.Presenter != null)
+            {
+                _presenterEntries.Remove(entry.Presenter);
+            }
+
+            if (_focused == entry)
+            {
+                _focused = null;
+            }
+        }
+
+        /// <summary>
+        /// A presenter can take children while it is on its way in or already open. Once it starts closing it
+        /// must not gain new ones, because the cascade close has already walked its child list.
+        /// </summary>
+        private static bool CanOwnChild(PresenterPhase phase)
+            => phase == PresenterPhase.Loading || phase == PresenterPhase.Opening || phase == PresenterPhase.Opened;
+
+        /// <summary>
+        /// An open presenter closes on request. One that is still on its way in is interrupted only by a force
+        /// close, which is what the cascade path uses for every child.
+        /// </summary>
+        private static bool CanClose(PresenterPhase phase, bool forceClose)
+        {
+            if (phase == PresenterPhase.Opened)
+            {
+                return true;
+            }
+
+            return forceClose && (phase == PresenterPhase.Loading || phase == PresenterPhase.Opening);
         }
 
         private PresenterEntry ResolveOwnerEntry(IPresenter owner)
@@ -651,7 +721,14 @@ namespace Mu3Library.UI.MVP
             PresenterEntry ownerEntry = FindPresenterEntry(owner as PresenterBase);
             if (ownerEntry == null)
             {
-                Debug.LogWarning($"Owner presenter not found or not active. Opening without owner. type: {owner.GetType()}");
+                Debug.LogWarning($"Owner presenter is not managed by this manager. Opening without owner. type: {owner.GetType()}");
+                return null;
+            }
+
+            if (!CanOwnChild(ownerEntry.Phase))
+            {
+                Debug.LogWarning($"Owner presenter is already closing. Opening without owner. type: {owner.GetType()}, phase: {ownerEntry.Phase}");
+                return null;
             }
 
             return ownerEntry;
@@ -719,11 +796,13 @@ namespace Mu3Library.UI.MVP
 
         /// <summary>
         /// Closes a presenter and all its chained children depth-first (deepest child first).
-        /// Cascade children are always force-closed to interrupt any ongoing open animation.
+        /// Cascade children are always force-closed to interrupt any ongoing open animation, which reaches a
+        /// child that is still loading as well. The presenter itself is checked before the cascade runs, so a
+        /// presenter that cannot close leaves its children alone.
         /// </summary>
         private bool ClosePresenterWithOwnedChildren(PresenterEntry param, bool forceClose)
         {
-            if (param == null)
+            if (param == null || !CanClose(param.Phase, forceClose))
             {
                 return false;
             }
@@ -738,26 +817,68 @@ namespace Mu3Library.UI.MVP
                 }
             }
 
-            bool removed = _openedPresenters.Remove(param);
-            if (!removed && forceClose)
+            // A presenter that is still loading has never been shown, so its view object is inactive and
+            // cannot run the close coroutine. Activate it first to keep the close/unload pipeline intact.
+            if (param.Phase == PresenterPhase.Loading)
             {
-                removed = _presenterOpenChecker.Remove(param);
-            }
-
-            if (!removed)
-            {
-                return false;
+                param.Presenter.SetActiveView(true);
             }
 
             param.DetachFromOwner();
+
+            EnterPhase(param, PresenterPhase.Closing);
+
             param.Presenter.Close(forceClose);
-            _presenterCloseChecker.Add(param);
 
             return true;
         }
 
+        /// <summary>
+        /// Gathers what a close-all pass should try: the opened windows first, then the ones still on their way
+        /// in, so an owner is reached before the children it cascades to. A presenter that is only loading is
+        /// offered as well, otherwise a window opened in the same frame outlives the pass. <see cref="CanClose"/>
+        /// makes the final call and refuses a presenter that is not open yet unless the close is forced.
+        /// Returns null when there is nothing to try.
+        /// </summary>
+        private List<PresenterEntry> CollectCloseCandidates(System.Func<PresenterEntry, bool> filter)
+        {
+            int capacity = _openedPresenters.Count + _presenterOpenChecker.Count + _presenterLoadChecker.Count;
+            if (capacity == 0)
+            {
+                return null;
+            }
+
+            List<PresenterEntry> candidates = new List<PresenterEntry>(capacity);
+
+            AddCloseCandidates(candidates, _openedPresenters, filter);
+            AddCloseCandidates(candidates, _presenterOpenChecker, filter);
+            AddCloseCandidates(candidates, _presenterLoadChecker, filter);
+
+            return candidates;
+        }
+
+        private static void AddCloseCandidates(
+            List<PresenterEntry> candidates,
+            List<PresenterEntry> source,
+            System.Func<PresenterEntry, bool> filter)
+        {
+            for (int i = 0; i < source.Count; i++)
+            {
+                PresenterEntry entry = source[i];
+                if (filter == null || filter(entry))
+                {
+                    candidates.Add(entry);
+                }
+            }
+        }
+
         private void CloseAll(List<PresenterEntry> paramList, bool forceClose = false)
         {
+            if (paramList == null)
+            {
+                return;
+            }
+
             bool isCloseExcuted = false;
 
             foreach (var param in paramList)
@@ -776,7 +897,7 @@ namespace Mu3Library.UI.MVP
 
         private void UpdateFocus()
         {
-            IEnumerable<PresenterEntry> paramList = RunningPresenterEntries();
+            IEnumerable<PresenterEntry> paramList = FocusCandidateEntries();
             PresenterEntry mostFront = null;
 
             foreach (PresenterEntry param in paramList)
@@ -821,39 +942,41 @@ namespace Mu3Library.UI.MVP
 
         private void CleanupDestroyedPresenters()
         {
-            bool removed = false;
-
-            removed |= RemoveDestroyedPresenters(_openedPresenters);
-            removed |= RemoveDestroyedPresenters(_presenterLoadChecker);
-            removed |= RemoveDestroyedPresenters(_presenterOpenChecker);
-            removed |= RemoveDestroyedPresenters(_presenterCloseChecker);
-            removed |= RemoveDestroyedPresenters(_presenterUnloadChecker);
-
-            if (removed)
+            if (_presenterEntries.Count == 0)
             {
-                UpdateFocus();
+                return;
             }
-        }
 
-        private static bool RemoveDestroyedPresenters(List<PresenterEntry> list)
-        {
-            bool removed = false;
+            // One registry sweep covers every state list. The destroyed set is only allocated when
+            // something actually went missing, so the common per-frame path stays allocation free.
+            List<PresenterEntry> destroyed = null;
 
-            for (int i = 0; i < list.Count; i++)
+            foreach (PresenterEntry entry in _presenterEntries.Values)
             {
-                PresenterEntry param = list[i];
-                if (param?.Presenter != null && param.Presenter.IsViewExist)
+                if (entry?.Presenter != null && entry.Presenter.IsViewExist)
                 {
                     continue;
                 }
 
-                list.RemoveAt(i);
-                i--;
+                if (destroyed == null)
+                {
+                    destroyed = new List<PresenterEntry>();
+                }
 
-                removed = true;
+                destroyed.Add(entry);
             }
 
-            return removed;
+            if (destroyed == null)
+            {
+                return;
+            }
+
+            foreach (PresenterEntry entry in destroyed)
+            {
+                ReleaseEntry(entry);
+            }
+
+            UpdateFocus();
         }
 
         private void UpdateSortingOrderAsLast(PresenterEntry presenterParam)
@@ -867,9 +990,13 @@ namespace Mu3Library.UI.MVP
             bool foundSameView = false;
             int maxSortingOrder = default;
 
-            foreach (PresenterEntry param in RunningPresenterEntries())
+            // Every managed presenter counts here, not just the visible ones. A presenter that is only
+            // loading already holds a sorting order in its layer, so leaving it out let two views of the
+            // same type opened in one frame land on the same order. The presenter being placed is skipped
+            // because it is registered before this runs and would otherwise be compared against itself.
+            foreach (PresenterEntry param in _presenterEntries.Values)
             {
-                if (param.Presenter.ViewType != viewType)
+                if (param == presenterParam || !param.Presenter.IsViewExist || param.Presenter.ViewType != viewType)
                 {
                     continue;
                 }
@@ -925,7 +1052,12 @@ namespace Mu3Library.UI.MVP
             }
         }
 
-        private IEnumerable<PresenterEntry> RunningPresenterEntries()
+        /// <summary>
+        /// The entries focus can land on: the ones whose view is on screen or leaving it. A presenter that is
+        /// only loading is deliberately left out, because its view has never been shown. Anything that needs
+        /// every managed presenter, such as sorting order placement, reads the registry instead.
+        /// </summary>
+        private IEnumerable<PresenterEntry> FocusCandidateEntries()
         {
             foreach (PresenterEntry param in _presenterCloseChecker)
             {

@@ -197,6 +197,8 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner` controls lifecycle chaining, while `HostOptions` controls where the child view is attached and how its root `RectTransform` is laid out.
 
+A child can be opened from any presenter callback, `LoadFunc()` and `OpenFunc()` included; the owner does not have to be open yet. Closing an owner cascades to its children, including one that is still loading. A presenter that has started closing no longer takes new children.
+
 Direct manager calls can keep the same ownership and host configuration in one overload:
 
 ```csharp

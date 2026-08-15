@@ -196,6 +196,8 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner`는 생명주기 체인을 제어하고, `HostOptions`는 자식 view를 어디에 붙일지와 루트 `RectTransform` 레이아웃을 어떻게 적용할지를 제어합니다.
 
+자식은 `LoadFunc()`와 `OpenFunc()`를 포함한 어떤 presenter 콜백에서도 열 수 있으며, owner가 아직 열리지 않았어도 됩니다. owner를 닫으면 아직 loading 중인 자식까지 연쇄적으로 닫힙니다. 닫히기 시작한 presenter는 더 이상 새 자식을 받지 않습니다.
+
 manager에서 직접 여는 경우에도 같은 ownership/host 구성을 하나의 오버로드로 유지할 수 있습니다.
 
 ```csharp
