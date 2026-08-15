@@ -10,7 +10,7 @@ namespace Mu3Library.Sample.Template.MVP
         public string ConfirmText = "Confirm";
         public Action OnConfirm = null;
 
-        public string CancelmText = "Cancel";
+        public string CancelText = "Cancel";
         public Action OnCancel = null;
     }
 }

@@ -160,8 +160,8 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            canvas.renderMode = settings.RenderMode;
-
+            // The camera is not part of the serialized settings: a screen space camera or world
+            // space canvas renders through the manager camera, an overlay canvas through none.
             switch (settings.RenderMode)
             {
                 case RenderMode.ScreenSpaceCamera:
@@ -175,9 +175,7 @@ namespace Mu3Library.UI.MVP
                     break;
             }
 
-            canvas.sortingLayerName = settings.SortingLayerName;
-            canvas.sortingOrder = settings.SortingOrder;
-            canvas.planeDistance = settings.PlaneDistance;
+            settings.WriteToTarget(canvas);
         }
 
         private void ApplyScalerSettings(CanvasScaler canvasScaler, CanvasScalerSettings settings)
@@ -188,16 +186,14 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            canvasScaler.uiScaleMode = settings.UIScaleMode;
-            canvasScaler.referenceResolution = settings.Resolution != default
-                ? settings.Resolution
-                : new Vector2(1920, 1080);
-            canvasScaler.screenMatchMode = settings.ScreenMatchMode;
-            canvasScaler.matchWidthOrHeight = settings.MatchWidthOrHeight;
-            canvasScaler.physicalUnit = settings.PhysicalUnit;
-            canvasScaler.fallbackScreenDPI = settings.FallbackScreenDPI;
-            canvasScaler.defaultSpriteDPI = settings.SpriteDPI;
-            canvasScaler.scaleFactor = settings.ScaleFactor;
+            // An unset reference resolution would scale the UI against zero, so the standard one
+            // stands in for it. The settings are a struct, so this only changes the local copy.
+            if (settings.Resolution == default)
+            {
+                settings.Resolution = CanvasScalerSettings.Standard.Resolution;
+            }
+
+            settings.WriteToTarget(canvasScaler);
         }
 
         private void ApplyGraphicRaycasterSettings(GraphicRaycaster graphicRaycaster, GraphicRaycasterSettings settings)
@@ -208,9 +204,7 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
-            graphicRaycaster.ignoreReversedGraphics = settings.IgnoreReversedGraphics;
-            graphicRaycaster.blockingObjects = settings.BlockingObjects;
-            graphicRaycaster.blockingMask = settings.BlockingMask;
+            settings.WriteToTarget(graphicRaycaster);
         }
     }
 }

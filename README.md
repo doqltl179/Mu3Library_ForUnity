@@ -363,9 +363,9 @@ private void ResetData()
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
-- **UI**: MVP pattern implementation
+- **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Unity Input System wrapper and binding manager (optional)
-- **Utility**: Singleton, EasingFunctions, Settings, and `Mellow.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport
+- **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area without a per frame check of your own
 - **WebRequest**: HTTP request management
 
 ## 🎓 Samples

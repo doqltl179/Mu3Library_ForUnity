@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Mu3Library.DI;
 using Mu3Library.Foundation.Event;
 using Mu3Library.Extensions;
@@ -82,12 +81,15 @@ namespace Mu3Library.UI.MVP
         }
 
         private EventSystem m_eventSystem = null;
+        private bool _isEventSystemOwned = false;
         private EventSystem _eventSystem
         {
             get
             {
                 if (m_eventSystem == null)
                 {
+                    _isEventSystemOwned = false;
+
                     m_eventSystem = EventSystem.current;
                     if (m_eventSystem == null)
                     {
@@ -97,6 +99,10 @@ namespace Mu3Library.UI.MVP
                         GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 #endif
                         m_eventSystem = go.GetComponent<EventSystem>();
+
+                        // The manager created it, so it is also the one that destroys it. It lives
+                        // outside the manager root because it has to survive a scene change.
+                        _isEventSystemOwned = true;
 
                         Object.DontDestroyOnLoad(go);
                     }
@@ -169,11 +175,39 @@ namespace Mu3Library.UI.MVP
 
             _focused = null;
             _focusIgnoredLayers.Clear();
+            _outPanel = null;
+
+            DisposeRenderCamera();
+            DestroyOwnedEventSystem();
 
             if (m_root != null)
             {
                 Object.Destroy(m_root);
+                m_root = null;
             }
+
+            OnWindowLoaded = null;
+            OnWindowOpened = null;
+            OnWindowClosed = null;
+            OnWindowUnloaded = null;
+        }
+
+        private void DestroyOwnedEventSystem()
+        {
+            EventSystem eventSystem = m_eventSystem;
+            bool isOwned = _isEventSystemOwned;
+
+            m_eventSystem = null;
+            _isEventSystemOwned = false;
+
+            // An EventSystem that already lived in the scene belongs to the project and is left
+            // alone; only the one this manager created is destroyed with it.
+            if (!isOwned || eventSystem == null)
+            {
+                return;
+            }
+
+            Object.Destroy(eventSystem.gameObject);
         }
 
         public void Update()
@@ -830,13 +864,26 @@ namespace Mu3Library.UI.MVP
             }
 
             System.Type viewType = presenterParam.Presenter.ViewType;
-            IEnumerable<int> sameViewSortingOrders = RunningPresenterEntries()
-                .Where(t => t.Presenter.ViewType == viewType)
-                .Select(t => t.Presenter.SortingOrder);
+            bool foundSameView = false;
+            int maxSortingOrder = default;
 
-            if (sameViewSortingOrders.Any())
+            foreach (PresenterEntry param in RunningPresenterEntries())
             {
-                int maxSortingOrder = sameViewSortingOrders.Max();
+                if (param.Presenter.ViewType != viewType)
+                {
+                    continue;
+                }
+
+                int sortingOrder = param.Presenter.SortingOrder;
+                if (!foundSameView || sortingOrder > maxSortingOrder)
+                {
+                    foundSameView = true;
+                    maxSortingOrder = sortingOrder;
+                }
+            }
+
+            if (foundSameView)
+            {
                 // OutPanel uses sorting order {view.SortingOrder - 1}, so keep view gap at 2.
                 if (presenterParam.Presenter.SortingOrder < maxSortingOrder + 2)
                 {

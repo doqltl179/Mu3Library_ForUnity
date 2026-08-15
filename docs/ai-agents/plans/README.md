@@ -7,6 +7,7 @@ Use this section when the question is which plan template, storage rule, or plan
 | If you need to... | Open | Why |
 |---|---|---|
 | Start a new task plan with the repository-standard shape | [plan-template.md](plan-template.md) | Defines the required simple execution-plan template |
+| Record one whole-task parallel graph, its node/credit budgets, and allocations | [graph-engineering.md](../workflow/graph-engineering.md) | Defines the graph plan contract; do not create a nested plan per node |
 | Decide where to store plans and how to use `tasks/todo.md` | [task-record-policy.md](task-record-policy.md) | Defines the canonical index vs. per-plan file split |
 
 ## Notes

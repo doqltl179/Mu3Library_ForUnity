@@ -68,7 +68,7 @@ namespace Mu3Library.Editor.Window.Drawer
                     RefreshData();
                 }
 
-                DrawRefreshButton();
+                DrawRefreshButton(RefreshData);
 
                 GUILayout.Space(8);
 
@@ -144,17 +144,6 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             _selectedTableNames = _selectedTableNameSet.ToList();
             _selectedLocaleCodes = _selectedLocaleCodeSet.ToList();
-        }
-
-        private void DrawRefreshButton()
-        {
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
-            {
-                RefreshData();
-            }
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawSelectionOptions()
@@ -526,7 +515,7 @@ namespace Mu3Library.Editor.Window.Drawer
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LocalizationCharacterCollector] Failed to save files: {e.Message}");
+                Debug.LogException(e);
             }
         }
 

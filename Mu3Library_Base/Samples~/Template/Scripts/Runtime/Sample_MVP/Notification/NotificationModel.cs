@@ -22,7 +22,7 @@ namespace Mu3Library.Sample.Template.MVP
         {
             _message = args.Message;
             _confirmText = args.ConfirmText;
-            _cancelText = args.CancelmText;
+            _cancelText = args.CancelText;
 
             OnConfirm = args.OnConfirm;
             OnCancel = args.OnCancel;

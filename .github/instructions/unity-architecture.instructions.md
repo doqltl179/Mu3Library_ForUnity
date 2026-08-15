@@ -1,5 +1,5 @@
 ﻿---
-applyTo: "Mu3Library_Base/**,Mu3Library_URP/**,UnityProject_BuiltIn/**,UnityProject_URP/**"
+applyTo: "Mu3Library_Base/**,Mu3Library_URP/**,Mu3Library_Game_WatermelonGame/**,UnityProject_BuiltIn/**,UnityProject_URP/**,UnityProject_Game_WatermelonGame/**"
 description: "Unity package architecture, assembly-boundary, optional integration, and package safety rules"
 ---
 
@@ -13,6 +13,7 @@ Mu3Library is a reusable Unity package for external projects. Prioritize package
 
 - Base package: `Mu3Library_Base`
 - URP package: `Mu3Library_URP`
+- Watermelon Game package: `Mu3Library_Game_WatermelonGame`
 - Runtime: `Runtime/Scripts`
 - Editor: `Editor/Scripts`
 - Samples: `Samples~`
@@ -23,6 +24,7 @@ Mu3Library is a reusable Unity package for external projects. Prioritize package
 - Keep Unity work bounded and non-overlapping, with one primary owner per concern.
 - Keep DI and MVP modules decoupled.
 - Preserve `CoreBase` initialization and injection order.
+- Keep reusable Watermelon board behavior in its package runtime and sample-only orchestration under `Samples~`.
 - Keep optional integrations gated by:
   - `MU3LIBRARY_UNITASK_SUPPORT`
   - `MU3LIBRARY_ADDRESSABLES_SUPPORT`

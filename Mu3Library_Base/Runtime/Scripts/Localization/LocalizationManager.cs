@@ -13,7 +13,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Mu3Library.Localization
 {
-    public partial class LocalizationManager : ILocalizationManager, ILocalizationManagerEventBus, IUpdatable
+    public partial class LocalizationManager : ILocalizationManager, ILocalizationManagerEventBus, IUpdatable, IDisposable
     {
         private bool _isInitialized = false;
         public bool IsInitialized => _isInitialized;
@@ -39,10 +39,28 @@ namespace Mu3Library.Localization
                         fromSettings = locales[0];
                     }
 
-                    m_defaultLocale = fromSettings ?? CreateEnglishFallbackLocale();
+                    m_defaultLocale = fromSettings ?? _fallbackLocale;
                 }
 
                 return m_defaultLocale;
+            }
+        }
+
+        private Locale m_fallbackLocale;
+        /// <summary>
+        /// The locale this manager creates and owns when the project settings carry none.
+        /// <br/> There is at most one of it for the manager's whole life, and it is destroyed with it.
+        /// </summary>
+        private Locale _fallbackLocale
+        {
+            get
+            {
+                if (m_fallbackLocale == null)
+                {
+                    m_fallbackLocale = CreateEnglishFallbackLocale();
+                }
+
+                return m_fallbackLocale;
             }
         }
 
@@ -69,6 +87,62 @@ namespace Mu3Library.Localization
         public event Action<float> OnInitializeProgress;
 
 
+
+        public void Dispose()
+        {
+            _subscribeHandler.Dispose();
+
+            // The initialization operation belongs to the Localization package, so only the
+            // handler this manager attached is taken back off it.
+            if (_initializeHandle.IsValid())
+            {
+                _initializeHandle.Completed -= OnInitializeCompleted;
+            }
+
+            DisposeLocaleChange();
+
+            _isInitialized = false;
+            _isInitializing = false;
+            _lastInitializeProgress = -1.0f;
+            _initializeError = string.Empty;
+
+            m_defaultLocale = null;
+            _currentLocale = null;
+
+            DestroyFallbackLocale();
+
+            OnInitialized = null;
+            OnInitializeResult = null;
+            OnInitializeProgress = null;
+        }
+
+        private void DestroyFallbackLocale()
+        {
+            if (m_fallbackLocale == null)
+            {
+                return;
+            }
+
+            // Only the locale this manager created is destroyed. A locale that came from the
+            // project settings is an asset and is never owned here.
+            Locale locale = m_fallbackLocale;
+            m_fallbackLocale = null;
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEngine.Object.DestroyImmediate(locale);
+                return;
+            }
+#endif
+
+            UnityEngine.Object.Destroy(locale);
+        }
+
+        /// <summary>
+        /// Implemented by the UniTask part, which owns the locale change cancellation.
+        /// </summary>
+        partial void DisposeLocaleChange();
 
         #region Utility
         public void Update()
@@ -105,10 +179,9 @@ namespace Mu3Library.Localization
                 return;
             }
 
-            if (callback != null)
-            {
-                OnInitialized += callback;
-            }
+            // The callback belongs to this initialize call only, so it goes through the
+            // one-shot subscription instead of staying on the event for every later one.
+            SubscribeOnInitializedOnce(callback);
 
             BeginInitialize();
         }
@@ -122,10 +195,7 @@ namespace Mu3Library.Localization
                 return;
             }
 
-            if (callback != null)
-            {
-                OnInitializeResult += callback;
-            }
+            SubscribeOnInitializeResultOnce(callback);
 
             BeginInitialize();
         }
@@ -334,6 +404,10 @@ namespace Mu3Library.Localization
             OnInitializeResult?.Invoke(isSuccess, errorMessage);
         }
 
+        /// <summary>
+        /// Creates the locale behind <see cref="_fallbackLocale"/>. Call it through that property
+        /// <br/> so the manager keeps owning exactly one.
+        /// </summary>
         private Locale CreateEnglishFallbackLocale()
         {
             Locale locale = Locale.CreateLocale("en");

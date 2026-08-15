@@ -2,6 +2,16 @@ using UnityEngine;
 
 namespace Mu3Library.Utility
 {
+    /// <summary>
+    /// Finds the single instance that already lives in the scene and never creates one.
+    /// <br/> Use <see cref="GenericSingleton{T}"/> instead for an instance that creates itself and
+    /// <br/> survives a scene change.
+    /// </summary>
+    /// <remarks>
+    /// This package drives its own services through <see cref="DI.CoreBase"/> and does not use
+    /// this base itself. It is kept for a project that consumes the package and wants a plain
+    /// singleton component.
+    /// </remarks>
     public class Singleton<T> : MonoBehaviour where T : MonoBehaviour
     {
         public static T Instance

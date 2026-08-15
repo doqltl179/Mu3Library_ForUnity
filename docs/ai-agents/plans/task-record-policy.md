@@ -18,6 +18,18 @@ Keep planning lightweight while preserving one durable place to find current wor
 4. Never retain, archive, or rename a completed plan file. If it contains reusable decision context, promote that context to its owning record before deletion.
 5. Do not duplicate the full plan table in `tasks/todo.md`; keep only the active index-level summary there.
 
+## Approval-Free Closeout
+
+The executing agent may delete a completed temporary plan without an additional user confirmation only when every condition below is true:
+
+- the agent created the plan for the current active task,
+- the target is one exact Markdown file directly under `tasks/plans/` and is linked by the current task's `tasks/todo.md` entry,
+- all durable outcomes and lessons have already moved to their owning records,
+- implementation and required verification are complete,
+- the matching `tasks/todo.md` entry is removed in the same closeout.
+
+This exception does not cover a pre-existing or different task's plan, any directory, branch, worktree, Unity `Library`, or any other file. Those targets keep their normal inspection and explicit-approval requirements. If authorship, task identity, completion, or the exact target is uncertain, do not use the exception.
+
 ## Recommended Layout
 
 ```text
@@ -38,4 +50,5 @@ tasks/
 
 - When closing a task, first promote any durable lesson into the owning wiki page, instruction file, code comment, or `tasks/lessons.md`.
 - Delete the plan in the same closeout and remove or update its `tasks/todo.md` entry so it no longer appears active.
+- When all Approval-Free Closeout conditions hold, perform that exact plan deletion automatically instead of pausing for confirmation.
 - A task is not fully closed while its completed plan file remains in the repository. Do not archive completed plans.

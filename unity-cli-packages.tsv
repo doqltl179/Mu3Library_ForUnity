@@ -1,0 +1,4 @@
+# target	package_path	project_path
+built-in	Mu3Library_Base	UnityProject_BuiltIn
+urp	Mu3Library_URP	UnityProject_URP
+watermelon	Mu3Library_Game_WatermelonGame	UnityProject_Game_WatermelonGame

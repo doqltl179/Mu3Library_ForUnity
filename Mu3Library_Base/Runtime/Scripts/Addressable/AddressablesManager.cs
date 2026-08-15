@@ -107,10 +107,9 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            if (callback != null)
-            {
-                OnInitialized += callback;
-            }
+            // The callback belongs to this initialize call only, so it goes through the
+            // one-shot subscription instead of staying on the event for every later one.
+            SubscribeOnInitializedOnce(callback);
 
             BeginInitialize();
         }
@@ -123,10 +122,7 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            if (callback != null)
-            {
-                OnInitializeResult += callback;
-            }
+            SubscribeOnInitializeResultOnce(callback);
 
             BeginInitialize();
         }

@@ -131,6 +131,13 @@ namespace Mu3Library.Localization
             _localeChangeCts = null;
         }
 
+        partial void DisposeLocaleChange()
+        {
+            CancelChangeLocale();
+
+            _isLocaleChanging = false;
+        }
+
         public async UniTask<Locale> GetSelectedLocaleAsync()
         {
             AsyncOperationHandle<Locale> handle = LocalizationSettings.SelectedLocaleAsync;

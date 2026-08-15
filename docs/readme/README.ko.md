@@ -362,9 +362,9 @@ private void ResetData()
 - **Preference**: PlayerPrefs 래퍼
 - **Resource**: Resources 폴더 로딩
 - **Scene**: phase/status 조회, lifecycle/progress callback, 일회성 lifecycle 구독 helper, 통합 rejection event를 제공하는 씬 로딩 추상화
-- **UI**: MVP 패턴 구현
+- **UI**: MVP 패턴 구현, 축별 일괄/단일 분할선으로 자식을 9개 영역 중 하나에 anchor로 맞추는 `UIAreaGrid`/`UIAreaElement`, canvas를 화면 safe area 안에 유지하는 `SafeCanvas`/`SafeRect`
 - **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
-- **Utility**: Singleton, EasingFunctions, Settings, 카메라 뷰포트에 `SpriteRenderer` 배경을 맞추는 `Mellow.Utility.WorldSpaceBackground`
+- **Utility**: Singleton, EasingFunctions, Settings, 카메라 뷰포트에 `SpriteRenderer` 배경을 맞추는 `Mu3Library.Utility.WorldSpaceBackground`, 매 프레임 직접 확인하지 않고 크기나 safe area가 바뀐 화면을 따라가는 `Mu3Library.Utility.ScreenChangeNotifier`
 - **WebRequest**: HTTP 요청 관리
 
 ## 🎓 샘플

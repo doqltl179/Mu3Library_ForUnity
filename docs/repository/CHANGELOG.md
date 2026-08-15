@@ -7,6 +7,21 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-08-13
+
+### Changed
+- Moved repository document layout, README link, stale agent-routing reference, tracked tooling artifact, and agent-framework shape validation into `mu3-cli repo check`.
+
+### Removed
+- Removed the post-push repository-hygiene GitHub Actions workflow; repository hygiene is now an explicit local tooling check.
+
+## 2026-08-11
+
+### Changed
+- Renamed the outer Python tooling directory from `tools/mu3_cli` to `tools/cli` while retaining the `mu3_cli` import namespace and `mu3-cli` command name.
+- Added change-aware Unity compile orchestration and environment diagnostics under `mu3-cli unity`.
+- Moved package-identity metadata validation into `mu3-cli csdevkit drift check` and removed the redundant standalone `tools/csdevkit_tests` xUnit project.
+
 ## 2026-06-21
 
 ### Removed

@@ -179,7 +179,7 @@ namespace Mu3Library.WebRequest
         private WebRequestResult<T> CreateUnexpectedFailureResult<T>(string method, string url, Exception exception)
         {
             string error = $"WebRequest {method} failed with exception. url: {url}\r\n{exception.GetType().Name}: {exception.Message}";
-            Debug.LogError(error);
+            Debug.LogException(exception);
             return WebRequestResult<T>.Failure(-1, error, null);
         }
 
@@ -202,7 +202,7 @@ namespace Mu3Library.WebRequest
             catch (Exception ex)
             {
                 string error = $"WebRequest {method} parse failed. url: {url}\r\n{ex.Message}";
-                Debug.LogError(error);
+                Debug.LogException(ex);
                 return WebRequestResult<T>.Failure(statusCode, error, headers);
             }
         }

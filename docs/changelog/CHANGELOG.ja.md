@@ -15,14 +15,60 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.23.0] - 2026-08-15
+
+### 追加
+- `ScriptIdentifier`: script exporter が使用する C# 識別子の規則を 1 箇所で持つ editor utility を追加しました。keyword を避ける `Sanitize`、先頭文字も大文字にする `SanitizePascal`、元の表記を保ち使用できない文字だけを下線に置き換える `SanitizeUnderscore`、public member 名を作る `ToPublicMember` を提供します。従来は各 exporter drawer が必要な規則を個別に複製していたため、同じ修正を drawer ごとに繰り返す必要がありました。
+- `FileCreator.WriteScript(string, string, string)`: 生成 script を書き出す単一の経路を追加しました。指定した system folder に `{fileName}.cs` を UTF-8 BOM 付きで保存し、書き出した path を返します。
+- `FileFinder.IsAssetsFolder(Object)`: asset が project の `Assets` folder 内にあるかを確認する検査を追加しました。exporter drawer 群と MVP helper drawer がそれぞれ同じ複製を持っていました。
+- `CameraExtensions.IsReady(Camera)`: 表示に合わせて配置する処理が待つべき camera の準備状態の検査を追加しました。camera が存在し、描画しており、viewport rect と pixel サイズが面積を持つかを確認します。`WorldSpaceBackground` と Watermelon の board 領域がそれぞれ同じ複製を持っていました。
+- `RectTransformExtensions.AnchorTo(RectTransform, Vector2, Vector2, bool)`: rect が親の正規化された範囲を占めるときに通す anchor の適用を追加しました。`fill` が有効な間は offset を空にするので、rect がその範囲をちょうど埋めます。`Stretch()` はこの関数を通すようになり、`UIAreaGrid.Apply(RectTransform, UIAreaType, bool)` と `SafeRect` がそれぞれ同じ処理の複製を持っていました。
+- `Mu3WindowDrawer`: exporter drawer 群がそれぞれ複製していた `DrawRefreshButton(Action)`、`DrawAssetsFolderField(SerializedObject, SerializedProperty, string)`、`DrawNamespaceField(string, Action<string>, string)`、`DrawClassNameField(string, Action<string>, string, string)` を追加しました。`DrawAssetsFolderField` は `Assets` 外の folder を空にしつつ警告を残します。MVP helper の folder 行は従来、警告なしで空にするだけでした。
+- `UIAreaGrid` と `UIAreaElement`: 9分割領域の anchor 補助機能を追加しました。`UIAreaGrid` は自身の RectTransform を `UIAreaBoundary` の分割線で左/中央/右の column と下/中央/上の row に分け、子の `UIAreaElement` が選んだ `UIAreaType` の領域に anchor を合わせます。既定では各軸の両端が 0.08 ずつを占め、中央が 0.84 を持ちます。`GetAreaRect(UIAreaType)`、`GetAreaAnchors(UIAreaType, out Vector2, out Vector2)`、`Apply()`、`Apply(RectTransform, UIAreaType, bool)` で同じ配置を code から取得し適用できます。
+- `UIAreaGrid.CreateElementsAutomatically`: すべての領域に子 element を 1 つずつ用意する自動生成を追加しました。既定は有効です。`ResolveElements()` は各領域と子を対応付けて不足分を生成し、`GetElement(UIAreaType)` は生成せずにその領域の element を返し、`CreateElement(UIAreaType)` は手動で 1 つ追加します。`GetRectTransform(UIAreaType)` と `TryGetRectTransform(UIAreaType, out RectTransform)` は element を経由せずにその領域の RectTransform を直接取得します。1 つの領域が持つ element は 1 つだけです。`UIAreaElement.AreaType` は同じ grid の別の element が持つ領域への変更を拒否し、`UIAreaElement.IsAreaTaken(UIAreaType)` はその領域が空いているかを報告し、`CreateElement(UIAreaType)` は 2 つ目を作らず既存の element を返し、`ResolveElements()` は複製されて使用中の領域に載った element を空き領域へ移します。
+- `UIAreaElement`: grid が管理する値を `DrivenRectTransformTracker` で報告し、RectTransform inspector 上でそれらが読み取り専用として表示されます。anchor は常に管理され、`FillArea` が有効な間は位置と大きさも加わり、pivot と rotation、scale は管理しません。親に grid がない element は何も管理しません。
+- `UIAreaGrid.DrawAreaGizmo` と `UIAreaGrid.AreaGizmoColor`: 9 つの領域の外枠を scene view に描く機能を追加しました。既定は有効で、scene view の gizmo 表示設定に従います。`OnDrawGizmos` で grid の local 空間に描くため、回転と scale にそのまま追従します。Screen Space - Overlay canvas は gizmo pass の後に描画されるため、その canvas では UI が覆った部分の外枠が隠れます。
+- `UIAreaGrid.HorizontalEditMode` と `UIAreaGrid.VerticalEditMode`: 1 本の分割線が及ぼす範囲を決める軸ごとの `UIAreaEditMode` を追加しました。`Uniform` は grid 全体が 1 組の分割線を共有するため、上の領域を右へ広げると右のライン全体が狭くなります。`Independent` は row（横）と column（縦）ごとに分割線を持つため、同じ編集で右上の領域だけが狭くなります。軸を `Independent` に切り替えると共有の分割線を各 row/column に先に複製するため、配置が飛びません。
+- `UIAreaGridEditor` と `UIAreaElementEditor`: 2 つの component の inspector を追加しました。min/max slider で分割線を動かし、別の element が既に持つ領域が無効化される 3x3 の格子から領域を選び、不足している element を生成し、各 element の object と有効状態、fill 状態を grid から直接調整し、影響を受ける子の anchor を `Undo` に記録しながら適用します。
+- `SafeCanvas` と `SafeRect`: safe area の component を追加しました。`SafeRect` は自身の RectTransform を `Screen.safeArea` に合わせて anchor を取り、大きさや向きが変わる画面に追従します。`SafeCanvas` は自身の canvas に `SafeRect` を 1 つ用意します。`SafeRect.Calculate()` で safe area を手動で適用でき、`OnCalculated(Rect)` が適用された領域を派生 class に渡します。anchor は親を基準とするため、直下の子にある `SafeRect` だけが canvas のものと認められます。これは `UIAreaElement` が直上の親の `UIAreaGrid` だけに従うのと同じです。
+- `SafeCanvas.SafeRect`、`SafeCanvas.CreateSafeRect()`、`SafeCanvas.ResolveSafeRect()`: `SafeRect` は canvas が持つ safe rect を報告し、無い間は null を返すだけで生成はしません。`CreateSafeRect()` は手動で生成しますが、既に持っている場合は 2 つ目を作らずそれを返し、`ResolveSafeRect()` は不足しているものを生成して画面に合わせます。
+- `SafeRect`: component が所有する項目を `DrivenRectTransformTracker` で報告するため、RectTransform の inspector では anchor と位置、大きさ、pivot が読み取り専用として表示されます。回転と scale は駆動しません。edit mode でも自身を合わせるので、editor は player と同じ配置を示し、駆動する項目は scene ファイルに書き込まれません。
+- `ScreenChangeNotifier`: 画面の大きさや safe area が変わると `OnChanged` を知らせ、確認した値を `ScreenSize` と `SafeArea` で報告する画面通知を追加しました。Unity は `Screen.safeArea` の event を用意していないため、listener ごとに確認する代わりに、この 1 か所からフレームごとに 1 回だけ画面を読みます。play mode では `Application.onBeforeRender` を、edit mode では editor loop を使います。例外を投げる listener は `Debug.LogException` で報告され、残りの listener が画面に追従することを妨げません。
+- `SafeRect`: 毎フレーム自分で確認する代わりに、画面を知らせる側を通して追従するようになったため、scene に safe rect ごとの `Update()` が残りません。canvas が大きさや向きの変わった画面に追従すると Unity が `OnRectTransformDimensionsChange` を送り、画面の大きさはそのままで safe area だけが変わる場合(端末を上下逆にしたときなど)は `ScreenChangeNotifier` が担当します。component が override していた `Update()` は無くなったので、これを override していた派生 class は `OnRectTransformDimensionsChange()` を override するか、`ScreenChangeNotifier.OnChanged` を購読してください。
+
+### 変更
+- `SubscribeHandler.UnSubscribe(uint)`: `ISubscriptionInfo` と `SubscriptionInfo` がすでに使用している表記に合わせ、`Unsubscribe(uint)` に改名しました。
+- `NotificationArguments.CancelmText`: Template sample で隣の `ConfirmText` と表記を合わせ、`CancelText` に改名しました。
+- `WorldSpaceBackground`: namespace を `Mellow.Utility` から、folder の位置と package の他と揃う `Mu3Library.Utility` に移しました。この型を参照していた project は `using` の修正が必要です。
+- `CoroutineSafeRunner`: namespace を `Mu3Library.Coroutine.Foundation` から、`Foundation/Coroutine` folder と隣の `Mu3Library.Foundation.Event` に揃う `Mu3Library.Foundation.Coroutine` に移しました。この型を参照していた project は `using` の修正が必要です。
+- `MVPManager.Dispose()`: `OnWindowLoaded`、`OnWindowOpened`、`OnWindowClosed`、`OnWindowUnloaded` を片付け、manager root・render camera・out panel の参照を空にし、自身が作った `EventSystem` を破棄するよう変更しました。scene に元からあった `EventSystem` は project の所有物なので触りません。従来は作った `EventSystem` が `DontDestroyOnLoad` object として manager より長く残り、event も購読者を保持したままでした。
+- `LocalizationManager`: fallback locale を最大 1 つだけ作り、`Dispose()` で破棄するよう変更しました。project 設定から取得した locale は asset なので破棄しません。従来は cache した既定 locale が空になるたびに、誰も解放しない fallback が作られる可能性がありました。
+- `SceneLoader`: built-in・editor・Addressables の scene command がそれぞれ複製していた command guard を 1 箇所にまとめました: `GuardSingleScenePreload`、`GuardAdditiveScenePreload`、`GuardAdditiveSceneUnload`、`ActivatePreloadedSingleScene`、`ActivatePreloadedAdditiveScene`。拒否理由と検査順、発生する event は変わらず、build settings の検査・scene asset の検査・Addressables handle の参照といった backend 固有の部分だけが各自に残ります。
+- `LocalizationManager`: `IDisposable` を実装するよう変更しました。`AddressablesManager` や `SceneLoader` と同じく、所有する DI scope が core と一緒に破棄します。dispose 時に one-shot 購読を解除し、Localization 初期化 operation に付けた完了 handler を外し、進行中の locale 変更を取り消し、event と cache した locale を片付けます。初期化 operation 自体は Localization package の所有物なので release しません。
+- MVP Helper: 生成した MVP script を `FileCreator.WriteScript` 経由で UTF-8 BOM 付きで保存するよう変更しました。従来はこの drawer だけが platform 既定の encoding で書き出しており、他の exporter と異なっていました。
+- catch した exception を文字列にして `Debug.LogError` で出力していた箇所を、すべて `Debug.LogException` に変更しました。exception の型と stack trace が console にそのまま残ります: `LocalizationCharacterCollectorDrawer`、`InputSystemManager.AddInputActionAsset(string, ...)`、`WebRequestManager.CreateUnexpectedFailureResult` と `WebRequestManager.ParseResult`。`WebRequestManager` の 2 箇所は従来の失敗メッセージを `WebRequestResult` でそのまま返すため、呼び出し側が受け取る url・method の情報は変わりません。`Application.logMessageReceived` でこれらを判別していた project は、`LogType.Error` の代わりに `LogType.Exception` を受け取ります。
+
+### 修正
+- `CanvasExtensions.CopyTo`: `overwriteScaler` が `CanvasScaler` 設定を、`overwriteRaycaster` が `GraphicRaycaster` 設定をコピーするよう修正し、option 名と実際の動作が逆にならないようにしました。
+- `AddressablesManager.Initialize(Action)`、`AddressablesManager.InitializeWithResult(Action<bool, string>)`、`LocalizationManager.Initialize(Action)`、`LocalizationManager.InitializeWithResult(Action<bool, string>)`: callback を `OnInitialized`・`OnInitializeResult` に残したままにせず、これらの manager がすでに備えていた one-shot 購読で登録するよう修正しました。初期化が失敗した後に再度初期化を呼んでも、先の呼び出しに渡した callback が再び呼ばれることはなく、初期化が終わった後も callback とそれが捕捉した対象が manager の寿命の間残り続けることはありません。
+- `CoreRoot`: 破棄時に購読 handler を dispose し、`OnCoreInitialized` と `OnCorePrepared` を片付けるよう修正しました。自身が作った core 待ち購読が自身より長く残りません。`CoreBase` は破棄時にすでに同じ処理を行っていました。
+
+## [game/watermelon/0.4.0] - 2026-08-15
+
 ### 追加
 - `BoardController`: `OnScoreAdded`、`OnBoardConfigChanged`、`OnHoldingItemChanged`、`OnHoldingItemMoved`、`OnItemDropped`、`OnItemAdded`、`OnItemRemoved`、`OnItemMerged`、`OnMergeComboChanged` event を追加しました。外部 project は board を polling せずに UI や演出を更新できます。`OnScoreAdded` は 1 回の変更が実際に支払った点数を渡し、0 での clamp により変化しなかった場合は発生しません。`OnItemRemoved` は item が catalog 情報と位置を保持したまま呼ばれます。
 - `BoardController`: 保持中の item が待機する位置を board 領域の幅比率で読む `HoldingNormalizedX` を追加しました。`OnHoldingItemMoved` が渡す値と同じです。
 - `BoardMergeInfo`: `BoardController.OnItemMerged` に渡す merge 情報を追加しました。合成された catalog index、生成された index と instance、board 正規化位置、支払った点数、`IsValid` を保持します。
 - `BoardController.CountMerge(BoardMergeInfo)` と `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 内容を併せて報告する merge 集計を追加しました。board と `MergingCommand` が行うすべての merge がこの経路を使用します。既存の `CountMerge()` は内容なしで集計し、`BoardMergeInfo.Unknown` を報告します。
+- `CompositeBoardCommand`: `CompositeBoardCommand(Action, IBoardCommand[])` constructor と `Step(float)` hook を追加しました。command のまとまりは子を 1 段進める方法だけを記述すれば済みます。`SequenceCommand` と `ParallelCommand` がそれぞれ完了 callback と `OnRun`/`OnUpdate`/`OnComplete` の配線を持っていました。`OnRun` と `OnUpdate` を override して子を自前で駆動しているまとまりはそのまま動作します。
 
 ### 変更
 - `MergingCommand`: merge sound を集計より先に再生するよう変更しました。`OnItemMerged` の購読者はその merge の combo 段階をそのまま参照できます。merge 追跡のために `CountMerge()` を override していた `BoardController` 派生クラスは `CountMerge(BoardMergeInfo)` を override してください。
+- `BoardSnapshot.FromJson`: 読み取れない snapshot を文字列にして `Debug.LogError` で出力していたものを `Debug.LogException` に変更しました。exception の型と stack trace が console にそのまま残ります。`Application.logMessageReceived` でこれを判別していた project は、`LogType.Error` の代わりに `LogType.Exception` を受け取ります。
+
+### 削除
+- `BoardController.SetBoareConfig(BoardConfig)`: `SetBoardConfig(BoardConfig)` を呼ぶだけだった誤字の互換 alias を削除しました。`SetBoardConfig(BoardConfig)` を使用してください。
+- `BoardArea`: board local 版へ転送するだけで 1 つの座標空間に 2 つの名前を与えていた "board world normalized" 変換を削除しました: `BoardWorldNormalizedPositionToWorld`、`BoardWorldNormalizedPositionToScreen`、`BoardWorldNormalizedPositionToLocal`、`WorldToBoardWorldNormalizedPosition`、`TryWorldToBoardWorldNormalizedPosition`、`ScreenToBoardWorldNormalizedPosition`、`TryScreenToBoardWorldNormalizedPosition`、`LocalToBoardWorldNormalizedPosition`、`TryLocalToBoardWorldNormalizedPosition`。対応する `BoardLocalNormalized` 変換を使用してください。
 
 ## [game/watermelon/0.3.0] - 2026-08-09
 

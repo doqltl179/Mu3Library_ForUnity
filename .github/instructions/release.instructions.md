@@ -17,7 +17,7 @@ This repository contains three independent UPM packages:
 - URP: `Mu3Library_URP/`, depends on Base.
 - Watermelon Game: `Mu3Library_Game_WatermelonGame/`, depends on Base and URP.
 
-Each package has its own version and release tag. Change only the package version that is being released unless both packages are explicitly in scope.
+Each package has its own version and release tag. Change only the package versions explicitly included in the release scope.
 
 ## Tag Policy
 

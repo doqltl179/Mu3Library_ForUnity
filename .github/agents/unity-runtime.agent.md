@@ -7,7 +7,7 @@ name: "Mu3Library Unity Runtime Specialist"
 
 Owns non-gated runtime package work.
 
-Use when runtime behavior, lifecycle, or runtime-facing APIs dominate under Base or URP runtime scripts.
+Use when runtime behavior, lifecycle, or runtime-facing APIs dominate under Base, URP, or Watermelon Game runtime scripts.
 
 Do not own editor tooling, samples, release/docs work, framework routing, or define-gated integration as the primary concern.
 

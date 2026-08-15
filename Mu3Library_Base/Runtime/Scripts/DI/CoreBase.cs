@@ -3,7 +3,7 @@ using UnityEngine.Serialization;
 using System;
 using Mu3Library.Foundation.Event;
 using System.Collections;
-using Mu3Library.Coroutine.Foundation;
+using Mu3Library.Foundation.Coroutine;
 
 
 #if MU3LIBRARY_UNITASK_SUPPORT

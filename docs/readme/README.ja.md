@@ -362,9 +362,9 @@ private void ResetData()
 - **Preference**: PlayerPrefsラッパー
 - **Resource**: Resourcesフォルダローディング
 - **Scene**: phase/status 参照、lifecycle/progress callback、one-shot lifecycle 購読 helper、統合 rejection event を提供するシーンローディング抽象化
-- **UI**: MVPパターン実装
+- **UI**: MVPパターン実装、軸ごとの一括/個別の分割線で子を9つの領域のいずれかに anchor で合わせる `UIAreaGrid`/`UIAreaElement`、canvas を画面の safe area 内に保つ `SafeCanvas`/`SafeRect`
 - **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
-- **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mellow.Utility.WorldSpaceBackground`
+- **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mu3Library.Utility.WorldSpaceBackground`、毎フレーム自分で確認せずに大きさや safe area が変わった画面に追従する `Mu3Library.Utility.ScreenChangeNotifier`
 - **WebRequest**: HTTPリクエスト管理
 
 ## 🎓 サンプル

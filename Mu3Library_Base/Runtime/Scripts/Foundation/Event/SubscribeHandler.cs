@@ -215,7 +215,7 @@ namespace Mu3Library.Foundation.Event
             info.Subscribe();
         }
 
-        public void UnSubscribe(uint subscriptionId)
+        public void Unsubscribe(uint subscriptionId)
         {
             if (_disposed)
             {

@@ -8,6 +8,7 @@ Use this section when the question is which package family owns the work.
 |---|---|---|
 | Work is clearly inside `Mu3Library_Base` | [base.md](base.md) | Chooses the base-package surface and applies its compact rules |
 | Work is clearly inside `Mu3Library_URP` | [urp.md](urp.md) | Chooses the URP-package surface and applies its compact rules |
+| Work is clearly inside `Mu3Library_Game_WatermelonGame` | [watermelon.md](watermelon.md) | Chooses the Watermelon Game package surface and applies its compact rules |
 
 ## Notes
 

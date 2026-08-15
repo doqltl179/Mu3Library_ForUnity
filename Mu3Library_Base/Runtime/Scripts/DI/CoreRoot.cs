@@ -80,6 +80,11 @@ namespace Mu3Library.DI
 
             _cores.Clear();
             _orderedCores.Clear();
+
+            _subscribeHandler.Dispose();
+
+            OnCoreInitialized = null;
+            OnCorePrepared = null;
         }
 
         private void Update()

@@ -24,10 +24,6 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
         /// </summary>
         public IBoardCommand Current => GetCommand(_currentIndex);
 
-        private readonly Action _onComplete;
-
-
-
         public SequenceCommand(params IBoardCommand[] commands)
             : this(null, commands)
         {
@@ -36,27 +32,11 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
         /// <param name="onComplete">Called once every step is done, never on a canceled sequence.</param>
         /// <param name="commands">The steps, run in the order they are given.</param>
         public SequenceCommand(Action onComplete, params IBoardCommand[] commands)
-            : base(commands)
+            : base(onComplete, commands)
         {
-            _onComplete = onComplete;
         }
 
-        protected override void OnRun()
-        {
-            Step(0.0f);
-        }
-
-        protected override void OnUpdate(float deltaTime)
-        {
-            Step(deltaTime);
-        }
-
-        protected override void OnComplete()
-        {
-            _onComplete?.Invoke();
-        }
-
-        private void Step(float deltaTime)
+        protected override void Step(float deltaTime)
         {
             while (_currentIndex < _commands.Length)
             {

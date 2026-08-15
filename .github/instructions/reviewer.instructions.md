@@ -6,6 +6,8 @@ description: "Review checklist for regression, API, package-boundary, documentat
 
 Use this checklist when changes are ready for review, and always for public API, `.asmdef`, define-gate, package metadata, docs-sync, or release work.
 
+For a graph node or fan-in result, also use `docs/ai-agents/workflow/graph-engineering.md` and review the assigned write scope, exact produced commits, dependency state, and node-local or combined verification as applicable.
+
 ## Priorities
 
 1. Behavioral regressions.
@@ -23,6 +25,8 @@ Use this checklist when changes are ready for review, and always for public API,
 - `.meta`-sensitive asset operations are safe.
 - README/CHANGELOG synchronization is complete when required.
 - Verification evidence exists for the touched surface.
+- Graph output contains no out-of-scope paths and all required predecessors are integrated before dependent-node approval.
+- Graph gates name exact candidate commit IDs or the exact integration tip and return an explicit `approved` or `rework` disposition; never approve a moving ref implicitly.
 
 ## Output Rule
 

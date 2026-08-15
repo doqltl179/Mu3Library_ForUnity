@@ -28,6 +28,15 @@ namespace Mu3Library.UI.MVP
 
 
 
+        /// <summary>
+        /// Drops the render camera reference. The camera object itself hangs under the manager
+        /// <br/> root and goes away with it.
+        /// </summary>
+        private void DisposeRenderCamera()
+        {
+            m_renderCamera = null;
+        }
+
         public void RemoveCullingMask(string layerName)
         {
             int layerIndex = LayerMask.NameToLayer(layerName);
