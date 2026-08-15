@@ -13,6 +13,19 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
+### 수정됨
+- `MVPManager`: `LoadFunc()`나 `OpenFunc()` 안에서 연 presenter가 이제 부모를 owner로 찾습니다. manager가 presenter를 상태 목록에 넣는 시점이 해당 생명주기 콜백이 이미 끝난 뒤였기 때문에, 두 콜백에서 호출한 `OpenAsChild()`는 owner 항목을 찾지 못하고 `Owner presenter not found or not active` 경고를 남긴 뒤 자식을 분리된 상태로 열었습니다. ownership 연결도, owner `RectTransform`을 host로 쓰는 것도, 연쇄 close도 모두 빠졌습니다. 이제 모든 phase 전이가 그 phase에 해당하는 콜백보다 먼저 일어나므로, presenter는 자신의 `LoadFunc()`, `OpenFunc()`, `CloseFunc()`, `UnloadFunc()`가 실행되는 동안 계속 조회됩니다.
+- `MVPManager`: 연쇄 close가 아직 loading 중인 자식까지 닫습니다. 그런 자식은 load 대기열에만 있었고 close 경로는 그 목록을 읽지 않았기 때문에, owner를 강제로 닫으면 사라지는 view 아래에 고아로 남았습니다. loading 중인 view는 한 번도 표시된 적이 없어 비활성 상태이므로, close coroutine이 돌 수 있도록 먼저 활성화합니다.
+- `MVPManager`: 닫을 수 없는 presenter가 이제 자식을 건드리지 않습니다. 기존 close 경로는 자식 체인 전체를 먼저 강제로 닫은 다음에야 정작 자기 자신이 닫을 수 없는 상태임을 확인했고, 그래서 그대로 열려 있는 presenter의 자식만 전부 정리되었습니다.
+- `MVPManager`: sorting order 배치가 아직 loading 중인 presenter까지 셉니다. 기존에는 view가 화면에 있는 항목만 읽었기 때문에, 같은 프레임에 연 같은 타입 view 두 개가 모두 prefab의 sorting order를 그대로 유지한 채 겹쳤습니다. 이제 레지스트리를 읽으며, 배치 중인 presenter 자신만 건너뜁니다.
+- `MVPManager`: `CloseAll()`, `CloseAll(IEnumerable<string>)`, `CloseAllWithoutDefault()`가 아직 loading 중인 presenter도 후보로 삼습니다. close 시점과 같은 프레임에 연 창은 load 대기열에만 있었고 close 경로가 그 목록을 읽지 않았기 때문에, 닫히지 않고 살아남아 바로 뒤에 나타났습니다. 이제 강제 close는 그 창까지 닫고, 강제가 아닌 close는 기존처럼 두고 갑니다.
+
+### 변경됨
+- `MVPManager`: 세 개의 close-all 오버로드가 각자 반복문 쌍을 들고 있던 방식 대신 하나의 후보 수집기를 공유합니다. opened, opening, loading 순서로 훑기 때문에 연쇄 close 대상인 자식보다 owner에 항상 먼저 도달합니다.
+- `MVPManager`: presenter 조회가 `Dictionary<PresenterBase, PresenterEntry>` 레지스트리를 거칩니다. 이 레지스트리는 항목이 열리는 순간부터 pooling되거나 view가 파괴될 때까지 보관하며, opened/open-check/load-check 세 목록을 선형 탐색하던 방식을 대체합니다. 조회는 O(1)이 되고, 다섯 개의 상태 목록은 순수한 상태별 대기열이 되었으며, owner 거부 판단이 "그 순간 어느 목록에 있었는가"가 아니라 기록된 phase 기준으로 바뀌어 닫히는 중이거나 unload 중인 presenter는 새 자식을 받지 않습니다. `CleanupDestroyedPresenters()`도 다섯 목록 대신 레지스트리를 한 번만 훑습니다.
+
 ## [base/0.23.0] - 2026-08-15
 
 ### 추가됨

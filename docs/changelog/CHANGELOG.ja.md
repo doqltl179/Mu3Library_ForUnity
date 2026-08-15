@@ -15,6 +15,19 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
+### 修正
+- `MVPManager`: `LoadFunc()` や `OpenFunc()` の中で開いた presenter が親を owner として解決するようになりました。manager が presenter を状態リストへ入れるのは対応するライフサイクルコールバックが返った後だったため、どちらのコールバックから呼んだ `OpenAsChild()` も owner エントリを見つけられず、`Owner presenter not found or not active` を記録して子を切り離した状態で開いていました。ownership の連結も、owner の `RectTransform` を host に使うことも、連鎖 close も抜け落ちていました。すべての phase 遷移がその phase に対応するコールバックより先に行われるようになり、presenter は自身の `LoadFunc()`、`OpenFunc()`、`CloseFunc()`、`UnloadFunc()` の実行中も解決できます。
+- `MVPManager`: 連鎖 close がまだ loading 中の子にも届きます。そうした子は load 待ち行列にしか存在せず close 経路はその一覧を読まなかったため、owner を強制的に閉じると消えていく view の下に孤児として残っていました。loading 中の view は一度も表示されておらず非アクティブなので、close コルーチンが動けるよう先に有効化します。
+- `MVPManager`: 閉じられない presenter が子に手を出さなくなりました。従来の close 経路は子の連鎖を先にすべて強制 close してから、自分自身が閉じられない状態だと判明していたため、開いたままの presenter の子だけが破棄されていました。
+- `MVPManager`: sorting order の配置がまだ loading 中の presenter も数えます。従来は view が画面に出ているエントリしか読まなかったため、同じフレームに開いた同一タイプの view 2 つが prefab の sorting order のまま重なっていました。現在はレジストリを読み、配置中の presenter 自身だけを除外します。
+- `MVPManager`: `CloseAll()`、`CloseAll(IEnumerable<string>)`、`CloseAllWithoutDefault()` がまだ loading 中の presenter も候補にします。close と同じフレームに開いた window は load 待ち行列にしか存在せず、close 経路がその一覧を読まなかったため、閉じられずに残って直後に現れていました。強制 close はその window も閉じ、強制でない close は従来どおり残します。
+
+### 変更
+- `MVPManager`: 3 つの close-all オーバーロードが、それぞれ持っていたループの組の代わりに 1 つの候補収集処理を共有します。opened、opening、loading の順に走査するため、連鎖 close の対象となる子より先に必ず owner へ到達します。
+- `MVPManager`: presenter の検索が `Dictionary<PresenterBase, PresenterEntry>` レジストリを経由します。このレジストリはエントリを開いた瞬間から pooling されるか view が破棄されるまで保持し、opened / open-check / load-check の 3 リストを線形走査する方式を置き換えます。検索は O(1) になり、5 つの状態リストは純粋な状態別キューになり、owner の可否判定が「その時どのリストにいたか」ではなく記録された phase に基づくようになったため、close 中や unload 中の presenter は新しい子を受け取りません。`CleanupDestroyedPresenters()` も 5 つのリストではなくレジストリを 1 回だけ走査します。
+
 ## [base/0.23.0] - 2026-08-15
 
 ### 追加

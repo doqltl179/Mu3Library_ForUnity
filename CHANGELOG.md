@@ -15,6 +15,19 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.23.1] - 2026-08-15
+
+### Fixed
+- `MVPManager`: A presenter opened from inside `LoadFunc()` or `OpenFunc()` now resolves its parent as owner. The manager put a presenter into its state list only after the matching lifecycle callback had already returned, so `OpenAsChild()` called from either callback found no owner entry, logged `Owner presenter not found or not active`, and opened the child detached: without the ownership link, without the owner `RectTransform` as its host, and outside the cascade close. Every phase transition now happens before the callback that belongs to it, so a presenter stays resolvable while its own `LoadFunc()`, `OpenFunc()`, `CloseFunc()`, and `UnloadFunc()` run.
+- `MVPManager`: A cascade close now reaches a child that is still loading. Such a child only ever sat in the load queue, which the close path never read, so force-closing its owner left it behind as an orphan under a view that was already going away. A loading view has never been shown and is therefore inactive, so it is activated first to let the close coroutine run.
+- `MVPManager`: A presenter that cannot close now leaves its children alone. The close path force-closed the whole child chain first and only then found out that the presenter itself was not closable, which tore down every child of a presenter that stayed open.
+- `MVPManager`: Sorting order placement counts presenters that are still loading. It read only the entries whose view was on screen, so two views of the same type opened in the same frame both kept the sorting order of their prefab and overlapped. Placement reads the registry now and skips only the presenter it is placing.
+- `MVPManager`: `CloseAll()`, `CloseAll(IEnumerable<string>)`, and `CloseAllWithoutDefault()` offer presenters that are still loading. A window opened in the same frame as the close-all pass sat only in the load queue, which the pass never read, so it survived the close and appeared right afterwards. A forced close now takes it, while an unforced one still leaves it alone.
+
+### Changed
+- `MVPManager`: The three close-all overloads share one candidate collector instead of each carrying its own pair of loops. It walks the opened, opening, and loading presenters in that order, so an owner is always reached before the children it cascades to.
+- `MVPManager`: Presenter lookup goes through a `Dictionary<PresenterBase, PresenterEntry>` registry that holds an entry from the moment it is opened until it is pooled or its view is destroyed, replacing three linear scans over the opened, open-check, and load-check lists. Lookup is O(1), the five state lists became pure per-state queues, and an owner is now refused on its recorded phase — one that is closing or unloading takes no new children — instead of on whichever list it happened to sit in. `CleanupDestroyedPresenters()` sweeps the registry once rather than all five lists.
+
 ## [base/0.23.0] - 2026-08-15
 
 ### Added
