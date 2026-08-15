@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mu3Library.Extensions;
+using Mu3Library.Utility;
 
 namespace Mu3Library.UI.Area
 {
@@ -8,6 +9,12 @@ namespace Mu3Library.UI.Area
     /// <para>
     /// The safe area drives the RectTransform properties it owns, which the inspector then shows as read only:
     /// the anchors, the position, the size and the pivot. The rotation and the scale are never driven.
+    /// </para>
+    /// <para>
+    /// The screen is followed through what reports it instead of through a per frame check: Unity sends
+    /// <see cref="OnRectTransformDimensionsChange"/> as soon as the canvas follows a screen that changed
+    /// size or orientation, and <see cref="ScreenChangeNotifier"/> reports a safe area that changed while
+    /// the screen kept its size, such as the one a device turned upside down leaves behind.
     /// </para>
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -30,32 +37,50 @@ namespace Mu3Library.UI.Area
 
         private DrivenRectTransformTracker _drivenTracker;
 
+        private bool _isCalculating = false;
+
 
 
         protected virtual void OnEnable()
         {
+            ScreenChangeNotifier.OnChanged += OnScreenChanged;
+
             Calculate();
         }
 
         protected virtual void OnDisable()
         {
+            ScreenChangeNotifier.OnChanged -= OnScreenChanged;
+
             _drivenTracker.Clear();
         }
 
-        protected virtual void Update()
+        /// <summary>
+        /// Unity sends this when this RectTransform or the one of its parent changed size, which is
+        /// what a canvas does as soon as the screen it covers changes resolution or orientation.
+        /// </summary>
+        protected virtual void OnRectTransformDimensionsChange()
         {
-            if (IsScreenChanged())
+            if (!isActiveAndEnabled)
             {
-                Calculate();
+                return;
             }
+
+            OnScreenChanged();
         }
 
         #region Utility
         public void Calculate()
         {
+            if (_isCalculating)
+            {
+                return;
+            }
+
             Rect safeAreaRect = Screen.safeArea;
-            float screenWidth = Screen.width;
-            float screenHeight = Screen.height;
+            Vector2Int screenSize = new Vector2Int(Screen.width, Screen.height);
+            float screenWidth = screenSize.x;
+            float screenHeight = screenSize.y;
 
             if (screenWidth <= 0.0f || screenHeight <= 0.0f)
             {
@@ -78,17 +103,37 @@ namespace Mu3Library.UI.Area
 
             UpdateDrivenProperties(rectTransform);
 
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            rectTransform.AnchorTo(anchorMin, anchorMax);
-
+            // Anchoring resizes the rect, which sends OnRectTransformDimensionsChange back here.
+            // Reporting the applied screen first is what leaves that message nothing to do.
             _appliedSafeArea = safeAreaRect;
-            _appliedScreenSize = new Vector2Int(Screen.width, Screen.height);
+            _appliedScreenSize = screenSize;
+
+            _isCalculating = true;
+            try
+            {
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                rectTransform.AnchorTo(anchorMin, anchorMax);
+            }
+            finally
+            {
+                _isCalculating = false;
+            }
 
             OnCalculated(safeAreaRect);
         }
         #endregion
 
         protected virtual void OnCalculated(Rect safeArea) { }
+
+        private void OnScreenChanged()
+        {
+            if (!IsScreenChanged())
+            {
+                return;
+            }
+
+            Calculate();
+        }
 
         private void UpdateDrivenProperties(RectTransform rectTransform)
         {
