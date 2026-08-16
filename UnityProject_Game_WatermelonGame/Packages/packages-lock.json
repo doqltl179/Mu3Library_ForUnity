@@ -18,7 +18,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.github.doqltl179.mu3library.base": "0.22.0",
+        "com.github.doqltl179.mu3library.base": "0.23.0",
         "com.github.doqltl179.mu3library.urp": "0.2.1",
         "com.unity.ugui": "2.0.0"
       }
