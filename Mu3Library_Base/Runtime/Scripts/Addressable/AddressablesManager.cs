@@ -54,6 +54,10 @@ namespace Mu3Library.Addressable
 
             if (_initializeHandle.IsValid())
             {
+                // Both initialize paths attach this handler now, so it is taken back off before
+                // the handle goes, and a completion that lands later cannot write state back
+                // into a manager that has already been torn down.
+                _initializeHandle.Completed -= OnInitializeCompleted;
                 Addressables.Release(_initializeHandle);
             }
 

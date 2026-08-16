@@ -15,6 +15,28 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `ILocalizationManager`: `GetStringAsync(EntryData)` completes the async surface. It previously took only a table name and a key, while the callback API already accepted the `EntryData` the Localization data exporter generates.
+- `ILocalizationManagerEventBus`: `OnLocaleChanged` reports every selected locale change, including one made outside this manager. `LocalizationManager` holds the subscription on the Localization package itself and takes it back off in `Dispose()`, so a caller no longer attaches to `LocalizationSettings` and has to remember to detach.
+
+### Changed
+- `ILocalizationManager`: `AddLocaleChangedEvent(Action<Locale>)` and `RemoveLocaleChangedEvent(Action<Locale>)` are removed. Subscribing to a locale change belongs to the event bus, so `ILocalizationManagerEventBus.OnLocaleChanged` replaces both; resolve the manager as `ILocalizationManagerEventBus` and use `+=` and `-=`.
+- `ILocalizationManager`: `GetAllKeys` returns `IReadOnlyList<string>` and `GetAvailableLocales` returns `IReadOnlyList<Locale>`. `GetAvailableLocales` used to hand out the very `List<Locale>` the Localization package keeps, which a caller could sort or clear.
+- `Mu3Library.Localization.Data`: `EntryData`, `LocaleData`, and `TableData` are behind `MU3LIBRARY_LOCALIZATION_SUPPORT` now, the way `Mu3Library.Addressable.Data` already was. The exporter does not gate the scripts it generates, so a project that keeps generated localization scripts while the define is off has to remove them as well.
+- `LocalizationManager.InitializeAsync()`: A failed initialization no longer rethrows out of the await. It is reported the way the callback API reports it, through `IsInitialized`, `InitializeError`, and `OnInitializeResult`, and it is still logged.
+- `LocalizationManager`: A project that carries no `LocalizationSettings` asset is answered with an empty string, an empty list, or the fallback locale, instead of being handed a throwaway default. Reading a `LocalizationSettings` member creates a default settings object on access and logs a warning for it, so every entry point checks `LocalizationSettings.HasSettings` first.
+- `AddressablesManager.InitializeAsync()`: A failed initialization no longer rethrows out of the await. It is reported the way the callback API reports it, through `IsInitialized`, `InitializeError`, and `OnInitializeResult`, and it is still logged, so all three initialize entry points report one failure the same way. It also runs through `BeginInitialize()` instead of repeating the handle acquisition and completion sequence, which had left the callback and the async path free to drift apart.
+
+### Fixed
+- `LocalizationManager`: A custom locale code no longer throws while the default locale is resolved or a locale is looked up by English name. `LocaleIdentifier.CultureInfo` stays null for a code the culture table does not carry, which the Localization package documents as a supported case, and both lookups read it straight through.
+- `LocalizationManager`: `GetSelectedLocale(Action<Locale>)` waits on the handle it checked. It read `LocalizationSettings.SelectedLocaleAsync` again to attach the completion handler, and assigning `SelectedLocale` in between releases that operation and builds a new one, so the handle that was tested for completion and the handle that carried the callback could be different ones. The property is read once now.
+- `LocalizationManager`: A canceled `ChangeLocaleAsync(Locale)` no longer reports that the change which replaced it has finished. The superseded call cleared `IsLocaleChanging` from its own `finally`, after the newer call had already set it. Only the call that still owns the cancellation source settles that state now.
+- `LocalizationManager`: `CurrentLocale` follows a locale change made outside the manager. Only this manager's own change methods wrote it, so setting `LocalizationSettings.SelectedLocale` directly, or letting a startup selector choose, left it reporting the previous locale.
+- `LocalizationManager`: `ChangeLocaleToNative()` matches a system language whose enum name differs from its culture's English name. Comparing `SystemLanguage.ToString()` against `CultureInfo.EnglishName` could never match `ChineseSimplified` against `Chinese (Simplified)`. The identifier the Localization package builds from a `SystemLanguage` is tried first, then the same language with any region, and the English name last.
+- `LocalizationManager`: `GetStringAsync(string, string)` returns an empty string for a failed table load, as it was meant to. The status check after the await was unreachable, because awaiting a failed operation throws before it is read.
+- `AddressablesManager`: `InitializeAsync()` no longer awaits inside a `finally` while an exception is in flight. A caller that arrived while an initialization was already running waited there on `UniTask.WaitUntil`, which carries neither a timeout nor a cancellation token, so the wait held the exception instead of letting it surface.
+- `AddressablesManager`: `Dispose()` takes its completion handler back off the initialization handle before releasing it, so a completion that lands after disposal cannot write `_isInitialized` back into a manager that has already been torn down.
+
 ## [game/watermelon/0.5.0] - 2026-08-16
 
 ### Added

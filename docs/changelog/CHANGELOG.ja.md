@@ -15,6 +15,28 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `ILocalizationManager`: `GetStringAsync(EntryData)` を追加し、非同期 API が揃いました。これまではテーブル名とキーしか受け取らず、コールバック API のほうは Localization データエクスポーターが生成する `EntryData` をすでに受け取っていました。
+- `ILocalizationManagerEventBus`: `OnLocaleChanged` が選択ロケールのすべての変更を通知します。このマネージャーの外で行われた変更も含みます。`LocalizationManager` が Localization パッケージへの購読を自ら所有し `Dispose()` で外すため、呼び出し側が `LocalizationSettings` に直接登録して解除を忘れることがなくなります。
+
+### 変更
+- `ILocalizationManager`: `AddLocaleChangedEvent(Action<Locale>)` と `RemoveLocaleChangedEvent(Action<Locale>)` を削除しました。ロケール変更の購読はイベントバスの担当なので、`ILocalizationManagerEventBus.OnLocaleChanged` が両方を置き換えます。マネージャーを `ILocalizationManagerEventBus` として解決し、`+=` と `-=` を使ってください。
+- `ILocalizationManager`: `GetAllKeys` は `IReadOnlyList<string>` を、`GetAvailableLocales` は `IReadOnlyList<Locale>` を返します。これまでの `GetAvailableLocales` は Localization パッケージが保持する `List<Locale>` そのものを渡しており、呼び出し側が並べ替えたり空にしたりできました。
+- `Mu3Library.Localization.Data`: `EntryData`、`LocaleData`、`TableData` を `Mu3Library.Addressable.Data` と同じく `MU3LIBRARY_LOCALIZATION_SUPPORT` で囲みました。エクスポーターが生成するスクリプトにはこのガードがないため、define を切ったまま生成済みの Localization スクリプトを残しているプロジェクトは、そのスクリプトも併せて削除する必要があります。
+- `LocalizationManager.InitializeAsync()`: 初期化の失敗が await の外へ再スローされなくなりました。コールバック API と同じく `IsInitialized`、`InitializeError`、`OnInitializeResult` を通じて報告され、ログもこれまでどおり残ります。
+- `LocalizationManager`: `LocalizationSettings` アセットを持たないプロジェクトには、使い捨ての既定設定を渡す代わりに空文字列、空のリスト、またはフォールバックロケールを返します。`LocalizationSettings` のメンバーを読むとアクセス時に既定の設定オブジェクトが作られ、その警告も出るため、各入口でまず `LocalizationSettings.HasSettings` を確認します。
+- `AddressablesManager.InitializeAsync()`: 初期化の失敗が await の外へ再スローされなくなりました。コールバック API と同じく `IsInitialized`、`InitializeError`、`OnInitializeResult` を通じて報告され、ログもこれまでどおり残るため、3 つの入口が 1 つの失敗を同じ形で伝えます。また、ハンドルの取得と完了処理の手順を書き直す代わりに `BeginInitialize()` を通すので、コールバック経路と async 経路が食い違う余地がなくなります。
+
+### 修正
+- `LocalizationManager`: カスタムロケールコードで既定ロケールを解決するときや英語名でロケールを探すときに例外が出なくなりました。`LocaleIdentifier.CultureInfo` は culture 表にないコードでは null のままで、Localization パッケージはこれを正常なケースとして文書化していますが、どちらの検索もこの値をそのまま参照していました。
+- `LocalizationManager`: `GetSelectedLocale(Action<Locale>)` が、自分で確認したハンドルをそのまま待ちます。完了ハンドラーを登録する際に `LocalizationSettings.SelectedLocaleAsync` を読み直していましたが、その間に `SelectedLocale` を代入すると既存のオペレーションが解放されて新しいものが作られるため、完了を確認したハンドルとコールバックを載せたハンドルが別物になり得ました。今はプロパティを一度だけ読みます。
+- `LocalizationManager`: キャンセルされた `ChangeLocaleAsync(Locale)` が、自分を置き換えた変更の完了を報告しなくなりました。追い越された呼び出しが自身の `finally` で `IsLocaleChanging` を下ろしていましたが、その時点では新しい呼び出しがすでに上げた後でした。今はキャンセルソースを保持している呼び出しだけがこの状態を片付けます。
+- `LocalizationManager`: `CurrentLocale` がマネージャーの外で起きたロケール変更に追従します。この値を書いていたのはマネージャー自身の変更メソッドだけだったため、`LocalizationSettings.SelectedLocale` を直接設定した場合や起動時のセレクターが選んだ場合には、以前のロケールを報告し続けていました。
+- `LocalizationManager`: `ChangeLocaleToNative()` が、enum 名と culture の英語名が一致しないシステム言語も解決します。`SystemLanguage.ToString()` と `CultureInfo.EnglishName` の比較では `ChineseSimplified` が `Chinese (Simplified)` に一致することはありませんでした。今は Localization パッケージが `SystemLanguage` から作る識別子を最初に試し、次に地域を問わない同一言語、最後に英語名を試します。
+- `LocalizationManager`: `GetStringAsync(string, string)` がテーブル読み込み失敗時に意図どおり空文字列を返します。await の後ろにあった状態チェックは、失敗したオペレーションを await するとその前に例外が投げられるため到達できませんでした。
+- `AddressablesManager`: `InitializeAsync()` が、例外の伝播中に `finally` の中で await しなくなりました。初期化がすでに動いているときに入ってきた呼び出し側はそこで `UniTask.WaitUntil` を待っていましたが、これにはタイムアウトもキャンセルトークンもないため、例外が表に出ないまま待機に縛られていました。
+- `AddressablesManager`: `Dispose()` が初期化ハンドルを解放する前に完了ハンドラーを外します。片付けの済んだマネージャーに、遅れて届いた完了が `_isInitialized` を書き戻すことができなくなります。
+
 ## [game/watermelon/0.5.0] - 2026-08-16
 
 ### 追加

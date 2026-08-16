@@ -27,17 +27,14 @@ namespace Mu3Library.Localization
         /// </summary>
         public void GetString(EntryData entryData, Action<string> callback);
 
-        public List<string> GetAllKeys(string tableName);
+        public IReadOnlyList<string> GetAllKeys(string tableName);
 
         public void ChangeLocaleToNative();
         public void ChangeLocaleWithEnglishName(string englishName);
         public void ChangeLocale(Locale locale);
 
         public void GetSelectedLocale(Action<Locale> callback);
-        public List<Locale> GetAvailableLocales();
-
-        public void RemoveLocaleChangedEvent(Action<Locale> action);
-        public void AddLocaleChangedEvent(Action<Locale> action);
+        public IReadOnlyList<Locale> GetAvailableLocales();
     }
 }
 #endif

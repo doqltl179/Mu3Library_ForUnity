@@ -287,38 +287,27 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            if (_isInitializing)
+            // BeginInitialize owns acquiring the handle and attaching the completion handler for
+            // the callback and the UniTask paths alike, and leaves a running initialization alone.
+            BeginInitialize();
+
+            AsyncOperationHandle handle = _initializeHandle;
+            if (_isInitializing && handle.IsValid() && !handle.IsDone)
             {
                 try
                 {
-                    await _initializeHandle.ToUniTask();
+                    await handle.ToUniTask();
                 }
-                finally
+                catch (Exception)
                 {
-                    await UniTask.WaitUntil(() => !_isInitializing);
+                    // OnInitializeCompleted logs the failure and reports it through InitializeError
+                    // and OnInitializeResult, so this path stays as quiet as Initialize(Action).
                 }
-
-                return;
             }
 
-            _isInitializing = true;
-            _initializeHandle = Addressables.InitializeAsync();
-            if (_initializeHandle.IsDone)
+            if (_isInitializing)
             {
-                OnInitializeCompleted(_initializeHandle);
-                return;
-            }
-
-            try
-            {
-                await _initializeHandle.ToUniTask();
-            }
-            finally
-            {
-                if (_isInitializing)
-                {
-                    OnInitializeCompleted(_initializeHandle);
-                }
+                await UniTask.WaitUntil(() => !_isInitializing);
             }
         }
 

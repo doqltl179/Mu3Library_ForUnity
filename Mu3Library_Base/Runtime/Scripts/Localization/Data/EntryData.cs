@@ -1,3 +1,4 @@
+#if MU3LIBRARY_LOCALIZATION_SUPPORT
 namespace Mu3Library.Localization.Data
 {
     public sealed class EntryData
@@ -14,3 +15,4 @@ namespace Mu3Library.Localization.Data
         }
     }
 }
+#endif
