@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.24.1] - 2026-08-16
+
 ### 変更
 - `ScreenChangeNotifier`: 画面はゲームが動いている間だけ追従します。ゲームが画面を読むまで `ScreenSize` と `SafeArea` は空のままで、edit mode では `OnChanged` が発生しません。
 - `SafeRect`: 内側に寄せるための safe area を持たない画面では、rect が親を丸ごと覆います。画面をゲームが動いている間だけ追従するようにしたため、edit mode がこの状態になりました。従来は大きさを報告しない画面に対して rect をそのままにしていたので、edit mode で作った rect は play mode が合わせるまで作成時の大きさを保っていました。
