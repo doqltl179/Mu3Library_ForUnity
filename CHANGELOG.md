@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.24.0] - 2026-08-16
+
 ### Added
 - `ILocalizationManager`: `GetStringAsync(EntryData)` completes the async surface. It previously took only a table name and a key, while the callback API already accepted the `EntryData` the Localization data exporter generates.
 - `ILocalizationManagerEventBus`: `OnLocaleChanged` reports every selected locale change, including one made outside this manager. `LocalizationManager` holds the subscription on the Localization package itself and takes it back off in `Dispose()`, so a caller no longer attaches to `LocalizationSettings` and has to remember to detach.

@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.24.0] - 2026-08-16
+
 ### 追加
 - `ILocalizationManager`: `GetStringAsync(EntryData)` を追加し、非同期 API が揃いました。これまではテーブル名とキーしか受け取らず、コールバック API のほうは Localization データエクスポーターが生成する `EntryData` をすでに受け取っていました。
 - `ILocalizationManagerEventBus`: `OnLocaleChanged` が選択ロケールのすべての変更を通知します。このマネージャーの外で行われた変更も含みます。`LocalizationManager` が Localization パッケージへの購読を自ら所有し `Dispose()` で外すため、呼び出し側が `LocalizationSettings` に直接登録して解除を忘れることがなくなります。
