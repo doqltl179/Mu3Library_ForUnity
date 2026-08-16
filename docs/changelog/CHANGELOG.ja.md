@@ -15,6 +15,8 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [game/watermelon/0.5.0] - 2026-08-16
+
 ### 追加
 - `BoardItemInfo.ColliderOffset`: catalog 項目の collider 中心を collider 直径に対する比率で指定する設定を追加しました。既定値は `(0.0, -0.03)` です。board は item index ごとの collider 直径をどの画面解像度でも同じに保つため、ここに書いた offset もどこでも同じ比率だけ接触領域を動かします。このフィールドが存在する前に serialize された項目は `(0, 0)` として読まれ、collider は sprite の中心に置かれます。
 - `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` と `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: board local 空間での item index の接触直径を返す method を追加しました。index と board の大きさだけで決まり、config が持つ sprite には左右されません。

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [game/watermelon/0.5.0] - 2026-08-16
+
 - Changed the board-relative resize to size the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. An item is now scaled until its collider reaches that diameter and its sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied, and a catalog entry whose collider covers less of its sprite is drawn larger than before.
 - Added `BoardItemInfo.ColliderOffset`, the collider center of a catalog entry as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The collider diameter of an item index is the same on every screen resolution, so this offset is too. An entry serialized before this field existed reads `(0, 0)` and keeps its collider centered on the sprite.
 - Changed `BoardItemScaleRule.GetBoardScale` to take the `BoardItemInfo` where it took a `Sprite`, because the collider scale of the entry is now part of what is measured. `GetBoardScale(int, Sprite, Vector2)` and `GetBoardScale(int, Sprite, Vector2, float, float)` are gone; a subclass that overrode the sprite overload overrides the new one instead.

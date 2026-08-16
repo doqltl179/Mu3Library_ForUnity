@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [game/watermelon/0.5.0] - 2026-08-16
+
 ### Added
 - `BoardItemInfo.ColliderOffset`: Added the collider center of a catalog entry, measured as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The board keeps the collider diameter of an item index the same on every screen resolution, so an offset written here moves the contact area by the same fraction of it everywhere. An entry serialized before this field existed reads `(0, 0)`, which centers the collider on the sprite.
 - `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` and `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: Added the contact diameter of an item index in the board local space, which depends on the index and the board size alone and never on the sprites a configuration carries.
