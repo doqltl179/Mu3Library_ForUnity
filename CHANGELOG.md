@@ -15,6 +15,13 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- `ScreenChangeNotifier`: The screen is followed only while the game runs. `ScreenSize` and `SafeArea` stay empty until the game reads the screen, and `OnChanged` is never raised in edit mode.
+- `SafeRect`: A screen that holds no safe area to inset by leaves the rect covering its parent whole, which is what edit mode gives it now that the screen is followed only while the game runs. A screen that reported no size used to leave the rect untouched instead, so a rect created in edit mode kept the size it was created with until play mode fitted it.
+
+### Fixed
+- `SafeRect`: The rect no longer takes a new size on every frame of edit mode. `ScreenChangeNotifier` read the screen from the editor loop, where `Screen` answers with the view the editor is drawing: a game view on one tick, a scene view or an inspector on the next. Every tick therefore looked like a screen that had just changed, and the safe area was applied again from a different pair of numbers each time, while nothing on the screen had changed at all.
+
 ## [base/0.24.0] - 2026-08-16
 
 ### Added

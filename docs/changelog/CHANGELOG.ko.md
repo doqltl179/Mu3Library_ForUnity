@@ -13,6 +13,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- `ScreenChangeNotifier`: 화면은 게임이 도는 동안에만 따라갑니다. 게임이 화면을 읽기 전까지 `ScreenSize`와 `SafeArea`는 비어 있고, edit mode에서는 `OnChanged`가 발생하지 않습니다.
+- `SafeRect`: 안쪽으로 물러날 safe area가 없는 화면에서는 rect가 부모를 통째로 덮습니다. 화면을 게임이 도는 동안에만 따라가게 되면서 edit mode가 이 상태가 되었습니다. 기존에는 크기를 보고하지 않는 화면을 만나면 rect를 그대로 두었기 때문에, edit mode에서 만든 rect는 play mode가 맞춰줄 때까지 생성 당시의 크기를 그대로 들고 있었습니다.
+
+### 수정됨
+- `SafeRect`: edit mode에서 rect가 매 프레임 새로운 크기를 갖던 문제를 고쳤습니다. `ScreenChangeNotifier`가 에디터 루프에서 화면을 읽었는데, 이때 `Screen`은 에디터가 그리고 있는 view를 답으로 돌려줍니다. 어떤 틱에서는 game view, 다음 틱에서는 scene view나 inspector였습니다. 그래서 모든 틱이 방금 바뀐 화면처럼 보였고, 화면에서는 아무것도 바뀌지 않았는데도 매번 다른 값 한 쌍으로 safe area가 다시 적용되었습니다.
+
 ## [base/0.24.0] - 2026-08-16
 
 ### 추가됨
