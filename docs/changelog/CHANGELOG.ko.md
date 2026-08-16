@@ -13,6 +13,15 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- `BoardItemInfo.ColliderOffset`: catalog 항목의 collider 중심을 collider 지름 대비 비율로 지정하는 설정을 추가했습니다. 기본값은 `(0.0, -0.03)`입니다. board는 item index별 collider 지름을 모든 화면 해상도에서 동일하게 유지하므로, 여기에 적은 offset도 어디서나 접촉 영역을 같은 비율만큼 이동시킵니다. 이 필드가 생기기 전에 직렬화된 항목은 `(0, 0)`으로 읽혀 collider가 sprite 중심에 놓입니다.
+- `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)`와 `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: board local 공간에서 item index의 접촉 지름을 반환하는 메서드를 추가했습니다. index와 board 크기만으로 결정되며, config가 담고 있는 sprite에는 좌우되지 않습니다.
+- `BoardItem.BoardLocalColliderCenter`: item 위치를 기준으로 부모(board) local 공간에서 잰 collider 중심을 추가했습니다. 들고 있는 item을 clamp 하는 기준이자 spawn marker가 올라서는 기준입니다.
+
+### 변경됨
+- `BoardItemScaleRule`: board 기준 리사이즈가 item sprite가 아니라 item collider의 크기를 맞추도록 변경했습니다. 기존에는 sprite를 item index가 요구하는 지름에 맞춘 뒤 그 안에서 collider를 다시 줄였기 때문에, `BoardItemInfo.ColliderScale`이 실제 플레이 크기를 결정했고 새 config가 들어오면 모든 index의 접촉 영역이 함께 달라졌습니다. 이제 rule은 collider가 그 지름에 도달할 때까지 item을 확대하고 sprite는 그 결과에 맞춰 그려지므로, 어떤 config를 적용해도 item index별 접촉 영역이 같습니다. collider가 sprite에서 차지하는 비율이 작은 항목은 그만큼 sprite가 이전보다 크게 그려지며, 이는 접촉 영역을 일정하게 유지하기 위한 의도된 결과입니다.
+- `BoardItemScaleRule.GetBoardScale`: `Sprite`를 받던 자리에서 `BoardItemInfo`를 받습니다. 항목의 collider 비율까지 함께 재기 때문입니다. `GetBoardScale(int, Sprite, Vector2)`와 `GetBoardScale(int, Sprite, Vector2, float, float)`는 제거했으니 catalog 항목을 넘기세요. sprite 오버로드를 override 하던 파생 클래스는 새 오버로드를 override 해야 합니다.
+- `BoardController`: 들고 있는 item을 sprite 경계가 아니라 접촉 영역 기준으로 item 영역 안에 clamp 하며, spawn marker도 접촉 중심 위에 놓입니다. item index를 떨어뜨릴 수 있는 위치가 sprite 여백에 좌우되지 않습니다.
 ## [base/0.23.3] - 2026-08-15
 
 ### 수정됨

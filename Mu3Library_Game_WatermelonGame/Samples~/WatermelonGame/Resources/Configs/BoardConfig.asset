@@ -21,26 +21,37 @@ MonoBehaviour:
     _itemInfos:
     - _sprite: {fileID: 21300000, guid: d389462c018d7044c82c8ddd639a6df6, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: b5a59e1746680f249b26037dd50252dd, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 6625972bd87a80c41ab08295f8861e09, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: ed4a3cb8f29ef304ebe35d9210890bd8, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: cd3b27ace1aad0a47ade25cf36612605, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 31c68afa0f81a4f4f8d36372684aed65, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 45a91690b855bb1448acddb4ac04beb5, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 5fc90e980ec0ffd41b1f5587ad052451, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: c386d2149619931489ab42d64d28ce86, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 62d26cb607124974880e0082319b5c17, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
     - _sprite: {fileID: 21300000, guid: 8fae46ca3d524af5ab7d20cc1482b801, type: 3}
       _colliderScale: 0.97
+      _colliderOffset: {x: 0, y: -0.03}
   _soundConfig:
     _bgmClips:
     - {fileID: 8300000, guid: 0c9d1a2b3e4f456789abcdef01234567, type: 3}

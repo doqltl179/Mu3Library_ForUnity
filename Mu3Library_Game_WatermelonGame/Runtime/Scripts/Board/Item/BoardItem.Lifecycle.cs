@@ -65,8 +65,16 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
             {
                 // The sprite usually carries transparent padding, so the collider is shrunk
                 // to the part of it that should actually touch the other items.
+                // The board then scales the item until this collider is as big as the item index
+                // asks for, which is why the sprite is drawn past the collider and not inside it.
                 Vector2 spriteSize = info.Sprite.bounds.size;
-                _collider.radius = Mathf.Max(spriteSize.x, spriteSize.y) * 0.5f * info.ColliderScale;
+                float colliderRadius = Mathf.Max(spriteSize.x, spriteSize.y) * 0.5f * info.ColliderScale;
+
+                _collider.radius = colliderRadius;
+
+                // The offset is measured against the collider diameter, the one size that stays
+                // the same for an item index on every screen resolution and in every configuration.
+                _collider.offset = info.ColliderOffset * (colliderRadius * 2.0f);
             }
         }
 

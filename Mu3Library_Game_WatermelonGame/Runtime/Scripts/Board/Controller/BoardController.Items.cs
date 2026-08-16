@@ -24,8 +24,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         private bool _gravityWarningLogged;
 
         /// <summary>
-        /// The scale an item is drawn at. The diameter range belongs to <see cref="ScaleRule"/>,
+        /// The scale an item is drawn at, which is the one that gives its collider the size an item
+        /// <br/> index asks for. The contact diameter range belongs to <see cref="ScaleRule"/>,
         /// <br/> the board only tells it how wide the board is.
+        /// <br/> The sprite reaches past the collider by whatever the catalog entry left around it,
+        /// <br/> so a configuration decides how an item looks and never how large it plays.
         /// </summary>
         protected virtual float GetItemScale(int index, BoardItemInfo info)
         {
@@ -34,7 +37,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return 0.0f;
             }
 
-            return _scaleRule.GetBoardScale(index, info.Sprite, _boardArea.LocalSize);
+            return _scaleRule.GetBoardScale(index, info, _boardArea.LocalSize);
         }
 
         /// <summary>

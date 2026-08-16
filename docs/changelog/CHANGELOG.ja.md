@@ -15,6 +15,15 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- `BoardItemInfo.ColliderOffset`: catalog 項目の collider 中心を collider 直径に対する比率で指定する設定を追加しました。既定値は `(0.0, -0.03)` です。board は item index ごとの collider 直径をどの画面解像度でも同じに保つため、ここに書いた offset もどこでも同じ比率だけ接触領域を動かします。このフィールドが存在する前に serialize された項目は `(0, 0)` として読まれ、collider は sprite の中心に置かれます。
+- `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` と `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: board local 空間での item index の接触直径を返す method を追加しました。index と board の大きさだけで決まり、config が持つ sprite には左右されません。
+- `BoardItem.BoardLocalColliderCenter`: item の位置を基準に親(board) local 空間で測った collider 中心を追加しました。保持中の item を clamp する基準であり、spawn marker が乗る基準でもあります。
+
+### 変更
+- `BoardItemScaleRule`: board 基準の resize を item sprite ではなく item collider の大きさに合わせるよう変更しました。従来は sprite を item index が要求する直径に合わせたうえで、その内側で collider を縮めていたため、`BoardItemInfo.ColliderScale` が実際の当たりの大きさを決め、config を差し替えるとすべての index の接触領域が一緒に変わっていました。今は rule が collider をその直径に届かせるまで item を拡大し、sprite はその結果に合わせて描かれるため、どの config を適用しても item index ごとの接触領域は同じです。collider が sprite に占める割合が小さい項目はその分だけ sprite が以前より大きく描かれますが、これは接触領域を一定に保つための意図した結果です。
+- `BoardItemScaleRule.GetBoardScale`: `Sprite` を受け取っていた位置で `BoardItemInfo` を受け取ります。項目の collider 比率も測る対象になったためです。`GetBoardScale(int, Sprite, Vector2)` と `GetBoardScale(int, Sprite, Vector2, float, float)` は削除したので、catalog 項目を渡してください。sprite の overload を override していた派生 class は新しい overload を override してください。
+- `BoardController`: 保持中の item を sprite の境界ではなく接触領域で item 領域内に clamp し、spawn marker も接触中心の上に置きます。item index を落とせる位置が sprite の余白に左右されません。
 ## [base/0.23.3] - 2026-08-15
 
 ### 修正

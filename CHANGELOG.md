@@ -15,6 +15,15 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- `BoardItemInfo.ColliderOffset`: Added the collider center of a catalog entry, measured as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The board keeps the collider diameter of an item index the same on every screen resolution, so an offset written here moves the contact area by the same fraction of it everywhere. An entry serialized before this field existed reads `(0, 0)`, which centers the collider on the sprite.
+- `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` and `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: Added the contact diameter of an item index in the board local space, which depends on the index and the board size alone and never on the sprites a configuration carries.
+- `BoardItem.BoardLocalColliderCenter`: Added the collider center measured from the item position in the parent(board) local space, which is what the held item is clamped by and what the spawn marker rides above.
+
+### Changed
+- `BoardItemScaleRule`: The board-relative resize now sizes the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. The rule now scales an item until its collider reaches that diameter and the sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied. A catalog entry whose collider covers less of its sprite is therefore drawn larger than before, which is the intended trade for a contact area that stays put.
+- `BoardItemScaleRule.GetBoardScale`: Takes the `BoardItemInfo` where it took a `Sprite`, because the collider scale of the entry is now part of what is measured. `GetBoardScale(int, Sprite, Vector2)` and `GetBoardScale(int, Sprite, Vector2, float, float)` are gone; hand it the catalog entry instead, and override the new overload in a subclass that overrode the sprite one.
+- `BoardController`: The held item is kept inside the item area by its contact area instead of its sprite bounds, and the spawn marker rides above the contact center, so where an item index can be dropped from no longer depends on the padding its sprite carries.
 ## [base/0.23.3] - 2026-08-15
 
 ### Fixed

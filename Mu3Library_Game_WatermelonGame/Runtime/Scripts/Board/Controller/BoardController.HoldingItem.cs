@@ -271,12 +271,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Vector2 holderLocalPos = _boardArea.BoardLocalNormalizedPositionToLocal(new Vector2(boardNormalizedX, 1.0f));
             Rect itemAreaLocalRect = _boardArea.ItemAreaLocalRect;
 
-            Sprite sprite = _holdingItem.Info != null ? _holdingItem.Info.Sprite : null;
-            float itemScale = _holdingItem.Info != null
-                ? GetItemScale(_holdingItem.Index, _holdingItem.Info)
-                : 0.0f;
-            float itemMinX = sprite != null ? sprite.bounds.min.x * itemScale : 0.0f;
-            float itemMaxX = sprite != null ? sprite.bounds.max.x * itemScale : 0.0f;
+            // The item is held by the area it touches with and not by the sprite drawn around it,
+            // the same area the board walls stop once it falls. The sprite is allowed to reach past
+            // the item area, so an item index can be dropped from the same places on every board.
+            Vector2 itemContactCenter = _holdingItem.BoardLocalColliderCenter;
+            float itemContactRadius = _holdingItem.BoardLocalRadius;
+            float itemMinX = itemContactCenter.x - itemContactRadius;
+            float itemMaxX = itemContactCenter.x + itemContactRadius;
 
             float minHolderX = itemAreaLocalRect.xMin - itemMinX;
             float maxHolderX = itemAreaLocalRect.xMax - itemMaxX;
@@ -304,8 +305,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             // The spawn marker rides on the top edge, above the middle of the held item.
-            // The item transform is its pivot, so the sprite bounds give the visual center.
-            _boardArea.SetSpawnLocalPositionX(holderLocalPos.x + (itemMinX + itemMaxX) * 0.5f);
+            // The item transform is its pivot, so the contact center gives the place it falls onto.
+            _boardArea.SetSpawnLocalPositionX(holderLocalPos.x + itemContactCenter.x);
         }
     }
 }

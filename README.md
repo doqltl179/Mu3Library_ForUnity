@@ -386,6 +386,7 @@ URP package (**Mu3 Library URP**):
 Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
 - **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
+- **Item contact area**: The board-relative resize sizes the item collider, so an item index keeps the same contact area in every `BoardConfig`; `BoardItemInfo.ColliderScale` decides how much of the sprite that collider covers, `BoardItemInfo.ColliderOffset` moves it as a fraction of the collider diameter, and the sprite is drawn around the collider
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
 - **Board collision boundaries**: `BoardArea.SetOutColliders()` creates or updates left, right, and bottom `BoxCollider2D` boundaries from the item-area viewport padding while keeping the top open
 - **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants

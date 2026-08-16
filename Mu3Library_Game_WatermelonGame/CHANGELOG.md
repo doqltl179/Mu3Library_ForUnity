@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Changed the board-relative resize to size the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. An item is now scaled until its collider reaches that diameter and its sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied, and a catalog entry whose collider covers less of its sprite is drawn larger than before.
+- Added `BoardItemInfo.ColliderOffset`, the collider center of a catalog entry as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The collider diameter of an item index is the same on every screen resolution, so this offset is too. An entry serialized before this field existed reads `(0, 0)` and keeps its collider centered on the sprite.
+- Changed `BoardItemScaleRule.GetBoardScale` to take the `BoardItemInfo` where it took a `Sprite`, because the collider scale of the entry is now part of what is measured. `GetBoardScale(int, Sprite, Vector2)` and `GetBoardScale(int, Sprite, Vector2, float, float)` are gone; a subclass that overrode the sprite overload overrides the new one instead.
+- Added `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` and `GetBoardContactDiameter(int, Vector2, float, float)`, the contact diameter of an item index in the board local space, which depends on the index and the board size alone.
+- Added `BoardItem.BoardLocalColliderCenter`, the collider center measured from the item position in the parent(board) local space.
+- Changed the held item to be kept inside the item area by its contact area instead of its sprite bounds, with the spawn marker above the contact center, so where an item index can be dropped from no longer depends on the padding its sprite carries.
+
 ## [game/watermelon/0.4.0] - 2026-08-15
 
 - Added the `BoardController` events a project drives its UI and its effects from: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged` and `OnMergeComboChanged`. `OnScoreAdded` carries what a single change really paid out, so a change the zero clamp swallowed is not reported, `OnItemRemoved` runs while the item still carries its catalog entry and its place, and `OnItemAdded` covers every item that joins the board, the player's drop, a merge, a command and a restored snapshot alike.

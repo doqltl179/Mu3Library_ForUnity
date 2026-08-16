@@ -32,6 +32,21 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         }
 
         /// <summary>
+        /// The collider center measured from the item position, in the parent(board) local space.
+        /// <br/> The sprite center and the contact center are not the same place, the catalog entry
+        /// <br/> decides how far they sit apart.
+        /// </summary>
+        public Vector2 BoardLocalColliderCenter
+        {
+            get
+            {
+                Vector3 scale = transform.localScale;
+                Vector2 offset = _collider.offset;
+                return new Vector2(offset.x * scale.x, offset.y * scale.y);
+            }
+        }
+
+        /// <summary>
         /// The local Y of the item's top edge, in the parent(board) local space.
         /// </summary>
         public float BoardLocalTopY => GetBoardLocalTopY(transform.localPosition.y);
@@ -122,10 +137,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         }
 
         private float GetBoardLocalTopY(float localY)
-        {
-            Vector3 scale = transform.localScale;
-            return localY + _collider.offset.y * scale.y + BoardLocalRadius;
-        }
+            => localY + BoardLocalColliderCenter.y + BoardLocalRadius;
 
         /// <summary>
         /// True while the item touches the board floor or another board item.
