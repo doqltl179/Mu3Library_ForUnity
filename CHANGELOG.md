@@ -15,6 +15,57 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.25.0] - 2026-08-17
+
+### Added
+- `Mu3Logger` (Foundation): the pure C# layer logs through a registered sink now. The Base runtime registers a Unity console sink on startup, and the Foundation event classes report the disposed-handler and invalid-id cases they used to swallow.
+- `AudioManager`: `SetMixerGroups` routes each category's sources through an `AudioMixerGroup` while the volume math stays on `AudioSource.volume`; `SaveVolumes`/`LoadVolumes` persist the four category volumes through `IPlayerPrefsLoader`; `DuckBgm` dips the music under a voice line or a heavy SFX; `FadeInSfx`/`FadeInEnvironment` accept settings and a position; and a UniTask surface (`FadeInBgmAsync`, `FadeOutBgmAsync`, `TransitionBgmAsync`, `DuckBgmAsync`) completes when the fade really ended, as canceled when a newer fade replaced it.
+- `ILocalizationManager`: `GetAsset<T>(tableName, key, callback)` and `GetAssetAsync<T>(tableName, key)` load the asset an AssetTable holds for the current locale — a font or a sprite that changes with the language — through the Localization package's own AssetDatabase, the way `GetString` already wraps the StringDatabase.
+- `IMVPManager`: `OpenAsync`/`CloseAsync` complete when the window finished opening or fully left the manager, so a caller awaits the animation instead of chaining window events.
+- `IWebRequestManager`: PUT, PATCH, and DELETE verbs; exponential retry backoff on the callback API; `WebRequestCancellation` aborts a request in flight; and an `onDownloadProgress` callback reports download progress.
+- `IPlayerPrefsLoader`: bool, enum (stored by name), and JSON object entries, with matching defaults.
+- `IInputSystemManagerEventBus`: asset added/removed and rebind started/completed/canceled events.
+- `GameObjectPool`: `MaxSize` destroys what a full pool cannot keep, `Prewarm` fills the pool up front, a return hook runs on every enqueue, and `Count` reports the waiting objects.
+- Editor: `DIValidatorDrawer` reports registrations whose constructor or required `[Inject]` members cannot resolve, without resolving anything; `RuntimeDiagnosticsDrawer` shows the managed MVP presenters and the Addressables cache; the package updater menu covers the WatermelonGame package.
+- Diagnostics: `Container.GetAllDescriptors`/`IsRegistered`/`GetActiveSingletonInstances`, `CoreBase` counterparts, `CoreRoot.RegisteredCores`, `MVPManager.GetPresenterDiagnostics`, and Addressables cache counters back the new drawers.
+- Tests: edit-mode suites for the DI container, the Foundation event classes, the Observables, `GameObjectPool`, and `PlayerPrefsLoader`, registered as a testable in the BuiltIn project.
+- Package-level `README.md`/`CHANGELOG.md` for the Base package.
+
+### Changed
+- `Container.CreateScope()` is internal now. A core owns exactly one scope for its whole life; a second scope could run `Initialize()` twice on a singleton and dispose an instance the container still hands out. **Breaking**: code that created scopes directly has to go through a `CoreBase`.
+- `AudioController`: a finite loop waits for `AudioSource.isPlaying` to end instead of watching normalized time reach 0.97, so a one-shot SFX and a playlist track play to their last sample instead of losing their tail.
+- `AudioManager`: the category volume setters clamp to 0..1; a BGM playlist drops null clips up front and refuses a list with nothing playable, which used to recurse forever.
+- `AddressablesManager`: the asset cache keys carry the requested type, so one address loaded as two types holds two entries instead of releasing each other's handle; `ReleaseCachedAsset` releases everything the key produced — single, list, and keyed-dictionary entries alike; `IsKeyExist` and `GetCachedAddress` keep answering by the base key; catalog updates refresh the known-key set; and a failed dependency download reports completion instead of leaving the caller waiting forever.
+- `InputSystemManager`: replacing an asset under an id disables the one that left, an asset the manager built from JSON is destroyed when it leaves, and `Dispose` tears down what the manager owns.
+- `Container`: re-registering an implementation with a different lifetime is a new registration that wins, with a warning, instead of being silently dropped.
+- Observables invoke every subscriber on its own, so one that throws is reported and no longer blocks the others.
+
+### Fixed
+- `CoreRoot`: a destroyed duplicate core no longer drags the surviving core of the same type out of the registry; only the registered instance may take its type out, and the duplicate still disposes its own scope.
+- `SceneLoader`: the additive update passes iterate a snapshot, so a scene callback that starts or stops another scene operation no longer breaks the pass with a collection-modified exception; a failed Addressables scene load releases its handle instead of leaking it.
+- `CoreBase`: `GetClass`/`RegisterClass` answer null or report instead of throwing before the container exists, and a core whose object was inactive during `Start` retries its preparation on enable.
+- `Singleton`/`GenericSingleton`: a destroyed duplicate no longer clears the surviving instance's static reference, and an access during application quit no longer recreates a ghost object.
+- `ResourceLoader`: concurrent async loads of one path share a single request, and re-caching the same asset no longer warns.
+- `OutPanel.CanvasGroup` answers through the lazy property instead of the raw backing field, which was null before first access.
+- `AudioManager`: the audio controller creation error names the missing side — the source or the clip — instead of always blaming the source.
+
+## [urp/0.3.0] - 2026-08-17
+
+### Added
+- Package-level `README.md`/`CHANGELOG.md` for the URP package.
+
+### Changed
+- `ScreenEffectManager` implements `IDisposable`: disposing takes it off `RenderPipelineManager.beginCameraRendering` instead of staying attached forever. The effects themselves stay with their owners.
+
+### Fixed
+- `ScreenEffectManager.UnregisterEffectAll<TEffect>()` removes effects again. It compared the effect type against `PassType`, which names the render pass, so it could never match and silently removed nothing.
+
+## [game/watermelon/0.6.0] - 2026-08-17
+
+### Added
+- `InputHandler`: the mouse drives the same drag pipeline as a touch, so the game plays in the editor and on desktop without a touch screen.
+- Tests: an edit-mode suite for `BoardCommandRunner`, registered as a testable in the WatermelonGame project alongside the Base suites.
+
 ## [base/0.24.1] - 2026-08-16
 
 ### Changed

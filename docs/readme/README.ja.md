@@ -31,9 +31,9 @@
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
 - 📦 **オプションパッケージサポート**: UniTask、Addressables、Localizationの条件付き有効化
-- 🎵 **Audioシステム**: BGM/SFX分離管理とボリューム制御
+- 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
-- 🌐 **WebRequest**: HTTP GET/POST、ダウンロードサイズクエリ、UniTaskサポート
+- 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
 - 📊 **Observableパターン**: データ変更検出とイベントベースバインディング
 - 🛠 **ユーティリティコレクション**: Extension Methods、ObjectPool、EasingFunctions
 - ✅ **初期化結果コントラクト**: Addressables/Localization の初期化成功/失敗状態を明示的に提供
@@ -57,10 +57,10 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.25.0
 
     # URP パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
    ```
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)

@@ -15,6 +15,57 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.25.0] - 2026-08-17
+
+### 追加
+- `Mu3Logger`(Foundation): 純粋な C# 層が登録された sink を通してログを出すようになりました。Base ランタイムが起動時に Unity コンソール sink を登録し、Foundation のイベントクラスはこれまで飲み込んでいた disposed ハンドラーや不正な id のケースを報告します。
+- `AudioManager`: `SetMixerGroups` が各カテゴリのソースを `AudioMixerGroup` にルーティングします。音量計算は `AudioSource.volume` に残ります。`SaveVolumes`/`LoadVolumes` は 4 カテゴリの音量を `IPlayerPrefsLoader` で保存・復元し、`DuckBgm` はボイスや大きな SFX の下で音楽を一時的に下げ、`FadeInSfx`/`FadeInEnvironment` は設定と位置を受け取ります。UniTask API(`FadeInBgmAsync`, `FadeOutBgmAsync`, `TransitionBgmAsync`, `DuckBgmAsync`)はフェードが実際に終わったときに完了し、新しいフェードに置き換えられるとキャンセルとして完了します。
+- `ILocalizationManager`: `GetAsset<T>(tableName, key, callback)` と `GetAssetAsync<T>(tableName, key)` が現在のロケールの AssetTable アセット — 言語で変わるフォントやスプライト — を読み込みます。`GetString` が StringDatabase を包むのと同じ形で、Localization パッケージ自身の AssetDatabase をそのまま使います。
+- `IMVPManager`: `OpenAsync`/`CloseAsync` はウィンドウが開き終わったとき、またはマネージャーから完全に離れたときに完了するため、呼び出し側はウィンドウイベントをつなぐ代わりにアニメーションを await できます。
+- `IWebRequestManager`: PUT、PATCH、DELETE メソッドを追加。コールバック API に指数バックオフのリトライ、実行中のリクエストを中断する `WebRequestCancellation`、ダウンロード進捗を知らせる `onDownloadProgress` コールバックが加わりました。
+- `IPlayerPrefsLoader`: bool、enum(名前で保存)、JSON オブジェクトのエントリと、それぞれのデフォルト値をサポートします。
+- `IInputSystemManagerEventBus`: アセットの追加/削除とリバインドの開始/完了/キャンセルのイベントが加わりました。
+- `GameObjectPool`: `MaxSize` は満杯のプールが持てないオブジェクトを破棄し、`Prewarm` はプールを事前に満たし、返却フックがすべての enqueue で走り、`Count` が待機中のオブジェクト数を答えます。
+- エディター: `DIValidatorDrawer` はコンストラクターや必須の `[Inject]` メンバーを解決できない登録を、何も resolve せずに報告します。`RuntimeDiagnosticsDrawer` は管理中の MVP presenter と Addressables キャッシュを表示し、パッケージ更新メニューが WatermelonGame パッケージをカバーします。
+- 診断: `Container.GetAllDescriptors`/`IsRegistered`/`GetActiveSingletonInstances`、`CoreBase` の対応 API、`CoreRoot.RegisteredCores`、`MVPManager.GetPresenterDiagnostics`、Addressables のキャッシュカウンターが新しいドロワーを支えます。
+- テスト: DI コンテナ、Foundation のイベントクラス、Observable、`GameObjectPool`、`PlayerPrefsLoader` の EditMode テストを追加し、BuiltIn プロジェクトに testable として登録しました。
+- Base パッケージにパッケージ単位の `README.md`/`CHANGELOG.md` を追加しました。
+
+### 変更
+- `Container.CreateScope()` が internal になりました。コアは生存期間を通して正確に 1 つのスコープを所有します。2 つ目のスコープはシングルトンの `Initialize()` を二度実行したり、コンテナがまだ配っているインスタンスを dispose したりできました。**Breaking**: スコープを直接作っていたコードは `CoreBase` を経由する必要があります。
+- `AudioController`: 有限ループが normalized time 0.97 の代わりに `AudioSource.isPlaying` が消えるのを待ちます。ワンショット SFX とプレイリストのトラックが末尾を失わずに最後のサンプルまで再生されます。
+- `AudioManager`: カテゴリ音量の setter が 0..1 にクランプします。BGM プレイリストは null クリップを先に除外し、再生できるものが残らないリストを拒否します。以前は無限再帰に陥りました。
+- `AddressablesManager`: アセットキャッシュのキーが要求タイプを含みます。1 つのアドレスを 2 つのタイプで読み込むと、互いのハンドルを解放する代わりに 2 つのエントリを保持します。`ReleaseCachedAsset` はそのキーが生んだすべて — 単一、リスト、キー付き辞書のエントリ — をまとめて解放します。`IsKeyExist` と `GetCachedAddress` は引き続き base key で答え、カタログ更新が既知キー集合を更新し、失敗した依存関係ダウンロードも完了を報告して呼び出し側を永遠に待たせません。
+- `InputSystemManager`: 同じ id でアセットを差し替えると、離れるアセットを無効化します。マネージャーが JSON から自分で作ったアセットは離れるときに破棄され、`Dispose` がマネージャーの所有物を片付けます。
+- `Container`: 同じ実装を別のライフタイムで再登録すると、黙って捨てられる代わりに警告付きで新しい登録が勝ちます。
+- Observable が購読者を 1 つずつ呼び出します。例外を投げた購読者は報告され、残りの購読者への通知を妨げません。
+
+### 修正
+- `CoreRoot`: 破棄された重複コアが、生き残った同じタイプのコアをレジストリから引きずり出さなくなりました。登録されたインスタンスだけが自分のタイプを外せて、重複コアは自分のスコープを片付けます。
+- `SceneLoader`: additive の更新パスがスナップショットを走査します。シーンコールバックが別のシーン操作を開始・停止しても、collection-modified 例外でパスが壊れません。失敗した Addressables シーンロードはハンドルをリークせず解放します。
+- `CoreBase`: コンテナができる前の `GetClass`/`RegisterClass` は例外の代わりに null を答えるか報告し、`Start` 時点で非アクティブだったコアは有効化時に準備を再試行します。
+- `Singleton`/`GenericSingleton`: 破棄された重複インスタンスが生き残ったインスタンスの static 参照を消さず、アプリ終了中のアクセスがゴーストオブジェクトを再生成しません。
+- `ResourceLoader`: 同じパスの同時非同期ロードが 1 つのリクエストを共有し、同じアセットの再キャッシュは警告しなくなりました。
+- `OutPanel.CanvasGroup` が、初回アクセス前は null だった backing field ではなく lazy プロパティで答えます。
+- `AudioManager`: オーディオコントローラー生成エラーが常にソースのせいにする代わりに、欠けている側 — ソースまたはクリップ — を指します。
+
+## [urp/0.3.0] - 2026-08-17
+
+### 追加
+- URP パッケージにパッケージ単位の `README.md`/`CHANGELOG.md` を追加しました。
+
+### 変更
+- `ScreenEffectManager` が `IDisposable` を実装します。dispose 時に永遠に付いたままになる代わりに `RenderPipelineManager.beginCameraRendering` から自分を外します。エフェクト自体は所有者に残ります。
+
+### 修正
+- `ScreenEffectManager.UnregisterEffectAll<TEffect>()` が再びエフェクトを削除します。エフェクトタイプをレンダーパスの名前である `PassType` と比較していたため一致することがなく、黙って何も削除しませんでした。
+
+## [game/watermelon/0.6.0] - 2026-08-17
+
+### 追加
+- `InputHandler`: マウスがタッチと同じドラッグパイプラインを動かします。タッチスクリーンのないエディターとデスクトップでもゲームがプレイできます。
+- テスト: `BoardCommandRunner` の EditMode テストを追加し、Base のテストと合わせて WatermelonGame プロジェクトに testable として登録しました。
+
 ## [base/0.24.1] - 2026-08-16
 
 ### 変更

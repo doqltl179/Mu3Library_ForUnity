@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [game/watermelon/0.6.0] - 2026-08-17
+
+- Added mouse support to `InputHandler`. The mouse drives the same drag pipeline as a touch under a reserved finger id, so the game plays in the editor and on desktop without a touch screen, and a project that only ever sees touches behaves as before.
+- Added an edit-mode test suite for `BoardCommandRunner` and registered the package as a testable in the development project.
+
 ## [game/watermelon/0.5.0] - 2026-08-16
 
 - Changed the board-relative resize to size the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. An item is now scaled until its collider reaches that diameter and its sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied, and a catalog entry whose collider covers less of its sprite is drawn larger than before.

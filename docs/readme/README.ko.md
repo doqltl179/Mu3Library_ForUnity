@@ -31,9 +31,9 @@
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
 - 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization 조건부 활성화
-- 🎵 **Audio 시스템**: BGM/SFX 분리 관리 및 볼륨 제어
+- 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
-- 🌐 **WebRequest**: HTTP GET/POST, 다운로드 크기 조회, UniTask 지원
+- 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
 - 📊 **Observable 패턴**: 데이터 변경 감지 및 이벤트 기반 바인딩
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
@@ -57,10 +57,10 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.25.0
 
     # URP 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
    ```
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)

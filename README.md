@@ -31,9 +31,9 @@
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
 - 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization
-- 🎵 **Audio System**: Separate BGM/SFX management with volume control
+- 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
-- 🌐 **WebRequest**: HTTP GET/POST, download size queries, UniTask support
+- 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
@@ -58,10 +58,10 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.25.0
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
    ```
 
 ### Option 2: Package Manager (Local Disk)
