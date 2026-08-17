@@ -18,6 +18,14 @@ namespace Mu3Library.Utility
         {
             get
             {
+                // While the application quits, objects are destroyed in no particular order.
+                // Creating a new instance here would leave a ghost object behind, so whatever
+                // is left is answered instead, null included.
+                if (SingletonRuntimeState.IsShuttingDown)
+                {
+                    return instance;
+                }
+
                 if (instance == null)
                 {
                     lock (lockObj)
@@ -59,12 +67,12 @@ namespace Mu3Library.Utility
 
         protected virtual void OnDestroy()
         {
-            if(this == null || gameObject == null)
+            // Only the instance the static reference points to may clear it. A destroyed
+            // duplicate must not take the surviving instance's reference with it.
+            if (ReferenceEquals(instance, this))
             {
-                return;
+                instance = null;
             }
-
-            instance = null;
         }
     }
 }
