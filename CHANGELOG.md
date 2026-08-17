@@ -15,6 +15,8 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.26.0] - 2026-08-17
+
 ### Added
 - `Mu3Library.Notifications`, a new optional assembly in the Base package: `INotificationManager`/`NotificationManager` wrap the Mobile Notifications package's unified `NotificationCenter` — initialization with an Android channel, permission requests, scheduling at a time or after a delay, cancels, badge clearing, opening the system settings, and the notification the app was opened from. `INotificationManagerEventBus.OnNotificationReceived` reports notifications that arrive while the app runs. The assembly compiles only on Android, iOS, and in the editor, and only while `com.unity.mobile.notifications` is installed (`MU3LIBRARY_NOTIFICATIONS_SUPPORT`), so a project without the package or the platforms pays nothing. The package pushes no events for its yieldable permission and query operations, so the manager follows each one in a short-lived async loop that exists only while that operation runs — nothing polls while nothing is pending, and the manager works however it is hosted, with no per-frame driver. With UniTask installed, `RequestPermissionAsync` and `GetLastRespondedNotificationAsync` await the same answers. The Template sample gained a `NotificationCore`.
 
