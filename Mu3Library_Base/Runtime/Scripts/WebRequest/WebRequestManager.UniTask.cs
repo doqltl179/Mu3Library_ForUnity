@@ -98,7 +98,7 @@ namespace Mu3Library.WebRequest
                     string payload = SerializeBody(body);
                     byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
 
-                    return CreatePostRequest<TResponse>(url, bodyRaw, contentType, requestHeaders, timeoutSeconds);
+                    return CreateBodyRequest<TResponse>(url, UnityWebRequest.kHttpVerbPOST, bodyRaw, contentType, requestHeaders, timeoutSeconds);
                 },
                 parseResult: request => ParseResult<TResponse>(url, request, "POST"),
                 retryCount: retryCount,

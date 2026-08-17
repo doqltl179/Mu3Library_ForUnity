@@ -7,6 +7,12 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
     {
         private const int NoActiveFingerId = -1;
 
+        /// <summary>
+        /// Finger id the mouse drag runs under. Touches never carry a negative id, so the mouse
+        /// shares the drag pipeline without ever colliding with a real finger.
+        /// </summary>
+        private const int MouseFingerId = -2;
+
         protected bool _isDragging;
         public bool IsDragging => _isDragging;
 
@@ -15,6 +21,7 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         public UnityEvent<Vector2> OnTouchEnded;
 
         private int _activeFingerId = NoActiveFingerId;
+        private Vector2 _lastMousePosition;
 
 
         protected virtual void OnDisable()
@@ -29,23 +36,13 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         {
             if (_isDragging)
             {
-                if (!TryGetActiveTouch(out Touch activeTouch))
+                if (_activeFingerId == MouseFingerId)
                 {
-                    OnTouchEndedHandler(default);
-                    return;
+                    UpdateMouseDrag();
                 }
-
-                switch (activeTouch.phase)
+                else
                 {
-                    case TouchPhase.Ended:
-                    case TouchPhase.Canceled:
-                        OnTouchEndedHandler(activeTouch);
-                        break;
-
-                    case TouchPhase.Moved:
-                        // case TouchPhase.Stationary:
-                        OnTouchMovedHandler(activeTouch);
-                        break;
+                    UpdateTouchDrag();
                 }
 
                 return;
@@ -54,7 +51,71 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             if (TryGetBeganTouch(out Touch beganTouch))
             {
                 OnTouchBeganHandler(beganTouch);
+                return;
             }
+
+            // The mouse drives the same drag pipeline on a platform without a touch screen,
+            // which is what makes the game playable in the editor and on desktop.
+            if (Input.mousePresent && Input.GetMouseButtonDown(0))
+            {
+                OnMouseDragBegan(Input.mousePosition);
+            }
+        }
+
+        private void UpdateTouchDrag()
+        {
+            if (!TryGetActiveTouch(out Touch activeTouch))
+            {
+                OnTouchEndedHandler(default);
+                return;
+            }
+
+            switch (activeTouch.phase)
+            {
+                case TouchPhase.Ended:
+                case TouchPhase.Canceled:
+                    OnTouchEndedHandler(activeTouch);
+                    break;
+
+                case TouchPhase.Moved:
+                    // case TouchPhase.Stationary:
+                    OnTouchMovedHandler(activeTouch);
+                    break;
+            }
+        }
+
+        private void UpdateMouseDrag()
+        {
+            Vector2 mousePosition = Input.mousePosition;
+
+            if (!Input.GetMouseButton(0))
+            {
+                OnMouseDragEnded(mousePosition);
+                return;
+            }
+
+            if (mousePosition != _lastMousePosition)
+            {
+                _lastMousePosition = mousePosition;
+                OnTouchMoved?.Invoke(mousePosition);
+            }
+        }
+
+        private void OnMouseDragBegan(Vector2 position)
+        {
+            _isDragging = true;
+            _activeFingerId = MouseFingerId;
+            _lastMousePosition = position;
+
+            OnTouchBegan?.Invoke(position);
+        }
+
+        private void OnMouseDragEnded(Vector2 position)
+        {
+            _isDragging = false;
+            _activeFingerId = NoActiveFingerId;
+
+            OnTouchEnded?.Invoke(position);
         }
 
         protected virtual void OnTouchBeganHandler(Touch touch)

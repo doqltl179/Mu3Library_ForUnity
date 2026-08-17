@@ -20,6 +20,7 @@ namespace Mu3Library.Audio
 
         public void StopBgm();
 
+        public void DuckBgm(float duckVolume = 0.3f, float fadeOutTime = 0.2f, float holdTime = 0.5f, float fadeInTime = 0.5f);
         public void TransitionBgm(AudioClip clip);
         public void TransitionBgm(AudioClip clip, float transitionTime);
         public void TransitionBgm(AudioClip clip, float transitionTime, AudioSourceSettings settings);

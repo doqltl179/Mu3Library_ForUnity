@@ -257,9 +257,22 @@ namespace Mu3Library.Scene
             else
             {
                 Debug.LogError($"Addressable single scene load failed. key: {key}");
+                ReleaseFailedLoadHandle(_singleAddressablesSceneOperation);
             }
 
             _singleAddressablesSceneOperation = null;
+        }
+
+        /// <summary>
+        /// A load that failed leaves no scene behind, so nothing else will ever release its
+        /// handle. It is released here, otherwise the failed operation stays referenced forever.
+        /// </summary>
+        private static void ReleaseFailedLoadHandle(SceneOperation operation)
+        {
+            if (operation != null && operation.AddressablesHandle.IsValid())
+            {
+                Addressables.Release(operation.AddressablesHandle);
+            }
         }
 
         private void UpdateLoadAdditiveAddressablesOperations()
@@ -269,39 +282,31 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            List<string> completed = null;
-            foreach (var pair in _loadAdditiveAddressablesSceneOperations)
+            // Finalizing fires user callbacks that may start or stop other scene operations,
+            // so the pass iterates a snapshot instead of the live dictionary.
+            List<SceneOperation> operations = new(_loadAdditiveAddressablesSceneOperations.Values);
+            foreach (SceneOperation operation in operations)
             {
-                if (!UpdateAddressablesOperation(pair.Value))
+                if (!UpdateAddressablesOperation(operation))
                 {
                     continue;
                 }
 
-                string key = pair.Value.SceneName;
-                bool succeeded = IsAddressablesOperationSuccessful(pair.Value);
+                string key = operation.SceneName;
+                bool succeeded = IsAddressablesOperationSuccessful(operation);
                 Debug.Log($"Addressable additive scene operation end. key: {key} succeeded={succeeded}");
 
                 if (succeeded)
                 {
-                    FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneName(pair.Value), ResolveLoadedSceneHandle(pair.Value));
+                    FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedSceneHandle(operation));
                 }
                 else
                 {
                     Debug.LogError($"Addressable additive scene load failed. key: {key}");
+                    ReleaseFailedLoadHandle(operation);
                 }
 
-                completed ??= new List<string>();
-                completed.Add(pair.Key);
-            }
-
-            if (completed == null)
-            {
-                return;
-            }
-
-            foreach (string key in completed)
-            {
-                _loadAdditiveAddressablesSceneOperations.Remove(key);
+                RemoveTrackedOperation(_loadAdditiveAddressablesSceneOperations, operation);
             }
         }
 
@@ -312,36 +317,26 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            List<string> completed = null;
-            foreach (var pair in _unloadAdditiveAddressablesSceneOperations)
+            // Snapshot for the same reason as the additive load pass above.
+            List<SceneOperation> operations = new(_unloadAdditiveAddressablesSceneOperations.Values);
+            foreach (SceneOperation operation in operations)
             {
-                if (!UpdateAddressablesOperation(pair.Value))
+                if (!UpdateAddressablesOperation(operation))
                 {
                     continue;
                 }
 
-                bool succeeded = IsAddressablesOperationSuccessful(pair.Value);
+                bool succeeded = IsAddressablesOperationSuccessful(operation);
                 if (succeeded)
                 {
-                    FinalizeAdditiveSceneUnloaded(pair.Value);
+                    FinalizeAdditiveSceneUnloaded(operation);
                 }
                 else
                 {
-                    Debug.LogError($"Addressable additive scene unload failed. key: {pair.Value.SceneName}");
+                    Debug.LogError($"Addressable additive scene unload failed. key: {operation.SceneName}");
                 }
 
-                completed ??= new List<string>();
-                completed.Add(pair.Key);
-            }
-
-            if (completed == null)
-            {
-                return;
-            }
-
-            foreach (string key in completed)
-            {
-                _unloadAdditiveAddressablesSceneOperations.Remove(key);
+                RemoveTrackedOperation(_unloadAdditiveAddressablesSceneOperations, operation);
             }
         }
 

@@ -58,10 +58,19 @@ namespace Mu3Library.Audio
                 return;
             }
 
+            // Null clips are dropped up front, so the playlist never cycles through entries
+            // it cannot play. A list that keeps nothing playable never starts.
+            AudioClip[] validClips = FilterValidPlaylistClips(clips);
+            if (validClips.Length == 0)
+            {
+                Debug.LogError("BGM playlist has no playable clip. Every entry is NULL.");
+                return;
+            }
+
             // Stop current BGM (also cancels any previously active playlist).
             StopBgm();
 
-            _playlist = clips;
+            _playlist = validClips;
             _playlistRemainingCycles = loopCount <= 0 ? -1 : loopCount;
             _playlistShuffle = shuffle;
             _playlistInterval = Mathf.Max(0f, interval);
@@ -120,6 +129,35 @@ namespace Mu3Library.Audio
             _isPlaylistWaitingInterval = false;
             _playlist = null;
             _playlistOrder = null;
+        }
+
+        private static AudioClip[] FilterValidPlaylistClips(AudioClip[] clips)
+        {
+            int validCount = 0;
+            for (int i = 0; i < clips.Length; i++)
+            {
+                if (clips[i] != null)
+                {
+                    validCount++;
+                }
+            }
+
+            if (validCount == clips.Length)
+            {
+                return clips;
+            }
+
+            AudioClip[] validClips = new AudioClip[validCount];
+            int cursor = 0;
+            for (int i = 0; i < clips.Length; i++)
+            {
+                if (clips[i] != null)
+                {
+                    validClips[cursor++] = clips[i];
+                }
+            }
+
+            return validClips;
         }
 
         private void BuildPlaylistOrder()

@@ -30,6 +30,8 @@ namespace Mu3Library.DI
         private bool _isPreparing = false;
         public bool IsPreparing => _isPreparing;
 
+        private bool _isPrepareRequested = false;
+
         private bool _isPrepared = false;
         public bool IsPrepared => _isPrepared;
 
@@ -108,7 +110,24 @@ namespace Mu3Library.DI
         protected virtual void Start()
         {
             _scope.InjectInto(this);
+
+            _isPrepareRequested = true;
             PrepareCore();
+        }
+
+        /// <summary>
+        /// Retries a preparation that could not start yet, which is what a core whose object was
+        /// inactive while <see cref="Start"/> ran is left with on the coroutine path.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnEnable()</c> to preserve the core lifecycle.
+        /// </remarks>
+        protected virtual void OnEnable()
+        {
+            if (_isPrepareRequested && !_isPrepared && !_isPreparing)
+            {
+                PrepareCore();
+            }
         }
 
         protected virtual void OnDestroy()
@@ -266,6 +285,36 @@ namespace Mu3Library.DI
             _scope?.Dispose();
         }
 
+        #region Diagnostics
+        /// <summary>
+        /// Every descriptor this core's container holds, for diagnostics tooling.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<ServiceDescriptor> GetRegisteredDescriptors()
+        {
+            return _container != null
+                ? _container.GetAllDescriptors()
+                : Array.Empty<ServiceDescriptor>();
+        }
+
+        /// <summary>
+        /// Whether a service/key pair is registered in this core's container, without resolving.
+        /// </summary>
+        public bool IsServiceRegistered(Type serviceType, string key = null)
+        {
+            return _container != null && _container.IsRegistered(serviceType, key);
+        }
+
+        /// <summary>
+        /// The singleton instances this core's container created so far, for diagnostics tooling.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyCollection<object> GetActiveSingletonInstances()
+        {
+            return _container != null
+                ? _container.GetActiveSingletonInstances()
+                : Array.Empty<object>();
+        }
+        #endregion
+
         #region Utility
         /// <summary>
         /// Return class by container
@@ -330,7 +379,7 @@ namespace Mu3Library.DI
         protected T GetClass<T>()
             where T : class
         {
-            if (_scope.TryResolve(out T instance))
+            if (_scope != null && _scope.TryResolve(out T instance))
             {
                 return instance;
             }
@@ -344,7 +393,7 @@ namespace Mu3Library.DI
         protected T GetClass<T>(string key)
             where T : class
         {
-            return _scope.Resolve<T>(key);
+            return _scope?.Resolve<T>(key);
         }
 
         /// <summary>
@@ -353,6 +402,12 @@ namespace Mu3Library.DI
         protected void RegisterClass<T>()
             where T : class, new()
         {
+            if (_scope == null)
+            {
+                Debug.LogError($"Container is not initialized yet. Register from ConfigureContainer() or later. type: {GetType().Name}");
+                return;
+            }
+
             _scope.Register<T>(ServiceLifetime.Singleton);
             // Immediately resolve to ensure lifecycle tracking (IInitializable, IUpdatable, etc.)
             _scope.Resolve<T>();

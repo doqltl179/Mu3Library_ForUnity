@@ -17,12 +17,15 @@ namespace Mu3Library.Addressable
 
         public async UniTask<T> LoadAssetAsync<T>(object key) where T : class
         {
-            if (TryGetCachedAsset(key, out T cached))
+            // The cache key carries the requested type, matching the callback path, so one
+            // address loaded as two different types holds two independent entries.
+            object cacheKey = CreateSingleAssetCacheKey<T>(key);
+            if (TryGetCachedAssetInternal(cacheKey, out T cached))
             {
                 return cached;
             }
 
-            if (TryGetValidCachedHandle(key, out AsyncOperationHandle existing))
+            if (TryGetValidCachedHandle(cacheKey, out AsyncOperationHandle existing))
             {
                 if (!existing.IsDone)
                 {
@@ -33,17 +36,17 @@ namespace Mu3Library.Addressable
                     }
                     finally
                     {
-                        existingAsset = FinalizeCachedLoad<T>(key, existing);
+                        existingAsset = FinalizeCachedLoad<T>(key, cacheKey, existing);
                     }
 
                     return existingAsset;
                 }
 
-                return FinalizeCachedLoad<T>(key, existing);
+                return FinalizeCachedLoad<T>(key, cacheKey, existing);
             }
 
             AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(key);
-            _assetHandleCache[key] = handle;
+            RegisterHandleCache(key, cacheKey, handle);
 
             T asset = null;
             try
@@ -52,7 +55,7 @@ namespace Mu3Library.Addressable
             }
             finally
             {
-                asset = FinalizeCachedLoad<T>(key, handle);
+                asset = FinalizeCachedLoad<T>(key, cacheKey, handle);
             }
 
             return asset;
@@ -62,7 +65,7 @@ namespace Mu3Library.Addressable
         {
             Type cacheType = typeof(T);
             ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
-            if (TryGetCachedAsset(cacheKey, out IList<T> cached))
+            if (TryGetCachedAssetInternal(cacheKey, out IList<T> cached))
             {
                 return cached;
             }
@@ -78,17 +81,17 @@ namespace Mu3Library.Addressable
                     }
                     finally
                     {
-                        existingAssets = FinalizeCachedLoad<IList<T>>(cacheKey, existing);
+                        existingAssets = FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
                     }
 
                     return existingAssets;
                 }
 
-                return FinalizeCachedLoad<IList<T>>(cacheKey, existing);
+                return FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
             }
 
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
-            _assetHandleCache[cacheKey] = handle;
+            RegisterHandleCache(key, cacheKey, handle);
 
             IList<T> assets = null;
             try
@@ -97,7 +100,7 @@ namespace Mu3Library.Addressable
             }
             finally
             {
-                assets = FinalizeCachedLoad<IList<T>>(cacheKey, handle);
+                assets = FinalizeCachedLoad<IList<T>>(key, cacheKey, handle);
             }
 
             return assets;
@@ -106,7 +109,7 @@ namespace Mu3Library.Addressable
         public async UniTask<Dictionary<string, T>> LoadAssetsWithKeysAsync<T>(object key)
         {
             ListCacheKey cacheKey = ListCacheKey.Create(key, typeof(AssetsWithKeysCacheMarker<T>));
-            if (TryGetCachedAsset(cacheKey, out Dictionary<string, T> cached))
+            if (TryGetCachedAssetInternal(cacheKey, out Dictionary<string, T> cached))
             {
                 return cached;
             }
@@ -122,17 +125,17 @@ namespace Mu3Library.Addressable
                     }
                     finally
                     {
-                        existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+                        existingAssets = FinalizeAssetsWithKeysLoad<T>(key, cacheKey, existing);
                     }
 
                     return existingAssets;
                 }
 
-                return FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+                return FinalizeAssetsWithKeysLoad<T>(key, cacheKey, existing);
             }
 
             AsyncOperationHandle<Dictionary<string, T>> handle = CreateLoadAssetsWithKeysOperation<T>(key);
-            _assetHandleCache[cacheKey] = handle;
+            RegisterHandleCache(key, cacheKey, handle);
 
             Dictionary<string, T> assets = null;
             try
@@ -141,7 +144,7 @@ namespace Mu3Library.Addressable
             }
             finally
             {
-                assets = FinalizeAssetsWithKeysLoad<T>(cacheKey, handle);
+                assets = FinalizeAssetsWithKeysLoad<T>(key, cacheKey, handle);
             }
 
             return assets;
@@ -277,6 +280,11 @@ namespace Mu3Library.Addressable
                 }
             }
 
+            if (locators != null)
+            {
+                RefreshLocatorKeys();
+            }
+
             return locators;
         }
 
@@ -287,60 +295,30 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            if (_isInitializing)
+            // BeginInitialize owns acquiring the handle and attaching the completion handler for
+            // the callback and the UniTask paths alike, and leaves a running initialization alone.
+            BeginInitialize();
+
+            AsyncOperationHandle handle = _initializeHandle;
+            if (_isInitializing && handle.IsValid() && !handle.IsDone)
             {
                 try
                 {
-                    await _initializeHandle.ToUniTask();
+                    await handle.ToUniTask();
                 }
-                finally
+                catch (Exception)
                 {
-                    await UniTask.WaitUntil(() => !_isInitializing);
+                    // OnInitializeCompleted logs the failure and reports it through InitializeError
+                    // and OnInitializeResult, so this path stays as quiet as Initialize(Action).
                 }
-
-                return;
             }
 
-            _isInitializing = true;
-            _initializeHandle = Addressables.InitializeAsync();
-            if (_initializeHandle.IsDone)
+            if (_isInitializing)
             {
-                OnInitializeCompleted(_initializeHandle);
-                return;
-            }
-
-            try
-            {
-                await _initializeHandle.ToUniTask();
-            }
-            finally
-            {
-                if (_isInitializing)
-                {
-                    OnInitializeCompleted(_initializeHandle);
-                }
+                await UniTask.WaitUntil(() => !_isInitializing);
             }
         }
 
-        private T FinalizeCachedLoad<T>(object key, AsyncOperationHandle handle) where T : class
-        {
-            T asset = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result as T : null;
-            if (asset != null)
-            {
-                CacheLoadedAsset(key, asset);
-            }
-            else
-            {
-                _assetHandleCache.Remove(key);
-
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-
-            return asset;
-        }
     }
 }
 #endif

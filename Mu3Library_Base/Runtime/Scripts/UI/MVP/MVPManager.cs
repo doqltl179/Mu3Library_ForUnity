@@ -603,6 +603,30 @@ namespace Mu3Library.UI.MVP
         }
         #endregion
 
+        /// <summary>
+        /// One line per managed presenter, for diagnostics tooling: type, phase, and where the
+        /// view sits. Reading it changes nothing.
+        /// </summary>
+        public List<string> GetPresenterDiagnostics()
+        {
+            List<string> lines = new(_presenterEntries.Count);
+            foreach (PresenterEntry entry in _presenterEntries.Values)
+            {
+                PresenterBase presenter = entry.Presenter;
+                if (presenter == null)
+                {
+                    continue;
+                }
+
+                string viewInfo = presenter.IsViewExist
+                    ? $"layer: {presenter.CanvasLayerName}, order: {presenter.SortingOrder}, view: {presenter.ViewState}"
+                    : "view destroyed";
+                lines.Add($"{presenter.GetType().Name} | phase: {entry.Phase} | {viewInfo}");
+            }
+
+            return lines;
+        }
+
         private PresenterEntry FindPresenterEntry(PresenterBase presenter)
         {
             if (presenter == null)

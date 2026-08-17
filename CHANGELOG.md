@@ -15,6 +15,101 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.25.0] - 2026-08-17
+
+### Added
+- `Mu3Logger` (Foundation): the pure C# layer logs through a registered sink now. The Base runtime registers a Unity console sink on startup, and the Foundation event classes report the disposed-handler and invalid-id cases they used to swallow.
+- `AudioManager`: `SetMixerGroups` routes each category's sources through an `AudioMixerGroup` while the volume math stays on `AudioSource.volume`; `SaveVolumes`/`LoadVolumes` persist the four category volumes through `IPlayerPrefsLoader`; `DuckBgm` dips the music under a voice line or a heavy SFX; `FadeInSfx`/`FadeInEnvironment` accept settings and a position; and a UniTask surface (`FadeInBgmAsync`, `FadeOutBgmAsync`, `TransitionBgmAsync`, `DuckBgmAsync`) completes when the fade really ended, as canceled when a newer fade replaced it.
+- `ILocalizationManager`: `GetAsset<T>(tableName, key, callback)` and `GetAssetAsync<T>(tableName, key)` load the asset an AssetTable holds for the current locale — a font or a sprite that changes with the language — through the Localization package's own AssetDatabase, the way `GetString` already wraps the StringDatabase.
+- `IMVPManager`: `OpenAsync`/`CloseAsync` complete when the window finished opening or fully left the manager, so a caller awaits the animation instead of chaining window events.
+- `IWebRequestManager`: PUT, PATCH, and DELETE verbs; exponential retry backoff on the callback API; `WebRequestCancellation` aborts a request in flight; and an `onDownloadProgress` callback reports download progress.
+- `IPlayerPrefsLoader`: bool, enum (stored by name), and JSON object entries, with matching defaults.
+- `IInputSystemManagerEventBus`: asset added/removed and rebind started/completed/canceled events.
+- `GameObjectPool`: `MaxSize` destroys what a full pool cannot keep, `Prewarm` fills the pool up front, a return hook runs on every enqueue, and `Count` reports the waiting objects.
+- Editor: `DIValidatorDrawer` reports registrations whose constructor or required `[Inject]` members cannot resolve, without resolving anything; `RuntimeDiagnosticsDrawer` shows the managed MVP presenters and the Addressables cache; the package updater menu covers the WatermelonGame package.
+- Diagnostics: `Container.GetAllDescriptors`/`IsRegistered`/`GetActiveSingletonInstances`, `CoreBase` counterparts, `CoreRoot.RegisteredCores`, `MVPManager.GetPresenterDiagnostics`, and Addressables cache counters back the new drawers.
+- Tests: edit-mode suites for the DI container, the Foundation event classes, the Observables, `GameObjectPool`, and `PlayerPrefsLoader`, registered as a testable in the BuiltIn project.
+- Package-level `README.md`/`CHANGELOG.md` for the Base package.
+
+### Changed
+- `Container.CreateScope()` is internal now. A core owns exactly one scope for its whole life; a second scope could run `Initialize()` twice on a singleton and dispose an instance the container still hands out. **Breaking**: code that created scopes directly has to go through a `CoreBase`.
+- `AudioController`: a finite loop waits for `AudioSource.isPlaying` to end instead of watching normalized time reach 0.97, so a one-shot SFX and a playlist track play to their last sample instead of losing their tail.
+- `AudioManager`: the category volume setters clamp to 0..1; a BGM playlist drops null clips up front and refuses a list with nothing playable, which used to recurse forever.
+- `AddressablesManager`: the asset cache keys carry the requested type, so one address loaded as two types holds two entries instead of releasing each other's handle; `ReleaseCachedAsset` releases everything the key produced — single, list, and keyed-dictionary entries alike; `IsKeyExist` and `GetCachedAddress` keep answering by the base key; catalog updates refresh the known-key set; and a failed dependency download reports completion instead of leaving the caller waiting forever.
+- `InputSystemManager`: replacing an asset under an id disables the one that left, an asset the manager built from JSON is destroyed when it leaves, and `Dispose` tears down what the manager owns.
+- `Container`: re-registering an implementation with a different lifetime is a new registration that wins, with a warning, instead of being silently dropped.
+- Observables invoke every subscriber on its own, so one that throws is reported and no longer blocks the others.
+
+### Fixed
+- `CoreRoot`: a destroyed duplicate core no longer drags the surviving core of the same type out of the registry; only the registered instance may take its type out, and the duplicate still disposes its own scope.
+- `SceneLoader`: the additive update passes iterate a snapshot, so a scene callback that starts or stops another scene operation no longer breaks the pass with a collection-modified exception; a failed Addressables scene load releases its handle instead of leaking it.
+- `CoreBase`: `GetClass`/`RegisterClass` answer null or report instead of throwing before the container exists, and a core whose object was inactive during `Start` retries its preparation on enable.
+- `Singleton`/`GenericSingleton`: a destroyed duplicate no longer clears the surviving instance's static reference, and an access during application quit no longer recreates a ghost object.
+- `ResourceLoader`: concurrent async loads of one path share a single request, and re-caching the same asset no longer warns.
+- `OutPanel.CanvasGroup` answers through the lazy property instead of the raw backing field, which was null before first access.
+- `AudioManager`: the audio controller creation error names the missing side — the source or the clip — instead of always blaming the source.
+
+## [urp/0.3.0] - 2026-08-17
+
+### Added
+- Package-level `README.md`/`CHANGELOG.md` for the URP package.
+
+### Changed
+- `ScreenEffectManager` implements `IDisposable`: disposing takes it off `RenderPipelineManager.beginCameraRendering` instead of staying attached forever. The effects themselves stay with their owners.
+
+### Fixed
+- `ScreenEffectManager.UnregisterEffectAll<TEffect>()` removes effects again. It compared the effect type against `PassType`, which names the render pass, so it could never match and silently removed nothing.
+
+## [game/watermelon/0.6.0] - 2026-08-17
+
+### Added
+- `InputHandler`: the mouse drives the same drag pipeline as a touch, so the game plays in the editor and on desktop without a touch screen.
+- Tests: an edit-mode suite for `BoardCommandRunner`, registered as a testable in the WatermelonGame project alongside the Base suites.
+
+## [base/0.24.1] - 2026-08-16
+
+### Changed
+- `ScreenChangeNotifier`: The screen is followed only while the game runs. `ScreenSize` and `SafeArea` stay empty until the game reads the screen, and `OnChanged` is never raised in edit mode.
+- `SafeRect`: A screen that holds no safe area to inset by leaves the rect covering its parent whole, which is what edit mode gives it now that the screen is followed only while the game runs. A screen that reported no size used to leave the rect untouched instead, so a rect created in edit mode kept the size it was created with until play mode fitted it.
+
+### Fixed
+- `SafeRect`: The rect no longer takes a new size on every frame of edit mode. `ScreenChangeNotifier` read the screen from the editor loop, where `Screen` answers with the view the editor is drawing: a game view on one tick, a scene view or an inspector on the next. Every tick therefore looked like a screen that had just changed, and the safe area was applied again from a different pair of numbers each time, while nothing on the screen had changed at all.
+
+## [base/0.24.0] - 2026-08-16
+
+### Added
+- `ILocalizationManager`: `GetStringAsync(EntryData)` completes the async surface. It previously took only a table name and a key, while the callback API already accepted the `EntryData` the Localization data exporter generates.
+- `ILocalizationManagerEventBus`: `OnLocaleChanged` reports every selected locale change, including one made outside this manager. `LocalizationManager` holds the subscription on the Localization package itself and takes it back off in `Dispose()`, so a caller no longer attaches to `LocalizationSettings` and has to remember to detach.
+
+### Changed
+- `ILocalizationManager`: `AddLocaleChangedEvent(Action<Locale>)` and `RemoveLocaleChangedEvent(Action<Locale>)` are removed. Subscribing to a locale change belongs to the event bus, so `ILocalizationManagerEventBus.OnLocaleChanged` replaces both; resolve the manager as `ILocalizationManagerEventBus` and use `+=` and `-=`.
+- `ILocalizationManager`: `GetAllKeys` returns `IReadOnlyList<string>` and `GetAvailableLocales` returns `IReadOnlyList<Locale>`. `GetAvailableLocales` used to hand out the very `List<Locale>` the Localization package keeps, which a caller could sort or clear.
+- `Mu3Library.Localization.Data`: `EntryData`, `LocaleData`, and `TableData` are behind `MU3LIBRARY_LOCALIZATION_SUPPORT` now, the way `Mu3Library.Addressable.Data` already was. The exporter does not gate the scripts it generates, so a project that keeps generated localization scripts while the define is off has to remove them as well.
+- `LocalizationManager.InitializeAsync()`: A failed initialization no longer rethrows out of the await. It is reported the way the callback API reports it, through `IsInitialized`, `InitializeError`, and `OnInitializeResult`, and it is still logged.
+- `LocalizationManager`: A project that carries no `LocalizationSettings` asset is answered with an empty string, an empty list, or the fallback locale, instead of being handed a throwaway default. Reading a `LocalizationSettings` member creates a default settings object on access and logs a warning for it, so every entry point checks `LocalizationSettings.HasSettings` first.
+- `AddressablesManager.InitializeAsync()`: A failed initialization no longer rethrows out of the await. It is reported the way the callback API reports it, through `IsInitialized`, `InitializeError`, and `OnInitializeResult`, and it is still logged, so all three initialize entry points report one failure the same way. It also runs through `BeginInitialize()` instead of repeating the handle acquisition and completion sequence, which had left the callback and the async path free to drift apart.
+
+### Fixed
+- `LocalizationManager`: A custom locale code no longer throws while the default locale is resolved or a locale is looked up by English name. `LocaleIdentifier.CultureInfo` stays null for a code the culture table does not carry, which the Localization package documents as a supported case, and both lookups read it straight through.
+- `LocalizationManager`: `GetSelectedLocale(Action<Locale>)` waits on the handle it checked. It read `LocalizationSettings.SelectedLocaleAsync` again to attach the completion handler, and assigning `SelectedLocale` in between releases that operation and builds a new one, so the handle that was tested for completion and the handle that carried the callback could be different ones. The property is read once now.
+- `LocalizationManager`: A canceled `ChangeLocaleAsync(Locale)` no longer reports that the change which replaced it has finished. The superseded call cleared `IsLocaleChanging` from its own `finally`, after the newer call had already set it. Only the call that still owns the cancellation source settles that state now.
+- `LocalizationManager`: `CurrentLocale` follows a locale change made outside the manager. Only this manager's own change methods wrote it, so setting `LocalizationSettings.SelectedLocale` directly, or letting a startup selector choose, left it reporting the previous locale.
+- `LocalizationManager`: `ChangeLocaleToNative()` matches a system language whose enum name differs from its culture's English name. Comparing `SystemLanguage.ToString()` against `CultureInfo.EnglishName` could never match `ChineseSimplified` against `Chinese (Simplified)`. The identifier the Localization package builds from a `SystemLanguage` is tried first, then the same language with any region, and the English name last.
+- `LocalizationManager`: `GetStringAsync(string, string)` returns an empty string for a failed table load, as it was meant to. The status check after the await was unreachable, because awaiting a failed operation throws before it is read.
+- `AddressablesManager`: `InitializeAsync()` no longer awaits inside a `finally` while an exception is in flight. A caller that arrived while an initialization was already running waited there on `UniTask.WaitUntil`, which carries neither a timeout nor a cancellation token, so the wait held the exception instead of letting it surface.
+- `AddressablesManager`: `Dispose()` takes its completion handler back off the initialization handle before releasing it, so a completion that lands after disposal cannot write `_isInitialized` back into a manager that has already been torn down.
+
+## [game/watermelon/0.5.0] - 2026-08-16
+
+### Added
+- `BoardItemInfo.ColliderOffset`: Added the collider center of a catalog entry, measured as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The board keeps the collider diameter of an item index the same on every screen resolution, so an offset written here moves the contact area by the same fraction of it everywhere. An entry serialized before this field existed reads `(0, 0)`, which centers the collider on the sprite.
+- `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` and `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: Added the contact diameter of an item index in the board local space, which depends on the index and the board size alone and never on the sprites a configuration carries.
+- `BoardItem.BoardLocalColliderCenter`: Added the collider center measured from the item position in the parent(board) local space, which is what the held item is clamped by and what the spawn marker rides above.
+
+### Changed
+- `BoardItemScaleRule`: The board-relative resize now sizes the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. The rule now scales an item until its collider reaches that diameter and the sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied. A catalog entry whose collider covers less of its sprite is therefore drawn larger than before, which is the intended trade for a contact area that stays put.
+- `BoardItemScaleRule.GetBoardScale`: Takes the `BoardItemInfo` where it took a `Sprite`, because the collider scale of the entry is now part of what is measured. `GetBoardScale(int, Sprite, Vector2)` and `GetBoardScale(int, Sprite, Vector2, float, float)` are gone; hand it the catalog entry instead, and override the new overload in a subclass that overrode the sprite one.
+- `BoardController`: The held item is kept inside the item area by its contact area instead of its sprite bounds, and the spawn marker rides above the contact center, so where an item index can be dropped from no longer depends on the padding its sprite carries.
 ## [base/0.23.3] - 2026-08-15
 
 ### Fixed

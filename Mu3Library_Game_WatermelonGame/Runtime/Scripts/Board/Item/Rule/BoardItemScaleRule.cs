@@ -5,22 +5,26 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 {
     /// <summary>
     /// Decides how big every fruit is.
-    /// <br/> The size is always measured as a diameter relative to the board area width, so the fruits
-    /// <br/> keep their proportions on every screen resolution:
+    /// <br/> The size is always measured as the diameter of the area the fruit touches with, its
+    /// <br/> collider, relative to the board area width, so the fruits keep their proportions on
+    /// <br/> every screen resolution:
     /// <br/> the smallest fruit is <see cref="SmallestBoardWidthRatio"/> of the board width,
     /// <br/> the largest one is <see cref="LargestBoardWidthRatio"/>,
     /// <br/> and the fruits in between are spread linearly over that range.
+    /// <br/> The sprite is only what the fruit is drawn with: it is scaled until its collider reaches
+    /// <br/> the diameter above, so how much of a sprite its collider covers changes how large the
+    /// <br/> sprite is drawn and never how large the fruit plays.
     /// <br/> The range is owned here, nobody else decides how big a fruit is.
     /// </summary>
     public class BoardItemScaleRule
     {
         /// <summary>
-        /// The smallest fruit's diameter as a fraction of the board area width. (1/20)
+        /// The smallest fruit's contact diameter as a fraction of the board area width. (1/20)
         /// </summary>
         public const float DefaultSmallestBoardWidthRatio = 1.0f / 20.0f;
 
         /// <summary>
-        /// The largest fruit's diameter as a fraction of the board area width. (2/5)
+        /// The largest fruit's contact diameter as a fraction of the board area width. (2/5)
         /// </summary>
         public const float DefaultLargestBoardWidthRatio = 2.0f / 5.0f;
 
@@ -28,7 +32,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 
         protected float _smallestBoardWidthRatio = DefaultSmallestBoardWidthRatio;
         /// <summary>
-        /// The smallest fruit's diameter as a fraction of the board area width,
+        /// The smallest fruit's contact diameter as a fraction of the board area width,
         /// <see cref="DefaultSmallestBoardWidthRatio"/> until it is set. Negative values are ignored.
         /// </summary>
         public float SmallestBoardWidthRatio
@@ -39,7 +43,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 
         protected float _largestBoardWidthRatio = DefaultLargestBoardWidthRatio;
         /// <summary>
-        /// The largest fruit's diameter as a fraction of the board area width,
+        /// The largest fruit's contact diameter as a fraction of the board area width,
         /// <see cref="DefaultLargestBoardWidthRatio"/> until it is set. Negative values are ignored.
         /// </summary>
         public float LargestBoardWidthRatio
@@ -49,10 +53,10 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         }
 
         /// <summary>
-        /// Sets the diameter range every fruit is spread over.
+        /// Sets the contact diameter range every fruit is spread over.
         /// </summary>
-        /// <param name="smallestBoardWidthRatio">The smallest fruit's diameter as a fraction of the board area width.</param>
-        /// <param name="largestBoardWidthRatio">The largest fruit's diameter as a fraction of the board area width.</param>
+        /// <param name="smallestBoardWidthRatio">The smallest fruit's contact diameter as a fraction of the board area width.</param>
+        /// <param name="largestBoardWidthRatio">The largest fruit's contact diameter as a fraction of the board area width.</param>
         public void SetBoardWidthRatios(float smallestBoardWidthRatio, float largestBoardWidthRatio)
         {
             SmallestBoardWidthRatio = smallestBoardWidthRatio;
@@ -179,55 +183,92 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         }
 
         /// <summary>
-        /// Returns the local scale needed to make the item size relative to the board width,
-        /// using the diameter range this rule carries.
+        /// Returns the local scale needed to make the item's contact area relative to the board
+        /// width, using the diameter range this rule carries.
         /// </summary>
         /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
-        /// <param name="sprite">The sprite assigned to the item.</param>
+        /// <param name="info">The catalog entry assigned to the item.</param>
         /// <param name="boardSize">The board area's local size.</param>
-        public float GetBoardScale(int index, Sprite sprite, Vector2 boardSize)
-            => GetBoardScale(index, sprite, boardSize, _smallestBoardWidthRatio, _largestBoardWidthRatio);
+        public float GetBoardScale(int index, BoardItemInfo info, Vector2 boardSize)
+            => GetBoardScale(index, info, boardSize, _smallestBoardWidthRatio, _largestBoardWidthRatio);
 
         /// <summary>
-        /// Returns the local scale needed to make the item size relative to the board width.
+        /// Returns the local scale needed to make the item's contact area relative to the board width.
+        /// <br/> The size measured here is the collider and not the sprite, because the collider is
+        /// <br/> what the items touch each other with. A catalog entry whose collider covers less of
+        /// <br/> its sprite is therefore drawn larger, and an item index keeps the same contact area
+        /// <br/> whichever configuration is applied.
         /// </summary>
         /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
-        /// <param name="sprite">The sprite assigned to the item.</param>
+        /// <param name="info">The catalog entry assigned to the item.</param>
         /// <param name="boardSize">The board area's local size.</param>
-        /// <param name="smallestItemWidthRatio">The smallest item's diameter as a fraction of the board width.</param>
-        /// <param name="largestItemWidthRatio">The largest item's diameter as a fraction of the board width.</param>
+        /// <param name="smallestItemWidthRatio">The smallest item's contact diameter as a fraction of the board width.</param>
+        /// <param name="largestItemWidthRatio">The largest item's contact diameter as a fraction of the board width.</param>
         public virtual float GetBoardScale(
             int index,
-            Sprite sprite,
+            BoardItemInfo info,
             Vector2 boardSize,
             float smallestItemWidthRatio,
             float largestItemWidthRatio)
         {
+            Sprite sprite = info != null ? info.Sprite : null;
             if (sprite == null || boardSize.x <= 0.0f || smallestItemWidthRatio <= 0.0f || largestItemWidthRatio <= 0.0f)
             {
                 return 0.0f;
             }
 
             Vector2 spriteSize = sprite.bounds.size;
-            float spriteDiameter = Mathf.Max(spriteSize.x, spriteSize.y);
-            if (spriteDiameter <= Mathf.Epsilon)
+            float contactDiameter = Mathf.Max(spriteSize.x, spriteSize.y) * info.ColliderScale;
+            if (contactDiameter <= Mathf.Epsilon)
             {
                 return 0.0f;
             }
 
-            float targetDiameter = boardSize.x * GetBoardWidthDiameterRatio(index, smallestItemWidthRatio, largestItemWidthRatio);
-            return targetDiameter / spriteDiameter;
+            float targetDiameter = GetBoardContactDiameter(index, boardSize, smallestItemWidthRatio, largestItemWidthRatio);
+            return targetDiameter / contactDiameter;
         }
 
         /// <summary>
-        /// Returns the item's diameter as a fraction of the board area width,
+        /// Returns the item's contact diameter in the board local space, using the range this rule
+        /// carries.
+        /// </summary>
+        /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
+        /// <param name="boardSize">The board area's local size.</param>
+        public float GetBoardContactDiameter(int index, Vector2 boardSize)
+            => GetBoardContactDiameter(index, boardSize, _smallestBoardWidthRatio, _largestBoardWidthRatio);
+
+        /// <summary>
+        /// Returns the item's contact diameter in the board local space.
+        /// <br/> It depends on the item index and the board size alone, so the same index touches
+        /// <br/> over the same area no matter which sprites the configuration carries.
+        /// </summary>
+        /// <param name="index">Zero-based item index. Index 0 is the smallest item.</param>
+        /// <param name="boardSize">The board area's local size.</param>
+        /// <param name="smallestItemWidthRatio">The smallest item's contact diameter as a fraction of the board width.</param>
+        /// <param name="largestItemWidthRatio">The largest item's contact diameter as a fraction of the board width.</param>
+        public virtual float GetBoardContactDiameter(
+            int index,
+            Vector2 boardSize,
+            float smallestItemWidthRatio,
+            float largestItemWidthRatio)
+        {
+            if (boardSize.x <= 0.0f)
+            {
+                return 0.0f;
+            }
+
+            return boardSize.x * GetBoardWidthDiameterRatio(index, smallestItemWidthRatio, largestItemWidthRatio);
+        }
+
+        /// <summary>
+        /// Returns the item's contact diameter as a fraction of the board area width,
         /// using the range this rule carries.
         /// </summary>
         public float GetBoardWidthDiameterRatio(int index)
             => GetBoardWidthDiameterRatio(index, _smallestBoardWidthRatio, _largestBoardWidthRatio);
 
         /// <summary>
-        /// Returns the item's diameter as a fraction of the board area width.
+        /// Returns the item's contact diameter as a fraction of the board area width.
         /// <br/> Index 0 gets <paramref name="smallestItemWidthRatio"/>, the last item gets
         /// <br/> <paramref name="largestItemWidthRatio"/>, and every item in between is placed on the
         /// <br/> straight line connecting them.

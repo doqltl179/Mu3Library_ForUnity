@@ -20,8 +20,10 @@ namespace Mu3Library.Sample.Template.Preference
 
 
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
+
             RegisterUiEvents();
         }
 

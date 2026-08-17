@@ -59,6 +59,11 @@ namespace Mu3Library.DI
         private readonly Dictionary<Type, CoreBase> _cores = new();
         private readonly List<CoreBase> _orderedCores = new();
 
+        /// <summary>
+        /// The registered cores in execution order, for diagnostics.
+        /// </summary>
+        public IReadOnlyList<CoreBase> RegisteredCores => _orderedCores;
+
         private readonly SubscribeHandler _subscribeHandler = new();
         public event Action<Type> OnCoreInitialized;
         public event Action<Type> OnCorePrepared;
@@ -113,12 +118,17 @@ namespace Mu3Library.DI
                 return;
             }
 
+            // Only the registered instance may take its type out of the registry. A duplicate
+            // core that was refused registration still tears itself down here, and it must not
+            // drag the surviving core out of the registry on its way.
             Type type = core.GetType();
-            if (_cores.Remove(type))
+            if (_cores.TryGetValue(type, out CoreBase registered) && ReferenceEquals(registered, core))
             {
-                _orderedCores.Remove(core);
-                core.DisposeCore();
+                _cores.Remove(type);
             }
+
+            _orderedCores.Remove(core);
+            core.DisposeCore();
         }
 
         internal void RegisterCore<T>(T core) where T : CoreBase

@@ -31,9 +31,9 @@
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
 - 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization
-- 🎵 **Audio System**: Separate BGM/SFX management with volume control
+- 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
-- 🌐 **WebRequest**: HTTP GET/POST, download size queries, UniTask support
+- 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
@@ -58,10 +58,10 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.22.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.25.0
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.2.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
    ```
 
 ### Option 2: Package Manager (Local Disk)
@@ -367,7 +367,7 @@ private void ResetData()
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Unity Input System wrapper and binding manager (optional)
-- **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area without a per frame check of your own
+- **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area while the game runs, without a per frame check of your own
 - **WebRequest**: HTTP request management
 
 ## 🎓 Samples
@@ -386,6 +386,7 @@ URP package (**Mu3 Library URP**):
 Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
 - **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
+- **Item contact area**: The board-relative resize sizes the item collider, so an item index keeps the same contact area in every `BoardConfig`; `BoardItemInfo.ColliderScale` decides how much of the sprite that collider covers, `BoardItemInfo.ColliderOffset` moves it as a fraction of the collider diameter, and the sprite is drawn around the collider
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
 - **Board collision boundaries**: `BoardArea.SetOutColliders()` creates or updates left, right, and bottom `BoxCollider2D` boundaries from the item-area viewport padding while keeping the top open
 - **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants

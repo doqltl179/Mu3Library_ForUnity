@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 namespace Mu3Library.IS
 {
-    public class InputSystemManager : IInputSystemManager, IInputSystemManagerEventBus
+    public class InputSystemManager : IInputSystemManager, IInputSystemManagerEventBus, IDisposable
     {
         private const string DefaultInputActionAssetId = "Default";
 
@@ -15,6 +15,45 @@ namespace Mu3Library.IS
 
         private readonly Dictionary<string, InputActionMap> _inputActionMaps = new();
         private readonly Dictionary<string, InputAction> _inputActions = new();
+
+        /// <summary>
+        /// Assets this manager built itself, from JSON. Only these are destroyed when they
+        /// leave the manager; an asset that came from outside belongs to its caller.
+        /// </summary>
+        private readonly HashSet<InputActionAsset> _createdAssets = new();
+
+        public event Action<string, InputActionAsset> OnAssetAdded;
+        public event Action<string, InputActionAsset> OnAssetRemoved;
+        public event Action<InputAction, int> OnRebindStarted;
+        public event Action<InputAction, int> OnRebindCompleted;
+        public event Action<InputAction, int> OnRebindCanceled;
+
+
+
+        public void Dispose()
+        {
+            foreach (InputActionAsset asset in _inputActionAssets.Values)
+            {
+                if (asset == null || !_createdAssets.Contains(asset))
+                {
+                    continue;
+                }
+
+                asset.Disable();
+                UnityEngine.Object.Destroy(asset);
+            }
+
+            _createdAssets.Clear();
+            _inputActionAssets.Clear();
+            _inputActionMaps.Clear();
+            _inputActions.Clear();
+
+            OnAssetAdded = null;
+            OnAssetRemoved = null;
+            OnRebindStarted = null;
+            OnRebindCompleted = null;
+            OnRebindCanceled = null;
+        }
 
 
 
@@ -108,6 +147,7 @@ namespace Mu3Library.IS
                     op.Dispose();
                     action.Enable();
                     onComplete?.Invoke();
+                    OnRebindCompleted?.Invoke(action, bindingIndex);
                     onFinally?.Invoke();
                 })
                 .OnCancel(op =>
@@ -115,9 +155,12 @@ namespace Mu3Library.IS
                     op.Dispose();
                     action.Enable();
                     onCancel?.Invoke();
+                    OnRebindCanceled?.Invoke(action, bindingIndex);
                     onFinally?.Invoke();
                 })
                 .Start();
+
+            OnRebindStarted?.Invoke(action, bindingIndex);
 
             return rebindOperation;
         }
@@ -389,6 +432,7 @@ namespace Mu3Library.IS
             try
             {
                 var asset = InputActionAsset.FromJson(assetJson);
+                _createdAssets.Add(asset);
                 AddInputActionAsset(asset, assetId, enable);
             }
             catch (System.Exception ex)
@@ -551,7 +595,7 @@ namespace Mu3Library.IS
             return true;
         }
 
-        private bool RemoveInputActionAssetFromDictionary(string assetId)
+        private bool RemoveInputActionAssetFromDictionary(string assetId, InputActionAsset replacement = null)
         {
             if (!IsValidInputActionAssetId(assetId) ||
                !_inputActionAssets.TryGetValue(assetId, out var oldAsset) ||
@@ -565,6 +609,21 @@ namespace Mu3Library.IS
             foreach (var actionMap in oldAsset.actionMaps)
             {
                 RemoveInputActionMapFromDictionary(actionMap);
+            }
+
+            // The asset an id was replaced with keeps its state; only an asset that really left
+            // the manager stops firing. One the manager built itself has no owner left, so it is
+            // destroyed with the removal, while an asset from outside stays with its caller.
+            if (!ReferenceEquals(oldAsset, replacement))
+            {
+                oldAsset.Disable();
+
+                OnAssetRemoved?.Invoke(assetId, oldAsset);
+
+                if (_createdAssets.Remove(oldAsset))
+                {
+                    UnityEngine.Object.Destroy(oldAsset);
+                }
             }
 
             return true;
@@ -611,7 +670,7 @@ namespace Mu3Library.IS
                 return false;
             }
 
-            RemoveInputActionAssetFromDictionary(assetId);
+            RemoveInputActionAssetFromDictionary(assetId, asset);
 
             _inputActionAssets[assetId] = asset;
 
@@ -619,6 +678,8 @@ namespace Mu3Library.IS
             {
                 AddInputActionMapToDictionary(actionMap);
             }
+
+            OnAssetAdded?.Invoke(assetId, asset);
 
             return true;
         }

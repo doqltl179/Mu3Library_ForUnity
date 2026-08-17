@@ -25,8 +25,10 @@ namespace Mu3Library.Sample.Template.Audio3D
 
 
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
+
             RegisterUiEvents();
 
             _mouseClickHandler.OnClick += OnMouseClick;

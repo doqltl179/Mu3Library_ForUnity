@@ -27,17 +27,21 @@ namespace Mu3Library.Localization
         /// </summary>
         public void GetString(EntryData entryData, Action<string> callback);
 
-        public List<string> GetAllKeys(string tableName);
+        /// <summary>
+        /// Loads the asset an AssetTable holds for the current locale, a font or a sprite that
+        /// changes with the language. It goes through the Localization package's own
+        /// AssetDatabase; null answers a missing table, entry, or settings.
+        /// </summary>
+        public void GetAsset<T>(string tableName, string key, Action<T> callback) where T : UnityEngine.Object;
+
+        public IReadOnlyList<string> GetAllKeys(string tableName);
 
         public void ChangeLocaleToNative();
         public void ChangeLocaleWithEnglishName(string englishName);
         public void ChangeLocale(Locale locale);
 
         public void GetSelectedLocale(Action<Locale> callback);
-        public List<Locale> GetAvailableLocales();
-
-        public void RemoveLocaleChangedEvent(Action<Locale> action);
-        public void AddLocaleChangedEvent(Action<Locale> action);
+        public IReadOnlyList<Locale> GetAvailableLocales();
     }
 }
 #endif

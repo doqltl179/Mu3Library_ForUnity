@@ -11,6 +11,14 @@ namespace Mu3Library.Utility
     /// or a hundred wait on it, and a listener that only needs the resolution can stay on the
     /// <c>OnRectTransformDimensionsChange</c> message Unity already sends it.
     /// </para>
+    /// <para>
+    /// The screen is followed only while the game runs. Edit mode holds no screen to follow:
+    /// <see cref="Screen"/> answers the editor with the view it is drawing, which is a game view on one
+    /// tick and a scene view or an inspector on the next, so a read there reports a screen that changed
+    /// on every tick and leaves the listeners resizing what they own between two answers every frame.
+    /// <see cref="ScreenSize"/> and <see cref="SafeArea"/> stay empty until the game reads the screen,
+    /// which is how a listener tells a screen it does not know yet from one it does.
+    /// </para>
     /// </summary>
     public static class ScreenChangeNotifier
     {
@@ -21,13 +29,13 @@ namespace Mu3Library.Utility
         public static event Action OnChanged;
 
         /// <summary>
-        /// Screen size the last read found.
+        /// Screen size the last read found. Empty while the game has not read the screen.
         /// </summary>
         public static Vector2Int ScreenSize => _screenSize;
         private static Vector2Int _screenSize = Vector2Int.zero;
 
         /// <summary>
-        /// Safe area the last read found.
+        /// Safe area the last read found. Empty while the game has not read the screen.
         /// </summary>
         public static Rect SafeArea => _safeArea;
         private static Rect _safeArea = Rect.zero;
@@ -44,35 +52,16 @@ namespace Mu3Library.Utility
             Application.onBeforeRender += Read;
         }
 
-#if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-        private static void InitializeInEditor()
+        private static void Read()
         {
-            Capture();
-
-            // Edit mode runs no player loop, so the editor loop is what reads the screen there.
-            UnityEditor.EditorApplication.update -= ReadInEditor;
-            UnityEditor.EditorApplication.update += ReadInEditor;
-        }
-
-        /// <summary>
-        /// Play mode reads the screen from the player loop it runs, so the editor loop stays out of it.
-        /// Reading from both is what would let one frame report two screens and the listeners that follow
-        /// the screen alternate between them.
-        /// </summary>
-        private static void ReadInEditor()
-        {
-            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+            // The player loop is the only place the screen is read from. A domain reload that was turned
+            // off leaves this attached while edit mode comes back, where the screen the editor answers
+            // with is the one of the view it happens to be drawing.
+            if (!Application.isPlaying)
             {
                 return;
             }
 
-            Read();
-        }
-#endif
-
-        private static void Read()
-        {
             if (_screenSize.x == Screen.width &&
                 _screenSize.y == Screen.height &&
                 _safeArea == Screen.safeArea)

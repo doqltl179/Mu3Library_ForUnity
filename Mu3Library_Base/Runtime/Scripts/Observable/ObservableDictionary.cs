@@ -96,7 +96,32 @@ namespace Mu3Library.Observable
             }
         }
 
-        public void Notify() => _callback?.Invoke(_dictionaryValue);
+        public void Notify() => InvokeCallbacks(_dictionaryValue);
+
+        /// <summary>
+        /// Invokes every subscriber on its own, so one that throws is reported and does not
+        /// keep the change from reaching the others.
+        /// </summary>
+        private void InvokeCallbacks(IReadOnlyDictionary<TKey, TValue> value)
+        {
+            Delegate[] listeners = _callback?.GetInvocationList();
+            if (listeners == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < listeners.Length; i++)
+            {
+                try
+                {
+                    ((Action<IReadOnlyDictionary<TKey, TValue>>)listeners[i]).Invoke(value);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+            }
+        }
 
         public void AddEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback += callback;
         public void RemoveEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback -= callback;

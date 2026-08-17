@@ -15,6 +15,101 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.25.0] - 2026-08-17
+
+### 追加
+- `Mu3Logger`(Foundation): 純粋な C# 層が登録された sink を通してログを出すようになりました。Base ランタイムが起動時に Unity コンソール sink を登録し、Foundation のイベントクラスはこれまで飲み込んでいた disposed ハンドラーや不正な id のケースを報告します。
+- `AudioManager`: `SetMixerGroups` が各カテゴリのソースを `AudioMixerGroup` にルーティングします。音量計算は `AudioSource.volume` に残ります。`SaveVolumes`/`LoadVolumes` は 4 カテゴリの音量を `IPlayerPrefsLoader` で保存・復元し、`DuckBgm` はボイスや大きな SFX の下で音楽を一時的に下げ、`FadeInSfx`/`FadeInEnvironment` は設定と位置を受け取ります。UniTask API(`FadeInBgmAsync`, `FadeOutBgmAsync`, `TransitionBgmAsync`, `DuckBgmAsync`)はフェードが実際に終わったときに完了し、新しいフェードに置き換えられるとキャンセルとして完了します。
+- `ILocalizationManager`: `GetAsset<T>(tableName, key, callback)` と `GetAssetAsync<T>(tableName, key)` が現在のロケールの AssetTable アセット — 言語で変わるフォントやスプライト — を読み込みます。`GetString` が StringDatabase を包むのと同じ形で、Localization パッケージ自身の AssetDatabase をそのまま使います。
+- `IMVPManager`: `OpenAsync`/`CloseAsync` はウィンドウが開き終わったとき、またはマネージャーから完全に離れたときに完了するため、呼び出し側はウィンドウイベントをつなぐ代わりにアニメーションを await できます。
+- `IWebRequestManager`: PUT、PATCH、DELETE メソッドを追加。コールバック API に指数バックオフのリトライ、実行中のリクエストを中断する `WebRequestCancellation`、ダウンロード進捗を知らせる `onDownloadProgress` コールバックが加わりました。
+- `IPlayerPrefsLoader`: bool、enum(名前で保存)、JSON オブジェクトのエントリと、それぞれのデフォルト値をサポートします。
+- `IInputSystemManagerEventBus`: アセットの追加/削除とリバインドの開始/完了/キャンセルのイベントが加わりました。
+- `GameObjectPool`: `MaxSize` は満杯のプールが持てないオブジェクトを破棄し、`Prewarm` はプールを事前に満たし、返却フックがすべての enqueue で走り、`Count` が待機中のオブジェクト数を答えます。
+- エディター: `DIValidatorDrawer` はコンストラクターや必須の `[Inject]` メンバーを解決できない登録を、何も resolve せずに報告します。`RuntimeDiagnosticsDrawer` は管理中の MVP presenter と Addressables キャッシュを表示し、パッケージ更新メニューが WatermelonGame パッケージをカバーします。
+- 診断: `Container.GetAllDescriptors`/`IsRegistered`/`GetActiveSingletonInstances`、`CoreBase` の対応 API、`CoreRoot.RegisteredCores`、`MVPManager.GetPresenterDiagnostics`、Addressables のキャッシュカウンターが新しいドロワーを支えます。
+- テスト: DI コンテナ、Foundation のイベントクラス、Observable、`GameObjectPool`、`PlayerPrefsLoader` の EditMode テストを追加し、BuiltIn プロジェクトに testable として登録しました。
+- Base パッケージにパッケージ単位の `README.md`/`CHANGELOG.md` を追加しました。
+
+### 変更
+- `Container.CreateScope()` が internal になりました。コアは生存期間を通して正確に 1 つのスコープを所有します。2 つ目のスコープはシングルトンの `Initialize()` を二度実行したり、コンテナがまだ配っているインスタンスを dispose したりできました。**Breaking**: スコープを直接作っていたコードは `CoreBase` を経由する必要があります。
+- `AudioController`: 有限ループが normalized time 0.97 の代わりに `AudioSource.isPlaying` が消えるのを待ちます。ワンショット SFX とプレイリストのトラックが末尾を失わずに最後のサンプルまで再生されます。
+- `AudioManager`: カテゴリ音量の setter が 0..1 にクランプします。BGM プレイリストは null クリップを先に除外し、再生できるものが残らないリストを拒否します。以前は無限再帰に陥りました。
+- `AddressablesManager`: アセットキャッシュのキーが要求タイプを含みます。1 つのアドレスを 2 つのタイプで読み込むと、互いのハンドルを解放する代わりに 2 つのエントリを保持します。`ReleaseCachedAsset` はそのキーが生んだすべて — 単一、リスト、キー付き辞書のエントリ — をまとめて解放します。`IsKeyExist` と `GetCachedAddress` は引き続き base key で答え、カタログ更新が既知キー集合を更新し、失敗した依存関係ダウンロードも完了を報告して呼び出し側を永遠に待たせません。
+- `InputSystemManager`: 同じ id でアセットを差し替えると、離れるアセットを無効化します。マネージャーが JSON から自分で作ったアセットは離れるときに破棄され、`Dispose` がマネージャーの所有物を片付けます。
+- `Container`: 同じ実装を別のライフタイムで再登録すると、黙って捨てられる代わりに警告付きで新しい登録が勝ちます。
+- Observable が購読者を 1 つずつ呼び出します。例外を投げた購読者は報告され、残りの購読者への通知を妨げません。
+
+### 修正
+- `CoreRoot`: 破棄された重複コアが、生き残った同じタイプのコアをレジストリから引きずり出さなくなりました。登録されたインスタンスだけが自分のタイプを外せて、重複コアは自分のスコープを片付けます。
+- `SceneLoader`: additive の更新パスがスナップショットを走査します。シーンコールバックが別のシーン操作を開始・停止しても、collection-modified 例外でパスが壊れません。失敗した Addressables シーンロードはハンドルをリークせず解放します。
+- `CoreBase`: コンテナができる前の `GetClass`/`RegisterClass` は例外の代わりに null を答えるか報告し、`Start` 時点で非アクティブだったコアは有効化時に準備を再試行します。
+- `Singleton`/`GenericSingleton`: 破棄された重複インスタンスが生き残ったインスタンスの static 参照を消さず、アプリ終了中のアクセスがゴーストオブジェクトを再生成しません。
+- `ResourceLoader`: 同じパスの同時非同期ロードが 1 つのリクエストを共有し、同じアセットの再キャッシュは警告しなくなりました。
+- `OutPanel.CanvasGroup` が、初回アクセス前は null だった backing field ではなく lazy プロパティで答えます。
+- `AudioManager`: オーディオコントローラー生成エラーが常にソースのせいにする代わりに、欠けている側 — ソースまたはクリップ — を指します。
+
+## [urp/0.3.0] - 2026-08-17
+
+### 追加
+- URP パッケージにパッケージ単位の `README.md`/`CHANGELOG.md` を追加しました。
+
+### 変更
+- `ScreenEffectManager` が `IDisposable` を実装します。dispose 時に永遠に付いたままになる代わりに `RenderPipelineManager.beginCameraRendering` から自分を外します。エフェクト自体は所有者に残ります。
+
+### 修正
+- `ScreenEffectManager.UnregisterEffectAll<TEffect>()` が再びエフェクトを削除します。エフェクトタイプをレンダーパスの名前である `PassType` と比較していたため一致することがなく、黙って何も削除しませんでした。
+
+## [game/watermelon/0.6.0] - 2026-08-17
+
+### 追加
+- `InputHandler`: マウスがタッチと同じドラッグパイプラインを動かします。タッチスクリーンのないエディターとデスクトップでもゲームがプレイできます。
+- テスト: `BoardCommandRunner` の EditMode テストを追加し、Base のテストと合わせて WatermelonGame プロジェクトに testable として登録しました。
+
+## [base/0.24.1] - 2026-08-16
+
+### 変更
+- `ScreenChangeNotifier`: 画面はゲームが動いている間だけ追従します。ゲームが画面を読むまで `ScreenSize` と `SafeArea` は空のままで、edit mode では `OnChanged` が発生しません。
+- `SafeRect`: 内側に寄せるための safe area を持たない画面では、rect が親を丸ごと覆います。画面をゲームが動いている間だけ追従するようにしたため、edit mode がこの状態になりました。従来は大きさを報告しない画面に対して rect をそのままにしていたので、edit mode で作った rect は play mode が合わせるまで作成時の大きさを保っていました。
+
+### 修正
+- `SafeRect`: edit mode で rect が毎フレーム新しい大きさになる問題を修正しました。`ScreenChangeNotifier` がエディタループから画面を読んでおり、そこでの `Screen` はエディタが描いている view を返します。あるティックでは game view、次のティックでは scene view や inspector でした。そのためすべてのティックが「たった今変わった画面」に見え、画面では何も変わっていないのに毎回異なる 2 つの値から safe area が適用し直されていました。
+
+## [base/0.24.0] - 2026-08-16
+
+### 追加
+- `ILocalizationManager`: `GetStringAsync(EntryData)` を追加し、非同期 API が揃いました。これまではテーブル名とキーしか受け取らず、コールバック API のほうは Localization データエクスポーターが生成する `EntryData` をすでに受け取っていました。
+- `ILocalizationManagerEventBus`: `OnLocaleChanged` が選択ロケールのすべての変更を通知します。このマネージャーの外で行われた変更も含みます。`LocalizationManager` が Localization パッケージへの購読を自ら所有し `Dispose()` で外すため、呼び出し側が `LocalizationSettings` に直接登録して解除を忘れることがなくなります。
+
+### 変更
+- `ILocalizationManager`: `AddLocaleChangedEvent(Action<Locale>)` と `RemoveLocaleChangedEvent(Action<Locale>)` を削除しました。ロケール変更の購読はイベントバスの担当なので、`ILocalizationManagerEventBus.OnLocaleChanged` が両方を置き換えます。マネージャーを `ILocalizationManagerEventBus` として解決し、`+=` と `-=` を使ってください。
+- `ILocalizationManager`: `GetAllKeys` は `IReadOnlyList<string>` を、`GetAvailableLocales` は `IReadOnlyList<Locale>` を返します。これまでの `GetAvailableLocales` は Localization パッケージが保持する `List<Locale>` そのものを渡しており、呼び出し側が並べ替えたり空にしたりできました。
+- `Mu3Library.Localization.Data`: `EntryData`、`LocaleData`、`TableData` を `Mu3Library.Addressable.Data` と同じく `MU3LIBRARY_LOCALIZATION_SUPPORT` で囲みました。エクスポーターが生成するスクリプトにはこのガードがないため、define を切ったまま生成済みの Localization スクリプトを残しているプロジェクトは、そのスクリプトも併せて削除する必要があります。
+- `LocalizationManager.InitializeAsync()`: 初期化の失敗が await の外へ再スローされなくなりました。コールバック API と同じく `IsInitialized`、`InitializeError`、`OnInitializeResult` を通じて報告され、ログもこれまでどおり残ります。
+- `LocalizationManager`: `LocalizationSettings` アセットを持たないプロジェクトには、使い捨ての既定設定を渡す代わりに空文字列、空のリスト、またはフォールバックロケールを返します。`LocalizationSettings` のメンバーを読むとアクセス時に既定の設定オブジェクトが作られ、その警告も出るため、各入口でまず `LocalizationSettings.HasSettings` を確認します。
+- `AddressablesManager.InitializeAsync()`: 初期化の失敗が await の外へ再スローされなくなりました。コールバック API と同じく `IsInitialized`、`InitializeError`、`OnInitializeResult` を通じて報告され、ログもこれまでどおり残るため、3 つの入口が 1 つの失敗を同じ形で伝えます。また、ハンドルの取得と完了処理の手順を書き直す代わりに `BeginInitialize()` を通すので、コールバック経路と async 経路が食い違う余地がなくなります。
+
+### 修正
+- `LocalizationManager`: カスタムロケールコードで既定ロケールを解決するときや英語名でロケールを探すときに例外が出なくなりました。`LocaleIdentifier.CultureInfo` は culture 表にないコードでは null のままで、Localization パッケージはこれを正常なケースとして文書化していますが、どちらの検索もこの値をそのまま参照していました。
+- `LocalizationManager`: `GetSelectedLocale(Action<Locale>)` が、自分で確認したハンドルをそのまま待ちます。完了ハンドラーを登録する際に `LocalizationSettings.SelectedLocaleAsync` を読み直していましたが、その間に `SelectedLocale` を代入すると既存のオペレーションが解放されて新しいものが作られるため、完了を確認したハンドルとコールバックを載せたハンドルが別物になり得ました。今はプロパティを一度だけ読みます。
+- `LocalizationManager`: キャンセルされた `ChangeLocaleAsync(Locale)` が、自分を置き換えた変更の完了を報告しなくなりました。追い越された呼び出しが自身の `finally` で `IsLocaleChanging` を下ろしていましたが、その時点では新しい呼び出しがすでに上げた後でした。今はキャンセルソースを保持している呼び出しだけがこの状態を片付けます。
+- `LocalizationManager`: `CurrentLocale` がマネージャーの外で起きたロケール変更に追従します。この値を書いていたのはマネージャー自身の変更メソッドだけだったため、`LocalizationSettings.SelectedLocale` を直接設定した場合や起動時のセレクターが選んだ場合には、以前のロケールを報告し続けていました。
+- `LocalizationManager`: `ChangeLocaleToNative()` が、enum 名と culture の英語名が一致しないシステム言語も解決します。`SystemLanguage.ToString()` と `CultureInfo.EnglishName` の比較では `ChineseSimplified` が `Chinese (Simplified)` に一致することはありませんでした。今は Localization パッケージが `SystemLanguage` から作る識別子を最初に試し、次に地域を問わない同一言語、最後に英語名を試します。
+- `LocalizationManager`: `GetStringAsync(string, string)` がテーブル読み込み失敗時に意図どおり空文字列を返します。await の後ろにあった状態チェックは、失敗したオペレーションを await するとその前に例外が投げられるため到達できませんでした。
+- `AddressablesManager`: `InitializeAsync()` が、例外の伝播中に `finally` の中で await しなくなりました。初期化がすでに動いているときに入ってきた呼び出し側はそこで `UniTask.WaitUntil` を待っていましたが、これにはタイムアウトもキャンセルトークンもないため、例外が表に出ないまま待機に縛られていました。
+- `AddressablesManager`: `Dispose()` が初期化ハンドルを解放する前に完了ハンドラーを外します。片付けの済んだマネージャーに、遅れて届いた完了が `_isInitialized` を書き戻すことができなくなります。
+
+## [game/watermelon/0.5.0] - 2026-08-16
+
+### 追加
+- `BoardItemInfo.ColliderOffset`: catalog 項目の collider 中心を collider 直径に対する比率で指定する設定を追加しました。既定値は `(0.0, -0.03)` です。board は item index ごとの collider 直径をどの画面解像度でも同じに保つため、ここに書いた offset もどこでも同じ比率だけ接触領域を動かします。このフィールドが存在する前に serialize された項目は `(0, 0)` として読まれ、collider は sprite の中心に置かれます。
+- `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` と `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2, float, float)`: board local 空間での item index の接触直径を返す method を追加しました。index と board の大きさだけで決まり、config が持つ sprite には左右されません。
+- `BoardItem.BoardLocalColliderCenter`: item の位置を基準に親(board) local 空間で測った collider 中心を追加しました。保持中の item を clamp する基準であり、spawn marker が乗る基準でもあります。
+
+### 変更
+- `BoardItemScaleRule`: board 基準の resize を item sprite ではなく item collider の大きさに合わせるよう変更しました。従来は sprite を item index が要求する直径に合わせたうえで、その内側で collider を縮めていたため、`BoardItemInfo.ColliderScale` が実際の当たりの大きさを決め、config を差し替えるとすべての index の接触領域が一緒に変わっていました。今は rule が collider をその直径に届かせるまで item を拡大し、sprite はその結果に合わせて描かれるため、どの config を適用しても item index ごとの接触領域は同じです。collider が sprite に占める割合が小さい項目はその分だけ sprite が以前より大きく描かれますが、これは接触領域を一定に保つための意図した結果です。
+- `BoardItemScaleRule.GetBoardScale`: `Sprite` を受け取っていた位置で `BoardItemInfo` を受け取ります。項目の collider 比率も測る対象になったためです。`GetBoardScale(int, Sprite, Vector2)` と `GetBoardScale(int, Sprite, Vector2, float, float)` は削除したので、catalog 項目を渡してください。sprite の overload を override していた派生 class は新しい overload を override してください。
+- `BoardController`: 保持中の item を sprite の境界ではなく接触領域で item 領域内に clamp し、spawn marker も接触中心の上に置きます。item index を落とせる位置が sprite の余白に左右されません。
 ## [base/0.23.3] - 2026-08-15
 
 ### 修正

@@ -16,6 +16,7 @@ namespace Mu3Library.Sample.Template.Localization
     {
 #if TEMPLATE_LOCALIZATION_SUPPORT
         private ILocalizationManager _localizationManager;
+        private ILocalizationManagerEventBus _localizationEventBus;
 #endif
         private ISceneLoader _sceneLoader;
 
@@ -40,7 +41,8 @@ namespace Mu3Library.Sample.Template.Localization
             _backButton.onClick.AddListener(OnBackButtonClicked);
 #if TEMPLATE_LOCALIZATION_SUPPORT
             _localizationManager = GetClassFromOtherCore<LocalizationCore, ILocalizationManager>();
-            _localizationManager.AddLocaleChangedEvent(OnLocaleChanged);
+            _localizationEventBus = GetClassFromOtherCore<LocalizationCore, ILocalizationManagerEventBus>();
+            _localizationEventBus.OnLocaleChanged += OnLocaleChanged;
             _localeDropdown.onValueChanged.AddListener(OnLocaleDropdownValueChanged);
 
             _textComponent.text = "Localization Initializing...";
@@ -56,7 +58,10 @@ namespace Mu3Library.Sample.Template.Localization
             base.OnDestroy();
 
 #if TEMPLATE_LOCALIZATION_SUPPORT
-            _localizationManager.RemoveLocaleChangedEvent(OnLocaleChanged);
+            if (_localizationEventBus != null)
+            {
+                _localizationEventBus.OnLocaleChanged -= OnLocaleChanged;
+            }
 
             _localeDropdown.onValueChanged.RemoveListener(OnLocaleDropdownValueChanged);
 #endif

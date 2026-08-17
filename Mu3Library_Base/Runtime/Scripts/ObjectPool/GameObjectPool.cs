@@ -26,24 +26,78 @@ namespace Mu3Library.ObjectPool
 
         public delegate T Create();
         public delegate void Initialize(T obj);
+        public delegate void Return(T obj);
 
         private readonly Create _onCreate;
         private readonly Initialize _onInitialize;
+        private readonly Return _onReturn;
+
+        private int _maxSize = 0;
+        /// <summary>
+        /// Largest number of pooled objects kept. An object returned to a full pool is destroyed
+        /// instead. 0 or less means unlimited.
+        /// </summary>
+        public int MaxSize
+        {
+            get => _maxSize;
+            set => _maxSize = value;
+        }
+
+        /// <summary>
+        /// Number of objects currently waiting in the pool.
+        /// </summary>
+        public int Count => _pool.Count;
 
 
-        public GameObjectPool() : this(null, null)
+        public GameObjectPool() : this(null, null, null)
         {
         }
 
         public GameObjectPool(Create onCreate)
-            : this(onCreate, null)
+            : this(onCreate, null, null)
         {
         }
 
         public GameObjectPool(Create onCreate, Initialize onInitialize)
+            : this(onCreate, onInitialize, null)
+        {
+        }
+
+        public GameObjectPool(Create onCreate, Initialize onInitialize, Return onReturn)
         {
             _onCreate = onCreate;
             _onInitialize = onInitialize;
+            _onReturn = onReturn;
+        }
+
+        /// <summary>
+        /// Fills the pool up to the requested number of waiting objects, so the first
+        /// dequeues pay no instantiation cost. Needs the create delegate.
+        /// </summary>
+        public void Prewarm(int count)
+        {
+            if (_onCreate == null)
+            {
+                Debug.LogWarning("Prewarm needs a create delegate.");
+                return;
+            }
+
+            if (_maxSize > 0)
+            {
+                count = Mathf.Min(count, _maxSize);
+            }
+
+            while (_pool.Count < count)
+            {
+                T obj = _onCreate();
+                if (obj == null)
+                {
+                    Debug.LogWarning("Create delegate returned null. Prewarm stopped.");
+                    return;
+                }
+
+                Enqueue(obj);
+            }
         }
 
         public void Enqueue(T obj)
@@ -56,12 +110,23 @@ namespace Mu3Library.ObjectPool
 
             PooledItem pooledItem = new(obj);
             int instanceId = pooledItem.InstanceId;
-            if (!_instanceIds.Add(instanceId))
+            if (_instanceIds.Contains(instanceId))
             {
                 Debug.LogWarning($"Object with instance ID {instanceId} is already in the pool. Skipping enqueue.");
                 return;
             }
 
+            _onReturn?.Invoke(obj);
+
+            // A full pool keeps nothing extra; the returned object is destroyed after the
+            // return hook had its chance to detach whatever it owns.
+            if (_maxSize > 0 && _pool.Count >= _maxSize)
+            {
+                DestroyPooledObject(obj.gameObject);
+                return;
+            }
+
+            _instanceIds.Add(instanceId);
             _pool.Enqueue(pooledItem);
         }
 
@@ -140,11 +205,24 @@ namespace Mu3Library.ObjectPool
                 T obj = pooledItem.Object;
                 if (obj != null)
                 {
-                    Object.Destroy(obj.gameObject);
+                    DestroyPooledObject(obj.gameObject);
                 }
             }
 
             _instanceIds.Clear();
+        }
+
+        private static void DestroyPooledObject(GameObject go)
+        {
+            // Edit mode, which the tests run in, forbids the deferred destroy.
+            if (Application.isPlaying)
+            {
+                Object.Destroy(go);
+            }
+            else
+            {
+                Object.DestroyImmediate(go);
+            }
         }
     }
 

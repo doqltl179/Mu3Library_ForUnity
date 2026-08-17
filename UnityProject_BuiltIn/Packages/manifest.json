@@ -58,5 +58,8 @@
         "org.nuget.r3"
       ]
     }
+  ],
+  "testables": [
+    "com.github.doqltl179.mu3library.base"
   ]
 }

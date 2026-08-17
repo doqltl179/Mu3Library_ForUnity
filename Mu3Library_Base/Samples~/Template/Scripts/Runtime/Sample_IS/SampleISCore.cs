@@ -58,8 +58,10 @@ namespace Mu3Library.Sample.Template.IS
             _inputActionPageResource.gameObject.SetActive(false);
         }
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
+
             RegisterUiEvents();
         }
 

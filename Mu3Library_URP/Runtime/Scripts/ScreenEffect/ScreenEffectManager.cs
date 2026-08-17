@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Mu3Library.URP.ScreenEffect
 {
-    public class ScreenEffectManager : IScreenEffectManager
+    public class ScreenEffectManager : IScreenEffectManager, IDisposable
     {
         private struct EffectEntry
         {
@@ -15,6 +15,24 @@ namespace Mu3Library.URP.ScreenEffect
         }
 
         private readonly List<EffectEntry> _effects = new List<EffectEntry>();
+
+
+
+        /// <summary>
+        /// Takes this manager off the render pipeline. The effects themselves stay with their
+        /// owners; one the caller wants gone with the manager goes through
+        /// <see cref="UnregisterEffect(IScreenEffect, bool)"/> with dispose.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_effects.Count == 0)
+            {
+                return;
+            }
+
+            _effects.Clear();
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+        }
 
 
 
@@ -95,7 +113,9 @@ namespace Mu3Library.URP.ScreenEffect
             {
                 var entry = _effects[i];
                 var effect = entry.Effect;
-                if (effect == null || effect.PassType != effectType)
+                // The filter is the effect type itself; PassType names the render pass and never
+                // matches an effect type, so matching it here would silently remove nothing.
+                if (effect == null || !effectType.IsInstanceOfType(effect))
                 {
                     continue;
                 }

@@ -23,6 +23,12 @@ namespace Mu3Library.UI.Area
     /// game view repaint answers with the game view. Reading it from here would make the same frame produce
     /// two screens and the anchors alternate between them, so the once a frame read is what is trusted.
     /// </para>
+    /// <para>
+    /// That screen is followed only while the game runs, so edit mode holds no safe area to inset by and
+    /// the rect covers its parent whole there, which is the layout a screen with no inset gives it. An
+    /// editor that reported a screen of its own would report a different one on every tick, and the rect
+    /// would take a new size every frame while nothing on the screen had changed.
+    /// </para>
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     [DisallowMultipleComponent]
@@ -89,23 +95,25 @@ namespace Mu3Library.UI.Area
             float screenWidth = screenSize.x;
             float screenHeight = screenSize.y;
 
-            if (screenWidth <= 0.0f || screenHeight <= 0.0f)
-            {
-                return;
-            }
+            // A screen that reports no size is one the game has not read yet, which is what edit mode
+            // leaves behind, and a screen that reports no safe area is one that keeps none. Neither
+            // holds an inset to anchor by, so the rect covers its parent whole.
+            Rect appliedSafeArea = new Rect(0.0f, 0.0f, screenWidth, screenHeight);
+            Vector2 anchorMin = Vector2.zero;
+            Vector2 anchorMax = Vector2.one;
 
-            Rect appliedSafeArea = safeAreaRect;
-            if (appliedSafeArea.width <= 0.0f || appliedSafeArea.height <= 0.0f)
+            if (screenWidth > 0.0f && screenHeight > 0.0f &&
+                safeAreaRect.width > 0.0f && safeAreaRect.height > 0.0f)
             {
-                appliedSafeArea = new Rect(0.0f, 0.0f, screenWidth, screenHeight);
-            }
+                appliedSafeArea = safeAreaRect;
 
-            Vector2 anchorMin = new Vector2(
-                Mathf.Clamp01(appliedSafeArea.xMin / screenWidth),
-                Mathf.Clamp01(appliedSafeArea.yMin / screenHeight));
-            Vector2 anchorMax = new Vector2(
-                Mathf.Clamp01(appliedSafeArea.xMax / screenWidth),
-                Mathf.Clamp01(appliedSafeArea.yMax / screenHeight));
+                anchorMin = new Vector2(
+                    Mathf.Clamp01(appliedSafeArea.xMin / screenWidth),
+                    Mathf.Clamp01(appliedSafeArea.yMin / screenHeight));
+                anchorMax = new Vector2(
+                    Mathf.Clamp01(appliedSafeArea.xMax / screenWidth),
+                    Mathf.Clamp01(appliedSafeArea.yMax / screenHeight));
+            }
 
             RectTransform rectTransform = _rectTransform;
 
@@ -133,6 +141,11 @@ namespace Mu3Library.UI.Area
         }
         #endregion
 
+        /// <summary>
+        /// Called after the anchors took the safe area, which is given in screen pixels.
+        /// It covers the screen whole while the screen reports no safe area of its own, and it
+        /// reports no size at all while the game has not read the screen, which is what edit mode leaves.
+        /// </summary>
         protected virtual void OnCalculated(Rect safeArea) { }
 
         private void OnScreenChanged()

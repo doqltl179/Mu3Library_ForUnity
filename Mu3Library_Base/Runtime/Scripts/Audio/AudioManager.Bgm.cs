@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Mu3Library.Audio
@@ -89,9 +90,24 @@ namespace Mu3Library.Audio
                 _bgmMainController = CreateAudioController<BgmController>(source, clip, settings);
             }
 
+            _bgmMainController.SetMixerGroup(_bgmMixerGroup);
             _bgmMainController.FadeVolume = 1.0f;
             _bgmMainController.RecalculateVolume();
             _bgmMainController.Play();
+        }
+
+        /// <summary>
+        /// Dips the BGM to <paramref name="duckVolume"/>, holds it, and brings it back, which is
+        /// what lets a voice line or a heavy SFX sit on top of the music for a moment.
+        /// </summary>
+        public void DuckBgm(float duckVolume = 0.3f, float fadeOutTime = 0.2f, float holdTime = 0.5f, float fadeInTime = 0.5f)
+        {
+            if (_bgmMainController == null || _bgmMainController.IsCompleted)
+            {
+                return;
+            }
+
+            _bgmMainController.Duck(duckVolume, fadeOutTime, holdTime, fadeInTime);
         }
 
         public void PlayBgmForce(AudioClip clip) => PlayBgmForce(clip, AudioSourceSettings.BgmStandard);
@@ -150,11 +166,19 @@ namespace Mu3Library.Audio
         public void TransitionBgm(AudioClip clip, float transitionTime) => TransitionBgm(clip, transitionTime, AudioSourceSettings.BgmStandard);
 
         public void TransitionBgm(AudioClip clip, float transitionTime, AudioSourceSettings settings)
+            => TransitionBgmInternal(clip, transitionTime, settings, null);
+
+        /// <summary>
+        /// The transition body the callback and the UniTask paths share. Returns the controller
+        /// the new track plays on, null when the clip is missing, and reports the end of its
+        /// fade-in, which is what ends the transition.
+        /// </summary>
+        internal AudioController TransitionBgmInternal(AudioClip clip, float transitionTime, AudioSourceSettings settings, Action onFadedIn)
         {
             if (clip == null)
             {
                 Debug.LogError($"BGM clip is NULL.");
-                return;
+                return null;
             }
 
             AudioController from = _bgmMainController;
@@ -170,6 +194,8 @@ namespace Mu3Library.Audio
                 to = CreateAudioController<BgmController>(source, clip, settings);
             }
 
+            to.SetMixerGroup(_bgmMixerGroup);
+
             if (!to.IsPlaying || !to.IsSameClip(clip))
             {
                 InitializeAudioController(to, clip, settings);
@@ -178,10 +204,12 @@ namespace Mu3Library.Audio
                 to.Play();
             }
 
-            to.FadeIn(transitionTime);
+            to.FadeIn(transitionTime, onFadedIn);
 
             _bgmMainController = to;
             _bgmSubController = from;
+
+            return to;
         }
 
         public void TransitionBgmWithKey(string key) => TransitionBgmWithKey(key, 1.0f, AudioSourceSettings.BgmStandard);
@@ -210,6 +238,7 @@ namespace Mu3Library.Audio
 
         private void SetBgmVolume(float value)
         {
+            value = Mathf.Clamp01(value);
             if (_bgmVolume == value)
             {
                 return;

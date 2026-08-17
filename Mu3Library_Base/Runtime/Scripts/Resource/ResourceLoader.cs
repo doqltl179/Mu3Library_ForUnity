@@ -11,6 +11,12 @@ namespace Mu3Library.Resource
         private readonly Dictionary<string, Dictionary<Type, Object>> _resources = new();
         private readonly Dictionary<string, Dictionary<Type, Object[]>> _resourceListCache = new();
 
+        /// <summary>
+        /// Callbacks waiting on an async load that is already in flight for the same path and
+        /// type. One request serves them all, so a path is never loaded twice at once.
+        /// </summary>
+        private readonly Dictionary<(string Path, Type Type), List<Action<Object>>> _pendingAsyncLoads = new();
+
 
 
         public void Dispose()
@@ -101,27 +107,55 @@ namespace Mu3Library.Resource
                 return;
             }
 
-            RequestLoad(path, onLoaded);
+            (string, Type) pendingKey = (path, typeof(T));
+            if (_pendingAsyncLoads.TryGetValue(pendingKey, out List<Action<Object>> callbacks))
+            {
+                // The same path and type is already loading; this caller joins that request.
+                callbacks.Add(asset => onLoaded?.Invoke(asset as T));
+                return;
+            }
+
+            _pendingAsyncLoads.Add(pendingKey, new List<Action<Object>> { asset => onLoaded?.Invoke(asset as T) });
+            RequestLoad<T>(path, pendingKey);
         }
 
-        private void RequestLoad<T>(string path, Action<T> onLoaded) where T : Object
+        private void RequestLoad<T>(string path, (string, Type) pendingKey) where T : Object
         {
             ResourceRequest request = Resources.LoadAsync<T>(path);
             request.completed += _ =>
             {
+                List<Action<Object>> callbacks = null;
+                if (_pendingAsyncLoads.TryGetValue(pendingKey, out callbacks))
+                {
+                    _pendingAsyncLoads.Remove(pendingKey);
+                }
+
                 Object loaded = request.asset;
                 T result = loaded as T;
 
                 if (result == null)
                 {
                     Debug.LogError($"Object not found in resources folder. path: {path}");
-                    onLoaded?.Invoke(null);
+                    InvokePendingCallbacks(callbacks, null);
                     return;
                 }
 
                 Cache(path, result);
-                onLoaded?.Invoke(result);
+                InvokePendingCallbacks(callbacks, result);
             };
+        }
+
+        private static void InvokePendingCallbacks(List<Action<Object>> callbacks, Object asset)
+        {
+            if (callbacks == null)
+            {
+                return;
+            }
+
+            foreach (Action<Object> callback in callbacks)
+            {
+                callback?.Invoke(asset);
+            }
         }
 
         public bool TryLoad<T>(string path, out T asset) where T : Object
@@ -367,8 +401,11 @@ namespace Mu3Library.Resource
                 _resources.Add(path, pathResources);
             }
 
+            // Re-caching the very same asset is a harmless race between the sync and async
+            // paths; only a different instance under the same slot is worth reporting.
             if (pathResources.TryGetValue(type, out Object cached) &&
-                cached != null)
+                cached != null &&
+                !ReferenceEquals(cached, asset))
             {
                 Debug.LogWarning($"Resource already cached. path: {path}, type: {type}");
             }

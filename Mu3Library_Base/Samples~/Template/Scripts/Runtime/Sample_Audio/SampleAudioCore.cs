@@ -44,8 +44,10 @@ namespace Mu3Library.Sample.Template.Audio
 
 
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
+
             RegisterUiEvents();
         }
 

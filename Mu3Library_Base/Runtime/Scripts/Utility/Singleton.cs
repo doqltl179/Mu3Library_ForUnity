@@ -3,6 +3,36 @@ using UnityEngine;
 namespace Mu3Library.Utility
 {
     /// <summary>
+    /// Play-session state the singleton bases share.
+    /// It lives outside the generic classes because Unity only calls
+    /// <see cref="RuntimeInitializeOnLoadMethodAttribute"/> on non-generic types,
+    /// and the reset has to run even when domain reload is turned off.
+    /// </summary>
+    internal static class SingletonRuntimeState
+    {
+        /// <summary>
+        /// True from the moment the application starts quitting. A singleton accessed during
+        /// teardown must not recreate itself, which would leave a ghost object behind.
+        /// </summary>
+        internal static bool IsShuttingDown { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void Initialize()
+        {
+            IsShuttingDown = false;
+
+            // Subscribing twice is what a domain reload that was turned off would cause.
+            Application.quitting -= OnQuitting;
+            Application.quitting += OnQuitting;
+        }
+
+        private static void OnQuitting()
+        {
+            IsShuttingDown = true;
+        }
+    }
+
+    /// <summary>
     /// Finds the single instance that already lives in the scene and never creates one.
     /// <br/> Use <see cref="GenericSingleton{T}"/> instead for an instance that creates itself and
     /// <br/> survives a scene change.
@@ -18,6 +48,11 @@ namespace Mu3Library.Utility
         {
             get
             {
+                if (SingletonRuntimeState.IsShuttingDown)
+                {
+                    return _instance;
+                }
+
                 if (_instance == null)
                 {
                     lock (lockObj)
@@ -56,12 +91,12 @@ namespace Mu3Library.Utility
 
         protected virtual void OnDestroy()
         {
-            if(this == null || gameObject == null)
+            // Only the instance the static reference points to may clear it. A destroyed
+            // duplicate must not take the surviving instance's reference with it.
+            if (ReferenceEquals(_instance, this))
             {
-                return;
+                _instance = null;
             }
-
-            _instance = null;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using Mu3Library.Foundation.Logging;
 using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 
@@ -41,14 +42,12 @@ namespace Mu3Library.Foundation.Event
         {
             if (_disposed)
             {
-                // Logging is intentionally disabled in the Foundation layer for now.
-                // Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
+                Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
                 return;
             }
             else if (_subscribed)
             {
-                // Logging is intentionally disabled in the Foundation layer for now.
-                // Mu3Logger.Current.LogWarning($"Already subscribed. id: {_id}");
+                Mu3Logger.Current.LogWarning($"Already subscribed. id: {_id}");
                 return;
             }
 
@@ -88,8 +87,7 @@ namespace Mu3Library.Foundation.Event
         {
             if (_disposed)
             {
-                // Logging is intentionally disabled in the Foundation layer for now.
-                // Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
+                Mu3Logger.Current.LogWarning($"Subscription is disposed. id: {_id}");
                 return;
             }
 

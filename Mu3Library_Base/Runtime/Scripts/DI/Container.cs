@@ -38,8 +38,11 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Create a new resolution scope bound to this container.
+        /// A core owns exactly one scope for its whole life, which is what keeps singleton
+        /// lifecycle tracking (Initialize/Dispose) unambiguous, so only <see cref="CoreBase"/>
+        /// creates one.
         /// </summary>
-        public ContainerScope CreateScope()
+        internal ContainerScope CreateScope()
         {
             return new ContainerScope(this);
         }
@@ -113,6 +116,51 @@ namespace Mu3Library.DI
         public void AddInterfaceIgnoreType(Type type)
         {
             _interfaceIgnoreTypes.Add(type);
+        }
+        #endregion
+
+        #region Diagnostics
+        /// <summary>
+        /// Every descriptor this container holds, for diagnostics. The list is a copy; nothing
+        /// read through here changes the container.
+        /// </summary>
+        public IReadOnlyList<ServiceDescriptor> GetAllDescriptors()
+        {
+            return _descriptors.ToArray();
+        }
+
+        /// <summary>
+        /// Whether a service/key pair has a registration, without resolving anything.
+        /// </summary>
+        public bool IsRegistered(Type serviceType, string key = null)
+        {
+            return GetDescriptor(serviceType, key) != null;
+        }
+
+        /// <summary>
+        /// The singleton instances that exist right now, for diagnostics. Nothing is created
+        /// by reading this; a singleton that was never resolved does not appear.
+        /// </summary>
+        public IReadOnlyCollection<object> GetActiveSingletonInstances()
+        {
+            HashSet<object> instances = new();
+            foreach (object instance in _singletons.Values)
+            {
+                if (instance != null)
+                {
+                    instances.Add(instance);
+                }
+            }
+
+            foreach (ServiceDescriptor descriptor in _descriptors)
+            {
+                if (descriptor.Instance != null)
+                {
+                    instances.Add(descriptor.Instance);
+                }
+            }
+
+            return instances;
         }
         #endregion
 
@@ -246,14 +294,22 @@ namespace Mu3Library.DI
             var indexKey = (descriptor.ServiceType, descriptor.Key);
             if (_descriptorIndex.TryGetValue(indexKey, out List<int> existingIndices))
             {
-                // Check if this exact descriptor already exists
+                // Check if this exact descriptor already exists. The lifetime belongs to the
+                // identity: the same implementation registered with a different lifetime is a
+                // new registration, and the last one wins through GetDescriptor.
                 foreach (int idx in existingIndices)
                 {
                     ServiceDescriptor existing = _descriptors[idx];
                     if (existing.ImplementationType == descriptor.ImplementationType &&
-                        existing.Instance == descriptor.Instance)
+                        existing.Instance == descriptor.Instance &&
+                        existing.Factory == descriptor.Factory)
                     {
-                        return; // Duplicate found, skip
+                        if (existing.Lifetime == descriptor.Lifetime)
+                        {
+                            return; // Duplicate found, skip
+                        }
+
+                        Debug.LogWarning($"Service re-registered with a different lifetime. The new lifetime wins. service: {descriptor.ServiceType.Name}, {existing.Lifetime} -> {descriptor.Lifetime}");
                     }
                 }
             }
