@@ -41,7 +41,7 @@ namespace Mu3Library.UI.MVP
                 return m_canvasGroup;
             }
         }
-        public CanvasGroup CanvasGroup => m_canvasGroup;
+        public CanvasGroup CanvasGroup => _canvasGroup;
 
         public string ObjectLayerName
         {

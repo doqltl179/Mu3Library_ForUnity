@@ -13,6 +13,7 @@ namespace Mu3Library.Editor.Utility
         private const string _packageNameRoot = "com.github.doqltl179.mu3library";
         private const string _packageNameBase = "com.github.doqltl179.mu3library.base";
         private const string _packageNameURP = "com.github.doqltl179.mu3library.urp";
+        private const string _packageNameWatermelonGame = "com.github.doqltl179.mu3library.game.watermelon";
 
         private static ListRequest _listRequest;
         private static AddRequest _updateRequest;
@@ -31,6 +32,9 @@ namespace Mu3Library.Editor.Utility
 
         [MenuItem("Mu3Library/Update Package/URP")]
         private static void UpdateURPPackage() => BeginUpdate(_packageNameURP);
+
+        [MenuItem("Mu3Library/Update Package/WatermelonGame")]
+        private static void UpdateWatermelonGamePackage() => BeginUpdate(_packageNameWatermelonGame);
 
         private static void BeginUpdate(string filter)
         {
