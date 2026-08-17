@@ -30,7 +30,7 @@
 - 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
-- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization 조건부 활성화
+- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Mobile Notifications 조건부 활성화
 - 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
@@ -331,6 +331,7 @@ _playerData.Health.Set(80);
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 동적 에셋 로딩 |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
+| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | 로컬 알림 (Android/iOS, 별도 `Mu3Library.Notifications` 어셈블리) |
 
 ## 🧩 Inspector 속성
 

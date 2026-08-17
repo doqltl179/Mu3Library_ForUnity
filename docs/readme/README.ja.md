@@ -30,7 +30,7 @@
 - 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムをサポート
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
-- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localizationの条件付き有効化
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Mobile Notificationsの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
@@ -331,6 +331,7 @@ _playerData.Health.Set(80);
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 動的アセットロード |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
+| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | ローカル通知 (Android/iOS、独立した `Mu3Library.Notifications` アセンブリ) |
 
 ## 🧩 Inspector 属性
 
