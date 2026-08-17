@@ -485,27 +485,19 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            List<string> completed = null;
-            foreach (var pair in _loadAdditiveSceneOperations)
+            // Finalizing fires user callbacks, and a callback may start or stop another scene
+            // operation, which writes into this dictionary. The pass iterates a snapshot so it
+            // never enumerates a collection a callback changed under it.
+            List<SceneOperation> operations = new(_loadAdditiveSceneOperations.Values);
+            foreach (SceneOperation operation in operations)
             {
-                if (!UpdateOperation(pair.Value))
+                if (!UpdateOperation(operation))
                 {
                     continue;
                 }
 
-                FinalizeAdditiveSceneLoaded(pair.Value, ResolveLoadedSceneName(pair.Value), ResolveLoadedSceneHandle(pair.Value));
-                completed ??= new List<string>();
-                completed.Add(pair.Key);
-            }
-
-            if (completed == null)
-            {
-                return;
-            }
-
-            foreach (string sceneName in completed)
-            {
-                _loadAdditiveSceneOperations.Remove(sceneName);
+                FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedSceneHandle(operation));
+                RemoveTrackedOperation(_loadAdditiveSceneOperations, operation);
             }
         }
 
@@ -516,27 +508,32 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            List<string> completed = null;
-            foreach (var pair in _unloadAdditiveSceneOperations)
+            // Snapshot for the same reason as UpdateLoadAdditiveOperations: callbacks fired
+            // from the finalize may mutate the dictionary while this pass runs.
+            List<SceneOperation> operations = new(_unloadAdditiveSceneOperations.Values);
+            foreach (SceneOperation operation in operations)
             {
-                if (!UpdateOperation(pair.Value))
+                if (!UpdateOperation(operation))
                 {
                     continue;
                 }
 
-                FinalizeAdditiveSceneUnloaded(pair.Value);
-                completed ??= new List<string>();
-                completed.Add(pair.Key);
+                FinalizeAdditiveSceneUnloaded(operation);
+                RemoveTrackedOperation(_unloadAdditiveSceneOperations, operation);
             }
+        }
 
-            if (completed == null)
+        /// <summary>
+        /// Removes an operation from its tracking dictionary only while the entry is still this
+        /// very operation. A callback may have replaced the entry with a new operation for the
+        /// same scene name, and that one must be left alone.
+        /// </summary>
+        private static void RemoveTrackedOperation(Dictionary<string, SceneOperation> operations, SceneOperation operation)
+        {
+            if (operations.TryGetValue(operation.SceneName, out SceneOperation current) &&
+                ReferenceEquals(current, operation))
             {
-                return;
-            }
-
-            foreach (string sceneName in completed)
-            {
-                _unloadAdditiveSceneOperations.Remove(sceneName);
+                operations.Remove(operation.SceneName);
             }
         }
 

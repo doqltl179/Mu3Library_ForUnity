@@ -32,6 +32,13 @@ namespace Mu3Library.Addressable
         private readonly Dictionary<object, object> _cachedAssetKeyMap = new();
         private readonly Dictionary<object, AsyncOperationHandle> _assetHandleCache = new();
 
+        /// <summary>
+        /// Every cache key a base key produced: the single-asset entries for each requested type,
+        /// the list entries, and the keyed-dictionary entries. Releasing by base key walks this,
+        /// so nothing a key loaded is left behind.
+        /// </summary>
+        private readonly Dictionary<object, HashSet<object>> _cacheKeysByBaseKey = new();
+
         private sealed class DownloadTracker
         {
             public AsyncOperationHandle Handle;
@@ -193,74 +200,37 @@ namespace Mu3Library.Addressable
 
         public void LoadAsset<T>(object key, Action<T> callback = null) where T : class
         {
-            if (TryGetCachedAsset(key, out T cached))
+            // The cache key carries the requested type, so one address loaded as two different
+            // types holds two independent entries instead of fighting over a single slot.
+            object cacheKey = CreateSingleAssetCacheKey<T>(key);
+            if (TryGetCachedAssetInternal(cacheKey, out T cached))
             {
                 callback?.Invoke(cached);
                 return;
             }
 
-            if (TryGetValidCachedHandle(key, out AsyncOperationHandle existing))
+            if (TryGetValidCachedHandle(cacheKey, out AsyncOperationHandle existing))
             {
                 if (existing.IsDone)
                 {
-                    T existingAsset = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as T : null;
-                    if (existingAsset != null)
-                    {
-                        CacheLoadedAsset(key, existingAsset);
-                    }
-                    else
-                    {
-                        _assetHandleCache.Remove(key);
-                        Addressables.Release(existing);
-                    }
-
-                    callback?.Invoke(existingAsset);
+                    callback?.Invoke(FinalizeCachedLoad<T>(key, cacheKey, existing));
                     return;
                 }
 
-                existing.Completed += op =>
-                {
-                    T existingAsset = op.Status == AsyncOperationStatus.Succeeded ? op.Result as T : null;
-                    if (existingAsset != null)
-                    {
-                        CacheLoadedAsset(key, existingAsset);
-                    }
-                    else
-                    {
-                        _assetHandleCache.Remove(key);
-                        Addressables.Release(op);
-                    }
-
-                    callback?.Invoke(existingAsset);
-                };
-
+                existing.Completed += op => callback?.Invoke(FinalizeCachedLoad<T>(key, cacheKey, op));
                 return;
             }
 
             AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(key);
-            _assetHandleCache[key] = handle;
-            handle.Completed += operation =>
-            {
-                T asset = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
-                if (asset != null)
-                {
-                    CacheLoadedAsset(key, asset);
-                }
-                else
-                {
-                    _assetHandleCache.Remove(key);
-                    Addressables.Release(operation);
-                }
-
-                callback?.Invoke(asset);
-            };
+            RegisterHandleCache(key, cacheKey, handle);
+            handle.Completed += operation => callback?.Invoke(FinalizeCachedLoad<T>(key, cacheKey, operation));
         }
 
         public void LoadAssets<T>(object key, Action<T> perAssetCallback = null, Action<IList<T>> callback = null)
         {
             Type cacheType = typeof(T);
             ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
-            if (TryGetCachedAsset(cacheKey, out IList<T> cached))
+            if (TryGetCachedAssetInternal(cacheKey, out IList<T> cached))
             {
                 callback?.Invoke(cached);
                 return;
@@ -270,63 +240,23 @@ namespace Mu3Library.Addressable
             {
                 if (existing.IsDone)
                 {
-                    IList<T> existingAssets = existing.Status == AsyncOperationStatus.Succeeded ? existing.Result as IList<T> : null;
-                    if (existingAssets != null)
-                    {
-                        CacheLoadedAsset(cacheKey, existingAssets);
-                    }
-                    else
-                    {
-                        _assetHandleCache.Remove(cacheKey);
-                        Addressables.Release(existing);
-                    }
-
-                    callback?.Invoke(existingAssets);
+                    callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, existing));
                     return;
                 }
 
-                existing.Completed += op =>
-                {
-                    IList<T> existingAssets = op.Status == AsyncOperationStatus.Succeeded ? op.Result as IList<T> : null;
-                    if (existingAssets != null)
-                    {
-                        CacheLoadedAsset(cacheKey, existingAssets);
-                    }
-                    else
-                    {
-                        _assetHandleCache.Remove(cacheKey);
-                        Addressables.Release(op);
-                    }
-
-                    callback?.Invoke(existingAssets);
-                };
-
+                existing.Completed += op => callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, op));
                 return;
             }
 
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
-            _assetHandleCache[cacheKey] = handle;
-            handle.Completed += operation =>
-            {
-                IList<T> assets = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
-                if (assets != null)
-                {
-                    CacheLoadedAsset(cacheKey, assets);
-                }
-                else
-                {
-                    _assetHandleCache.Remove(cacheKey);
-                    Addressables.Release(operation);
-                }
-
-                callback?.Invoke(assets);
-            };
+            RegisterHandleCache(key, cacheKey, handle);
+            handle.Completed += operation => callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, operation));
         }
 
         public void LoadAssetsWithKeys<T>(object key, Action<Dictionary<string, T>> callback = null)
         {
             ListCacheKey cacheKey = ListCacheKey.Create(key, typeof(AssetsWithKeysCacheMarker<T>));
-            if (TryGetCachedAsset(cacheKey, out Dictionary<string, T> cached))
+            if (TryGetCachedAssetInternal(cacheKey, out Dictionary<string, T> cached))
             {
                 callback?.Invoke(cached);
                 return;
@@ -336,24 +266,24 @@ namespace Mu3Library.Addressable
             {
                 if (existing.IsDone)
                 {
-                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, existing);
+                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(key, cacheKey, existing);
                     callback?.Invoke(existingAssets);
                     return;
                 }
 
                 existing.Completed += operation =>
                 {
-                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(cacheKey, operation);
+                    Dictionary<string, T> existingAssets = FinalizeAssetsWithKeysLoad<T>(key, cacheKey, operation);
                     callback?.Invoke(existingAssets);
                 };
                 return;
             }
 
             AsyncOperationHandle<Dictionary<string, T>> handle = CreateLoadAssetsWithKeysOperation<T>(key);
-            _assetHandleCache[cacheKey] = handle;
+            RegisterHandleCache(key, cacheKey, handle);
             handle.Completed += operation =>
             {
-                Dictionary<string, T> assets = FinalizeAssetsWithKeysLoad<T>(cacheKey, operation);
+                Dictionary<string, T> assets = FinalizeAssetsWithKeysLoad<T>(key, cacheKey, operation);
                 callback?.Invoke(assets);
             };
         }
@@ -425,10 +355,14 @@ namespace Mu3Library.Addressable
             TrackDownloadHandle(handle, progress);
             handle.Completed += operation =>
             {
-                if (operation.Status == AsyncOperationStatus.Succeeded)
+                if (operation.Status != AsyncOperationStatus.Succeeded)
                 {
-                    callback?.Invoke();
+                    Debug.LogError($"Addressables dependency download failed.\r\n{operation.OperationException?.Message ?? "Unknown download error."}");
                 }
+
+                // The callback reports completion, success or not. A failed download must not
+                // leave the caller waiting forever; the failure itself is reported above.
+                callback?.Invoke();
 
                 if (!autoReleaseHandle && handle.IsValid())
                 {
@@ -458,6 +392,11 @@ namespace Mu3Library.Addressable
             handle.Completed += operation =>
             {
                 IList<IResourceLocator> locators = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
+                if (locators != null)
+                {
+                    RefreshLocatorKeys();
+                }
+
                 callback?.Invoke(locators);
 
                 if (!autoReleaseHandle && handle.IsValid())
@@ -467,13 +406,44 @@ namespace Mu3Library.Addressable
             };
         }
 
+        /// <summary>
+        /// Rebuilds the known-key set from every locator Addressables currently holds, so
+        /// <see cref="IsKeyExist"/> answers for the keys a catalog update brought in as well.
+        /// </summary>
+        private void RefreshLocatorKeys()
+        {
+            HashSet<object> keys = new();
+            foreach (IResourceLocator locator in Addressables.ResourceLocators)
+            {
+                if (locator?.Keys == null)
+                {
+                    continue;
+                }
+
+                keys.UnionWith(locator.Keys);
+            }
+
+            _locatorKeys = keys;
+        }
+
+        #region Diagnostics
+        /// <summary>Number of cached asset entries, for diagnostics.</summary>
+        public int CachedAssetCount => _assetCache.Count;
+
+        /// <summary>Number of tracked load handles, pending loads included, for diagnostics.</summary>
+        public int TrackedHandleCount => _assetHandleCache.Count;
+
+        /// <summary>The base keys the cache currently holds anything for, for diagnostics.</summary>
+        public IReadOnlyCollection<object> CachedBaseKeys => _cacheKeysByBaseKey.Keys;
+        #endregion
+
         public bool IsKeyExist(object key)
         {
             if (key == null)
             {
                 return false;
             }
-            else if (_assetCache.ContainsKey(key))
+            else if (_cacheKeysByBaseKey.ContainsKey(key))
             {
                 return true;
             }
@@ -501,9 +471,14 @@ namespace Mu3Library.Addressable
 
         public bool TryGetCachedAsset<T>(object key, out T asset) where T : class
         {
+            return TryGetCachedAssetInternal(CreateSingleAssetCacheKey<T>(key), out asset);
+        }
+
+        private bool TryGetCachedAssetInternal<T>(object cacheKey, out T asset) where T : class
+        {
             asset = null;
 
-            if (_assetCache.TryGetValue(key, out object cached))
+            if (_assetCache.TryGetValue(cacheKey, out object cached))
             {
                 asset = cached as T;
                 return asset != null;
@@ -512,10 +487,80 @@ namespace Mu3Library.Addressable
             return false;
         }
 
-        private void CacheLoadedAsset(object cacheKey, object asset)
+        private static object CreateSingleAssetCacheKey<T>(object key)
+            => ListCacheKey.Create(key, typeof(SingleAssetCacheMarker<T>));
+
+        private void RegisterHandleCache(object baseKey, object cacheKey, AsyncOperationHandle handle)
+        {
+            _assetHandleCache[cacheKey] = handle;
+            TrackCacheKey(baseKey, cacheKey);
+        }
+
+        private void CacheLoadedAsset(object baseKey, object cacheKey, object asset)
         {
             _assetCache[cacheKey] = asset;
-            _cachedAssetKeyMap[asset] = cacheKey;
+
+            // The address map answers with what the caller asked to load, so it keeps the
+            // base key and never the composite cache key.
+            _cachedAssetKeyMap[asset] = baseKey;
+
+            TrackCacheKey(baseKey, cacheKey);
+        }
+
+        private void TrackCacheKey(object baseKey, object cacheKey)
+        {
+            if (!_cacheKeysByBaseKey.TryGetValue(baseKey, out HashSet<object> cacheKeys))
+            {
+                cacheKeys = new HashSet<object>();
+                _cacheKeysByBaseKey.Add(baseKey, cacheKeys);
+            }
+
+            cacheKeys.Add(cacheKey);
+        }
+
+        private void UntrackCacheKey(object baseKey, object cacheKey)
+        {
+            if (_cacheKeysByBaseKey.TryGetValue(baseKey, out HashSet<object> cacheKeys))
+            {
+                cacheKeys.Remove(cacheKey);
+                if (cacheKeys.Count == 0)
+                {
+                    _cacheKeysByBaseKey.Remove(baseKey);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Settles a finished single or list load: a hit is cached, a miss takes its handle out
+        /// of the cache and releases it. The handle is touched only while the cache still tracks
+        /// this very handle, so a release-and-reload that happened meanwhile is left alone.
+        /// </summary>
+        private T FinalizeCachedLoad<T>(object baseKey, object cacheKey, AsyncOperationHandle handle) where T : class
+        {
+            if (!handle.IsValid())
+            {
+                return null;
+            }
+
+            T asset = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result as T : null;
+            bool isTrackedHandle = _assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle cachedHandle) &&
+                cachedHandle.Equals(handle);
+
+            if (asset != null)
+            {
+                if (isTrackedHandle)
+                {
+                    CacheLoadedAsset(baseKey, cacheKey, asset);
+                }
+            }
+            else if (isTrackedHandle)
+            {
+                _assetHandleCache.Remove(cacheKey);
+                UntrackCacheKey(baseKey, cacheKey);
+                Addressables.Release(cachedHandle);
+            }
+
+            return asset;
         }
 
         private bool TryGetValidCachedHandle(object key, out AsyncOperationHandle handle)
@@ -530,22 +575,33 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            if (_assetHandleCache.TryGetValue(key, out AsyncOperationHandle handle))
+            // Everything the key produced goes together: the single-asset entries for each
+            // requested type, the list entries, and the keyed-dictionary entries.
+            if (!_cacheKeysByBaseKey.TryGetValue(key, out HashSet<object> cacheKeys))
             {
-                if (handle.IsValid())
+                return;
+            }
+
+            _cacheKeysByBaseKey.Remove(key);
+
+            foreach (object cacheKey in cacheKeys)
+            {
+                if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle handle))
                 {
-                    Addressables.Release(handle);
+                    if (handle.IsValid())
+                    {
+                        Addressables.Release(handle);
+                    }
+
+                    _assetHandleCache.Remove(cacheKey);
                 }
 
-                _assetHandleCache.Remove(key);
+                if (_assetCache.TryGetValue(cacheKey, out object cachedAsset))
+                {
+                    _cachedAssetKeyMap.Remove(cachedAsset);
+                    _assetCache.Remove(cacheKey);
+                }
             }
-
-            if (_assetCache.TryGetValue(key, out object cachedAsset))
-            {
-                _cachedAssetKeyMap.Remove(cachedAsset);
-            }
-
-            _assetCache.Remove(key);
         }
 
         public void ClearCache()
@@ -561,6 +617,7 @@ namespace Mu3Library.Addressable
             _assetHandleCache.Clear();
             _assetCache.Clear();
             _cachedAssetKeyMap.Clear();
+            _cacheKeysByBaseKey.Clear();
         }
 
         private AsyncOperationHandle<Dictionary<string, T>> CreateLoadAssetsWithKeysOperation<T>(object key)
@@ -629,7 +686,7 @@ namespace Mu3Library.Addressable
             return operation;
         }
 
-        private Dictionary<string, T> FinalizeAssetsWithKeysLoad<T>(object cacheKey, AsyncOperationHandle handle)
+        private Dictionary<string, T> FinalizeAssetsWithKeysLoad<T>(object baseKey, object cacheKey, AsyncOperationHandle handle)
         {
             if (!handle.IsValid())
             {
@@ -643,7 +700,7 @@ namespace Mu3Library.Addressable
             {
                 if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle cachedHandle) && cachedHandle.Equals(handle))
                 {
-                    CacheLoadedAsset(cacheKey, assets);
+                    CacheLoadedAsset(baseKey, cacheKey, assets);
                 }
             }
             else
@@ -651,6 +708,7 @@ namespace Mu3Library.Addressable
                 if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle cachedHandle) && cachedHandle.Equals(handle))
                 {
                     _assetHandleCache.Remove(cacheKey);
+                    UntrackCacheKey(baseKey, cacheKey);
                     Addressables.Release(cachedHandle);
                 }
             }
@@ -686,6 +744,10 @@ namespace Mu3Library.Addressable
         }
 
         private sealed class AssetsWithKeysCacheMarker<T>
+        {
+        }
+
+        private sealed class SingleAssetCacheMarker<T>
         {
         }
 
