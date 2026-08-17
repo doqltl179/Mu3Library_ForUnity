@@ -77,6 +77,31 @@ namespace Mu3Library.Localization
             return GetTableEntryValue(ResolveTable(handle), key);
         }
 
+        public async UniTask<T> GetAssetAsync<T>(string tableName, string key) where T : UnityEngine.Object
+        {
+            LocalizedAssetDatabase assetDatabase = GetAssetDatabase();
+            if (assetDatabase == null)
+            {
+                return null;
+            }
+
+            AsyncOperationHandle<T> handle = assetDatabase.GetLocalizedAssetAsync<T>(tableName, key);
+            if (!handle.IsDone)
+            {
+                try
+                {
+                    await handle.ToUniTask();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning($"Failed to load the localized asset. table: {tableName}, key: {key}\r\n{exception.Message}");
+                    return null;
+                }
+            }
+
+            return ResolveAsset(handle);
+        }
+
         public UniTask<string> GetStringAsync(EntryData entryData)
         {
             if (entryData == null)

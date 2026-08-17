@@ -367,6 +367,41 @@ namespace Mu3Library.Localization
         }
         #endregion
 
+        #region Asset
+        public void GetAsset<T>(string tableName, string key, Action<T> callback) where T : UnityEngine.Object
+        {
+            LocalizedAssetDatabase assetDatabase = GetAssetDatabase();
+            if (assetDatabase == null)
+            {
+                callback?.Invoke(null);
+                return;
+            }
+
+            AsyncOperationHandle<T> handle = assetDatabase.GetLocalizedAssetAsync<T>(tableName, key);
+            if (handle.IsDone)
+            {
+                callback?.Invoke(ResolveAsset(handle));
+                return;
+            }
+
+            handle.Completed += operation => callback?.Invoke(ResolveAsset(operation));
+        }
+
+        /// <summary>
+        /// Reading any <see cref="LocalizationSettings"/> member creates the settings when the project
+        /// <br/> carries none, so the presence check comes before every access.
+        /// </summary>
+        private static LocalizedAssetDatabase GetAssetDatabase()
+        {
+            return LocalizationSettings.HasSettings ? LocalizationSettings.AssetDatabase : null;
+        }
+
+        private static T ResolveAsset<T>(AsyncOperationHandle<T> handle) where T : UnityEngine.Object
+        {
+            return handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
+        }
+        #endregion
+
         #region Locale
         public void ChangeLocaleToNative()
         {
