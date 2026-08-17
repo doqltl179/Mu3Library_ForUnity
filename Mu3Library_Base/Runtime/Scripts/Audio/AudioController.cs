@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace Mu3Library.Audio
 {
@@ -79,6 +80,13 @@ namespace Mu3Library.Audio
         /// Not fired when <see cref="Stop"/> is called explicitly.
         /// </summary>
         public event Action OnCompleted;
+
+        /// <summary>
+        /// Fired when a running fade or duck is stopped before it finished, by a newer fade,
+        /// by <see cref="Stop"/>, or by the controller being disabled. The completion callback
+        /// of the interrupted fade is never called, so an awaiter listens here instead.
+        /// </summary>
+        internal event Action OnFadeInterrupted;
 
 
         protected virtual void OnDisable()
@@ -202,6 +210,39 @@ namespace Mu3Library.Audio
             _source.gameObject.SetActive(value);
         }
 
+        /// <summary>
+        /// Routes this controller's source through a mixer group, or takes it off one with null.
+        /// </summary>
+        public void SetMixerGroup(AudioMixerGroup mixerGroup)
+        {
+            _source.outputAudioMixerGroup = mixerGroup;
+        }
+
+        /// <summary>
+        /// Dips the fade volume to <paramref name="duckVolume"/>, holds it, and brings it back
+        /// to full. It shares the fade slot, so a fade or another duck replaces it.
+        /// </summary>
+        public void Duck(float duckVolume, float fadeOutTime, float holdTime, float fadeInTime, Action callback = null)
+        {
+            // In a loop interval there is nothing audible to duck; the dip would only be heard
+            // as a late fade-in on the next cycle.
+            if (_isInLoopInterval)
+            {
+                callback?.Invoke();
+                return;
+            }
+
+            StopFade();
+
+            _fadeCoroutine = DuckCoroutine(
+                Mathf.Clamp01(duckVolume),
+                Mathf.Max(0f, fadeOutTime),
+                Mathf.Max(0f, holdTime),
+                Mathf.Max(0f, fadeInTime),
+                callback);
+            StartCoroutine(_fadeCoroutine);
+        }
+
         #endregion
 
         private void StopFade()
@@ -210,6 +251,8 @@ namespace Mu3Library.Audio
             {
                 StopCoroutine(_fadeCoroutine);
                 _fadeCoroutine = null;
+
+                OnFadeInterrupted?.Invoke();
             }
         }
 
@@ -252,9 +295,11 @@ namespace Mu3Library.Audio
                 _source.Play();
 
                 // Wait until the clip finishes (respects pause).
-                // NormalizedTime threshold avoids precision issues at the very end of a clip.
-                yield return new WaitUntil(
-                    () => !_isPaused && (_source.clip == null || _normalizedTime >= 0.97f));
+                // AudioSource.isPlaying turns false the moment a non-looping clip ends, which is
+                // reliable where watching normalized time reach 1.0 is not: the source rewinds to 0
+                // before a read can ever observe the end. Pause() also turns isPlaying false, so the
+                // pause flag tells the two apart and keeps the wait alive through a pause.
+                yield return new WaitUntil(() => !_isPaused && !_source.isPlaying);
 
                 _source.Stop();
 
@@ -300,6 +345,50 @@ namespace Mu3Library.Audio
             _fadeCoroutine = null;
 
             callback?.Invoke();
+        }
+
+        private IEnumerator DuckCoroutine(float duckVolume, float fadeOutTime, float holdTime, float fadeInTime, Action callback)
+        {
+            yield return FadeVolumeTo(duckVolume, fadeOutTime);
+
+            float elapsed = 0f;
+            while (elapsed < holdTime)
+            {
+                if (!_isPaused)
+                {
+                    elapsed += Time.deltaTime;
+                }
+
+                yield return null;
+            }
+
+            yield return FadeVolumeTo(1.0f, fadeInTime);
+
+            _fadeCoroutine = null;
+
+            callback?.Invoke();
+        }
+
+        private IEnumerator FadeVolumeTo(float target, float duration)
+        {
+            if (duration <= 0f)
+            {
+                _fadeVolume = target;
+                CalculateVolume();
+                yield break;
+            }
+
+            float start = _fadeVolume;
+            float timer = 0f;
+            while (timer < duration)
+            {
+                timer += Time.deltaTime;
+
+                _fadeVolume = Mathf.Lerp(start, target, Mathf.Clamp01(timer / duration));
+                CalculateVolume();
+
+                yield return null;
+            }
         }
 
         private IEnumerator FadeOutCoroutine(float fadeTime = 1.0f, Action callback = null)

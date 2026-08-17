@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 using Mu3Library.DI;
+using Mu3Library.Preference;
 using System;
 
 using Object = UnityEngine.Object;
@@ -42,6 +44,16 @@ namespace Mu3Library.Audio
         public event Action<float> OnBgmVolumeChanged;
         public event Action<float> OnSfxVolumeChanged;
         public event Action<float> OnEnvironmentVolumeChanged;
+
+        private AudioMixerGroup _bgmMixerGroup;
+        private AudioMixerGroup _sfxMixerGroup;
+        private AudioMixerGroup _environmentMixerGroup;
+
+        private const string VolumePrefKeyMaster = "Master";
+        private const string VolumePrefKeyBgm = "Bgm";
+        private const string VolumePrefKeySfx = "Sfx";
+        private const string VolumePrefKeyEnvironment = "Environment";
+        private const string DefaultVolumePrefKeyPrefix = "Mu3.Audio";
 
 
 
@@ -112,6 +124,70 @@ namespace Mu3Library.Audio
 
         #region Utility
 
+        /// <summary>
+        /// Routes each category's sources through a mixer group; null takes a category off its
+        /// group. The categories keep their volume math on <c>AudioSource.volume</c>, so mixer
+        /// snapshots and effects come from the project's mixer without fighting the manager.
+        /// </summary>
+        public void SetMixerGroups(AudioMixerGroup bgmGroup, AudioMixerGroup sfxGroup, AudioMixerGroup environmentGroup)
+        {
+            _bgmMixerGroup = bgmGroup;
+            _sfxMixerGroup = sfxGroup;
+            _environmentMixerGroup = environmentGroup;
+
+            if (_bgmMainController != null)
+            {
+                _bgmMainController.SetMixerGroup(bgmGroup);
+            }
+            if (_bgmSubController != null)
+            {
+                _bgmSubController.SetMixerGroup(bgmGroup);
+            }
+
+            ApplyMixerGroup(_sfxControllers, sfxGroup);
+            ApplyMixerGroup(_sfxFadingOutControllers, sfxGroup);
+            ApplyMixerGroup(_sfxPool, sfxGroup);
+
+            ApplyMixerGroup(_environmentControllers, environmentGroup);
+            ApplyMixerGroup(_environmentFadingOutControllers, environmentGroup);
+            ApplyMixerGroup(_environmentPool, environmentGroup);
+        }
+
+        /// <summary>
+        /// Writes the four category volumes into the preferences under the key prefix.
+        /// </summary>
+        public void SaveVolumes(IPlayerPrefsLoader prefs, string keyPrefix = DefaultVolumePrefKeyPrefix, bool saveImmediately = true)
+        {
+            if (prefs == null)
+            {
+                Debug.LogError("SaveVolumes failed. prefs is null.");
+                return;
+            }
+
+            prefs.SetFloat($"{keyPrefix}.{VolumePrefKeyMaster}", _masterVolume);
+            prefs.SetFloat($"{keyPrefix}.{VolumePrefKeyBgm}", _bgmVolume);
+            prefs.SetFloat($"{keyPrefix}.{VolumePrefKeySfx}", _sfxVolume);
+            prefs.SetFloat($"{keyPrefix}.{VolumePrefKeyEnvironment}", _environmentVolume, saveImmediately);
+        }
+
+        /// <summary>
+        /// Restores the volumes <see cref="SaveVolumes"/> wrote. A volume that was never saved
+        /// keeps its current value.
+        /// </summary>
+        public void LoadVolumes(IPlayerPrefsLoader prefs, string keyPrefix = DefaultVolumePrefKeyPrefix)
+        {
+            if (prefs == null)
+            {
+                Debug.LogError("LoadVolumes failed. prefs is null.");
+                return;
+            }
+
+            LoadVolume(prefs, $"{keyPrefix}.{VolumePrefKeyMaster}", SetMasterVolume);
+            LoadVolume(prefs, $"{keyPrefix}.{VolumePrefKeyBgm}", SetBgmVolume);
+            LoadVolume(prefs, $"{keyPrefix}.{VolumePrefKeySfx}", SetSfxVolume);
+            LoadVolume(prefs, $"{keyPrefix}.{VolumePrefKeyEnvironment}", SetEnvironmentVolume);
+        }
+
         public void ResetVolumeAll()
         {
             SetMasterVolume(DefaultMasterVolume);
@@ -150,6 +226,7 @@ namespace Mu3Library.Audio
 
         private void SetMasterVolume(float value)
         {
+            value = Mathf.Clamp01(value);
             if (_masterVolume == value)
             {
                 return;
@@ -180,6 +257,25 @@ namespace Mu3Library.Audio
             }
 
             OnMasterVolumeChanged?.Invoke(_masterVolume);
+        }
+
+        private static void LoadVolume(IPlayerPrefsLoader prefs, string key, Action<float> apply)
+        {
+            if (prefs.HasKey(key))
+            {
+                apply(prefs.GetFloat(key));
+            }
+        }
+
+        private static void ApplyMixerGroup(IEnumerable<AudioController> controllers, AudioMixerGroup mixerGroup)
+        {
+            foreach (AudioController controller in controllers)
+            {
+                if (controller != null)
+                {
+                    controller.SetMixerGroup(mixerGroup);
+                }
+            }
         }
 
         private void PoolController(Queue<AudioController> pool, AudioController controller)
@@ -228,9 +324,15 @@ namespace Mu3Library.Audio
 
         private AudioController CreateAudioController<T>(AudioSource source, AudioClip clip, AudioSourceSettings settings) where T : AudioController
         {
-            if (source == null || clip == null)
+            if (source == null)
             {
-                Debug.LogError("AudioSource not found.");
+                Debug.LogError("AudioSource is NULL.");
+                return null;
+            }
+
+            if (clip == null)
+            {
+                Debug.LogError("AudioClip is NULL.");
                 return null;
             }
 

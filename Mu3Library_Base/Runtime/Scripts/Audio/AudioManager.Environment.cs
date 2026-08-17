@@ -39,6 +39,15 @@ namespace Mu3Library.Audio
         /// Acts like PlayEnvironment but starts at volume 0 and fades in over fadeTime seconds.
         /// </summary>
         public void FadeInEnvironment(AudioClip clip, float fadeTime = 1.0f)
+            => FadeInEnvironment(clip, AudioSourceSettings.EnvironmentStandard, Vector3.zero, fadeTime);
+
+        public void FadeInEnvironment(AudioClip clip, AudioSourceSettings settings, float fadeTime = 1.0f)
+            => FadeInEnvironment(clip, settings, Vector3.zero, fadeTime);
+
+        public void FadeInEnvironment(AudioClip clip, Vector3 position, float fadeTime = 1.0f)
+            => FadeInEnvironment(clip, AudioSourceSettings.EnvironmentStandard, position, fadeTime);
+
+        public void FadeInEnvironment(AudioClip clip, AudioSourceSettings settings, Vector3 position, float fadeTime = 1.0f)
         {
             if (clip == null)
             {
@@ -54,12 +63,12 @@ namespace Mu3Library.Audio
             {
                 if (_environmentPool.TryDequeue(out controller))
                 {
-                    InitializeAudioController(controller, clip, AudioSourceSettings.EnvironmentStandard);
+                    InitializeAudioController(controller, clip, settings);
                 }
                 else
                 {
                     AudioSource source = CreateAudioSource("EnvironmentSource");
-                    controller = CreateAudioController<EnvironmentController>(source, clip, AudioSourceSettings.EnvironmentStandard);
+                    controller = CreateAudioController<EnvironmentController>(source, clip, settings);
                 }
             }
             else
@@ -67,11 +76,12 @@ namespace Mu3Library.Audio
                 controller = _environmentControllers[0];
                 _environmentControllers.RemoveAt(0);
 
-                InitializeAudioController(controller, clip, AudioSourceSettings.EnvironmentStandard);
+                InitializeAudioController(controller, clip, settings);
             }
 
+            controller.SetMixerGroup(_environmentMixerGroup);
             controller.SetActive(true);
-            controller.Position = Vector3.zero;
+            controller.Position = position;
             controller.FadeVolume = 0.0f;
             controller.RecalculateVolume();
             controller.Play();
@@ -233,6 +243,7 @@ namespace Mu3Library.Audio
                 InitializeAudioController(controller, clip, settings);
             }
 
+            controller.SetMixerGroup(_environmentMixerGroup);
             controller.SetActive(true);
             controller.Position = position;
 
@@ -316,6 +327,7 @@ namespace Mu3Library.Audio
 
         private void SetEnvironmentVolume(float value)
         {
+            value = Mathf.Clamp01(value);
             if (_environmentVolume == value)
             {
                 return;

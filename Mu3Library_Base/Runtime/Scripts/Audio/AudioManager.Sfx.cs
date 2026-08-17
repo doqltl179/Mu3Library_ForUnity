@@ -39,6 +39,15 @@ namespace Mu3Library.Audio
         /// Acts like PlaySfx but starts at volume 0 and fades in over fadeTime seconds.
         /// </summary>
         public void FadeInSfx(AudioClip clip, float fadeTime = 1.0f)
+            => FadeInSfx(clip, AudioSourceSettings.SfxStandard, Vector3.zero, fadeTime);
+
+        public void FadeInSfx(AudioClip clip, AudioSourceSettings settings, float fadeTime = 1.0f)
+            => FadeInSfx(clip, settings, Vector3.zero, fadeTime);
+
+        public void FadeInSfx(AudioClip clip, Vector3 position, float fadeTime = 1.0f)
+            => FadeInSfx(clip, AudioSourceSettings.SfxStandard, position, fadeTime);
+
+        public void FadeInSfx(AudioClip clip, AudioSourceSettings settings, Vector3 position, float fadeTime = 1.0f)
         {
             if (clip == null)
             {
@@ -54,12 +63,12 @@ namespace Mu3Library.Audio
             {
                 if (_sfxPool.TryDequeue(out controller))
                 {
-                    InitializeAudioController(controller, clip, AudioSourceSettings.SfxStandard);
+                    InitializeAudioController(controller, clip, settings);
                 }
                 else
                 {
                     AudioSource source = CreateAudioSource("SfxSource");
-                    controller = CreateAudioController<SfxController>(source, clip, AudioSourceSettings.SfxStandard);
+                    controller = CreateAudioController<SfxController>(source, clip, settings);
                 }
             }
             else
@@ -67,11 +76,12 @@ namespace Mu3Library.Audio
                 controller = _sfxControllers[0];
                 _sfxControllers.RemoveAt(0);
 
-                InitializeAudioController(controller, clip, AudioSourceSettings.SfxStandard);
+                InitializeAudioController(controller, clip, settings);
             }
 
+            controller.SetMixerGroup(_sfxMixerGroup);
             controller.SetActive(true);
-            controller.Position = Vector3.zero;
+            controller.Position = position;
             controller.FadeVolume = 0.0f;
             controller.RecalculateVolume();
             controller.Play();
@@ -233,6 +243,7 @@ namespace Mu3Library.Audio
                 InitializeAudioController(controller, clip, settings);
             }
 
+            controller.SetMixerGroup(_sfxMixerGroup);
             controller.SetActive(true);
             controller.Position = position;
 
@@ -316,6 +327,7 @@ namespace Mu3Library.Audio
 
         private void SetSfxVolume(float value)
         {
+            value = Mathf.Clamp01(value);
             if (_sfxVolume == value)
             {
                 return;

@@ -7,6 +7,9 @@ namespace Mu3Library.Audio
         public int EnvironmentInstanceCountMax { get; set; }
 
         public void FadeInEnvironment(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeInEnvironment(AudioClip clip, AudioSourceSettings settings, float fadeTime = 1.0f);
+        public void FadeInEnvironment(AudioClip clip, UnityEngine.Vector3 position, float fadeTime = 1.0f);
+        public void FadeInEnvironment(AudioClip clip, AudioSourceSettings settings, UnityEngine.Vector3 position, float fadeTime = 1.0f);
         public void FadeInEnvironmentAll(float fadeTime = 1.0f);
         public void FadeInEnvironmentWithKey(string key);
         public void FadeInEnvironmentWithKey(string key, float fadeTime);

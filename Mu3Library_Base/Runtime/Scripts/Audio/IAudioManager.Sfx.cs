@@ -7,6 +7,9 @@ namespace Mu3Library.Audio
         public int SfxInstanceCountMax { get; set; }
 
         public void FadeInSfx(AudioClip clip, float fadeTime = 1.0f);
+        public void FadeInSfx(AudioClip clip, AudioSourceSettings settings, float fadeTime = 1.0f);
+        public void FadeInSfx(AudioClip clip, UnityEngine.Vector3 position, float fadeTime = 1.0f);
+        public void FadeInSfx(AudioClip clip, AudioSourceSettings settings, UnityEngine.Vector3 position, float fadeTime = 1.0f);
         public void FadeInSfxAll(float fadeTime = 1.0f);
         public void FadeInSfxWithKey(string key);
         public void FadeInSfxWithKey(string key, float fadeTime);
