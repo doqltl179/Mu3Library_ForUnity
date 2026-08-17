@@ -11,7 +11,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.github.doqltl179.mu3library.base": "0.14.0",
+        "com.github.doqltl179.mu3library.base": "0.22.0",
         "com.unity.render-pipelines.universal": "17.3.0"
       }
     },
