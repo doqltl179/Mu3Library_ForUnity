@@ -1,0 +1,34 @@
+{
+    "name": "Mu3Library.Notifications",
+    "rootNamespace": "Mu3Library.Notifications",
+    "references": [
+        "Unity.Notifications.Unified",
+        "UniTask"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor",
+        "iOS"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "MU3LIBRARY_NOTIFICATIONS_SUPPORT"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.mobile.notifications",
+            "expression": "",
+            "define": "MU3LIBRARY_NOTIFICATIONS_SUPPORT"
+        },
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}
