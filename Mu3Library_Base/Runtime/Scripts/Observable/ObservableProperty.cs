@@ -19,12 +19,37 @@ namespace Mu3Library.Observable
             }
 
             _value = value;
-            _callback?.Invoke(value);
+            InvokeCallbacks(value);
         }
 
         public void SetWithoutEvent(T value) => _value = value;
 
-        public void Notify() => _callback?.Invoke(_value);
+        public void Notify() => InvokeCallbacks(_value);
+
+        /// <summary>
+        /// Invokes every subscriber on its own, so one that throws is reported and does not
+        /// keep the change from reaching the others.
+        /// </summary>
+        private void InvokeCallbacks(T value)
+        {
+            System.Delegate[] listeners = _callback?.GetInvocationList();
+            if (listeners == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < listeners.Length; i++)
+            {
+                try
+                {
+                    ((System.Action<T>)listeners[i]).Invoke(value);
+                }
+                catch (System.Exception exception)
+                {
+                    UnityEngine.Debug.LogException(exception);
+                }
+            }
+        }
 
         public void AddEvent(System.Action<T> callback) => _callback += callback;
         public void RemoveEvent(System.Action<T> callback) => _callback -= callback;
