@@ -3,7 +3,7 @@
 Core runtime package of **Mu3Library For Unity**: the `CoreBase`/DI container, MVP UI system, audio, scene loading, Addressables/Localization/InputSystem managers, WebRequest, Observable, and the shared editor tooling.
 
 - Package name: `com.github.doqltl179.mu3library.base`
-- Optional integrations (enabled by define symbols when the package is present): UniTask, Addressables, Localization, Input System.
+- Optional integrations (enabled by define symbols when the package is present): UniTask, Addressables, Localization, Input System, Mobile Notifications (separate `Mu3Library.Notifications` assembly).
 
 ## Documentation
 

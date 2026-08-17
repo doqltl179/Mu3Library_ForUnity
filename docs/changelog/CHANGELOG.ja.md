@@ -15,6 +15,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- Base パッケージに新しいオプションアセンブリ `Mu3Library.Notifications` が加わりました。`INotificationManager`/`NotificationManager` が Mobile Notifications パッケージの統合 `NotificationCenter` を包みます — Android チャンネルを含む初期化、権限リクエスト、時刻・遅延でのスケジュール、キャンセル、バッジのクリア、システム設定を開く操作、アプリを開いた通知の取得まで。`INotificationManagerEventBus.OnNotificationReceived` はアプリ実行中に届いた通知を知らせます。このアセンブリは Android・iOS・エディターのみ、かつ `com.unity.mobile.notifications` がインストールされている間だけ(`MU3LIBRARY_NOTIFICATIONS_SUPPORT`)コンパイルされるため、パッケージやプラットフォームのないプロジェクトは何のコストも払いません。パッケージは yield 方式の権限・照会オペレーションに対してイベントを push しないため、マネージャーは各オペレーションを、そのオペレーションが生きている間だけ存在する短い async ループで見守ります — 待機中のものがなければ何もポーリングせず、フレーム単位のドライバーなしに、どのようにホストされても同じように動作します。UniTask がインストールされていれば `RequestPermissionAsync` と `GetLastRespondedNotificationAsync` で同じ答えを await できます。Template サンプルに `NotificationCore` が追加されました。
+
 ## [base/0.25.0] - 2026-08-17
 
 ### 追加

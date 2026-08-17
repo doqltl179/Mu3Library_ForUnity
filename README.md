@@ -30,7 +30,7 @@
 - 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
-- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization
+- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization, Mobile Notifications
 - 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
@@ -332,6 +332,7 @@ When the following packages are installed, their features are automatically enab
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Dynamic asset loading |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
+| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | Local notifications (Android/iOS, separate `Mu3Library.Notifications` assembly) |
 
 ## 🧩 Inspector Attributes
 
