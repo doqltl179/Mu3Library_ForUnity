@@ -48,7 +48,31 @@ namespace Mu3Library.WebRequest
             PostWithResult<TRequest, TResponse>(url, body, result => callback?.Invoke(result.Data), contentType);
         }
 
-        public void GetWithResult<T>(string url, Action<WebRequestResult<T>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        /// <summary>
+        /// Sends a PUT request with a JSON body to the specified URL.
+        /// </summary>
+        public void Put<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback, string contentType = "application/json")
+        {
+            PutWithResult<TRequest, TResponse>(url, body, result => callback?.Invoke(result.Data), contentType);
+        }
+
+        /// <summary>
+        /// Sends a PATCH request with a JSON body to the specified URL.
+        /// </summary>
+        public void Patch<TRequest, TResponse>(string url, TRequest body, Action<TResponse> callback, string contentType = "application/json")
+        {
+            PatchWithResult<TRequest, TResponse>(url, body, result => callback?.Invoke(result.Data), contentType);
+        }
+
+        /// <summary>
+        /// Sends a DELETE request to the specified URL.
+        /// </summary>
+        public void Delete<TResponse>(string url, Action<TResponse> callback)
+        {
+            DeleteWithResult<TResponse>(url, result => callback?.Invoke(result.Data));
+        }
+
+        public void GetWithResult<T>(string url, Action<WebRequestResult<T>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, Action<float> onDownloadProgress = null, WebRequestCancellation cancellation = null)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -61,6 +85,9 @@ namespace Mu3Library.WebRequest
             ExecuteWithRetry(
                 method: UnityWebRequest.kHttpVerbGET,
                 retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellation: cancellation,
+                onDownloadProgress: onDownloadProgress,
                 createRequest: () =>
                 {
                     UnityWebRequest request = CreateGetRequest<T>(url);
@@ -72,35 +99,52 @@ namespace Mu3Library.WebRequest
                     WebRequestResult<T> result = ParseResult<T>(url, request, "GET");
                     callback?.Invoke(result);
                 },
-                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<T>("GET", url, ex)));
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<T>("GET", url, ex)),
+                onCanceled: () => callback?.Invoke(CreateCanceledResult<T>("GET", url)));
         }
 
-        public void PostWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        public void PostWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, Action<float> onDownloadProgress = null, WebRequestCancellation cancellation = null)
+            => SendBodyRequestWithResult(UnityWebRequest.kHttpVerbPOST, url, body, callback, contentType, requestHeaders, timeoutSeconds, retryCount, retryDelaySeconds, onDownloadProgress, cancellation);
+
+        public void PutWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, Action<float> onDownloadProgress = null, WebRequestCancellation cancellation = null)
+            => SendBodyRequestWithResult(UnityWebRequest.kHttpVerbPUT, url, body, callback, contentType, requestHeaders, timeoutSeconds, retryCount, retryDelaySeconds, onDownloadProgress, cancellation);
+
+        public void PatchWithResult<TRequest, TResponse>(string url, TRequest body, Action<WebRequestResult<TResponse>> callback, string contentType = "application/json", IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, Action<float> onDownloadProgress = null, WebRequestCancellation cancellation = null)
+            => SendBodyRequestWithResult("PATCH", url, body, callback, contentType, requestHeaders, timeoutSeconds, retryCount, retryDelaySeconds, onDownloadProgress, cancellation);
+
+        public void DeleteWithResult<TResponse>(string url, Action<WebRequestResult<TResponse>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, WebRequestCancellation cancellation = null)
         {
             if (string.IsNullOrEmpty(url))
             {
-                string error = "WebRequest POST failed. url is null or empty.";
+                string error = "WebRequest DELETE failed. url is null or empty.";
                 Debug.LogError(error);
                 callback?.Invoke(WebRequestResult<TResponse>.Failure(-1, error, null));
                 return;
             }
 
-            string payload = SerializeBody(body);
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
-
             ExecuteWithRetry(
-                method: UnityWebRequest.kHttpVerbPOST,
+                method: UnityWebRequest.kHttpVerbDELETE,
                 retryCount: retryCount,
-                createRequest: () => CreatePostRequest<TResponse>(url, bodyRaw, contentType, requestHeaders, timeoutSeconds),
+                retryDelaySeconds: retryDelaySeconds,
+                cancellation: cancellation,
+                onDownloadProgress: null,
+                createRequest: () =>
+                {
+                    UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbDELETE);
+                    request.downloadHandler = new DownloadHandlerBuffer();
+                    ApplyRequestOptions(request, requestHeaders, timeoutSeconds);
+                    return request;
+                },
                 onComplete: request =>
                 {
-                    WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, "POST");
+                    WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, "DELETE");
                     callback?.Invoke(result);
                 },
-                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<TResponse>("POST", url, ex)));
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<TResponse>("DELETE", url, ex)),
+                onCanceled: () => callback?.Invoke(CreateCanceledResult<TResponse>("DELETE", url)));
         }
 
-        public void GetDownloadSizeWithResult(string url, Action<WebRequestResult<long>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0)
+        public void GetDownloadSizeWithResult(string url, Action<WebRequestResult<long>> callback, IDictionary<string, string> requestHeaders = null, int timeoutSeconds = 0, int retryCount = 0, float retryDelaySeconds = 1.0f, WebRequestCancellation cancellation = null)
         {
             if (string.IsNullOrEmpty(url))
             {
@@ -113,59 +157,143 @@ namespace Mu3Library.WebRequest
             ExecuteWithRetry(
                 method: UnityWebRequest.kHttpVerbHEAD,
                 retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellation: cancellation,
+                onDownloadProgress: null,
                 createRequest: () => CreateHeadRequest(url, requestHeaders, timeoutSeconds),
                 onComplete: request =>
                 {
                     WebRequestResult<long> result = ParseDownloadSizeResult(url, request);
                     callback?.Invoke(result);
                 },
-                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<long>("HEAD", url, ex)));
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<long>("HEAD", url, ex)),
+                onCanceled: () => callback?.Invoke(CreateCanceledResult<long>("HEAD", url)));
         }
         #endregion
+
+        private void SendBodyRequestWithResult<TRequest, TResponse>(
+            string method,
+            string url,
+            TRequest body,
+            Action<WebRequestResult<TResponse>> callback,
+            string contentType,
+            IDictionary<string, string> requestHeaders,
+            int timeoutSeconds,
+            int retryCount,
+            float retryDelaySeconds,
+            Action<float> onDownloadProgress,
+            WebRequestCancellation cancellation)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                string error = $"WebRequest {method} failed. url is null or empty.";
+                Debug.LogError(error);
+                callback?.Invoke(WebRequestResult<TResponse>.Failure(-1, error, null));
+                return;
+            }
+
+            string payload = SerializeBody(body);
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(payload ?? string.Empty);
+
+            ExecuteWithRetry(
+                method: method,
+                retryCount: retryCount,
+                retryDelaySeconds: retryDelaySeconds,
+                cancellation: cancellation,
+                onDownloadProgress: onDownloadProgress,
+                createRequest: () => CreateBodyRequest<TResponse>(url, method, bodyRaw, contentType, requestHeaders, timeoutSeconds),
+                onComplete: request =>
+                {
+                    WebRequestResult<TResponse> result = ParseResult<TResponse>(url, request, method);
+                    callback?.Invoke(result);
+                },
+                onUnexpectedFailure: ex => callback?.Invoke(CreateUnexpectedFailureResult<TResponse>(method, url, ex)),
+                onCanceled: () => callback?.Invoke(CreateCanceledResult<TResponse>(method, url)));
+        }
 
         private void ExecuteWithRetry(
             string method,
             int retryCount,
+            float retryDelaySeconds,
+            WebRequestCancellation cancellation,
+            Action<float> onDownloadProgress,
             Func<UnityWebRequest> createRequest,
             Action<UnityWebRequest> onComplete,
-            Action<Exception> onUnexpectedFailure)
+            Action<Exception> onUnexpectedFailure,
+            Action onCanceled)
         {
             int maxAttempts = Mathf.Max(1, retryCount + 1);
 
+            void RetryAfterBackoff(int nextAttempt)
+            {
+                Debug.LogWarning($"WebRequest {method} retry. attempt: {nextAttempt + 1}/{maxAttempts}");
+
+                // Exponential backoff: the first retry waits the base delay, each further
+                // retry doubles it, so a struggling server is not hammered in a tight loop.
+                float delay = retryDelaySeconds * Mathf.Pow(2.0f, nextAttempt - 1);
+                if (delay > 0.0f)
+                {
+                    InvokeAfterDelay(delay, () => SendAttempt(nextAttempt));
+                }
+                else
+                {
+                    SendAttempt(nextAttempt);
+                }
+            }
+
             void SendAttempt(int attempt)
             {
+                if (cancellation != null && cancellation.IsCancellationRequested)
+                {
+                    onCanceled?.Invoke();
+                    return;
+                }
+
                 UnityWebRequest request = null;
 
                 try
                 {
                     request = createRequest();
+                    cancellation?.SetActiveRequest(request);
+
                     request.SendWebRequest().completed += _ =>
                     {
-                        bool canRetry = request.result != UnityWebRequest.Result.Success && attempt + 1 < maxAttempts;
+                        cancellation?.ClearActiveRequest(request);
+
+                        bool isCanceled = cancellation != null && cancellation.IsCancellationRequested;
+                        bool canRetry = !isCanceled && request.result != UnityWebRequest.Result.Success && attempt + 1 < maxAttempts;
                         if (canRetry)
                         {
-                            using (request)
-                            {
-                                Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
-                            }
-
-                            SendAttempt(attempt + 1);
+                            request.Dispose();
+                            RetryAfterBackoff(attempt + 1);
                             return;
                         }
 
                         onComplete?.Invoke(request);
                         request.Dispose();
                     };
+
+                    if (onDownloadProgress != null)
+                    {
+                        PollDownloadProgress(request, onDownloadProgress);
+                    }
                 }
                 catch (Exception ex)
                 {
+                    cancellation?.ClearActiveRequest(request);
                     request?.Dispose();
 
-                    bool canRetry = attempt + 1 < maxAttempts;
+                    bool isCanceled = cancellation != null && cancellation.IsCancellationRequested;
+                    bool canRetry = !isCanceled && attempt + 1 < maxAttempts;
                     if (canRetry)
                     {
-                        Debug.LogWarning($"WebRequest {method} retry. attempt: {attempt + 2}/{maxAttempts}");
-                        SendAttempt(attempt + 1);
+                        RetryAfterBackoff(attempt + 1);
+                        return;
+                    }
+
+                    if (isCanceled)
+                    {
+                        onCanceled?.Invoke();
                         return;
                     }
 
@@ -174,6 +302,60 @@ namespace Mu3Library.WebRequest
             }
 
             SendAttempt(0);
+        }
+
+        /// <summary>
+        /// Runs an action after a delay on the main thread. Unity's synchronization context
+        /// brings the continuation back, so the action lands where web request callbacks land.
+        /// </summary>
+        private static async void InvokeAfterDelay(float seconds, Action action)
+        {
+            try
+            {
+                await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(seconds));
+                action();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        /// <summary>
+        /// Reports the download progress of a request until it finishes. The request may be
+        /// disposed while the poll sleeps, which simply ends the poll.
+        /// </summary>
+        private static async void PollDownloadProgress(UnityWebRequest request, Action<float> onDownloadProgress)
+        {
+            float lastProgress = -1.0f;
+
+            try
+            {
+                while (!request.isDone)
+                {
+                    float progress = request.downloadProgress;
+                    if (!Mathf.Approximately(progress, lastProgress))
+                    {
+                        lastProgress = progress;
+                        onDownloadProgress(progress);
+                    }
+
+                    await System.Threading.Tasks.Task.Yield();
+                }
+
+                onDownloadProgress(1.0f);
+            }
+            catch (Exception)
+            {
+                // The request was disposed while the poll slept; the download is over either way.
+            }
+        }
+
+        private WebRequestResult<T> CreateCanceledResult<T>(string method, string url)
+        {
+            string error = $"WebRequest {method} canceled. url: {url}";
+            Debug.LogWarning(error);
+            return WebRequestResult<T>.Failure(-1, error, null);
         }
 
         private WebRequestResult<T> CreateUnexpectedFailureResult<T>(string method, string url, Exception exception)
@@ -302,14 +484,15 @@ namespace Mu3Library.WebRequest
             return request;
         }
 
-        private UnityWebRequest CreatePostRequest<TResponse>(
+        private UnityWebRequest CreateBodyRequest<TResponse>(
             string url,
+            string method,
             byte[] bodyRaw,
             string contentType,
             IDictionary<string, string> requestHeaders,
             int timeoutSeconds)
         {
-            UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
+            UnityWebRequest request = new UnityWebRequest(url, method);
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = CreateDownloadHandler<TResponse>();
             request.SetRequestHeader("Content-Type", contentType);
