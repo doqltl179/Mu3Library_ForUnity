@@ -78,10 +78,20 @@ Before pushing local `develop` or `main` to its remote counterpart:
 
 ## Commit Policy
 
+- Follow Conventional Commits. The type and scope stay English, and **the subject and body are written in Korean**; branch names stay English. History written before this rule keeps its original language, so do not rewrite past commits.
+- Scope is lowercase and names either a package or the surface inside one: `base`, `urp`, `watermelon` for packages; `di`, `object-pool`, `audio`, `mvp`, `localization` and similar for a surface within a package; `release`, `agents`, `workflow`, `tooling`, `project` for repository-level work.
+- Use `watermelon` for `Mu3Library_Game_WatermelonGame`, never `game`. One package answers to one name, here and in the label table below.
 - Documentation-only commits are allowed directly on `main`.
 - Non-documentation commits must not be made directly on `main`.
 - Code changes should be committed on `develop`, one concern per commit, then synchronized into `main` only for an explicit release.
 - Before every commit, inspect the staged path list and confirm it belongs to one concern.
+
+```
+feat(base): Localization AssetTable 로딩 지원
+fix(urp): UnregisterEffectAll 타입 비교 수정과 IDisposable 추가
+docs(agents): 이슈·라벨 관례를 git-workflow 정본에 추가
+chore(release): base 0.26.0으로 버전 상향
+```
 
 ## Issue To Pull Request
 
@@ -96,6 +106,23 @@ This repository has no feature-branch path. [`branch-strategy.yml`](../../../.gi
 5. Check for conflicts and resolve them in place.
 6. Register what is left as new issues, per the next section.
 7. Record the verification commands and their results in the pull request body.
+8. Report that the unit is finished, naming what changed and the pull request number, and send a push notification when the environment can. Verification here drives the Unity Editor CLI through `compile-unity.sh` and takes minutes, so the person who asked is usually elsewhere; a bare "done" with no pull request number makes them open the browser to learn anything. Send it when you stop while blocked, too.
+
+## Check For Conflicts After Opening The Pull Request
+
+`main` moves on its own, because documentation-only commits are allowed directly on it. Check right after opening the pull request and resolve in place. "The PR is open" is not the end of the unit: a pull request that cannot merge is usually found days later by someone who no longer remembers the context.
+
+```bash
+gh pr view <number> --json mergeable,mergeStateStatus
+# when CONFLICTING
+git fetch origin && git merge origin/main
+```
+
+Resolve by merging the base branch into the head branch. Do not rebase. Rewriting the history of a branch that is already pushed detaches the pull request's review comments from the code they point at.
+
+A conflict is usually two decisions changing the same place, so read both before matching the text. Read the other side's commit message and the documents it changed, and judge whether that decision still holds after this change. Merge both when it does; when this change overrides it, say so in the merge commit message. Never drop one side silently, because the next person who wants it back cannot find why it went.
+
+Run the verification again after merging. Two sides passing separately does not mean the merged result passes.
 
 ## Leftovers Belong In Issues, Not The Pull Request Body
 
@@ -129,7 +156,7 @@ Apply labels to both issues and pull requests. There are two axes, and each gets
 | Kind | `analysis` | The deliverable is an investigation or a decision rather than code |
 | Area | `base` | `Mu3Library_Base` |
 | Area | `urp` | `Mu3Library_URP` |
-| Area | `game` | `Mu3Library_Game_WatermelonGame` |
+| Area | `watermelon` | `Mu3Library_Game_WatermelonGame`, matching the commit scope of the same name |
 | Area | `agents` | Agent framework: `.github/agents`, `instructions`, `prompts`, `skills`, and `docs/ai-agents/` |
 | Area | `tooling` | `tools/`, `compile-unity.sh`, and `.github/workflows/` |
 
