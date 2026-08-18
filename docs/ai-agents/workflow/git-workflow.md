@@ -13,6 +13,7 @@
 - An activated [graph-engineering workflow](graph-engineering.md) may create only its exact plan-declared local `agent/<graph-id>/...` branches and worktrees. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
 - Outside graph engineering, a task branch is permitted only after explicit user authorization naming the branch, its merge destination, and its cleanup plan.
 - An unexpected task branch is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
+- Remove an obsolete branch only after confirming its commits are contained in the destination or explicitly preserved elsewhere, then verify both the local and remote branch lists afterward.
 
 ## Normal Flow
 
@@ -25,6 +26,7 @@
 2. Stop if the current branch is not `develop` for normal work, or if the intended branch is ahead/diverged from its remote unexpectedly.
 3. Review `git diff` and `git status --short --untracked-files=all`, then group files by one concern at a time.
 4. Stage explicit paths for the selected concern and commit it with a focused message. Never use `git add .` or stage an unclear untracked file.
+   - Treat untracked Unity source and `.meta` files as user changes until ownership is clear. Do not silently stage, delete, or fold them into an unrelated commit; ask when ownership cannot be assigned.
 5. Validate local `develop`, fetch again, and confirm it is not behind or diverged from `origin/develop`.
 6. Push `develop` and verify its remote tip.
 7. If release on `main` is explicitly requested:
@@ -76,16 +78,116 @@ Before pushing local `develop` or `main` to its remote counterpart:
 
 ## Commit Policy
 
+- Follow Conventional Commits. The type and scope stay English, and **the subject and body are written in Korean**; branch names stay English. History written before this rule keeps its original language, so do not rewrite past commits.
+- Scope is lowercase and names either a package or the surface inside one: `base`, `urp`, `watermelon` for packages; `di`, `object-pool`, `audio`, `mvp`, `localization` and similar for a surface within a package; `release`, `agents`, `workflow`, `tooling`, `project` for repository-level work.
+- Use `watermelon` for `Mu3Library_Game_WatermelonGame`, never `game`. One package answers to one name, here and in the label table below.
 - Documentation-only commits are allowed directly on `main`.
 - Non-documentation commits must not be made directly on `main`.
 - Code changes should be committed on `develop`, one concern per commit, then synchronized into `main` only for an explicit release.
 - Before every commit, inspect the staged path list and confirm it belongs to one concern.
+
+```
+feat(base): Localization AssetTable 로딩 지원
+fix(urp): UnregisterEffectAll 타입 비교 수정과 IDisposable 추가
+docs(agents): 이슈·라벨 관례를 git-workflow 정본에 추가
+chore(release): base 0.26.0으로 버전 상향
+```
+
+## Issue To Pull Request
+
+Handling a GitHub issue is one unit of work that ends at the pull request, not at a dirty working tree.
+
+This repository has no feature-branch path. [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) accepts a pull request into `main` only from `develop`, and into `develop` only from `main` for release sync. Do not open a pull request from a task branch; it fails that check.
+
+1. Confirm `develop` is checked out and synchronized with `origin/develop` using the preflight above.
+2. Implement the change and run the verification the touched surface requires.
+3. Commit with Conventional Commits, one concern per commit, then push `develop`.
+4. Open the pull request from `develop` into `main`. Put `Closes #<issue>` in the body to link the issue, and apply labels from the table below.
+5. Check for conflicts and resolve them in place.
+6. Register what is left as new issues, per the next section.
+7. Record the verification commands and their results in the pull request body.
+8. Report that the unit is finished, naming what changed and the pull request number, and send a push notification when the environment can. Verification here drives the Unity Editor CLI through `compile-unity.sh` and takes minutes, so the person who asked is usually elsewhere; a bare "done" with no pull request number makes them open the browser to learn anything. Send it when you stop while blocked, too.
+
+## Check For Conflicts After Opening The Pull Request
+
+`main` moves on its own, because documentation-only commits are allowed directly on it. Check right after opening the pull request and resolve in place. "The PR is open" is not the end of the unit: a pull request that cannot merge is usually found days later by someone who no longer remembers the context.
+
+```bash
+gh pr view <number> --json mergeable,mergeStateStatus
+# when CONFLICTING
+git fetch origin && git merge origin/main
+```
+
+Resolve by merging the base branch into the head branch. Do not rebase. Rewriting the history of a branch that is already pushed detaches the pull request's review comments from the code they point at.
+
+A conflict is usually two decisions changing the same place, so read both before matching the text. Read the other side's commit message and the documents it changed, and judge whether that decision still holds after this change. Merge both when it does; when this change overrides it, say so in the merge commit message. Never drop one side silently, because the next person who wants it back cannot find why it went.
+
+Run the verification again after merging. Two sides passing separately does not mean the merged result passes.
+
+## Leftovers Belong In Issues, Not The Pull Request Body
+
+Nearly every task ends with something still to do. Written only in the pull request body it is buried the moment the PR merges, because nobody re-reads a closed PR. Register follow-up work as a GitHub issue instead.
+
+Register an issue for:
+
+- Work deliberately deferred out of scope, including anything recorded as "not done in this PR".
+- A defect or inconsistency found while implementing: where docs and code disagree, or where a convention names something that does not exist yet.
+- Follow-up that cannot finish inside the repository, such as a package registry submission or an external account change.
+- Something a document already specifies but no code implements.
+
+Do not register an issue for:
+
+- Anything fixable now. Fix it instead; an issue is not a way to defer.
+- Something an open issue already covers. Comment on that issue; duplicates cost the list its signal.
+- A broad unimplemented area the roadmap already excludes. Splitting it into issues turns the list into a copy of the roadmap.
+
+Every issue body states three things: **where it came from** (the originating issue or PR number), **why it is needed**, and **what closes it**. An item with no "what closes it" is not an issue yet but a pending judgment; label it `analysis` and write that judgment as the task.
+
+## Labels
+
+Apply labels to both issues and pull requests. There are two axes, and each gets exactly one label.
+
+| Axis | Label | When |
+|---|---|---|
+| Kind | `bug` | Behavior differs from intent |
+| Kind | `enhancement` | New feature or improvement |
+| Kind | `documentation` | README, CHANGELOG, or agent-framework docs |
+| Kind | `follow-up` | Split off from other work; nearly always present on an issue registered by the rule above |
+| Kind | `analysis` | The deliverable is an investigation or a decision rather than code |
+| Area | `base` | `Mu3Library_Base` |
+| Area | `urp` | `Mu3Library_URP` |
+| Area | `watermelon` | `Mu3Library_Game_WatermelonGame`, matching the commit scope of the same name |
+| Area | `agents` | Agent framework: `.github/agents`, `instructions`, `prompts`, `skills`, and `docs/ai-agents/` |
+| Area | `tooling` | `tools/`, `compile-unity.sh`, and `.github/workflows/` |
+
+Work inside a `UnityProject_*` development project takes the area of the package it exercises.
+
+**Create a new label when none fits.** Never force one on: a label whose meaning is off is worse than no label. Always pass `--description` when creating one. An undescribed label makes the next person guess its meaning, and from that point the same label carries two meanings.
+
+```bash
+gh label list
+gh label create <name> --color <hex> --description "<when to apply it>"
+gh issue create --title "<title>" --label follow-up --label base --body "..."
+gh pr edit <number> --add-label documentation --add-label agents
+```
 
 ## Release Policy
 
 - Releases are performed through `main`.
 - Every release needs release notes.
 - Release note consistency matters, but omission prevention is the priority.
+
+## Stop Conditions
+
+Stop and report instead of improvising when any of these holds.
+
+- The checked-out branch is outside the allowlist above and no explicit user authorization exists.
+- A graph branch or worktree is not present in the active plan, two running nodes overlap, or the integration destination moved from the recorded base.
+- Untracked files cannot be assigned to a focused change without user direction.
+- Local and remote branch state are out of sync.
+- A merge, rebase, or push would overwrite remote work.
+- Verification or reviewer approval is missing for a release-sensitive surface.
+- The branch flow no longer matches the user-requested release or hotfix path.
 
 ## Hotfix Flow
 

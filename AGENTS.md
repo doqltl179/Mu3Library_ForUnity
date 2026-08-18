@@ -1,13 +1,9 @@
 ﻿# AGENTS.md
 
-This file is a strict router for Codex workflows in this repository.
+Work instructions for this repository are owned by [`.github/copilot-instructions.md`](.github/copilot-instructions.md). **Read it before opening or changing any file.**
 
-## Mandatory Instruction
+Keep no copy of the rules here. Entry points differ per tool — Codex arrives through this file, Claude Code through [`CLAUDE.md`](CLAUDE.md), Copilot through that file directly — and all three must land in the same place. Once instructions split per entry point, only one side gets fixed.
 
-You must read and follow `.github/copilot-instructions.md` first.
+Treat `.github/copilot-instructions.md` as the startup SSOT. After reading it, analyze the task, then open only the smallest next route it selects.
 
-Treat `.github/copilot-instructions.md` as the startup SSOT. After reading it, analyze the task before opening any additional repository instruction or wiki page, then open only the smallest next route it selects.
-
-All operational guardrails, conditional read rules, coding rules, testing policy, and docs/release sync rules are defined there and in the additional instruction or wiki pages it explicitly selects.
-
-If there is any conflict between this file and `.github/copilot-instructions.md`, `.github/copilot-instructions.md` takes precedence.
+If anything in this file ever conflicts with `.github/copilot-instructions.md`, that file wins.

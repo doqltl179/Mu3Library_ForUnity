@@ -9,13 +9,9 @@ Use these rules for non-trivial work that needs 3+ steps, architectural decision
 ## Operating Rules
 
 - Plan before editing, but keep the plan proportional to the task.
-- Maintain `tasks/todo.md` as the persistent local task index.
-- Store non-trivial execution plans in `tasks/plans/*.md`.
-- Name each new plan file with the UTC creation timestamp required by the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md), and keep that timestamp unchanged while the plan is active.
+- Record plans under `tasks/plans/` with `tasks/todo.md` as the index. File naming, the index/plan split, completion deletion, and the approval-free closeout are owned by the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md); follow it rather than restating it here.
 - Use `docs/ai-agents/plans/plan-template.md` for the repository-standard plan shape.
 - For a complex request with two or more concurrently ready units, use the graph plan contract in `docs/ai-agents/workflow/graph-engineering.md` instead of forcing the work into a serial step list.
-- Treat each `tasks/plans/*.md` file as an active-work artifact, never task history. When a bounded unit finishes, first capture durable outcomes in their owning record, reset `tasks/todo.md` to the next active state, and delete the completed plan in the same closeout. Do not retain or archive completed plan files; see the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md).
-- Apply the Task Record Policy's approval-free closeout only to the exact completed plan created by the executing agent for the current task; never extend it to other plans or cleanup targets.
 - Use `update_plan` or another interactive tracker when available, but do not block if it is unavailable.
 - Execute in small, verifiable steps and update status immediately after each step.
 - Keep one coordinator-local graph plan for the whole request. Record its revision/absolute path, total/concurrent node and credit budgets, plus each node's admission reason, cost, dependencies, owner, scope, allocation, verification, and status; do not create a nested plan per node.

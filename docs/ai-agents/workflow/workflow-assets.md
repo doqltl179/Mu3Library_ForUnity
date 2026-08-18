@@ -15,21 +15,21 @@
 
 ## Asset Inventory
 
-| Type | Artifact | Purpose |
-|---|---|---|
-| Prompt | [adapt-external-guidance.prompt.md](../../../.github/prompts/adapt-external-guidance.prompt.md) | External prompt/policy/workflow -> repository-safe adaptation entrypoint |
-| Prompt | [compile-unity.prompt.md](../../../.github/prompts/compile-unity.prompt.md) | Synchronous compile-only verification entrypoint |
-| Prompt | [development-idea-bank.prompt.md](../../../.github/prompts/development-idea-bank.prompt.md) | Repository-shaped package idea-bank entrypoint |
-| Prompt | [framework-next-unit.prompt.md](../../../.github/prompts/framework-next-unit.prompt.md) | Bounded work -> review -> continue/rework entrypoint |
-| Skill | [bootstrap-python-cli](../../../.github/skills/bootstrap-python-cli/SKILL.md) | Repository-local Python CLI bootstrap |
-| Skill | [agent-role-audit](../../../.github/skills/agent-role-audit/SKILL.md) | Structural role audit workflow |
-| Skill | [development-idea-bank](../../../.github/skills/development-idea-bank/SKILL.md) | Package whitespace and idea-bank workflow |
-| Skill | [asmdef-triage](../../../.github/skills/asmdef-triage/SKILL.md) | Assembly-definition diagnosis and safe change planning |
-| Skill | [editmode-test-addition](../../../.github/skills/editmode-test-addition/SKILL.md) | EditMode test planning, placement, and minimal verification |
-
+| Type | Artifact | Purpose | Follows |
+|---|---|---|---|
+| Prompt | [adapt-external-guidance.prompt.md](../../../.github/prompts/adapt-external-guidance.prompt.md) | External prompt/policy/workflow -> repository-safe adaptation entrypoint | [external-guidance-adaptation.md](external-guidance-adaptation.md) |
+| Prompt | [compile-unity.prompt.md](../../../.github/prompts/compile-unity.prompt.md) | Synchronous compile-only verification entrypoint | [verification.instructions.md](../../../.github/instructions/verification.instructions.md) |
+| Prompt | [development-idea-bank.prompt.md](../../../.github/prompts/development-idea-bank.prompt.md) | Repository-shaped package idea-bank entrypoint | [development-idea-bank.md](development-idea-bank.md) |
+| Prompt | [framework-next-unit.prompt.md](../../../.github/prompts/framework-next-unit.prompt.md) | Bounded work -> review -> continue/rework entrypoint | [iteration-process.md](iteration-process.md) |
+| Skill | [bootstrap-python-cli](../../../.github/skills/bootstrap-python-cli/SKILL.md) | Repository-local Python CLI bootstrap | [tools/README.md](../../../tools/README.md) |
+| Skill | [agent-role-audit](../../../.github/skills/agent-role-audit/SKILL.md) | Structural role audit workflow | [routing/README.md](../routing/README.md), [iteration-process.md](iteration-process.md) |
+| Skill | [development-idea-bank](../../../.github/skills/development-idea-bank/SKILL.md) | Package whitespace and idea-bank workflow | [development-idea-bank.md](development-idea-bank.md) |
+| Skill | [asmdef-triage](../../../.github/skills/asmdef-triage/SKILL.md) | Assembly-definition diagnosis and safe change planning | [unity-architecture.instructions.md](../../../.github/instructions/unity-architecture.instructions.md) |
+| Skill | [editmode-test-addition](../../../.github/skills/editmode-test-addition/SKILL.md) | EditMode test planning, placement, and minimal verification | [verification.instructions.md](../../../.github/instructions/verification.instructions.md) |
 ## Notes
 
-- Keep this page as inventory only.
+- Keep this page as inventory only. The `Follows` column names the canonical page that owns the rule; the asset holds only the order.
+- Claude Code-only commands or skills under `.claude/` are registered here too, so every executor keeps a single named owner.
 - Detailed behavior stays in the owning prompt, skill, or linked workflow page.
 - Promote a repeatable flow to a durable owner only after `role-governor` suitability review.
 - Startup docs should link here for prompt/skill inventory instead of embedding long asset lists.

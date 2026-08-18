@@ -1,4 +1,4 @@
-﻿---
+---
 name: bootstrap-python-cli
 description: "Use when creating or refining auxiliary Python CLI tooling for this repository: virtual environment setup, dependency/bootstrap flow, command tree design, subcommand layout, help UX, and documentation for support scripts."
 ---

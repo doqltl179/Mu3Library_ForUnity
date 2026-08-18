@@ -41,7 +41,8 @@
 - Keep `docs/ai-agents/routing/README.md` within 70 lines; if owner selection needs more room, reduce overlap before adding another routing page.
 - Keep `.github/agents/*.agent.md` as role cards within 30 lines; frontmatter and the `description` field should carry selection cues.
 - Keep `.github/prompts/*.prompt.md` within 30 lines and `.github/skills/*/SKILL.md` within 60 lines, with frontmatter `name` and `description`.
-- Keep `docs/ai-agents/**/*.md` below 24 files by default. Add a new page only for a distinct question shape, boundary, reusable contract, or workflow that an existing owner cannot answer cleanly.
+- Keep `docs/ai-agents/**/*.md` at or below 24 files by default. Add a new page only for a distinct question shape, boundary, reusable contract, or workflow that an existing owner cannot answer cleanly.
+  - The ceiling moved from 23 to 24 for [request-lifecycle.md](request-lifecycle.md) and [coding-rules.md](../coding-rules.md). Both absorbed rule bodies that previously had no owner and sat inline in `.github/copilot-instructions.md`; moving them out is what keeps that startup file inside its own 45-line budget. Two owned pages read on demand cost less than a permanently larger always-on file.
 - Use `applyTo` only when a file path alone safely selects the instruction. Process instructions should keep a `description` and be routed by `.github/copilot-instructions.md` instead of using broad `applyTo: '**'`.
 - Any durable exception should be paired with a CI or CLI guard update, or a short note explaining why the budget is intentionally exceeded.
 
