@@ -55,10 +55,12 @@ Never place a worktree inside a Unity `Library` directory, share a Unity `Librar
 
 ## Task Branch Cleanup
 
-1. Confirm the pull request merged and its commits are contained in `develop`.
-2. Delete the branch locally and on the remote, verifying both branch lists afterward.
-3. Keep a branch that another open pull request was stacked on until that one merges too.
-4. Never delete a branch holding unique commits or required untracked files. If any precondition fails, stop rather than improvising a merge or deletion.
+This repository does not delete merged branches automatically, so cleanup is a real step. It needs no separate approval once every condition below holds, because the commits provably survive in `develop`. A **worktree** is not covered here: it may hold a Unity `Library` directory and keeps its own explicit-approval requirement.
+
+1. Confirm the pull request merged and `git log --oneline develop..<branch>` is empty, so the branch holds no unique commits.
+2. Confirm no other open pull request was stacked on the branch. Keep it until that one merges too.
+3. Delete the branch locally and on the remote, then verify both branch lists.
+4. If any precondition fails, stop and report rather than improvising a merge or deletion.
 
 ## Pushable Status
 
@@ -96,6 +98,7 @@ One issue gets one task branch and one pull request into `develop`. Releasing wh
 2. Implement the change and run the verification the touched surface requires.
 3. Commit with Conventional Commits, one concern per commit, then push the task branch.
 4. Open the pull request into `develop`. Put `Closes #<issue>` in the body to link the issue, and apply labels from the table below.
+   - `Closes #<issue>` **links** the issue but does not close it at this merge. GitHub closes an issue only when the reference reaches the default branch, which is `main`. The issue closes when the release pull request from `develop` merges. An issue still open after its task branch merged is expected; do not close it by hand and do not read it as a failed merge.
 5. Check for conflicts and resolve them in place.
 6. Register what is left as new issues, per the next section.
 7. Record the verification commands and their results in the pull request body, and clean up the task branch once it merges.

@@ -29,8 +29,8 @@ Hold these before the canonical pages are read. Each line's body and exceptions 
 
 - **Do not commit on `develop` or `main`.** Both receive changes only through a merged pull request — git-workflow
 - **Cut a task branch from `origin/develop` before the first edit,** named `<type>/<scope>-<summary>`, after running the branch preflight — git-workflow
-- **Do not auto-delete a branch or worktree, and do not push a graph branch.** Graph nodes use plan-declared `agent/<graph-id>/<node>` branches in their exact worktrees — git-workflow, graph-engineering
-- **Confirm exact paths and sizes and get explicit approval before deleting or moving anything.** The sole approval-free exception is the current task's own completed plan under `tasks/plans/` — task-record-policy
+- **Do not auto-delete a worktree, and do not push a graph branch.** Graph nodes use plan-declared `agent/<graph-id>/<node>` branches in their exact worktrees — git-workflow, graph-engineering
+- **Confirm exact paths and sizes and get explicit approval before deleting or moving anything.** The only approval-free exceptions are a merged task branch that passed «Task Branch Cleanup» and the current task's own completed plan under `tasks/plans/` — git-workflow, task-record-policy
 - **Stop when the request is functionally impossible; pause when it needs a scope expansion or a decision that is not yours** — request-lifecycle
 - **Do not fake success.** No special case, temporary fallback, or hidden correction to cover a contract error; leave the failing state and a TODO visible — coding-rules
 - **One rule has one owner.** Do not copy a value, list, or procedure into a second page — coding-rules
