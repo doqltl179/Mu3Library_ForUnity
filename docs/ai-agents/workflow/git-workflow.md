@@ -83,6 +83,67 @@ Before pushing local `develop` or `main` to its remote counterpart:
 - Code changes should be committed on `develop`, one concern per commit, then synchronized into `main` only for an explicit release.
 - Before every commit, inspect the staged path list and confirm it belongs to one concern.
 
+## Issue To Pull Request
+
+Handling a GitHub issue is one unit of work that ends at the pull request, not at a dirty working tree.
+
+This repository has no feature-branch path. [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) accepts a pull request into `main` only from `develop`, and into `develop` only from `main` for release sync. Do not open a pull request from a task branch; it fails that check.
+
+1. Confirm `develop` is checked out and synchronized with `origin/develop` using the preflight above.
+2. Implement the change and run the verification the touched surface requires.
+3. Commit with Conventional Commits, one concern per commit, then push `develop`.
+4. Open the pull request from `develop` into `main`. Put `Closes #<issue>` in the body to link the issue, and apply labels from the table below.
+5. Check for conflicts and resolve them in place.
+6. Register what is left as new issues, per the next section.
+7. Record the verification commands and their results in the pull request body.
+
+## Leftovers Belong In Issues, Not The Pull Request Body
+
+Nearly every task ends with something still to do. Written only in the pull request body it is buried the moment the PR merges, because nobody re-reads a closed PR. Register follow-up work as a GitHub issue instead.
+
+Register an issue for:
+
+- Work deliberately deferred out of scope, including anything recorded as "not done in this PR".
+- A defect or inconsistency found while implementing: where docs and code disagree, or where a convention names something that does not exist yet.
+- Follow-up that cannot finish inside the repository, such as a package registry submission or an external account change.
+- Something a document already specifies but no code implements.
+
+Do not register an issue for:
+
+- Anything fixable now. Fix it instead; an issue is not a way to defer.
+- Something an open issue already covers. Comment on that issue; duplicates cost the list its signal.
+- A broad unimplemented area the roadmap already excludes. Splitting it into issues turns the list into a copy of the roadmap.
+
+Every issue body states three things: **where it came from** (the originating issue or PR number), **why it is needed**, and **what closes it**. An item with no "what closes it" is not an issue yet but a pending judgment; label it `analysis` and write that judgment as the task.
+
+## Labels
+
+Apply labels to both issues and pull requests. There are two axes, and each gets exactly one label.
+
+| Axis | Label | When |
+|---|---|---|
+| Kind | `bug` | Behavior differs from intent |
+| Kind | `enhancement` | New feature or improvement |
+| Kind | `documentation` | README, CHANGELOG, or agent-framework docs |
+| Kind | `follow-up` | Split off from other work; nearly always present on an issue registered by the rule above |
+| Kind | `analysis` | The deliverable is an investigation or a decision rather than code |
+| Area | `base` | `Mu3Library_Base` |
+| Area | `urp` | `Mu3Library_URP` |
+| Area | `game` | `Mu3Library_Game_WatermelonGame` |
+| Area | `agents` | Agent framework: `.github/agents`, `instructions`, `prompts`, `skills`, and `docs/ai-agents/` |
+| Area | `tooling` | `tools/`, `compile-unity.sh`, and `.github/workflows/` |
+
+Work inside a `UnityProject_*` development project takes the area of the package it exercises.
+
+**Create a new label when none fits.** Never force one on: a label whose meaning is off is worse than no label. Always pass `--description` when creating one. An undescribed label makes the next person guess its meaning, and from that point the same label carries two meanings.
+
+```bash
+gh label list
+gh label create <name> --color <hex> --description "<when to apply it>"
+gh issue create --title "<title>" --label follow-up --label base --body "..."
+gh pr edit <number> --add-label documentation --add-label agents
+```
+
 ## Release Policy
 
 - Releases are performed through `main`.

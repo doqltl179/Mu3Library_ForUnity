@@ -12,7 +12,7 @@ This file is the **shared entry point**. Copilot reads it directly, Codex arrive
 | Unity package code, assets, samples, `.asmdef`, or metadata | [unity-architecture.instructions.md](instructions/unity-architecture.instructions.md), [packages/README.md](../docs/ai-agents/packages/README.md) |
 | C# file edits | [unity.instructions.md](instructions/unity.instructions.md) |
 | Compile or safety verification | [verification.instructions.md](instructions/verification.instructions.md) |
-| Branch, commit, push, merge, or hotfix work | [git-workflow.md](../docs/ai-agents/workflow/git-workflow.md) |
+| Branch, commit, push, merge, hotfix, issue, or label work | [git-workflow.md](../docs/ai-agents/workflow/git-workflow.md) |
 | Release, version, tag, or changelog scope | [release.instructions.md](instructions/release.instructions.md) |
 | README/CHANGELOG synchronization | [docs-sync.instructions.md](instructions/docs-sync.instructions.md) |
 | Splitting a complex request across worktrees | [graph-engineering.md](../docs/ai-agents/workflow/graph-engineering.md) |
