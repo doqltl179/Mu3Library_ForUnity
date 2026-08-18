@@ -7,39 +7,36 @@
 
 ## Branch Policy
 
-- Default working branch: `develop`.
-- Release branch: `main`.
-- Normal serial work uses only `develop` and `main`.
-- An activated [graph-engineering workflow](graph-engineering.md) may create only its exact plan-declared local `agent/<graph-id>/...` branches and worktrees. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
-- Outside graph engineering, a task branch is permitted only after explicit user authorization naming the branch, its merge destination, and its cleanup plan.
-- An unexpected task branch is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
-- Remove an obsolete branch only after confirming its commits are contained in the destination or explicitly preserved elsewhere, then verify both the local and remote branch lists afterward.
+- Integration branch: `develop`. Release branch: `main`. **Neither takes a direct commit.**
+- Normal work happens on a task branch cut from `origin/develop`, named `<type>/<scope>-<summary>` in lowercase. `<type>` is a Conventional Commit type: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. The scope matches the commit scope for the same work.
+- A task branch may be checked out in its own worktree when the work is long-running or must not disturb the primary checkout. The pull request needs the branch; the worktree is optional.
+- An activated [graph-engineering workflow](graph-engineering.md) creates its plan-declared `agent/<graph-id>/<node>` branches and worktrees instead. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
+- [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) enforces the destinations: into `develop` from a task branch, an `agent/...` branch, or `main` for release sync; into `main` only from `develop`.
+- Being on a branch that does not belong to the current task is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
+- Delete a merged task branch only after confirming its commits are contained in `develop`, then verify both the local and remote branch lists.
 
 ## Normal Flow
 
 1. Run the branch preflight before editing:
    - `git status --short --branch`
    - `git branch --show-current`
-   - `git branch -vv`
    - `git fetch origin`
    - `git rev-list --left-right --count origin/develop...develop`
-2. Stop if the current branch is not `develop` for normal work, or if the intended branch is ahead/diverged from its remote unexpectedly.
+2. **Cut the task branch from `origin/develop`, not from whatever is checked out.**
+
+   ```bash
+   git fetch origin && git switch -c <type>/<scope>-<summary> origin/develop
+   ```
+
+   A new session starts on the branch last used. When that branch is already merged, work cut from it starts beside other changes instead of on top of them, and the conflict only surfaces at step 7.
 3. Review `git diff` and `git status --short --untracked-files=all`, then group files by one concern at a time.
 4. Stage explicit paths for the selected concern and commit it with a focused message. Never use `git add .` or stage an unclear untracked file.
    - Treat untracked Unity source and `.meta` files as user changes until ownership is clear. Do not silently stage, delete, or fold them into an unrelated commit; ask when ownership cannot be assigned.
-5. Validate local `develop`, fetch again, and confirm it is not behind or diverged from `origin/develop`.
-6. Push `develop` and verify its remote tip.
-7. If release on `main` is explicitly requested:
-   - check whether local `main` is mergeable,
-   - merge local `develop` into local `main`,
-   - validate and review local `main`.
-8. If remote `main` sync is requested:
-   - verify pushable status,
-   - push local `main` to remote `main`,
-   - validate remote status.
-9. After release succeeds on `main`:
-   - sync local `main` back into local `develop`,
-   - verify both protected branches.
+5. Run the verification the touched surface needs, and keep the commands and their results for the pull request body.
+6. Push the task branch and verify its remote tip: `git push -u origin <branch>`.
+7. Open the pull request into `develop`, then check for conflicts and resolve them in place.
+8. After it merges, delete the task branch locally and on the remote, then fast-forward local `develop` from `origin/develop`.
+9. Releasing to `main` is a separate unit: open a pull request from `develop` into `main`, and after it merges sync `main` back into `develop` and verify both protected branches.
 
 ## Parallel Worktree Flow
 
@@ -56,19 +53,16 @@ Use [graph-engineering.md](graph-engineering.md) as the lifecycle owner. Git exe
 
 Never place a worktree inside a Unity `Library` directory, share a Unity `Library` across worktrees, force-update a branch, reuse a stale revision name, or auto-rebase a stale graph.
 
-## Explicit Task-Branch Exception
+## Task Branch Cleanup
 
-This section applies outside the plan-declared graph exception.
-
-1. Record the user-authorized branch name, destination, and cleanup plan before creating it.
-2. Keep the branch focused and classify/stage paths by concern.
-3. Validate it, merge it into the authorized destination, and verify the destination.
-4. Delete the local and remote task branch only after confirming no unique commits or required untracked files would be lost.
-5. If any precondition fails, stop rather than improvising a merge or deletion.
+1. Confirm the pull request merged and its commits are contained in `develop`.
+2. Delete the branch locally and on the remote, verifying both branch lists afterward.
+3. Keep a branch that another open pull request was stacked on until that one merges too.
+4. Never delete a branch holding unique commits or required untracked files. If any precondition fails, stop rather than improvising a merge or deletion.
 
 ## Pushable Status
 
-Before pushing local `develop` or `main` to its remote counterpart:
+Before pushing a protected branch (`develop` or `main`) to its remote counterpart during release sync:
 
 1. Fetch and check ahead/behind state.
 2. Confirm no merge or rebase conflict risk with the remote tip.
@@ -81,9 +75,8 @@ Before pushing local `develop` or `main` to its remote counterpart:
 - Follow Conventional Commits. The type and scope stay English, and **the subject and body are written in Korean**; branch names stay English. History written before this rule keeps its original language, so do not rewrite past commits.
 - Scope is lowercase and names either a package or the surface inside one: `base`, `urp`, `watermelon` for packages; `di`, `object-pool`, `audio`, `mvp`, `localization` and similar for a surface within a package; `release`, `agents`, `workflow`, `tooling`, `project` for repository-level work.
 - Use `watermelon` for `Mu3Library_Game_WatermelonGame`, never `game`. One package answers to one name, here and in the label table below.
-- Documentation-only commits are allowed directly on `main`.
-- Non-documentation commits must not be made directly on `main`.
-- Code changes should be committed on `develop`, one concern per commit, then synchronized into `main` only for an explicit release.
+- Commit on a task branch, one concern per commit. `develop` and `main` receive changes only through a merged pull request.
+- `develop` reaches `main` only through an explicit release pull request.
 - Before every commit, inspect the staged path list and confirm it belongs to one concern.
 
 ```
@@ -97,25 +90,25 @@ chore(release): base 0.26.0으로 버전 상향
 
 Handling a GitHub issue is one unit of work that ends at the pull request, not at a dirty working tree.
 
-This repository has no feature-branch path. [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) accepts a pull request into `main` only from `develop`, and into `develop` only from `main` for release sync. Do not open a pull request from a task branch; it fails that check.
+One issue gets one task branch and one pull request into `develop`. Releasing what accumulated on `develop` to `main` is a separate unit.
 
-1. Confirm `develop` is checked out and synchronized with `origin/develop` using the preflight above.
+1. Run the preflight, then cut the task branch from `origin/develop` as in «Normal Flow».
 2. Implement the change and run the verification the touched surface requires.
-3. Commit with Conventional Commits, one concern per commit, then push `develop`.
-4. Open the pull request from `develop` into `main`. Put `Closes #<issue>` in the body to link the issue, and apply labels from the table below.
+3. Commit with Conventional Commits, one concern per commit, then push the task branch.
+4. Open the pull request into `develop`. Put `Closes #<issue>` in the body to link the issue, and apply labels from the table below.
 5. Check for conflicts and resolve them in place.
 6. Register what is left as new issues, per the next section.
-7. Record the verification commands and their results in the pull request body.
+7. Record the verification commands and their results in the pull request body, and clean up the task branch once it merges.
 8. Report that the unit is finished, naming what changed and the pull request number, and send a push notification when the environment can. Verification here drives the Unity Editor CLI through `compile-unity.sh` and takes minutes, so the person who asked is usually elsewhere; a bare "done" with no pull request number makes them open the browser to learn anything. Send it when you stop while blocked, too.
 
 ## Check For Conflicts After Opening The Pull Request
 
-`main` moves on its own, because documentation-only commits are allowed directly on it. Check right after opening the pull request and resolve in place. "The PR is open" is not the end of the unit: a pull request that cannot merge is usually found days later by someone who no longer remembers the context.
+`develop` moves whenever another task branch merges. Check right after opening the pull request and resolve in place. "The PR is open" is not the end of the unit: a pull request that cannot merge is usually found days later by someone who no longer remembers the context.
 
 ```bash
 gh pr view <number> --json mergeable,mergeStateStatus
 # when CONFLICTING
-git fetch origin && git merge origin/main
+git fetch origin && git merge origin/develop
 ```
 
 Resolve by merging the base branch into the head branch. Do not rebase. Rewriting the history of a branch that is already pushed detaches the pull request's review comments from the code they point at.
@@ -181,7 +174,8 @@ gh pr edit <number> --add-label documentation --add-label agents
 
 Stop and report instead of improvising when any of these holds.
 
-- The checked-out branch is outside the allowlist above and no explicit user authorization exists.
+- The checked-out branch does not belong to the current task, or its name does not match the `<type>/<scope>-<summary>` form.
+- A commit is about to land directly on `develop` or `main`.
 - A graph branch or worktree is not present in the active plan, two running nodes overlap, or the integration destination moved from the recorded base.
 - Untracked files cannot be assigned to a focused change without user direction.
 - Local and remote branch state are out of sync.
@@ -191,7 +185,7 @@ Stop and report instead of improvising when any of these holds.
 
 ## Hotfix Flow
 
-1. Implement and verify the hotfix on `develop`; do not create a `hotfix/*` branch automatically.
-2. If the user explicitly requests a release, synchronize the verified `develop` into `main`.
-3. Publish the patch release from `main`.
-4. Sync `main` back into `develop` after the release succeeds.
+1. Implement and verify the hotfix on a `fix/<scope>-<summary>` task branch cut from `origin/develop`. Do not create a `hotfix/*` branch; the CI check does not accept that prefix.
+2. Merge it into `develop` through a pull request like any other task.
+3. If the user explicitly requests a release, open the release pull request from `develop` into `main`.
+4. Publish the patch release from `main`, then sync `main` back into `develop`.

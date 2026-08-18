@@ -41,10 +41,23 @@
 - Keep `docs/ai-agents/routing/README.md` within 70 lines; if owner selection needs more room, reduce overlap before adding another routing page.
 - Keep `.github/agents/*.agent.md` as role cards within 30 lines; frontmatter and the `description` field should carry selection cues.
 - Keep `.github/prompts/*.prompt.md` within 30 lines and `.github/skills/*/SKILL.md` within 60 lines, with frontmatter `name` and `description`.
-- Keep `docs/ai-agents/**/*.md` at or below 24 files by default. Add a new page only for a distinct question shape, boundary, reusable contract, or workflow that an existing owner cannot answer cleanly.
-  - The ceiling moved from 23 to 24 for [request-lifecycle.md](request-lifecycle.md) and [coding-rules.md](../coding-rules.md). Both absorbed rule bodies that previously had no owner and sat inline in `.github/copilot-instructions.md`; moving them out is what keeps that startup file inside its own 45-line budget. Two owned pages read on demand cost less than a permanently larger always-on file.
+- **Do not cap the `docs/ai-agents/` wiki by file count.** See «Wiki Size Is Controlled By Routing» below.
 - Use `applyTo` only when a file path alone safely selects the instruction. Process instructions should keep a `description` and be routed by `.github/copilot-instructions.md` instead of using broad `applyTo: '**'`.
 - Any durable exception should be paired with a CI or CLI guard update, or a short note explaining why the budget is intentionally exceeded.
+
+## Wiki Size Is Controlled By Routing
+
+A page costs nothing until a router sends someone to it. What costs is an always-on file that grew, a page no owner claims, and a rule written down twice. A file-count ceiling measures none of those, and it fails in both directions: it blocks a page that would shrink the startup file, and it permits a page that duplicates an existing owner.
+
+So the wiki is bounded by ownership and routing, not by counting.
+
+- **One page answers one question no existing page answers.** If a page already owns that question, extend it instead of adding a neighbour.
+- **Every page is reachable from the root router through its section README.** A page no router points at is dead weight regardless of quality; the orphan check is the test.
+- **No page restates a rule another page owns.** Duplication is what makes the wiki expensive to keep correct, because only one copy gets fixed.
+- **Routing stays shallow: entry point, section README, owning page.** Adding a page must not add a hop for a question that already had an answer.
+- **Splitting a page is right when it moves content out of an always-on file.** Two pages read on demand cost less than one permanently larger startup file, so page count going up can be the cheaper outcome.
+
+The per-file line budgets above still apply, because those measure what is actually loaded. Adding a page is not an exception to record; failing one of the rules above is.
 
 ## Document Revision Pattern
 

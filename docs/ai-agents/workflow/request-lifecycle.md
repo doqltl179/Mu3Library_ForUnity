@@ -22,7 +22,7 @@ This page owns the order in which one request is handled. It does not own owner 
    - If it is feasible but needs a material scope expansion, a major change, or a user choice that is not yours to make, pause and request that decision.
    - Do not invent a workaround rule or alternate behavior to make an unimplementable or underspecified request look complete. See [coding-rules.md](../coding-rules.md).
 3. Select the smallest owner for the work in [routing/README.md](../routing/README.md), then read the smallest owning surface: the package page from [packages/README.md](../packages/README.md) for package work, plus [coding-rules.md](../coding-rules.md).
-4. Run the branch preflight from [git-workflow.md](git-workflow.md) before the first edit.
+4. Run the branch preflight from [git-workflow.md](git-workflow.md) and cut the task branch from `origin/develop` before the first edit. `develop` and `main` take no direct commit.
 5. Decide the shape of execution:
    - One bounded unit stays in the current worktree.
    - A complex request with two or more independently writable units goes to [graph-engineering.md](graph-engineering.md). Record the minimum justified nodes within the credit budget, serialize true conflicts, and create only nodes that pass the admission gate.

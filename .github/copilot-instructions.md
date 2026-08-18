@@ -27,9 +27,9 @@ Wiki sections not named above are reached through [docs/ai-agents/README.md](../
 
 Hold these before the canonical pages are read. Each line's body and exceptions live on the page after the dash.
 
-- **Do not commit or push on `main`.** `main` is release-only; normal serial work happens on `develop` — git-workflow
-- **Run the branch preflight before the first edit,** and stop on an unexpected branch instead of working through it — git-workflow
-- **Do not create a branch or worktree on your own, push a graph branch, or auto-delete either.** Only a plan-declared `agent/<graph-id>/...` branch in its exact worktree, or one the user authorized by name, destination, and cleanup plan — git-workflow, graph-engineering
+- **Do not commit on `develop` or `main`.** Both receive changes only through a merged pull request — git-workflow
+- **Cut a task branch from `origin/develop` before the first edit,** named `<type>/<scope>-<summary>`, after running the branch preflight — git-workflow
+- **Do not auto-delete a branch or worktree, and do not push a graph branch.** Graph nodes use plan-declared `agent/<graph-id>/<node>` branches in their exact worktrees — git-workflow, graph-engineering
 - **Confirm exact paths and sizes and get explicit approval before deleting or moving anything.** The sole approval-free exception is the current task's own completed plan under `tasks/plans/` — task-record-policy
 - **Stop when the request is functionally impossible; pause when it needs a scope expansion or a decision that is not yours** — request-lifecycle
 - **Do not fake success.** No special case, temporary fallback, or hidden correction to cover a contract error; leave the failing state and a TODO visible — coding-rules
