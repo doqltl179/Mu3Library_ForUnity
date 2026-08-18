@@ -1,4 +1,4 @@
-﻿---
+---
 description: "Analyze an external AI prompt, policy, or workflow and adapt only its durable parts into Mu3Library guidance."
 name: "Adapt External Guidance"
 argument-hint: "Describe the external source and the repository surface to update"
@@ -13,6 +13,6 @@ Adapt the external guidance for Mu3Library.
 - Prefer shared instructions or workflow docs over adding a new owner.
 - If you add an always-loaded instruction, update `.github/copilot-instructions.md`.
 - If you add a prompt or skill, update `docs/ai-agents/workflow/workflow-assets.md`.
-- Create or update the active plan in `tasks/plans/` first, using the UTC creation-timestamp name required by the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md), then keep `tasks/todo.md` aligned.
+- Open and follow the [Task Record Policy](../../docs/ai-agents/plans/task-record-policy.md) for the plan file and the `tasks/todo.md` index.
 - Cite the external source, paraphrase it, and label verified repository facts separately from adaptation inferences.
 - End with structural suitability review through `role-governor` and a quality pass through `reviewer`.

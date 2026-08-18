@@ -13,6 +13,7 @@
 - An activated [graph-engineering workflow](graph-engineering.md) may create only its exact plan-declared local `agent/<graph-id>/...` branches and worktrees. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
 - Outside graph engineering, a task branch is permitted only after explicit user authorization naming the branch, its merge destination, and its cleanup plan.
 - An unexpected task branch is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
+- Remove an obsolete branch only after confirming its commits are contained in the destination or explicitly preserved elsewhere, then verify both the local and remote branch lists afterward.
 
 ## Normal Flow
 
@@ -25,6 +26,7 @@
 2. Stop if the current branch is not `develop` for normal work, or if the intended branch is ahead/diverged from its remote unexpectedly.
 3. Review `git diff` and `git status --short --untracked-files=all`, then group files by one concern at a time.
 4. Stage explicit paths for the selected concern and commit it with a focused message. Never use `git add .` or stage an unclear untracked file.
+   - Treat untracked Unity source and `.meta` files as user changes until ownership is clear. Do not silently stage, delete, or fold them into an unrelated commit; ask when ownership cannot be assigned.
 5. Validate local `develop`, fetch again, and confirm it is not behind or diverged from `origin/develop`.
 6. Push `develop` and verify its remote tip.
 7. If release on `main` is explicitly requested:
@@ -86,6 +88,18 @@ Before pushing local `develop` or `main` to its remote counterpart:
 - Releases are performed through `main`.
 - Every release needs release notes.
 - Release note consistency matters, but omission prevention is the priority.
+
+## Stop Conditions
+
+Stop and report instead of improvising when any of these holds.
+
+- The checked-out branch is outside the allowlist above and no explicit user authorization exists.
+- A graph branch or worktree is not present in the active plan, two running nodes overlap, or the integration destination moved from the recorded base.
+- Untracked files cannot be assigned to a focused change without user direction.
+- Local and remote branch state are out of sync.
+- A merge, rebase, or push would overwrite remote work.
+- Verification or reviewer approval is missing for a release-sensitive surface.
+- The branch flow no longer matches the user-requested release or hotfix path.
 
 ## Hotfix Flow
 
