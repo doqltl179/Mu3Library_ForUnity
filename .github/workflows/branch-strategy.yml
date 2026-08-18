@@ -24,6 +24,9 @@ jobs:
           echo "base=$BASE"
           echo "head=$HEAD"
 
+          TASK_BRANCH='^(feat|fix|docs|chore|refactor|test|perf)/[a-z0-9][a-z0-9._-]*$'
+          GRAPH_BRANCH='^agent/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$'
+
           if [[ "$BASE" == "main" ]]; then
             if [[ "$HEAD" == "develop" ]]; then
               exit 0
@@ -37,7 +40,18 @@ jobs:
               exit 0
             fi
 
-            echo "PRs into develop must come from main for release sync."
+            if [[ "$HEAD" =~ $TASK_BRANCH ]]; then
+              exit 0
+            fi
+
+            if [[ "$HEAD" =~ $GRAPH_BRANCH ]]; then
+              exit 0
+            fi
+
+            echo "PRs into develop must come from one of:"
+            echo "  - a task branch <type>/<scope>-<summary>, type in feat|fix|docs|chore|refactor|test|perf"
+            echo "  - a graph node branch agent/<graph-id>/<node>"
+            echo "  - main, for release sync"
             exit 1
           fi
 
