@@ -54,7 +54,7 @@ Use this section when the question is which owner should handle the current work
 
 ## Shared Rules
 
-- Prefer the narrowest owner first.
+- Select an owner as step 3 of [request-lifecycle.md](../workflow/request-lifecycle.md), preferring the narrowest owner first; this table decides who, not what order.
 - `orchestrator` coordinates gates but does not self-approve structural expansion.
 - `orchestrator` owns DAG readiness and dispatch; use [graph-engineering.md](../workflow/graph-engineering.md) for worktree isolation and fan-in.
 - `task-planner` plans only after the current unit and owner are clear.
