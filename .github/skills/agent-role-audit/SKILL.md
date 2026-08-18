@@ -1,4 +1,4 @@
-﻿---
+---
 name: agent-role-audit
 description: "Use when adding, refactoring, or reviewing agent documents in this repository to detect role overlap, missing ownership, weak boundaries, and whether an agent should be kept, narrowed, split, merged, or rejected."
 ---
