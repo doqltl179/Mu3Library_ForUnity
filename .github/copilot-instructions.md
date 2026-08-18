@@ -1,45 +1,45 @@
-﻿# Mu3Library For Unity
+﻿# Mu3Library For Unity — Work Entry Point
 
-Use this file as the startup instruction SSOT. Read it once, analyze the task, then open only the smallest next instruction or wiki route it selects.
+This file is the **shared entry point**. Copilot reads it directly, Codex arrives through [`AGENTS.md`](../AGENTS.md), Claude Code through [`CLAUDE.md`](../CLAUDE.md); those two carry directions only, never a copy. **This file only lays out routes** — each rule's body belongs to the canonical page beside it. Read this once, analyze the task, then open only the smallest route it selects, and stop at the first owning page.
 
-## Always-On Guardrails
+## Where To Go
 
-- Answer with the smallest clear result that completes the request; search narrowly with `rg` or a small file list.
-- Before implementing a requested task, assess its functional feasibility and intended scope.
-- Before editing or committing, run a branch preflight: `git status --short --branch`, `git branch --show-current`, and the relevant upstream/ahead-behind check.
-- Normal serial work is allowed only on `develop`; `main` is release-only. A plan-declared `agent/<graph-id>/...` branch is allowed only in its exact allocated worktree with a matching graph dispatch packet; stop on every other branch.
-- The only automatic local task-branch exception is an activated graph-engineering plan that records exact branch names, base commits, worktree paths, `develop` destination, and cleanup gate before creation. Outside that workflow, a task branch requires explicit user authorization with its exact name, destination, and cleanup plan. Never push graph branches or delete branches/worktrees automatically. The sole approval-free file-deletion exception is the current task's agent-created completed plan under `tasks/plans/`, closed exactly by the Task Record Policy.
-- If the requested outcome is functionally impossible, stop and report why work cannot proceed; if it is feasible but requires a material scope expansion, major change, or unspecified user choice, pause and request the necessary decision.
-- Do not invent workaround rules or alternate behavior to make an unimplementable or underspecified request appear complete; clarify or re-scope it so the original request can be fulfilled correctly.
-- Keep one owner per concern and prefer bounded, non-overlapping work units; for a complex request with two or more independently writable units, use `docs/ai-agents/workflow/graph-engineering.md`, serialize true conflicts, and admit only the minimum justified nodes within a credit budget.
-- Prefer package-first edits under `Mu3Library_Base`, `Mu3Library_URP`, or `Mu3Library_Game_WatermelonGame`.
-- Preserve Unity package stability: public APIs, `.asmdef` boundaries, `.meta` files, define symbols, samples, and package metadata.
-- Sync README/CHANGELOG files when behavior or public API changes.
-- Keep Markdown prose docs (`README*`, `CHANGELOG*`, instruction files, and `docs/ai-agents/**`) encoded as UTF-8 BOM with LF line endings. Keep frontmatter-driven agent, prompt, and skill files parser-compatible.
-- Detailed token-budget procedure: `docs/ai-agents/workflow/token-budget.md`.
+| What you are doing | Open |
+|---|---|
+| Handling one request from start to report | [request-lifecycle.md](../docs/ai-agents/workflow/request-lifecycle.md) |
+| Choosing which owner handles the work | [routing/README.md](../docs/ai-agents/routing/README.md) |
+| Writing code, docs, or package changes | [coding-rules.md](../docs/ai-agents/coding-rules.md) |
+| Unity package code, assets, samples, `.asmdef`, or metadata | [unity-architecture.instructions.md](instructions/unity-architecture.instructions.md), [packages/README.md](../docs/ai-agents/packages/README.md) |
+| C# file edits | [unity.instructions.md](instructions/unity.instructions.md) |
+| Compile or safety verification | [verification.instructions.md](instructions/verification.instructions.md) |
+| Branch, commit, push, merge, or hotfix work | [git-workflow.md](../docs/ai-agents/workflow/git-workflow.md) |
+| Release, version, tag, or changelog scope | [release.instructions.md](instructions/release.instructions.md) |
+| README/CHANGELOG synchronization | [docs-sync.instructions.md](instructions/docs-sync.instructions.md) |
+| Splitting a complex request across worktrees | [graph-engineering.md](../docs/ai-agents/workflow/graph-engineering.md) |
+| Planning non-trivial work, and where the plan lives | [task-planner.instructions.md](instructions/task-planner.instructions.md), [plans/README.md](../docs/ai-agents/plans/README.md) |
+| A review request or focused regression/API/docs audit | [reviewer.instructions.md](instructions/reviewer.instructions.md) |
+| Framework routers and ownership, memory scope, or outside guidance | [agent-framework.instructions.md](instructions/agent-framework.instructions.md), [memory-policy.instructions.md](instructions/memory-policy.instructions.md), [external-guidance.instructions.md](instructions/external-guidance.instructions.md) |
+| Handoff packets, low-token work, design rationale, repository overview | [handoff-contract.md](../docs/ai-agents/contracts/handoff-contract.md), [token-budget.md](../docs/ai-agents/workflow/token-budget.md), [architecture.md](../docs/ai-agents/architecture.md), [README.md](../README.md) |
 
-## Open Next Only When Needed
+Wiki sections not named above are reached through [docs/ai-agents/README.md](../docs/ai-agents/README.md). Owner specs, prompts, and skills are opened only after a router or inventory page selects them: [routing/README.md](../docs/ai-agents/routing/README.md) and [workflow-assets.md](../docs/ai-agents/workflow/workflow-assets.md).
 
-- `.github/instructions/agent-framework.instructions.md` for agent-framework docs, routers, ownership, or instruction topology.
-- `.github/instructions/memory-policy.instructions.md` for memory routing, persistence scope, or handoff shape.
-- `.github/instructions/external-guidance.instructions.md` for current external facts or adapted outside guidance.
-- `.github/instructions/task-planner.instructions.md` for non-trivial work that needs a plan.
-- `.github/instructions/unity-architecture.instructions.md` for Unity package code, assets, samples, `.asmdef`, or package metadata.
-- `.github/instructions/reviewer.instructions.md` for review requests or focused regression/API/docs audits.
-- `.github/instructions/unity.instructions.md` only for C# file edits.
-- `.github/instructions/verification.instructions.md` for compile or safety verification.
-- `.github/instructions/git-workflow.instructions.md` for branch, merge, push, or release sequencing.
-- `.github/instructions/release.instructions.md` for release, version, tag, or changelog release scope.
-- `.github/instructions/docs-sync.instructions.md` when README/CHANGELOG synchronization or navigation changes are part of the task.
+## Stop First
 
-## Deferred Inventories
+Hold these before the canonical pages are read. Each line's body and exceptions live on the page after the dash.
 
-- Inventories: owner/spec at `docs/ai-agents/routing/README.md`; prompt/skill at `docs/ai-agents/workflow/workflow-assets.md`.
-- Open `.github/agents/*.agent.md`, `.github/skills/*.md`, or `.github/prompts/*.md` only after a router or inventory page selects that artifact.
+- **Do not commit or push on `main`.** `main` is release-only; normal serial work happens on `develop` — git-workflow
+- **Run the branch preflight before the first edit,** and stop on an unexpected branch instead of working through it — git-workflow
+- **Do not create a branch or worktree on your own, push a graph branch, or auto-delete either.** Only a plan-declared `agent/<graph-id>/...` branch in its exact worktree, or one the user authorized by name, destination, and cleanup plan — git-workflow, graph-engineering
+- **Confirm exact paths and sizes and get explicit approval before deleting or moving anything.** The sole approval-free exception is the current task's own completed plan under `tasks/plans/` — task-record-policy
+- **Stop when the request is functionally impossible; pause when it needs a scope expansion or a decision that is not yours** — request-lifecycle
+- **Do not fake success.** No special case, temporary fallback, or hidden correction to cover a contract error; leave the failing state and a TODO visible — coding-rules
+- **One rule has one owner.** Do not copy a value, list, or procedure into a second page — coding-rules
+- **Land behavior in the packages, never break package stability, and sync affected docs in the same task** — coding-rules
+- **Answer with the smallest clear result and search narrowly** — token-budget
 
-## Wiki Routing
+## When You Edit Docs
 
-- Open `docs/ai-agents/README.md` only when a wiki route is needed and the next section router (`routing/`, `packages/`, `contracts/`, `workflow/`, `plans/`, or `guides/`) is not already obvious.
-- Open `architecture.md` directly only when stable design rationale is the question.
-- In `packages/`, choose one package-family page and then the smallest matching surface on that page.
-- Stop after the first owning child page is found, and keep shared repeated rules there instead of recreating parallel procedures.
+- One fact has one owner; every other page links to it instead of restating it.
+- Adding a route here means adding a row, not a rule body. If a new rule has nowhere to live, create or extend its canonical page first, then link it.
+- If you changed the implementation, update the affected docs in the same task.
+- Keep this file within the line budget and format in [token-budget.md](../docs/ai-agents/workflow/token-budget.md) and [coding-rules.md](../docs/ai-agents/coding-rules.md) — UTF-8 with BOM, LF endings.
