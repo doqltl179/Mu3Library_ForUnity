@@ -44,7 +44,7 @@ This page owns the cross-cutting authoring rules. Surface-specific rules stay wi
 | BOM | Files |
 |---|---|
 | UTF-8 **with** BOM | `README*`, `CHANGELOG*`, `docs/ai-agents/**`, `.github/instructions/*.instructions.md` |
-| UTF-8 **without** BOM | `.github/agents/*.agent.md`, `.github/prompts/*.prompt.md`, `.github/skills/*/SKILL.md` |
+| UTF-8 **without** BOM | `.github/agents/*.agent.md`, `.github/prompts/*.prompt.md`, `.github/skills/*/SKILL.md`, `.claude/commands/*.md` |
 
 - Match the folder you are writing into rather than the last file you happened to open. A BOM sitting ahead of an opening `---` is read differently by different frontmatter parsers, so the artifact folders that several tools load stay BOM-free.
 - Do not reflow or reorder a frontmatter block, and keep its `name` and `description` fields intact.

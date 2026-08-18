@@ -21,6 +21,7 @@
 | Prompt | [compile-unity.prompt.md](../../../.github/prompts/compile-unity.prompt.md) | Synchronous compile-only verification entrypoint | [verification.instructions.md](../../../.github/instructions/verification.instructions.md) |
 | Prompt | [development-idea-bank.prompt.md](../../../.github/prompts/development-idea-bank.prompt.md) | Repository-shaped package idea-bank entrypoint | [development-idea-bank.md](development-idea-bank.md) |
 | Prompt | [framework-next-unit.prompt.md](../../../.github/prompts/framework-next-unit.prompt.md) | Bounded work -> review -> continue/rework entrypoint | [iteration-process.md](iteration-process.md) |
+| Command | [work-issues](../../../.claude/commands/work-issues.md) | Open issues -> implementation -> pull request, in order | [git-workflow.md](git-workflow.md) 「Issue To Pull Request」 |
 | Skill | [bootstrap-python-cli](../../../.github/skills/bootstrap-python-cli/SKILL.md) | Repository-local Python CLI bootstrap | [tools/README.md](../../../tools/README.md) |
 | Skill | [agent-role-audit](../../../.github/skills/agent-role-audit/SKILL.md) | Structural role audit workflow | [routing/README.md](../routing/README.md), [iteration-process.md](iteration-process.md) |
 | Skill | [development-idea-bank](../../../.github/skills/development-idea-bank/SKILL.md) | Package whitespace and idea-bank workflow | [development-idea-bank.md](development-idea-bank.md) |
@@ -29,7 +30,7 @@
 ## Notes
 
 - Keep this page as inventory only. The `Follows` column names the canonical page that owns the rule; the asset holds only the order.
-- Claude Code-only commands or skills under `.claude/` are registered here too, so every executor keeps a single named owner.
+- `Prompt` and `Skill` load in Copilot and Codex; `Command` is a Claude Code slash command under `.claude/commands/`.
 - Detailed behavior stays in the owning prompt, skill, or linked workflow page.
 - Promote a repeatable flow to a durable owner only after `role-governor` suitability review.
 - Startup docs should link here for prompt/skill inventory instead of embedding long asset lists.

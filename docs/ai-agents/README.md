@@ -30,6 +30,7 @@ The prompts and skills below run the procedures on this wiki. **The canonical pa
 
 | Executor | Follows |
 |---|---|
+| [/work-issues](../../.claude/commands/work-issues.md) | [workflow/git-workflow.md](workflow/git-workflow.md) 「Issue To Pull Request」 |
 | [compile-unity.prompt.md](../../.github/prompts/compile-unity.prompt.md) | [verification.instructions.md](../../.github/instructions/verification.instructions.md) |
 | [framework-next-unit.prompt.md](../../.github/prompts/framework-next-unit.prompt.md) | [workflow/iteration-process.md](workflow/iteration-process.md) |
 | [adapt-external-guidance.prompt.md](../../.github/prompts/adapt-external-guidance.prompt.md) | [workflow/external-guidance-adaptation.md](workflow/external-guidance-adaptation.md) |
