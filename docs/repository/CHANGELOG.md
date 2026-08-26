@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-08-26
+
+### Removed
+- Removed the last GitHub Actions workflow, `.github/workflows/branch-strategy.yml`, and with it the `.github/workflows/` directory. Its `validate-branch-flow` job compared only a pull request's base and head branch names against the branch policy. Neither `develop` nor `main` carries branch protection or a ruleset, so the job never gated a merge and a red result would have blocked nothing. The branch policy it echoed is unchanged and stays owned by `docs/ai-agents/workflow/git-workflow.md`, where a wrong destination is a stop condition instead of a failing check. This repository now runs no GitHub Actions at all: verification is local, and the commands and their results belong in the pull request body.
+
 ## 2026-08-15
 
 ### Changed

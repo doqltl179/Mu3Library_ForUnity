@@ -11,7 +11,7 @@
 - Normal work happens on a task branch cut from `origin/develop`, named `<type>/<scope>-<summary>` in lowercase. `<type>` is a Conventional Commit type: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. The scope matches the commit scope for the same work.
 - A task branch may be checked out in its own worktree when the work is long-running or must not disturb the primary checkout. The pull request needs the branch; the worktree is optional.
 - An activated [graph-engineering workflow](graph-engineering.md) creates its plan-declared `agent/<graph-id>/<node>` branches and worktrees instead. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
-- [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) enforces the destinations: into `develop` from a task branch, an `agent/...` branch, or `main` for release sync; into `main` only from `develop`.
+- Pull request destinations: into `develop` from a task branch, an `agent/...` branch, or `main` for release sync; into `main` only from `develop`. **Nothing checks this for you.** This repository runs no CI, so the destination and the branch name are confirmed before the pull request is opened, and a wrong one is a «Stop Conditions» entry rather than a red check.
 - Being on a branch that does not belong to the current task is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
 - Delete a merged task branch only after confirming its commits are contained in `develop`, then verify both the local and remote branch lists.
 
@@ -154,7 +154,7 @@ Apply labels to both issues and pull requests. Kind and Area are axes: each take
 | Area | `urp` | `Mu3Library_URP` |
 | Area | `watermelon` | `Mu3Library_Game_WatermelonGame`, matching the commit scope of the same name |
 | Area | `agents` | Agent framework: `.github/agents`, `instructions`, `prompts`, `skills`, and `docs/ai-agents/` |
-| Area | `tooling` | `tools/`, `compile-unity.sh`, and `.github/workflows/` |
+| Area | `tooling` | `tools/` and `compile-unity.sh` |
 | Marker | `blocked` | The issue cannot be started yet, whatever its kind and area — see «Blocked Issues» |
 
 Work inside a `UnityProject_*` development project takes the area of the package it exercises.
@@ -204,7 +204,7 @@ Stop and report instead of improvising when any of these holds.
 
 ## Hotfix Flow
 
-1. Implement and verify the hotfix on a `fix/<scope>-<summary>` task branch cut from `origin/develop`. Do not create a `hotfix/*` branch; the CI check does not accept that prefix.
+1. Implement and verify the hotfix on a `fix/<scope>-<summary>` task branch cut from `origin/develop`. Do not create a `hotfix/*` branch: `hotfix` is not one of the Conventional Commit types «Branch Policy» lists, and a hotfix is an ordinary `fix` that happens to be urgent.
 2. Merge it into `develop` through a pull request like any other task.
 3. If the user explicitly requests a release, open the release pull request from `develop` into `main`.
 4. Publish the patch release from `main`, then sync `main` back into `develop`.
