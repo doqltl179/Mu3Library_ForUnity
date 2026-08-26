@@ -11,7 +11,7 @@
 - Normal work happens on a task branch cut from `origin/develop`, named `<type>/<scope>-<summary>` in lowercase. `<type>` is a Conventional Commit type: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. The scope matches the commit scope for the same work.
 - A task branch may be checked out in its own worktree when the work is long-running or must not disturb the primary checkout. The pull request needs the branch; the worktree is optional.
 - An activated [graph-engineering workflow](graph-engineering.md) creates its plan-declared `agent/<graph-id>/<node>` branches and worktrees instead. Their base, paths, `develop` destination, and cleanup gate must be recorded before creation.
-- [`branch-strategy.yml`](../../../.github/workflows/branch-strategy.yml) enforces the destinations: into `develop` from a task branch, an `agent/...` branch, or `main` for release sync; into `main` only from `develop`.
+- Pull request destinations: into `develop` from a task branch, an `agent/...` branch, or `main` for release sync; into `main` only from `develop`. **Nothing checks this for you.** This repository runs no CI, so the destination and the branch name are confirmed before the pull request is opened, and a wrong one is a «Stop Conditions» entry rather than a red check.
 - Being on a branch that does not belong to the current task is a hard stop: inspect and report it before any edit, stage, commit, merge, push, or deletion.
 - Delete a merged task branch only after confirming its commits are contained in `develop`, then verify both the local and remote branch lists.
 
@@ -137,11 +137,11 @@ Do not register an issue for:
 - Something an open issue already covers. Comment on that issue; duplicates cost the list its signal.
 - A broad unimplemented area the roadmap already excludes. Splitting it into issues turns the list into a copy of the roadmap.
 
-Every issue body states three things: **where it came from** (the originating issue or PR number), **why it is needed**, and **what closes it**. An item with no "what closes it" is not an issue yet but a pending judgment; label it `analysis` and write that judgment as the task.
+Every issue body states three things: **where it came from** (the originating issue or PR number), **why it is needed**, and **what closes it**. An item with no "what closes it" is not an issue yet but a pending judgment; label it `analysis` and write that judgment as the task. An item that cannot be started yet takes `blocked` on top of its two labels, per «Blocked Issues».
 
 ## Labels
 
-Apply labels to both issues and pull requests. There are two axes, and each gets exactly one label.
+Apply labels to both issues and pull requests. Kind and Area are axes: each takes exactly one label. A marker is not an axis but an extra fact about the item, so it attaches on top of both, and most items carry none.
 
 | Axis | Label | When |
 |---|---|---|
@@ -154,7 +154,8 @@ Apply labels to both issues and pull requests. There are two axes, and each gets
 | Area | `urp` | `Mu3Library_URP` |
 | Area | `watermelon` | `Mu3Library_Game_WatermelonGame`, matching the commit scope of the same name |
 | Area | `agents` | Agent framework: `.github/agents`, `instructions`, `prompts`, `skills`, and `docs/ai-agents/` |
-| Area | `tooling` | `tools/`, `compile-unity.sh`, and `.github/workflows/` |
+| Area | `tooling` | `tools/` and `compile-unity.sh` |
+| Marker | `blocked` | The issue cannot be started yet, whatever its kind and area — see «Blocked Issues» |
 
 Work inside a `UnityProject_*` development project takes the area of the package it exercises.
 
@@ -164,8 +165,23 @@ Work inside a `UnityProject_*` development project takes the area of the package
 gh label list
 gh label create <name> --color <hex> --description "<when to apply it>"
 gh issue create --title "<title>" --label follow-up --label base --body "..."
+gh issue edit <number> --add-label blocked
 gh pr edit <number> --add-label documentation --add-label agents
 ```
+
+## Blocked Issues
+
+An issue nobody has started and an issue nobody *can* start look identical in the list. `blocked` is what tells them apart, and it is the only label a batch runner reads before choosing work: `/work-issues` filters it out of its target list. A deferred issue left unlabelled is picked up on the next run and deferred again.
+
+Apply `blocked` when starting the issue now produces nothing:
+
+- It waits on a user decision that is not the agent's to make.
+- It waits on another issue's result, named by number in the body.
+- It ends outside the repository — a package registry submission, an external account, or a change in a service this repository does not own.
+
+Do not apply it to an issue that is merely large, unclear, or unappealing. Those are work; this label is for work that cannot begin.
+
+A blocked issue answers one more question than «Leftovers Belong In Issues» asks: besides **what closes it**, the body states **what removes the label**. They are rarely the same, and without the second one the issue is invisible to every run that filters `blocked` and unreadable to whoever eventually looks. Remove the label the moment the condition clears.
 
 ## Release Policy
 
@@ -188,7 +204,7 @@ Stop and report instead of improvising when any of these holds.
 
 ## Hotfix Flow
 
-1. Implement and verify the hotfix on a `fix/<scope>-<summary>` task branch cut from `origin/develop`. Do not create a `hotfix/*` branch; the CI check does not accept that prefix.
+1. Implement and verify the hotfix on a `fix/<scope>-<summary>` task branch cut from `origin/develop`. Do not create a `hotfix/*` branch: `hotfix` is not one of the Conventional Commit types «Branch Policy» lists, and a hotfix is an ordinary `fix` that happens to be urgent.
 2. Merge it into `develop` through a pull request like any other task.
 3. If the user explicitly requests a release, open the release pull request from `develop` into `main`.
 4. Publish the patch release from `main`, then sync `main` back into `develop`.
