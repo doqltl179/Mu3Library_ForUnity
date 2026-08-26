@@ -1,11 +1,23 @@
 ---
-description: Work open GitHub issues in an efficient order, each one through to the pull request
-argument-hint: "[extra filter — e.g. \"base label only\", \"up to 3\"]"
+description: Work a bounded batch of open GitHub issues in order, each one through to the pull request
+argument-hint: "[count and filter — e.g. \"up to 3\", \"base label only\"; default one issue]"
 ---
 
-Work the open GitHub issues that do not carry a `blocked` label, one at a time, each through to the pull request.
+Work open GitHub issues that do not carry a `blocked` label, one at a time, each through to the pull request. **How many is fixed up front** — step 0 sets the batch, and it defaults to one.
 
 **The rules live in [`docs/ai-agents/workflow/git-workflow.md`](../../docs/ai-agents/workflow/git-workflow.md); this file only holds the order.** Read that page when a step needs its detail.
+
+## 0. Fix the batch before reading anything
+
+**The open list is not the scope.** A run that continues until the list empties ends as one session carrying every issue's context, and long before that the requests slow down and start timing out. So the batch is decided first, then held.
+
+- No count in the request: work **one** issue, open its pull request, and stop.
+- A count in the request: work that many, up to **three** in one session. Asked for more, take the first three as this batch and report the rest as the next session's queue.
+- A filter — one package, one label — narrows which issues qualify. **It does not raise the cap.**
+- Three is already a long session here. Verification runs the Unity Editor CLI through `compile-unity.sh` and takes minutes per issue, which is most of what the session spends.
+- If the context was compacted mid-batch, finish the current issue's pull request and stop there. The rest resumes in a new session from the progress file in step 5. Compaction is how you finish the issue in hand, not permission to add another.
+
+[`token-budget.md`](../../docs/ai-agents/workflow/token-budget.md) owns the context rules this cap serves.
 
 ## 1. Collect the targets
 
@@ -14,13 +26,13 @@ gh issue list --state open --limit 200 --search "-label:blocked" \
   --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name]|join(","))"'
 ```
 
-Read each issue body to learn what actually closes it. Do not judge from the title.
+Narrow to this batch's candidates by title and label first, then read the bodies of those candidates and their named prerequisites — **five at a time at most** — to learn what actually closes each one. Do not judge from the title alone, and do not load every open issue's body to decide an order.
 
 ## 2. Decide the order
 
 - **Group issues that touch the same place.** Issues here cluster by package (`Mu3Library_Base`, `Mu3Library_URP`, `Mu3Library_Game_WatermelonGame`), by the agent docs (`docs/ai-agents/`, `.github/`), and by tooling (`tools/`, `compile-unity.sh`). Handle a group back to back.
 - **Do the certain ones first.** The point is to shorten the list, so start with what you can definitely finish.
-- **Defer what you cannot finish here**: anything labelled `analysis` that still needs a user decision, anything that ends outside the repository, and anything waiting on another issue's result. Record why and skip it.
+- **Defer what you cannot finish here**: anything labelled `analysis` that still needs a user decision, anything that ends outside the repository, and anything waiting on another issue's result. Apply `blocked` and write what removes it in the issue body, per «Blocked Issues» on the rules page. Skipping it without the label means the next run finds it, reads it, and defers it again.
 - Follow dependency order. **Issue number order is not dependency order.**
 - **Do not take two issues that move the same SSOT.** [`coding-rules.md`](../../docs/ai-agents/coding-rules.md) owns those boundaries. Two edits to one owner do not conflict in Git; they leave both values behind.
 
@@ -61,10 +73,10 @@ A long list makes one session long, and a swollen context slows requests until t
 
 **When resuming**, restore position from that file plus `gh pr list --state open` and `git branch -vv` before touching anything. Do not re-take an issue that already has a pull request.
 
-## 6. When the list is done
+## 6. When the batch is done
 
-Report the issues handled with their pull request numbers and required merge order, what still needs the user (a merge, a decision), and the deferred issues with their reasons. **Send one closing notification**, including when you stopped early — say where you stopped.
+Report the issues handled with their pull request numbers and required merge order, what still needs the user (a merge, a decision), the issues deferred with `blocked` and why, and the first issue of the next queue. **Send one closing notification**, including when you stopped early — say where you stopped.
 
-Delete the progress file under `tasks/plans/` once the list is finished, per the Task Record Policy closeout.
+Delete the progress file under `tasks/plans/` once the batch is finished, per the Task Record Policy closeout. Keep it only when a context boundary cut the batch short; the session that resumes and finishes the rest is the one that deletes it.
 
 $ARGUMENTS
