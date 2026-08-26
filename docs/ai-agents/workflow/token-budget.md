@@ -43,7 +43,7 @@
 - Keep `.github/prompts/*.prompt.md` within 30 lines and `.github/skills/*/SKILL.md` within 60 lines, with frontmatter `name` and `description`.
 - **Do not cap the `docs/ai-agents/` wiki by file count.** See «Wiki Size Is Controlled By Routing» below.
 - Use `applyTo` only when a file path alone safely selects the instruction. Process instructions should keep a `description` and be routed by `.github/copilot-instructions.md` instead of using broad `applyTo: '**'`.
-- Any durable exception should be paired with a CI or CLI guard update, or a short note explaining why the budget is intentionally exceeded.
+- Any durable exception should be paired with a `mu3-cli agents check` guard update, or a short note explaining why the budget is intentionally exceeded. This repository runs no CI, so the CLI check is the only place a guard can live.
 
 ## Wiki Size Is Controlled By Routing
 
