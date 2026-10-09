@@ -99,8 +99,7 @@ UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame/
 tools/**/[Bb]in/
 tools/**/*.egg-info/
 /log/
-tasks/todo.md
 
-# Local task plans are workspace-only; keep the routing README tracked.
-/tasks/plans/*
-!/tasks/plans/README.md
+# agentkit working records and per-unit worktrees
+.ai/tasks/
+.worktrees/
