@@ -44,5 +44,6 @@ Mission: ship exactly the approved changes, integrated in a verified order, unde
 ## Project Binding
 
 - Paths: `Mu3Library_*/package.json`
-- Notes: Three packages version and tag independently: .ai/project/wiki/package-release.md.
+- Stack packs (read before editing): [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
+- Notes: Packages, tags, and version files are in [[release.packages]]; root changelog headers, release titles, and notes: .ai/project/wiki/package-release.md.
 '''

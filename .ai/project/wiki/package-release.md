@@ -1,12 +1,12 @@
 ---
-owns: "How the three Mu3Library packages are versioned and released: version files, tag formats, changelog headers, install URLs, and GitHub Release titles and notes"
+owns: "How the three Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes"
 volatility: evolving
 reviewed: 2026-10-09
 ---
 
 # Package Release
 
-The kit's [release.md](../../kit/core/wiki/workflows/release.md) owns the release unit, promotion, and version rules, and the `release-cut` skill walks it. This page records the formats this repository uses.
+The kit's [release.md](../../kit/core/wiki/workflows/release.md) owns the release unit, promotion, and version rules, and the `release-cut` skill walks it. Each package's version file, package-local changelog, and tag pattern are in `[[release.packages]]` in the profile. This page records the remaining formats.
 
 ## When
 
@@ -16,19 +16,18 @@ The kit's [release.md](../../kit/core/wiki/workflows/release.md) owns the releas
 
 - the changelog's localized copies: «Human-Facing Docs» in [overview.md](overview.md).
 
-## Packages
+## Changelogs And Titles
 
-Each package versions and tags independently. Bump only the packages in the release scope; several packages may release from one commit when each of them changed.
+The detailed notes go in the root `CHANGELOG.md` (and its localized copies) under a per-package header. The package-local `CHANGELOG.md` gets a short entry for the same version that points to the root entry, in the same commit.
 
-| Package | Version file | Tag | Root `CHANGELOG.md` header | Release title |
-|---|---|---|---|---|
-| Base | `Mu3Library_Base/package.json` | `base/vX.Y.Z` | `## [base/X.Y.Z] - YYYY-MM-DD` | `[Base] vX.Y.Z` |
-| URP | `Mu3Library_URP/package.json` | `urp/vX.Y.Z` | `## [urp/X.Y.Z] - YYYY-MM-DD` | `[URP] vX.Y.Z` |
-| Watermelon Game | `Mu3Library_Game_WatermelonGame/package.json` | `game/watermelon/vX.Y.Z` | `## [game/watermelon/X.Y.Z] - YYYY-MM-DD` | `[Watermelon Game] vX.Y.Z` |
+| Package | Root `CHANGELOG.md` header | Release title |
+|---|---|---|
+| `base` | `## [base/X.Y.Z] - YYYY-MM-DD` | `[Base] vX.Y.Z` |
+| `urp` | `## [urp/X.Y.Z] - YYYY-MM-DD` | `[URP] vX.Y.Z` |
+| `watermelon` | `## [game/watermelon/X.Y.Z] - YYYY-MM-DD` | `[Watermelon Game] vX.Y.Z` |
 
 - Plain `vX.Y.Z` tags (`v0.0.20` through `v0.6.0`) are historical.
-- Each package folder also keeps a package-local `CHANGELOG.md` whose version entry points to the root entry; add it in the same commit.
-- The tag path is `game/watermelon` while the commit scope is `watermelon`; keep each as written.
+- The Watermelon Game tag path is `game/watermelon` while its commit scope is `watermelon`; keep each as written.
 
 ## Install URLs
 

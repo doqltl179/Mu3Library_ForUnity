@@ -14,7 +14,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## Route Away When
 
-- package rules being verified: [package-architecture.md](package-architecture.md),
+- package rules being verified: [package-architecture.md](rules/package-architecture.md),
 - changing the compile tooling itself: [tools/README.md](../../../tools/README.md).
 
 ## Compile

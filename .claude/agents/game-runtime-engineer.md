@@ -47,5 +47,6 @@ Mission: deliver gameplay and runtime changes that play correctly and hold the f
 ## Project Binding
 
 - Paths: `Mu3Library_Base/Runtime/**`, `Mu3Library_Base/Tests/**`, `Mu3Library_Game_WatermelonGame/Runtime/**`, `Mu3Library_Game_WatermelonGame/Tests/**`
-- Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md)
-- Notes: Runtime of reusable UPM packages shipped into other projects, not one game. Package rules: .ai/project/wiki/package-architecture.md; compile and tests: .ai/project/wiki/unity-verification.md.
+- Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
+- Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)
+- Notes: Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md.

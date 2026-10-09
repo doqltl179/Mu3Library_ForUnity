@@ -23,8 +23,8 @@ reviewed: 2026-10-09
 ## Steps
 1. Identify the failing file, the assembly it compiles into, and the nearest `.asmdef`.
 2. Classify the cause: the code sits in the wrong surface, a reference is missing, a define gate is wrong, or no `.asmdef` change is needed.
-3. Decide which surface the code belongs to per «Package Surfaces» and «Assembly Boundaries» in [package-architecture.md](../../wiki/package-architecture.md) before touching assembly metadata.
-4. Take the narrowest fix first: move the code, then split an optional integration into its gated file per «Optional Integrations», and only then change references.
+3. Decide which surface the code belongs to per «Package Surfaces» and «Assemblies And Optional Integrations» in [package-architecture.md](../../wiki/rules/package-architecture.md) before touching assembly metadata.
+4. Take the narrowest fix first: move the code, then split an optional integration into its gated file, and only then change references.
 5. When the fix touches a public API, `package.json`, a sample, or README/CHANGELOG, hand that part to its owner instead of widening the fix.
 6. Verify with the compile targets that include the affected assemblies per [unity-verification.md](../../wiki/unity-verification.md).
 

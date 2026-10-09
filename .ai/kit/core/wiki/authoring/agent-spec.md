@@ -116,7 +116,7 @@ Mission: <one sentence>.
 - Keep cards within the budget in [context-budget.md](../operating-model/context-budget.md).
 - Do not repeat the generic role protocol, verification rules, or report format; [delegation.md](../operating-model/delegation.md) and [handoff-contract.md](../operating-model/handoff-contract.md) own them and every rendered agent links to them.
 - Every `Does Not Own` target must be an existing agent name.
-- A project card with `extends` states only how it narrows the base; the rendered file includes the base card first.
+- A project card with `extends` states only how it narrows the base. Its «Owns» replaces the base card's «Owns»; the base card's «Does Not Own», «Domain Checks», and «Skills» still apply. The rendered file shows the project card first, then the base card one heading level down under «Base Role».
 
 ## Placement
 

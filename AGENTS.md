@@ -52,18 +52,25 @@ Each line's full rule lives on the linked page.
 
 ## This Project
 
-- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) for external Unity projects; behavior lands in the Mu3Library_* packages, and the UnityProject_* projects only consume and exercise them (.ai/project/wiki/overview.md).
-- Kit: version 0.1.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them.
+- Kit: version 0.2.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
+
+### Project Rules
+
+- Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).
+- No breaking change to a package's public API unless the request asks for it.
+- Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
 
 ### Commands
 
 | Key | Command |
 |---|---|
 | `commands.build` | `bash ./compile-unity.sh changed` |
+| `commands.test_tools` | `PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests` |
 
-Not available (report the gap, do not guess): `install`, `test`, `lint`, `format`, `typecheck`, `e2e`, `run`
+Not available (report the gap, do not guess): `install`, `test`, `lint`, `format`, `typecheck`, `e2e`, `run`, `worktree_setup`
 
 ### Parameters
 
@@ -80,12 +87,16 @@ Not available (report the gap, do not guess): `install`, `test`, `lint`, `format
 | `policy.commit_convention` | conventional |
 | `policy.commit_language` | — |
 | `hosting.platform` | github |
+| `hosting.ci` | false |
 | `hosting.area_labels` | base, urp, watermelon, agents, tooling |
 | `docs.readme` | README.md |
 | `docs.changelog` | CHANGELOG.md |
 | `docs.source_locale` | en |
 | `docs.locales` | ko, ja |
-| `docs.locale_pattern` | docs/{stem-lower}/{stem}.{locale}.md |
+| `docs.locale_pattern` | docs/{locale}/{name} |
 | `docs.specs_dir` | docs/specs |
 | `docs.adr_dir` | docs/adr |
 | `docs.glossary` | .ai/project/wiki/glossary.md |
+| `docs.locale_paths` | README.md → docs/readme/README.{locale}.md; CHANGELOG.md → docs/changelog/CHANGELOG.{locale}.md |
+| `release.tag_pattern` | v{version} |
+| `release.packages` | base, urp, watermelon |

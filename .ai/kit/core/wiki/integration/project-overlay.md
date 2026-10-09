@@ -26,14 +26,17 @@ reviewed: 2026-10-09
 | `agents/<name>.md` | Project-local agent cards, usually narrowing a core card with `extends` |
 | `skills/<name>/SKILL.md` | Project-local procedures |
 | `wiki/` | Project knowledge pages; `wiki/README.md` is the project wiki index |
+| `wiki/rules/` | Path-scoped project rules (`applies_to`), loaded automatically when matching files are touched |
 | `lessons.md` | Project-specific lessons from corrections |
 | `intake-pending.md` | Kit change proposals waiting to be filed upstream; exists only while the platform is unreachable ([change-intake.md](../evolution/change-intake.md)) |
 
 ## Profile
 
 - Only keys present in the template exist; a key missing from the project profile takes the template default.
+- Keep only the keys the project sets differently. A key that repeats a default pins it: when a kit update changes that default, the project keeps the old value without noticing. `check` lists such keys, and `update` reports keys that still hold an old default the update changed.
 - Activate only the agents and skills the project needs: every active agent and skill costs context in tools that list them.
-- Bind each active execution agent to the paths it owns and the stack packs it applies with `[bindings.<agent>]`; the binding is rendered into that agent's files.
+- Bind each active execution agent to the paths it owns, the stack packs it applies, and the named commands that verify its paths with `[bindings.<agent>]`; the binding is rendered into that agent's files.
+- Put the few rules that hold for every task in `project.guardrails`, one line each; they appear in `AGENTS.md` and count against its line budget.
 - Leave a command empty when it does not exist; agents then report the gap instead of guessing.
 - After editing, run `agentkit.py sync` and `agentkit.py check`.
 

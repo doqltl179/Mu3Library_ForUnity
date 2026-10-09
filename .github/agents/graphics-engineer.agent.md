@@ -45,5 +45,6 @@ Mission: deliver rendering changes that look as intended and hold the GPU frame 
 ## Project Binding
 
 - Paths: `Mu3Library_URP/Runtime/**`
-- Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md)
-- Notes: The URP package: camera, screen effects, renderer features, and shaders. Package rules: .ai/project/wiki/package-architecture.md.
+- Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
+- Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)
+- Notes: The URP package: camera, screen effects, renderer features, and shaders.

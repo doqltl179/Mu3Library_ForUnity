@@ -14,7 +14,7 @@ reviewed: 2026-10-09
 Mission: keep every optional package integration compiling and behaving the same whether its package is installed or not.
 
 ## Owns
-- Code behind the `MU3LIBRARY_*_SUPPORT` define symbols and the split files that hold it, per «Optional Integrations» in [package-architecture.md](../wiki/package-architecture.md).
+- Code behind the `MU3LIBRARY_*_SUPPORT` define symbols and the split files that hold it, per «Assemblies And Optional Integrations» in [package-architecture.md](../wiki/rules/package-architecture.md).
 - `versionDefines` entries and gated references in the package `.asmdef` files.
 - The fallback behavior a consuming project gets when the optional package is absent.
 

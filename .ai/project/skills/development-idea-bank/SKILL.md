@@ -21,7 +21,7 @@ reviewed: 2026-10-09
 - Whether the user explicitly asked for refinement mode.
 
 ## Steps
-1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs and sample impact, and verification cost ([package-architecture.md](../../wiki/package-architecture.md)).
+1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs and sample impact, and verification cost ([package-architecture.md](../../wiki/rules/package-architecture.md)).
 2. Build a capability map across runtime, editor, optional integrations, samples, docs, and tooling.
 3. Build a whitespace map: missing workflows, adoption wedges, ecosystem bridges, repetitive manual work, and absent package surfaces. Treat a named feature or pain point as evidence, not as the destination.
 4. Only after the whitespace map exists, use limited web research to widen adjacent patterns; repository constraints win.

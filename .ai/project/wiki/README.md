@@ -11,10 +11,10 @@ Facts about this project only. Rules that hold for every project live in the kit
 <!-- agentkit:begin index -->
 | Page | Owns |
 |---|---|
+| [rules/package-architecture.md](rules/package-architecture.md) | Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, DI and CoreBase, project C# conventions, and the review focus for package changes |
 | [glossary.md](glossary.md) | Approved rendering of every project term in each language, terms kept as-is, and per-locale style choices for translated text |
 | [overview.md](overview.md) | What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification |
-| [package-architecture.md](package-architecture.md) | Mu3Library package rules: surfaces per package, assembly boundaries and dependency direction, define-gated optional integrations, DI and CoreBase, project C# conventions, and the review focus for package changes |
-| [package-release.md](package-release.md) | How the three Mu3Library packages are versioned and released: version files, tag formats, changelog headers, install URLs, and GitHub Release titles and notes |
+| [package-release.md](package-release.md) | How the three Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes |
 | [unity-verification.md](unity-verification.md) | How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states |
-| [unity-yaml-guide.md](unity-yaml-guide.md) | The verified procedure for editing text-serialized Unity scenes and prefabs directly in this repository, its ScreenEffect sample anchors, and the checks after each edit |
+| [unity-yaml-guide.md](unity-yaml-guide.md) | Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here, the procedure for a declared direct-YAML edit, and the verified ScreenEffect sample anchors and wiring |
 <!-- agentkit:end index -->

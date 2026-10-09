@@ -41,5 +41,5 @@ Mission: decide, from evidence, whether a change is safe to integrate, and say e
 ## Project Binding
 
 - Paths: none bound in `.ai/project/profile.toml`; confirm the scope with the caller.
-- Notes: Review focus for this package repository: «Review Focus» in .ai/project/wiki/package-architecture.md.
+- Notes: Package review focus: «Review Focus» in .ai/project/wiki/rules/package-architecture.md.
 '''

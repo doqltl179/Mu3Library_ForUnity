@@ -5,14 +5,6 @@ root = true
 charset = utf-8-bom
 end_of_line = lf
 
-# agentkit sources and generated tool files start with frontmatter or a marker
-# that its parser reads from the first byte, so they stay without a BOM.
-[{AGENTS.md,CLAUDE.md}]
-charset = utf-8
-
-[{.ai,.agents,.claude,.codex,.github}/**]
-charset = utf-8
-
 # C# files
 [*.cs]
 charset = utf-8
@@ -23,4 +15,9 @@ charset = utf-8
 
 # Shader files
 [*.shader]
+charset = utf-8
+
+# agentkit: kit, overlay, and generated agent files stay UTF-8 without a byte-order mark,
+# because frontmatter parsers misread a BOM before the opening ---.
+[{.ai/**,AGENTS.md,CLAUDE.md,GEMINI.md,.claude/**,.codex/**,.agents/**,.cursor/**,.github/agents/**,.github/instructions/**,.github/skills/**,.github/copilot-instructions.md}]
 charset = utf-8

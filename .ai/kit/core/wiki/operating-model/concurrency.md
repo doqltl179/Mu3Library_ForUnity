@@ -46,7 +46,7 @@ Example: unit `q` edits document `a`; units `w` and `e` read `a`. Run `q` first;
 
 Every concurrent unit starts local processes: language servers, builds, test runners, dev servers, emulators, containers. Running more than the machine holds causes memory exhaustion, swapping, killed processes, and failures that look like code defects.
 
-1. Before running units at the same time, run `agentkit.py capacity`. It reports CPU cores, total and available memory, and a recommended number of concurrent units per cost class from the tables below.
+1. Before running units at the same time, run `agentkit.py capacity`. It reports CPU cores, total and available memory, free disk, and a recommended number of concurrent units per cost class from the tables below. Each worktree's dependencies and caches also take disk; see «Worktrees» in [git-workflow.md](../workflows/git-workflow.md).
 2. Classify each unit by its heaviest step.
 3. Run at most the smallest of: the recommendation for the heaviest class among the ready units, `policy.max_parallel_units` when it is above 0, and the node budget.
 4. Re-check before each new wave. When memory pressure appears (swapping, killed processes, builds suddenly much slower), finish running units before starting more, and lower the limit.

@@ -39,7 +39,7 @@ Context is the scarcest resource an agent has: everything loaded competes with t
 <!-- agentkit:table budgets -->
 | Files | Max lines | Why |
 |---|---|---|
-| `AGENTS.md` | 110 | Loaded into every session for every tool |
+| `AGENTS.md` | 120 | Loaded into every session for every tool; includes the project's guardrails |
 | `core/START.md` | 65 | Inlined into `AGENTS.md` |
 | `core/wiki/**/README.md` | 40 | Section indexes: routing only |
 | `core/wiki/**/*.md` | 150 | Read on demand; split by question when larger |
@@ -49,6 +49,7 @@ Context is the scarcest resource an agent has: everything loaded competes with t
 | `core/templates/**/*.md` | 80 | Scaffolds |
 | `.ai/project/agents/*.md` | 45 | Same as core cards |
 | `.ai/project/skills/**/*.md` | 80 | Same as core skills |
+| `.ai/project/wiki/rules/*.md` | 80 | Path-scoped project rules; load automatically whenever matching files are touched |
 | `.ai/project/wiki/**/*.md` | 150 | Same as core pages |
 | `.ai/project/lessons.md` | 120 | Read when relevant; prune or promote instead of growing |
 
