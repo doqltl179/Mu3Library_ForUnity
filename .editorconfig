@@ -5,6 +5,14 @@ root = true
 charset = utf-8-bom
 end_of_line = lf
 
+# agentkit sources and generated tool files start with frontmatter or a marker
+# that its parser reads from the first byte, so they stay without a BOM.
+[{AGENTS.md,CLAUDE.md}]
+charset = utf-8
+
+[{.ai,.agents,.claude,.codex,.github}/**]
+charset = utf-8
+
 # C# files
 [*.cs]
 charset = utf-8

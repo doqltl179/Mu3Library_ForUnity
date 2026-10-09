@@ -21,7 +21,7 @@
 ### コントリビュータードキュメント
 
 - [リポジトリ workflow 変更履歴](../repository/CHANGELOG.md)
-- [AI agent・コントリビューター向け workflow](../ai-agents/README.md) — 作業の担当、手順、検証経路を選択します。
+- [AI agent・コントリビューター向け workflow](../../AGENTS.md) — [agentkit](https://github.com/doqltl179/ai-agents) が `.ai/` から生成し、作業の担当、手順、検証経路へ案内します。
 - [リポジトリツール](../../tools/README.md)
 
 ## ✨ 主な特徴
