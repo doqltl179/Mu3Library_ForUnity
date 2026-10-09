@@ -6,11 +6,8 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 
 ## Initial Command Surface
 
-- `repo info`: print key repository roots and framework document locations.
-- `repo check`: validate repository document layout, README links, stale routing references, tracked tooling artifacts, and the agent-framework shape.
-- `agents list`: list registered agent documents under `.github/agents`.
-- `agents check`: validate primary agent discovery entrypoints, context budgets, instruction scope, prompt/skill frontmatter, obsolete docs, and compact role-card shape.
-- `agents handoff-template`: print the current handoff packet template from `docs/ai-agents/contracts/handoff-contract.md`.
+- `repo info`: print key repository roots and the agent kit and overlay locations.
+- `repo check`: validate repository document layout, README links, stale routing references, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
 - `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity changes`: explain which package projects are selected by the current Git changes or a `--base` ref.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
@@ -69,7 +66,7 @@ mu3-cli --help
 - This package lives under `tools/` so it stays outside Unity package delivery surfaces.
 - The command tree is intentionally small. Add new groups only when a workflow becomes stable and reusable.
 - The CLI remains tooling-safe: it can write local support artifacts under `log/`, but it does not edit shipped Unity runtime or editor package surfaces.
-- Governance policy still lives in the framework docs and instructions.
+- Agent rules, roles, and skills come from agentkit (`.ai/kit/`) and the project overlay (`.ai/project/`); this CLI only runs the kit's own check.
 
 ## Planned Unity Automation Surface
 
