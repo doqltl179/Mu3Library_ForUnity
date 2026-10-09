@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-09 (agentkit 0.2.0)
+
+### Changed
+- Updated agentkit to 0.2.0. `profile.toml` now keeps only the values this project sets: three `project.guardrails`, `hosting.ci = false`, per-document localized paths, the three packages under `[[release.packages]]`, the `unity-upm` stack pack, and a `test_tools` command bound to the tooling role.
+- The package rules moved to `.ai/project/wiki/rules/package-architecture.md`, which tools load whenever files under `Mu3Library_*/` are touched.
+- The Unity YAML guide follows the kit's route order for serialized assets: live Editor, then a batch-mode Editor script, then a declared direct-YAML edit. Samples are edited in place through the development projects' junctions, and the ScreenEffect anchors were re-verified; the `ToonPanel` template the guide named no longer exists.
+- `.editorconfig` carries the kit's own BOM-free section for agent files instead of the hand-written one.
+
 ## 2026-10-09
 
 ### Changed
