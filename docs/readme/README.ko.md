@@ -21,7 +21,7 @@
 ### 기여자 문서
 
 - [저장소 워크플로 변경 이력](../repository/CHANGELOG.md)
-- [AI agent 및 기여자 워크플로](../ai-agents/README.md) — 작업 소유자, 절차, 검증 경로를 선택합니다.
+- [AI agent 및 기여자 워크플로](../../AGENTS.md) — [agentkit](https://github.com/doqltl179/ai-agents)이 `.ai/`에서 생성하며, 작업 소유자, 절차, 검증 경로로 안내합니다.
 - [저장소 도구](../../tools/README.md)
 
 ## ✨ 주요 특징
