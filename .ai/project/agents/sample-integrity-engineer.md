@@ -15,7 +15,7 @@ Mission: keep every package sample importable and working in a consuming project
 
 ## Owns
 - `Samples~` content of each package and the `samples` entries of its `package.json`.
-- Sample-only orchestration and presentation, per «Package Surfaces» in [package-architecture.md](../wiki/package-architecture.md).
+- Sample-only orchestration and presentation, per «Package Surfaces» in [package-architecture.md](../wiki/rules/package-architecture.md).
 - The development-project view of a sample: `UnityProject_*/Assets/Mu3LibrarySamples*` is a Git-ignored junction to `Samples~` ([overview.md](../wiki/overview.md)).
 
 ## Does Not Own
@@ -27,7 +27,7 @@ Mission: keep every package sample importable and working in a consuming project
 - Edits land in `Samples~`; the junction in a development project is never replaced by a copy.
 - `.meta` files, scene references, and script GUIDs survive every add, move, and rename.
 - A defect in reusable behavior is fixed in the package, not worked around in the sample.
-- Scene and prefab edits follow [unity-yaml-guide.md](../wiki/unity-yaml-guide.md) when the Editor cannot make them.
+- Scene and prefab edits take the `unity` pack's route order, reaching the sample per «Reaching A Sample» in [unity-yaml-guide.md](../wiki/unity-yaml-guide.md).
 
 ## Skills
 - `test-add`, `bug-diagnose`

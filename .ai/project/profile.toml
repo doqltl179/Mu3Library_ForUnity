@@ -1,103 +1,98 @@
-# agentkit project profile.
-# This template is the schema: every key the kit reads appears here with its default and meaning.
-# `agentkit.py install` copies it to .ai/project/profile.toml. Edit that copy, then run `agentkit.py sync`.
-# Keys missing from a project's profile fall back to the defaults below.
+# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
+# a key that merely repeats a default would pin today's default when a kit update changes it.
+# Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
 
 [project]
-name = "Mu3Library_ForUnity"           # Project name shown to agents.
-summary = "Reusable Unity UPM packages (Base, URP, Watermelon Game) for external Unity projects; behavior lands in the Mu3Library_* packages, and the UnityProject_* projects only consume and exercise them (.ai/project/wiki/overview.md)."                    # One sentence: what the project is and who uses it.
-language = "ko"                 # Language for human-facing output: reports, commits, pull requests, issues (for example "ko", "en").
-
-[tools]
-# AI tools to render adapter files for: "claude", "codex", "copilot", "cursor", "gemini".
-# What each one generates is listed in core/wiki/integration/tool-adapters.md.
-targets = ["claude", "codex", "copilot"]
+name = "Mu3Library_ForUnity"
+summary = "Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them."
+language = "ko"
+guardrails = [
+    "Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).",
+    "No breaking change to a package's public API unless the request asks for it.",
+    "Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.",
+]
 
 [policy]
-integration_branch = "develop"  # Development branch: every work unit starts from it and its pull request targets it.
-release_branch = "main"         # Release branch: changes arrive only through a promotion pull request from integration_branch.
-                                # Set both to the same branch for trunk-based flow.
-protected_branches = ["develop", "main"]      # Never commit directly; changes arrive only through merged pull requests.
-issue_first = true              # Every work unit starts from an issue on the hosting platform (ignored when hosting.platform is "none").
-worktrees = false               # Every work unit runs in its own Git worktree cut from integration_branch.
-worktree_root = ".worktrees"    # Directory holding the worktrees, relative to the project root; kept out of Git by .gitignore.
-max_parallel_units = 0          # Upper limit on units running at the same time on this machine; 0 means decide with `agentkit.py capacity`.
-branch_pattern = "<type>/<scope>-<summary>"   # Task branch name; <type> is a Conventional Commits type.
-commit_convention = "conventional"            # "conventional" (Conventional Commits) or "none".
-commit_language = ""            # Language of commit subjects and bodies; empty means project.language.
+# Each development project's Library/ holds 1.3-2.3 GB that a fresh worktree re-imports (.ai/project/wiki/overview.md).
+worktrees = false
 
 [hosting]
-platform = "github"             # "github" or "none". Selects whether github-* skills apply.
-area_labels = ["base", "urp", "watermelon", "agents", "tooling"]                # One label per project area, matching commit scopes, for example ["web", "api"].
+ci = false
+area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
 
 [commands]
-# Exact shell commands agents run from the project root. Empty means "not available":
-# agents report the gap instead of guessing a substitute.
-install = ""
 build = "bash ./compile-unity.sh changed"
-test = ""
-lint = ""
-format = ""
-typecheck = ""
-e2e = ""
-run = ""
+test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 
 [docs]
-readme = "README.md"
-changelog = "CHANGELOG.md"      # Empty when the project keeps no changelog.
-source_locale = "en"              # Source language every translation starts from (BCP 47); empty means project.language.
-locales = ["ko", "ja"]                 # Target languages of localized docs, kept in sync with the primary docs, for example ["ko", "ja"].
-locale_pattern = "docs/{stem-lower}/{stem}.{locale}.md"   # Path of a localized copy; {name} is the primary file name.
-specs_dir = "docs/specs"        # Requirements specifications.
-adr_dir = "docs/adr"            # Architecture decision records.
-glossary = ".ai/project/wiki/glossary.md"   # Terms and their approved rendering per locale, plus per-locale style notes.
+source_locale = "en"
+locales = ["ko", "ja"]
+
+[docs.locale_paths]
+"README.md" = "docs/readme/README.{locale}.md"
+"CHANGELOG.md" = "docs/changelog/CHANGELOG.{locale}.md"
+
+[[release.packages]]
+name = "base"
+version_file = "Mu3Library_Base/package.json"
+changelog = "Mu3Library_Base/CHANGELOG.md"
+tag_pattern = "base/v{version}"
+
+[[release.packages]]
+name = "urp"
+version_file = "Mu3Library_URP/package.json"
+changelog = "Mu3Library_URP/CHANGELOG.md"
+tag_pattern = "urp/v{version}"
+
+[[release.packages]]
+name = "watermelon"
+version_file = "Mu3Library_Game_WatermelonGame/package.json"
+changelog = "Mu3Library_Game_WatermelonGame/CHANGELOG.md"
+tag_pattern = "game/watermelon/v{version}"
 
 [agents]
-# Active core agents. Tokens: "*" (all), "@<department>", or "<agent-name>".
-# Project-local agents in .ai/project/agents/ are always active.
 enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
-disabled = []
 
 [skills]
-# Active core skills. Tokens: "*" (all), "@<category>", or "<skill-name>".
-# Project-local skills in .ai/project/skills/ are always active.
-enabled = ["*"]
-disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform", "ci-failure-triage", "kit-trend-scan", "kit-stack-add"]
-
-[stacks]
-# Packs active without an agent binding (for example a language used everywhere).
-active = []
+disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform", "kit-trend-scan"]
 
 [stack_paths]
-# The packages live at the repository root, not under Assets/ or Packages/, so the unity pack's default globs miss them.
+# The packages live at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
 unity = ["Mu3Library_*/**/*.cs", "UnityProject_*/Assets/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
+unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Library_*/**/*.asmdef", "Mu3Library_*/Samples~/**", "Mu3Library_*/Documentation~/**"]
 
 [bindings.game-runtime-engineer]
 paths = ["Mu3Library_Base/Runtime/**", "Mu3Library_Base/Tests/**", "Mu3Library_Game_WatermelonGame/Runtime/**", "Mu3Library_Game_WatermelonGame/Tests/**"]
-stacks = ["csharp", "unity"]
-notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Package rules: .ai/project/wiki/package-architecture.md; compile and tests: .ai/project/wiki/unity-verification.md."
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
+notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
 paths = ["Mu3Library_Base/Editor/**", "Mu3Library_URP/Editor/**"]
-stacks = ["csharp", "unity"]
-notes = "Editor tooling of the UPM packages. Package rules: .ai/project/wiki/package-architecture.md; compile and tests: .ai/project/wiki/unity-verification.md."
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
+notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.graphics-engineer]
 paths = ["Mu3Library_URP/Runtime/**"]
-stacks = ["csharp", "unity"]
-notes = "The URP package: camera, screen effects, renderer features, and shaders. Package rules: .ai/project/wiki/package-architecture.md."
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
+notes = "The URP package: camera, screen effects, renderer features, and shaders."
 
 [bindings.optional-integration-engineer]
 paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**"]
-stacks = ["csharp", "unity"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
 
 [bindings.sample-integrity-engineer]
 paths = ["Mu3Library_*/Samples~/**"]
-stacks = ["csharp", "unity"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
 
 [bindings.devtools-engineer]
 paths = ["tools/**", "compile-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
 stacks = ["python", "shell"]
+commands = ["test_tools"]
 notes = "Repository support tooling only; it never owns Unity package behavior. Catalog: tools/README.md."
 
 [bindings.technical-writer]
@@ -110,27 +105,11 @@ notes = "Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .
 
 [bindings.release-manager]
 paths = ["Mu3Library_*/package.json"]
-notes = "Three packages version and tag independently: .ai/project/wiki/package-release.md."
+stacks = ["unity-upm"]
+notes = "Packages, tags, and version files are in [[release.packages]]; root changelog headers, release titles, and notes: .ai/project/wiki/package-release.md."
 
 [bindings.code-reviewer]
-notes = "Review focus for this package repository: «Review Focus» in .ai/project/wiki/package-architecture.md."
+notes = "Package review focus: «Review Focus» in .ai/project/wiki/rules/package-architecture.md."
 
 [bindings.kit-librarian]
 paths = [".ai/project/**"]
-
-# [stack_paths]
-# Override a pack's default path globs for this project:
-# typescript = ["apps/**/*.ts", "packages/**/*.ts"]
-
-# [bindings.<agent-name>]
-# Bind an active agent to this project's paths and stack packs; rendered into that agent's files.
-# paths = ["apps/web/**"]
-# stacks = ["typescript", "react"]
-# notes = "Design system components live in packages/ui."
-
-# [models.<tool>]
-# Map agent tiers (deep, standard, light) to concrete models for one tool. Unset tiers use the tool default.
-# deep = "opus"
-
-[evolution]
-upstream = "https://github.com/doqltl179/ai-agents"   # Kit repository used by kit-update and kit-upstream-propose.

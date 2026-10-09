@@ -26,7 +26,7 @@ description: "Start a unit's workspace: run the preflight in the main checkout, 
 3. Confirm the name is free: `git branch --list <name>` and `git ls-remote --heads origin <name>` print nothing; with worktrees, `git worktree list` shows no worktree at the target path. Otherwise stop and ask whether it belongs to this unit.
 4. With `policy.worktrees` on, create the worktree per «Worktrees»: `git worktree add --no-track -b <name> <worktree_root>/<name-with-slashes-as-dashes> origin/<integration_branch>`. Confirm `<worktree_root>` is ignored by Git (`git check-ignore <worktree_root>`); if not, stop and report.
 5. With `policy.worktrees` off, cut the branch in place: `git switch -c <name> --no-track origin/<integration_branch>`.
-6. Move into the new workspace for every later command. If `commands.install` is set, run it there.
+6. Move into the new workspace for every later command. With worktrees, run `commands.worktree_setup` there when it is set; then run `commands.install` when it is set.
 7. Confirm `git branch --show-current` prints `<name>` and `git status --short` prints nothing.
 
 ## Output

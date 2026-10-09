@@ -46,4 +46,5 @@ Mission: make a fresh checkout build, lint, and run with one documented command,
 
 - Paths: `tools/**`, `compile-unity.sh`, `unity-cli-packages.tsv`, `.editorconfig`, `.gitattributes`
 - Stack packs (read before editing): [python](.ai/kit/core/stacks/languages/python.md), [shell](.ai/kit/core/stacks/languages/shell.md)
+- Commands for this role: `commands.test_tools` (`PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests`)
 - Notes: Repository support tooling only; it never owns Unity package behavior. Catalog: tools/README.md.
