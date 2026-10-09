@@ -33,7 +33,7 @@ This page owns the order of steps. Each step links to the page or skill that own
 11. **Pull request.** Commit with `git-commit`, then open the pull request into the integration branch with `github-pr-create`, linking the unit's issue, per «Pull Request Targets» in [issues-and-prs.md](../workflows/issues-and-prs.md).
 12. **Follow-ups.** Register work discovered along the way as new issues per «Leftovers Become Issues» with `github-issue-create`; do not widen the current unit to absorb it.
 13. **Report.** Report per «Report Shape» in [handoff-contract.md](handoff-contract.md), including the issue and pull request numbers.
-14. **Close.** After a correction or durable discovery, run `kit-lesson-capture`. Close the plan per «Closeout» in [planning.md](../workflows/planning.md). Once the pull request merges, run `git-worktree-cleanup`.
+14. **Close.** After a correction or durable discovery, run `kit-lesson-capture`. Close the plan per «Closeout» in [planning.md](../workflows/planning.md). Once the pull request merges, run `git-worktree-cleanup` (with worktrees off it cleans up the task branch only).
 
 ## Scaling The Order
 

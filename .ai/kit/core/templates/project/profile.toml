@@ -7,11 +7,14 @@
 name = ""                       # Project name shown to agents.
 summary = ""                    # One sentence: what the project is and who uses it.
 language = "en"                 # Language for human-facing output: reports, commits, pull requests, issues (for example "ko", "en").
+guardrails = []                 # One-line project rules every agent follows on every task, shown in AGENTS.md «This Project»;
+                                # for example "Features live in the packages; the sample projects only consume them".
 
 [tools]
 # AI tools to render adapter files for: "claude", "codex", "copilot", "cursor", "gemini".
 # What each one generates is listed in core/wiki/integration/tool-adapters.md.
 targets = ["claude", "codex", "copilot"]
+keep_unmanaged = []             # Glob patterns of instruction files outside the kit kept on purpose; `check` stops reporting them.
 
 [policy]
 integration_branch = "develop"  # Development branch: every work unit starts from it and its pull request targets it.
@@ -28,11 +31,15 @@ commit_language = ""            # Language of commit subjects and bodies; empty 
 
 [hosting]
 platform = "github"             # "github" or "none". Selects whether github-* skills apply.
+ci = true                       # The project runs CI on pull requests. false: verification evidence comes only from
+                                # local runs recorded in pull requests (see release.md «Promotion»).
 area_labels = []                # One label per project area, matching commit scopes, for example ["web", "api"].
 
 [commands]
 # Exact shell commands agents run from the project root. Empty means "not available":
-# agents report the gap instead of guessing a substitute.
+# agents report the gap instead of guessing a substitute. Add more named commands when one kind has
+# several surfaces (for example test_editmode, test_tools) and bind them to roles with `commands`
+# in [bindings.<agent>].
 install = ""
 build = ""
 test = ""
@@ -41,16 +48,32 @@ format = ""
 typecheck = ""
 e2e = ""
 run = ""
+worktree_setup = ""             # Run in a fresh worktree before work: recreate untracked links, local config, caches.
 
 [docs]
 readme = "README.md"
 changelog = "CHANGELOG.md"      # Empty when the project keeps no changelog.
 source_locale = ""              # Source language every translation starts from (BCP 47); empty means project.language.
 locales = []                    # Target languages of localized docs, kept in sync with the primary docs, for example ["ko", "ja"].
-locale_pattern = "docs/{locale}/{name}"   # Path of a localized copy; {name} is the primary file name.
+locale_pattern = "docs/{locale}/{name}"   # Path of a localized copy. Placeholders: {locale}, {name} (file name),
+                                          # {stem} (name without extension), {ext} (extension with the dot).
 specs_dir = "docs/specs"        # Requirements specifications.
 adr_dir = "docs/adr"            # Architecture decision records.
 glossary = ".ai/project/wiki/glossary.md"   # Terms and their approved rendering per locale, plus per-locale style notes.
+
+# [docs.locale_paths]
+# Per-document override of locale_pattern, keyed by the primary file:
+# "README.md" = "docs/readme/README.{locale}.md"
+
+[release]
+tag_pattern = "v{version}"      # Tag of a release that covers the whole repository.
+
+# [[release.packages]]
+# One entry per separately versioned package, when a repository releases several (see release.md «Release Scope»).
+# name = "core"
+# version_file = "Packages/core/package.json"
+# changelog = "Packages/core/CHANGELOG.md"
+# tag_pattern = "core/v{version}"
 
 [agents]
 # Active core agents. Tokens: "*" (all), "@<department>", or "<agent-name>".
@@ -76,6 +99,7 @@ active = []
 # Bind an active agent to this project's paths and stack packs; rendered into that agent's files.
 # paths = ["apps/web/**"]
 # stacks = ["typescript", "react"]
+# commands = ["test_web"]      # Named commands under [commands] this role runs to verify its paths.
 # notes = "Design system components live in packages/ui."
 
 # [models.<tool>]

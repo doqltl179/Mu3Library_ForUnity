@@ -32,7 +32,7 @@ Human-facing project docs: README, guides, API references, changelog, specificat
 
 ## Localized Variants
 
-- For every locale in `docs.locales`, the localized copy at `docs.locale_pattern` is updated in the same unit as its primary doc, translated per [translation.md](translation.md). `localization-specialist` owns the localized copies.
+- For every locale in `docs.locales`, the localized copy is updated in the same unit as its primary doc, translated per [translation.md](translation.md). Its path is `docs.locale_paths[<primary file>]` when set, otherwise `docs.locale_pattern`; both take the placeholders `{locale}`, `{name}`, `{stem}`, and `{ext}`. `localization-specialist` owns the localized copies.
 - Keep the same section structure across languages, not only the same text, and link each copy to the others.
 - When a translation cannot be produced, mark the localized section as outdated with a visible note rather than leaving it silently stale.
 

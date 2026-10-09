@@ -54,7 +54,7 @@ Two axes, one label each, plus optional markers.
 | Area | One label per project area, created to match commit scopes |
 | Marker | `blocked`, `intake` (kit change proposals) |
 
-Create a missing label with a description (`gh label create <name> --description "<when to apply>"`) rather than forcing a wrong one.
+Create a missing label with a description (`gh label create <name> --description "<when to apply>"`) rather than forcing a wrong one. GitHub limits label descriptions to 100 characters: write one short clause saying when to apply the label, and keep it free of file paths that may move.
 
 ## Blocked Issues
 

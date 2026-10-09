@@ -68,6 +68,22 @@ ADAPTERS: dict[str, dict[str, str | None]] = {
         "rules": None,
     },
 }
+# Paths where AI tools look for instruction files. Files here that agentkit did not generate are reported,
+# because tools load them alongside the kit's files. Rendered into tool-adapters.md.
+INSTRUCTION_SURFACES = [
+    "**/AGENTS.md", "**/CLAUDE.md", "**/GEMINI.md", ".cursorrules", ".windsurfrules",
+    ".claude/agents/**", ".claude/commands/**", ".claude/rules/**", ".claude/skills/**",
+    ".codex/agents/**", ".agents/skills/**", ".cursor/rules/**",
+    ".github/copilot-instructions.md", ".github/agents/**", ".github/instructions/**",
+    ".github/prompts/**", ".github/skills/**",
+]
+EDITORCONFIG_SECTION = (
+    "\n# agentkit: kit, overlay, and generated agent files stay UTF-8 without a byte-order mark,\n"
+    "# because frontmatter parsers misread a BOM before the opening ---.\n"
+    "[{.ai/**,AGENTS.md,CLAUDE.md,GEMINI.md,.claude/**,.codex/**,.agents/**,.cursor/**,"
+    ".github/agents/**,.github/instructions/**,.github/skills/**,.github/copilot-instructions.md}]\n"
+    "charset = utf-8\n"
+)
 READ_ONLY_TOOLS = {
     "claude": "Edit, Write, NotebookEdit",
     "copilot": '["read", "search", "execute", "web"]',
@@ -77,7 +93,8 @@ READ_ONLY_TOOLS = {
 # --------------------------------------------------------------------------- utilities
 
 def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    # utf-8-sig drops a byte-order mark that editors add under `charset = utf-8-bom`.
+    return path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
 
 
 def write_text(path: Path, text: str) -> None:
@@ -97,7 +114,7 @@ def rel(path: Path, base: Path) -> str:
 def file_hash(path: Path) -> str:
     data = path.read_bytes()
     try:
-        data = data.decode("utf-8").replace("\r\n", "\n").encode("utf-8")
+        data = data.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
     except UnicodeDecodeError:
         pass
     return hashlib.sha256(data).hexdigest()
@@ -298,6 +315,8 @@ class Kit:
         defaults = tomllib.loads(read_text(CORE / "templates" / "project" / "profile.toml"))
         path = self.overlay / "profile.toml"
         user = tomllib.loads(read_text(path)) if path.exists() else {}
+        self.user_profile = user
+        self.default_profile = defaults
 
         def merge(base: dict, over: dict) -> dict:
             out = dict(base)
@@ -402,6 +421,26 @@ def strip_h1(body: str) -> tuple[str, str]:
     return "", "\n".join(lines)
 
 
+def demote_headings(body: str) -> str:
+    out, fence = [], False
+    for line in body.split("\n"):
+        if line.lstrip().startswith("```"):
+            fence = not fence
+        out.append("#" + line if not fence and re.match(r"^#{1,5} ", line) else line)
+    return "\n".join(out)
+
+
+def param_text(value: object) -> str:
+    """Show a profile value in one table cell."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, dict):
+        return "; ".join(f"{k} → {param_text(v)}" for k, v in value.items())
+    if isinstance(value, list):
+        return ", ".join(str(v.get("name", v)) if isinstance(v, dict) else str(v) for v in value)
+    return str(value)
+
+
 def table_cell(text: str) -> str:
     return " ".join(str(text).split()).replace("|", "\\|")
 
@@ -448,12 +487,19 @@ class Renderer:
                 self.render_skill(name, root)
         for stack_id in kit.active_stacks():
             self.render_stack_rules(stack_id, targets)
+        for page in kit.pages:
+            if page.origin == "project" and page.meta.get("applies_to"):
+                slug = page.path.stem.lower()
+                self.render_path_rule(f"project-{slug}", page.meta.get("owns", slug), page, list(page.meta["applies_to"]),
+                                      targets)
         self.add(".ai/generated/catalog.md", self.catalog_md())
         self.add(".ai/generated/manifest.json", "")  # placeholder; filled after all files are known
         self.index_regions()
         if kit.kit_repo:
             self.kit_catalogs()
-            self.regions.setdefault(CORE / "wiki" / "integration" / "tool-adapters.md", {})["adapters"] = self.adapter_table()
+            adapters_page = CORE / "wiki" / "integration" / "tool-adapters.md"
+            self.regions.setdefault(adapters_page, {})["adapters"] = self.adapter_table()
+            self.regions[adapters_page]["surfaces"] = "".join(f"- `{p}`\n" for p in INSTRUCTION_SURFACES)
         manifest = {"_generated": f"{GEN_MARK}; do not edit", "kit_version": kit.version,
                     "files": sorted(k for k in self.files if k != ".ai/generated/manifest.json")}
         self.files[".ai/generated/manifest.json"] = json.dumps(manifest, indent=2) + "\n"
@@ -479,9 +525,11 @@ class Renderer:
             "Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`",
             f"- Human-facing language: `{project.get('language', 'en')}`",
             "",
-            "### Commands",
-            "",
         ]
+        guardrails = [g for g in project.get("guardrails", []) if str(g).strip()]
+        if guardrails:
+            lines += ["### Project Rules", "", *[f"- {g}" for g in guardrails], ""]
+        lines += ["### Commands", ""]
         commands = prof.get("commands", {})
         present = {k: v for k, v in commands.items() if v}
         missing = [k for k, v in commands.items() if not v]
@@ -491,13 +539,9 @@ class Renderer:
         if missing:
             lines += ["", f"Not available (report the gap, do not guess): {', '.join(f'`{k}`' for k in missing)}"]
         lines += ["", "### Parameters", "", "| Key | Value |", "|---|---|"]
-        for section in ("policy", "hosting", "docs"):
+        for section in ("policy", "hosting", "docs", "release"):
             for key, value in prof.get(section, {}).items():
-                if isinstance(value, bool):
-                    shown = "true" if value else "false"
-                else:
-                    shown = ", ".join(map(str, value)) if isinstance(value, list) else str(value)
-                lines.append(f"| `{section}.{key}` | {table_cell(shown) or '—'} |")
+                lines.append(f"| `{section}.{key}` | {table_cell(param_text(value)) or '—'} |")
         return "\n".join(lines).rstrip() + "\n"
 
     # agents -------------------------------------------------------------
@@ -508,10 +552,14 @@ class Renderer:
         base_name = doc.meta.get("extends")
         if base_name and base_name in kit.agents:
             base = kit.agents[base_name]
-            parts.append(rewrite_links(base.body.strip("\n"), base.path.parent, self.p))
             title, local = strip_h1(doc.body)
-            parts.append(f"## Project Specialization: {title or name}\n\n"
-                         + rewrite_links(local.strip("\n"), doc.path.parent, self.p))
+            parts.append(f"# {title or name}\n\n" + rewrite_links(local.strip("\n"), doc.path.parent, self.p))
+            parts.append("## Scope\n\n"
+                         f"This role narrows `{base_name}`. It owns only what «Owns» above lists; the base role below "
+                         "still supplies the boundaries («Does Not Own»), «Domain Checks», and «Skills».")
+            base_title, base_body = strip_h1(base.body)
+            parts.append(f"## Base Role: {base_title or base_name}\n\n"
+                         + demote_headings(rewrite_links(base_body.strip("\n"), base.path.parent, self.p)))
         else:
             parts.append(rewrite_links(doc.body.strip("\n"), doc.path.parent, self.p))
         wiki = CORE / "wiki" / "operating-model"
@@ -528,6 +576,10 @@ class Renderer:
         if stacks:
             lines.append("- Stack packs (read before editing): "
                          + ", ".join(f"[{s}]({rel(kit.stacks[s].path, self.p)})" for s in stacks))
+        commands = kit.profile.get("commands", {})
+        bound = [c for c in binding.get("commands", []) if commands.get(c)]
+        if bound:
+            lines.append("- Commands for this role: " + ", ".join(f"`commands.{c}` (`{commands[c]}`)" for c in bound))
         if binding.get("notes"):
             lines.append(f"- Notes: {binding['notes']}")
         parts.append("\n".join(lines))
@@ -602,20 +654,23 @@ class Renderer:
     def render_stack_rules(self, stack_id: str, targets: list[str]) -> None:
         doc = self.kit.stacks[stack_id]
         paths = self.kit.stack_paths(stack_id)
-        if not paths:
-            return
-        marker = md_marker(self.kit, [self.src(doc.path), ".ai/project/profile.toml"])
+        if paths:
+            self.render_path_rule(f"stack-{stack_id}", doc.meta.get("title", stack_id) + " conventions", doc, paths,
+                                  targets)
+
+    def render_path_rule(self, rule_id: str, description: str, doc: Doc, paths: list[str], targets: list[str]) -> None:
+        sources = [self.src(doc.path)] + ([".ai/project/profile.toml"] if doc.origin == "core" else [])
+        marker = md_marker(self.kit, sources)
         body = rewrite_links(doc.body.strip("\n"), doc.path.parent, self.p) + "\n"
         if "claude" in targets:
             fm = ["---", "paths:"] + [f"  - {yaml_str(p)}" for p in paths] + ["---"]
-            self.add(f".claude/rules/stack-{stack_id}.md", "\n".join(fm + [marker, "", body]))
+            self.add(f".claude/rules/{rule_id}.md", "\n".join(fm + [marker, "", body]))
         if "copilot" in targets:
             fm = ["---", f"applyTo: {yaml_str(','.join(paths))}", "---"]
-            self.add(f".github/instructions/stack-{stack_id}.instructions.md", "\n".join(fm + [marker, "", body]))
+            self.add(f".github/instructions/{rule_id}.instructions.md", "\n".join(fm + [marker, "", body]))
         if "cursor" in targets:
-            fm = ["---", f"description: {yaml_str(doc.meta.get('title', stack_id) + ' conventions')}",
-                  f"globs: {','.join(paths)}", "alwaysApply: false", "---"]
-            self.add(f".cursor/rules/stack-{stack_id}.mdc", "\n".join(fm + [marker, "", body]))
+            fm = ["---", f"description: {yaml_str(description)}", f"globs: {','.join(paths)}", "alwaysApply: false", "---"]
+            self.add(f".cursor/rules/{rule_id}.mdc", "\n".join(fm + [marker, "", body]))
 
     # catalogs -----------------------------------------------------------
     def catalog_md(self) -> str:
@@ -712,6 +767,10 @@ class Renderer:
                     if sub_readme.exists():
                         meta, _ = parse_frontmatter(read_text(sub_readme))
                         rows.append((f"{sub.name}/README.md", f"**{sub.name}/** — {(meta or {}).get('owns', '')}"))
+                    else:
+                        for page in sorted(sub.glob("*.md")):
+                            meta, _ = parse_frontmatter(read_text(page))
+                            rows.append((f"{sub.name}/{page.name}", (meta or {}).get("owns", "")))
                 for page in sorted(readme.parent.glob("*.md")):
                     if page.name == "README.md":
                         continue
@@ -770,6 +829,12 @@ def validate(kit: Kit, report: Report) -> None:
             if skill not in kit.skills:
                 report.error(f"{where}: 'Skills' names unknown skill '{skill}'")
         _check_name(doc, names_seen, report, kit)
+    active_skills = set(kit.active_skills())
+    for name in kit.active_agents():
+        missing = [s for s in section_names(kit.agents[name].body, "Skills") if s in kit.skills and s not in active_skills]
+        if missing:
+            report.warn(f"active agent '{name}' lists inactive skill(s) {', '.join(missing)}; enable them in "
+                        "[skills] or accept that the role runs without them")
     names_seen = {}
     for doc in kit.skills.values():
         m = doc.meta
@@ -811,6 +876,10 @@ def validate(kit: Kit, report: Report) -> None:
                 report.error(f"{where}: missing frontmatter '{key}'")
         if doc.meta.get("volatility") == "volatile" and not doc.meta.get("sources"):
             report.error(f"{where}: volatile pages must list 'sources'")
+        if doc.meta.get("applies_to") and doc.origin == "core":
+            report.error(f"{where}: only project wiki pages take 'applies_to'; core path knowledge belongs in stack packs")
+        if doc.meta.get("applies_to") and doc.origin == "project" and doc.path.parent != kit.overlay / "wiki" / "rules":
+            report.error(f"{where}: pages with 'applies_to' load automatically and live in .ai/project/wiki/rules/")
     for doc in [*kit.agents.values(), *kit.skills.values(), *kit.stacks.values(), *kit.pages]:
         where = rel(doc.path, kit.project)
         vol, rev = doc.meta.get("volatility"), doc.meta.get("reviewed", "")
@@ -845,8 +914,35 @@ def section_names(body: str, heading: str, arrow: bool = False) -> list[str]:
     return names
 
 
+LOCALE_PLACEHOLDERS = {"locale", "name", "stem", "ext"}
+
+
 def validate_profile(kit: Kit, report: Report) -> None:
     prof = kit.profile
+    docs = prof.get("docs", {})
+    patterns = {"docs.locale_pattern": docs.get("locale_pattern", "")}
+    patterns.update({f"docs.locale_paths.{k}": v for k, v in docs.get("locale_paths", {}).items()})
+    for key, pattern in patterns.items():
+        unknown = set(re.findall(r"\{(\w+)\}", str(pattern))) - LOCALE_PLACEHOLDERS
+        if unknown:
+            report.error(f"profile {key}: unknown placeholder(s) {', '.join(sorted(unknown))} "
+                         f"(supported: {', '.join(sorted(LOCALE_PLACEHOLDERS))})")
+        elif pattern and "{locale}" not in str(pattern):
+            report.error(f"profile {key}: the pattern must contain {{locale}}")
+    release = prof.get("release", {})
+    if "{version}" not in str(release.get("tag_pattern", "{version}")):
+        report.error("profile release.tag_pattern: must contain {version}")
+    names = set()
+    for index, package in enumerate(release.get("packages", [])):
+        where = f"profile release.packages[{index}]"
+        for field in ("name", "version_file", "tag_pattern"):
+            if not package.get(field):
+                report.error(f"{where}: missing '{field}'")
+        if package.get("tag_pattern") and "{version}" not in package["tag_pattern"]:
+            report.error(f"{where}: tag_pattern must contain {{version}}")
+        if package.get("name") in names:
+            report.error(f"{where}: duplicate package name '{package['name']}'")
+        names.add(package.get("name"))
     for tool in prof.get("tools", {}).get("targets", []):
         if tool not in ADAPTERS:
             report.error(f"profile [tools].targets: unknown tool '{tool}' (supported: {', '.join(ADAPTERS)})")
@@ -860,6 +956,11 @@ def validate_profile(kit: Kit, report: Report) -> None:
         for stack in binding.get("stacks", []):
             if stack not in kit.stacks:
                 report.error(f"profile [bindings.{agent}].stacks: unknown stack '{stack}'")
+        for command in binding.get("commands", []):
+            if command not in prof.get("commands", {}):
+                report.error(f"profile [bindings.{agent}].commands: unknown command '{command}' (define it under [commands])")
+            elif not prof["commands"][command]:
+                report.warn(f"profile [bindings.{agent}].commands: '{command}' is empty")
     for stack in [*prof.get("stacks", {}).get("active", []), *prof.get("stack_paths", {})]:
         if stack not in kit.stacks:
             report.error(f"profile: unknown stack '{stack}'")
@@ -929,6 +1030,8 @@ def check_duplicates(kit: Kit, report: Report) -> None:
             # Routing pointers ("concern → `owner`") and name lists are navigation, not restated rules.
             if "→" in line or not re.sub(r"`[^`]*`|[\s,\-*.]", "", line):
                 continue
+            if LINK_RE.search(line) and len(re.sub(r"\[[^\]]*\]\([^)]*\)|[^\w]", "", line)) < 40:
+                continue
             norm = re.sub(r"^\s*(?:[-*]|\d+\.)\s+", "", line).strip().lower()
             norm = " ".join(norm.split())
             if len(norm) < 60:
@@ -937,6 +1040,66 @@ def check_duplicates(kit: Kit, report: Report) -> None:
             if norm in seen and seen[norm] != where:
                 report.warn(f"possible SSOT duplicate in {where} and {seen[norm]}: \"{norm[:70]}…\"")
             seen.setdefault(norm, where)
+
+
+def project_files(kit: Kit) -> list[str]:
+    """Tracked and untracked, not ignored files of the project, as posix paths."""
+    listed = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=kit.project,
+                            capture_output=True, text=True, encoding="utf-8")
+    if listed.returncode == 0:
+        return [line for line in listed.stdout.splitlines() if line]
+    roots = [kit.project / d for d in (".claude", ".codex", ".agents", ".cursor", ".github")]
+    files = [rel(f, kit.project) for r in roots if r.exists() for f in r.rglob("*") if f.is_file()]
+    return files + [n for n in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursorrules", ".windsurfrules")
+                    if (kit.project / n).exists()]
+
+
+def unmanaged_instruction_files(kit: Kit, managed: set[str]) -> list[str]:
+    patterns = [glob_re(p) for p in INSTRUCTION_SURFACES]
+    keep = [glob_re(p) for p in kit.profile.get("tools", {}).get("keep_unmanaged", [])]
+    worktrees = str(kit.profile.get("policy", {}).get("worktree_root", "")).strip("/")
+    found = []
+    for relpath in project_files(kit):
+        if relpath.startswith(".ai/") or (worktrees and relpath.startswith(worktrees + "/")):
+            continue
+        if relpath in managed or not any(p.match(relpath) for p in patterns) or any(k.match(relpath) for k in keep):
+            continue
+        path = kit.project / relpath
+        if not path.is_file():  # tracked but deleted in the working tree
+            continue
+        try:
+            if GEN_MARK in read_text(path):
+                continue
+        except UnicodeDecodeError:
+            pass
+        found.append(relpath)
+    return sorted(found)
+
+
+def report_unmanaged(kit: Kit, managed: set[str], report: Report) -> None:
+    for relpath in unmanaged_instruction_files(kit, managed):
+        report.warn(f"unmanaged instruction file {relpath}: tools load it alongside the kit's files; adopt it per "
+                    "«Adopt Existing Instructions» in installation.md, or list it in tools.keep_unmanaged")
+
+
+def editorconfig_forces_bom(project: Path) -> bool:
+    path = project / ".editorconfig"
+    if not path.exists():
+        return False
+    text = read_text(path)
+    return bool(re.search(r"^\s*charset\s*=\s*utf-8-bom\s*$", text, re.M | re.I)) and "# agentkit:" not in text
+
+
+def check_profile_defaults(kit: Kit, report: Report) -> None:
+    redundant = []
+    for section, values in kit.user_profile.items():
+        defaults = kit.default_profile.get(section)
+        if section == "project" or not isinstance(values, dict) or not isinstance(defaults, dict):
+            continue
+        redundant += [f"{section}.{key}" for key, value in values.items() if key in defaults and defaults[key] == value]
+    if redundant:
+        report.warn(f"profile repeats {len(redundant)} kit default(s): {', '.join(redundant)}; remove them so "
+                    "changed defaults in kit updates apply")
 
 
 def check_integrity(kit: Kit, report: Report) -> None:
@@ -1019,7 +1182,7 @@ def cmd_sync(kit: Kit) -> int:
         for relpath in blocked:
             print(f"error: refusing to overwrite hand-written file {relpath}; move its unique content into "
                   ".ai/project/ (see the kit-install skill), delete it, and run sync again")
-        return 1
+        return 2
     written = 0
     for relpath, content in renderer.files.items():
         path = kit.project / relpath
@@ -1048,6 +1211,7 @@ def cmd_sync(kit: Kit) -> int:
             write_text(path, new)
             written += 1
     print(f"sync: {len(renderer.files)} generated files, {written} written, {removed} removed")
+    report_unmanaged(kit, set(renderer.files), report)
     for msg in report.warnings:
         print(f"warning: {msg}")
     return 0
@@ -1063,6 +1227,11 @@ def cmd_check(kit: Kit) -> int:
         renderer = Renderer(kit).render()
         check_drift(kit, renderer, report)
         check_budgets(kit, report, renderer.files)
+        report_unmanaged(kit, set(renderer.files), report)
+    if editorconfig_forces_bom(kit.project):
+        report.warn(".editorconfig forces utf-8-bom without the agentkit section; add it per «Editor Settings» "
+                    "in installation.md so editors keep agent files BOM-free")
+    check_profile_defaults(kit, report)
     late = [r for r in overdue(kit, include_core=kit.kit_repo) if r[0] < today()]
     if late:
         report.warn(f"{len(late)} file(s) overdue for review (run freshness)")
@@ -1174,15 +1343,16 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
     overlay = target / ".ai" / "project"
     if not overlay.exists():
         for path in sorted((CORE / "templates" / "project").rglob("*")):
-            if path.is_file():
+            if path.is_file() and path.name != "profile.toml":
                 dest = overlay / rel(path, CORE / "templates" / "project")
-                text = fill(read_text(path), {"date": today().isoformat()})
-                if path.name == "profile.toml":
-                    text = text.replace('name = ""', f'name = {json.dumps(target.name)}', 1)
-                    if tools:
-                        listed = ", ".join(json.dumps(t.strip()) for t in tools.split(",") if t.strip())
-                        text = re.sub(r"^targets = \[.*\]$", f"targets = [{listed}]", text, count=1, flags=re.M)
-                write_text(dest, text)
+                write_text(dest, fill(read_text(path), {"date": today().isoformat()}))
+        # The profile starts minimal: keys that only repeat a kit default would pin today's default forever.
+        tools_block = ""
+        if tools:
+            listed = ", ".join(json.dumps(t.strip()) for t in tools.split(",") if t.strip())
+            tools_block = f"\n[tools]\ntargets = [{listed}]\n"
+        write_text(overlay / "profile.toml", fill(read_text(CORE / "templates" / "profile.starter.toml"),
+                                                  {"name": json.dumps(target.name), "tools": tools_block}))
     profile = Kit(target).profile
     worktree_root = str(profile.get("policy", {}).get("worktree_root", "")).strip("/")
     wanted = [".ai/tasks/"] + ([f"{worktree_root}/"] if worktree_root else [])
@@ -1193,9 +1363,17 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
         prefix = "" if not lines or lines[-1] == "" else "\n"
         with open(gitignore, "a", encoding="utf-8", newline="\n") as fh:
             fh.write(f"{prefix}# agentkit working records and per-unit worktrees\n" + "".join(f"{e}\n" for e in missing))
-    print(f"installed kit {read_text(KIT_ROOT / 'VERSION').strip()} into {kit_dest}")
+    if editorconfig_forces_bom(target):
+        with open(target / ".editorconfig", "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(EDITORCONFIG_SECTION)
+        print("added an agentkit section to .editorconfig: agent files stay UTF-8 without BOM")
+    print(f"installed kit {read_text(KIT_ROOT / 'VERSION').strip()} into {kit_dest}", flush=True)
     result = subprocess.run([sys.executable, str(kit_dest / "tools" / "agentkit.py"), "sync"], cwd=target)
-    print("next: edit .ai/project/profile.toml (or run the kit-install skill), then run sync and check")
+    if result.returncode == 2:
+        print("installed, adoption needed: hand-written instruction files block generation. Run the kit-install "
+              "skill (or move their project facts into .ai/project/ and delete them), then run sync and check.")
+        return 2
+    print("next: fill in .ai/project/profile.toml (or run the kit-install skill), then run sync and check")
     return result.returncode
 
 
@@ -1282,7 +1460,11 @@ def cmd_capacity(kit: Kit) -> int:
                                             settings["reserve_min_gb"], cap)
     memory = (f"{total:.1f} GB memory, {available:.1f} GB available, reserve {reserve:.1f} GB"
               if total is not None and available is not None else "memory unknown")
-    print(f"capacity: {cores or '?'} CPU cores · {memory} · policy.max_parallel_units: {cap or 'not set'}")
+    try:
+        disk = f"{shutil.disk_usage(kit.project).free / 1024 ** 3:.1f} GB free disk"
+    except OSError:
+        disk = "free disk unknown"
+    print(f"capacity: {cores or '?'} CPU cores · {memory} · {disk} · policy.max_parallel_units: {cap or 'not set'}")
     print(f"recommended concurrent units per cost class ({rel(page, kit.project)} «Capacity»):")
     for name, (units, factor, below) in result.items():
         note = "below the reserve: run one at a time and free memory first" if below else f"limited by {factor}"
@@ -1339,6 +1521,8 @@ def cmd_update(kit: Kit, source: str | None, ref: str | None) -> int:
             return 1
         old_version = kit.version
         new_version = read_text(src / "VERSION").strip()
+        old_defaults = kit.default_profile
+        new_defaults = tomllib.loads(read_text(src / "core" / "templates" / "project" / "profile.toml"))
         manifest = json.loads(read_text(KIT_ROOT / "MANIFEST.json")) if (KIT_ROOT / "MANIFEST.json").exists() else {"files": {}}
         for relpath in manifest.get("files", {}):
             path = KIT_ROOT / relpath
@@ -1350,6 +1534,15 @@ def cmd_update(kit: Kit, source: str | None, ref: str | None) -> int:
         copy_payload(src, KIT_ROOT)
         notes = changelog_between(src / "CHANGELOG.md", old_version, new_version)
     print(f"kit updated {old_version} -> {new_version}")
+    for section, values in kit.user_profile.items():
+        if not isinstance(values, dict):
+            continue
+        for key, value in values.items():
+            old = old_defaults.get(section, {}).get(key, None) if isinstance(old_defaults.get(section), dict) else None
+            new = new_defaults.get(section, {}).get(key, None) if isinstance(new_defaults.get(section), dict) else None
+            if old is not None and value == old and new != old:
+                print(f"profile: {section}.{key} still holds the old default {old!r}; the new default is {new!r}. "
+                      "Remove the key to adopt it, or keep it on purpose.")
     if notes:
         print("\nChangelog since your version (apply every Migration note):\n")
         print(notes)

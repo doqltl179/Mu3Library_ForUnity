@@ -39,7 +39,8 @@ Every core stack pack, by kind.
 | [`react-native`](frameworks/react-native.md) React Native | — | react, typescript, kotlin, swift |
 | [`spring-boot`](frameworks/spring-boot.md) Spring Boot | — | java, kotlin, sql, docker |
 | [`swiftui`](frameworks/swiftui.md) SwiftUI | — | swift |
-| [`unity`](frameworks/unity.md) Unity | `**/Assets/**/*.cs`, `**/Packages/**/*.cs`, `**/*.asmdef`, `**/*.asmref`, `**/*.unity`, `**/*.prefab`, `**/*.asset` | csharp |
+| [`unity`](frameworks/unity.md) Unity | `**/Assets/**/*.cs`, `**/Packages/**/*.cs`, `**/*.asmdef`, `**/*.asmref`, `**/*.unity`, `**/*.prefab`, `**/*.asset` | csharp, unity-upm |
+| [`unity-upm`](frameworks/unity-upm.md) Unity Package Manager packages | `**/package.json`, `**/Samples~/**`, `**/Documentation~/**` | unity, csharp |
 | [`unreal`](frameworks/unreal.md) Unreal Engine | `**/Source/**/*.cpp`, `**/Source/**/*.h`, `**/*.Build.cs`, `**/*.Target.cs`, `**/*.uproject`, `**/*.uplugin` | cpp |
 | [`vue`](frameworks/vue.md) Vue | `**/*.vue` | typescript |
 

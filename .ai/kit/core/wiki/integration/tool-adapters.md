@@ -33,6 +33,30 @@ Every AI tool reads a different file layout. `agentkit.py sync` renders the same
 | `gemini` | `GEMINI.md (imports AGENTS.md)` | — | — | — |
 <!-- agentkit:end adapters -->
 
+## Unmanaged Instruction Files
+
+Tools also load instruction files that agentkit did not generate. `sync` and `check` report every file in these locations that is neither generated nor listed in `tools.keep_unmanaged`, because it is loaded alongside the kit's files and can contradict them:
+
+<!-- agentkit:begin surfaces -->
+- `**/AGENTS.md`
+- `**/CLAUDE.md`
+- `**/GEMINI.md`
+- `.cursorrules`
+- `.windsurfrules`
+- `.claude/agents/**`
+- `.claude/commands/**`
+- `.claude/rules/**`
+- `.claude/skills/**`
+- `.codex/agents/**`
+- `.agents/skills/**`
+- `.cursor/rules/**`
+- `.github/copilot-instructions.md`
+- `.github/agents/**`
+- `.github/instructions/**`
+- `.github/prompts/**`
+- `.github/skills/**`
+<!-- agentkit:end surfaces -->
+
 ## Mappings
 
 | Kit concept | Rendering |
@@ -41,7 +65,9 @@ Every AI tool reads a different file layout. `agentkit.py sync` renders the same
 | `access: read-only` | Claude: `disallowedTools` removes edit tools · Copilot: `tools` limited to read, search, execute, web · Codex: `sandbox_mode = "read-only"` |
 | `tier` | `model` set only when the profile maps the tier in `[models.<tool>]` |
 | Skill | Folder copied with frontmatter reduced to `name` and `description` |
-| Stack pack + paths | Path-scoped rule file where the tool supports one; otherwise reachable through bindings and the catalog |
+| Stack pack + paths | Path-scoped rule file (`stack-<id>`) where the tool supports one; otherwise reachable through bindings and the catalog |
+| Project rule page with `applies_to` | Path-scoped rule file (`project-<page>`), rendered the same way |
+| `project.guardrails` | A «Project Rules» list in `AGENTS.md` «This Project» |
 | Links | Rewritten to project-root-relative paths; links inside a skill folder stay relative |
 
 ## Tool Notes
