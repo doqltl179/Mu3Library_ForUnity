@@ -50,7 +50,11 @@ python -m unittest discover -s tools/cli/tests -v
 python -m mu3_cli repo check
 ```
 
-The compile-selection tests run `compile-unity.sh` through bash and are skipped when the CLI cannot find it, which a skip count in the summary shows. A default PowerShell session has no bash on `PATH`, so run the suite from Git Bash to include them.
+The compile-selection tests run `compile-unity.sh` through bash and are skipped when the CLI cannot find it, which a skip count in the summary shows. A default PowerShell session has no bash on `PATH`, so run the suite from Git Bash to include them:
+
+```bash
+PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests -v
+```
 
 Portable fallback with standard `venv`:
 

@@ -29,19 +29,6 @@ PROJECT_PACKAGES = {
     "ProjOrphan": (),
 }
 
-# Git exports these to hooks. Inherited, they would point the fixture's Git commands
-# at the repository the tests were started from.
-REPOSITORY_ENVIRONMENT = (
-    "GIT_DIR",
-    "GIT_WORK_TREE",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_COMMON_DIR",
-    "GIT_NAMESPACE",
-    "GIT_PREFIX",
-)
-
 
 def selected_targets(output: str) -> list[str]:
     targets: list[str] = []
@@ -59,6 +46,7 @@ class ChangedSelectionTests(unittest.TestCase):
 
     root: Path
     git_config: Path
+    repository_environment: frozenset[str]
     script_name: str
 
     @classmethod
@@ -73,8 +61,17 @@ class ChangedSelectionTests(unittest.TestCase):
         cls.addClassCleanup(temporary_directory.cleanup)
         cls.root = Path(temporary_directory.name) / "repository"
         cls.root.mkdir()
+        # Git may treat the system temp directory as owned by someone else.
         cls.git_config = Path(temporary_directory.name) / "gitconfig"
-        cls.git_config.write_text("", encoding="utf-8")
+        cls.git_config.write_text("[safe]\n\tdirectory = *\n", encoding="utf-8")
+        # Git's own list of the variables that tie a command to one repository. Git exports
+        # them to hooks, where they would point the fixture's commands at the repository
+        # the tests were started from.
+        cls.repository_environment = frozenset(
+            subprocess.run(
+                ["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True, check=True
+            ).stdout.split()
+        )
         cls.script_name = source_script.name
 
         shutil.copy2(source_script, cls.root / cls.script_name)
@@ -103,9 +100,9 @@ class ChangedSelectionTests(unittest.TestCase):
 
     @classmethod
     def _environment(cls) -> dict[str, str]:
-        # The user's and the machine's Git configuration stay out as well, so hooks,
-        # file-system monitors, and line-ending rules cannot reach the fixture.
-        environment = {key: value for key, value in os.environ.items() if key not in REPOSITORY_ENVIRONMENT}
+        # The user's and the machine's Git configuration stay out as well, so their hooks,
+        # file-system monitors, and ignore rules do not apply to the fixture.
+        environment = {key: value for key, value in os.environ.items() if key not in cls.repository_environment}
         environment.update(
             {
                 "GIT_CONFIG_GLOBAL": str(cls.git_config),
