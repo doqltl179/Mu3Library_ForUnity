@@ -19,7 +19,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## Compile
 
-- `commands.build` compiles with the Unity Editor CLI only the development projects whose packages changed, from staged, unstaged, and untracked files. Package Markdown, licenses, `Documentation~`, and repository tooling select no target.
+- `commands.build` compiles with the Unity Editor CLI the development projects that consume a changed package, from staged, unstaged, and untracked files: a Base change selects `built-in`, `urp`, and `watermelon`, a URP change `urp` and `watermelon`, a Watermelon Game change `watermelon`. Package Markdown, licenses, `Documentation~`, and repository tooling select no target.
 - Explicit targets: `bash ./compile-unity.sh built-in|urp|watermelon|all`. Add `--base origin/develop` to include committed changes and `--dry-run` to print the selection without Unity. Targets map to projects in `unity-cli-packages.tsv`.
 - `mu3-cli unity compile` wraps the same script; `mu3-cli unity doctor` diagnoses Editor installs, project locks, and log readiness.
 - The script compiles in place when the project is closed and in a temporary source-only mirror when an Editor holds the lock, so an open Editor, the packages, and the repository `Library/` stay untouched.
