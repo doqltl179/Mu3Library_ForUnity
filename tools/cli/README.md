@@ -9,7 +9,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `repo info`: print key repository roots and the agent kit and overlay locations.
 - `repo check`: validate repository document layout, README links, stale routing references, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
 - `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
-- `unity changes`: explain which package projects are selected by the current Git changes or a `--base` ref.
+- `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
 
 ## Compile Verification
@@ -75,7 +75,7 @@ Keep `compile-unity.sh` as the dependency-light repository entrypoint while the 
 Recommended command groups:
 
 - `unity doctor`: Editor versions, modules, license/auth state, project locks, package mappings, and writable log paths.
-- `unity changes`: changed-file classification, owning packages, selected projects, and optional dependent-package expansion.
+- `unity changes`: changed-file classification, owning packages, and selected projects, expanded to every project that consumes a changed package.
 - `unity compile`: current change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
 - `unity test`: EditMode/PlayMode execution, XML results, filters, retries, and timeout policy.
 - `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
