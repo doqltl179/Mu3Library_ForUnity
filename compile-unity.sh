@@ -18,6 +18,7 @@ RUN_PROJECT_PATH=""
 TARGET_KEYS=()
 PACKAGE_PATHS=()
 PROJECT_PATHS=()
+PACKAGE_CONSUMER_TARGETS=()
 CHANGED_FILES=()
 RELEVANT_CHANGES=()
 IGNORED_CHANGES=()
@@ -107,6 +108,38 @@ load_package_config() {
     [[ "${#TARGET_KEYS[@]}" -gt 0 ]] || fail "no package mappings found in $PACKAGE_CONFIG"
 }
 
+# The closing quote keeps a package from matching one whose path only starts with it.
+project_references_package() {
+    local project_path="$1"
+    local package_path="$2"
+    local manifest_file="$REPO_ROOT/$project_path/Packages/manifest.json"
+
+    [[ -f "$manifest_file" ]] || return 1
+    grep -Fq "\"file:../../$package_path\"" "$manifest_file"
+}
+
+# A package compiles in every development project whose manifest references it, and
+# each of those projects installs different optional packages, so it gives the shared
+# sources a different define set. A change to the package therefore has to compile in
+# all of them, not only in the project the mapping pairs it with. Each entry lists the
+# targets for the package at the same index, separated by spaces.
+load_package_consumers() {
+    local consumers
+    local i
+    local j
+
+    PACKAGE_CONSUMER_TARGETS=()
+    for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
+        consumers=""
+        for ((j = 0; j < ${#TARGET_KEYS[@]}; j++)); do
+            if [[ "$j" -eq "$i" ]] || project_references_package "${PROJECT_PATHS[$j]}" "${PACKAGE_PATHS[$i]}"; then
+                consumers="${consumers:+$consumers }${TARGET_KEYS[$j]}"
+            fi
+        done
+        PACKAGE_CONSUMER_TARGETS+=("$consumers")
+    done
+}
+
 usage() {
     local i
 
@@ -114,7 +147,8 @@ usage() {
 Usage: ./compile-unity.sh [changed|all|target] [options]
 
 Selection:
-  changed          Compile only packages affected by Git changes (default).
+  changed          Compile every project that consumes a package affected by
+                   Git changes (default).
   all              Compile every configured package project.
 EOF
 
@@ -142,6 +176,8 @@ Environment:
 Changed mode includes staged, unstaged, and untracked files. With --base it
 also includes committed changes from the requested ref through HEAD. Package
 ownership and development projects are configured in unity-cli-packages.tsv.
+A changed package selects every configured project whose Packages/manifest.json
+references it, because each project compiles it with different defines.
 
 The default execution mode compiles in place when a project is closed. If the
 same project is open in Unity, it compiles a temporary mirror instead, leaving
@@ -262,7 +298,8 @@ is_package_compile_relevant() {
     return 0
 }
 
-target_for_changed_path() {
+# Prints the targets a changed path selects on one line, separated by spaces, or "all".
+targets_for_changed_path() {
     local changed_path="$1"
     local package_path
     local package_relative_path
@@ -278,7 +315,7 @@ target_for_changed_path() {
             if ! is_package_compile_relevant "$package_relative_path"; then
                 return 1
             fi
-            printf '%s\n' "${TARGET_KEYS[$i]}"
+            printf '%s\n' "${PACKAGE_CONSUMER_TARGETS[$i]}"
             return 0
         fi
 
@@ -305,7 +342,10 @@ target_for_changed_path() {
 
 select_changed_targets() {
     local changed_file
+    local mapped_line
+    local mapped_targets
     local mapped_target
+    local mapped_label
 
     collect_changed_files
 
@@ -313,14 +353,21 @@ select_changed_targets() {
         return
     fi
 
+    load_package_consumers
+
     for changed_file in "${CHANGED_FILES[@]}"; do
-        if mapped_target="$(target_for_changed_path "$changed_file")"; then
-            RELEVANT_CHANGES+=("$changed_file"$'\t'"$mapped_target")
-            if [[ "$mapped_target" == "all" ]]; then
-                select_all_targets
-            else
-                select_target "$mapped_target"
-            fi
+        if mapped_line="$(targets_for_changed_path "$changed_file")"; then
+            IFS=' ' read -r -a mapped_targets <<< "$mapped_line"
+            mapped_label=""
+            for mapped_target in "${mapped_targets[@]}"; do
+                if [[ "$mapped_target" == "all" ]]; then
+                    select_all_targets
+                else
+                    select_target "$mapped_target"
+                fi
+                mapped_label="${mapped_label:+$mapped_label, }$mapped_target"
+            done
+            RELEVANT_CHANGES+=("$changed_file"$'\t'"$mapped_label")
         else
             IGNORED_CHANGES+=("$changed_file")
         fi
@@ -553,7 +600,7 @@ prepare_isolated_project() {
     [[ -f "$manifest_file" ]] || fail "Unity package manifest not found: $manifest_file"
     for ((i = 0; i < ${#PACKAGE_PATHS[@]}; i++)); do
         package_path="${PACKAGE_PATHS[$i]}"
-        if grep -Fq "file:../../$package_path" "$manifest_file"; then
+        if project_references_package "$project_path" "$package_path"; then
             mkdir -p "$STAGING_ROOT/$package_path"
             copy_tree_contents "$REPO_ROOT/$package_path" "$STAGING_ROOT/$package_path"
         fi

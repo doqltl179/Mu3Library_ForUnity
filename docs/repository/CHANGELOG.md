@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-11
+
+### Fixed
+- `compile-unity.sh changed` selects every development project that consumes a changed package. A package used to select only the project `unity-cli-packages.tsv` pairs it with, so a `Mu3Library_Base` change compiled in `UnityProject_BuiltIn` alone. That project installs every optional package, so code outside its define guard, or an API break against URP or Watermelon Game, passed the compile gate. A project consumes a package when its `Packages/manifest.json` references it: a Base change now selects `built-in`, `urp`, and `watermelon`, and a URP change selects `urp` and `watermelon`. `tools/cli/tests/test_compile_selection.py` runs the script against a throwaway repository to keep the rule in place.
+
 ## 2026-10-09 (agentkit 0.2.0)
 
 ### Changed

@@ -9,7 +9,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `repo info`: print key repository roots and the agent kit and overlay locations.
 - `repo check`: validate repository document layout, README links, stale routing references, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
 - `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
-- `unity changes`: explain which package projects are selected by the current Git changes or a `--base` ref.
+- `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
 
 ## Compile Verification
@@ -50,6 +50,12 @@ python -m unittest discover -s tools/cli/tests -v
 python -m mu3_cli repo check
 ```
 
+The compile-selection tests run `compile-unity.sh` through bash and are skipped when the CLI cannot find it, which a skip count in the summary shows. A default PowerShell session has no bash on `PATH`, so run the suite from Git Bash to include them:
+
+```bash
+PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests -v
+```
+
 Portable fallback with standard `venv`:
 
 ```powershell
@@ -75,7 +81,7 @@ Keep `compile-unity.sh` as the dependency-light repository entrypoint while the 
 Recommended command groups:
 
 - `unity doctor`: Editor versions, modules, license/auth state, project locks, package mappings, and writable log paths.
-- `unity changes`: changed-file classification, owning packages, selected projects, and optional dependent-package expansion.
+- `unity changes`: changed-file classification, owning packages, and selected projects, expanded to every project that consumes a changed package.
 - `unity compile`: current change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
 - `unity test`: EditMode/PlayMode execution, XML results, filters, retries, and timeout policy.
 - `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
