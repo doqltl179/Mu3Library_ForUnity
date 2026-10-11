@@ -12,19 +12,35 @@ from mu3_cli.repository import repo_root
 from mu3_cli.unity import compile_script_command, compile_script_path
 
 # Mirrors the shape of this repository: one package every project consumes, one
-# layered on it, one leaf, and a package whose name only extends another one's.
+# layered on it, one leaf, a package whose name only extends another one's, and a
+# project whose manifest does not reference the package the mapping pairs it with.
 MAPPING = (
     ("shared", "PkgShared", "ProjShared"),
     ("layered", "PkgLayered", "ProjLayered"),
     ("leaf", "PkgLeaf", "ProjLeaf"),
     ("extra", "PkgSharedExtra", "ProjExtra"),
+    ("orphan", "PkgOrphan", "ProjOrphan"),
 )
 PROJECT_PACKAGES = {
     "ProjShared": ("PkgShared",),
     "ProjLayered": ("PkgShared", "PkgLayered"),
     "ProjLeaf": ("PkgShared", "PkgLayered", "PkgLeaf"),
     "ProjExtra": ("PkgSharedExtra",),
+    "ProjOrphan": (),
 }
+
+# Git exports these to hooks. Inherited, they would point the fixture's Git commands
+# at the repository the tests were started from.
+REPOSITORY_ENVIRONMENT = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_PREFIX",
+)
 
 
 def selected_targets(output: str) -> list[str]:
@@ -42,6 +58,7 @@ class ChangedSelectionTests(unittest.TestCase):
     """Runs the real compile-unity.sh with --dry-run against a throwaway repository."""
 
     root: Path
+    git_config: Path
     script_name: str
 
     @classmethod
@@ -54,7 +71,10 @@ class ChangedSelectionTests(unittest.TestCase):
 
         temporary_directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(temporary_directory.cleanup)
-        cls.root = Path(temporary_directory.name)
+        cls.root = Path(temporary_directory.name) / "repository"
+        cls.root.mkdir()
+        cls.git_config = Path(temporary_directory.name) / "gitconfig"
+        cls.git_config.write_text("", encoding="utf-8")
         cls.script_name = source_script.name
 
         shutil.copy2(source_script, cls.root / cls.script_name)
@@ -82,20 +102,35 @@ class ChangedSelectionTests(unittest.TestCase):
         cls._git("-c", "commit.gpgsign=false", "commit", "--quiet", "--message", "fixture baseline")
 
     @classmethod
+    def _environment(cls) -> dict[str, str]:
+        # The user's and the machine's Git configuration stay out as well, so hooks,
+        # file-system monitors, and line-ending rules cannot reach the fixture.
+        environment = {key: value for key, value in os.environ.items() if key not in REPOSITORY_ENVIRONMENT}
+        environment.update(
+            {
+                "GIT_CONFIG_GLOBAL": str(cls.git_config),
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_AUTHOR_NAME": "fixture",
+                "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                "GIT_COMMITTER_NAME": "fixture",
+                "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+            }
+        )
+        return environment
+
+    @classmethod
     def _git(cls, *arguments: str) -> None:
-        identity = {
-            "GIT_AUTHOR_NAME": "fixture",
-            "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
-            "GIT_COMMITTER_NAME": "fixture",
-            "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
-        }
-        subprocess.run(
+        completed = subprocess.run(
             ["git", *arguments],
             cwd=cls.root,
-            env={**os.environ, **identity},
-            check=True,
+            env=cls._environment(),
             capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
         )
+        if completed.returncode != 0:
+            raise RuntimeError(f"git {' '.join(arguments)} failed in the fixture: {completed.stderr.strip()}")
 
     def dry_run_after_adding(self, relative_path: str) -> str:
         added = self.root / relative_path
@@ -105,7 +140,13 @@ class ChangedSelectionTests(unittest.TestCase):
 
         command = compile_script_command(self.root / self.script_name, ["changed", "--dry-run"])
         completed = subprocess.run(
-            command, cwd=self.root, capture_output=True, text=True, encoding="utf-8", check=False
+            command,
+            cwd=self.root,
+            env=self._environment(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
         return completed.stdout
@@ -136,6 +177,17 @@ class ChangedSelectionTests(unittest.TestCase):
         output = self.dry_run_after_adding("PkgSharedExtra/Runtime/Added.cs")
 
         self.assertEqual(["extra"], selected_targets(output))
+
+    def test_mapped_project_is_selected_without_a_manifest_reference(self) -> None:
+        output = self.dry_run_after_adding("PkgOrphan/Runtime/Added.cs")
+
+        self.assertEqual(["orphan"], selected_targets(output))
+
+    def test_source_outside_packages_and_projects_selects_every_target(self) -> None:
+        output = self.dry_run_after_adding("Loose.cs")
+
+        self.assertEqual([key for key, _, _ in MAPPING], selected_targets(output))
+        self.assertIn("  - Loose.cs -> all", output.splitlines())
 
     def test_project_change_selects_only_that_project(self) -> None:
         output = self.dry_run_after_adding("ProjLayered/Assets/Added.cs")
