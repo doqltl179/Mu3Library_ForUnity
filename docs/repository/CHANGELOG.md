@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-21
+
+### Changed
+- `UnityProject_BuiltIn` runs on Unity 6000.6.7f1. The upgrade raised the project's Unity packages (Input System 1.20.1, Localization 1.5.13, Mobile Notifications 2.5.0, Timeline 6.6.0, uGUI 2.6.0, and others), added the `physicscore2d`, `tetgen`, and `timelinefoundation` modules, and dropped the `vr` module. UniTask is locked to 2.5.11 (`2e993ff`), the first release whose editor tracker window compiles on 6.6. `UnityProject_URP` and `UnityProject_Game_WatermelonGame` stay on 6000.3, so a Base change compiles on both editor lines.
+
 ## 2026-10-11
 
 ### Fixed
