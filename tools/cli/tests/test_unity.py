@@ -15,13 +15,13 @@ class UnityToolingTests(unittest.TestCase):
         self.assertEqual("UnityProject_URP", specs["urp"].project_path.as_posix())
 
     def test_every_mapping_has_an_editor_version(self) -> None:
+        # The versions themselves change with every editor upgrade; the lookup has to find one.
         root = repo_root()
         specs = load_target_specs(root)
 
-        self.assertEqual(
-            {"built-in": "6000.3.10f1", "urp": "6000.3.10f1", "watermelon": "6000.3.17f1"},
-            {key: project_editor_version(spec, root) for key, spec in specs.items()},
-        )
+        for key, spec in specs.items():
+            with self.subTest(target=key):
+                self.assertRegex(project_editor_version(spec, root) or "", r"^\d+\.\d+\.\d+[abfp]\d+$")
 
     def test_compile_arguments_preserve_change_selection(self) -> None:
         self.assertEqual(
