@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import shutil
 import unittest
+from pathlib import Path
 
 from fixture_repository import MAPPING, FixtureRepositoryTestCase
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
@@ -128,6 +130,126 @@ class SampleLinkPreflightTests(FixtureRepositoryTestCase):
         copied = mirror / "ProjLeaf" / "Assets" / "Samples"
         self.assertTrue((copied / "Sample.cs").is_file())
         self.assertFalse(is_directory_link(copied))
+
+
+def nunit_results(passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 0) -> str:
+    """An NUnit 3 result file of the shape the Unity Test Framework writes."""
+    total = passed + len(failed) + skipped
+    cases = "\n".join(
+        f'    <test-case id="{index}" name="{name}" fullname="Fixture.Tests.{name}" result="Failed" />'
+        for index, name in enumerate(failed, start=1000)
+    )
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        f'<test-run id="2" testcasecount="{total}" result="{"Failed" if failed else "Passed"}" total="{total}" '
+        f'passed="{passed}" failed="{len(failed)}" inconclusive="0" skipped="{skipped}" asserts="0">\n'
+        f"{cases}\n"
+        "</test-run>"
+    )
+
+
+class TestEntryPointTests(FixtureRepositoryTestCase):
+    """Runs the real test-unity.sh with a fake Unity that writes the results it is given."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+
+    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0):
+        return self.run_entry_point(
+            "test-unity.sh",
+            *arguments,
+            environment=self.unity_environment(FAKE_UNITY_RESULTS=results, FAKE_UNITY_STATUS=str(unity_status)),
+        )
+
+    def results_file(self, target: str) -> Path:
+        return self.root / "log" / "unity-tests" / f"{target}-editmode.xml"
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root / "log", ignore_errors=True)
+
+    def test_passing_run_reports_its_counts(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(passed=3, skipped=1))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("EditMode tests passed for leaf: 4 tests, 3 passed, 0 failed, 1 skipped", completed.stdout)
+        self.assertIn("  - leaf: 4 tests, 3 passed, 0 failed, 1 skipped", completed.stdout.splitlines())
+        self.assertTrue(self.results_file("leaf").is_file())
+
+    def test_unity_runs_the_editmode_tests_without_quit(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results())
+
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn("-batchmode", arguments)
+        self.assertIn("-runTests -testPlatform EditMode -testResults ", arguments)
+        self.assertIn("-logFile -", arguments)
+        self.assertNotIn("-quit", arguments)
+
+    def test_failed_test_fails_the_run_and_is_named(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped", completed.stderr)
+        self.assertIn("  failed: Fixture.Tests.Breaks", completed.stderr)
+        self.assertIn("EditMode tests failed for 1 target(s)", completed.stderr)
+
+    def test_run_without_results_fails(self) -> None:
+        completed = self.run_tests("leaf", unity_status=1)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("Unity exited with 1 and wrote no test results", completed.stderr)
+
+    def test_result_of_an_earlier_run_does_not_count(self) -> None:
+        self.results_file("leaf").parent.mkdir(parents=True)
+        self.results_file("leaf").write_text(nunit_results(), encoding="utf-8")
+
+        completed = self.run_tests("leaf")
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("wrote no test results", completed.stderr)
+
+    def test_run_without_tests_fails(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(passed=0))
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("no tests ran although the project lists testables", completed.stderr)
+
+    def test_unity_failure_fails_the_run_even_when_no_test_failed(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(), unity_status=3)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("Unity exited with 3 although no test failed", completed.stderr)
+
+    def test_project_without_testables_is_skipped(self) -> None:
+        completed = self.run_tests("orphan", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("  - orphan: skipped, ProjOrphan/Packages/manifest.json lists no testables", completed.stdout)
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_every_target_runs_after_one_fails(self) -> None:
+        completed = self.run_tests("all", results=nunit_results(passed=1, failed=("Breaks",)), unity_status=2)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        ran = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+        self.assertEqual(2, len(ran), completed.stdout)
+        self.assertIn("EditMode tests failed for 2 target(s)", completed.stderr)
+
+    def test_results_outlive_the_isolated_mirror(self) -> None:
+        completed = self.run_tests("leaf", "--isolated", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
+        self.assertTrue(self.results_file("leaf").is_file())
+        self.assertEqual([], self.mirrors_left())
+
+    def test_dry_run_shows_where_each_target_would_run(self) -> None:
+        completed = self.run_tests("all", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        lines = completed.stdout.splitlines()
+        self.assertIn("Selected test targets:", lines)
+        self.assertIn("  - shared: in place", lines)
+        self.assertIn("  - layered: skipped, ProjLayered/Packages/manifest.json lists no testables", lines)
+        self.assertNotIn("fake unity ran", completed.stdout)
 
 
 if __name__ == "__main__":

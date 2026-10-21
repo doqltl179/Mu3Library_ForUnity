@@ -33,9 +33,11 @@ PROJECT_PACKAGES = {
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 
-# Stands in for the Unity Editor: names the project it ran, writes the test results it
-# is given to the path after -testResults, and exits with the status it is given.
+# Stands in for the Unity Editor: names the project and the arguments it ran with, writes
+# the test results it is given to the path after -testResults, and exits with the status
+# it is given.
 FAKE_UNITY = """#!/usr/bin/env bash
+arguments="$*"
 results=""
 project=""
 while [[ "$#" -gt 0 ]]; do
@@ -46,6 +48,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 printf 'fake unity ran %s\\n' "$project"
+printf 'fake unity arguments: %s\\n' "$arguments"
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
 fi
@@ -58,6 +61,9 @@ class FixtureRepositoryTestCase(unittest.TestCase):
 
     # Targets whose project links to the package's Samples~ folder, as the fourth mapping column.
     SAMPLE_LINKS: dict[str, str] = {}
+    # Projects whose manifest lists their packages under "testables", as a development project
+    # must for Unity to run a package's tests.
+    TESTABLE_PROJECTS: frozenset[str] = frozenset()
 
     root: Path
     fake_unity: Path
@@ -110,11 +116,13 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             runtime.mkdir(parents=True)
             (runtime / "Code.cs").write_text("// fixture\n", encoding="utf-8")
 
-            manifest = {
+            manifest: dict[str, object] = {
                 "dependencies": {
                     f"fixture.{consumed.lower()}": f"file:../../{consumed}" for consumed in PROJECT_PACKAGES[project]
                 }
             }
+            if project in cls.TESTABLE_PROJECTS:
+                manifest["testables"] = [f"fixture.{consumed.lower()}" for consumed in PROJECT_PACKAGES[project]]
             packages = cls.root / project / "Packages"
             packages.mkdir(parents=True)
             (packages / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

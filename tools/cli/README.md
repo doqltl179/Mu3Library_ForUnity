@@ -12,6 +12,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
+- `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`.
 
 ## Compile Verification
 
@@ -61,7 +62,7 @@ The tests that run `compile-unity.sh` find bash the way the `unity` commands do,
 
 ## Bash on Windows
 
-`unity changes`, `unity compile`, and the tests run the shell entry points through the bash of Git for Windows. The Git for Windows installer puts `git` on `PATH` but not `bash`, so the CLI looks in this order:
+`unity changes`, `unity compile`, `unity test`, and the CLI tests run the shell entry points through the bash of Git for Windows. The Git for Windows installer puts `git` on `PATH` but not `bash`, so the CLI looks in this order:
 
 1. `bash` on `PATH`, unless it is the WSL launcher (`C:\Windows\System32\bash.exe` or its `WindowsApps` alias), which runs the script inside Linux where the Windows Unity Editor is out of reach.
 2. `bin\bash.exe` of the Git installation whose `git` is on `PATH`.
@@ -89,24 +90,29 @@ mu3-cli --help
 
 ## Planned Unity Automation Surface
 
-Keep `compile-unity.sh` as the dependency-light repository entrypoint while the workflow stabilizes. The `mu3-cli unity` group now orchestrates it, while the shell script remains a compatibility wrapper for CI and dependency-light use.
+Keep `compile-unity.sh` and `test-unity.sh` as the dependency-light repository entrypoints while the workflow stabilizes. The `mu3-cli unity` group orchestrates them, while the shell scripts remain usable on their own.
 
-Recommended command groups:
+Available now:
 
-- `unity doctor`: Editor versions, modules, license/auth state, project locks, package mappings, and writable log paths.
+- `unity doctor`: bash, Editor versions, modules, project locks, package mappings, sample links, and writable log paths.
 - `unity changes`: changed-file classification, owning packages, and selected projects, expanded to every project that consumes a changed package.
-- `unity compile`: current change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
-- `unity test`: EditMode/PlayMode execution, XML results, filters, retries, and timeout policy.
-- `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
-- `unity logs`: per-run log directories, warning/error summaries, durations, and reproducible invocation metadata.
-- `unity cache`: cache size/status inspection and opt-in cleanup; never purge a Unity `Library` implicitly.
-
-The first three commands are now available:
+- `unity compile`: change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
+- `unity test`: EditMode execution with the same selection, NUnit XML results under `log/unity-tests/`, and a non-zero exit on any failure.
+- `unity link-samples`: the sample links a fresh clone needs.
 
 ```powershell
 mu3-cli unity doctor --target built-in
 mu3-cli unity changes --base origin/develop
 mu3-cli unity compile --dry-run
+mu3-cli unity test watermelon
 ```
 
-The current `unity-cli-packages.tsv` is intentionally minimal: target key, package root, and representative Unity project. Replace it with a richer versioned TOML model only when dependencies, test matrices, or player-build profiles need structured fields. At that point, keep package ownership, dependency edges, Unity version source, test suites, and build profiles in one configuration rather than spreading them across shell conditionals and CI YAML.
+Still planned:
+
+- `unity test`: PlayMode execution, filters, retries, and a timeout policy.
+- `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
+- `unity logs`: per-run log directories, warning/error summaries, durations, and reproducible invocation metadata.
+- `unity cache`: cache size/status inspection and opt-in cleanup; never purge a Unity `Library` implicitly.
+- License and authentication state in `unity doctor`.
+
+The current `unity-cli-packages.tsv` is intentionally minimal: target key, package root, representative Unity project, and the optional samples link. Replace it with a richer versioned TOML model only when dependencies, test matrices, or player-build profiles need structured fields. At that point, keep package ownership, dependency edges, Unity version source, test suites, and build profiles in one configuration rather than spreading them across shell conditionals and CI YAML.

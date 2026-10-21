@@ -6,6 +6,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 |---|---|
 | [cli/](cli/README.md) | Python CLI for repository, C# Dev Kit, and Unity automation workflows |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
+| [../test-unity.sh](../test-unity.sh) | EditMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
 
 Generated files under `bin/`, `obj/`, `.venv/`, and `*.egg-info/` are local artifacts and should not be tracked.
 
@@ -30,7 +31,7 @@ A new clone or worktree holds only tracked files. Set it up in this order before
    PYTHONPATH=tools/cli/src python -m mu3_cli unity doctor
    ```
 
-5. Compile: `./compile-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first.
+5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first.
 
 ## Unity Compile Entrypoint
 
@@ -61,9 +62,23 @@ Use a Git base when selecting committed changes in CI, or keep the explicit targ
 
 Add future package-to-project mappings to `unity-cli-packages.tsv`; the shell entrypoint should not need a new selection branch for each package.
 
+## Unity Test Entrypoint
+
+`test-unity.sh` runs the EditMode tests through the Unity Test Framework CLI and exits non-zero when a test fails, Unity fails, or a run reports no result:
+
+```bash
+./test-unity.sh --dry-run
+./test-unity.sh            # projects selected by Git changes, as compile-unity.sh selects them
+./test-unity.sh built-in   # Base tests with the Built-In project's define set
+./test-unity.sh watermelon # Base and Watermelon Game tests with that project's define set
+./test-unity.sh all
+```
+
+It takes the same targets and options as `compile-unity.sh` and sources it for target selection, the Editor lookup, the lock check, the sample-link check, and the isolated mirror, so a project an Editor has open is tested in a mirror and `--in-place` refuses it. A project runs only the tests of the packages its `Packages/manifest.json` lists under `testables`; `UnityProject_URP` lists none, so `urp` is reported as skipped. Every selected target runs even after an earlier one fails, and a summary closes the run. Each run writes NUnit XML to `log/unity-tests/<target>-editmode.xml`, which is Git-ignored and removed before the run so an old result never stands in for a new one.
+
 ## Environment
 
-The shell entrypoint and `mu3-cli unity doctor` read the same variables, so the Editor the doctor accepts is the one the script runs.
+The shell entrypoints and `mu3-cli unity doctor` read the same variables, so the Editor the doctor accepts is the one the script runs.
 
 | Variable | Effect |
 |---|---|

@@ -18,7 +18,7 @@ from mu3_cli.unity import (
     SampleLinkResult,
     UnityTargetSpec,
     bash_diagnostic,
-    compile_command_arguments,
+    entry_point_arguments,
     compile_script_path,
     create_directory_link,
     default_editor_path,
@@ -63,27 +63,27 @@ class UnityToolingTests(unittest.TestCase):
     def test_compile_arguments_preserve_change_selection(self) -> None:
         self.assertEqual(
             ["changed", "--base", "origin/develop", "--dry-run"],
-            compile_command_arguments("changed", "origin/develop", True, False, False, False),
+            entry_point_arguments("changed", "origin/develop", True, False, False, False),
         )
 
     def test_compile_arguments_reject_conflicting_modes(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot be used together"):
-            compile_command_arguments("built-in", None, False, True, True, False)
+            entry_point_arguments("built-in", None, False, True, True, False)
 
     def test_keep_staging_preserves_auto_isolation_behavior(self) -> None:
         self.assertEqual(
             ["built-in", "--keep-staging"],
-            compile_command_arguments("built-in", None, False, False, False, True),
+            entry_point_arguments("built-in", None, False, False, False, True),
         )
 
     def test_base_requires_changed_target(self) -> None:
         with self.assertRaisesRegex(ValueError, "changed target"):
-            compile_command_arguments("built-in", "origin/develop", False, False, False, False)
+            entry_point_arguments("built-in", "origin/develop", False, False, False, False)
 
     def test_without_samples_reaches_the_script(self) -> None:
         self.assertEqual(
             ["built-in", "--without-samples"],
-            compile_command_arguments("built-in", None, False, False, False, False, without_samples=True),
+            entry_point_arguments("built-in", None, False, False, False, False, without_samples=True),
         )
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
@@ -362,7 +362,7 @@ class BashDiscoveryTests(unittest.TestCase):
 
 
 class CommandErrorTests(unittest.TestCase):
-    def test_changes_reports_a_missing_bash_the_way_compile_does(self) -> None:
+    def test_changes_and_test_report_a_missing_bash_the_way_compile_does(self) -> None:
         def missing(*_arguments: object, **_keywords: object) -> Path:
             raise BashNotFoundError("No bash here.", "Install it.")
 
@@ -372,8 +372,9 @@ class CommandErrorTests(unittest.TestCase):
         ):
             changes = runner.invoke(app, ["unity", "changes"])
             compile_run = runner.invoke(app, ["unity", "compile", "--dry-run"])
+            test_run = runner.invoke(app, ["unity", "test", "--dry-run"])
 
-        for result in (changes, compile_run):
+        for result in (changes, compile_run, test_run):
             with self.subTest(command=result):
                 self.assertEqual(2, result.exit_code, result.output)
                 self.assertNotIsInstance(result.exception, ValueError)

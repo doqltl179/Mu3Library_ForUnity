@@ -51,6 +51,10 @@ def compile_script_path(root: Path) -> Path:
     return root / "compile-unity.sh"
 
 
+def test_script_path(root: Path) -> Path:
+    return root / "test-unity.sh"
+
+
 def _safe_relative_path(value: str, line_number: int) -> Path:
     path = Path(value)
     if path.is_absolute() or ".." in path.parts:
@@ -590,20 +594,20 @@ def run_unity_diagnostics(
     root: Path,
 ) -> list[UnityDiagnostic]:
     diagnostics: list[UnityDiagnostic] = []
-    script_path = compile_script_path(root)
 
-    if script_path.is_file() and os.access(script_path, os.X_OK):
-        diagnostics.append(_diagnostic("PASS", "global", "Compile entrypoint", "compile-unity.sh is executable."))
-    else:
-        diagnostics.append(
-            _diagnostic(
-                "FAIL",
-                "global",
-                "Compile entrypoint",
-                "compile-unity.sh is missing or not executable.",
-                "Restore the root compile entrypoint and its executable bit.",
+    for title, script_path in (("Compile entrypoint", compile_script_path(root)), ("Test entrypoint", test_script_path(root))):
+        if script_path.is_file() and os.access(script_path, os.X_OK):
+            diagnostics.append(_diagnostic("PASS", "global", title, f"{script_path.name} is executable."))
+        else:
+            diagnostics.append(
+                _diagnostic(
+                    "FAIL",
+                    "global",
+                    title,
+                    f"{script_path.name} is missing or not executable.",
+                    f"Restore the root {script_path.name} and its executable bit.",
+                )
             )
-        )
 
     diagnostics.append(bash_diagnostic())
 
@@ -738,7 +742,7 @@ def render_diagnostics(diagnostics: list[UnityDiagnostic], output_format: str) -
     return summary
 
 
-def compile_command_arguments(
+def entry_point_arguments(
     target: str,
     base: str | None,
     dry_run: bool,
@@ -768,12 +772,12 @@ def compile_command_arguments(
     return arguments
 
 
-def run_compile_script(arguments: list[str], root: Path) -> int:
-    script_path = compile_script_path(root)
+def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
+    """Run compile-unity.sh or test-unity.sh, which take the same selection options."""
     if not script_path.is_file():
-        raise ValueError(f"Unity compile entrypoint is missing: {script_path}")
+        raise ValueError(f"Unity entrypoint is missing: {script_path}")
     if platform.system() != "Windows" and not os.access(script_path, os.X_OK):
-        raise ValueError(f"Unity compile entrypoint is not executable: {script_path}")
+        raise ValueError(f"Unity entrypoint is not executable: {script_path}")
 
     command = bash_script_command(script_path, arguments)
     typer.echo(f"Running: {' '.join(command)}")
@@ -809,8 +813,8 @@ def unity_changes(
     """Explain which package projects are selected from Git changes."""
     root = repo_root()
     try:
-        arguments = compile_command_arguments("changed", base, True, False, False, False)
-        return_code = run_compile_script(arguments, root)
+        arguments = entry_point_arguments("changed", base, True, False, False, False)
+        return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
 
@@ -833,16 +837,38 @@ def unity_compile(
     """Run the repository's change-aware Unity batchmode compiler."""
     root = repo_root()
     try:
-        arguments = compile_command_arguments(
-            target, base, dry_run, isolated, in_place, keep_staging, without_samples
-        )
-        return_code = run_compile_script(arguments, root)
+        arguments = entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples)
+        return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
 
     if return_code:
         raise typer.Exit(code=return_code)
 
+
+
+@unity_app.command("test")
+def unity_test(
+    target: str = typer.Argument("changed", help="changed, all, or a target from unity-cli-packages.tsv."),
+    base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print selection without launching Unity."),
+    isolated: bool = typer.Option(False, "--isolated", help="Always test an isolated source mirror."),
+    in_place: bool = typer.Option(False, "--in-place", help="Test directly and fail when the project is open."),
+    keep_staging: bool = typer.Option(False, "--keep-staging", help="Keep an explicitly isolated mirror."),
+    without_samples: bool = typer.Option(
+        False, "--without-samples", help="Test even when a samples link is missing, leaving the samples out."
+    ),
+) -> None:
+    """Run the EditMode tests of the selected projects through test-unity.sh."""
+    root = repo_root()
+    try:
+        arguments = entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples)
+        return_code = run_entry_point(test_script_path(root), arguments, root)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+
+    if return_code:
+        raise typer.Exit(code=return_code)
 
 @unity_app.command("link-samples")
 def unity_link_samples(
