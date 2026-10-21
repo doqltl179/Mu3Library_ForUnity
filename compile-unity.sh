@@ -398,7 +398,7 @@ targets_for_changed_path() {
     done
 
     case "$changed_path" in
-        tools/*|docs/*|tasks/*|.github/*)
+        tools/*|docs/*|.github/*)
             return 1
             ;;
         *.cs|*.asmdef|*.asmref)

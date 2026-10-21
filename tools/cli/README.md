@@ -24,11 +24,11 @@ mu3-cli unity changes --base origin/develop
 mu3-cli unity compile
 ```
 
-`unity compile` wraps `compile-unity.sh`, which compiles in place when the Unity project is closed and mirrors it into a temporary project when the Editor holds the lock. An open Editor, the repository packages, and the repository `Library` are left untouched either way.
+`unity compile` wraps `compile-unity.sh`, which compiles in place when the Unity project is closed and mirrors it into a temporary project when an Editor holds the lock. An in-place run opens the repository project itself, so Unity updates its `Library/`. A mirror run leaves the open Editor, the repository packages, and the repository `Library/` untouched.
 
 - Built-In is the default development context for this repository.
 - URP is an additional context layered on top of the Base package and should not replace the Built-In baseline for shared maintenance.
-- Shared Base files can still have more than one valid project context because both Built-In and URP include them with different define sets.
+- Shared Base files can still have more than one valid project context because all three development projects (Built-In, URP, and Watermelon Game) include them with different define sets.
 
 ## Environment Bootstrap
 

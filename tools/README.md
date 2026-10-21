@@ -4,7 +4,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 
 | Path | Owns |
 |---|---|
-| [cli/](cli/README.md) | Python CLI for repository, C# Dev Kit, and Unity automation workflows |
+| [cli/](cli/README.md) | Python CLI (`mu3-cli`) with the `repo` command group for repository checks and the `unity` group for Unity automation |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
 | [../test-unity.sh](../test-unity.sh) | EditMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
 

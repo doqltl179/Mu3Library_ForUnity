@@ -78,7 +78,6 @@ def repository_text_paths(root: Path) -> list[str]:
             "--",
             ".github",
             "docs",
-            "tasks",
             "tools",
         ],
         cwd=root,
