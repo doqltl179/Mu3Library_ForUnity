@@ -25,7 +25,7 @@ namespace Mu3Library.Scene
             public bool HasCompletionResult;
             public bool CompletedSuccessfully;
             // The scene itself rather than Scene.handle: the handle changed from int to
-            // SceneHandle, and Unity 6.6 rejects converting between the two.
+            // SceneHandle, and Unity 6.5 rejects converting between the two.
             public UnityEngine.SceneManagement.Scene UnityScene;
             public bool HasUnitySceneEvent;
             public AsyncOperation Operation;
