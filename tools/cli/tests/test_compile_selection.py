@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from mu3_cli.repository import repo_root
-from mu3_cli.unity import compile_script_command, compile_script_path
+from mu3_cli.unity import bash_script_command, compile_script_path
 
 # Mirrors the shape of this repository: one package every project consumes, one
 # layered on it, one leaf, a package whose name only extends another one's, and a
@@ -70,7 +70,7 @@ class ChangedSelectionTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         source_script = compile_script_path(repo_root())
         try:
-            compile_script_command(source_script, [])
+            bash_script_command(source_script, [])
         except ValueError as error:
             raise unittest.SkipTest(str(error)) from error
 
@@ -162,7 +162,7 @@ class ChangedSelectionTests(unittest.TestCase):
         return lock_file
 
     def run_script(self, *arguments: str) -> str:
-        command = compile_script_command(self.root / self.script_name, list(arguments))
+        command = bash_script_command(self.root / self.script_name, list(arguments))
         completed = subprocess.run(
             command,
             cwd=self.root,

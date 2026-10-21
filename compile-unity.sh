@@ -182,6 +182,13 @@ Environment:
       Optional path to a Unity executable (or Unity.app) that overrides the
       project version lookup. Without an override, the script reads each
       ProjectVersion.txt and uses the matching Unity Hub installation.
+  UNITY_HUB_EDITOR_ROOT
+      Optional folder that holds one folder per installed Editor version, for
+      a Unity Hub set to install Editors outside its default location
+      (Program Files\Unity\Hub\Editor, /Applications/Unity/Hub/Editor, or
+      ~/Unity/Hub/Editor). mu3-cli unity doctor reads the same variable.
+  TMPDIR
+      Where isolated mirrors are created. Keep it short on Windows.
 
 Changed mode includes staged, unstaged, and untracked files. With --base it
 also includes committed changes from the requested ref through HEAD. Package
@@ -462,13 +469,27 @@ project_editor_version() {
     awk -F': ' '/^m_EditorVersion: / { print $2; exit }' "$version_file"
 }
 
-hub_editor_executable() {
-    local required_version="$1"
+# Unity Hub's install location, which holds one folder per Editor version.
+# UNITY_HUB_EDITOR_ROOT replaces it for a Hub set to install Editors elsewhere;
+# mu3-cli unity doctor reads the same variable.
+hub_editor_root() {
+    local editor_root="${UNITY_HUB_EDITOR_ROOT:-}"
     local program_files
+
+    if [[ -n "$editor_root" ]]; then
+        if [[ "$editor_root" == "~" || "$editor_root" == "~/"* ]]; then
+            editor_root="$HOME${editor_root:1}"
+        fi
+        if [[ "$(host_platform)" == "windows" ]] && command -v cygpath >/dev/null 2>&1; then
+            editor_root="$(cygpath -u "$editor_root")"
+        fi
+        printf '%s\n' "${editor_root%/}"
+        return
+    fi
 
     case "$(host_platform)" in
         macos)
-            printf '/Applications/Unity/Hub/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$required_version"
+            printf '/Applications/Unity/Hub/Editor\n'
             ;;
         windows)
             if command -v cygpath >/dev/null 2>&1; then
@@ -476,10 +497,28 @@ hub_editor_executable() {
             else
                 program_files="/c/Program Files"
             fi
-            printf '%s/Unity/Hub/Editor/%s/Editor/Unity.exe\n' "${program_files%/}" "$required_version"
+            printf '%s/Unity/Hub/Editor\n' "${program_files%/}"
             ;;
         *)
-            printf '%s/Unity/Hub/Editor/%s/Editor/Unity\n' "$HOME" "$required_version"
+            printf '%s/Unity/Hub/Editor\n' "$HOME"
+            ;;
+    esac
+}
+
+hub_editor_executable() {
+    local required_version="$1"
+    local editor_root
+
+    editor_root="$(hub_editor_root)"
+    case "$(host_platform)" in
+        macos)
+            printf '%s/%s/Unity.app/Contents/MacOS/Unity\n' "$editor_root" "$required_version"
+            ;;
+        windows)
+            printf '%s/%s/Editor/Unity.exe\n' "$editor_root" "$required_version"
+            ;;
+        *)
+            printf '%s/%s/Editor/Unity\n' "$editor_root" "$required_version"
             ;;
     esac
 }

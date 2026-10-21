@@ -50,11 +50,23 @@ python -m unittest discover -s tools/cli/tests -v
 python -m mu3_cli repo check
 ```
 
-The compile-selection tests run `compile-unity.sh` through bash and are skipped when the CLI cannot find it, which a skip count in the summary shows. A default PowerShell session has no bash on `PATH`, so run the suite from Git Bash to include them:
+The same suite runs from Git Bash:
 
 ```bash
 PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests -v
 ```
+
+The tests that run `compile-unity.sh` find bash the way the `unity` commands do, so they run from PowerShell too. They are skipped, and the summary shows a skip count, only on a host where `mu3-cli unity doctor` reports a failing `Bash` check.
+
+## Bash on Windows
+
+`unity changes`, `unity compile`, and the tests run the shell entry points through the bash of Git for Windows. The Git for Windows installer puts `git` on `PATH` but not `bash`, so the CLI looks in this order:
+
+1. `bash` on `PATH`, unless it is the WSL launcher (`C:\Windows\System32\bash.exe` or its `WindowsApps` alias), which runs the script inside Linux where the Windows Unity Editor is out of reach.
+2. `bin\bash.exe` of the Git installation whose `git` is on `PATH`.
+3. `Git\bin\bash.exe` under `Program Files`, `Program Files (x86)`, and `%LOCALAPPDATA%\Programs`.
+
+When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check.
 
 Portable fallback with standard `venv`:
 
