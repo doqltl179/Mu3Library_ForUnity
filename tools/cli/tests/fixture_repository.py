@@ -56,6 +56,14 @@ exit "${FAKE_UNITY_STATUS:-0}"
 """
 
 
+def repository_ignore_line(path: str) -> str | None:
+    """Return this repository's .gitignore line for a repository-relative path, as written there."""
+    for line in (repo_root() / ".gitignore").read_text(encoding="utf-8-sig").splitlines():
+        if line.strip().strip("/") == path:
+            return line.strip()
+    return None
+
+
 class FixtureRepositoryTestCase(unittest.TestCase):
     """Builds the fixture once per class; tests remove whatever they add to it."""
 
@@ -64,6 +72,8 @@ class FixtureRepositoryTestCase(unittest.TestCase):
     # Projects whose manifest lists their packages under "testables", as a development project
     # must for Unity to run a package's tests.
     TESTABLE_PROJECTS: frozenset[str] = frozenset()
+    # Lines of the fixture's .gitignore, committed with the baseline.
+    GITIGNORE_LINES: tuple[str, ...] = ()
 
     root: Path
     fake_unity: Path
@@ -130,6 +140,9 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             settings.mkdir()
             (settings / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.6.7f1\n", encoding="utf-8")
             (cls.root / project / "Assets").mkdir()
+
+        if cls.GITIGNORE_LINES:
+            (cls.root / ".gitignore").write_text("".join(f"{line}\n" for line in cls.GITIGNORE_LINES), encoding="utf-8")
 
         cls._git("init", "--quiet")
         cls._git("add", "--all")

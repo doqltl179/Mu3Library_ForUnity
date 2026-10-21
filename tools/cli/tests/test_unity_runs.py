@@ -4,7 +4,8 @@ import shutil
 import unittest
 from pathlib import Path
 
-from fixture_repository import MAPPING, FixtureRepositoryTestCase
+from fixture_repository import MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH.
@@ -130,6 +131,51 @@ class SampleLinkPreflightTests(FixtureRepositoryTestCase):
         copied = mirror / "ProjLeaf" / "Assets" / "Samples"
         self.assertTrue((copied / "Sample.cs").is_file())
         self.assertFalse(is_directory_link(copied))
+
+
+def repository_sample_links() -> dict[str, str]:
+    """Each repository target's samples link, relative to the repository."""
+    return {
+        key: (spec.project_path / spec.samples_link).as_posix()
+        for key, spec in load_target_specs(repo_root()).items()
+        if spec.samples_link is not None
+    }
+
+
+class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
+    """A samples link is an untracked path inside a project's Assets/, so unless Git ignores it,
+    changed selection picks it up on every run."""
+
+    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # The fixture ignores its link with a line written exactly as the repository writes its own.
+        real_link = next(iter(repository_sample_links().values()))
+        real_line = repository_ignore_line(real_link)
+        cls.GITIGNORE_LINES = (real_line.replace(real_link, "ProjLeaf/Assets/Samples"),) if real_line else ()
+        super().setUpClass()
+
+    def test_every_repository_samples_link_is_ignored_in_a_form_that_matches_a_symbolic_link(self) -> None:
+        for key, link in repository_sample_links().items():
+            with self.subTest(target=key):
+                line = repository_ignore_line(link)
+                self.assertIsNotNone(line, f"{link} has no .gitignore line")
+                # Git applies a pattern that ends in / only to real directories.
+                self.assertFalse(line.endswith("/"), line)
+
+    def test_linked_samples_select_no_target(self) -> None:
+        [result] = link_samples({"leaf": load_target_specs(self.root)["leaf"]}, self.root)
+        self.assertTrue(result.ok, result.message)
+        self.addCleanup(remove_directory_link, self.root / "ProjLeaf" / "Assets" / "Samples")
+
+        for entry_point, heading in (("compile-unity.sh", "compile"), ("test-unity.sh", "test")):
+            with self.subTest(entry_point=entry_point):
+                completed = self.run_entry_point(entry_point, "changed", "--dry-run")
+
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                self.assertIn("Git changes inspected: 0", completed.stdout.splitlines(), completed.stdout)
+                self.assertIn(f"Selected {heading} targets: none", completed.stdout.splitlines())
 
 
 def nunit_results(passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 0) -> str:
