@@ -37,7 +37,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `UnityProject_Game_WatermelonGame` | Watermelon Game | `watermelon` |
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
-- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports, and a fresh worktree lacks the sample junctions below. This is why `policy.worktrees` is off.
+- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample junctions below until `commands.worktree_setup` creates them.
 
 ## Directory Map
 
