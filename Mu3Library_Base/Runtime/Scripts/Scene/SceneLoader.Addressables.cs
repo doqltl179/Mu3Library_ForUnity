@@ -157,7 +157,7 @@ namespace Mu3Library.Scene
 
             AsyncOperationHandle<SceneInstance> unloadHandle = Addressables.UnloadSceneAsync(handle, autoReleaseHandle);
             SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, handle, autoReleaseHandle);
-            operation.SceneHandle = handle.Result.Scene.handle;
+            operation.UnityScene = handle.Result.Scene;
             _unloadAdditiveAddressablesSceneOperations.Add(key, operation);
             EmitStatusChanged(operation, force: true);
             return true;
@@ -252,7 +252,7 @@ namespace Mu3Library.Scene
                 FinalizeSingleSceneLoaded(
                     _singleAddressablesSceneOperation,
                     ResolveLoadedSceneName(_singleAddressablesSceneOperation),
-                    ResolveLoadedSceneHandle(_singleAddressablesSceneOperation));
+                    ResolveLoadedScene(_singleAddressablesSceneOperation));
             }
             else
             {
@@ -298,7 +298,7 @@ namespace Mu3Library.Scene
 
                 if (succeeded)
                 {
-                    FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedSceneHandle(operation));
+                    FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedScene(operation));
                 }
                 else
                 {
