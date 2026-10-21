@@ -1,28 +1,29 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Mu3Library.ObjectPool
 {
     public class GameObjectPool<T> where T : Component
     {
-        private readonly struct PooledItem
+        // Reference identity tells pooled objects apart the way their instance IDs did, also after
+        // one is destroyed, without GetInstanceID, which Unity 6.5 rejects, or an Equals override
+        // the component may have. A component normally has one managed wrapper; the rare Editor
+        // case of two wrappers for one native object is not told apart.
+        private sealed class ReferenceComparer : IEqualityComparer<T>
         {
-            public PooledItem(T obj)
-            {
-                Object = obj;
-                InstanceId = obj.GetInstanceID();
-            }
+            public static readonly ReferenceComparer Instance = new();
 
-            public T Object { get; }
+            public bool Equals(T x, T y) => ReferenceEquals(x, y);
 
-            public int InstanceId { get; }
+            public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
         }
 
         private static readonly System.Type ComponentType = typeof(T);
         public System.Type Type => ComponentType;
 
-        private readonly Queue<PooledItem> _pool = new();
-        private readonly HashSet<int> _instanceIds = new();
+        private readonly Queue<T> _pool = new();
+        private readonly HashSet<T> _pooledObjects = new(ReferenceComparer.Instance);
 
         public delegate T Create();
         public delegate void Initialize(T obj);
@@ -108,11 +109,9 @@ namespace Mu3Library.ObjectPool
                 return;
             }
 
-            PooledItem pooledItem = new(obj);
-            int instanceId = pooledItem.InstanceId;
-            if (_instanceIds.Contains(instanceId))
+            if (_pooledObjects.Contains(obj))
             {
-                Debug.LogWarning($"Object with instance ID {instanceId} is already in the pool. Skipping enqueue.");
+                Debug.LogWarning($"Object '{obj.name}' is already in the pool. Skipping enqueue.", obj);
                 return;
             }
 
@@ -126,8 +125,8 @@ namespace Mu3Library.ObjectPool
                 return;
             }
 
-            _instanceIds.Add(instanceId);
-            _pool.Enqueue(pooledItem);
+            _pooledObjects.Add(obj);
+            _pool.Enqueue(obj);
         }
 
         public void Enqueue(List<T> objects)
@@ -150,10 +149,9 @@ namespace Mu3Library.ObjectPool
 
             while (_pool.Count > 0)
             {
-                PooledItem pooledItem = _pool.Dequeue();
-                _instanceIds.Remove(pooledItem.InstanceId);
+                result = _pool.Dequeue();
+                _pooledObjects.Remove(result);
 
-                result = pooledItem.Object;
                 if (result != null)
                 {
                     break;
@@ -201,15 +199,14 @@ namespace Mu3Library.ObjectPool
         {
             while (_pool.Count > 0)
             {
-                PooledItem pooledItem = _pool.Dequeue();
-                T obj = pooledItem.Object;
+                T obj = _pool.Dequeue();
                 if (obj != null)
                 {
                     DestroyPooledObject(obj.gameObject);
                 }
             }
 
-            _instanceIds.Clear();
+            _pooledObjects.Clear();
         }
 
         private static void DestroyPooledObject(GameObject go)

@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-21
+
+### Changed
+- All three development projects run on Unity 6000.6.7f1: `UnityProject_BuiltIn` from 6000.3.10f1, `UnityProject_URP` from 6000.3.10f1, and `UnityProject_Game_WatermelonGame` from 6000.3.17f1. The upgrade raised their Unity packages (URP 17.6.0, Input System 1.20.1, Localization 1.5.13, Mobile Notifications 2.5.0, Timeline 6.6.0, uGUI 2.6.0, and others), added the `physicscore2d`, `tetgen`, and `timelinefoundation` modules, and dropped the `vr` module. UniTask is locked to 2.5.11 (`2e993ff`) in the two projects that install it, the first release whose editor tracker window compiles on 6.6. No development project stays on an older editor, so the packages' `"unity": "6000.0"` floor is no longer compiled locally.
+
+### Fixed
+- The URP project's `packages-lock.json` records the Base version `Mu3Library_URP/package.json` asks for, so compiling the `urp` target no longer rewrites it.
+
 ## 2026-10-11
 
 ### Fixed

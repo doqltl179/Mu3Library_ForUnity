@@ -13,6 +13,15 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- Base: `CoreBase`, `CoreRoot`, `MVPManager`, `Singleton`, `GenericSingleton`은 Unity 6.4부터 `FindObjectsSortMode`를 받지 않는 `FindObjectsByType` 오버로드로 씬 오브젝트를 찾습니다. 6.4에서 이 인자를 받는 오버로드가 obsolete가 되었기 때문입니다. 이전 에디터는 기존 호출을 그대로 쓰므로, 어느 버전에서든 같은 오브젝트를 찾고 정렬하지 않은 채 돌려줍니다.
+- Base: DI 컨테이너의 등록 로그가 Unity 6.6에서 사용 중단된 `DEVELOPMENT_BUILD` 심볼에 더 이상 기대지 않습니다. 에디터는 항상 로그를 남기고, 플레이어는 시작할 때 `Debug.isDebugBuild`를 한 번 읽으므로 이전처럼 development build에서만 로그가 남습니다.
+- Base Editor: Unity 6.4에서 `FindFirstObjectByType`이 사용 중단되어, DI 검증 drawer와 런타임 진단 drawer는 `FindAnyObjectByType`으로 `CoreRoot`를 찾습니다. `AppDomain.GetAssemblies()`는 Unity가 이미 내린 어셈블리까지 돌려줄 수 있어, MVP Helper는 Unity 6.5부터 `CurrentAssemblies.GetLoadedAssemblies()`에서 타입을 찾습니다.
+- Watermelon Game: Unity 6.4에서 `FindFirstObjectByType`이 사용 중단되어, 샘플의 `WatermelonGameManager`는 `FindAnyObjectByType`으로 `BoardController`를 찾습니다. 샘플 씬에는 보드가 하나뿐이라 결과는 같습니다.
+
+### 수정됨
+- Base: 사용하던 API 두 개가 컴파일 오류가 된 Unity 6.5 이후 버전에서 패키지가 컴파일됩니다. `Scene.handle`이 더 이상 `int`로 변환되지 않는 `SceneHandle`이 되어, `SceneLoader`는 작업이 불러오거나 내리는 `Scene` 자체를 들고 씬끼리 비교합니다. `Object.GetInstanceID()`를 쓸 수 없게 되어, `GameObjectPool`은 참조로 풀 안의 오브젝트를 구별합니다. 그래서 컴포넌트가 `Equals`를 재정의해도 영향을 받지 않고, 경고에는 인스턴스 ID 대신 오브젝트 이름을 씁니다. `ObservableDictionaryDrawer`는 `GetInstanceID()`가 사용 중단된 Unity 6.4부터 `GetEntityId()`로 크기 캐시의 키를 만듭니다. 같은 코드가 Unity 6000.0에서도 그대로 컴파일됩니다.
+
 ## [base/0.26.0] - 2026-08-17
 
 ### 추가됨

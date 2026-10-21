@@ -39,7 +39,7 @@ namespace Mu3Library.Editor.Window.Drawer
                     return;
                 }
 
-                CoreRoot coreRoot = UnityEngine.Object.FindFirstObjectByType<CoreRoot>();
+                CoreRoot coreRoot = UnityEngine.Object.FindAnyObjectByType<CoreRoot>();
                 if (coreRoot == null || coreRoot.RegisteredCores.Count == 0)
                 {
                     EditorGUILayout.HelpBox("No registered core found.", MessageType.Info);

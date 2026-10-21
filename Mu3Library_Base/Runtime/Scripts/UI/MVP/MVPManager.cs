@@ -590,7 +590,11 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
+#if UNITY_6000_4_OR_NEWER
+            var eventSystems = MonoBehaviour.FindObjectsByType<EventSystem>(FindObjectsInactive.Include);
+#else
             var eventSystems = MonoBehaviour.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
             foreach (var es in eventSystems)
             {
                 if (es == _eventSystem)

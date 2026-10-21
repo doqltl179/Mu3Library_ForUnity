@@ -36,7 +36,11 @@ namespace Mu3Library.Editor.Observable
             var observableLabel = new GUIContent($"[Observable] {label.text}", label.tooltip);
             EditorGUI.PropertyField(position, entriesProp, observableLabel, true);
 
+#if UNITY_6000_4_OR_NEWER
+            string sizeKey = $"{property.serializedObject.targetObject.GetEntityId()}:{property.propertyPath}";
+#else
             string sizeKey = $"{property.serializedObject.targetObject.GetInstanceID()}:{property.propertyPath}";
+#endif
             if (!_lastEntrySizesByPath.TryGetValue(sizeKey, out int lastSize))
             {
                 lastSize = entriesProp.arraySize;

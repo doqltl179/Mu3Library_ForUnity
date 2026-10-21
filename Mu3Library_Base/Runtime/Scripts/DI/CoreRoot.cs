@@ -19,7 +19,11 @@ namespace Mu3Library.DI
                         // Double-checked locking
                         if (m_instance == null)
                         {
+#if UNITY_6000_4_OR_NEWER
+                            var instances = FindObjectsByType<CoreRoot>();
+#else
                             var instances = FindObjectsByType<CoreRoot>(FindObjectsSortMode.None);
+#endif
                             if (instances.Length == 0)
                             {
                                 GameObject go = new GameObject(typeof(CoreRoot).Name);

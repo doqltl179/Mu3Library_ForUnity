@@ -401,7 +401,11 @@ namespace Mu3Library.Editor.Window.Drawer
                 return false;
             }
 
+#if UNITY_6000_5_OR_NEWER
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
+#else
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+#endif
             foreach (var asm in assemblies)
             {
                 try
