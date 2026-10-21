@@ -37,7 +37,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `UnityProject_Game_WatermelonGame` | Watermelon Game | `watermelon` |
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
-- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample junctions below until `commands.worktree_setup` creates them.
+- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
 
 ## Directory Map
 
@@ -47,7 +47,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `Mu3Library_*/Editor/` | Editor tooling (Base, URP) |
 | `Mu3Library_*/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
 | `Mu3Library_*/Tests/` | EditMode tests (Base, Watermelon Game) |
-| `UnityProject_*/` | Development projects; `Assets/Mu3LibrarySamples*` is a Git-ignored junction to the package's `Samples~`, so each sample has one source |
+| `UnityProject_*/` | Development projects; `Assets/Mu3LibrarySamples*` is a Git-ignored link to the package's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source |
 | `tools/`, `compile-unity.sh`, `unity-cli-packages.tsv` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |
 | `docs/repository/CHANGELOG.md` | Repository workflow and tooling changes, kept out of package release notes |
