@@ -6,7 +6,7 @@ import os
 import subprocess
 import unittest
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from mu3_cli.unity import BashNotFoundError, find_bash
 
@@ -23,10 +23,14 @@ def run_sourced(
     body: str,
     environment: Mapping[str, str] | None = None,
     cwd: Path | None = None,
+    arguments: Sequence[str] = (),
 ) -> subprocess.CompletedProcess[str]:
-    """Source an entry point, which defines its functions without running it, then run body."""
+    """Source an entry point, which defines its functions without running it, then run body.
+
+    Inside body the arguments are the positional parameters.
+    """
     return subprocess.run(
-        [str(bash_or_skip()), "-c", f'source "$1"\n{body}', "harness", str(script)],
+        [str(bash_or_skip()), "-c", f'source "$1"\nshift\n{body}', "harness", str(script), *arguments],
         cwd=cwd or script.parent,
         env=dict(environment if environment is not None else os.environ),
         capture_output=True,

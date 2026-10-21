@@ -206,33 +206,64 @@ either, an existing lock file counts as open.
 EOF
 }
 
+# Removes a checked staging root. On Windows a Unity child process can keep
+# files of the mirror open for a moment after Unity exits, so removal retries
+# briefly. Prints the last removal error and returns 1 when it gives up.
+remove_staging_root() {
+    local staging_root="$1"
+    local attempt
+    local removal_error=""
+
+    for attempt in 1 2 3; do
+        if removal_error="$(rm -rf -- "$staging_root" 2>&1)"; then
+            return 0
+        fi
+        if [[ "$attempt" -lt 3 ]]; then
+            sleep "$attempt"
+        fi
+    done
+
+    printf '%s\n' "${removal_error%%$'\n'*}"
+    return 1
+}
+
+# Removes the isolated mirror of the last run. It never fails: the run's own
+# result decides the exit status, and a mirror it cannot remove only warns.
 cleanup_staging() {
     local staging_root="$STAGING_ROOT"
+    local removal_error
     STAGING_ROOT=""
     RUN_PROJECT_PATH=""
 
     if [[ -z "$staging_root" ]]; then
-        return
+        return 0
     fi
 
     if [[ "$KEEP_STAGING" -eq 1 ]]; then
         printf 'Kept isolated project: %s\n' "$staging_root"
-        return
+        return 0
     fi
 
     if [[ ! -f "$staging_root/.mu3library-unity-compile" ]]; then
         printf 'warning: refusing to remove unrecognized staging path: %s\n' "$staging_root" >&2
-        return
+        return 0
     fi
 
     case "$(basename "$staging_root")" in
         mu3library-unity-compile.*)
-            rm -rf -- "$staging_root"
+            if ! removal_error="$(remove_staging_root "$staging_root")"; then
+                printf 'warning: could not remove the isolated project; delete it by hand: %s\n' "$staging_root" >&2
+                if [[ -n "$removal_error" ]]; then
+                    printf 'warning: %s\n' "$removal_error" >&2
+                fi
+            fi
             ;;
         *)
             printf 'warning: refusing to remove unsafe staging path: %s\n' "$staging_root" >&2
             ;;
     esac
+
+    return 0
 }
 
 add_changed_file() {
