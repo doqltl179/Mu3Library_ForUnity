@@ -6,9 +6,10 @@ namespace Mu3Library.ObjectPool
 {
     public class GameObjectPool<T> where T : Component
     {
-        // Unity keeps one managed object per native object, so reference identity tells pooled
-        // objects apart the way their instance IDs did, also after one is destroyed, without
-        // GetInstanceID, which Unity 6.5 rejects, or an Equals override the component may have.
+        // Reference identity tells pooled objects apart the way their instance IDs did, also after
+        // one is destroyed, without GetInstanceID, which Unity 6.5 rejects, or an Equals override
+        // the component may have. A component normally has one managed wrapper; the rare Editor
+        // case of two wrappers for one native object is not told apart.
         private sealed class ReferenceComparer : IEqualityComparer<T>
         {
             public static readonly ReferenceComparer Instance = new();
