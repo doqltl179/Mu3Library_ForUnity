@@ -70,7 +70,11 @@ namespace Mu3Library.DI
             if (_dontDestroyOnLoad)
             {
                 Type instanceType = GetType();
+#if UNITY_6000_4_OR_NEWER
+                int instanceCount = FindObjectsByType(instanceType, FindObjectsInactive.Include).Length;
+#else
                 int instanceCount = FindObjectsByType(instanceType, FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+#endif
                 if (instanceCount > 1)
                 {
                     Debug.LogWarning($"Core is set as global, but multiple instances of {instanceType.Name} detected. There should only be one in the scene.", this);

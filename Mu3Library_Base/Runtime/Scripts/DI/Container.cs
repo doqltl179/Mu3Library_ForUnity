@@ -327,13 +327,15 @@ namespace Mu3Library.DI
                 existingIndices.Add(newIndex);
             }
 
-            // Log registration (optional, can be disabled for production)
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
-            string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
-            string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
-            Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
-#endif
+            // Log registration (optional, can be disabled for production). Unity 6.6 deprecates
+            // the DEVELOPMENT_BUILD symbol; isDebugBuild is true in the Editor and development builds.
+            if (Debug.isDebugBuild)
+            {
+                string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
+                string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
+                string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
+                Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
+            }
         }
     }
 }
