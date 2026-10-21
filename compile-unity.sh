@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 
+# Compiles the development projects with the Unity Editor in batch mode.
+# Other entry points source this file for its target selection, Editor lookup,
+# and isolated mirror; compile_main at the bottom runs only when it is executed.
+
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$SCRIPT_DIR"
 readonly PACKAGE_CONFIG="$REPO_ROOT/unity-cli-packages.tsv"
 
+# The word the selection messages use for what the entry point does with a target.
+SELECTION_LABEL="compile"
 TARGET="changed"
 TARGET_WAS_SET=0
 BASE_REF=""
@@ -14,6 +20,7 @@ DRY_RUN=0
 KEEP_STAGING=0
 STAGING_ROOT=""
 RUN_PROJECT_PATH=""
+UNITY_STATUS=0
 
 TARGET_KEYS=()
 PACKAGE_PATHS=()
@@ -265,7 +272,7 @@ select_target() {
     local selected_target
 
     target_index "$requested_target" >/dev/null \
-        || fail "unknown compile target: $requested_target"
+        || fail "unknown $SELECTION_LABEL target: $requested_target"
 
     if [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]]; then
         for selected_target in "${SELECTED_TARGETS[@]}"; do
@@ -423,11 +430,11 @@ print_selection() {
     fi
 
     if [[ "${#SELECTED_TARGETS[@]}" -eq 0 ]]; then
-        printf 'Selected compile targets: none\n'
+        printf 'Selected %s targets: none\n' "$SELECTION_LABEL"
         return
     fi
 
-    printf 'Selected compile targets:\n'
+    printf 'Selected %s targets:\n' "$SELECTION_LABEL"
     for selected_target in "${SELECTED_TARGETS[@]}"; do
         printf '  - %s: %s -> %s\n' \
             "$selected_target" \
@@ -611,15 +618,19 @@ prepare_isolated_project() {
     RUN_PROJECT_PATH="$staging_project"
 }
 
-compile_target() {
+# Runs Unity in batch mode for one target, in place or in an isolated mirror,
+# with the arguments that follow the verb, and leaves its exit code in
+# UNITY_STATUS. The mirror is removed before this returns.
+run_unity_for_target() {
     local target_key="$1"
+    local verb="$2"
     local unity_path
     local project_path
     local run_project_path
     local use_isolated=0
     local isolated_reason
-    local unity_status
 
+    shift 2
     project_path="$(project_path_for_target "$target_key")" || return 1
     run_project_path="$REPO_ROOT/$project_path"
     unity_path="$(unity_executable "$target_key")"
@@ -649,10 +660,10 @@ compile_target() {
 
         prepare_isolated_project "$target_key"
         run_project_path="$RUN_PROJECT_PATH"
-        printf 'Compiling %s (%s) in an isolated mirror because %s.\n' \
-            "$target_key" "$project_path" "$isolated_reason"
+        printf '%s %s (%s) in an isolated mirror because %s.\n' \
+            "$verb" "$target_key" "$project_path" "$isolated_reason"
     else
-        printf 'Compiling %s (%s) in place.\n' "$target_key" "$project_path"
+        printf '%s %s (%s) in place.\n' "$verb" "$target_key" "$project_path"
     fi
 
     printf 'Unity: %s\n' "$unity_path"
@@ -661,95 +672,120 @@ compile_target() {
     set +e
     "$unity_path" \
         -batchmode \
-        -quit \
         -projectPath "$run_project_path" \
+        "$@" \
         -logFile -
-    unity_status=$?
+    UNITY_STATUS=$?
     set -e
 
     cleanup_staging
+}
 
-    if [[ "$unity_status" -ne 0 ]]; then
-        printf 'error: Unity compilation failed for %s (exit %d)\n' "$target_key" "$unity_status" >&2
-        return "$unity_status"
+compile_target() {
+    local target_key="$1"
+
+    run_unity_for_target "$target_key" "Compiling" -quit
+
+    if [[ "$UNITY_STATUS" -ne 0 ]]; then
+        printf 'error: Unity compilation failed for %s (exit %d)\n' "$target_key" "$UNITY_STATUS" >&2
+        return "$UNITY_STATUS"
     fi
 
     printf 'Unity compilation succeeded: %s\n' "$target_key"
 }
 
-load_package_config
+parse_arguments() {
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --base)
+                shift
+                [[ "$#" -gt 0 ]] || fail "--base requires a Git ref"
+                BASE_REF="$1"
+                ;;
+            --dry-run)
+                DRY_RUN=1
+                ;;
+            --isolated)
+                RUN_MODE="isolated"
+                ;;
+            --in-place)
+                RUN_MODE="in-place"
+                ;;
+            --keep-staging)
+                KEEP_STAGING=1
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            --*)
+                fail "unknown option: $1"
+                ;;
+            *)
+                [[ "$TARGET_WAS_SET" -eq 0 ]] || fail "only one $SELECTION_LABEL target may be specified"
+                TARGET="$1"
+                TARGET_WAS_SET=1
+                ;;
+        esac
+        shift
+    done
 
-while [[ "$#" -gt 0 ]]; do
-    case "$1" in
-        --base)
-            shift
-            [[ "$#" -gt 0 ]] || fail "--base requires a Git ref"
-            BASE_REF="$1"
-            ;;
-        --dry-run)
-            DRY_RUN=1
-            ;;
-        --isolated)
-            RUN_MODE="isolated"
-            ;;
-        --in-place)
-            RUN_MODE="in-place"
-            ;;
-        --keep-staging)
-            KEEP_STAGING=1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        --*)
-            fail "unknown option: $1"
-            ;;
-        *)
-            [[ "$TARGET_WAS_SET" -eq 0 ]] || fail "only one compile target may be specified"
-            TARGET="$1"
-            TARGET_WAS_SET=1
-            ;;
-    esac
-    shift
-done
-
-if [[ -n "$BASE_REF" && "$TARGET" != "changed" ]]; then
-    fail "--base can only be used with the changed target"
-fi
-
-if [[ "$TARGET" == "changed" ]]; then
-    select_changed_targets
-elif [[ "$TARGET" == "all" ]]; then
-    select_all_targets
-else
-    select_target "$TARGET"
-fi
-
-print_selection
-
-if [[ "$DRY_RUN" -eq 1 ]]; then
-    exit 0
-fi
-
-if [[ "${#SELECTED_TARGETS[@]}" -eq 0 ]]; then
-    printf 'No Unity package or development-project changes detected; nothing to compile.\n'
-    exit 0
-fi
-
-trap cleanup_staging EXIT
-
-preflight_failed=0
-for target_key in "${SELECTED_TARGETS[@]}"; do
-    if ! unity_executable "$target_key" >/dev/null; then
-        preflight_failed=1
+    if [[ -n "$BASE_REF" && "$TARGET" != "changed" ]]; then
+        fail "--base can only be used with the changed target"
     fi
-done
+}
 
-if [[ "$preflight_failed" -ne 0 ]]; then
-    fail "Unity Editor preflight failed; no projects were compiled"
+select_requested_targets() {
+    if [[ "$TARGET" == "changed" ]]; then
+        select_changed_targets
+    elif [[ "$TARGET" == "all" ]]; then
+        select_all_targets
+    else
+        select_target "$TARGET"
+    fi
+}
+
+# Checks every selected target before Unity starts, so that a missing Editor
+# does not surface only after earlier targets have spent minutes running.
+preflight_selected_targets() {
+    local target_key
+    local preflight_failed=0
+
+    for target_key in "${SELECTED_TARGETS[@]}"; do
+        if ! unity_executable "$target_key" >/dev/null; then
+            preflight_failed=1
+        fi
+    done
+
+    [[ "$preflight_failed" -eq 0 ]]
+}
+
+compile_main() {
+    local target_key
+
+    load_package_config
+    parse_arguments "$@"
+    select_requested_targets
+    print_selection
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        exit 0
+    fi
+
+    if [[ "${#SELECTED_TARGETS[@]}" -eq 0 ]]; then
+        printf 'No Unity package or development-project changes detected; nothing to compile.\n'
+        exit 0
+    fi
+
+    trap cleanup_staging EXIT
+
+    preflight_selected_targets || fail "Unity Editor preflight failed; no projects were compiled"
+
+    for target_key in "${SELECTED_TARGETS[@]}"; do
+        compile_target "$target_key"
+    done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    compile_main "$@"
 fi
-
-for target_key in "${SELECTED_TARGETS[@]}"; do
-    compile_target "$target_key"
-done
