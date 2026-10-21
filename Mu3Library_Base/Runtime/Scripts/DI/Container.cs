@@ -29,7 +29,23 @@ namespace Mu3Library.DI
             typeof(ILateUpdatable),
         };
 
+        // The registration log ran in the Editor and in development builds behind
+        // UNITY_EDITOR || DEVELOPMENT_BUILD, a symbol Unity 6.6 deprecates. Debug.isDebugBuild
+        // may only be read on the main thread while a container can be filled from any thread,
+        // so a player reads it once at startup.
+#if UNITY_EDITOR
+        private static bool _logsRegistrations = true;
+#else
+        private static bool _logsRegistrations;
+#endif
 
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void CacheLogsRegistrations()
+        {
+            _logsRegistrations = Debug.isDebugBuild;
+        }
 
         public Container(CoreBase owner)
         {
@@ -327,9 +343,8 @@ namespace Mu3Library.DI
                 existingIndices.Add(newIndex);
             }
 
-            // Log registration (optional, can be disabled for production). Unity 6.6 deprecates
-            // the DEVELOPMENT_BUILD symbol; isDebugBuild is true in the Editor and development builds.
-            if (Debug.isDebugBuild)
+            // Log registration (optional, can be disabled for production)
+            if (_logsRegistrations)
             {
                 string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
                 string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
