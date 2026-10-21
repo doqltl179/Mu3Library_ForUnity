@@ -48,8 +48,10 @@ Options:
 
 A project runs the tests of the packages its Packages/manifest.json lists under
 "testables"; a selected project that lists none is skipped. Each run writes
-NUnit XML results to log/unity-tests/<target>-editmode.xml. Every selected
-target runs even after an earlier one fails, and a summary closes the run.
+NUnit XML results to log/unity-tests/<target>-editmode.xml. A failed test or
+Unity run does not stop the remaining targets, and a summary closes the run;
+a target that cannot start, such as an open project under --in-place or a
+mirror that cannot be copied, stops the script at once.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), the sample-link check, and the environment variables work as in
