@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -30,15 +31,31 @@ PROJECT_PACKAGES = {
 }
 
 
-def selected_targets(output: str) -> list[str]:
-    targets: list[str] = []
-    in_selection = False
+# The script checks who holds a lock file with PowerShell on Windows and lsof elsewhere.
+CAN_CHECK_LOCK_HOLDERS = platform.system() == "Windows" or shutil.which("lsof") is not None
+
+
+def section_entries(output: str, heading: str) -> list[tuple[str, str]]:
+    """Return the `  - key: value` lines that follow a heading, up to the first other line."""
+    entries: list[tuple[str, str]] = []
+    in_section = False
     for line in output.splitlines():
-        if line.startswith("Selected compile targets:"):
-            in_selection = True
-        elif in_selection and line.startswith("  - "):
-            targets.append(line[4:].split(":", 1)[0])
-    return targets
+        if line.startswith(heading):
+            in_section = True
+        elif in_section and line.startswith("  - "):
+            key, _, value = line[4:].partition(": ")
+            entries.append((key, value))
+        elif in_section:
+            break
+    return entries
+
+
+def selected_targets(output: str) -> list[str]:
+    return [key for key, _ in section_entries(output, "Selected compile targets:")]
+
+
+def run_plan(output: str) -> dict[str, str]:
+    return dict(section_entries(output, "Run plan:"))
 
 
 class ChangedSelectionTests(unittest.TestCase):
@@ -135,7 +152,17 @@ class ChangedSelectionTests(unittest.TestCase):
         added.write_text("// change under test\n", encoding="utf-8")
         self.addCleanup(added.unlink)
 
-        command = compile_script_command(self.root / self.script_name, ["changed", "--dry-run"])
+        return self.run_script("changed", "--dry-run")
+
+    def write_lock_file(self, project: str) -> Path:
+        lock_file = self.root / project / "Temp" / "UnityLockfile"
+        lock_file.parent.mkdir(parents=True)
+        lock_file.write_text("", encoding="utf-8")
+        self.addCleanup(shutil.rmtree, lock_file.parent)
+        return lock_file
+
+    def run_script(self, *arguments: str) -> str:
+        command = compile_script_command(self.root / self.script_name, list(arguments))
         completed = subprocess.run(
             command,
             cwd=self.root,
@@ -196,6 +223,40 @@ class ChangedSelectionTests(unittest.TestCase):
 
         self.assertEqual([], selected_targets(output))
         self.assertIn("Selected compile targets: none", output.splitlines())
+
+    def test_closed_project_runs_in_place(self) -> None:
+        output = self.run_script("leaf", "--dry-run")
+
+        self.assertEqual({"leaf": "in place"}, run_plan(output))
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_stale_lock_file_runs_in_place(self) -> None:
+        self.write_lock_file("ProjLeaf")
+
+        output = self.run_script("leaf", "--dry-run")
+
+        self.assertEqual(
+            "in place, ignoring a stale ProjLeaf/Temp/UnityLockfile that no running process holds",
+            run_plan(output)["leaf"],
+        )
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_held_lock_file_runs_in_an_isolated_mirror(self) -> None:
+        lock_file = self.write_lock_file("ProjLeaf")
+
+        with lock_file.open("rb"):
+            output = self.run_script("leaf", "--dry-run")
+
+        self.assertEqual("isolated mirror, because ProjLeaf is open in Unity", run_plan(output)["leaf"])
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_in_place_refuses_a_project_whose_lock_is_held(self) -> None:
+        lock_file = self.write_lock_file("ProjLeaf")
+
+        with lock_file.open("rb"):
+            output = self.run_script("leaf", "--in-place", "--dry-run")
+
+        self.assertTrue(run_plan(output)["leaf"].startswith("cannot run: ProjLeaf is open in Unity;"), output)
 
 
 if __name__ == "__main__":

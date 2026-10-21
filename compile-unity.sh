@@ -20,6 +20,8 @@ DRY_RUN=0
 KEEP_STAGING=0
 STAGING_ROOT=""
 RUN_PROJECT_PATH=""
+RUN_LOCATION=""
+RUN_NOTE=""
 UNITY_STATUS=0
 
 TARGET_KEYS=()
@@ -168,7 +170,8 @@ EOF
 
 Options:
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
-  --dry-run         Print changed files and selected targets without Unity.
+  --dry-run         Print changed files, selected targets, and where each
+                    target would run, without Unity.
   --isolated        Always compile a temporary source-only project mirror.
   --in-place        Compile the repository project directly; fail if it is open.
   --keep-staging    Keep an isolated project after the run for diagnostics.
@@ -189,6 +192,10 @@ references it, because each project compiles it with different defines.
 The default execution mode compiles in place when a project is closed. If the
 same project is open in Unity, it compiles a temporary mirror instead, leaving
 the running editor, repository packages, and repository Library untouched.
+A project counts as open while a process holds its Temp/UnityLockfile; a lock
+file that no process holds, left by an Editor that crashed, is reported and
+ignored. On Windows PowerShell checks the holder, elsewhere lsof does; without
+either, an existing lock file counts as open.
 EOF
 }
 
@@ -535,12 +542,160 @@ unity_executable() {
     printf '%s\n' "$candidate"
 }
 
-project_is_open() {
+# Prints held when some process has the file open, free when none does, gone
+# when the file no longer exists, or unknown when this host cannot tell.
+file_holder_state() {
+    local file="$1"
+    local quoted_path
+    local holders
+    local probe_status=0
+
+    case "$(host_platform)" in
+        windows)
+            if ! command -v powershell.exe >/dev/null 2>&1; then
+                printf 'unknown\n'
+                return 0
+            fi
+
+            # Opening the file without sharing fails with a sharing violation
+            # (HRESULT 0x80070020) for as long as any other handle is open.
+            quoted_path="$(to_windows_path "$file")"
+            quoted_path=${quoted_path//\'/\'\'}
+            powershell.exe -NoLogo -NoProfile -NonInteractive -Command "
+                try {
+                    [System.IO.File]::Open('$quoted_path', 'Open', 'Read', 'None').Dispose()
+                    exit 0
+                } catch {
+                    \$cause = \$_.Exception
+                    while (\$cause.InnerException) { \$cause = \$cause.InnerException }
+                    if (\$cause.HResult -eq -2147024864) { exit 3 }
+                    if (\$cause -is [System.IO.FileNotFoundException] -or \$cause -is [System.IO.DirectoryNotFoundException]) { exit 4 }
+                    exit 5
+                }" >/dev/null 2>&1 || probe_status=$?
+
+            case "$probe_status" in
+                0) printf 'free\n' ;;
+                3) printf 'held\n' ;;
+                4) printf 'gone\n' ;;
+                *) printf 'unknown\n' ;;
+            esac
+            ;;
+        *)
+            if ! command -v lsof >/dev/null 2>&1; then
+                printf 'unknown\n'
+                return 0
+            fi
+
+            holders="$(lsof -t -- "$file" 2>/dev/null || true)"
+            if [[ -n "$holders" ]]; then
+                printf 'held\n'
+            elif [[ -e "$file" ]]; then
+                printf 'free\n'
+            else
+                printf 'gone\n'
+            fi
+            ;;
+    esac
+}
+
+# Prints absent, open, stale, or unknown for the project's Temp/UnityLockfile.
+# A running Editor keeps the file open, so a lock file that no process holds
+# was left behind by an Editor that crashed or was killed.
+project_lock_state() {
     local target_key="$1"
     local project_path
+    local lock_file
 
     project_path="$(project_path_for_target "$target_key")" || return 1
-    [[ -e "$REPO_ROOT/$project_path/Temp/UnityLockfile" ]]
+    lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
+
+    if [[ ! -e "$lock_file" ]]; then
+        printf 'absent\n'
+        return 0
+    fi
+
+    case "$(file_holder_state "$lock_file")" in
+        held) printf 'open\n' ;;
+        free) printf 'stale\n' ;;
+        gone) printf 'absent\n' ;;
+        *) printf 'unknown\n' ;;
+    esac
+}
+
+# Decides where a target runs: sets RUN_LOCATION to in-place or isolated and
+# RUN_NOTE to the reason printed with it. Returns 1, with the error in
+# RUN_NOTE, when --in-place meets a project that an Editor may hold.
+decide_run_location() {
+    local target_key="$1"
+    local project_path
+    local held_reason=""
+
+    project_path="$(project_path_for_target "$target_key")" || return 1
+    RUN_LOCATION="in-place"
+    RUN_NOTE=""
+
+    case "$(project_lock_state "$target_key")" in
+        open)
+            held_reason="$project_path is open in Unity"
+            ;;
+        unknown)
+            held_reason="$project_path/Temp/UnityLockfile exists and whether an Editor holds it could not be checked"
+            ;;
+        stale)
+            RUN_NOTE="ignoring a stale $project_path/Temp/UnityLockfile that no running process holds"
+            ;;
+    esac
+
+    case "$RUN_MODE" in
+        isolated)
+            RUN_LOCATION="isolated"
+            RUN_NOTE="it was requested"
+            ;;
+        in-place)
+            if [[ -n "$held_reason" ]]; then
+                RUN_NOTE="$held_reason; close it or omit --in-place to use an isolated mirror"
+                return 1
+            fi
+            ;;
+        auto)
+            if [[ -n "$held_reason" ]]; then
+                RUN_LOCATION="isolated"
+                RUN_NOTE="$held_reason"
+            fi
+            ;;
+    esac
+}
+
+# Prints where a dry run would run the target.
+run_location_phrase() {
+    local target_key="$1"
+
+    if ! decide_run_location "$target_key"; then
+        printf 'cannot run: %s\n' "$RUN_NOTE"
+    elif [[ "$RUN_LOCATION" == "isolated" ]]; then
+        printf 'isolated mirror, because %s\n' "$RUN_NOTE"
+    elif [[ -n "$RUN_NOTE" ]]; then
+        printf 'in place, %s\n' "$RUN_NOTE"
+    else
+        printf 'in place\n'
+    fi
+}
+
+# One target's line in the dry-run plan; an entry point that sources this file
+# can replace it to add its own conditions.
+run_plan_entry() {
+    run_location_phrase "$1"
+}
+
+print_run_plan() {
+    local target_key
+
+    [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]] || return 0
+
+    printf 'Run plan:\n'
+    for target_key in "${SELECTED_TARGETS[@]}"; do
+        printf '  - %s: %s\n' "$target_key" "$(run_plan_entry "$target_key")"
+    done
 }
 
 # Copies the contents of a directory, following symlinks so that the samples
@@ -627,41 +782,23 @@ run_unity_for_target() {
     local unity_path
     local project_path
     local run_project_path
-    local use_isolated=0
-    local isolated_reason
 
     shift 2
     project_path="$(project_path_for_target "$target_key")" || return 1
     run_project_path="$REPO_ROOT/$project_path"
     unity_path="$(unity_executable "$target_key")"
 
-    case "$RUN_MODE" in
-        isolated)
-            use_isolated=1
-            ;;
-        in-place)
-            if project_is_open "$target_key"; then
-                fail "$project_path is open in Unity; close it or omit --in-place to use an isolated mirror"
-            fi
-            ;;
-        auto)
-            if project_is_open "$target_key"; then
-                use_isolated=1
-            fi
-            ;;
-    esac
+    if ! decide_run_location "$target_key"; then
+        fail "$RUN_NOTE"
+    fi
 
-    if [[ "$use_isolated" -eq 1 ]]; then
-        if [[ "$RUN_MODE" == "isolated" ]]; then
-            isolated_reason="it was requested"
-        else
-            isolated_reason="the project is open"
-        fi
-
+    if [[ "$RUN_LOCATION" == "isolated" ]]; then
         prepare_isolated_project "$target_key"
         run_project_path="$RUN_PROJECT_PATH"
         printf '%s %s (%s) in an isolated mirror because %s.\n' \
-            "$verb" "$target_key" "$project_path" "$isolated_reason"
+            "$verb" "$target_key" "$project_path" "$RUN_NOTE"
+    elif [[ -n "$RUN_NOTE" ]]; then
+        printf '%s %s (%s) in place, %s.\n' "$verb" "$target_key" "$project_path" "$RUN_NOTE"
     else
         printf '%s %s (%s) in place.\n' "$verb" "$target_key" "$project_path"
     fi
@@ -769,6 +906,7 @@ compile_main() {
     print_selection
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
+        print_run_plan
         exit 0
     fi
 
