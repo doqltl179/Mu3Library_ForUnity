@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from fixture_repository import MAPPING, FixtureRepositoryTestCase
+from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH.
 FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
@@ -68,6 +69,65 @@ sleep() { :; }
         self.assertNotIn("could not remove", completed.stderr)
         self.assertEqual("xxx", (self.mirror_directory / "removal-attempts").read_text(encoding="utf-8"))
         self.assertEqual([], self.mirrors_left())
+
+
+class SampleLinkPreflightTests(FixtureRepositoryTestCase):
+    """A project whose samples link is missing must not compile as if it had its samples."""
+
+    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
+
+    def link_leaf_samples(self) -> None:
+        specs = load_target_specs(self.root)
+        [result] = link_samples({"leaf": specs["leaf"]}, self.root)
+        self.assertTrue(result.ok, result.message)
+        self.addCleanup(remove_directory_link, self.root / "ProjLeaf" / "Assets" / "Samples")
+
+    def test_missing_link_stops_the_run_before_unity_starts(self) -> None:
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=self.unity_environment())
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("error: leaf: ProjLeaf/Assets/Samples is missing, so its samples would not compile.", completed.stderr)
+        self.assertIn("unity link-samples", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_without_samples_runs_and_says_what_it_left_out(self) -> None:
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", "--without-samples", environment=self.unity_environment()
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("leaf: ProjLeaf/Assets/Samples is missing, so its samples are left out", completed.stderr)
+        self.assertIn("fake unity ran", completed.stdout)
+
+    def test_dry_run_warns_about_a_missing_link(self) -> None:
+        completed = self.run_entry_point("compile-unity.sh", "leaf", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("warning: leaf: ProjLeaf/Assets/Samples is missing", completed.stderr)
+
+    def test_real_folder_in_place_of_the_link_stops_the_run(self) -> None:
+        folder = self.root / "ProjLeaf" / "Assets" / "Samples"
+        folder.mkdir()
+        self.addCleanup(folder.rmdir)
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=self.unity_environment())
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("ProjLeaf/Assets/Samples does not link to PkgLeaf/Samples~", completed.stderr)
+
+    def test_linked_samples_are_copied_into_the_isolated_mirror(self) -> None:
+        self.link_leaf_samples()
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", "--isolated", "--keep-staging", environment=self.unity_environment()
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("Samples", completed.stderr)
+        [mirror] = self.mirrors_left()
+        copied = mirror / "ProjLeaf" / "Assets" / "Samples"
+        self.assertTrue((copied / "Sample.cs").is_file())
+        self.assertFalse(is_directory_link(copied))
 
 
 if __name__ == "__main__":

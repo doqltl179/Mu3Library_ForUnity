@@ -56,6 +56,9 @@ exit "${FAKE_UNITY_STATUS:-0}"
 class FixtureRepositoryTestCase(unittest.TestCase):
     """Builds the fixture once per class; tests remove whatever they add to it."""
 
+    # Targets whose project links to the package's Samples~ folder, as the fourth mapping column.
+    SAMPLE_LINKS: dict[str, str] = {}
+
     root: Path
     fake_unity: Path
     git_config: Path
@@ -90,11 +93,19 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             if (repo_root() / entry_point).is_file():
                 shutil.copy2(repo_root() / entry_point, cls.root / entry_point)
         (cls.root / "unity-cli-packages.tsv").write_text(
-            "".join(f"{key}\t{package}\t{project}\n" for key, package, project in MAPPING),
+            "".join(
+                "\t".join([key, package, project, *([cls.SAMPLE_LINKS[key]] if key in cls.SAMPLE_LINKS else [])]) + "\n"
+                for key, package, project in MAPPING
+            ),
             encoding="utf-8",
             newline="\n",
         )
-        for _, package, project in MAPPING:
+        for key, package, project in MAPPING:
+            if key in cls.SAMPLE_LINKS:
+                samples = cls.root / package / "Samples~"
+                samples.mkdir(parents=True)
+                (samples / "Sample.cs").write_text("// sample\n", encoding="utf-8")
+
             runtime = cls.root / package / "Runtime"
             runtime.mkdir(parents=True)
             (runtime / "Code.cs").write_text("// fixture\n", encoding="utf-8")

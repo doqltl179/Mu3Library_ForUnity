@@ -11,6 +11,27 @@ Generated files under `bin/`, `obj/`, `.venv/`, and `*.egg-info/` are local arti
 
 Run `mu3-cli repo check` before sharing repository-level documentation or agent-framework changes. It replaces the former remote repository-hygiene workflow with its useful checks at the local tooling boundary.
 
+## Fresh Clone Setup
+
+A new clone or worktree holds only tracked files. Set it up in this order before the first Unity run:
+
+1. Install the Unity Editor version that each `UnityProject_*/ProjectSettings/ProjectVersion.txt` names through Unity Hub, and on Windows Git for Windows, whose bash runs the shell entrypoint.
+2. Install Python 3.10 or later and the CLI's one dependency, `typer`: `python -m pip install -e tools/cli` installs both, or follow the virtual-environment flow in [cli/README.md](cli/README.md#environment-bootstrap). Every command below also runs without installing the CLI, from the repository root with `PYTHONPATH=tools/cli/src python -m mu3_cli` in place of `mu3-cli`.
+3. Link the package samples into the development projects. This is the project's `commands.worktree_setup`:
+
+   ```bash
+   PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples
+   ```
+
+   Each development project sees its package's samples only through a Git-ignored link from `Assets/` to the package's `Samples~` folder, which Unity skips on its own; the fourth column of `unity-cli-packages.tsv` names the link. The command creates a junction on Windows and a relative symbolic link elsewhere, leaves a correct link alone, replaces a link that points elsewhere, and stops without touching a real folder of the same name. `compile-unity.sh` refuses to run a project whose link is missing unless `--without-samples` is given, so a compile without the samples never passes silently.
+4. Check the environment; every line should pass:
+
+   ```bash
+   PYTHONPATH=tools/cli/src python -m mu3_cli unity doctor
+   ```
+
+5. Compile: `./compile-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first.
+
 ## Unity Compile Entrypoint
 
 The default command compiles the development projects selected from staged, unstaged, and untracked Git changes:

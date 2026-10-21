@@ -8,7 +8,8 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 
 - `repo info`: print key repository roots and the agent kit and overlay locations.
 - `repo check`: validate repository document layout, README links, stale routing references, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
-- `unity doctor`: diagnose package mappings, Unity projects, required Editors, installed modules, project locks, and log readiness.
+- `unity doctor`: diagnose bash, package mappings, sample links, Unity projects, required Editors, installed modules, project locks, and log readiness.
+- `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
 

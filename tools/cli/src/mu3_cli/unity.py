@@ -26,6 +26,12 @@ class UnityTargetSpec:
     key: str
     package_path: Path
     project_path: Path
+    # Where the project links to the package's Samples~ folder, relative to the project.
+    samples_link: Path | None = None
+
+    @property
+    def samples_path(self) -> Path:
+        return self.package_path / "Samples~"
 
 
 @dataclass(frozen=True)
@@ -63,11 +69,13 @@ def load_target_specs(root: Path | None = None) -> dict[str, UnityTargetSpec]:
         if not raw_line or raw_line.startswith("#"):
             continue
 
+        # The fourth column, the samples link, is optional.
         columns = raw_line.split("\t")
-        if len(columns) != 3 or not all(columns):
+        if len(columns) not in (3, 4) or not all(columns[:3]):
             raise ValueError(f"Invalid Unity package mapping at {config_path}:{line_number}")
 
-        key, package_value, project_value = columns
+        key, package_value, project_value = columns[:3]
+        samples_value = columns[3] if len(columns) == 4 else ""
         if not TARGET_PATTERN.fullmatch(key) or key in RESERVED_TARGETS:
             raise ValueError(f"Invalid or reserved Unity target '{key}' at {config_path}:{line_number}")
         if key in specs:
@@ -77,6 +85,7 @@ def load_target_specs(root: Path | None = None) -> dict[str, UnityTargetSpec]:
             key=key,
             package_path=_safe_relative_path(package_value, line_number),
             project_path=_safe_relative_path(project_value, line_number),
+            samples_link=_safe_relative_path(samples_value, line_number) if samples_value else None,
         )
 
     if not specs:
@@ -378,6 +387,168 @@ def project_lock_diagnostic(
     return _diagnostic("PASS", spec.key, "Project lock", "Project is not locked.")
 
 
+_WINDOWS_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+LINK_SAMPLES_COMMAND = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+
+
+def is_directory_link(path: Path) -> bool:
+    """Whether path is a symbolic link or, on Windows, a directory junction, even a dangling one."""
+    if path.is_symlink():
+        return True
+    try:
+        status = os.lstat(path)
+    except OSError:
+        return False
+    return getattr(status, "st_reparse_tag", 0) == _WINDOWS_REPARSE_TAG_MOUNT_POINT
+
+
+def _link_destination(path: Path) -> str:
+    try:
+        destination = os.readlink(path)
+    except OSError:
+        return "an unreadable destination"
+    return destination.removeprefix("\\\\?\\")
+
+
+@dataclass(frozen=True)
+class SampleLinkState:
+    """linked, missing, misdirected (a link elsewhere or to nothing), blocked (a real folder or file), or no-samples."""
+
+    state: str
+    detail: str
+
+
+def sample_link_state(spec: UnityTargetSpec, root: Path) -> SampleLinkState | None:
+    """Unity skips folders whose name ends in ~, so a project compiles a package's samples only
+    through a link from its Assets folder to Samples~. Returns None for a target without one."""
+    if spec.samples_link is None:
+        return None
+
+    link_label = (spec.project_path / spec.samples_link).as_posix()
+    samples_label = spec.samples_path.as_posix()
+    link_path = root / spec.project_path / spec.samples_link
+    samples_path = root / spec.samples_path
+
+    if not samples_path.is_dir():
+        return SampleLinkState("no-samples", f"{samples_label} does not exist.")
+    if is_directory_link(link_path):
+        if link_path.exists() and os.path.samefile(link_path, samples_path):
+            return SampleLinkState("linked", f"{link_label} links to {samples_label}.")
+        return SampleLinkState(
+            "misdirected", f"{link_label} links to {_link_destination(link_path)} instead of {samples_label}."
+        )
+    if link_path.exists():
+        kind = "folder" if link_path.is_dir() else "file"
+        return SampleLinkState("blocked", f"{link_label} is a real {kind}, not a link to {samples_label}.")
+    return SampleLinkState(
+        "missing", f"{link_label} is missing, so the project does not compile the samples in {samples_label}."
+    )
+
+
+def create_directory_link(link_path: Path, target: Path) -> None:
+    """Link link_path to the target folder.
+
+    Windows gets a junction, which needs neither administrator rights nor Developer Mode and
+    takes an absolute target. Elsewhere a relative symbolic link keeps working after the
+    checkout moves.
+    """
+    if platform.system() == "Windows":
+        completed = subprocess.run(
+            ["cmd", "/d", "/c", "mklink", "/J", str(link_path), str(target)],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise OSError(f"mklink /J failed: {(completed.stderr or completed.stdout).strip()}")
+        return
+
+    os.symlink(os.path.relpath(target, link_path.parent), link_path, target_is_directory=True)
+
+
+def remove_directory_link(link_path: Path) -> None:
+    """Remove the link itself; neither call follows it into the folder it points at."""
+    if platform.system() == "Windows":
+        os.rmdir(link_path)
+    else:
+        os.unlink(link_path)
+
+
+@dataclass(frozen=True)
+class SampleLinkResult:
+    target: str
+    ok: bool
+    message: str
+
+
+def link_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[SampleLinkResult]:
+    """Create each target's samples link, leave a correct one alone, and replace a link that
+    points elsewhere. A real folder or file in the link's place is never touched."""
+    results: list[SampleLinkResult] = []
+    for spec in specs.values():
+        current = sample_link_state(spec, root)
+        if current is None:
+            continue
+
+        link_path = root / spec.project_path / spec.samples_link
+        # A junction stores its target as given, so it must not keep a subst drive or a relative path.
+        samples_path = (root / spec.samples_path).resolve()
+        link_label = (spec.project_path / spec.samples_link).as_posix()
+        samples_label = spec.samples_path.as_posix()
+
+        if current.state == "linked":
+            results.append(SampleLinkResult(spec.key, True, f"Already linked: {link_label} -> {samples_label}."))
+            continue
+        if current.state in ("blocked", "no-samples"):
+            suggestion = (
+                " Move it out of the way, then run this command again; it was left untouched."
+                if current.state == "blocked"
+                else ""
+            )
+            results.append(SampleLinkResult(spec.key, False, f"error: {current.detail}{suggestion}"))
+            continue
+        if not link_path.parent.is_dir():
+            results.append(
+                SampleLinkResult(spec.key, False, f"error: {link_path.parent.relative_to(root).as_posix()} is missing.")
+            )
+            continue
+
+        try:
+            if current.state == "misdirected":
+                remove_directory_link(link_path)
+            create_directory_link(link_path, samples_path)
+        except OSError as error:
+            results.append(SampleLinkResult(spec.key, False, f"error: could not link {link_label}: {error}"))
+            continue
+
+        verb = "Relinked" if current.state == "misdirected" else "Linked"
+        results.append(SampleLinkResult(spec.key, True, f"{verb} {link_label} -> {samples_label}."))
+    return results
+
+
+def sample_link_diagnostic(spec: UnityTargetSpec, root: Path) -> UnityDiagnostic | None:
+    current = sample_link_state(spec, root)
+    if current is None:
+        return None
+    if current.state == "linked":
+        return _diagnostic("PASS", spec.key, "Sample link", current.detail)
+
+    if current.state == "blocked":
+        suggestion = f"Move it out of the way, then run {LINK_SAMPLES_COMMAND}."
+    elif current.state == "no-samples":
+        suggestion = "Restore the package's Samples~ folder or remove the samples link from unity-cli-packages.tsv."
+    else:
+        suggestion = f"Run {LINK_SAMPLES_COMMAND}."
+    return _diagnostic(
+        "FAIL",
+        spec.key,
+        "Sample link",
+        f"{current.detail} compile-unity.sh refuses to run without it unless --without-samples is given.",
+        suggestion,
+    )
+
+
 def _diagnostic(
     status: str,
     target: str,
@@ -494,6 +665,10 @@ def run_unity_diagnostics(
             )
         )
 
+        samples = sample_link_diagnostic(spec, root)
+        if samples is not None:
+            diagnostics.append(samples)
+
         version = project_editor_version(spec, root)
         if version is None:
             diagnostics.append(
@@ -570,6 +745,7 @@ def compile_command_arguments(
     isolated: bool,
     in_place: bool,
     keep_staging: bool,
+    without_samples: bool = False,
 ) -> list[str]:
     if isolated and in_place:
         raise ValueError("--isolated and --in-place cannot be used together.")
@@ -587,6 +763,8 @@ def compile_command_arguments(
         arguments.append("--in-place")
     if keep_staging:
         arguments.append("--keep-staging")
+    if without_samples:
+        arguments.append("--without-samples")
     return arguments
 
 
@@ -648,14 +826,48 @@ def unity_compile(
     isolated: bool = typer.Option(False, "--isolated", help="Always compile an isolated source mirror."),
     in_place: bool = typer.Option(False, "--in-place", help="Compile directly and fail when the project is open."),
     keep_staging: bool = typer.Option(False, "--keep-staging", help="Keep an explicitly isolated mirror."),
+    without_samples: bool = typer.Option(
+        False, "--without-samples", help="Compile even when a samples link is missing, leaving the samples out."
+    ),
 ) -> None:
     """Run the repository's change-aware Unity batchmode compiler."""
     root = repo_root()
     try:
-        arguments = compile_command_arguments(target, base, dry_run, isolated, in_place, keep_staging)
+        arguments = compile_command_arguments(
+            target, base, dry_run, isolated, in_place, keep_staging, without_samples
+        )
         return_code = run_compile_script(arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
 
     if return_code:
         raise typer.Exit(code=return_code)
+
+
+@unity_app.command("link-samples")
+def unity_link_samples(
+    target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to link."),
+) -> None:
+    """Link each development project's Assets folder to its package's Samples~ folder.
+
+    A correct link is left alone, a link that points elsewhere is replaced, and a real folder
+    in the link's place stops the command without being touched.
+    """
+    root = repo_root()
+    try:
+        specs = load_target_specs(root)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+
+    if target is not None:
+        if target not in specs:
+            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
+        specs = {target: specs[target]}
+
+    results = link_samples(specs, root)
+    for result in results:
+        typer.echo(f"[{result.target}] {result.message}", err=not result.ok)
+    if not results:
+        typer.echo("No configured target has a samples link.")
+    if not all(result.ok for result in results):
+        raise typer.Exit(code=1)

@@ -24,9 +24,14 @@ RUN_LOCATION=""
 RUN_NOTE=""
 UNITY_STATUS=0
 
+SKIP_SAMPLES=0
+readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+
 TARGET_KEYS=()
 PACKAGE_PATHS=()
 PROJECT_PATHS=()
+# Project-relative path of the link to the package's Samples~ folder, or empty.
+SAMPLE_LINKS=()
 PACKAGE_CONSUMER_TARGETS=()
 CHANGED_FILES=()
 RELEVANT_CHANGES=()
@@ -82,11 +87,13 @@ load_package_config() {
     local target_key
     local package_path
     local project_path
+    local samples_link
     local extra
 
     [[ -f "$PACKAGE_CONFIG" ]] || fail "package mapping not found: $PACKAGE_CONFIG"
 
-    while IFS=$'\t' read -r target_key package_path project_path extra || [[ -n "$target_key$package_path$project_path$extra" ]]; do
+    while IFS=$'\t' read -r target_key package_path project_path samples_link extra \
+        || [[ -n "$target_key$package_path$project_path$samples_link$extra" ]]; do
         line_number=$((line_number + 1))
 
         if [[ -z "$target_key" || "$target_key" == \#* ]]; then
@@ -103,6 +110,9 @@ load_package_config() {
             || "/$package_path/" == *"/../"* || "/$project_path/" == *"/../"* ]]; then
             fail "package and project paths must remain inside the repository at $PACKAGE_CONFIG:$line_number"
         fi
+        if [[ "$samples_link" == /* || "/$samples_link/" == *"/../"* ]]; then
+            fail "the samples link must be a path inside the project at $PACKAGE_CONFIG:$line_number"
+        fi
         if target_index "$target_key" >/dev/null; then
             fail "duplicate target '$target_key' at $PACKAGE_CONFIG:$line_number"
         fi
@@ -112,6 +122,7 @@ load_package_config() {
         TARGET_KEYS+=("$target_key")
         PACKAGE_PATHS+=("$package_path")
         PROJECT_PATHS+=("$project_path")
+        SAMPLE_LINKS+=("$samples_link")
     done < "$PACKAGE_CONFIG"
 
     [[ "${#TARGET_KEYS[@]}" -gt 0 ]] || fail "no package mappings found in $PACKAGE_CONFIG"
@@ -175,6 +186,8 @@ Options:
   --isolated        Always compile a temporary source-only project mirror.
   --in-place        Compile the repository project directly; fail if it is open.
   --keep-staging    Keep an isolated project after the run for diagnostics.
+  --without-samples Run even when a project's link to its package samples is
+                    missing, leaving the samples out with a warning.
   -h, --help        Show this help.
 
 Environment:
@@ -195,6 +208,11 @@ also includes committed changes from the requested ref through HEAD. Package
 ownership and development projects are configured in unity-cli-packages.tsv.
 A changed package selects every configured project whose Packages/manifest.json
 references it, because each project compiles it with different defines.
+
+Unity skips a package's Samples~ folder, so a project compiles the samples only
+through the link the fourth column of unity-cli-packages.tsv names. A run stops
+before Unity starts when a selected project lacks that link; create the links
+with: PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples
 
 The default execution mode compiles in place when a project is closed. If the
 same project is open in Unity, it compiles a temporary mirror instead, leaving
@@ -440,6 +458,66 @@ package_path_for_target() {
 
     index="$(target_index "$requested_target")" || return 1
     printf '%s\n' "${PACKAGE_PATHS[$index]}"
+}
+
+# Unity skips folders whose name ends in ~, so a development project compiles a
+# package's samples only through a link from its Assets folder to Samples~.
+# Prints why the target's link is unusable and returns 1, or returns 0 when the
+# link works or the target configures none.
+sample_link_problem() {
+    local target_key="$1"
+    local index
+    local link_path
+    local samples_path
+
+    index="$(target_index "$target_key")" || return 0
+    [[ -n "${SAMPLE_LINKS[$index]}" ]] || return 0
+
+    link_path="${PROJECT_PATHS[$index]}/${SAMPLE_LINKS[$index]}"
+    samples_path="${PACKAGE_PATHS[$index]}/Samples~"
+
+    if [[ ! -d "$REPO_ROOT/$samples_path" ]]; then
+        printf '%s does not exist' "$samples_path"
+        return 1
+    fi
+    if [[ ! -e "$REPO_ROOT/$link_path" ]]; then
+        printf '%s is missing' "$link_path"
+        return 1
+    fi
+    if [[ ! "$REPO_ROOT/$link_path" -ef "$REPO_ROOT/$samples_path" ]]; then
+        printf '%s does not link to %s' "$link_path" "$samples_path"
+        return 1
+    fi
+}
+
+# Reports each selected target whose samples would not compile, as the given
+# severity. Returns 1 when one of them should stop the run, which
+# --without-samples turns into a warning.
+check_sample_links() {
+    local severity="$1"
+    local target_key
+    local problem
+    local check_status=0
+
+    # bash before 4.4 treats an empty array as unset under set -u.
+    [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]] || return 0
+
+    for target_key in "${SELECTED_TARGETS[@]}"; do
+        if problem="$(sample_link_problem "$target_key")"; then
+            continue
+        fi
+
+        if [[ "$SKIP_SAMPLES" -eq 1 ]]; then
+            printf 'warning: %s: %s, so its samples are left out as --without-samples asks.\n' \
+                "$target_key" "$problem" >&2
+        else
+            printf '%s: %s: %s, so its samples would not compile. Run "%s" to link them, or pass --without-samples.\n' \
+                "$severity" "$target_key" "$problem" "$LINK_SAMPLES_COMMAND" >&2
+            check_status=1
+        fi
+    done
+
+    return "$check_status"
 }
 
 print_selection() {
@@ -921,6 +999,9 @@ parse_arguments() {
             --keep-staging)
                 KEEP_STAGING=1
                 ;;
+            --without-samples)
+                SKIP_SAMPLES=1
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -953,7 +1034,8 @@ select_requested_targets() {
 }
 
 # Checks every selected target before Unity starts, so that a missing Editor
-# does not surface only after earlier targets have spent minutes running.
+# or sample link does not surface only after earlier targets have spent
+# minutes running.
 preflight_selected_targets() {
     local target_key
     local preflight_failed=0
@@ -963,6 +1045,8 @@ preflight_selected_targets() {
             preflight_failed=1
         fi
     done
+
+    check_sample_links error || preflight_failed=1
 
     [[ "$preflight_failed" -eq 0 ]]
 }
@@ -977,6 +1061,7 @@ compile_main() {
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
         print_run_plan
+        check_sample_links warning || true
         exit 0
     fi
 
@@ -987,7 +1072,7 @@ compile_main() {
 
     trap cleanup_staging EXIT
 
-    preflight_selected_targets || fail "Unity Editor preflight failed; no projects were compiled"
+    preflight_selected_targets || fail "preflight failed; no projects were compiled"
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
         compile_target "$target_key"

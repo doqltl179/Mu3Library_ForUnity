@@ -15,18 +15,24 @@ from mu3_cli.cli import app
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import (
     BashNotFoundError,
+    SampleLinkResult,
     UnityTargetSpec,
     bash_diagnostic,
     compile_command_arguments,
     compile_script_path,
+    create_directory_link,
     default_editor_path,
     file_is_held_open,
     find_bash,
     find_windows_bash,
+    link_samples,
     load_target_specs,
     project_editor_version,
     project_lock_diagnostic,
     project_lock_state,
+    remove_directory_link,
+    sample_link_diagnostic,
+    sample_link_state,
 )
 from shell_harness import run_sourced
 
@@ -73,6 +79,37 @@ class UnityToolingTests(unittest.TestCase):
     def test_base_requires_changed_target(self) -> None:
         with self.assertRaisesRegex(ValueError, "changed target"):
             compile_command_arguments("built-in", "origin/develop", False, False, False, False)
+
+    def test_without_samples_reaches_the_script(self) -> None:
+        self.assertEqual(
+            ["built-in", "--without-samples"],
+            compile_command_arguments("built-in", None, False, False, False, False, without_samples=True),
+        )
+
+    def test_repository_mapping_names_every_samples_link(self) -> None:
+        specs = load_target_specs(repo_root())
+
+        self.assertEqual(
+            {
+                "built-in": "Assets/Mu3LibrarySamples",
+                "urp": "Assets/Mu3LibrarySamplesURP",
+                "watermelon": "Assets/Mu3LibrarySamplesWatermelonGame",
+            },
+            {key: spec.samples_link.as_posix() for key, spec in specs.items() if spec.samples_link},
+        )
+
+    def test_mapping_loads_without_the_samples_column(self) -> None:
+        root = temporary_root(self)
+        (root / "unity-cli-packages.tsv").write_text("plain\tPackage\tProject\n", encoding="utf-8")
+
+        self.assertIsNone(load_target_specs(root)["plain"].samples_link)
+
+    def test_mapping_rejects_a_samples_link_outside_the_project(self) -> None:
+        root = temporary_root(self)
+        (root / "unity-cli-packages.tsv").write_text("plain\tPackage\tProject\t../Elsewhere\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "inside the repository"):
+            load_target_specs(root)
 
 
 class ProjectLockTests(unittest.TestCase):
@@ -133,6 +170,107 @@ class ProjectLockTests(unittest.TestCase):
         with self.lock_file.open("rb"):
             self.assertIs(True, file_is_held_open(self.lock_file))
         self.assertIs(False, file_is_held_open(self.lock_file))
+
+
+class SampleLinkTests(unittest.TestCase):
+    """The development projects see package samples only through a link to Samples~."""
+
+    def setUp(self) -> None:
+        self.root = temporary_root(self)
+        self.spec = UnityTargetSpec("sample", Path("Package"), Path("Project"), Path("Assets/Samples"))
+        samples = self.root / "Package" / "Samples~"
+        samples.mkdir(parents=True)
+        (samples / "Sample.cs").write_text("// sample\n", encoding="utf-8")
+        (self.root / "Project" / "Assets").mkdir(parents=True)
+        self.link = self.root / "Project" / "Assets" / "Samples"
+        # Remove the link before the temporary folder goes, so cleanup never walks through it.
+        self.addCleanup(self.remove_link)
+
+    def remove_link(self) -> None:
+        # A real folder goes with the temporary folder; only a link has to be removed first.
+        if sample_link_state(self.spec, self.root).state in ("linked", "misdirected"):
+            remove_directory_link(self.link)
+
+    def link_all(self) -> list[SampleLinkResult]:
+        return link_samples({"sample": self.spec}, self.root)
+
+    def test_missing_link_is_created(self) -> None:
+        [result] = self.link_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Linked Project/Assets/Samples -> Package/Samples~.", result.message)
+        self.assertTrue((self.link / "Sample.cs").is_file())
+        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
+
+    def test_correct_link_is_left_alone(self) -> None:
+        self.link_all()
+        before = os.lstat(self.link)
+
+        [result] = self.link_all()
+
+        self.assertTrue(result.ok)
+        self.assertEqual("Already linked: Project/Assets/Samples -> Package/Samples~.", result.message)
+        after = os.lstat(self.link)
+        self.assertEqual((before.st_ino, before.st_mtime_ns), (after.st_ino, after.st_mtime_ns))
+
+    def test_real_folder_is_not_overwritten(self) -> None:
+        self.link.mkdir()
+        (self.link / "Local.cs").write_text("// local\n", encoding="utf-8")
+
+        [result] = self.link_all()
+
+        self.assertFalse(result.ok)
+        self.assertIn("is a real folder, not a link to Package/Samples~", result.message)
+        self.assertIn("left untouched", result.message)
+        self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
+
+    def test_link_to_another_folder_is_replaced_without_touching_that_folder(self) -> None:
+        other = self.root / "Other"
+        other.mkdir()
+        (other / "Keep.cs").write_text("// keep\n", encoding="utf-8")
+        create_directory_link(self.link, other.resolve())
+
+        [result] = self.link_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Relinked Project/Assets/Samples -> Package/Samples~.", result.message)
+        self.assertTrue((self.link / "Sample.cs").is_file())
+        self.assertTrue((other / "Keep.cs").is_file())
+
+    def test_dangling_link_is_replaced(self) -> None:
+        gone = self.root / "Gone"
+        gone.mkdir()
+        create_directory_link(self.link, gone.resolve())
+        gone.rmdir()
+
+        self.assertEqual("misdirected", sample_link_state(self.spec, self.root).state)
+        [result] = self.link_all()
+        self.assertTrue(result.ok, result.message)
+        self.assertTrue((self.link / "Sample.cs").is_file())
+
+    def test_missing_samples_folder_is_an_error(self) -> None:
+        shutil.rmtree(self.root / "Package" / "Samples~")
+
+        [result] = self.link_all()
+
+        self.assertFalse(result.ok)
+        self.assertIn("Package/Samples~ does not exist", result.message)
+
+    def test_doctor_fails_until_the_link_exists(self) -> None:
+        missing = sample_link_diagnostic(self.spec, self.root)
+        self.link_all()
+        linked = sample_link_diagnostic(self.spec, self.root)
+
+        self.assertEqual("FAIL", missing.status)
+        self.assertIn("Project/Assets/Samples is missing", missing.detail)
+        self.assertIn("unity link-samples", missing.suggestion)
+        self.assertEqual("PASS", linked.status)
+
+    def test_target_without_a_samples_link_is_left_out(self) -> None:
+        plain = UnityTargetSpec("plain", Path("Package"), Path("Project"))
+
+        self.assertEqual([], link_samples({"plain": plain}, self.root))
+        self.assertIsNone(sample_link_diagnostic(plain, self.root))
 
 
 class BashDiscoveryTests(unittest.TestCase):
