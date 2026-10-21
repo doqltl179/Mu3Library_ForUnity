@@ -24,7 +24,7 @@ namespace Mu3Library.Sample.Game.WatermelonGame.Service
             {
                 if (m_controller == null)
                 {
-                    m_controller = Object.FindFirstObjectByType<BoardController>(FindObjectsInactive.Exclude);
+                    m_controller = Object.FindAnyObjectByType<BoardController>(FindObjectsInactive.Exclude);
                 }
 
                 return m_controller;
