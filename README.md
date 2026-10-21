@@ -334,6 +334,8 @@ When the following packages are installed, their features are automatically enab
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | Local notifications (Android/iOS, separate `Mu3Library.Notifications` assembly) |
 
+On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
+
 ## 🧩 Inspector Attributes
 
 Apply `ButtonInvokeAttribute` to a parameterless instance method that returns `void`. Its label and height are optional; an omitted label is displayed as `Invoke {method name}`. Buttons are appended after the default serialized properties by the fallback Inspector, so source declaration order cannot position them among fields. A type with its own custom Inspector must render its `ButtonInvoke` buttons there.

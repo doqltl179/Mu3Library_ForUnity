@@ -17,11 +17,11 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Changed
 - Base: `CoreBase`, `CoreRoot`, `MVPManager`, `Singleton`, and `GenericSingleton` find scene objects through the `FindObjectsByType` overloads without `FindObjectsSortMode` from Unity 6.4, where the overloads that take it are obsolete. Earlier editors keep the old call, so every version finds the same objects and returns them unsorted.
-- Base: the DI container's registration log checks `Debug.isDebugBuild` at runtime instead of the `DEVELOPMENT_BUILD` symbol, which Unity 6.6 deprecates. It still logs only in the Editor and in development builds.
-- Base Editor: the DI validator and runtime diagnostics drawers find the `CoreRoot` through `FindAnyObjectByType`, since Unity 6.6 deprecates `FindFirstObjectByType`. From Unity 6.5 the MVP helper looks a type up in `CurrentAssemblies.GetLoadedAssemblies()`, because `AppDomain.GetAssemblies()` can return assemblies Unity already unloaded.
+- Base: the DI container's registration log no longer depends on the `DEVELOPMENT_BUILD` symbol, which Unity 6.6 deprecates. The Editor always logs, and a player reads `Debug.isDebugBuild` once at startup, so it logs in development builds only, as before.
+- Base Editor: the DI validator and runtime diagnostics drawers find the `CoreRoot` through `FindAnyObjectByType`, since Unity 6.4 deprecates `FindFirstObjectByType`. From Unity 6.5 the MVP helper looks a type up in `CurrentAssemblies.GetLoadedAssemblies()`, because `AppDomain.GetAssemblies()` can return assemblies Unity already unloaded.
 
 ### Fixed
-- Base: the package compiles on Unity 6.6 again, where three APIs it used became compile errors. `Scene.handle` became a `SceneHandle` that no longer converts to `int`, so `SceneLoader` keeps the `Scene` an operation loads or unloads and compares scenes. `Object.GetInstanceID()` is rejected, so `GameObjectPool` recognizes a repeated enqueue through Unity object equality, and its warning names the object instead of an instance ID. `ObservableDictionaryDrawer` keys its size cache by `GetEntityId()` from Unity 6.5. The same code still compiles on Unity 6000.0.
+- Base: the package compiles on Unity 6.5 and later, where two APIs it used became compile errors. `Scene.handle` became a `SceneHandle` that no longer converts to `int`, so `SceneLoader` keeps the `Scene` an operation loads or unloads and compares scenes. `Object.GetInstanceID()` is rejected, so `GameObjectPool` tells pooled objects apart by reference, which also ignores an `Equals` override on the component, and its warning names the object instead of an instance ID. `ObservableDictionaryDrawer` keys its size cache by `GetEntityId()` from Unity 6.4, where `GetInstanceID()` is deprecated. The same code still compiles on Unity 6000.0.
 
 ## [base/0.26.0] - 2026-08-17
 
