@@ -140,6 +140,28 @@ class ChangedSelectionTests(FixtureRepositoryTestCase):
 
         self.assertTrue(run_plan(output)["leaf"].startswith("cannot run: ProjLeaf is open in Unity;"), output)
 
+    def test_in_place_refusal_of_an_unchecked_lock_says_what_helps(self) -> None:
+        # Closing an Editor does not help when nothing can tell whether one holds the lock.
+        self.write_lock_file("ProjLeaf")
+        phrases = {}
+        for platform_name in ("windows", "linux"):
+            completed = self.run_functions(
+                "compile-unity.sh",
+                "file_holder_state() { printf 'unknown\\n'; }\n"
+                f"host_platform() {{ printf '{platform_name}\\n'; }}\n"
+                "load_package_config\nRUN_MODE=in-place\nrun_location_phrase leaf",
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            phrases[platform_name] = completed.stdout.strip()
+
+        for phrase in phrases.values():
+            self.assertTrue(phrase.startswith("cannot run: ProjLeaf/Temp/UnityLockfile exists"), phrase)
+            self.assertIn("delete the file if no Editor has the project open", phrase)
+            self.assertNotIn("close it", phrase)
+        self.assertIn("PowerShell could not open it", phrases["windows"])
+        self.assertNotIn("lsof", phrases["windows"])
+        self.assertIn("install lsof", phrases["linux"])
+
 
 if __name__ == "__main__":
     unittest.main()

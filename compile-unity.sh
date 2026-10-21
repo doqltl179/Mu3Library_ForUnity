@@ -777,6 +777,7 @@ decide_run_location() {
     local target_key="$1"
     local project_path
     local held_reason=""
+    local held_remedy="close it"
 
     project_path="$(project_path_for_target "$target_key")" || return 1
     RUN_LOCATION="in-place"
@@ -787,7 +788,15 @@ decide_run_location() {
             held_reason="$project_path is open in Unity"
             ;;
         unknown)
-            held_reason="$project_path/Temp/UnityLockfile exists and whether an Editor holds it could not be checked"
+            # Closing an Editor does not help here: the lock may be stale, and only
+            # deleting it, or a way to check its holder, lets the run go in place.
+            if [[ "$(host_platform)" == "windows" ]]; then
+                held_reason="$project_path/Temp/UnityLockfile exists and PowerShell could not open it to check whether an Editor holds it"
+                held_remedy="delete the file if no Editor has the project open"
+            else
+                held_reason="$project_path/Temp/UnityLockfile exists and no lsof is installed to check whether an Editor holds it"
+                held_remedy="install lsof, or delete the file if no Editor has the project open"
+            fi
             ;;
         stale)
             RUN_NOTE="ignoring a stale $project_path/Temp/UnityLockfile that no running process holds"
@@ -801,7 +810,7 @@ decide_run_location() {
             ;;
         in-place)
             if [[ -n "$held_reason" ]]; then
-                RUN_NOTE="$held_reason; close it or omit --in-place to use an isolated mirror"
+                RUN_NOTE="$held_reason; $held_remedy, or omit --in-place to use an isolated mirror"
                 return 1
             fi
             ;;

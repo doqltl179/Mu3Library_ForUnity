@@ -360,6 +360,7 @@ def project_lock_diagnostic(
     spec: UnityTargetSpec,
     root: Path,
     probe: Callable[[Path], bool | None] = file_is_held_open,
+    system: str | None = None,
 ) -> UnityDiagnostic:
     lock_path = (spec.project_path / "Temp" / "UnityLockfile").as_posix()
     state = project_lock_state(root / spec.project_path, probe)
@@ -380,13 +381,22 @@ def project_lock_diagnostic(
             f"Delete {lock_path} unless an Editor should have the project open.",
         )
     if state == "unknown":
+        # On Windows the check opens the file and failed for a reason other than another
+        # holder, such as denied access; elsewhere it needs lsof, which is missing.
+        if (system or platform.system()) == "Windows":
+            cause = "could not be opened to check whether an Editor holds it"
+            suggestion = (
+                f"If no Editor has {spec.project_path} open, delete {lock_path}; otherwise check that it can be read."
+            )
+        else:
+            cause = "exists, and lsof, which checks whether an Editor holds it, is not installed"
+            suggestion = f"Install lsof, or delete {lock_path} if no Editor has {spec.project_path} open."
         return _diagnostic(
             "WARN",
             spec.key,
             "Project lock",
-            f"{lock_path} exists and whether an Editor holds it could not be checked; "
-            "compile-unity.sh will use an isolated mirror.",
-            "Install lsof so the lock holder can be checked, or close the Editor and delete the file.",
+            f"{lock_path} {cause}; compile-unity.sh will use an isolated mirror and refuses --in-place.",
+            suggestion,
         )
     return _diagnostic("PASS", spec.key, "Project lock", "Project is not locked.")
 

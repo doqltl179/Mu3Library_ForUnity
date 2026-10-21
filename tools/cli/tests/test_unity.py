@@ -156,6 +156,19 @@ class ProjectLockTests(unittest.TestCase):
         self.assertNotIn("is open", stale_lock.detail)
         self.assertIsNotNone(stale_lock.suggestion)
 
+    def test_unknown_lock_advice_fits_the_host(self) -> None:
+        self.write_lock_file()
+
+        windows = project_lock_diagnostic(self.spec, self.root, lambda _: None, system="Windows")
+        linux = project_lock_diagnostic(self.spec, self.root, lambda _: None, system="Linux")
+
+        self.assertIn("could not be opened", windows.detail)
+        self.assertNotIn("lsof", windows.detail + windows.suggestion)
+        self.assertIn("delete Project/Temp/UnityLockfile", windows.suggestion)
+        self.assertIn("lsof", linux.detail)
+        self.assertIn("Install lsof", linux.suggestion)
+        self.assertIn("delete Project/Temp/UnityLockfile", linux.suggestion)
+
     def test_doctor_passes_a_project_without_lock_file(self) -> None:
         diagnostic = project_lock_diagnostic(self.spec, self.root, lambda _: True)
 
