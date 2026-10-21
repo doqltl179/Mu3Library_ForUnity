@@ -1,17 +1,28 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Mu3Library.ObjectPool
 {
     public class GameObjectPool<T> where T : Component
     {
+        // Unity keeps one managed object per native object, so reference identity tells pooled
+        // objects apart the way their instance IDs did, also after one is destroyed, without
+        // GetInstanceID, which Unity 6.5 rejects, or an Equals override the component may have.
+        private sealed class ReferenceComparer : IEqualityComparer<T>
+        {
+            public static readonly ReferenceComparer Instance = new();
+
+            public bool Equals(T x, T y) => ReferenceEquals(x, y);
+
+            public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
+        }
+
         private static readonly System.Type ComponentType = typeof(T);
         public System.Type Type => ComponentType;
 
         private readonly Queue<T> _pool = new();
-        // UnityEngine.Object equality compares native object identity, which still holds for
-        // a destroyed object, so the set needs no GetInstanceID, which Unity 6.6 rejects.
-        private readonly HashSet<T> _pooledObjects = new();
+        private readonly HashSet<T> _pooledObjects = new(ReferenceComparer.Instance);
 
         public delegate T Create();
         public delegate void Initialize(T obj);

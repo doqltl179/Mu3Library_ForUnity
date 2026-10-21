@@ -66,6 +66,55 @@ namespace Mu3Library.Tests
             Assert.AreEqual(1, pool.Count);
         }
 
+        // A component may define equality by value; the pool still has to tell two of them apart.
+        private sealed class ValueEqualComponent : MonoBehaviour
+        {
+            public override bool Equals(object other) => other is ValueEqualComponent;
+
+            public override int GetHashCode() => 0;
+        }
+
+        [Test]
+        public void Enqueue_ComponentsEqualByOverride_KeepsBoth()
+        {
+            GameObjectPool<ValueEqualComponent> pool = new();
+            ValueEqualComponent first = CreateObject().gameObject.AddComponent<ValueEqualComponent>();
+            ValueEqualComponent second = CreateObject().gameObject.AddComponent<ValueEqualComponent>();
+
+            pool.Enqueue(first);
+            pool.Enqueue(second);
+
+            Assert.AreEqual(2, pool.Count);
+        }
+
+        [Test]
+        public void Enqueue_AfterDequeue_PoolsObjectAgain()
+        {
+            GameObjectPool<Transform> pool = new();
+            Transform obj = CreateObject();
+            pool.Enqueue(obj);
+            pool.Dequeue();
+
+            pool.Enqueue(obj);
+
+            Assert.AreEqual(1, pool.Count);
+        }
+
+        [Test]
+        public void Dequeue_ObjectDestroyedWhilePooled_IsSkipped()
+        {
+            GameObjectPool<Transform> pool = new(CreateObject);
+            Transform destroyed = CreateObject();
+            pool.Enqueue(destroyed);
+            Object.DestroyImmediate(destroyed.gameObject);
+
+            Transform obj = pool.Dequeue();
+
+            Assert.IsTrue(obj != null);
+            Assert.AreNotSame(destroyed, obj);
+            Assert.AreEqual(0, pool.Count);
+        }
+
         [Test]
         public void Enqueue_BeyondMaxSize_DestroysOverflow()
         {
