@@ -28,7 +28,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - Base: `package.json`이 패키지 코드가 define 심볼 밖에서 쓰는 Unity 패키지와 내장 모듈을 선언합니다. uGUI(`com.unity.ugui`)와 UI, Audio, Particle System, JSONSerialize, AssetBundle, UnityWebRequest, UnityWebRequestTexture 모듈, 그리고 에디터 도구가 쓰는 IMGUI, Image Conversion, Screen Capture 모듈입니다. uGUI를 제거했거나 이 모듈 중 하나를 끈 프로젝트에서는 읽기 전용인 패키지 안에서 컴파일 오류가 났지만, 이제 Package Manager가 이들을 켜진 상태로 유지합니다. 선택 통합(UniTask, Addressables, Localization, Input System, Mobile Notifications)은 이전처럼 `dependencies`에 넣지 않고 각자의 define 심볼 안에서만 컴파일됩니다.
 - Watermelon Game: `package.json`이 런타임이 쓰는 Physics 2D, Audio, JSONSerialize 모듈도 선언합니다.
 - Base: 파일이 한 번도 들어간 적 없는 폴더의 메타데이터 `Runtime/Prefabs.meta`가 더 이상 Git 설치에 포함되지 않습니다. Git은 빈 폴더를 저장하지 않아, 설치본에는 폴더 없이 `.meta`만 들어갔습니다.
-- Base: UniTask가 설치되어 있을 때 `CoreBase.PrepareCoreAsync(CancellationToken)`의 기본 구현은 `await` 없는 `async` 메서드가 아니라 완료된 `UniTask<bool>`을 돌려줍니다. 이전에는 컴파일러 경고 CS1998이 나고, 호출할 때마다 상태 머신이 만들어졌습니다. 시그니처와 `protected virtual`은 그대로라 재정의한 코드도 그대로 컴파일됩니다.
+- Base: UniTask가 설치되어 있을 때 `CoreBase.PrepareCoreAsync(CancellationToken)`의 기본 구현은 `async` 없이 완료된 `UniTask<bool>`을 돌려줍니다. 이전에는 `await` 없는 `async` 메서드여서 컴파일러 경고 CS1998이 나고, 호출할 때마다 상태 머신이 만들어졌습니다. 시그니처와 `protected virtual`은 그대로라 재정의한 코드도 그대로 컴파일됩니다.
 
 ## [base/0.26.0] - 2026-08-17
 
