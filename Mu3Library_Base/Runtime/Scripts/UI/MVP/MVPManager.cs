@@ -32,7 +32,11 @@ namespace Mu3Library.UI.MVP
                 {
                     m_root = new GameObject("MVPManagerRoot");
 
-                    Object.DontDestroyOnLoad(m_root);
+                    // DontDestroyOnLoad throws outside play mode, where no scene load can happen.
+                    if (Application.isPlaying)
+                    {
+                        Object.DontDestroyOnLoad(m_root);
+                    }
                 }
 
                 return m_root;
@@ -104,7 +108,10 @@ namespace Mu3Library.UI.MVP
                         // outside the manager root because it has to survive a scene change.
                         _isEventSystemOwned = true;
 
-                        Object.DontDestroyOnLoad(go);
+                        if (Application.isPlaying)
+                        {
+                            Object.DontDestroyOnLoad(go);
+                        }
                     }
                 }
 
