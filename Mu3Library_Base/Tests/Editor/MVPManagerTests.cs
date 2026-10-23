@@ -2,11 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Mu3Library.UI.MVP;
+using Mu3Library.UI.MVP.Animation;
+using Mu3Library.Utility;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using AnimationState = Mu3Library.UI.MVP.Animation.AnimationState;
 using Object = UnityEngine.Object;
 
 #if MU3LIBRARY_UNITASK_SUPPORT
@@ -22,6 +25,11 @@ namespace Mu3Library.Tests
     public class MVPManagerTests
     {
         private const int MaxFrames = 60;
+
+        // An animation advances on real time here, about 0.2 ms a frame, so its waits are bounded in
+        // seconds instead of frames.
+        private const float AnimationTime = 0.05f;
+        private const double MaxAnimationSeconds = 2.0;
 
         // [ExecuteAlways] lets edit mode call OnDisable as play mode does, so a view hidden along with
         // its host gets the same callbacks it gets in a player.
@@ -45,6 +53,25 @@ namespace Mu3Library.Tests
             protected override bool WaitOpeningUntil() => !HoldOpen;
         }
 
+        // Overrides OnDisable without base.OnDisable(), which is what ended a close that hiding the
+        // view cut short.
+        [ExecuteAlways]
+        private sealed class NoBaseDisableChildView : View
+        {
+            public bool HoldClose;
+            public int DisableCount;
+
+            protected override bool WaitClosingUntil() => !HoldClose;
+
+            protected override void OnDisable()
+            {
+                DisableCount++;
+            }
+        }
+
+        [ExecuteAlways]
+        private sealed class FadeView : AnimationView { }
+
         private sealed class EmptyModel : Model<Arguments> { }
 
         private sealed class OwnerArgs : Arguments
@@ -58,8 +85,12 @@ namespace Mu3Library.Tests
         {
             public OwnerView View => _view;
             public ChildPresenter Child { get; private set; }
+            public NoBaseDisableChildPresenter NoBaseDisableChild { get; private set; }
 
             public void OpenChild() => Child = OpenAsChild<ChildPresenter>() as ChildPresenter;
+
+            public void OpenNoBaseDisableChild()
+                => NoBaseDisableChild = OpenAsChild<NoBaseDisableChildPresenter>() as NoBaseDisableChildPresenter;
 
             protected override void LoadFunc()
             {
@@ -80,22 +111,41 @@ namespace Mu3Library.Tests
             public ToastView View => _view;
         }
 
+        private sealed class NoBaseDisableChildPresenter : Presenter<NoBaseDisableChildView, EmptyModel, Arguments>
+        {
+            public NoBaseDisableChildView View => _view;
+        }
+
+        private sealed class FadePresenter : Presenter<FadeView, EmptyModel, Arguments>
+        {
+            public FadeView View => _view;
+            public AnimationHandler Handler => _view.GetComponent<AnimationHandler>();
+        }
+
         private MVPManager _manager;
         private HashSet<GameObject> _sceneRoots;
         private readonly List<string> _events = new();
+        private TestAlphaAnimation _alphaAnimation;
+        private float _timeScale;
 
         [SetUp]
         public void SetUp()
         {
             _sceneRoots = new HashSet<GameObject>(SceneManager.GetActiveScene().GetRootGameObjects());
             _events.Clear();
+            _timeScale = Time.timeScale;
 
             _manager = new MVPManager();
             _manager.RegisterViewResource(CreateViewResource<OwnerView>(0));
             // A child left behind in the close list would take the focus with this higher order.
             _manager.RegisterViewResource(CreateViewResource<ChildView>(10));
             _manager.RegisterViewResource(CreateViewResource<ToastView>(0));
+            _manager.RegisterViewResource(CreateViewResource<NoBaseDisableChildView>(10));
 
+            _alphaAnimation = ScriptableObject.CreateInstance<TestAlphaAnimation>();
+            _manager.RegisterViewResource(CreateFadeViewResource(_alphaAnimation));
+
+            _manager.OnWindowOpened += presenter => _events.Add($"Opened {presenter.GetType().Name}");
             _manager.OnWindowClosed += presenter => _events.Add($"Closed {presenter.GetType().Name}");
             _manager.OnWindowUnloaded += presenter => _events.Add($"Unloaded {presenter.GetType().Name}");
         }
@@ -114,6 +164,9 @@ namespace Mu3Library.Tests
             }
 
             _manager.Dispose();
+
+            Object.DestroyImmediate(_alphaAnimation);
+            TestTimeScale.Restore(_timeScale);
         }
 
         private static TView CreateViewResource<TView>(int sortingOrder) where TView : View
@@ -127,6 +180,30 @@ namespace Mu3Library.Tests
             return view;
         }
 
+        private static FadeView CreateFadeViewResource(AnimationConfig animation)
+        {
+            FadeView view = CreateViewResource<FadeView>(0);
+
+            SerializedObject handler = new SerializedObject(view.GetComponent<AnimationHandler>());
+            handler.FindProperty("_animationTime").floatValue = AnimationTime;
+
+            SerializedProperty configs = handler.FindProperty("_animationConfigs");
+            configs.arraySize = 1;
+            configs.GetArrayElementAtIndex(0).objectReferenceValue = animation;
+
+            handler.ApplyModifiedPropertiesWithoutUndo();
+
+            return view;
+        }
+
+        private static RectTransform CreateHiddenHost()
+        {
+            GameObject host = new GameObject("HiddenHost", typeof(RectTransform));
+            host.SetActive(false);
+
+            return (RectTransform)host.transform;
+        }
+
         private IEnumerator RunUntil(Func<bool> condition, string description)
         {
             for (int i = 0; i < MaxFrames && !condition(); i++)
@@ -138,6 +215,32 @@ namespace Mu3Library.Tests
             }
 
             Assert.IsTrue(condition(), $"Waited {MaxFrames} frames until {description}.");
+        }
+
+        private IEnumerator RunUntilWithin(Func<bool> condition, string description)
+        {
+            double start = EditorApplication.timeSinceStartup;
+            while (!condition() && EditorApplication.timeSinceStartup - start < MaxAnimationSeconds)
+            {
+                EditorApplication.QueuePlayerLoopUpdate();
+                yield return null;
+
+                _manager.Update();
+            }
+
+            Assert.IsTrue(condition(), $"Waited {MaxAnimationSeconds} seconds until {description}.");
+        }
+
+        private IEnumerator RunFor(double seconds)
+        {
+            double start = EditorApplication.timeSinceStartup;
+            while (EditorApplication.timeSinceStartup - start < seconds)
+            {
+                EditorApplication.QueuePlayerLoopUpdate();
+                yield return null;
+
+                _manager.Update();
+            }
         }
 
         private IEnumerator OpenOwnerWithOpenedChild(Action<OwnerPresenter> onOpened)
@@ -234,7 +337,109 @@ namespace Mu3Library.Tests
             Assert.AreEqual(1, _manager.GetPresenterDiagnostics().Count, "Only the owner is left.");
         }
 
+        [UnityTest]
+        public IEnumerator Close_OwnerThatFinishesClosingFirst_UnloadsChildWhoseOnDisableSkipsBase()
+        {
+            OwnerPresenter owner = (OwnerPresenter)_manager.Open<OwnerPresenter>();
+            yield return RunUntil(() => owner.ViewState == ViewState.Opened, "the owner opened");
+
+            owner.OpenNoBaseDisableChild();
+            NoBaseDisableChildPresenter child = owner.NoBaseDisableChild;
+            yield return RunUntil(() => child.ViewState == ViewState.Opened, "the child opened");
+
+            Assert.AreSame(owner.View.transform, child.View.transform.parent, "The child is hosted under its owner.");
+
+            child.View.HoldClose = true;
+            Assert.IsTrue(_manager.Close(owner));
+
+            yield return RunUntil(() => _events.Contains("Unloaded OwnerPresenter"), "the owner unloaded");
+            Assert.That(_events, Has.No.Member("Closed NoBaseDisableChildPresenter"), "The owner finished closing before its child.");
+            Assert.That(child.View.DisableCount, Is.GreaterThan(0), "Hiding the owner reached the child's own OnDisable.");
+
+            yield return RunUntil(() => _events.Contains("Unloaded NoBaseDisableChildPresenter"), "the child unloaded");
+            Assert.That(_events, Has.Member("Closed NoBaseDisableChildPresenter"));
+            CollectionAssert.IsEmpty(_manager.GetPresenterDiagnostics());
+        }
+
+        [UnityTest]
+        public IEnumerator Open_UnderHiddenHost_OpensAtOnceAndClosesWithoutForce()
+        {
+            ToastPresenter toast = (ToastPresenter)_manager.Open<ToastPresenter>(new HostOptions { Host = CreateHiddenHost() });
+
+            // The view cannot run its open transition under the hidden host, so it skips the wait
+            // instead of holding there.
+            toast.View.HoldOpen = true;
+
+            yield return RunUntil(() => _events.Contains("Opened ToastPresenter"), "the toast opened");
+            Assert.AreEqual(ViewState.Opened, toast.ViewState);
+            Assert.IsTrue(toast.Interactable);
+
+            Assert.IsTrue(_manager.Close(toast), "A close that is not forced reaches the opened toast.");
+            yield return RunUntil(() => _events.Contains("Unloaded ToastPresenter"), "the toast unloaded");
+
+            CollectionAssert.IsEmpty(_manager.GetPresenterDiagnostics());
+        }
+
+        [UnityTest]
+        public IEnumerator Open_AnimationViewUnderHiddenHost_TakesItsOpenedPose()
+        {
+            FadePresenter fade = (FadePresenter)_manager.Open<FadePresenter>(new HostOptions { Host = CreateHiddenHost() });
+
+            // As a pooled view comes back from its last close.
+            fade.View.Alpha = 0.0f;
+
+            yield return RunUntil(() => _events.Contains("Opened FadePresenter"), "the view opened");
+            Assert.AreEqual(1.0f, fade.View.Alpha);
+            Assert.AreEqual(AnimationState.Opened, fade.Handler.State);
+        }
+
+        [UnityTest]
+        public IEnumerator AnimationView_AtTimeScaleZero_OpensAndClosesOnUnscaledTime()
+        {
+            Time.timeScale = 0.0f;
+
+            FadePresenter fade = (FadePresenter)_manager.Open<FadePresenter>();
+            Assert.AreEqual(TimeMode.Unscaled, fade.Handler.TimeMode, "Unscaled time is the default.");
+
+            yield return RunUntilWithin(() => fade.ViewState == ViewState.Opened, "the view opened");
+            Assert.AreEqual(1.0f, fade.View.Alpha);
+
+            Assert.IsTrue(_manager.Close(fade), "A close that is not forced reaches the opened view.");
+            yield return RunUntilWithin(() => _events.Contains("Unloaded FadePresenter"), "the view unloaded");
+            Assert.AreEqual(0.0f, fade.View.Alpha);
+        }
+
+        [UnityTest]
+        public IEnumerator AnimationView_OnScaledTime_WaitsWhileTimeScaleIsZero()
+        {
+            Time.timeScale = 0.0f;
+
+            FadePresenter fade = (FadePresenter)_manager.Open<FadePresenter>();
+            fade.Handler.TimeMode = TimeMode.Scaled;
+
+            yield return RunFor(AnimationTime * 10);
+            Assert.AreEqual(ViewState.Opening, fade.ViewState, "Game time does not move while the time scale is 0.");
+
+            Time.timeScale = 1.0f;
+            yield return RunUntilWithin(() => fade.ViewState == ViewState.Opened, "the view opened");
+        }
+
 #if MU3LIBRARY_UNITASK_SUPPORT
+        [UnityTest]
+        public IEnumerator OpenAsync_UnderHiddenHost_Completes()
+        {
+            UniTask<IPresenter> open = _manager.OpenAsync<ToastPresenter>(
+                null,
+                null,
+                OutPanelSettings.Disabled,
+                new HostOptions { Host = CreateHiddenHost() });
+
+            yield return RunUntil(() => open.Status != UniTaskStatus.Pending, "OpenAsync completed");
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, open.Status);
+            Assert.AreEqual(ViewState.Opened, open.GetAwaiter().GetResult().ViewState);
+        }
+
         [UnityTest]
         public IEnumerator CloseAsync_PresenterReopenedFromUnloadedHandler_CompletesForItsOwnOpening()
         {
