@@ -308,6 +308,7 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
 値の変更を検出し、イベントを発行します。
 
 ```csharp
+[Serializable]
 public class PlayerData
 {
     public ObservableInt Health = new ObservableInt();
@@ -324,6 +325,8 @@ _playerData.Health.AddEvent(newHealth =>
 // 値変更（自動的にイベント発行）
 _playerData.Health.Set(80);
 ```
+
+Observable フィールドは、コンポーネントや ScriptableObject の `[Serializable]` クラス、配列、リストの中に置くこともできます。Inspector で値を変えると、値が適用され購読者に通知されます。`ObservableDictionary` では同じキーを持つ行のうち最初の行が使われ、キーが重なる行はキーを変えるまで警告付きでリストに残ります。
 
 ## 🔧 オプションパッケージ
 

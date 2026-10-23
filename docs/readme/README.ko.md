@@ -308,6 +308,7 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
 값 변경을 감지하고 이벤트를 발행합니다.
 
 ```csharp
+[Serializable]
 public class PlayerData
 {
     public ObservableInt Health = new ObservableInt();
@@ -324,6 +325,8 @@ _playerData.Health.AddEvent(newHealth =>
 // 값 변경 (자동으로 이벤트 발행)
 _playerData.Health.Set(80);
 ```
+
+Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래스, 배열, 리스트 안에 두어도 됩니다. Inspector에서 값을 바꾸면 값이 적용되고 구독자에게 통지됩니다. `ObservableDictionary`에서는 같은 키를 가진 행 가운데 첫 행이 쓰이며, 키가 겹치는 행은 키를 바꿀 때까지 경고와 함께 목록에 남습니다.
 
 ## 🔧 선택적 패키지
 
