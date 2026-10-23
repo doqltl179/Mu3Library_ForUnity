@@ -56,7 +56,9 @@ namespace Mu3Library.Editor.Observable
             if (EditorGUI.EndChangeCheck())
             {
                 entriesProp.serializedObject.ApplyModifiedProperties();
-                ObservableDrawerUtility.InvokeOnTargets(property, "RefreshFromSerialized");
+                ObservableDrawerUtility.InvokeOnTargets(
+                    property,
+                    nameof(Mu3Library.Observable.ObservableDictionary<int, int>.RefreshFromSerialized));
             }
 
             string ignoredRows = DescribeIgnoredRows(entriesProp);
@@ -64,7 +66,7 @@ namespace Mu3Library.Editor.Observable
             {
                 Rect helpRect = position;
                 helpRect.y = listRect.yMax + EditorGUIUtility.standardVerticalSpacing;
-                helpRect.height = GetHelpBoxHeight(ignoredRows);
+                helpRect.height = Mathf.Max(position.yMax - helpRect.y, GetHelpBoxHeight(ignoredRows));
                 EditorGUI.HelpBox(helpRect, ignoredRows, MessageType.Warning);
             }
 
@@ -73,8 +75,9 @@ namespace Mu3Library.Editor.Observable
 
         /// <summary>
         /// Names the rows the dictionary leaves out, by the same rule it builds itself with: the
-        /// first row of a key wins, and a row whose object key is empty has no key. Answers null
-        /// when every row is in the dictionary.
+        /// first row of a key wins, and a row whose object key is empty has no key. Keys are
+        /// compared by their serialized data, which matches the runtime for keys whose equality
+        /// is their data. Answers null when every row is in the dictionary.
         /// </summary>
         internal static string DescribeIgnoredRows(SerializedProperty entriesProp)
         {
@@ -83,7 +86,9 @@ namespace Mu3Library.Editor.Observable
                 return null;
             }
 
-            var activeKeys = new List<KeyValuePair<int, SerializedProperty>>(entriesProp.arraySize);
+            // Rows are grouped by the hash of their key data so that only keys in the same group
+            // are compared, which keeps a long list linear.
+            var activeKeysByHash = new Dictionary<uint, List<KeyValuePair<int, SerializedProperty>>>();
             StringBuilder message = null;
 
             for (int i = 0; i < entriesProp.arraySize; i++)
@@ -101,20 +106,27 @@ namespace Mu3Library.Editor.Observable
                 }
                 else
                 {
-                    for (int j = 0; j < activeKeys.Count; j++)
+                    uint hash = keyProp.contentHash;
+                    if (!activeKeysByHash.TryGetValue(hash, out List<KeyValuePair<int, SerializedProperty>> sameHash))
                     {
-                        if (SerializedProperty.DataEquals(keyProp, activeKeys[j].Value))
+                        sameHash = new List<KeyValuePair<int, SerializedProperty>>(1);
+                        activeKeysByHash.Add(hash, sameHash);
+                    }
+
+                    for (int j = 0; j < sameHash.Count; j++)
+                    {
+                        if (SerializedProperty.DataEquals(keyProp, sameHash[j].Value))
                         {
-                            problem = $"Element {i} has the same key as element {activeKeys[j].Key}.";
+                            problem = $"Element {i} has the same key as element {sameHash[j].Key}.";
                             break;
                         }
                     }
-                }
 
-                if (problem == null)
-                {
-                    activeKeys.Add(new KeyValuePair<int, SerializedProperty>(i, keyProp));
-                    continue;
+                    if (problem == null)
+                    {
+                        sameHash.Add(new KeyValuePair<int, SerializedProperty>(i, keyProp));
+                        continue;
+                    }
                 }
 
                 message ??= new StringBuilder();
@@ -130,19 +142,16 @@ namespace Mu3Library.Editor.Observable
             return message.ToString();
         }
 
+        /// <summary>
+        /// The help box height for the inspector's current width, so a message that wraps in a
+        /// narrow inspector is not cut off. The warning icon takes about 40 pixels of the width
+        /// and needs two lines even for a one-line message.
+        /// </summary>
         private static float GetHelpBoxHeight(string message)
         {
-            int lineCount = 1;
-            for (int i = 0; i < message.Length; i++)
-            {
-                if (message[i] == '\n')
-                {
-                    lineCount++;
-                }
-            }
-
-            // The warning icon needs about two lines even for a one-line message.
-            return Mathf.Max(lineCount, 2) * EditorGUIUtility.singleLineHeight + 4f;
+            float textWidth = Mathf.Max(EditorGUIUtility.currentViewWidth - EditorGUI.indentLevel * 15f - 70f, 100f);
+            float textHeight = EditorStyles.helpBox.CalcHeight(new GUIContent(message), textWidth);
+            return Mathf.Max(textHeight, 2f * EditorGUIUtility.singleLineHeight + 4f);
         }
     }
 }

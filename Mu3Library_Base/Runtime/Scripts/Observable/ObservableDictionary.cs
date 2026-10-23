@@ -235,10 +235,7 @@ namespace Mu3Library.Observable
                 _entries = new List<Entry>(_dictionary.Count);
             }
 
-            if (!EntriesMatchDictionary())
-            {
-                WriteDictionaryToEntries();
-            }
+            WriteDictionaryToEntries();
         }
 
         public void OnAfterDeserialize()
@@ -284,41 +281,20 @@ namespace Mu3Library.Observable
         }
 
         /// <summary>
-        /// Whether the rows the dictionary was built from still describe it: every first row of
-        /// a key holds the dictionary's value, and no key exists only in the dictionary.
-        /// </summary>
-        private bool EntriesMatchDictionary()
-        {
-            HashSet<TKey> seenKeys = GetSeenKeys();
-            int activeRowCount = 0;
-
-            for (int i = 0; i < _entries.Count; i++)
-            {
-                Entry entry = _entries[i];
-                if (entry.Key == null || !seenKeys.Add(entry.Key))
-                {
-                    continue;
-                }
-
-                activeRowCount++;
-                if (!_dictionary.TryGetValue(entry.Key, out TValue value) ||
-                    !EqualityComparer<TValue>.Default.Equals(value, entry.Value))
-                {
-                    return false;
-                }
-            }
-
-            return activeRowCount == _dictionary.Count;
-        }
-
-        /// <summary>
         /// Updates the rows in place: the first row of a key takes the dictionary's value or
         /// leaves with its key, repeated rows leave with it too, rows without a key stay, and
-        /// keys the dictionary gained are appended.
+        /// keys the dictionary gained are appended. Rows that already describe the dictionary
+        /// come out unchanged, so this runs on every serialization instead of first comparing
+        /// values, which an <c>Equals</c> that ignores some fields would answer wrongly.
         /// </summary>
         private void WriteDictionaryToEntries()
         {
-            HashSet<TKey> seenKeys = GetSeenKeys();
+            if (_seenKeys == null)
+            {
+                _seenKeys = new HashSet<TKey>();
+            }
+
+            HashSet<TKey> seenKeys = _seenKeys;
             int writeIndex = 0;
 
             for (int readIndex = 0; readIndex < _entries.Count; readIndex++)
@@ -350,20 +326,9 @@ namespace Mu3Library.Observable
                     _entries.Add(new Entry { Key = pair.Key, Value = pair.Value });
                 }
             }
-        }
 
-        private HashSet<TKey> GetSeenKeys()
-        {
-            if (_seenKeys == null)
-            {
-                _seenKeys = new HashSet<TKey>();
-            }
-            else
-            {
-                _seenKeys.Clear();
-            }
-
-            return _seenKeys;
+            // Release the keys, which may be objects the dictionary no longer holds.
+            seenKeys.Clear();
         }
     }
 }
