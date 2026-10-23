@@ -23,6 +23,7 @@ namespace Mu3Library.Observable
 
         private Dictionary<TKey, TValue> _dictionary;
         private Action<IReadOnlyDictionary<TKey, TValue>> _callback;
+        private HashSet<TKey> _seenKeys;
 
         private Dictionary<TKey, TValue> _dictionaryValue
         {
@@ -126,6 +127,11 @@ namespace Mu3Library.Observable
         public void AddEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback += callback;
         public void RemoveEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback -= callback;
 
+        /// <summary>
+        /// Registers the callback and returns the token that removes it. When
+        /// <paramref name="notifyImmediately"/> is set and the first call throws, the callback is
+        /// removed again before the exception leaves, since the caller never gets a token for it.
+        /// </summary>
         public IDisposable Subscribe(
             Action<IReadOnlyDictionary<TKey, TValue>> callback,
             bool notifyImmediately = false)
@@ -138,7 +144,15 @@ namespace Mu3Library.Observable
             AddEvent(callback);
             if (notifyImmediately)
             {
-                callback.Invoke(_dictionaryValue);
+                try
+                {
+                    callback.Invoke(_dictionaryValue);
+                }
+                catch
+                {
+                    RemoveEvent(callback);
+                    throw;
+                }
             }
 
             return new SubscriptionToken(() => RemoveEvent(callback));
@@ -203,14 +217,27 @@ namespace Mu3Library.Observable
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>
+        /// Writes runtime changes back to the serialized rows. Rows the dictionary does not hold,
+        /// a repeated key or a missing one, are kept: they are rows someone is still editing in
+        /// the inspector, and rewriting the list from the dictionary would delete them.
+        /// </summary>
         public void OnBeforeSerialize()
         {
-            EnsureDictionary();
-
-            _entries.Clear();
-            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            if (_dictionary == null)
             {
-                _entries.Add(new Entry { Key = pair.Key, Value = pair.Value });
+                // Nothing built the dictionary since the rows were loaded, so they are current.
+                return;
+            }
+
+            if (_entries == null)
+            {
+                _entries = new List<Entry>(_dictionary.Count);
+            }
+
+            if (!EntriesMatchDictionary())
+            {
+                WriteDictionaryToEntries();
             }
         }
 
@@ -225,6 +252,11 @@ namespace Mu3Library.Observable
             Notify();
         }
 
+        /// <summary>
+        /// Builds the dictionary from the serialized rows. The first row with a key wins; a later
+        /// row with the same key and a row without a key stay in the list but not in the
+        /// dictionary, so a row added in the inspector never overwrites an existing entry.
+        /// </summary>
         private void EnsureDictionary()
         {
             if (_dictionary != null)
@@ -247,8 +279,91 @@ namespace Mu3Library.Observable
                     continue;
                 }
 
-                _dictionary[entry.Key] = entry.Value;
+                _dictionary.TryAdd(entry.Key, entry.Value);
             }
+        }
+
+        /// <summary>
+        /// Whether the rows the dictionary was built from still describe it: every first row of
+        /// a key holds the dictionary's value, and no key exists only in the dictionary.
+        /// </summary>
+        private bool EntriesMatchDictionary()
+        {
+            HashSet<TKey> seenKeys = GetSeenKeys();
+            int activeRowCount = 0;
+
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                Entry entry = _entries[i];
+                if (entry.Key == null || !seenKeys.Add(entry.Key))
+                {
+                    continue;
+                }
+
+                activeRowCount++;
+                if (!_dictionary.TryGetValue(entry.Key, out TValue value) ||
+                    !EqualityComparer<TValue>.Default.Equals(value, entry.Value))
+                {
+                    return false;
+                }
+            }
+
+            return activeRowCount == _dictionary.Count;
+        }
+
+        /// <summary>
+        /// Updates the rows in place: the first row of a key takes the dictionary's value or
+        /// leaves with its key, repeated rows leave with it too, rows without a key stay, and
+        /// keys the dictionary gained are appended.
+        /// </summary>
+        private void WriteDictionaryToEntries()
+        {
+            HashSet<TKey> seenKeys = GetSeenKeys();
+            int writeIndex = 0;
+
+            for (int readIndex = 0; readIndex < _entries.Count; readIndex++)
+            {
+                Entry entry = _entries[readIndex];
+                if (entry.Key != null)
+                {
+                    bool isFirstRow = seenKeys.Add(entry.Key);
+                    if (!_dictionary.TryGetValue(entry.Key, out TValue value))
+                    {
+                        continue;
+                    }
+
+                    if (isFirstRow)
+                    {
+                        entry.Value = value;
+                    }
+                }
+
+                _entries[writeIndex++] = entry;
+            }
+
+            _entries.RemoveRange(writeIndex, _entries.Count - writeIndex);
+
+            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            {
+                if (!seenKeys.Contains(pair.Key))
+                {
+                    _entries.Add(new Entry { Key = pair.Key, Value = pair.Value });
+                }
+            }
+        }
+
+        private HashSet<TKey> GetSeenKeys()
+        {
+            if (_seenKeys == null)
+            {
+                _seenKeys = new HashSet<TKey>();
+            }
+            else
+            {
+                _seenKeys.Clear();
+            }
+
+            return _seenKeys;
         }
     }
 }
