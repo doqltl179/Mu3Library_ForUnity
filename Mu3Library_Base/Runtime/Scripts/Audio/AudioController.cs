@@ -112,6 +112,10 @@ namespace Mu3Library.Audio
             _loopInterval = Mathf.Max(0f, loopInterval);
         }
 
+        /// <summary>
+        /// Fades the volume down to silence over <paramref name="fadeTime"/> seconds, then calls
+        /// <paramref name="callback"/>. A time of 0 or less silences it at once.
+        /// </summary>
         public void FadeOut(float fadeTime = 1.0f, Action callback = null)
         {
             // If currently in a loop interval, there is no audio playing to fade —
@@ -124,13 +128,35 @@ namespace Mu3Library.Audio
 
             StopFade();
 
+            if (fadeTime <= 0f)
+            {
+                _fadeVolume = 0.0f;
+                CalculateVolume();
+
+                callback?.Invoke();
+                return;
+            }
+
             _fadeCoroutine = FadeOutCoroutine(fadeTime, callback);
             StartCoroutine(_fadeCoroutine);
         }
 
+        /// <summary>
+        /// Fades the volume up to full over <paramref name="fadeTime"/> seconds, then calls
+        /// <paramref name="callback"/>. A time of 0 or less brings it to full at once.
+        /// </summary>
         public void FadeIn(float fadeTime = 1.0f, Action callback = null)
         {
             StopFade();
+
+            if (fadeTime <= 0f)
+            {
+                _fadeVolume = 1.0f;
+                CalculateVolume();
+
+                callback?.Invoke();
+                return;
+            }
 
             _fadeCoroutine = FadeInCoroutine(fadeTime, callback);
             StartCoroutine(_fadeCoroutine);

@@ -353,6 +353,9 @@ namespace Mu3Library.Audio
 
             controller.SetVolumeSettings(this);
             controller.SetLoopSettings(p.LoopCount, p.LoopInterval);
+            // A pooled or evicted controller may come back from a fade-out that ended in silence.
+            // A new clip starts at full fade volume; a path that fades it in lowers it afterwards.
+            controller.FadeVolume = 1.0f;
             controller.SetClip(clip);
             controller.SetClipVolume(p.Volume);
             controller.SetAudioParameters(p.BaseSettings);
