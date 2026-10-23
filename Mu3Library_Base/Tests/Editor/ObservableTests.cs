@@ -30,6 +30,24 @@ namespace Mu3Library.Tests
             public ObservableFloat Observable = new();
         }
 
+        /// <summary>A value whose equality looks only at its id, as an item keyed by id may.</summary>
+        [Serializable]
+        private struct Item : IEquatable<Item>
+        {
+            public string Id;
+            public int Count;
+
+            public bool Equals(Item other) => Id == other.Id;
+            public override bool Equals(object obj) => obj is Item other && Equals(other);
+            public override int GetHashCode() => Id?.GetHashCode() ?? 0;
+        }
+
+        [Serializable]
+        private sealed class ItemDictionaryHolder
+        {
+            public ObservableDictionary<string, Item> Dictionary = new();
+        }
+
         private readonly List<UnityEngine.Object> _createdObjects = new();
 
         [TearDown]
@@ -279,12 +297,24 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ObservableDictionary_ValueWithIdOnlyEquality_SerializesTheNewValue()
+        {
+            ItemDictionaryHolder holder = JsonUtility.FromJson<ItemDictionaryHolder>(
+                "{\"Dictionary\":{\"_entries\":[{\"Key\":\"sword\",\"Value\":{\"Id\":\"sword\",\"Count\":1}}]}}");
+
+            holder.Dictionary["sword"] = new Item { Id = "sword", Count = 5 };
+            ItemDictionaryHolder copy = JsonUtility.FromJson<ItemDictionaryHolder>(JsonUtility.ToJson(holder));
+
+            Assert.AreEqual(5, copy.Dictionary["sword"].Count);
+        }
+
+        [Test]
         public void ObservableDictionary_InspectorGrowsList_RepeatedRowNeitherOverwritesNorDisappears()
         {
             ObservableTestAsset asset = CreateAsset();
             asset.Dictionary.Add("a", 1);
             asset.Dictionary.Add("b", 2);
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
             SerializedProperty entries = serializedObject.FindProperty("_dictionary._entries");
 
             // The list's "+" button grows the array; the new row starts with a key already in use.
@@ -317,7 +347,7 @@ namespace Mu3Library.Tests
         {
             ObservableTestAsset asset = CreateAsset();
             asset.Dictionary.Add("a", 1);
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
             SerializedProperty entries = serializedObject.FindProperty("_dictionary._entries");
             Assert.AreEqual(1, entries.arraySize);
 
@@ -337,7 +367,7 @@ namespace Mu3Library.Tests
             ObservableInt health = asset.Nested.Health;
             int received = -1;
             health.Subscribe(value => received = value);
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
             SerializedProperty valueProp = serializedObject.FindProperty("_nested._health._value");
 
             valueProp.intValue = 7;
@@ -360,7 +390,7 @@ namespace Mu3Library.Tests
             int received = -1;
             first.Subscribe(_ => firstCalls++);
             second.Subscribe(value => received = value);
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
             SerializedProperty valueProp = serializedObject.FindProperty($"{collectionField}.Array.data[1]._health._value");
 
             valueProp.intValue = 4;
@@ -373,6 +403,49 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void DrawerTargets_FieldInStructAndManagedReference_AppliesValueAndNotifies()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            ObservableInt inStruct = asset.InStruct.Health;
+            ObservableInt referenced = asset.ReferencedSlot.Health;
+            int receivedInStruct = -1;
+            int receivedReferenced = -1;
+            inStruct.Subscribe(value => receivedInStruct = value);
+            referenced.Subscribe(value => receivedReferenced = value);
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty structValue = serializedObject.FindProperty("_structSlot._health._value");
+            SerializedProperty referencedValue = serializedObject.FindProperty("_referencedSlot._health._value");
+
+            structValue.intValue = 3;
+            ObservableDrawerUtility.ApplyAndNotify(structValue, 3);
+            referencedValue.intValue = 6;
+            ObservableDrawerUtility.ApplyAndNotify(referencedValue, 6);
+
+            Assert.AreEqual(3, asset.InStruct.Health.Value);
+            Assert.AreEqual(3, receivedInStruct);
+            Assert.AreEqual(6, asset.ReferencedSlot.Health.Value);
+            Assert.AreEqual(6, receivedReferenced);
+        }
+
+        [Test]
+        public void DrawerTargets_UndoAfterEdit_RestoresValueFromBeforeTheEdit()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            asset.Nested.Health.SetWithoutEvent(2);
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty valueProp = serializedObject.FindProperty("_nested._health._value");
+
+            Undo.IncrementCurrentGroup();
+            valueProp.intValue = 7;
+            ObservableDrawerUtility.ApplyAndNotify(valueProp, 7);
+            Assert.AreEqual(7, asset.Nested.Health.Value);
+
+            Undo.PerformUndo();
+
+            Assert.AreEqual(2, asset.Nested.Health.Value);
+        }
+
+        [Test]
         public void DrawerTargets_MultipleObjects_NotifiesEveryObjectTheEditChanged()
         {
             ObservableTestAsset changed = CreateAsset();
@@ -382,7 +455,7 @@ namespace Mu3Library.Tests
             int unchangedCalls = 0;
             changed.Direct.Subscribe(_ => changedCalls++);
             unchanged.Direct.Subscribe(_ => unchangedCalls++);
-            SerializedObject serializedObject = new(new UnityEngine.Object[] { changed, unchanged });
+            using SerializedObject serializedObject = new(new UnityEngine.Object[] { changed, unchanged });
             SerializedProperty valueProp = serializedObject.FindProperty("_direct._value");
 
             valueProp.floatValue = 2f;
@@ -402,7 +475,7 @@ namespace Mu3Library.Tests
             IReadOnlyDictionary<string, int> receivedStats = null;
             asset.Nested.Items.Subscribe(value => receivedItems = value);
             asset.Nested.Stats.Subscribe(value => receivedStats = value);
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
             SerializedProperty items = serializedObject.FindProperty("_nested._items");
             SerializedProperty stats = serializedObject.FindProperty("_nested._stats");
 
@@ -426,7 +499,7 @@ namespace Mu3Library.Tests
         public void DrawerTargets_PathThatDoesNotResolve_FindsNothing()
         {
             ObservableTestAsset asset = CreateAsset();
-            SerializedObject serializedObject = new(asset);
+            using SerializedObject serializedObject = new(asset);
 
             Assert.IsEmpty(ObservableDrawerUtility.FindTargets<object>(serializedObject, "_nested._missing"));
             Assert.IsEmpty(ObservableDrawerUtility.FindTargets<object>(serializedObject, "_slotArray.Array.data[5]._health"));
