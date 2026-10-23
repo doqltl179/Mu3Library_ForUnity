@@ -69,6 +69,8 @@ namespace Mu3Library.Audio
         /// <summary>
         /// Plays <paramref name="clip"/> as the BGM at full volume and ends a running playlist.
         /// Asking for the clip that already plays keeps it playing, and cancels a fade-out running on it.
+        /// A clip the playlist was playing starts again under <paramref name="settings"/> instead,
+        /// because the playlist plays each track once.
         /// </summary>
         public void PlayBgm(AudioClip clip, AudioSourceSettings settings)
         {
@@ -80,20 +82,24 @@ namespace Mu3Library.Audio
 
             // A track the caller picks replaces the playlist, whose next track would otherwise
             // take over the controller once this one ends or the gap between tracks runs out.
+            bool wasPlaylistActive = _isPlaylistActive;
             CancelPlaylist();
 
-            PlayBgmInternal(clip, settings);
+            // The controller holds the playlist's play-once settings, which would end the clip
+            // after this play, so a clip the playlist was playing starts again under the caller's.
+            PlayBgmInternal(clip, settings, keepSameClip: !wasPlaylistActive);
         }
 
         /// <summary>
         /// The play path <see cref="PlayBgm(AudioClip, AudioSourceSettings)"/> and the playlist
         /// share. It leaves the playlist running, so the playlist plays its tracks through it.
+        /// With <paramref name="keepSameClip"/>, the clip that already plays goes on as it is.
         /// </summary>
-        private void PlayBgmInternal(AudioClip clip, AudioSourceSettings settings)
+        private void PlayBgmInternal(AudioClip clip, AudioSourceSettings settings, bool keepSameClip = true)
         {
             if (_bgmMainController != null)
             {
-                if (_bgmMainController.IsPlaying && _bgmMainController.IsSameClip(clip))
+                if (keepSameClip && _bgmMainController.IsPlaying && _bgmMainController.IsSameClip(clip))
                 {
                     // The fade-out would pause the clip that was just asked for, so the request
                     // cancels it and the clip goes on at full volume.
