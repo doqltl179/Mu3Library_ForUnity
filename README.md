@@ -201,7 +201,11 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner` controls lifecycle chaining, while `HostOptions` controls where the child view is attached and how its root `RectTransform` is laid out.
 
-A child can be opened from any presenter callback, `LoadFunc()` and `OpenFunc()` included; the owner does not have to be open yet. Closing an owner cascades to its children, including one that is still loading. A child hosted under the owner's view unloads even when the owner finishes closing first; its close transition then ends when the owner's view is hidden. A view that overrides `OnDisable` must call `base.OnDisable()`, which ends that close. A presenter that has started closing no longer takes new children.
+A child can be opened from any presenter callback, `LoadFunc()` and `OpenFunc()` included; the owner does not have to be open yet. Closing an owner cascades to its children, including one that is still loading. A child hosted under the owner's view unloads even when the owner finishes closing first; its close transition then ends when the owner's view is hidden. The manager ends that close whether or not a view that overrides `OnDisable` calls `base.OnDisable()`, though such a view should still call it. A presenter that has started closing no longer takes new children.
+
+A window opened under a host that is hidden, such as an inactive `HostOptions.Host`, cannot run its open transition there. It skips the wait instead: `OpenStart()` and `OpenEnd()` run back to back, an `AnimationView` takes its opened pose at once, and the window counts as opened in the next manager update. It shows fully open once the host is shown, a plain `Close` closes it, and `OpenAsync` completes for it.
+
+`AnimationView` animations advance on unscaled time by default, so a popup opened from a pause menu that sets `Time.timeScale` to 0 still opens and closes. For an animation that should follow the game's time scale instead, set **Time Mode** on the view's `AnimationHandler` to `Scaled`, or set `AnimationHandler.TimeMode` from code. `TimeMode` is in the `Mu3Library.Utility` namespace.
 
 Direct manager calls can keep the same ownership and host configuration in one overload:
 
@@ -232,6 +236,8 @@ void Start()
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
 }
 ```
+
+Fades, ducks, loop intervals, and the gap between playlist tracks advance on unscaled time by default, so they keep running while `Time.timeScale` is 0, as the sources themselves keep playing then. Set `_audioManager.TimeMode = TimeMode.Scaled;` to have them follow the game's time scale. `PlayBgm`, `PlayBgmForce`, and `TransitionBgm` end a running BGM playlist, as `StopBgm` does.
 
 ### Addressables
 With Addressables support enabled, load all assets resolved by a key into a `Dictionary<string, T>` indexed by the matching resource location's `PrimaryKey`. `PrimaryKey` values must be non-empty and unique; otherwise the load operation fails.
