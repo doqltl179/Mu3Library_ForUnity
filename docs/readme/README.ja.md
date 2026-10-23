@@ -107,7 +107,11 @@ public class GameCore : CoreBase
 }
 ```
 
-登録されたサービスも、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されます。
+`Awake`、`Start`、`OnEnable`、`OnDisable`、`OnDestroy` をオーバーライドするコアは、必ず base のメソッドを呼び出してください。これらのメソッドが合わせて、コアを `CoreRoot` に登録し、注入し、準備させ、登録を解除します。
+
+基底クラスが宣言した `[Inject]` メンバーも、private を含めて注入されます。クラス階層をさかのぼる探索は `CoreBase` で止まります。エディタの DI 検証ツールも同じメンバーを検査します。
+
+登録されたサービスも、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されます。1 つの登録（実装型、キー、ライフタイム）は、どのサービス型で resolve しても 1 つのインスタンスを返します。シングルトンはコンテナごとに 1 つ、スコープドのサービスはスコープごとに 1 つです。例外を投げたライフサイクル callback は `Debug.LogException` で記録され、ほかのサービスとコアは動き続けます。
 
 ```csharp
 public class AudioPlaybackService

@@ -13,6 +13,10 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- Base: `InjectableMembers.GetFields(Type)`와 `InjectableMembers.GetProperties(Type)`는 한 타입에서 `[Inject]`가 채우는 필드와 프로퍼티를 돌려줍니다. 컨테이너와 에디터의 DI 검증기가 모두 이를 쓰므로, 검증기는 컨테이너가 주입하는 멤버를 정확히 그대로 검사합니다.
+- Base: `CoreBase.OnDisable()`이 `Awake`, `Start`, `OnEnable`, `OnDestroy`처럼 `protected virtual`입니다. 자체 `OnDisable`을 선언한 코어는 이를 재정의하고 `base.OnDisable()`을 호출해야 합니다. 그 전까지는 컴파일러가 경고 CS0114를 내고, 아래의 준비 관련 수정도 그 코어에는 적용되지 않습니다. `OnDisable`에서 UI 이벤트를 해제하는 Template 샘플 코어들은 이제 그렇게 합니다.
+
 ### 변경됨
 - Base: `CoreBase`, `CoreRoot`, `MVPManager`, `Singleton`, `GenericSingleton`은 Unity 6.4부터 `FindObjectsSortMode`를 받지 않는 `FindObjectsByType` 오버로드로 씬 오브젝트를 찾습니다. 6.4에서 이 인자를 받는 오버로드가 obsolete가 되었기 때문입니다. 이전 에디터는 기존 호출을 그대로 쓰므로, 어느 버전에서든 같은 오브젝트를 찾고 정렬하지 않은 채 돌려줍니다.
 - Base: DI 컨테이너의 등록 로그가 Unity 6.6에서 사용 중단된 `DEVELOPMENT_BUILD` 심볼에 더 이상 기대지 않습니다. 에디터는 항상 로그를 남기고, 플레이어는 시작할 때 `Debug.isDebugBuild`를 한 번 읽으므로 이전처럼 development build에서만 로그가 남습니다.
@@ -29,6 +33,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - Watermelon Game: `package.json`이 런타임이 쓰는 Physics 2D, Audio, JSONSerialize 모듈도 선언합니다.
 - Base: 파일이 한 번도 들어간 적 없는 폴더의 메타데이터 `Runtime/Prefabs.meta`가 더 이상 Git 설치에 포함되지 않습니다. Git은 빈 폴더를 저장하지 않아, 설치본에는 폴더 없이 `.meta`만 들어갔습니다.
 - Base: UniTask가 설치되어 있을 때 `CoreBase.PrepareCoreAsync(CancellationToken)`의 기본 구현은 `async` 없이 완료된 `UniTask<bool>`을 돌려줍니다. 이전에는 `await` 없는 `async` 메서드여서 컴파일러 경고 CS1998이 나고, 호출할 때마다 상태 머신이 만들어졌습니다. 시그니처와 `protected virtual`은 그대로라 재정의한 코드도 그대로 컴파일됩니다.
+- Base: DI 생명주기 콜백이 하나씩 따로 실행됩니다. 서비스의 `Initialize`, `Update`, `LateUpdate`, `Dispose`나 코어의 갱신에서 난 예외는 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 그 프레임에도, 이후 프레임에도 계속 실행됩니다. 이전에는 서비스 하나가 실패하면 그 뒤의 모든 서비스와 코어가 멈췄고, `Initialize`가 실패한 코어는 `OnCoreInitialized`와 `OnCorePrepared`를 끝내 알리지 못했습니다. 이제 그 코어도 둘 다 알립니다. 코어가 초기화된 뒤 처음 resolve될 때 `Initialize`가 예외를 던진 서비스도 같은 방식으로 기록되고 그대로 반환됩니다.
+- Base: `CoreRoot`가 코어들을 갱신하는 도중에 등록되거나 빠지는 코어(예: 서비스의 `Update`에서 인스턴스화한 코어)가 더 이상 진행 중인 순회의 순서를 바꾸지 않습니다. 이전에는 그 프레임에 어떤 코어는 두 번 갱신되고 어떤 코어는 건너뛰어졌습니다. 새 코어는 여전히 곧바로 초기화되고, 갱신 순회에는 다음 프레임부터 들어갑니다.
+- Base: 기반 클래스가 선언한 `[Inject]` 필드와 프로퍼티가 private까지 포함해 주입됩니다. 파생 타입을 대상으로 한 리플렉션은 기반 클래스의 private 멤버를 보지 못해, 그 멤버는 오류 없이 null로 남았고 필수 멤버도 검사되지 않았습니다. 탐색은 `CoreBase`, `object`, 엔진 자체의 타입에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
+- Base: 등록 하나(구현 타입, 키, 수명)에서 나온 인스턴스는 어떤 서비스 타입으로 resolve하든 같습니다. 키가 있는 싱글턴은 서비스 타입마다 하나씩 만들어져 인스턴스마다 `Initialize`와 `Update`가 돌았고, 스코프드 등록은 한 스코프 안에서도 서비스 타입마다 다른 인스턴스를 주었습니다. 이제 한 서비스 타입에 등록한 팩토리 여러 개가 `ResolveAll`에서 각자 자기 인스턴스를 만들고, 첫 resolve 이후에 등록한 팩토리도 적용됩니다. 이전에는 모두 첫 팩토리가 만든 인스턴스를 돌려줬습니다.
+- Base: 애플리케이션 종료가 시작되면(에디터에서 플레이 모드를 나가는 경우 포함) `CoreRoot.Instance`가 새 `CoreRoot`를 만들지 않고 null을 돌려줍니다. 루트보다 늦게 파괴되는 코어가 더 이상 새 `CoreRoot` 오브젝트를 남기지 않습니다. Unity는 이를 "Some objects were not cleaned up when closing the scene"으로 보고했습니다.
+- Base: UniTask가 없을 때, 준비 도중 오브젝트가 비활성화된 코어는 경고를 한 번 남기고 오브젝트가 다시 활성화되면 준비를 다시 시작해 `OnPrepared`에 도달합니다. 이전에는 Unity가 준비 중인 코루틴을 멈춰 코어가 영원히 `IsPreparing`에 남았습니다. 컴포넌트만 비활성화하면 진행 중인 준비가 그대로 끝나며, UniTask 경로는 바뀌지 않습니다.
+- URP: ScreenEffect 샘플의 `ScreenEffectCore.OnDestroy`가 자신의 정리 뒤에 `base.OnDestroy()`를 호출하므로, 파괴된 코어가 `CoreRoot`에서 빠지고 서비스를 해제합니다. 이전에는 같은 세션에서 씬을 다시 불러오면 "Core is already exist"가 기록되고 새 코어가 초기화되지 않았습니다.
 
 ## [base/0.26.0] - 2026-08-17
 

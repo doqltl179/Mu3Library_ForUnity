@@ -107,7 +107,11 @@ public class GameCore : CoreBase
 }
 ```
 
-등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다.
+`Awake`, `Start`, `OnEnable`, `OnDisable`, `OnDestroy`를 재정의하는 코어는 반드시 base 메서드를 호출해야 합니다. 이 메서드들이 함께 코어를 `CoreRoot`에 등록하고, 주입하고, 준비시키고, 다시 등록 해제합니다.
+
+기반 클래스가 선언한 `[Inject]` 멤버도 private까지 포함해 주입됩니다. 클래스 계층을 거슬러 올라가는 탐색은 `CoreBase`에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
+
+등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다. 등록 하나(구현 타입, 키, 수명)는 어떤 서비스 타입으로 resolve하든 인스턴스 하나를 돌려줍니다. 싱글턴은 컨테이너당 하나, 스코프드 서비스는 스코프당 하나입니다. 예외를 던진 생명주기 콜백은 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 계속 실행됩니다.
 
 ```csharp
 public class AudioPlaybackService
