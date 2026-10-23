@@ -44,6 +44,7 @@ namespace Mu3Library.DI
         private CancellationTokenSource _prepareCoreCts = null;
 #else
         private IEnumerator _prepareCoreCoroutine = null;
+        private bool _isPrepareInterrupted = false;
 #endif
 
         private readonly SubscribeHandler _subscribeHandler = new();
@@ -121,7 +122,8 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Retries a preparation that could not start yet, which is what a core whose object was
-        /// inactive while <see cref="Start"/> ran is left with on the coroutine path.
+        /// inactive while <see cref="Start"/> ran is left with on the coroutine path, or that
+        /// <see cref="OnDisable"/> stopped there; the latter logs one warning.
         /// </summary>
         /// <remarks>
         /// Derived classes that override this method must call <c>base.OnEnable()</c> to preserve the core lifecycle.
@@ -130,6 +132,14 @@ namespace Mu3Library.DI
         {
             if (_isPrepareRequested && !_isPrepared && !_isPreparing)
             {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+                if (_isPrepareInterrupted)
+                {
+                    _isPrepareInterrupted = false;
+                    Debug.LogWarning($"Core prepare was interrupted because the core's object was deactivated, and starts again. type: {GetType().Name}", this);
+                }
+#endif
+
                 PrepareCore();
             }
         }
@@ -146,13 +156,13 @@ namespace Mu3Library.DI
         {
 #if !MU3LIBRARY_UNITASK_SUPPORT
             // Disabling only the component leaves the coroutine running, and the preparation
-            // then finishes on its own.
+            // then finishes on its own. The warning waits for OnEnable, so a core destroyed
+            // while it prepares does not announce a restart that never comes.
             if (_prepareCoreCoroutine != null && !gameObject.activeInHierarchy)
             {
                 StopPrepareCore();
                 _isPreparing = false;
-
-                Debug.LogWarning($"Core prepare interrupted because the core's object was deactivated. It restarts when the object is active again. type: {GetType().Name}", this);
+                _isPrepareInterrupted = true;
             }
 #endif
         }

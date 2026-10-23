@@ -204,8 +204,8 @@ namespace Mu3Library.Tests
             Assert.IsTrue(core.IsPrepared);
             CollectionAssert.AreEqual(new[] { core.GetType() }, prepared);
 #else
-            // The coroutine path needs the player loop; preparation is checked in play mode.
-            Assert.Pass("Coroutine preparation is not observable in edit mode.");
+            // The coroutine path needs the player loop, which edit mode does not run.
+            Assert.Ignore("Coroutine preparation is not observable in edit mode.");
 #endif
         }
     }

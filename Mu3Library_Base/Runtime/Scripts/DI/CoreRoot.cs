@@ -85,6 +85,11 @@ namespace Mu3Library.DI
         /// <summary>
         /// The registered cores in execution order, for diagnostics.
         /// </summary>
+        /// <remarks>
+        /// This is the list the root updates. Read from inside a core's update, it shows a core
+        /// that left during that update as a null entry, and it lists a core that registered
+        /// during an update only from the next frame on.
+        /// </remarks>
         public IReadOnlyList<CoreBase> RegisteredCores => _orderedCores;
 
         private readonly SubscribeHandler _subscribeHandler = new();
