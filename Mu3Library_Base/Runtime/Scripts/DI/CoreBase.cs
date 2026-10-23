@@ -90,7 +90,7 @@ namespace Mu3Library.DI
             CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
-        private void InitializeContainer()
+        internal void InitializeContainer()
         {
             if (_isContainerConfigured)
             {
@@ -134,11 +134,43 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Rewinds a preparation that deactivating this core's object cut off, which on the
+        /// coroutine path is what Unity does to the preparing coroutine, so that
+        /// <see cref="OnEnable"/> starts it again.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDisable()</c> to preserve the core lifecycle.
+        /// </remarks>
+        protected virtual void OnDisable()
+        {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+            // Disabling only the component leaves the coroutine running, and the preparation
+            // then finishes on its own.
+            if (_prepareCoreCoroutine != null && !gameObject.activeInHierarchy)
+            {
+                StopPrepareCore();
+                _isPreparing = false;
+
+                Debug.LogWarning($"Core prepare interrupted because the core's object was deactivated. It restarts when the object is active again. type: {GetType().Name}", this);
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Stops a running preparation and takes this core out of <see cref="CoreRoot"/>, which
+        /// disposes its scope.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDestroy()</c> to preserve the core lifecycle.
+        /// </remarks>
         protected virtual void OnDestroy()
         {
             StopPrepareCore();
 
             _subscribeHandler.Dispose();
+            // Null once the application quits and the root is gone: the accessor no longer
+            // creates a root then.
             CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 

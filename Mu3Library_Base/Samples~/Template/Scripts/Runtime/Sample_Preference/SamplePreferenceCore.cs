@@ -27,8 +27,10 @@ namespace Mu3Library.Sample.Template.Preference
             RegisterUiEvents();
         }
 
-        private void OnDisable()
+        protected override void OnDisable()
         {
+            base.OnDisable();
+
             UnregisterUiEvents();
         }
 

@@ -21,6 +21,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        }
+    ],
     "noEngineReferences": false
 }
