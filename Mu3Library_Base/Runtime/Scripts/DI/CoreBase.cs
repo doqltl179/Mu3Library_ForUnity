@@ -203,9 +203,9 @@ namespace Mu3Library.DI
             }
         }
 
-        protected async virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
+        protected virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
         {
-            return true;
+            return UniTask.FromResult(true);
         }
 
         private void StopPrepareCore()
