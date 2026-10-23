@@ -200,7 +200,7 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner` はライフサイクル連結を制御し、`HostOptions` は子 view の取り付け先とルート `RectTransform` レイアウトの適用方法を制御します。
 
-子は `LoadFunc()` と `OpenFunc()` を含むどの presenter コールバックからでも開けます。owner がまだ開き終わっている必要はありません。owner を閉じると、まだ loading 中の子まで連鎖して閉じます。owner の view の下に host された子は、owner が先に閉じ終わっても unload されます。その場合、子の閉じる遷移は owner の view が非表示になった時点で終わります。閉じ始めた presenter は新しい子を受け取りません。
+子は `LoadFunc()` と `OpenFunc()` を含むどの presenter コールバックからでも開けます。owner がまだ開き終わっている必要はありません。owner を閉じると、まだ loading 中の子まで連鎖して閉じます。owner の view の下に host された子は、owner が先に閉じ終わっても unload されます。その場合、子の閉じる遷移は owner の view が非表示になった時点で終わります。`OnDisable` を override する view は、その close を終わらせる `base.OnDisable()` を呼ぶ必要があります。閉じ始めた presenter は新しい子を受け取りません。
 
 manager から直接開く場合でも、同じ ownership / host 構成を 1 つのオーバーロードで維持できます。
 
