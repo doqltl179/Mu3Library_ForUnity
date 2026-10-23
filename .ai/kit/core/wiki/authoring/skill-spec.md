@@ -41,8 +41,8 @@ A skill links to the policy it applies instead of restating it. Example: `git-co
 | `docs` | Project documentation and decision records |
 | `localization` | Translation and localization into other languages |
 | `kit` | Creating, auditing, installing, updating, and evolving the kit and its overlay |
-| `planning` | Decomposition, plans, onboarding to a codebase |
-| `product` | Requirements and specification work |
+| `planning` | Decomposition, plans, settling open decisions, onboarding to a codebase |
+| `product` | Requirements and specification work, and judging content ideas before adoption |
 | `release` | Versioning and release execution |
 | `ops` | CI and operational diagnosis |
 
@@ -79,6 +79,7 @@ Only `name` and `description` are rendered into tool folders; the other fields a
 - <what exists or is reported when the skill finishes>
 ```
 
+- End each step on a condition the runner can check (for example "every call site in the inventory migrated"), not on an activity ("review the code"); a vague end invites stopping early.
 - Keep skills within the budget in [context-budget.md](../operating-model/context-budget.md).
 - Supporting files (checklists, scripts, templates used only by this skill) live in the skill folder and are linked relatively.
 - A step that needs a project command names the profile key (for example `commands.test`), not a literal command.

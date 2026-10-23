@@ -18,7 +18,7 @@ Navigation rule: entry point → section index → owning page. If a question ne
 | [integration/README.md](integration/README.md) | **integration/** — How the kit is installed into a project, configured through the project overlay, and rendered for each AI tool |
 | [operating-model/README.md](operating-model/README.md) | **operating-model/** — How the agent organization runs: its structure, the order of a request, owner selection, delegation, handoffs, context use, and memory |
 | [principles/README.md](principles/README.md) | **principles/** — Which invariant principle governs where knowledge lives, how agent-facing docs are written, and how agents stay honest |
-| [workflows/README.md](workflows/README.md) | **workflows/** — Which repeatable workflow policy applies: planning, Git, issues and pull requests, code-change safety, verification, review, documentation, and release |
+| [workflows/README.md](workflows/README.md) | **workflows/** — Which repeatable workflow policy applies: planning, Git, issues and pull requests, code-change safety, verification, review, documentation, product ideas, and release |
 <!-- agentkit:end index -->
 
 Agent cards, skills, and stack packs are listed in `.ai/generated/catalog.md` (active in this project) and in the kit catalogs: [agents](../agents/CATALOG.md), [skills](../skills/CATALOG.md), [stacks](../stacks/CATALOG.md).

@@ -40,9 +40,11 @@ Every issue states:
 
 1. **Origin** — the issue, pull request, or report it came from.
 2. **Why** — the problem or value, with evidence.
-3. **Done when** — the observable condition that closes it.
+3. **Done when** — the observable condition that closes it, and what stays out of scope when adjacent work could be mistaken for part of it.
 
 An item without a "done when" is a pending decision: label it `analysis` and make the decision the task.
+
+An issue may wait while the code moves. Describe the behavior and the interfaces involved; quote file paths and line numbers only as evidence, never as the description of the work.
 
 ## Labels
 
@@ -63,13 +65,13 @@ Apply `blocked` only when starting now would produce nothing: it waits on a user
 ## Triage And Closing
 
 - Duplicates: keep the issue with the most complete record and link the other before closing it.
-- Close only with evidence: fixed by a named merged pull request, no longer reproducible (state how it was checked), or obsolete (state why).
+- Close only with evidence: fixed by a named merged pull request, already implemented (name where), no longer reproducible (state how it was checked), or obsolete (state why).
 - Inactivity alone is never a reason to close. A "won't do" decision belongs to the user.
 - Order work: issues that unblock others, then priority, then oldest.
 
 ## Leftovers Become Issues
 
-Register as an issue: work deliberately deferred, defects or doc/code mismatches found along the way, and follow-ups that must happen outside the repository. Do not register: anything fixable now (fix it), anything an open issue already covers (comment there).
+Register as an issue: work deliberately deferred, defects or doc/code mismatches found along the way, and follow-ups that must happen outside the repository. Do not register: anything the unit's issue or acceptance criteria already require (fix it), anything an open issue already covers (comment there).
 
 ## Pull Request Targets
 
@@ -85,7 +87,7 @@ No other combination. A pull request from a task branch into the release branch 
 1. **Summary** — what changed and why, in two or three sentences.
 2. **Changes** — grouped by concern.
 3. **Verification** — the commands run and their results, per «Evidence Format» in [verification.md](verification.md).
-4. **Risks and follow-ups** — with issue numbers.
+4. **Risks and follow-ups** — what could break and for whom, whether reverting the pull request fully undoes it or a step is one-way (data migrated or deleted, an interface or package published), and follow-ups with issue numbers.
 5. **Links** — per «Linking Issues».
 
 ## Linking Issues

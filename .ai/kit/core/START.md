@@ -24,6 +24,7 @@ This project uses agentkit: a shared wiki of rules, agent roles, skills, and sta
 | Choose who does the work | [routing.md](wiki/operating-model/routing.md), then `.ai/generated/catalog.md` |
 | Act as an owner, delegate, or hand off | [delegation.md](wiki/operating-model/delegation.md), [handoff-contract.md](wiki/operating-model/handoff-contract.md) |
 | Plan non-trivial work | [planning.md](wiki/workflows/planning.md) |
+| Decide how much a change may touch | [change-scope.md](wiki/workflows/change-scope.md) |
 | Run several units or agents at the same time | [concurrency.md](wiki/operating-model/concurrency.md) |
 | Add a dependency, change a public interface, or migrate data | [code-changes.md](wiki/workflows/code-changes.md) |
 | Start a unit (worktree, task branch) or commit | [git-workflow.md](wiki/workflows/git-workflow.md) |
@@ -47,6 +48,7 @@ Each line's full rule lives on the linked page.
 
 - Never fake success; never claim a check you did not run — [integrity.md](wiki/principles/integrity.md)
 - Stop when the request is impossible; pause for scope expansion or a decision the user owns — [integrity.md](wiki/principles/integrity.md)
+- Change only what the request needs, and remove what your change left unused — [change-scope.md](wiki/workflows/change-scope.md)
 - Confirm before destructive, irreversible, or outward-facing actions — [integrity.md](wiki/principles/integrity.md)
 - Each unit: issue first, its own worktree from the integration branch, pull request back into it — [request-lifecycle.md](wiki/operating-model/request-lifecycle.md)
 - Never commit directly to a protected branch or edit files in the main checkout — [git-workflow.md](wiki/workflows/git-workflow.md)

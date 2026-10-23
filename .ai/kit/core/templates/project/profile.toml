@@ -59,7 +59,7 @@ locale_pattern = "docs/{locale}/{name}"   # Path of a localized copy. Placeholde
                                           # {stem} (name without extension), {ext} (extension with the dot).
 specs_dir = "docs/specs"        # Requirements specifications.
 adr_dir = "docs/adr"            # Architecture decision records.
-glossary = ".ai/project/wiki/glossary.md"   # Terms and their approved rendering per locale, plus per-locale style notes.
+glossary = ".ai/project/wiki/glossary.md"   # Project terms: canonical term, meaning, synonyms to avoid, rendering per locale, and per-locale style notes.
 
 # [docs.locale_paths]
 # Per-document override of locale_pattern, keyed by the primary file:

@@ -32,6 +32,7 @@ Keep the plan proportional: a plan that costs more to maintain than the work it 
 - File names start with the UTC creation timestamp, so listing the folder shows work in the order it began. Never rename an active plan.
 - A unit's plan lives in its worktree's `.ai/tasks/`; a plan coordinating several units lives in the main checkout's `.ai/tasks/`. Removing a worktree deletes its plan, so close the plan first.
 - The plan is a working record, not a source of truth: the current request outranks it, and durable outcomes belong in their owning pages.
+- `.ai/tasks/ideas/` holds idea records, which follow [idea-records.md](idea-records.md), not this page.
 
 ## Statuses
 

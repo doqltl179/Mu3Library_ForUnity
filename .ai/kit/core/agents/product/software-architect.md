@@ -36,7 +36,7 @@ Mission: make cross-component decisions explicit, justified, and recorded, so ea
 - Decisions the user owns (cost, vendor commitment, security posture) are asked with options and a recommendation.
 
 ## Skills
-- `adr-write`, `codebase-onboard`
+- `adr-write`, `decision-interview`, `codebase-onboard`
 
 ## Output
 - ADR paths with status, and the contract definitions each surface owner builds against.

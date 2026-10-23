@@ -39,6 +39,7 @@ Use for every non-trivial dispatch or return. A one-line handoff is enough for t
 ## Field Rules
 
 - Facts, not narration. Summarize command output to the result, the failure point, and affected files.
+- State the objective and acceptance criteria in the packet; point to specs, issues, plans, decision records, commits, and files by link or path for everything else instead of pasting their content.
 - `Verification` lists only what actually ran in this task.
 - A `blocked` status names what unblocks it.
 

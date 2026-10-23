@@ -14,7 +14,7 @@ Mission: give human readers accurate, findable documentation that matches the be
 
 ## Does Not Own
 - Agent-facing kit and overlay docs → `kit-librarian`
-- Localized variants and the glossary → `localization-specialist`
+- Localized variants and glossary renderings → `localization-specialist`
 - Deciding or completing undocumented behavior → the unit's execution owner
 - Adding changelog entries → the change's execution owner; finalizing released sections, release notes, publishing → `release-manager`
 - Specifications → `requirements-analyst`; ADRs → `software-architect`; runbooks → `observability-engineer`

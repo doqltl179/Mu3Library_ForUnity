@@ -57,7 +57,7 @@ Carry the profile into each target with that language's own means, not the sourc
 
 ## Terminology
 
-- The glossary at `docs.glossary` is the single owner of how terms are rendered: one row per concept, one approved rendering per locale.
+- The glossary at `docs.glossary` is the single owner of how terms are rendered: one row per concept, one approved rendering per locale. Choosing and defining the source term itself follows [domain-terms.md](domain-terms.md).
 - Look up every name and domain term before translating it. A term with no entry gets one before its first use, with the decision: translate, transliterate, or keep as-is.
 - Within one language, the same concept always uses the same approved rendering, in every file and every later translation. Example: once the item `냥이` is rendered `Nyani` in English, it is never `Kitty` elsewhere.
 - Changing an approved rendering is one change: update the glossary entry and every occurrence in that language in the same unit.

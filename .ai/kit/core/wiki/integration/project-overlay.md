@@ -52,7 +52,7 @@ reviewed: 2026-10-09
 
 ## Project Wiki
 
-- Record project facts the kit leaves open: architecture overview, domain glossary, module map, local conventions, environments.
+- Record project facts the kit leaves open: architecture overview, domain glossary, module map, local conventions, environments, and the product planning values of «Project Values» in [idea-evaluation.md](../workflows/idea-evaluation.md).
 - Same page shape as core pages ([page-spec.md](../authoring/page-spec.md)); the index region in `wiki/README.md` is generated.
 - Never restate a core rule here; link to it.
 

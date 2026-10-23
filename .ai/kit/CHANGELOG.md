@@ -4,6 +4,36 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-24
+
+### Added
+- Idea proposals before adoption, in three scopes: skills `new-content-propose` (new content across the product), `content-expansion-propose` (a new element inside one content, starting from a survey of comparable products), and `content-revision-propose` (one value or rule of a unit, starting from a status table of the content). They hold only the steps; `requirements-analyst` owns the proposals, and `requirements-spec-write` routes ideas not yet adopted to them. (minor)
+- Page `idea-evaluation.md`: scopes, the project values each scope reads from `.ai/project/wiki/product-planning.md`, the verdicts `reject`, `defer`, and `pass` (passing is not adoption), the eight criteria and their order, hand-overs to another scope or owner, choosing when the user delegates the choice, and boundaries. (minor)
+- Page `product-evidence.md`: evidence kinds and their fields, time windows, rules for every read of production data, reading existing metric sources by cost, stopping on blocked sign-in, and attributing an effect. `data-analyst` and `requirements-spec-write` cite it; new analytical queries stay with `data-analyst`. (minor)
+- Page `idea-records.md`: idea records in the main checkout's ignored `.ai/tasks/ideas/`, file names, the domain survey and status table, proposal sections per scope, the defer record, judging again, and the report. `memory-policy.md`, `planning.md`, `git-workflow.md`, and `installation.md` route to it, and `request-lifecycle.md` counts judging an idea as work without tracked file changes. (minor)
+- Page `change-scope.md`: how much a change may touch: assumptions named before editing, the smallest sufficient change (no unrequested features, options, or single-use abstractions), edit boundaries inside touched files, and cleanup of only what the change left unused. Routed from a new `START.md` route and «Stop First» line (rendered into every `AGENTS.md`), `request-lifecycle.md`, `code-changes.md`, and the code review checklist. (minor)
+- Page `domain-terms.md`: one canonical term per concept, its definition, the synonyms to avoid, and using the terms in code, docs, and conversation. The glossary template gains an `Avoid` column; existing glossaries may add it. `localization-specialist` now owns only renderings, keep-as-is terms, and style notes in the glossary; the unit that settles a term writes its entry. (minor)
+- Skill `decision-interview`: settles several user-owned decisions in rounds ordered by their prerequisites, looks facts up instead of asking for them, and gives a recommended answer per question; listed on `requirements-analyst` and `software-architect`, and referenced from the Confirm step of `request-lifecycle.md` and from `requirements-spec-write`. (minor)
+
+### Changed
+- Writing rules, all additive: routes name one situation per distinct case, material only some cases need moves behind a link, sentences that change no behavior are deleted, established terms win over coined ones, and prohibitions stay only as hard limits (`agent-first-writing.md`); skill steps end on a checkable condition (`skill-spec.md`); repository files own the facts they state (`ssot.md`), so `codebase-onboard` links commands and file lists instead of copying them into the overview; existing `overview.md` files may replace copied commands with links. (minor)
+- `bug-diagnose`: the reproduction must show the reported symptom, intermittent failures are raised to a usable rate, ranked candidate causes are tested one variable at a time, and temporary logging carries a marker that is searched away. A bug no test level can reproduce is verified by its original reproduction and gets a follow-up for the missing test seam (`verification.md`). (minor)
+- `test-add`: expected values come from a source independent of the code (characterization tests excepted), and only what the test cannot control is substituted. `code-review-perform` adds a scope check and cites the project's documented conventions. (minor)
+- `adr-write` applies only to decisions that are costly to reverse, chosen among real alternatives, and surprising without their reason. (minor)
+- `code-changes.md`: an interface includes defaults, error behavior, ordering, side effects, and performance characteristics; a change to one is breaking when a caller relying on it within the documented guarantees would fail. (minor)
+- `issues-and-prs.md`: issues describe behavior and interfaces rather than paths and may name what is out of scope; pull request risks state who could be affected and whether a revert fully undoes the change; "already implemented" is a close reason (also in `github-issue-triage`); work the unit's issue or acceptance criteria already require is fixed, not registered as a leftover. (minor)
+- Handoff packets state the objective and criteria and point to everything else (`handoff-contract.md`); compacting or handing off happens only between steps, after the running summary records decisions with their reasons (`context-budget.md`, plan template). (minor)
+- A rule a tool can check mechanically becomes an automated check instead of a lesson (`memory-policy.md`, `kit-lesson-capture`). `work-decompose` sizes units to one session and splits out preparatory restructuring per `change-scope.md`. (minor)
+
+## [0.3.0] - 2026-10-09
+
+### Added
+- `check` warns about template placeholders left unfilled in agents, skills, stack packs, and pages, and about rules pages without `applies_to`; `new page rules/<name>` scaffolds an empty `applies_to`. (minor)
+
+### Fixed
+- The duplicate-sentence check ignores frontmatter, so unfilled scaffolds no longer report each other as duplicates. (patch)
+- `git-worktree-cleanup` updates the main checkout before deleting the task branch; `git branch -d` refused a just-merged branch while the local integration branch was behind. (patch)
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

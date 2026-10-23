@@ -21,4 +21,4 @@
 -
 
 ## Running Summary
-- Decisions, touched files, and verification state; keep current so the work survives context compaction.
+- Decisions with their reasons, touched files, and verification state; keep current so the work survives context compaction.

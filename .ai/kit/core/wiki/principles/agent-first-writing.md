@@ -32,7 +32,11 @@ The primary reader of every kit file is an AI agent: it starts each session with
 9. Use at most one minimal example per concept and label it as an example. A rule must be stated outside its example.
 10. Write agent-facing kit files in English: it is the most token-efficient language for current models and the common language of AI tooling. Human-facing output (reports to the user, commit messages, pull requests, issues) follows `project.language` in the profile.
 11. Keep identifiers stable. Renaming a file, agent, or skill means updating every link in the same change; `agentkit.py check` finds broken links.
-12. Prefer a positive instruction with a stated boundary over a long list of prohibitions.
+12. Prefer a positive instruction with a stated boundary over a long list of prohibitions. Keep a prohibition only for a hard limit and pair it with what to do instead, because naming a forbidden behavior makes current models more likely to produce it [scaffold].
+13. Write every route (a `When` or `Route Away When` line, the "Use when" part of a skill description, a table row that links) as the situations that should send a reader there, one per distinct case. A synonym for a case already listed costs context on every load and adds no reach.
+14. Keep in the file what every reader of it needs; move material only some cases need behind a link to its own page or a supporting file.
+15. Delete a sentence that does not change what an agent would do without it. Settle disputed cases by trial per «Calibration Procedure» in [model-calibration.md](../evolution/model-calibration.md), not by argument.
+16. Prefer an established term the model already knows over a coined one; define a coined term once, on the page that owns it.
 
 ## Phrases To Replace
 

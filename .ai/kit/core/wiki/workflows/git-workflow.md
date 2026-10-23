@@ -50,7 +50,7 @@ git fetch origin
 git worktree add --no-track -b <branch> <worktree_root>/<branch-with-slashes-as-dashes> origin/<integration_branch>
 ```
 
-- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, keep a multi-unit plan. Never edit project files there.
+- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, keep a multi-unit plan and idea records in its ignored `.ai/tasks/`. Never edit project files there.
 - Run every command of the unit inside its worktree. Dependencies and build outputs are per worktree; install them there with `commands.install`.
 - Never share a worktree between units or reuse one for a different branch.
 - `--no-track` keeps the task branch from tracking the integration branch; the first `git push -u origin <branch>` sets its own upstream.

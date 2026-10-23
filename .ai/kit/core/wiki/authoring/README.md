@@ -6,7 +6,7 @@ reviewed: 2026-10-09
 
 # Authoring
 
-Open this section before adding or changing any agent-facing file in `core/` or `.ai/project/`. Each page owns one asset type's schema and placement; the matching `kit-*` skill walks the procedure.
+Open this section before adding or changing any agent-facing file in `core/` or `.ai/project/`. Each page owns one asset type's schema and placement; the matching `kit-*` skill walks the procedure. Scaffold new files with `agentkit.py new`; `check` warns while a template placeholder is left unfilled.
 
 <!-- agentkit:begin index -->
 | Page | Owns |
