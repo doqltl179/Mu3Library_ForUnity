@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using Mu3Library.DI;
 using Mu3Library.Preference;
+using Mu3Library.Utility;
 using System;
 
 using Object = UnityEngine.Object;
@@ -38,6 +39,18 @@ namespace Mu3Library.Audio
         {
             get => _masterVolume;
             set => SetMasterVolume(value);
+        }
+
+        private TimeMode _timeMode = TimeMode.Unscaled;
+        /// <summary>
+        /// The clock that fades, ducks, loop intervals, and the gap between playlist tracks advance
+        /// on. <see cref="TimeMode.Unscaled"/>, the default, keeps them running while
+        /// <see cref="Time.timeScale"/> is 0, as the sources themselves keep playing then.
+        /// </summary>
+        public TimeMode TimeMode
+        {
+            get => _timeMode;
+            set => SetTimeMode(value);
         }
 
         public event Action<float> OnMasterVolumeChanged;
@@ -151,6 +164,25 @@ namespace Mu3Library.Audio
             ApplyMixerGroup(_environmentControllers, environmentGroup);
             ApplyMixerGroup(_environmentFadingOutControllers, environmentGroup);
             ApplyMixerGroup(_environmentPool, environmentGroup);
+        }
+
+        private void SetTimeMode(TimeMode timeMode)
+        {
+            _timeMode = timeMode;
+
+            if (_bgmMainController != null)
+            {
+                _bgmMainController.SetTimeMode(timeMode);
+            }
+            if (_bgmSubController != null)
+            {
+                _bgmSubController.SetTimeMode(timeMode);
+            }
+
+            ApplyTimeMode(_sfxControllers, timeMode);
+            ApplyTimeMode(_sfxFadingOutControllers, timeMode);
+            ApplyTimeMode(_environmentControllers, timeMode);
+            ApplyTimeMode(_environmentFadingOutControllers, timeMode);
         }
 
         /// <summary>
@@ -278,6 +310,17 @@ namespace Mu3Library.Audio
             }
         }
 
+        private static void ApplyTimeMode(IEnumerable<AudioController> controllers, TimeMode timeMode)
+        {
+            foreach (AudioController controller in controllers)
+            {
+                if (controller != null)
+                {
+                    controller.SetTimeMode(timeMode);
+                }
+            }
+        }
+
         private void PoolController(Queue<AudioController> pool, AudioController controller)
         {
             if (controller == null)
@@ -352,6 +395,7 @@ namespace Mu3Library.Audio
             AudioSourceSettings p = settings;
 
             controller.SetVolumeSettings(this);
+            controller.SetTimeMode(_timeMode);
             controller.SetLoopSettings(p.LoopCount, p.LoopInterval);
             // A pooled or evicted controller may come back from a fade-out that ended in silence.
             // A new clip starts at full fade volume; a path that fades it in lowers it afterwards.

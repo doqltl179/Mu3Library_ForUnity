@@ -1,3 +1,4 @@
+using Mu3Library.Utility;
 using UnityEngine;
 
 namespace Mu3Library.Audio
@@ -104,7 +105,7 @@ namespace Mu3Library.Audio
                 return;
             }
 
-            _playlistIntervalElapsed += Time.deltaTime;
+            _playlistIntervalElapsed += _timeMode.GetDeltaTime();
 
             if (_playlistIntervalElapsed >= _playlistInterval)
             {

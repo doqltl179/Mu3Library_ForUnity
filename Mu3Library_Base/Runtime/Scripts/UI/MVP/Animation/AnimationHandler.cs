@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Mu3Library.Utility;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP.Animation
@@ -25,7 +26,18 @@ namespace Mu3Library.UI.MVP.Animation
 
         [SerializeField] private bool _useTransition = true;
         [SerializeField, Range(0.0f, 2.0f)] private float _animationTime = 0.4f;
+        [Tooltip("Unscaled keeps the animation running while Time.timeScale is 0, as under a pause menu. Scaled follows the game's time scale.")]
+        [SerializeField] private TimeMode _timeMode = TimeMode.Unscaled;
         private float _timeFactor = 0.0f;
+
+        /// <summary>
+        /// The clock the animation advances on. A running animation switches from the next frame.
+        /// </summary>
+        public TimeMode TimeMode
+        {
+            get => _timeMode;
+            set => _timeMode = value;
+        }
 
         [Space(20)]
         [SerializeField] private AnimationConfig[] _animationConfigs;
@@ -135,7 +147,7 @@ namespace Mu3Library.UI.MVP.Animation
             float timer = Mathf.Lerp(factorFrom, factorTo, _timeFactor) * _animationTime;
             while (timer < _animationTime)
             {
-                timer += Time.deltaTime;
+                timer += _timeMode.GetDeltaTime();
                 _timeFactor = Mathf.Lerp(factorFrom, factorTo, timer / _animationTime);
 
                 Animate(animationConfigs, isOpening);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Mu3Library.Utility;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -81,6 +82,8 @@ namespace Mu3Library.Audio
         /// </summary>
         internal bool IsFadingOut => _isFadingOut;
 
+        private TimeMode _timeMode = TimeMode.Unscaled;
+
         /// <summary>
         /// Fired when the controller finishes all loop cycles naturally.
         /// Not fired when <see cref="Stop"/> is called explicitly.
@@ -116,6 +119,15 @@ namespace Mu3Library.Audio
         {
             _loopCount = loopCount;
             _loopInterval = Mathf.Max(0f, loopInterval);
+        }
+
+        /// <summary>
+        /// Sets the clock that fades, ducks, and loop intervals advance on. A running one switches
+        /// from the next frame.
+        /// </summary>
+        internal void SetTimeMode(TimeMode timeMode)
+        {
+            _timeMode = timeMode;
         }
 
         /// <summary>
@@ -349,7 +361,7 @@ namespace Mu3Library.Audio
                     float elapsed = 0f;
                     while (elapsed < _loopInterval)
                     {
-                        if (!_isPaused) elapsed += Time.deltaTime;
+                        if (!_isPaused) elapsed += _timeMode.GetDeltaTime();
                         yield return null;
                     }
 
@@ -368,7 +380,7 @@ namespace Mu3Library.Audio
 
             while (timer < fadeTime)
             {
-                timer += Time.deltaTime;
+                timer += _timeMode.GetDeltaTime();
 
                 _fadeVolume = Mathf.Clamp01(timer / fadeTime);
                 CalculateVolume();
@@ -391,7 +403,7 @@ namespace Mu3Library.Audio
             {
                 if (!_isPaused)
                 {
-                    elapsed += Time.deltaTime;
+                    elapsed += _timeMode.GetDeltaTime();
                 }
 
                 yield return null;
@@ -417,7 +429,7 @@ namespace Mu3Library.Audio
             float timer = 0f;
             while (timer < duration)
             {
-                timer += Time.deltaTime;
+                timer += _timeMode.GetDeltaTime();
 
                 _fadeVolume = Mathf.Lerp(start, target, Mathf.Clamp01(timer / duration));
                 CalculateVolume();
@@ -432,7 +444,7 @@ namespace Mu3Library.Audio
 
             while (timer < fadeTime)
             {
-                timer += Time.deltaTime;
+                timer += _timeMode.GetDeltaTime();
 
                 _fadeVolume = Mathf.Clamp01(1.0f - (timer / fadeTime));
                 CalculateVolume();
