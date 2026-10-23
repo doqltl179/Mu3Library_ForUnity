@@ -1,29 +1,44 @@
-using System.Reflection;
 using System.Collections.Generic;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
 namespace Mu3Library.Editor.Observable
 {
+    /// <summary>
+    /// Draws the serialized rows of an <c>ObservableDictionary</c> as a list. A row whose key an
+    /// earlier row already uses, or an object key left empty, is kept in the list but is not in
+    /// the dictionary; the drawer names those rows in a warning under the list instead of
+    /// resetting or merging them.
+    /// </summary>
     [CustomPropertyDrawer(typeof(Mu3Library.Observable.ObservableDictionary<,>))]
     public class ObservableDictionaryDrawer : PropertyDrawer
     {
-        private static readonly Dictionary<string, int> _lastEntrySizesByPath = new Dictionary<string, int>();
+        private const string EntriesFieldName = "_entries";
+        private const string KeyFieldName = "Key";
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            SerializedProperty entriesProp = property.FindPropertyRelative("_entries");
+            SerializedProperty entriesProp = property.FindPropertyRelative(EntriesFieldName);
             if (entriesProp == null)
             {
                 return base.GetPropertyHeight(property, label);
             }
 
-            return EditorGUI.GetPropertyHeight(entriesProp, label, true);
+            float height = EditorGUI.GetPropertyHeight(entriesProp, label, true);
+
+            string ignoredRows = DescribeIgnoredRows(entriesProp);
+            if (ignoredRows != null)
+            {
+                height += EditorGUIUtility.standardVerticalSpacing + GetHelpBoxHeight(ignoredRows);
+            }
+
+            return height;
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            SerializedProperty entriesProp = property.FindPropertyRelative("_entries");
+            SerializedProperty entriesProp = property.FindPropertyRelative(EntriesFieldName);
             if (entriesProp == null)
             {
                 EditorGUI.LabelField(position, label.text, "Unsupported type.");
@@ -31,148 +46,103 @@ namespace Mu3Library.Editor.Observable
             }
 
             EditorGUI.BeginProperty(position, label, property);
-            EditorGUI.BeginChangeCheck();
 
             var observableLabel = new GUIContent($"[Observable] {label.text}", label.tooltip);
-            EditorGUI.PropertyField(position, entriesProp, observableLabel, true);
+            Rect listRect = position;
+            listRect.height = EditorGUI.GetPropertyHeight(entriesProp, observableLabel, true);
 
-#if UNITY_6000_4_OR_NEWER
-            string sizeKey = $"{property.serializedObject.targetObject.GetEntityId()}:{property.propertyPath}";
-#else
-            string sizeKey = $"{property.serializedObject.targetObject.GetInstanceID()}:{property.propertyPath}";
-#endif
-            if (!_lastEntrySizesByPath.TryGetValue(sizeKey, out int lastSize))
-            {
-                lastSize = entriesProp.arraySize;
-            }
-
-            if (entriesProp.arraySize > lastSize)
-            {
-                for (int i = lastSize; i < entriesProp.arraySize; i++)
-                {
-                    SerializedProperty element = entriesProp.GetArrayElementAtIndex(i);
-                    SerializedProperty keyProp = element.FindPropertyRelative("Key");
-                    SerializedProperty valueProp = element.FindPropertyRelative("Value");
-
-                    ResetProperty(keyProp);
-                    ResetProperty(valueProp);
-                }
-            }
-
-            _lastEntrySizesByPath[sizeKey] = entriesProp.arraySize;
-
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.PropertyField(listRect, entriesProp, observableLabel, true);
             if (EditorGUI.EndChangeCheck())
             {
                 entriesProp.serializedObject.ApplyModifiedProperties();
-                InvokeRefreshFromSerialized(property.serializedObject.targetObject);
+                ObservableDrawerUtility.InvokeOnTargets(property, "RefreshFromSerialized");
+            }
+
+            string ignoredRows = DescribeIgnoredRows(entriesProp);
+            if (ignoredRows != null)
+            {
+                Rect helpRect = position;
+                helpRect.y = listRect.yMax + EditorGUIUtility.standardVerticalSpacing;
+                helpRect.height = GetHelpBoxHeight(ignoredRows);
+                EditorGUI.HelpBox(helpRect, ignoredRows, MessageType.Warning);
             }
 
             EditorGUI.EndProperty();
         }
 
-        private void InvokeRefreshFromSerialized(object targetObject)
+        /// <summary>
+        /// Names the rows the dictionary leaves out, by the same rule it builds itself with: the
+        /// first row of a key wins, and a row whose object key is empty has no key. Answers null
+        /// when every row is in the dictionary.
+        /// </summary>
+        internal static string DescribeIgnoredRows(SerializedProperty entriesProp)
         {
-            if (targetObject == null)
+            if (!entriesProp.isArray || entriesProp.arraySize == 0)
             {
-                return;
+                return null;
             }
 
-            object observableInstance = fieldInfo?.GetValue(targetObject);
-            if (observableInstance == null)
+            var activeKeys = new List<KeyValuePair<int, SerializedProperty>>(entriesProp.arraySize);
+            StringBuilder message = null;
+
+            for (int i = 0; i < entriesProp.arraySize; i++)
             {
-                return;
+                SerializedProperty keyProp = entriesProp.GetArrayElementAtIndex(i).FindPropertyRelative(KeyFieldName);
+                if (keyProp == null)
+                {
+                    continue;
+                }
+
+                string problem = null;
+                if (keyProp.propertyType == SerializedPropertyType.ObjectReference && keyProp.objectReferenceValue == null)
+                {
+                    problem = $"Element {i} has no key.";
+                }
+                else
+                {
+                    for (int j = 0; j < activeKeys.Count; j++)
+                    {
+                        if (SerializedProperty.DataEquals(keyProp, activeKeys[j].Value))
+                        {
+                            problem = $"Element {i} has the same key as element {activeKeys[j].Key}.";
+                            break;
+                        }
+                    }
+                }
+
+                if (problem == null)
+                {
+                    activeKeys.Add(new KeyValuePair<int, SerializedProperty>(i, keyProp));
+                    continue;
+                }
+
+                message ??= new StringBuilder();
+                message.AppendLine(problem);
             }
 
-            MethodInfo refreshMethod = observableInstance.GetType()
-                .GetMethod("RefreshFromSerialized", BindingFlags.Instance | BindingFlags.Public);
-            refreshMethod?.Invoke(observableInstance, null);
+            if (message == null)
+            {
+                return null;
+            }
+
+            message.Append("These rows stay in the list but are not in the dictionary.");
+            return message.ToString();
         }
 
-        private static void ResetProperty(SerializedProperty prop)
+        private static float GetHelpBoxHeight(string message)
         {
-            if (prop == null)
+            int lineCount = 1;
+            for (int i = 0; i < message.Length; i++)
             {
-                return;
+                if (message[i] == '\n')
+                {
+                    lineCount++;
+                }
             }
 
-            switch (prop.propertyType)
-            {
-                case SerializedPropertyType.Integer:
-                    prop.longValue = 0;
-                    return;
-                case SerializedPropertyType.Boolean:
-                    prop.boolValue = false;
-                    return;
-                case SerializedPropertyType.Float:
-                    prop.doubleValue = 0d;
-                    return;
-                case SerializedPropertyType.String:
-                    prop.stringValue = string.Empty;
-                    return;
-                case SerializedPropertyType.Color:
-                    prop.colorValue = default;
-                    return;
-                case SerializedPropertyType.ObjectReference:
-                    prop.objectReferenceValue = null;
-                    return;
-                case SerializedPropertyType.LayerMask:
-                    prop.intValue = 0;
-                    return;
-                case SerializedPropertyType.Enum:
-                    prop.enumValueIndex = 0;
-                    return;
-                case SerializedPropertyType.Vector2:
-                    prop.vector2Value = default;
-                    return;
-                case SerializedPropertyType.Vector3:
-                    prop.vector3Value = default;
-                    return;
-                case SerializedPropertyType.Vector4:
-                    prop.vector4Value = default;
-                    return;
-                case SerializedPropertyType.Rect:
-                    prop.rectValue = default;
-                    return;
-                case SerializedPropertyType.Bounds:
-                    prop.boundsValue = default;
-                    return;
-                case SerializedPropertyType.Quaternion:
-                    prop.quaternionValue = Quaternion.identity;
-                    return;
-                case SerializedPropertyType.Vector2Int:
-                    prop.vector2IntValue = default;
-                    return;
-                case SerializedPropertyType.Vector3Int:
-                    prop.vector3IntValue = default;
-                    return;
-                case SerializedPropertyType.RectInt:
-                    prop.rectIntValue = default;
-                    return;
-                case SerializedPropertyType.BoundsInt:
-                    prop.boundsIntValue = default;
-                    return;
-                case SerializedPropertyType.ManagedReference:
-                    prop.managedReferenceValue = null;
-                    return;
-                case SerializedPropertyType.Generic:
-                    ResetGenericProperty(prop);
-                    return;
-                default:
-                    return;
-            }
-        }
-
-        private static void ResetGenericProperty(SerializedProperty prop)
-        {
-            SerializedProperty iterator = prop.Copy();
-            SerializedProperty end = iterator.GetEndProperty();
-
-            bool enterChildren = true;
-            while (iterator.NextVisible(enterChildren) && !SerializedProperty.EqualContents(iterator, end))
-            {
-                enterChildren = false;
-                ResetProperty(iterator);
-            }
+            // The warning icon needs about two lines even for a one-line message.
+            return Mathf.Max(lineCount, 2) * EditorGUIUtility.singleLineHeight + 4f;
         }
     }
 }
