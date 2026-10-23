@@ -236,6 +236,27 @@ namespace Mu3Library.UI.MVP
         protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitClosingUntil); }
         protected virtual void CloseEnd() { }
 
+        /// <summary>
+        /// Ends a close that hiding the view cut short, as <see cref="OnDisable"/> does, for a view
+        /// whose own OnDisable does not call base. Does nothing while the view is not closing or is
+        /// still active in the hierarchy, where its close coroutine keeps running.
+        /// </summary>
+        internal void EndHiddenClose()
+        {
+            if (_viewState != ViewState.Closing || gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (_lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+
+            _viewState = ViewState.Closed;
+        }
+
         internal void Unload()
         {
             UnloadFunc();
