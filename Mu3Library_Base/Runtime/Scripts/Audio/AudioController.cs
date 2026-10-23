@@ -74,6 +74,12 @@ namespace Mu3Library.Audio
         public bool IsCompleted => _isCompleted;
 
         private IEnumerator _fadeCoroutine = null;
+        private bool _isFadingOut = false;
+
+        /// <summary>
+        /// True while a fade-out runs, which ends in silence and then calls its completion callback.
+        /// </summary>
+        internal bool IsFadingOut => _isFadingOut;
 
         /// <summary>
         /// Fired when the controller finishes all loop cycles naturally.
@@ -137,6 +143,7 @@ namespace Mu3Library.Audio
                 return;
             }
 
+            _isFadingOut = true;
             _fadeCoroutine = FadeOutCoroutine(fadeTime, callback);
             StartCoroutine(_fadeCoroutine);
         }
@@ -273,6 +280,8 @@ namespace Mu3Library.Audio
 
         private void StopFade()
         {
+            _isFadingOut = false;
+
             if (_fadeCoroutine != null)
             {
                 StopCoroutine(_fadeCoroutine);
@@ -433,6 +442,7 @@ namespace Mu3Library.Audio
             CalculateVolume();
 
             _fadeCoroutine = null;
+            _isFadingOut = false;
 
             callback?.Invoke();
         }

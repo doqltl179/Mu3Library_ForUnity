@@ -66,6 +66,10 @@ namespace Mu3Library.Audio
 
         public void PlayBgm(AudioClip clip) => PlayBgm(clip, AudioSourceSettings.BgmStandard);
 
+        /// <summary>
+        /// Plays <paramref name="clip"/> as the BGM at full volume and ends a running playlist.
+        /// Asking for the clip that already plays keeps it playing, and cancels a fade-out running on it.
+        /// </summary>
         public void PlayBgm(AudioClip clip, AudioSourceSettings settings)
         {
             if (clip == null)
@@ -74,10 +78,31 @@ namespace Mu3Library.Audio
                 return;
             }
 
+            // A track the caller picks replaces the playlist, whose next track would otherwise
+            // take over the controller once this one ends or the gap between tracks runs out.
+            CancelPlaylist();
+
+            PlayBgmInternal(clip, settings);
+        }
+
+        /// <summary>
+        /// The play path <see cref="PlayBgm(AudioClip, AudioSourceSettings)"/> and the playlist
+        /// share. It leaves the playlist running, so the playlist plays its tracks through it.
+        /// </summary>
+        private void PlayBgmInternal(AudioClip clip, AudioSourceSettings settings)
+        {
             if (_bgmMainController != null)
             {
                 if (_bgmMainController.IsPlaying && _bgmMainController.IsSameClip(clip))
                 {
+                    // The fade-out would pause the clip that was just asked for, so the request
+                    // cancels it and the clip goes on at full volume.
+                    if (_bgmMainController.IsFadingOut)
+                    {
+                        _bgmMainController.FadeIn(0.0f);
+                        return;
+                    }
+
                     Debug.LogWarning($"Requested clip is same with current clip. clip: {clip.name}");
                     return;
                 }
@@ -180,6 +205,9 @@ namespace Mu3Library.Audio
                 Debug.LogError($"BGM clip is NULL.");
                 return null;
             }
+
+            // Like PlayBgm, a transition the caller starts ends the playlist.
+            CancelPlaylist();
 
             AudioController from = _bgmMainController;
             if (from != null)
