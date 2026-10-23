@@ -208,6 +208,8 @@ namespace Mu3Library.UI.MVP
                 {
                     _canvasGroup.interactable = false;
                     _viewState = ViewState.Closed;
+
+                    SkipCloseTransition();
                     return;
                 }
 
@@ -235,6 +237,13 @@ namespace Mu3Library.UI.MVP
         protected virtual bool WaitClosingUntil() { return true; }
         protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitClosingUntil); }
         protected virtual void CloseEnd() { }
+
+        /// <summary>
+        /// Runs when a view that is inactive in the hierarchy closes without its close transition.
+        /// A view that keeps a pose for its transitions puts it in the closed state here, so its next
+        /// open animates from the start.
+        /// </summary>
+        internal virtual void SkipCloseTransition() { }
 
         /// <summary>
         /// Ends a close that hiding the view cut short, as <see cref="OnDisable"/> does, for a view
