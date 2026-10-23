@@ -147,6 +147,24 @@ namespace Mu3Library.UI.MVP
         {
             if (_lifeCycleCoroutine == null)
             {
+                // Unity refuses to start a coroutine on an object that is inactive in the hierarchy,
+                // such as a view opened under a host that is hidden. Such a view skips the wait of its
+                // open transition instead of never reaching Opened: OpenStart() and OpenEnd() run back
+                // to back, so the view is in its opened state when the host is shown. An AnimationView
+                // takes its opened pose at once.
+                if (!gameObject.activeInHierarchy)
+                {
+                    _viewState = ViewState.Opening;
+
+                    OpenStart();
+                    OpenEnd();
+
+                    _canvasGroup.interactable = true;
+
+                    _viewState = ViewState.Opened;
+                    return;
+                }
+
                 _lifeCycleCoroutine = OpenCoroutine();
                 StartCoroutine(_lifeCycleCoroutine);
             }

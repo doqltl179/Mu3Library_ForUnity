@@ -112,6 +112,20 @@ namespace Mu3Library.UI.MVP.Animation
 
         private void Animation(float factorFrom, float factorTo, AnimationState stayState, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)
         {
+            // Unity refuses to start a coroutine on an object that is inactive in the hierarchy, such
+            // as a view opened under a hidden host. Nothing of it is on screen, so it takes its end
+            // pose at once and shows in that pose once its host is shown.
+            if (!gameObject.activeInHierarchy)
+            {
+                Stop();
+
+                _timeFactor = factorTo;
+                Animate(animationConfigs, isOpening);
+
+                _state = endState;
+                return;
+            }
+
             if (_useTransition)
             {
                 Stop();
