@@ -394,6 +394,27 @@ namespace Mu3Library.Tests
         }
 
         [UnityTest]
+        public IEnumerator Open_AnimationViewClosedUnderHiddenHost_AnimatesWhenReopened()
+        {
+            // Game time stands still, so the reopened view stays where its open animation starts.
+            Time.timeScale = 0.0f;
+
+            FadePresenter fade = (FadePresenter)_manager.Open<FadePresenter>(new HostOptions { Host = CreateHiddenHost() });
+            fade.Handler.TimeMode = TimeMode.Scaled;
+
+            yield return RunUntil(() => _events.Contains("Opened FadePresenter"), "the view opened");
+            Assert.IsTrue(_manager.Close(fade));
+            yield return RunUntil(() => _events.Contains("Unloaded FadePresenter"), "the view unloaded");
+            Assert.AreEqual(0.0f, fade.View.Alpha, "The view closed under the hidden host took its closed pose.");
+
+            Assert.AreSame(fade, _manager.Open<FadePresenter>(), "The pool reopened the same presenter.");
+            yield return RunFor(AnimationTime * 4);
+
+            Assert.AreEqual(ViewState.Opening, fade.ViewState, "The reopened view runs its open animation from the start.");
+            Assert.AreEqual(0.0f, fade.View.Alpha);
+        }
+
+        [UnityTest]
         public IEnumerator AnimationView_AtTimeScaleZero_OpensAndClosesOnUnscaledTime()
         {
             Time.timeScale = 0.0f;

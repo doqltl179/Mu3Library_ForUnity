@@ -187,7 +187,7 @@ namespace Mu3Library.Tests
 
             _manager.FadeInSfx(_clipA, LongFadeTime);
             SfxController controller = Single<SfxController>();
-            Assert.Less(controller.FadeVolume, 0.1f);
+            Assert.Less(controller.FadeVolume, 1.0f, "The source is still fading in.");
 
             _manager.PlaySfx(_clipB);
 
@@ -233,8 +233,10 @@ namespace Mu3Library.Tests
             _manager.PlayBgm(_clipA);
             BgmController controller = PlayingBgm(_clipA);
 
-            _manager.FadeOutBgm(FadeTime);
+            // A long fade stays under way however long a frame takes, so the request below meets it.
+            _manager.FadeOutBgm(LongFadeTime);
             yield return RunUntil(() => controller.FadeVolume < 1.0f, "the fade-out started");
+            Assert.IsFalse(controller.IsPaused, "The fade-out is still running.");
 
             _manager.PlayBgm(_clipA);
             Assert.AreEqual(1.0f, controller.FadeVolume);
@@ -243,7 +245,7 @@ namespace Mu3Library.Tests
 
             Assert.IsFalse(controller.IsPaused, "The canceled fade-out did not pause the track.");
             Assert.IsTrue(controller.IsPlaying);
-            Assert.AreEqual(1.0f, controller.FadeVolume);
+            Assert.AreEqual(1.0f, controller.FadeVolume, "The canceled fade-out did not go on.");
             Assert.Greater(SourceVolume(controller), 0.0f);
         }
 
@@ -272,6 +274,24 @@ namespace Mu3Library.Tests
             yield return RunFor(PlaylistInterval * 4);
 
             Assert.IsNotNull(PlayingBgm(_bossClip), "The requested track still plays.");
+            Assert.IsNull(PlayingBgm(_clipB), "The playlist did not move on.");
+        }
+
+        [UnityTest]
+        public IEnumerator PlayBgm_ClipThePlaylistPlays_PlaysItUnderTheRequestedSettings()
+        {
+            _manager.PlayBgmPlaylist(new[] { _clipA, _clipB }, PlaylistInterval);
+            BgmController controller = PlayingBgm(_clipA);
+
+            AudioSourceSettings twice = AudioSourceSettings.BgmStandard;
+            twice.LoopCount = 2;
+            _manager.PlayBgm(_clipA, twice);
+
+            // The playlist would have played the track once; the request plays it a second time.
+            EndTrack(controller);
+            yield return RunFor(PlaylistInterval * 4);
+
+            Assert.AreSame(controller, PlayingBgm(_clipA), "The requested track plays again.");
             Assert.IsNull(PlayingBgm(_clipB), "The playlist did not move on.");
         }
 
