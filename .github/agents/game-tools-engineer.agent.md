@@ -43,7 +43,7 @@ Mission: give content creators reliable editor tools and deterministic asset pip
 
 ## Project Binding
 
-- Paths: `Mu3Library_Base/Editor/**`, `Mu3Library_URP/Editor/**`
+- Paths: `Mu3Library_Base/Editor/**`
 - Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
 - Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)
 - Notes: Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md.
