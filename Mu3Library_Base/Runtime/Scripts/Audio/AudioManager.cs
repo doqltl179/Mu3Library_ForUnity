@@ -24,7 +24,12 @@ namespace Mu3Library.Audio
                 if (m_root == null)
                 {
                     m_root = new GameObject("AudioManagerRoot");
-                    Object.DontDestroyOnLoad(m_root);
+
+                    // DontDestroyOnLoad throws outside play mode, where no scene load can happen.
+                    if (Application.isPlaying)
+                    {
+                        Object.DontDestroyOnLoad(m_root);
+                    }
                 }
 
                 return m_root;
