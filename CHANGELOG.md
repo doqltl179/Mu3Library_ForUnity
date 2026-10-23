@@ -21,8 +21,16 @@ This changelog tracks package release changes only. Repository development workf
 - Base Editor: the DI validator and runtime diagnostics drawers find the `CoreRoot` through `FindAnyObjectByType`, since Unity 6.4 deprecates `FindFirstObjectByType`. From Unity 6.5 the MVP helper looks a type up in `CurrentAssemblies.GetLoadedAssemblies()`, because `AppDomain.GetAssemblies()` can return assemblies Unity already unloaded.
 - Watermelon Game: the sample's `WatermelonGameManager` finds the `BoardController` through `FindAnyObjectByType`, since Unity 6.4 deprecates `FindFirstObjectByType`. The sample scene holds one board, so the result is the same.
 
+### Removed
+- Base: the Template sample's `Mu3Library.Sample.Template.Editor` assembly definition, which held no scripts. Unity logged "will not be compiled, because it has no scripts associated with it" for it in every project that imported the sample.
+- URP: the package's `Mu3Library.URP.Editor` assembly definition and the ScreenEffect sample's `Mu3Library.URP.Sample.ScreenEffect.Editor`, which held no scripts either and logged the same warning in every project that installed the package or imported the sample. An assembly without scripts was never compiled, so a reference to one of them had no effect.
+
 ### Fixed
 - Base: the package compiles on Unity 6.5 and later, where two APIs it used became compile errors. `Scene.handle` became a `SceneHandle` that no longer converts to `int`, so `SceneLoader` keeps the `Scene` an operation loads or unloads and compares scenes. `Object.GetInstanceID()` is rejected, so `GameObjectPool` tells pooled objects apart by reference, which also ignores an `Equals` override on the component, and its warning names the object instead of an instance ID. `ObservableDictionaryDrawer` keys its size cache by `GetEntityId()` from Unity 6.4, where `GetInstanceID()` is deprecated. The same code still compiles on Unity 6000.0.
+- Base: `package.json` declares the Unity packages and built-in modules that the package's code uses outside a define symbol: uGUI (`com.unity.ugui`) and the UI, Audio, Particle System, JSONSerialize, AssetBundle, UnityWebRequest, and UnityWebRequestTexture modules, plus IMGUI, Image Conversion, and Screen Capture for the editor tools. A project that had removed uGUI or disabled one of these modules got compile errors inside the read-only package; the Package Manager now keeps them enabled. The optional integrations (UniTask, Addressables, Localization, Input System, Mobile Notifications) stay out of `dependencies` and compile only behind their define symbols, as before.
+- Watermelon Game: `package.json` also declares the Physics 2D, Audio, and JSONSerialize modules its runtime uses.
+- Base: a Git install no longer receives `Runtime/Prefabs.meta`, the metadata of a folder that never held a file. Git stores no empty folders, so the install got the `.meta` without its folder.
+- Base: with UniTask installed, the default `CoreBase.PrepareCoreAsync(CancellationToken)` returns a completed `UniTask<bool>` instead of being an `async` method without `await`, which raised compiler warning CS1998 and built a state machine on every call. It keeps its signature and stays `protected virtual`, so overrides keep compiling.
 
 ## [base/0.26.0] - 2026-08-17
 
