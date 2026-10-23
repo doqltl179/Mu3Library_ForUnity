@@ -1,6 +1,6 @@
 ---
 name: development-idea-bank
-description: "Generate an idea bank of genuinely new Mu3Library package directions before any implementation unit exists: map capability and whitespace from repository evidence, then rank six distinct ideas without collapsing into refinements of existing features. Use when the next package direction is unclear or past ideas feel repetitive; not for scoping or executing a chosen idea."
+description: "Generate a bank of six ranked, distinct Mu3Library package directions for the user to choose from, before any idea is judged or adopted: map capability and whitespace from repository evidence, then rank the ideas without collapsing into refinements of existing features. Use when the user wants several directions to choose between because the next package direction is unclear or past ideas feel repetitive; not for judging one idea, or scoping or executing an adopted one."
 ---
 <!-- agentkit:generated from .ai/project/skills/development-idea-bank/SKILL.md. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
@@ -11,8 +11,10 @@ description: "Generate an idea bank of genuinely new Mu3Library package directio
 - A pain point may signal a missing adjacent workflow rather than a direct refinement.
 
 ## Do Not Use When
-- An idea is chosen and needs scope and acceptance criteria → `requirements-spec-write`.
-- A chosen idea needs units and owners → `work-decompose`.
+- One idea, named or picked from the bank, needs judging before adoption, or the user wants a single idea found and judged → `new-content-propose`.
+- A new element for one existing package surface needs judging → `content-expansion-propose`.
+- An idea is adopted and needs scope and acceptance criteria → `requirements-spec-write`.
+- An adopted idea needs units and owners → `work-decompose`.
 
 ## Inputs
 - The audience, package lane, or direction the user named; broad means repository-wide.
@@ -27,7 +29,7 @@ description: "Generate an idea bank of genuinely new Mu3Library package directio
    - Keep the top three `net-new` or `adjacent-new`, and at most one incremental baseline in the list.
    - Keep docs-only, sample-only, and helper-polish ideas out of the top ranks, and do not let another optional-package integration dominate only because it is adjacent.
    - Do not collapse the list into a single winner before the user chooses.
-6. End with short selection hooks or questions that help choose which idea to deepen. Write a single concept brief only when the user asks for it after seeing the bank.
+6. End with short selection hooks or questions that help choose which idea to deepen. Write a single concept brief only when the user asks for it after seeing the bank; a brief carries no verdict, and judging the picked idea before adoption runs `new-content-propose`.
 7. In refinement mode, say so, stay inside the named surfaces, allow additive improvements within the current package families, and keep a new package family out of the top two.
 
 ## Output
