@@ -842,6 +842,15 @@ namespace Mu3Library.UI.MVP
                 return false;
             }
 
+            // A presenter that is still loading has never been shown, so its view object is inactive and
+            // cannot run the close coroutine. Activate it first to keep the close/unload pipeline intact.
+            // This runs before the cascade because a child hosted under this view is inactive along with
+            // it, and could not run its own close coroutine either.
+            if (param.Phase == PresenterPhase.Loading)
+            {
+                param.Presenter.SetActiveView(true);
+            }
+
             // Close children depth-first. Copy to avoid mutation during iteration.
             if (param.OwnedChildren.Count > 0)
             {
@@ -850,13 +859,6 @@ namespace Mu3Library.UI.MVP
                 {
                     ClosePresenterWithOwnedChildren(child, forceClose: true);
                 }
-            }
-
-            // A presenter that is still loading has never been shown, so its view object is inactive and
-            // cannot run the close coroutine. Activate it first to keep the close/unload pipeline intact.
-            if (param.Phase == PresenterPhase.Loading)
-            {
-                param.Presenter.SetActiveView(true);
             }
 
             param.DetachFromOwner();
