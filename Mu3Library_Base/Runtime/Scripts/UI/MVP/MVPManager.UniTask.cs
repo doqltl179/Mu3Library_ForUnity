@@ -41,8 +41,9 @@ namespace Mu3Library.UI.MVP
         }
 
         /// <summary>
-        /// Closes a window and completes when it left the manager, after its closing animation
-        /// and unload ran. False when the window could not close, matching
+        /// Closes a window and completes when the opening it closed left the manager, after its
+        /// closing animation and unload ran, even if the same presenter has been opened again
+        /// since. False when the window could not close, matching
         /// <see cref="Close(IPresenter, bool)"/>.
         /// </summary>
         public async UniTask<bool> CloseAsync(IPresenter presenter, bool forceClose = false)

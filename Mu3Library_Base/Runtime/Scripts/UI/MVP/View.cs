@@ -123,8 +123,9 @@ namespace Mu3Library.UI.MVP
 
             // Unity does not resume a coroutine it stopped, so a close cut short here would stay
             // Closing and the manager would wait for Closed forever. This is what happens to a child
-            // hosted under an owner that finished closing first and was hidden. The view is off
-            // screen now, so its close is over.
+            // hosted under an owner that finished closing first and was hidden. The close ends here
+            // without CloseEnd(), as an open that a force close interrupts ends without OpenEnd(),
+            // and the manager unloads and hides the view next.
             if (_viewState == ViewState.Closing)
             {
                 _viewState = ViewState.Closed;
@@ -183,7 +184,8 @@ namespace Mu3Library.UI.MVP
             {
                 // Unity refuses to start a coroutine on an object that is inactive in the hierarchy,
                 // such as a view hosted under an owner that is still loading. Such a view is not on
-                // screen, so it skips its close transition instead of never reaching Closed.
+                // screen, so it skips its close transition, CloseStart() and CloseEnd() included,
+                // instead of never reaching Closed.
                 if (!gameObject.activeInHierarchy)
                 {
                     _canvasGroup.interactable = false;
