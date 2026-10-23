@@ -20,8 +20,6 @@ namespace Mu3Library.Editor.Window.Drawer
         private const string ItemName = "DI Validator";
         private const string MenuName = MenuRoot + "/" + ItemName;
 
-        private const BindingFlags MemberBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
 
 
         public override void OnGUIHeader()
@@ -127,7 +125,9 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void ValidateInjectMembers(CoreRoot coreRoot, CoreBase core, Type implementationType, List<string> issues)
         {
-            foreach (FieldInfo field in implementationType.GetFields(MemberBindingFlags))
+            // The container's own member rule, so members that base classes declare are
+            // checked exactly when the container would inject them.
+            foreach (FieldInfo field in InjectableMembers.GetFields(implementationType))
             {
                 InjectAttribute attribute = field.GetCustomAttribute<InjectAttribute>();
                 if (attribute == null || !attribute.Required)
@@ -141,7 +141,7 @@ namespace Mu3Library.Editor.Window.Drawer
                 }
             }
 
-            foreach (PropertyInfo property in implementationType.GetProperties(MemberBindingFlags))
+            foreach (PropertyInfo property in InjectableMembers.GetProperties(implementationType))
             {
                 InjectAttribute attribute = property.GetCustomAttribute<InjectAttribute>();
                 if (attribute == null || !attribute.Required)
