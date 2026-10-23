@@ -29,7 +29,13 @@ namespace Mu3Library.UI.MVP
             }
 
             PresenterBase presenterBase = presenter as PresenterBase;
-            await UniTask.WaitUntil(() => IsOpenSettled(presenterBase));
+            PresenterEntry entry = FindPresenterEntry(presenterBase);
+            if (entry == null)
+            {
+                return presenter;
+            }
+
+            await UniTask.WaitUntil(() => IsOpenSettled(presenterBase, entry));
 
             return presenter;
         }
@@ -41,23 +47,35 @@ namespace Mu3Library.UI.MVP
         /// </summary>
         public async UniTask<bool> CloseAsync(IPresenter presenter, bool forceClose = false)
         {
+            PresenterBase presenterBase = presenter as PresenterBase;
+            PresenterEntry entry = FindPresenterEntry(presenterBase);
+
             if (!Close(presenter, forceClose))
             {
                 return false;
             }
 
-            PresenterBase presenterBase = presenter as PresenterBase;
-            await UniTask.WaitUntil(() => FindPresenterEntry(presenterBase) == null);
+            await UniTask.WaitUntil(() => !IsCurrentEntry(presenterBase, entry));
 
             return true;
         }
 
-        private bool IsOpenSettled(PresenterBase presenter)
+        /// <summary>
+        /// Whether the opening an async call started is still the one the manager holds for the
+        /// presenter. The entry, not the presenter, identifies that opening: presenters are pooled,
+        /// so an <see cref="OnWindowUnloaded"/> handler can open the same instance again in the call
+        /// that released it, and a check on the presenter alone would then wait for that later
+        /// opening too.
+        /// </summary>
+        private bool IsCurrentEntry(PresenterBase presenter, PresenterEntry entry)
+            => FindPresenterEntry(presenter) == entry;
+
+        private bool IsOpenSettled(PresenterBase presenter, PresenterEntry entry)
         {
-            PresenterEntry entry = FindPresenterEntry(presenter);
-            if (entry == null)
+            if (!IsCurrentEntry(presenter, entry))
             {
-                // Released: the view was destroyed or the window already went through unload.
+                // Released: the view was destroyed or the window already went through unload,
+                // whether or not the same presenter has been opened again since.
                 return true;
             }
 
