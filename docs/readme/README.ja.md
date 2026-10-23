@@ -202,7 +202,7 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 子は `LoadFunc()` と `OpenFunc()` を含むどの presenter コールバックからでも開けます。owner がまだ開き終わっている必要はありません。owner を閉じると、まだ loading 中の子まで連鎖して閉じます。owner の view の下に host された子は、owner が先に閉じ終わっても unload されます。その場合、子の閉じる遷移は owner の view が非表示になった時点で終わります。`OnDisable` を override する view が `base.OnDisable()` を呼ばなくてもマネージャーがその close を終わらせますが、そうした view でも呼ぶことを勧めます。閉じ始めた presenter は新しい子を受け取りません。
 
-`HostOptions.Host` が非アクティブな場合のように、非表示の host の下で開いたウィンドウは、そこでは開く遷移を進められません。代わりに待機を省略します。`OpenStart()` と `OpenEnd()` が続けて実行され、`AnimationView` はすぐに開いた姿勢になり、ウィンドウは次のマネージャー更新で開いたものとして扱われます。host が表示されると完全に開いた状態で現れ、通常の `Close` で閉じられ、`OpenAsync` も完了します。
+`HostOptions.Host` が非アクティブな場合のように、非表示の host の下で開いたウィンドウは、そこでは開く遷移を進められません。代わりに待機を省略します。`OpenStart()` と `OpenEnd()` が続けて実行され、`AnimationView` はすぐに開いた姿勢になり、ウィンドウは次のマネージャー更新で開いたものとして扱われます。host が表示されると完全に開いた状態で現れ、通常の `Close` で閉じられ、`OpenAsync` も完了します。host が非表示のまま閉じると閉じる遷移を省略し、`AnimationView` は閉じた姿勢になるため、次に開くときは再びアニメーションします。
 
 `AnimationView` のアニメーションは既定で非スケール時間で進むため、`Time.timeScale` を 0 にする一時停止メニューから開いたポップアップも開閉します。ゲームのタイムスケールに従わせたいアニメーションでは、view の `AnimationHandler` で **Time Mode** を `Scaled` に設定するか、コードで `AnimationHandler.TimeMode` を設定してください。`TimeMode` は `Mu3Library.Utility` 名前空間にあります。
 
