@@ -42,6 +42,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 削除
 - Base: Template サンプルの `Mu3Library.Sample.Template.Editor` アセンブリ定義を削除しました。スクリプトが 1 つもなく、サンプルをインポートしたすべてのプロジェクトで Unity が "will not be compiled, because it has no scripts associated with it" という警告を出していました。
 - URP: パッケージの `Mu3Library.URP.Editor` アセンブリ定義と ScreenEffect サンプルの `Mu3Library.URP.Sample.ScreenEffect.Editor` を削除しました。どちらもスクリプトがなく、パッケージをインストールした、またはサンプルをインポートしたすべてのプロジェクトで同じ警告が出ていました。スクリプトのないアセンブリは一度もコンパイルされていないため、これらを参照しても効果はありませんでした。
+- URP: URP がインストールされているときに `Mu3Library.URP.asmdef` が `versionDefines` で定義していた `MU3LIBRARY_URP_SUPPORT` Define シンボルを削除しました。このシンボルを読むコードはなく、URP はパッケージの必須の依存関係なので、シンボルは常に定義されており、このシンボルで囲まれたコードもありませんでした。`versionDefines` のシンボルはそのアセンブリの中にだけ存在するため、アセンブリ定義参照で追加したスクリプトのように `Mu3Library.URP` にコンパイルされるコードだけがこのシンボルを参照できました。そのようなコードがこのシンボルを判定している場合は、Player Settings の Scripting Define Symbols などで自分で定義する必要があります。
 
 ### 修正
 - Base: 使っていた API のうち 2 つがコンパイルエラーになった Unity 6.5 以降で、パッケージがコンパイルできるようになりました。`Scene.handle` が `int` に変換できない `SceneHandle` になったため、`SceneLoader` は処理が読み込む、または解放する `Scene` そのものを保持し、シーン同士を比較します。`Object.GetInstanceID()` が使えなくなったため、`GameObjectPool` は参照でプール内のオブジェクトを区別します。そのためコンポーネントが `Equals` をオーバーライドしていても影響を受けず、警告にはインスタンス ID の代わりにオブジェクト名を出します。同じコードは、パッケージが現在サポートする最も古いエディタである Unity 6000.3 でもコンパイルできます。

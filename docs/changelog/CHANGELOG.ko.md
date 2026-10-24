@@ -40,6 +40,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 제거됨
 - Base: Template 샘플의 `Mu3Library.Sample.Template.Editor` 어셈블리 정의를 제거했습니다. 스크립트가 하나도 없어, 샘플을 임포트한 모든 프로젝트에서 Unity가 "will not be compiled, because it has no scripts associated with it" 경고를 남겼습니다.
 - URP: 패키지의 `Mu3Library.URP.Editor` 어셈블리 정의와 ScreenEffect 샘플의 `Mu3Library.URP.Sample.ScreenEffect.Editor`를 제거했습니다. 둘 다 스크립트가 없어, 패키지를 설치하거나 샘플을 임포트한 모든 프로젝트에서 같은 경고가 났습니다. 스크립트가 없는 어셈블리는 컴파일된 적이 없으므로, 이를 참조해도 아무 효과가 없었습니다.
+- URP: URP가 설치되어 있으면 `Mu3Library.URP.asmdef`가 `versionDefines`로 정의하던 `MU3LIBRARY_URP_SUPPORT` Define 심볼을 제거했습니다. 이 심볼을 읽는 코드가 없었고, URP는 패키지의 필수 의존성이라 심볼은 항상 정의되어 있었으며 이 심볼로 감싼 코드도 없었습니다. `versionDefines`의 심볼은 그 어셈블리 안에만 존재하므로, 어셈블리 정의 참조로 추가한 스크립트처럼 `Mu3Library.URP`에 컴파일되는 코드만 이 심볼을 볼 수 있었습니다. 그런 코드가 이 심볼을 검사한다면 이제 Player Settings의 Scripting Define Symbols 등에서 직접 정의해야 합니다.
 
 ### 수정됨
 - Base: 사용하던 API 두 개가 컴파일 오류가 된 Unity 6.5 이후 버전에서 패키지가 컴파일됩니다. `Scene.handle`이 더 이상 `int`로 변환되지 않는 `SceneHandle`이 되어, `SceneLoader`는 작업이 불러오거나 내리는 `Scene` 자체를 들고 씬끼리 비교합니다. `Object.GetInstanceID()`를 쓸 수 없게 되어, `GameObjectPool`은 참조로 풀 안의 오브젝트를 구별합니다. 그래서 컴포넌트가 `Equals`를 재정의해도 영향을 받지 않고, 경고에는 인스턴스 ID 대신 오브젝트 이름을 씁니다. 같은 코드가 패키지가 이제 지원하는 가장 낮은 에디터인 Unity 6000.3에서도 컴파일됩니다.
