@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-24
+
+### Changed
+- `UnityProject_URP` lists the URP package under `testables`, so `test-unity.sh urp`, and `all` or `changed` with a URP change, runs the URP package's EditMode tests, new in `Mu3Library_URP/Tests/Editor`, where the target used to be reported as skipped. `tools/README.md` and the project's verification page say so.
+
 ## 2026-10-21
 
 ### Added

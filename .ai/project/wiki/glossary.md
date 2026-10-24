@@ -33,6 +33,10 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | item entry | One element of the `BoardItemsConfig` catalog, the entry an item index is made from | 아이템 항목 | アイテムエントリ |
 | spawn bag, stage | The weighted bag of item indices `BoardItemSpawnRule` draws from, and the spawn-count range whose weights fill it | 스폰 가방, 단계 | スポーンバッグ、ステージ |
 | snapshot | A saved board, `BoardSnapshot` | 스냅샷 | スナップショット |
+| screen effect | A full-screen render pass of the URP package (Grayscale, GaussianBlur, DepthOutline, Shake) driven through `ScreenEffectManager` | 스크린 이펙트 | スクリーンエフェクト |
+| player build, player | A standalone build of a project and the application it produces, as opposed to the Editor | 플레이어 빌드, 플레이어 | プレイヤービルド、プレイヤー |
+| Always Included Shaders | The Graphics settings list of shaders every build includes | = | = |
+| Resources folder | A folder named `Resources` whose assets every build includes and `Resources.Load` reads by path | Resources 폴더 | Resources フォルダー |
 
 ## Style Notes
 
