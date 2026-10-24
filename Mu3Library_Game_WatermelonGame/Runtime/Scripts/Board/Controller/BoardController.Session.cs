@@ -154,13 +154,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 RestoreSnapshot(snapshot);
             }
 
-            // The score was set here and not through AddScore, so a score label is told once about
-            // the score the board starts over with or the one the snapshot brought back.
-            if (_score != previousScore)
-            {
-                OnScoreChanged?.Invoke(_score);
-            }
-
             // The preview runs one item ahead, so the first one is drawn before the game starts.
             // A restored board hands out the items it was saved with first, so the draws they
             // already took are counted here.
@@ -170,6 +163,14 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Debug.Log("Game Prepared");
 
             SetSessionState(SessionState.Prepared);
+
+            // The score was set here and not through AddScore, so a score label is told once about
+            // the score the board starts over with or the one the snapshot brought back. It is
+            // told once the board is prepared, so the handler reads the board it will play on.
+            if (_score != previousScore)
+            {
+                OnScoreChanged?.Invoke(_score);
+            }
 
             OnBoardPrepared?.Invoke();
         }
