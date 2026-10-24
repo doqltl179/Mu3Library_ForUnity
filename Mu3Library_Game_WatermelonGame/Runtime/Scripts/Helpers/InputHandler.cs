@@ -423,7 +423,8 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         /// <br/> touch lasts and is never negative.
         /// <br/> The Input System backend fills <c>fingerId</c> with the touch id, which a new touch does not reuse
         /// <br/> the way the Input Manager reuses a finger index, plus <c>position</c>, <c>rawPosition</c>,
-        /// <br/> <c>deltaPosition</c>, <c>phase</c>, <c>tapCount</c>, <c>pressure</c>, and <c>type</c>.
+        /// <br/> <c>deltaPosition</c>, <c>phase</c>, <c>tapCount</c>, <c>pressure</c>, <c>maximumPossiblePressure</c>,
+        /// <br/> and <c>type</c>.
         /// </summary>
         protected virtual Touch GetTouch(int index)
         {
