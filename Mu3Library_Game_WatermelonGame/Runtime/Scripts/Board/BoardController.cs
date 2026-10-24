@@ -50,6 +50,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public event Action OnGameStarted;
         public event Action OnGameEnded;
 
+        /// <summary>
+        /// Raised with the score as it now stands: on every <see cref="AddScore"/> with an amount
+        /// <br/> other than zero, and on <see cref="Prepare"/> when the board starts over from zero or
+        /// <br/> a snapshot brings back another score than the one the board had.
+        /// </summary>
         public event Action<int> OnScoreChanged;
 
         /// <summary>
