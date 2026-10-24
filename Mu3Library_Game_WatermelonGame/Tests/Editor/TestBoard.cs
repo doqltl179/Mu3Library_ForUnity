@@ -96,45 +96,49 @@ namespace Mu3Library.Game.WatermelonGame.Tests
                 }
             }
 
-            GameObject cameraObject = Track(new GameObject("TestBoardCamera") { tag = "MainCamera" });
-            cameraObject.transform.position = new Vector3(0.0f, 0.0f, -10.0f);
+            // A setup that fails never reaches the fixture's teardown, so it gives the scene back itself.
+            try
+            {
+                GameObject cameraObject = Track(new GameObject("TestBoardCamera") { tag = "MainCamera" });
+                cameraObject.transform.position = new Vector3(0.0f, 0.0f, -10.0f);
 
-            _screen = Track(new RenderTexture(ScreenWidth, ScreenHeight, 0));
+                _screen = Track(new RenderTexture(ScreenWidth, ScreenHeight, 0));
 
-            Camera = cameraObject.AddComponent<Camera>();
-            Camera.orthographic = true;
-            Camera.orthographicSize = 10.0f;
-            Camera.targetTexture = _screen;
+                Camera = cameraObject.AddComponent<Camera>();
+                Camera.orthographic = true;
+                Camera.orthographicSize = 10.0f;
+                Camera.targetTexture = _screen;
 
-            // A failed setup never reaches the fixture's teardown, so it gives the scene back itself.
-            if (Camera.main != Camera)
+                Assert.AreSame(Camera, Camera.main, "The test board camera is not Camera.main.");
+
+                Texture2D boardTexture = Track(new Texture2D(BoardTextureWidth, BoardTextureHeight));
+                SmallBoardSprite = CreateSprite(boardTexture, 100.0f);
+                LargeBoardSprite = CreateSprite(boardTexture, 50.0f);
+
+                Texture2D itemTexture = Track(new Texture2D(64, 64));
+                Sprite[] itemSprites = new Sprite[BoardItemsConfig.FruitItemCount];
+                for (int index = 0; index < itemSprites.Length; index++)
+                {
+                    itemSprites[index] = CreateSprite(itemTexture, 100.0f);
+                }
+
+                ItemSprites = itemSprites;
+
+                Area = Track(new GameObject("TestBoardArea")).AddComponent<BoardArea>();
+
+                // The board hides its item resource in Start, which edit mode never calls.
+                GameObject itemObject = Track(new GameObject("TestBoardItem"));
+                ItemResource = itemObject.AddComponent<BoardItem>();
+                itemObject.SetActive(false);
+
+                Board = Track(new GameObject("TestBoardController")).AddComponent<Controller>();
+                Board.Setup(Area, ItemResource);
+            }
+            catch
             {
                 Dispose();
-                Assert.Fail($"The test board camera is not Camera.main, {Camera.main} is.");
+                throw;
             }
-
-            Texture2D boardTexture = Track(new Texture2D(BoardTextureWidth, BoardTextureHeight));
-            SmallBoardSprite = CreateSprite(boardTexture, 100.0f);
-            LargeBoardSprite = CreateSprite(boardTexture, 50.0f);
-
-            Texture2D itemTexture = Track(new Texture2D(64, 64));
-            Sprite[] itemSprites = new Sprite[BoardItemsConfig.FruitItemCount];
-            for (int index = 0; index < itemSprites.Length; index++)
-            {
-                itemSprites[index] = CreateSprite(itemTexture, 100.0f);
-            }
-
-            ItemSprites = itemSprites;
-
-            Area = Track(new GameObject("TestBoardArea")).AddComponent<BoardArea>();
-
-            // The board hides its item resource in Start, which edit mode never calls.
-            GameObject itemObject = Track(new GameObject("TestBoardItem"));
-            ItemResource = itemObject.AddComponent<BoardItem>();
-            itemObject.SetActive(false);
-
-            Board = Track(new GameObject("TestBoardController")).AddComponent<Controller>();
-            Board.Setup(Area, ItemResource);
         }
 
         /// <summary>
@@ -215,15 +219,40 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         /// <summary>
-        /// Where an item sits as a fraction of the board area.
+        /// Where an item sits as a fraction of the board area. Unlike the board conversions it is
+        /// <br/> not clamped, so an item above the top edge reads above 1.
         /// </summary>
         public Vector2 GetBoardNormalizedPosition(BoardItem item)
         {
-            Assert.IsTrue(
-                Area.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 boardNormalizedPosition),
-                "The board area has no rectangle.");
+            Rect boardRect = GetBoardRect();
+            Vector3 localPosition = item.transform.localPosition;
 
-            return boardNormalizedPosition;
+            return new Vector2(
+                (localPosition.x - boardRect.xMin) / boardRect.width,
+                (localPosition.y - boardRect.yMin) / boardRect.height);
+        }
+
+        /// <summary>
+        /// Puts an item on a fraction of the board area, also outside of it, which the board's own
+        /// <br/> spawning clamps away.
+        /// </summary>
+        public void SetBoardNormalizedPosition(BoardItem item, Vector2 boardNormalizedPosition)
+        {
+            Rect boardRect = GetBoardRect();
+            Transform itemTransform = item.transform;
+
+            itemTransform.localPosition = new Vector3(
+                boardRect.xMin + boardNormalizedPosition.x * boardRect.width,
+                boardRect.yMin + boardNormalizedPosition.y * boardRect.height,
+                itemTransform.localPosition.z);
+        }
+
+        private Rect GetBoardRect()
+        {
+            Rect boardRect = Area.LocalRect;
+            Assert.IsTrue(boardRect.width > 0.0f && boardRect.height > 0.0f, "The board area has no rectangle.");
+
+            return boardRect;
         }
 
         /// <summary>

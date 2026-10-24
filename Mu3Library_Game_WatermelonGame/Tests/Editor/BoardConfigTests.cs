@@ -93,18 +93,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         {
             _board.StartGame(_board.LargeBoardSprite);
 
-            Vector2[] boardPositions =
-            {
-                new Vector2(0.05f, 0.1f),
-                new Vector2(0.95f, 0.1f),
-                new Vector2(0.5f, 0.6f),
-            };
-
-            BoardItem[] items = new BoardItem[boardPositions.Length];
-            for (int index = 0; index < items.Length; index++)
-            {
-                items[index] = _board.SpawnItem(index, boardPositions[index]);
-            }
+            BoardItem[] items = SpawnItems(ItemBoardPositions);
 
             _board.Board.Tick();
             BoardItem heldItem = _board.Board.HoldingItem;
@@ -118,14 +107,59 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             _board.Board.SetBoardConfig(_board.CreateConfig(_board.SmallBoardSprite));
 
             Assert.AreEqual(largeBoardScale * 2.0f, _board.Area.transform.localScale.x, 0.001f, "The board was not refitted.");
-            AssertItemsOnBoardPlaces(items, boardPositions);
+            AssertItemsOnBoardPlaces(items, ItemBoardPositions);
             Assert.AreEqual(holdingNormalizedX, _board.GetBoardNormalizedPosition(heldItem).x, PositionTolerance);
 
             _board.Board.SetBoardConfig(_board.CreateConfig(_board.LargeBoardSprite));
 
             Assert.AreEqual(largeBoardScale, _board.Area.transform.localScale.x, 0.001f, "The board was not refitted.");
-            AssertItemsOnBoardPlaces(items, boardPositions);
+            AssertItemsOnBoardPlaces(items, ItemBoardPositions);
             Assert.AreEqual(holdingNormalizedX, _board.GetBoardNormalizedPosition(heldItem).x, PositionTolerance);
+        }
+
+        [Test]
+        public void SetBoardConfig_BoardSpriteOfTheSameSize_LeavesItemsWhereTheyAre()
+        {
+            _board.StartGame(_board.SmallBoardSprite);
+
+            BoardItem[] items = SpawnItems(ItemBoardPositions);
+            Vector3[] localPositions = new Vector3[items.Length];
+            for (int index = 0; index < items.Length; index++)
+            {
+                localPositions[index] = items[index].transform.localPosition;
+            }
+
+            _board.Board.SetBoardConfig(_board.CreateConfig(_board.SmallBoardSprite));
+
+            for (int index = 0; index < items.Length; index++)
+            {
+                Assert.AreEqual(localPositions[index], items[index].transform.localPosition, $"Item {index}");
+            }
+        }
+
+        /// <summary>
+        /// Places by the side walls, in the middle, and one above the top edge, where an item of
+        /// <br/> a pile that overflows the board waits for the game end check.
+        /// </summary>
+        private static readonly Vector2[] ItemBoardPositions =
+        {
+            new Vector2(0.05f, 0.1f),
+            new Vector2(0.95f, 0.1f),
+            new Vector2(0.5f, 0.6f),
+            new Vector2(0.3f, 1.1f),
+        };
+
+        private BoardItem[] SpawnItems(Vector2[] boardPositions)
+        {
+            BoardItem[] items = new BoardItem[boardPositions.Length];
+            for (int index = 0; index < items.Length; index++)
+            {
+                // Spawning clamps into the board, so the item is moved to its place afterwards.
+                items[index] = _board.SpawnItem(index, new Vector2(0.5f, 0.5f));
+                _board.SetBoardNormalizedPosition(items[index], boardPositions[index]);
+            }
+
+            return items;
         }
 
         private void AssertItemsOnBoardPlaces(BoardItem[] items, Vector2[] boardPositions)

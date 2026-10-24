@@ -59,6 +59,29 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void Prepare_ReportsTheScoreOnThePreparedBoard()
+        {
+            _board.StartGame();
+            _board.Board.AddScore(30);
+
+            bool wasPrepared = false;
+            int nextItemIndex = -1;
+            bool boardPreparedFirst = false;
+            _board.Board.OnScoreChanged += _ =>
+            {
+                wasPrepared = _board.Board.IsPrepared;
+                nextItemIndex = _board.Board.NextItemIndex;
+            };
+            _board.Board.OnBoardPrepared += () => boardPreparedFirst = nextItemIndex < 0;
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(wasPrepared);
+            Assert.GreaterOrEqual(nextItemIndex, 0);
+            Assert.IsFalse(boardPreparedFirst, "OnBoardPrepared came before OnScoreChanged.");
+        }
+
+        [Test]
         public void Prepare_ScoreAlreadyZero_ReportsNothing()
         {
             _board.Prepare();
