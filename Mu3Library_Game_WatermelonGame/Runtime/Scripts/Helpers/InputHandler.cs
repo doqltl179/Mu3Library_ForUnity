@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 
 namespace Mu3Library.Game.WatermelonGame.Helpers
 {
@@ -21,6 +24,19 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         /// </summary>
         private const int MouseFingerId = -2;
 
+        [Tooltip("A press that lands on a UI element the scene's EventSystem reaches does not start a drag.")]
+        [SerializeField] protected bool _ignorePressOverUI = true;
+
+        /// <summary>
+        /// Whether a press that lands on a UI element is left to the UI instead of starting a drag, on by default.
+        /// <br/> See <see cref="IsPointerOverUI"/> for what counts as UI.
+        /// </summary>
+        public bool IgnorePressOverUI
+        {
+            get => _ignorePressOverUI;
+            set => _ignorePressOverUI = value;
+        }
+
         protected bool _isDragging;
         public bool IsDragging => _isDragging;
 
@@ -35,12 +51,20 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         /// </summary>
         public UnityEvent<Vector2> OnTouchCanceled = new UnityEvent<Vector2>();
 
+        /// <summary>
+        /// Asked with the screen position of every press before it starts a drag, on the mouse and on the touch path.
+        /// <br/> Every function added has to return true, a press one of them refuses never becomes a drag.
+        /// </summary>
+        public Func<Vector2, bool> DragStartFilter;
+
         private int _activeFingerId = NoActiveFingerId;
 
         /// <summary>
         /// Where the running drag was last reported, which is where a canceled drag is reported to end.
         /// </summary>
         private Vector2 _lastPosition;
+
+        private readonly List<RaycastResult> _uiRaycastResults = new();
 
 
         protected virtual void OnDisable()
@@ -82,7 +106,11 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             // which is what makes the game playable in the editor and on desktop.
             if (IsMousePresent && GetMouseButtonDown())
             {
-                OnMouseDragBegan(MousePosition);
+                Vector2 mousePosition = MousePosition;
+                if (CanStartDrag(mousePosition))
+                {
+                    OnMouseDragBegan(mousePosition);
+                }
             }
         }
 
@@ -195,6 +223,66 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             OnTouchCanceled?.Invoke(_lastPosition);
         }
 
+        /// <summary>
+        /// Asked with the screen position of a press, mouse or touch, before it starts a drag.
+        /// <br/> It refuses a press over UI while <see cref="IgnorePressOverUI"/> is on, and a press that a
+        /// <br/> <see cref="DragStartFilter"/> refuses. A refused press stays no drag until it is released.
+        /// </summary>
+        protected virtual bool CanStartDrag(Vector2 screenPosition)
+        {
+            if (_ignorePressOverUI && IsPointerOverUI(screenPosition))
+            {
+                return false;
+            }
+
+            if (DragStartFilter != null)
+            {
+                foreach (Func<Vector2, bool> filter in DragStartFilter.GetInvocationList())
+                {
+                    if (!filter(screenPosition))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether a screen position lies on UI: on anything a raycaster of the current <c>EventSystem</c> hits,
+        /// <br/> which covers uGUI canvases and, while the scene has an <c>EventSystem</c>, UI Toolkit panels.
+        /// <br/> A hit of a <c>PhysicsRaycaster</c> or <c>Physics2DRaycaster</c> is a scene object, such as a board item,
+        /// <br/> and does not count. Without an <c>EventSystem</c> nothing counts.
+        /// </summary>
+        protected virtual bool IsPointerOverUI(Vector2 screenPosition)
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                return false;
+            }
+
+            // The raycast asks for the press position itself rather than for the pointer state of the input module,
+            // which only learns about a new touch when the EventSystem updates, maybe after this handler.
+            PointerEventData eventData = new PointerEventData(eventSystem) { position = screenPosition };
+            eventSystem.RaycastAll(eventData, _uiRaycastResults);
+
+            bool isOverUI = false;
+            foreach (RaycastResult result in _uiRaycastResults)
+            {
+                if (!(result.module is PhysicsRaycaster))
+                {
+                    isOverUI = true;
+                    break;
+                }
+            }
+
+            _uiRaycastResults.Clear();
+
+            return isOverUI;
+        }
+
         private bool TryGetActiveTouch(out Touch activeTouch)
         {
             int touchCount = TouchCount;
@@ -218,7 +306,7 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             for (int i = 0; i < touchCount; i++)
             {
                 Touch touch = GetTouch(i);
-                if (touch.phase == TouchPhase.Began)
+                if (touch.phase == TouchPhase.Began && CanStartDrag(touch.position))
                 {
                     beganTouch = touch;
                     return true;
