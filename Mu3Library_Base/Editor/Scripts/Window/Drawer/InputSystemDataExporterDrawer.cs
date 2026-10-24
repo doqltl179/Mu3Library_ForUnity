@@ -208,7 +208,12 @@ namespace Mu3Library.Editor.Window.Drawer
             string className = !string.IsNullOrWhiteSpace(_scriptClassName)
                 ? SanitizeIdentifier(_scriptClassName.Trim())
                 : GetDefaultClassName();
-            string scriptBody = BuildScriptBody(className);
+            if (!TryBuildScriptBody(className, out string scriptBody, out string error))
+            {
+                Debug.LogError($"InputSystem name script was not generated. {error}");
+                return;
+            }
+
             string filePath = FileCreator.WriteScript(systemPath, className, scriptBody);
 
             AssetDatabase.Refresh();
@@ -216,7 +221,7 @@ namespace Mu3Library.Editor.Window.Drawer
             Debug.Log($"InputSystem name script generated. path: {filePath}");
         }
 
-        private string BuildScriptBody(string className)
+        private bool TryBuildScriptBody(string className, out string scriptBody, out string error)
         {
             var lines = new List<object>();
 
@@ -261,17 +266,17 @@ namespace Mu3Library.Editor.Window.Drawer
                 Content = lines
             };
 
+            ScriptBuilder.CodeBlock rootBlock = classBlock;
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
             {
-                var namespaceBlock = new ScriptBuilder.CodeBlock
+                rootBlock = new ScriptBuilder.CodeBlock
                 {
                     Header = $"namespace {_scriptNamespace.Trim()}",
                     Content = new List<object> { classBlock }
                 };
-                return ScriptBuilder.Build(4, namespaceBlock);
             }
 
-            return ScriptBuilder.Build(4, classBlock);
+            return ScriptBuilder.TryBuild(4, out scriptBody, out error, rootBlock);
         }
 
         private static string SanitizeIdentifier(string name)

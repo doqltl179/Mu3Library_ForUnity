@@ -381,6 +381,8 @@ private void ResetData()
 }
 ```
 
+The fallback Inspector is registered with `isFallback` for every `MonoBehaviour` and `ScriptableObject`, so once Base is installed it draws every such type that has no custom editor of its own, whether or not the type uses `ButtonInvoke`. It builds that Inspector with UI Toolkit through `CreateInspectorGUI`: Unity's default inspector, then the buttons. Property drawers that implement only `CreatePropertyGUI` and IMGUI property drawers therefore render as they do in Unity's own default inspector, multi-object editing works, and a button runs its method on every selected object. A custom editor can derive from `ButtonInvokeEditorBase` to get the same default inspector and buttons; if it overrides `OnInspectorGUI`, the Inspector keeps calling that IMGUI method instead. A tool that draws an editor through IMGUI by calling `OnInspectorGUI` directly gets the IMGUI version, where a drawer that implements only `CreatePropertyGUI` shows "No GUI Implemented".
+
 ## 📖 Complete Module List
 
 - **Addressable**: Addressables integration (optional)

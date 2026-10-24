@@ -25,6 +25,41 @@ namespace Mu3Library.Editor.FileUtil
 
 
         /// <summary>
+        /// 이름을 바꾸지 않고 그대로 C# 식별자로 쓸 수 있는지 확인한다.
+        /// <br/> 글자, 숫자, 밑줄로만 이루어지고 숫자로 시작하지 않으며 C# 키워드가 아니어야 한다. <see cref="Sanitize"/>가 바꾸지 않는 이름이다.
+        /// </summary>
+        public static bool IsValidIdentifier(string name)
+        {
+            if (string.IsNullOrEmpty(name) || char.IsDigit(name[0]))
+                return false;
+
+            foreach (char character in name)
+            {
+                if (!char.IsLetterOrDigit(character) && character != '_')
+                    return false;
+            }
+
+            return !CSharpKeywords.Contains(name);
+        }
+
+        /// <summary>
+        /// 점으로 나눈 각 부분이 <see cref="IsValidIdentifier"/>를 만족하는 네임스페이스 이름인지 확인한다.
+        /// </summary>
+        public static bool IsValidNamespace(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            foreach (string part in name.Split('.'))
+            {
+                if (!IsValidIdentifier(part))
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// 밑줄은 유지하고 그 외 구분 문자는 다음 글자를 대문자로 올리며 제거한다.
         /// <br/> C# 키워드와 겹치거나 숫자로 시작하면 앞에 밑줄을 붙인다.
         /// </summary>

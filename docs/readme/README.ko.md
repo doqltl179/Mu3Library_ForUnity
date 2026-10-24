@@ -380,6 +380,8 @@ private void ResetData()
 }
 ```
 
+fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallback`으로 등록되므로, Base를 설치하면 `ButtonInvoke` 사용 여부와 관계없이 자체 Custom Inspector가 없는 모든 해당 타입을 이 Inspector가 그립니다. 이 Inspector는 `CreateInspectorGUI`를 통해 UI Toolkit으로 만들어지며, Unity의 기본 Inspector를 먼저 그리고 그 아래에 버튼을 붙입니다. 따라서 `CreatePropertyGUI`만 구현한 property drawer와 IMGUI property drawer가 Unity 자체 기본 Inspector에서처럼 그려지고, 다중 오브젝트 편집이 동작하며, 버튼은 선택된 모든 오브젝트에서 메서드를 실행합니다. 자체 에디터는 `ButtonInvokeEditorBase`를 상속해 같은 기본 Inspector와 버튼을 얻을 수 있으며, 그 에디터가 `OnInspectorGUI`를 재정의하면 Inspector는 UI Toolkit 대신 그 IMGUI 메서드를 계속 호출합니다. `OnInspectorGUI`를 직접 호출해 IMGUI로 에디터를 그리는 도구에는 IMGUI 버전이 그려지며, 그곳에서 `CreatePropertyGUI`만 구현한 drawer는 "No GUI Implemented"로 표시됩니다.
+
 ## 📖 전체 모듈 목록
 
 - **Addressable**: Addressables 통합 (선택)
