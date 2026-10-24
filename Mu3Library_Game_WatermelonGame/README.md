@@ -61,7 +61,7 @@ boardController.OnItemMerged += info =>
 
 Every merge is reported, the ones the board finds by itself and the ones a command carries out, because both run through `CountMerge(BoardMergeInfo)`. `CountMerge()` still counts a merge that cannot tell what it merged, and reports `BoardMergeInfo.Unknown`.
 
-A handler can call `GameEnd()` or `Prepare()`, as a rule that wins the game on the first watermelon does from `OnItemMerged`. The board then does nothing more in that frame, so it hands out no further item, and a drag on a board that is not running neither moves nor drops the item in hand.
+A handler can call `GameEnd()` or `Prepare()`, as a rule that wins the game on the first watermelon does from `OnItemMerged`. The board then hands out no further item in that frame, and a drag on a board that is not running neither moves nor drops the item in hand. The commands that frame already advances still finish their step, so a second merge found in the same frame is still scored and reported after the handler ended the game.
 
 ## Commands
 
