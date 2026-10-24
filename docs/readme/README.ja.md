@@ -380,7 +380,7 @@ private void ResetData()
 }
 ```
 
-fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `isFallback` で登録されるため、Base をインストールすると、`ButtonInvoke` を使うかどうかに関係なく、独自の Custom Inspector を持たないそれらの型はすべてこの Inspector で描画されます。この Inspector は `CreateInspectorGUI` を通じて UI Toolkit で構築され、Unity の既定の Inspector を描画したうえで、その下にボタンを追加します。そのため、`CreatePropertyGUI` だけを実装したプロパティドロワーも IMGUI のプロパティドロワーも Unity 自身の既定の Inspector と同じように描画され、複数オブジェクトの編集も動作し、ボタンは選択中のすべてのオブジェクトでメソッドを実行します。`OnInspectorGUI` を直接呼び出して IMGUI でエディターを描画するツールでは IMGUI 版が描画され、そこでは `CreatePropertyGUI` だけを実装したドロワーは "No GUI Implemented" と表示されます。
+fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `isFallback` で登録されるため、Base をインストールすると、`ButtonInvoke` を使うかどうかに関係なく、独自の Custom Inspector を持たないそれらの型はすべてこの Inspector で描画されます。この Inspector は `CreateInspectorGUI` を通じて UI Toolkit で構築され、Unity の既定の Inspector を描画したうえで、その下にボタンを追加します。そのため、`CreatePropertyGUI` だけを実装したプロパティドロワーも IMGUI のプロパティドロワーも Unity 自身の既定の Inspector と同じように描画され、複数オブジェクトの編集も動作し、ボタンは選択中のすべてのオブジェクトでメソッドを実行します。独自のエディターは `ButtonInvokeEditorBase` を継承すると同じ既定の Inspector とボタンを得られ、そのエディターが `OnInspectorGUI` をオーバーライドしている場合、Inspector は UI Toolkit ではなく、その IMGUI メソッドを引き続き呼び出します。`OnInspectorGUI` を直接呼び出して IMGUI でエディターを描画するツールでは IMGUI 版が描画され、そこでは `CreatePropertyGUI` だけを実装したドロワーは "No GUI Implemented" と表示されます。
 
 ## 📖 全モジュールリスト
 

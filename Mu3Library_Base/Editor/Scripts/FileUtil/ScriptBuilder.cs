@@ -33,7 +33,7 @@ namespace Mu3Library.Editor.FileUtil
         /// contains itself through a shared Content list from recursing until the stack overflows;
         /// the length of the output is never limited.
         /// </summary>
-        public const int MaxNestingDepth = 64;
+        public static readonly int MaxNestingDepth = 64;
 
         [Obsolete("ScriptBuilder no longer limits its output by line count, so this value is ignored. Nesting is limited by MaxNestingDepth.")]
         public static int AppendStackCountMax { get; set; } = 1000;
