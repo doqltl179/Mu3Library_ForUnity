@@ -174,6 +174,9 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "No String Table Collections found. Click Refresh.";
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
+            string namespaceWarning = GetNamespaceWarning(_scriptNamespace);
+            if (namespaceWarning != null)
+                return namespaceWarning;
             if (!string.IsNullOrWhiteSpace(_scriptDefineSymbol) && !ScriptIdentifier.IsValidIdentifier(_scriptDefineSymbol.Trim()))
                 return $"Define Symbol \"{_scriptDefineSymbol.Trim()}\" is not a valid symbol name.";
             return null;
