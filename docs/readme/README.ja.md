@@ -277,6 +277,13 @@ _sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
     Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
 };
 
+// Addressables がある場合、開始した後に失敗したロードは、そのコマンドが終わってから通知されます。
+// そのため、ここでは IsLoading はすでに false で、ハンドラーから別のロードを開始できます。
+_sceneLoaderEventBus.OnSceneLoadFailed += info =>
+{
+    Debug.LogWarning($"Load failed: target={info.Target}, additive={info.IsAdditive}, {info.ErrorMessage}");
+};
+
 await _sceneLoader.LoadSingleSceneAsync("Main");
 await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
 ```
@@ -308,6 +315,14 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
     "https://api.example.com/data",
     cancellationToken: token,
     propagateCancellation: true);
+
+// 結果には HTTP エラーレスポンスのステータスコードとヘッダーが入ります。コールバック API と UniTask のどちらでも同じです。
+// 接続が拒否された場合のように応答を受け取れなかったリクエストのステータスコードは 0 です。
+WebRequestResult<DataModel> result = await _webRequest.GetResultAsync<DataModel>("https://api.example.com/data");
+if (!result.IsSuccess && result.StatusCode == 401)
+{
+    // ログインし直してから再試行します。
+}
 ```
 
 ### Observableパターン

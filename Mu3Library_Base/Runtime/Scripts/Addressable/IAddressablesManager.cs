@@ -28,6 +28,7 @@ namespace Mu3Library.Addressable
 
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true);
         public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoReleaseHandle = true);
+        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoCleanBundleCache, bool autoReleaseHandle);
 
         public bool IsKeyExist(object key);
 

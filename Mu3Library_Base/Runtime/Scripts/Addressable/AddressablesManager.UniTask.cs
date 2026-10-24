@@ -243,48 +243,40 @@ namespace Mu3Library.Addressable
             }
         }
 
+        // The catalog calls go through the callback path, which reads the handle inside its completion
+        // callback: with auto-release, Addressables releases the handle right after the callbacks ran,
+        // before an await on the handle itself resumes. The result is only taken over there, and the
+        // await resumes on the player loop as before, so the caller's code never runs inside an
+        // Addressables callback, where a WaitForCompletion would re-enter the ResourceManager update.
+
         public async UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true)
         {
-            AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
+            bool isCompleted = false;
             IList<string> catalogs = null;
-            try
+            CheckForCatalogUpdates(result =>
             {
-                await handle.ToUniTask();
-                catalogs = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            }
-            finally
-            {
-                if (!autoReleaseHandle && handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
+                catalogs = result;
+                isCompleted = true;
+            }, autoReleaseHandle);
 
+            await UniTask.WaitUntil(() => isCompleted);
             return catalogs;
         }
 
-        public async UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true)
+        public UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true)
+            => UpdateCatalogsAsync(autoCleanBundleCache: false, autoReleaseHandle: autoReleaseHandle);
+
+        public async UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoCleanBundleCache, bool autoReleaseHandle)
         {
-            AsyncOperationHandle<List<IResourceLocator>> handle = Addressables.UpdateCatalogs(autoReleaseHandle);
+            bool isCompleted = false;
             IList<IResourceLocator> locators = null;
-            try
+            UpdateCatalogs(result =>
             {
-                await handle.ToUniTask();
-                locators = handle.Status == AsyncOperationStatus.Succeeded ? handle.Result : null;
-            }
-            finally
-            {
-                if (!autoReleaseHandle && handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
+                locators = result;
+                isCompleted = true;
+            }, autoCleanBundleCache, autoReleaseHandle);
 
-            if (locators != null)
-            {
-                RefreshLocatorKeys();
-            }
-
+            await UniTask.WaitUntil(() => isCompleted);
             return locators;
         }
 
@@ -304,12 +296,15 @@ namespace Mu3Library.Addressable
             {
                 try
                 {
+                    // Mu3Library does not reference UniTask.Addressables, so this binds to UniTask's
+                    // IEnumerator extension, which waits for IsDone and does not throw for a failed
+                    // handle. OnInitializeCompleted logs the failure and reports it through
+                    // InitializeError and OnInitializeResult; the catch keeps this path as quiet as
+                    // Initialize(Action) should the handle extension ever be the one that binds.
                     await handle.ToUniTask();
                 }
                 catch (Exception)
                 {
-                    // OnInitializeCompleted logs the failure and reports it through InitializeError
-                    // and OnInitializeResult, so this path stays as quiet as Initialize(Action).
                 }
             }
 
