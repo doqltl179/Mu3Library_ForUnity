@@ -120,8 +120,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Raised with <see cref="MergeComboIndex"/> whenever the merge combo step changes, and
         /// <br/> with -1 when the combo is dropped.
-        /// <br/> The combo is what the merge sounds climb, so a board configuration without sounds
-        /// <br/> never reports one.
+        /// <br/> Every merge counts into the combo whether or not the configuration carries merge
+        /// <br/> sounds, so a board without them reports it as well. The step climbs no further than
+        /// <see cref="BoardSoundConfig.MergeComboIndexMax"/>, which keeps it at 0 while
+        /// <see cref="BoardSoundConfig.ItemMergeClips"/> holds one entry or none.
         /// </summary>
         public event Action<int> OnMergeComboChanged;
 
