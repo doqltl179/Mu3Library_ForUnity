@@ -3,7 +3,14 @@ using UnityEngine.Events;
 
 namespace Mu3Library.Game.WatermelonGame.Helpers
 {
-    public class InputHandler : MonoBehaviour
+    /// <summary>
+    /// Turns the mouse and the touches into one drag at a time.
+    /// <br/> It reads the input backend the project enables. With the Input System package installed and its backend
+    /// <br/> on, under the Active Input Handling settings "Input System Package (New)" and "Both", it reads the
+    /// <br/> Input System. Otherwise it reads the Input Manager, which is what "Input Manager (Old)" and "Both" without
+    /// <br/> the package give.
+    /// </summary>
+    public partial class InputHandler : MonoBehaviour
     {
         private const int NoActiveFingerId = -1;
 
@@ -30,6 +37,10 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             {
                 OnTouchEndedHandler(default);
             }
+
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            DisableEnhancedTouch();
+#endif
         }
 
         protected virtual void Update()
@@ -56,9 +67,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
             // The mouse drives the same drag pipeline on a platform without a touch screen,
             // which is what makes the game playable in the editor and on desktop.
-            if (Input.mousePresent && Input.GetMouseButtonDown(0))
+            if (IsMousePresent && GetMouseButtonDown())
             {
-                OnMouseDragBegan(Input.mousePosition);
+                OnMouseDragBegan(MousePosition);
             }
         }
 
@@ -86,9 +97,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         private void UpdateMouseDrag()
         {
-            Vector2 mousePosition = Input.mousePosition;
+            Vector2 mousePosition = MousePosition;
 
-            if (!Input.GetMouseButton(0))
+            if (!GetMouseButton())
             {
                 OnMouseDragEnded(mousePosition);
                 return;
@@ -146,10 +157,10 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         private bool TryGetActiveTouch(out Touch activeTouch)
         {
-            int touchCount = Input.touchCount;
+            int touchCount = TouchCount;
             for (int i = 0; i < touchCount; i++)
             {
-                Touch touch = Input.GetTouch(i);
+                Touch touch = GetTouch(i);
                 if (touch.fingerId == _activeFingerId)
                 {
                     activeTouch = touch;
@@ -161,12 +172,12 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             return false;
         }
 
-        private static bool TryGetBeganTouch(out Touch beganTouch)
+        private bool TryGetBeganTouch(out Touch beganTouch)
         {
-            int touchCount = Input.touchCount;
+            int touchCount = TouchCount;
             for (int i = 0; i < touchCount; i++)
             {
-                Touch touch = Input.GetTouch(i);
+                Touch touch = GetTouch(i);
                 if (touch.phase == TouchPhase.Began)
                 {
                     beganTouch = touch;
@@ -177,5 +188,124 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             beganTouch = default;
             return false;
         }
+
+        #region Input Backend
+        // These read the input the drag is made of, from the backend the project enables. A subclass can override
+        // them together to drive the handler from another source.
+
+        /// <summary>
+        /// Whether a mouse is connected.
+        /// </summary>
+        protected virtual bool IsMousePresent
+        {
+            get
+            {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+                return IsInputSystemMousePresent;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+                return Input.mousePresent;
+#else
+                ReportNoInputBackend();
+                return false;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// The mouse position in screen pixels.
+        /// </summary>
+        protected virtual Vector2 MousePosition
+        {
+            get
+            {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+                return InputSystemMousePosition;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+                return Input.mousePosition;
+#else
+                return Vector2.zero;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// Whether the left mouse button went down this frame.
+        /// </summary>
+        protected virtual bool GetMouseButtonDown()
+        {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            return GetInputSystemMouseButtonDown();
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetMouseButtonDown(0);
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        /// Whether the left mouse button is held down.
+        /// </summary>
+        protected virtual bool GetMouseButton()
+        {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            return GetInputSystemMouseButton();
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetMouseButton(0);
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        /// How many touches <see cref="GetTouch"/> reports this frame, the ones in progress and the ones that ended
+        /// <br/> this frame.
+        /// </summary>
+        protected virtual int TouchCount
+        {
+            get
+            {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+                return GetInputSystemTouchCount();
+#elif ENABLE_LEGACY_INPUT_MANAGER
+                return Input.touchCount;
+#else
+                ReportNoInputBackend();
+                return 0;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// One of the <see cref="TouchCount"/> touches of this frame. Its <c>fingerId</c> stays the same while the
+        /// <br/> touch lasts and is never negative.
+        /// </summary>
+        protected virtual Touch GetTouch(int index)
+        {
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            return GetInputSystemTouch(index);
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetTouch(index);
+#else
+            return default;
+#endif
+        }
+
+#if !(MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM) && !ENABLE_LEGACY_INPUT_MANAGER
+        private static bool s_isNoInputBackendReported;
+
+        private static void ReportNoInputBackend()
+        {
+            if (s_isNoInputBackendReported)
+            {
+                return;
+            }
+
+            s_isNoInputBackendReported = true;
+            Debug.LogWarning(
+                "InputHandler reads no input: Active Input Handling enables only the Input System, " +
+                "and the Input System package (com.unity.inputsystem) is not installed.");
+        }
+#endif
+        #endregion
     }
 }

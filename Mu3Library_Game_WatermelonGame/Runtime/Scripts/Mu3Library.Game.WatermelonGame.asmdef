@@ -5,7 +5,8 @@
         "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
         "GUID:6391e8445d9411043ab0bbeae0fbab5b",
         "GUID:c71a1365bf39aaf4abb8b1fe53275ceb",
-        "GUID:2bafac87e7f4b9b418d9448d219b01ab"
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab",
+        "GUID:75469ad4d38634e559750d17036d5f7c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,6 +15,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        }
+    ],
     "noEngineReferences": false
 }
