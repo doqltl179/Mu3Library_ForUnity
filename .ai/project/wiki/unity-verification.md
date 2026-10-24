@@ -38,7 +38,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 |---|---|
 | Runtime code | The affected assemblies compile; null safety and define guards on the changed paths |
 | Editor code | The editor assembly compiles; no runtime assembly depends on editor code |
-| DI or core lifecycle | Initialization and injection order unchanged for the samples that depend on it |
+| DI or core lifecycle | Initialization and injection order unchanged for the samples that depend on it; `commands.test_playmode` passes, `urp` included, since only that target runs the coroutine path |
 | Optional integration | The code sits entirely inside its define symbol, and every development project that includes the file compiles, since their define sets differ |
 | Editor-version branch, version-sensitive API, package dependency, or the `unity` floor | The affected targets also compile with `--editor-version` set to an installed release of the floor |
 | Compile-only request | Compile only; do not add or run tests |
@@ -46,9 +46,11 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 ## Tests
 
 - EditMode tests live in `Mu3Library_Base/Tests/Editor` (`Mu3Library.Tests.Editor.asmdef`), `Mu3Library_URP/Tests/Editor` (`Mu3Library.URP.Tests.Editor.asmdef`), and `Mu3Library_Game_WatermelonGame/Tests/Editor`. Add new ones next to the nearest existing pattern.
-- `commands.test` runs them through the Unity Test Framework CLI for the projects that consume a changed package, selected as `commands.build` selects them. Explicit targets: `bash ./test-unity.sh built-in|urp|watermelon|all`, with the compile script's options; `mu3-cli unity test` wraps it.
-- A project runs only the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the URP tests, and `watermelon` the Base and Watermelon Game tests. Base tests therefore run under two define sets.
-- The command exits non-zero when a test fails, Unity fails, or a run writes no result. Such a failure does not stop the remaining targets; a target that cannot start, such as an open project under `--in-place`, stops the command at once. NUnit XML lands in `log/unity-tests/<target>-editmode.xml`. A project open in an Editor is tested in an isolated mirror, as in compile.
+- PlayMode tests live in `Mu3Library_Base/Tests/Runtime` (`Mu3Library.Tests.Runtime.asmdef`) and cover what only the player loop shows: a core's preparation when its component or object is turned off or destroyed, and the `CoreRoot` accessor once the application quits. A test belongs there only when edit mode cannot observe the behavior.
+- `commands.test` runs the EditMode tests through the Unity Test Framework CLI for the projects that consume a changed package, selected as `commands.build` selects them, and `commands.test_playmode` runs the PlayMode tests for the same selection. Explicit targets: `bash ./test-unity.sh built-in|urp|watermelon|all`, with the compile script's options and `--platform editmode|playmode`; `mu3-cli unity test` wraps it.
+- A project runs only the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the Base and URP tests, and `watermelon` the Base and Watermelon Game tests. Base tests therefore run under three define sets, and `urp` is the only one without UniTask, so only its runs reach the coroutine paths that stand in for UniTask, such as `CoreBase`'s preparation.
+- The command exits non-zero when a test fails, Unity fails, or a run writes no result. Such a failure does not stop the remaining targets; a target that cannot start, such as an open project under `--in-place`, stops the command at once. NUnit XML lands in `log/unity-tests/<target>-<platform>.xml`. A project open in an Editor is tested in an isolated mirror, as in compile.
+- A PlayMode run in place re-saves `ProjectSettings/ProjectSettings.asset` in `urp` and `watermelon`, whose files still hold an older Editor's format; restore it with `git restore` and keep it out of commits until #116 settles it. EditMode and compile runs leave it alone.
 - Tests take minutes per target on a first import; when a request does not need them, report that they did not run.
 
 ## Report
