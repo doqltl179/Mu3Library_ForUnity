@@ -4,7 +4,8 @@ using UnityEngine.Events;
 namespace Mu3Library.Game.WatermelonGame.Helpers
 {
     /// <summary>
-    /// Turns the mouse and the touches into one drag at a time.
+    /// Turns the mouse and the touches into one drag at a time, which begins, moves, and then ends where it was
+    /// <br/> released or is canceled when it is taken away before that.
     /// <br/> It reads the input backend the project enables. With the Input System package installed and its backend
     /// <br/> on, under the Active Input Handling settings "Input System Package (New)" and "Both", it reads the
     /// <br/> Input System. Otherwise it reads the Input Manager, which is what "Input Manager (Old)" and "Both" without
@@ -27,15 +28,27 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         public UnityEvent<Vector2> OnTouchMoved = new UnityEvent<Vector2>();
         public UnityEvent<Vector2> OnTouchEnded = new UnityEvent<Vector2>();
 
+        /// <summary>
+        /// Raised instead of <see cref="OnTouchEnded"/> when a drag is taken away before it was released: the handler
+        /// <br/> was disabled, the tracked touch vanished or was canceled by the system, or the mouse was disconnected.
+        /// <br/> It carries the position the drag was last reported at.
+        /// </summary>
+        public UnityEvent<Vector2> OnTouchCanceled = new UnityEvent<Vector2>();
+
         private int _activeFingerId = NoActiveFingerId;
-        private Vector2 _lastMousePosition;
+
+        /// <summary>
+        /// Where the running drag was last reported, which is where a canceled drag is reported to end.
+        /// </summary>
+        private Vector2 _lastPosition;
 
 
         protected virtual void OnDisable()
         {
+            // The player did not release this drag, so it is canceled where it was last reported.
             if (_isDragging)
             {
-                OnTouchEndedHandler(default);
+                CancelDrag();
             }
 
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
@@ -75,17 +88,22 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         private void UpdateTouchDrag()
         {
+            // A touch that is gone without an end was taken away, it was not lifted.
             if (!TryGetActiveTouch(out Touch activeTouch))
             {
-                OnTouchEndedHandler(default);
+                CancelDrag();
                 return;
             }
 
             switch (activeTouch.phase)
             {
                 case TouchPhase.Ended:
-                case TouchPhase.Canceled:
                     OnTouchEndedHandler(activeTouch);
+                    break;
+
+                // The system took the touch over, for a gesture of its own or a call, so the player did not lift it.
+                case TouchPhase.Canceled:
+                    CancelDrag();
                     break;
 
                 case TouchPhase.Moved:
@@ -97,6 +115,13 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         private void UpdateMouseDrag()
         {
+            // A mouse that is gone cannot tell where it was released.
+            if (!IsMousePresent)
+            {
+                CancelDrag();
+                return;
+            }
+
             Vector2 mousePosition = MousePosition;
 
             if (!GetMouseButton())
@@ -105,9 +130,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
                 return;
             }
 
-            if (mousePosition != _lastMousePosition)
+            if (mousePosition != _lastPosition)
             {
-                _lastMousePosition = mousePosition;
+                _lastPosition = mousePosition;
                 OnTouchMoved?.Invoke(mousePosition);
             }
         }
@@ -116,7 +141,7 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         {
             _isDragging = true;
             _activeFingerId = MouseFingerId;
-            _lastMousePosition = position;
+            _lastPosition = position;
 
             OnTouchBegan?.Invoke(position);
         }
@@ -133,6 +158,7 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         {
             _isDragging = true;
             _activeFingerId = touch.fingerId;
+            _lastPosition = touch.position;
 
             OnTouchBegan?.Invoke(touch.position);
         }
@@ -152,7 +178,21 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
                 return;
             }
 
+            _lastPosition = touch.position;
+
             OnTouchMoved?.Invoke(touch.position);
+        }
+
+        /// <summary>
+        /// Ends the running drag without a release and reports <see cref="OnTouchCanceled"/> with the position it was
+        /// <br/> last reported at.
+        /// </summary>
+        protected virtual void CancelDrag()
+        {
+            _isDragging = false;
+            _activeFingerId = NoActiveFingerId;
+
+            OnTouchCanceled?.Invoke(_lastPosition);
         }
 
         private bool TryGetActiveTouch(out Touch activeTouch)

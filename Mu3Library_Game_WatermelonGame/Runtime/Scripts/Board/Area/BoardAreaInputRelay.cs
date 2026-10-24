@@ -7,7 +7,8 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
     /// <summary>
     /// Forwards the raw touches of an <see cref="InputHandler"/> as board touches.
     /// <br/> A drag only starts inside the board area. Moves are reported while they remain inside,
-    /// <br/> while the end is always reported so the board never reacts to a touch that began elsewhere.
+    /// <br/> while the end, or the cancel of a drag taken away before it was released, is always reported.
+    /// <br/> A touch that began elsewhere is never reported, so the board never reacts to it.
     /// </summary>
     public sealed class BoardAreaInputRelay
     {
@@ -22,6 +23,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
         public event Action<Vector2> TouchBegan;
         public event Action<Vector2> TouchMoved;
         public event Action<Vector2> TouchEnded;
+        public event Action<Vector2> TouchCanceled;
 
         /// <param name="inputHandler">The handler producing the raw touches.</param>
         /// <param name="isInsideArea">Tells whether a screen position lies inside the board area.</param>
@@ -41,6 +43,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             _inputHandler.OnTouchBegan.AddListener(OnTouchBeganEvent);
             _inputHandler.OnTouchMoved.AddListener(OnTouchMovedEvent);
             _inputHandler.OnTouchEnded.AddListener(OnTouchEndedEvent);
+            _inputHandler.OnTouchCanceled.AddListener(OnTouchCanceledEvent);
 
             _isListening = true;
         }
@@ -55,6 +58,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             _inputHandler.OnTouchBegan.RemoveListener(OnTouchBeganEvent);
             _inputHandler.OnTouchMoved.RemoveListener(OnTouchMovedEvent);
             _inputHandler.OnTouchEnded.RemoveListener(OnTouchEndedEvent);
+            _inputHandler.OnTouchCanceled.RemoveListener(OnTouchCanceledEvent);
 
             _isListening = false;
 
@@ -94,6 +98,18 @@ namespace Mu3Library.Game.WatermelonGame.Board.Area
             _isDragging = false;
 
             TouchEnded?.Invoke(screenPos);
+        }
+
+        private void OnTouchCanceledEvent(Vector2 screenPos)
+        {
+            if (!_isDragging)
+            {
+                return;
+            }
+
+            _isDragging = false;
+
+            TouchCanceled?.Invoke(screenPos);
         }
 
         private bool IsInsideArea(Vector2 screenPos)
