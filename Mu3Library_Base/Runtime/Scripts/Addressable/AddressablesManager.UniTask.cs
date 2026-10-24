@@ -244,7 +244,8 @@ namespace Mu3Library.Addressable
         }
 
         // The catalog calls go through the callback path, which reads the handle inside its completion
-        // callback: with auto-release, Addressables releases the handle right after the callbacks ran,
+        // callback: with auto-release, the handle is released right after the callbacks ran, or on the
+        // next ResourceManager update for a chain operation Addressables does not release, either way
         // before an await on the handle itself resumes. The result is only taken over there, and the
         // await resumes on the player loop as before, so the caller's code never runs inside an
         // Addressables callback, where a WaitForCompletion would re-enter the ResourceManager update.

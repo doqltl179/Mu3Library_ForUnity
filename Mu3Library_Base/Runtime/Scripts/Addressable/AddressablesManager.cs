@@ -374,7 +374,10 @@ namespace Mu3Library.Addressable
         /// <summary>
         /// Checks the remote catalogs for updates. The result is read inside the completion callback,
         /// <br/> the last moment the handle is valid when Addressables releases it itself, and the
-        /// <br/> handle is released once, as <see cref="ReleaseCatalogHandle"/> describes.
+        /// <br/> handle is released once: by this manager after the callback when
+        /// <br/> <paramref name="autoReleaseHandle"/> is false, otherwise by Addressables, or by this
+        /// <br/> manager on the next ResourceManager update when Addressables returned a chain
+        /// <br/> operation it does not release.
         /// </summary>
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true)
         {
