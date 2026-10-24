@@ -23,6 +23,20 @@ namespace Mu3Library.Tests
 
 
 
+        // Each test starts without a root, so what it asserts about the root is its own doing.
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            CoreRoot root = Object.FindAnyObjectByType<CoreRoot>();
+            if (root != null)
+            {
+                Object.Destroy(root.gameObject);
+                yield return null;
+            }
+
+            Assert.IsNull(Object.FindAnyObjectByType<CoreRoot>());
+        }
+
         [UnityTearDown]
         public IEnumerator TearDown()
         {
@@ -57,8 +71,6 @@ namespace Mu3Library.Tests
         [UnityTest]
         public IEnumerator Instance_WithoutRoot_CreatesOneThatOutlivesTheScene()
         {
-            Assume.That(Object.FindAnyObjectByType<CoreRoot>(), Is.Null);
-
             ICoreRoot instance = CoreRoot.Instance;
             yield return null;
 
@@ -71,8 +83,6 @@ namespace Mu3Library.Tests
         [UnityTest]
         public IEnumerator Instance_WhileShuttingDown_ReturnsNullAndCreatesNoRoot()
         {
-            Assume.That(Object.FindAnyObjectByType<CoreRoot>(), Is.Null);
-
             CoreRoot.MarkShuttingDown();
 
             Assert.IsNull(CoreRoot.Instance);
@@ -86,7 +96,7 @@ namespace Mu3Library.Tests
         {
             CreateCore();
             ICoreRoot instance = CoreRoot.Instance;
-            Assume.That(instance.HasCore<LifetimeCore>(), Is.True);
+            Assert.IsTrue(instance.HasCore<LifetimeCore>());
 
             CoreRoot.MarkShuttingDown();
             yield return null;
@@ -100,8 +110,8 @@ namespace Mu3Library.Tests
         {
             LifetimeCore core = CreateCore();
             CoreRoot root = Object.FindAnyObjectByType<CoreRoot>();
-            Assume.That(root, Is.Not.Null);
-            Assume.That(root.HasCore<LifetimeCore>(), Is.True);
+            Assert.IsNotNull(root);
+            Assert.IsTrue(root.HasCore<LifetimeCore>());
 
             // Quitting destroys the root first, and the core then leaves a root that is gone.
             CoreRoot.MarkShuttingDown();

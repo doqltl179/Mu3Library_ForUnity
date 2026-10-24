@@ -23,8 +23,9 @@ namespace Mu3Library.Tests
     /// </summary>
     public class CorePreparationTests
     {
-        // Prepares until the test releases it. The coroutine version waits in a nested routine,
-        // which Unity would keep running after the preparation stopped if the core handed it on.
+        // Prepares until the test releases it. Each step records the preparation it belongs to, so
+        // a test sees which preparations are still advancing; the coroutine version takes its
+        // steps in a nested routine.
         private sealed class GatedCore : CoreBase
         {
             public bool IsReleased;
@@ -77,6 +78,28 @@ namespace Mu3Library.Tests
 #endif
         }
 
+#if !MU3LIBRARY_UNITASK_SUPPORT
+        // Prepares with the routine a test hands it before Start runs.
+        private sealed class ScriptedCore : CoreBase
+        {
+            public Func<Action, IEnumerator> Routine;
+            public int StartCount;
+            public int PreparedCount;
+
+            protected override void Awake()
+            {
+                base.Awake();
+                OnPrepared += () => PreparedCount++;
+            }
+
+            protected override IEnumerator PrepareCoreAsync(Action onSucceed)
+            {
+                StartCount++;
+                return Routine(onSucceed);
+            }
+        }
+#endif
+
         private static readonly Regex _interruptedWarning = new("Core prepare was interrupted");
 
         private readonly List<GameObject> _objects = new();
@@ -109,15 +132,20 @@ namespace Mu3Library.Tests
 
         private GatedCore CreateCore()
         {
-            GameObject go = new(nameof(GatedCore));
+            return CreateCore<GatedCore>();
+        }
+
+        private T CreateCore<T>() where T : CoreBase
+        {
+            GameObject go = new(typeof(T).Name);
             _objects.Add(go);
-            return go.AddComponent<GatedCore>();
+            return go.AddComponent<T>();
         }
 
         // Start, which begins the preparation, runs on the frame after the core is created.
-        private static IEnumerator WaitUntil(Func<bool> condition, string what)
+        private static IEnumerator WaitUntil(Func<bool> condition, string what, int frames = 10)
         {
-            for (int frame = 0; frame < 10 && !condition(); frame++)
+            for (int frame = 0; frame < frames && !condition(); frame++)
             {
                 yield return null;
             }
@@ -282,6 +310,94 @@ namespace Mu3Library.Tests
             Assert.AreEqual(0, core.PreparedCount);
             // No warning announces a restart that a destroyed core never makes.
             LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
+        public IEnumerator Prepare_RoutineYieldsUnityInstructions_WaitsForEachAndPrepares()
+        {
+            bool isOpen = false;
+            List<string> reached = new();
+            ScriptedCore core = CreateCore<ScriptedCore>();
+            core.Routine = onSucceed => WaitOnInstructions(onSucceed, () => isOpen, reached);
+
+            yield return WaitUntil(() => reached.Contains("gate"), "the routine reached its WaitUntil", frames: 1000);
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(core.IsPreparing);
+            Assert.IsFalse(core.IsPrepared, "WaitUntil holds the preparation while its condition is false.");
+
+            isOpen = true;
+            yield return WaitUntil(() => core.IsPrepared, "the core prepared");
+
+            CollectionAssert.AreEqual(new[] { "null", "WaitForSeconds", "WaitForFixedUpdate", "nested", "gate", "done" }, reached);
+            Assert.AreEqual(1, core.PreparedCount);
+        }
+
+        [UnityTest]
+        public IEnumerator Prepare_NestedRoutineThrows_LogsTheExceptionAndStaysUnprepared()
+        {
+            ScriptedCore core = CreateCore<ScriptedCore>();
+            core.Routine = ThrowFromNestedRoutine;
+            LogAssert.Expect(LogType.Exception, new Regex("prepare boom"));
+
+            yield return WaitUntil(() => core.StartCount == 1 && !core.IsPreparing, "the preparation ended");
+            yield return null;
+
+            Assert.IsFalse(core.IsPrepared);
+            Assert.AreEqual(0, core.PreparedCount);
+            Assert.AreEqual(1, core.StartCount, "A failed preparation does not start over by itself.");
+        }
+
+        [UnityTest]
+        public IEnumerator Prepare_RoutineIsNull_LogsAndStaysUnprepared()
+        {
+            ScriptedCore core = CreateCore<ScriptedCore>();
+            core.Routine = _ => null;
+            LogAssert.Expect(LogType.Exception, new Regex("ArgumentNullException"));
+
+            yield return WaitUntil(() => core.StartCount == 1 && !core.IsPreparing, "the preparation ended");
+
+            Assert.IsFalse(core.IsPrepared);
+            Assert.AreEqual(0, core.PreparedCount);
+        }
+
+        private static IEnumerator WaitOnInstructions(Action onSucceed, Func<bool> isOpen, List<string> reached)
+        {
+            yield return null;
+            reached.Add("null");
+
+            yield return new WaitForSeconds(0.01f);
+            reached.Add("WaitForSeconds");
+
+            yield return new WaitForFixedUpdate();
+            reached.Add("WaitForFixedUpdate");
+
+            yield return NestedStep(reached);
+
+            reached.Add("gate");
+            yield return new WaitUntil(isOpen);
+            reached.Add("done");
+
+            onSucceed();
+        }
+
+        private static IEnumerator NestedStep(List<string> reached)
+        {
+            yield return null;
+            reached.Add("nested");
+        }
+
+        private static IEnumerator ThrowFromNestedRoutine(Action onSucceed)
+        {
+            yield return Throw();
+            onSucceed();
+        }
+
+        private static IEnumerator Throw()
+        {
+            yield return null;
+            throw new InvalidOperationException("prepare boom");
         }
 #else
         [UnityTest]

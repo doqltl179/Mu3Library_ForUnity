@@ -294,8 +294,9 @@ namespace Mu3Library.DI
             if (error == null)
             {
                 // The routine and the routines it yields are stepped here instead of being handed
-                // to Unity, which runs a yielded routine as a coroutine of its own that stopping
-                // this one leaves running. Stopping this coroutine therefore stops all of them.
+                // to Unity, which does not document whether stopping this coroutine also stops a
+                // routine it yielded. Stepped here, they stop with this coroutine, and each step
+                // returns here, which is why the generation is checked after it.
                 var routines = new System.Collections.Generic.Stack<IEnumerator>();
                 routines.Push(CoroutineSafeRunner.Run(routine, exception => error = exception));
 
@@ -339,6 +340,16 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Override to prepare this core, and call <paramref name="onSucceed"/> once it is ready.
+        /// </summary>
+        /// <remarks>
+        /// The core steps the returned routine and every routine it yields itself. Disabling the
+        /// core or deactivating its object abandons them without running their <c>finally</c>
+        /// blocks, and enabling the core again calls this method anew. A coroutine the routine
+        /// starts with <c>StartCoroutine</c>, or an asynchronous operation it waits on, is not
+        /// abandoned with them: disabling only the component leaves it running.
+        /// </remarks>
         protected virtual IEnumerator PrepareCoreAsync(Action onSucceed)
         {
             onSucceed?.Invoke();
