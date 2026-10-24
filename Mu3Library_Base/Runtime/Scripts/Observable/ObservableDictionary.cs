@@ -20,6 +20,9 @@ namespace Mu3Library.Observable
             public TValue Value;
         }
 
+        private static readonly bool s_canCompareRestoredEntries =
+            RestoredValueComparison.CanCompare(typeof(TKey)) && RestoredValueComparison.CanCompare(typeof(TValue));
+
         [SerializeField] private List<Entry> _entries = new List<Entry>();
 
         private Dictionary<TKey, TValue> _dictionary;
@@ -27,10 +30,10 @@ namespace Mu3Library.Observable
         private HashSet<TKey> _seenKeys;
 
         // The last dictionary built before Unity deserialized the rows again (an undo, a redo, or a
-        // prefab revert restores them), kept until the subscribers are notified. Null when nothing
-        // built one since the rows were loaded.
+        // prefab revert restores them), kept until the subscribers are notified or a method here
+        // sets the entries. Null when nothing built one since then.
         private Dictionary<TKey, TValue> _dictionaryBeforeRestore;
-        private bool _isLoaded;
+        private bool _hasSettledEntries;
         private bool _isRestored;
 
         private Dictionary<TKey, TValue> _dictionaryValue
@@ -91,6 +94,7 @@ namespace Mu3Library.Observable
             EnsureDictionary();
 
             ReplaceContents(value);
+            Settle();
         }
 
         private void ReplaceContents(Dictionary<TKey, TValue> value)
@@ -113,8 +117,7 @@ namespace Mu3Library.Observable
         /// </summary>
         private void InvokeCallbacks(IReadOnlyDictionary<TKey, TValue> value)
         {
-            _isRestored = false;
-            _dictionaryBeforeRestore = null;
+            Settle();
 
             Delegate[] listeners = _callback?.GetInvocationList();
             if (listeners == null)
@@ -252,12 +255,12 @@ namespace Mu3Library.Observable
         /// <summary>
         /// Drops the dictionary so it is built again from the deserialized rows, and only marks
         /// the restore: this can run on a loading thread, where the subscribers must not be called.
-        /// The first deserialization loads the rows and restores nothing.
+        /// The first deserialization of rows that nothing set yet loads them and restores nothing.
         /// </summary>
         public void OnAfterDeserialize()
         {
-            _isRestored = _isLoaded;
-            _isLoaded = true;
+            _isRestored = _hasSettledEntries;
+            _hasSettledEntries = true;
             if (_dictionary != null)
             {
                 _dictionaryBeforeRestore = _dictionary;
@@ -276,13 +279,20 @@ namespace Mu3Library.Observable
             Dictionary<TKey, TValue> before = _dictionaryBeforeRestore;
             _isRestored = false;
             _dictionaryBeforeRestore = null;
-            if (before != null && HasSameEntries(before))
+            if (before != null && s_canCompareRestoredEntries && HasSameEntries(before))
             {
                 return false;
             }
 
             Notify();
             return true;
+        }
+
+        private void Settle()
+        {
+            _hasSettledEntries = true;
+            _isRestored = false;
+            _dictionaryBeforeRestore = null;
         }
 
         /// <summary>

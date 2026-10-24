@@ -27,6 +27,12 @@ namespace Mu3Library.Tests
         }
 
         [Serializable]
+        public class Stat
+        {
+            public int Value;
+        }
+
+        [Serializable]
         public struct StructSlot
         {
             [SerializeField] private ObservableInt _health;
@@ -46,6 +52,7 @@ namespace Mu3Library.Tests
         [SerializeField] private StructSlot _structSlot = new StructSlot(new ObservableInt());
         [SerializeReference] private Slot _referencedSlot = new Slot();
         [SerializeField] private ObservableDictionary<string, int> _dictionary = new ObservableDictionary<string, int>();
+        [SerializeField] private ObservableDictionary<string, Stat> _classValues = new ObservableDictionary<string, Stat>();
 
         public ObservableFloat Direct => _direct;
         public Slot Nested => _nested;
@@ -54,5 +61,6 @@ namespace Mu3Library.Tests
         public StructSlot InStruct => _structSlot;
         public Slot ReferencedSlot => _referencedSlot;
         public ObservableDictionary<string, int> Dictionary => _dictionary;
+        public ObservableDictionary<string, Stat> ClassValues => _classValues;
     }
 }

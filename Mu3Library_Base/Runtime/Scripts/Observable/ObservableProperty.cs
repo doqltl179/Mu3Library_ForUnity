@@ -6,10 +6,7 @@ namespace Mu3Library.Observable
         UnityEngine.ISerializationCallbackReceiver,
         IRestorableObservable
     {
-        // Unity deserializes a list or another object in place, which leaves the settled value the
-        // same instance as the restored one, so only a value type or a string can be compared.
-        private static readonly bool s_canCompareRestoredValue =
-            typeof(T).IsValueType || typeof(T) == typeof(string);
+        private static readonly bool s_canCompareRestoredValue = RestoredValueComparison.CanCompare(typeof(T));
 
         [UnityEngine.SerializeField] protected T _value;
         public T Value => _value;

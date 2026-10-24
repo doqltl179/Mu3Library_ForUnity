@@ -603,6 +603,30 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void RestoreNotifier_UndoOfFieldInsideDictionaryValue_NotifiesTheRestoredValue()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            asset.ClassValues.Add("hp", new ObservableTestAsset.Stat { Value = 10 });
+            int receivedHp = -1;
+            asset.ClassValues.Subscribe(value => receivedHp = value["hp"].Value);
+            Selection.activeObject = asset;
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty classValues = serializedObject.FindProperty("_classValues");
+
+            Undo.IncrementCurrentGroup();
+            SerializedProperty row = classValues.FindPropertyRelative("_entries").GetArrayElementAtIndex(0);
+            row.FindPropertyRelative("Value.Value").intValue = 20;
+            serializedObject.ApplyModifiedProperties();
+            ObservableDrawerUtility.InvokeOnTargets(classValues, nameof(ObservableDictionary<string, int>.RefreshFromSerialized));
+            Assert.AreEqual(20, receivedHp);
+
+            Undo.PerformUndo();
+
+            Assert.AreEqual(10, asset.ClassValues["hp"].Value);
+            Assert.AreEqual(10, receivedHp);
+        }
+
+        [Test]
         public void RestoreNotifier_Deserialization_LeavesTheNotificationToTheEditor()
         {
             ObservableTestAsset asset = CreateAsset();
