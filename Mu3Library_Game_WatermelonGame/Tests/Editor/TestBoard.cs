@@ -1,0 +1,294 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using Mu3Library.Game.WatermelonGame.Board;
+using Mu3Library.Game.WatermelonGame.Board.Config;
+using Mu3Library.Game.WatermelonGame.Board.Item;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
+using Object = UnityEngine.Object;
+
+namespace Mu3Library.Game.WatermelonGame.Tests
+{
+    /// <summary>
+    /// A complete board built in the open edit mode scene: a main camera rendering into a texture
+    /// <br/> of a fixed size, a board area, a board item resource and a controller, plus the board
+    /// <br/> configurations a test asks for. Dispose it to destroy all of it again.
+    /// <br/> Edit mode runs no component callbacks, so <see cref="Controller.Tick"/> stands in for
+    /// <br/> a frame and <see cref="SendOnDisable"/> for a hierarchy being hidden.
+    /// </summary>
+    internal sealed class TestBoard : IDisposable
+    {
+        /// <summary>
+        /// Declared inside the test class, so it has no MonoScript of its own and can be added
+        /// <br/> to a GameObject in an editor assembly.
+        /// </summary>
+        internal sealed class Controller : BoardController
+        {
+            public void Setup(BoardArea area, BoardItem itemResource)
+            {
+                _boardArea = area;
+                _itemResource = itemResource;
+
+                // Time does not move inside one edit mode test, so every item is handed out at once.
+                _dropInterval = 0.0f;
+            }
+
+            /// <summary>
+            /// Runs one frame of the board.
+            /// </summary>
+            public void Tick() => Update();
+
+            /// <summary>
+            /// Draws the next item index the way the board does when it hands out an item.
+            /// </summary>
+            public int Draw() => DrawNextItemIndex();
+
+            /// <summary>
+            /// Puts an item into the player's hand whatever state the board is in, as a subclass
+            /// <br/> or an event handler could.
+            /// </summary>
+            public bool SpawnHoldingItem() => TrySpawnHoldingItem();
+        }
+
+        private const int ScreenWidth = 1080;
+        private const int ScreenHeight = 1920;
+
+        private const int BoardTextureWidth = 100;
+        private const int BoardTextureHeight = 200;
+
+        private readonly List<Object> _objects = new();
+        private readonly List<Camera> _disabledSceneCameras = new();
+        private readonly RenderTexture _screen;
+
+        public Camera Camera { get; }
+        public BoardArea Area { get; }
+        public BoardItem ItemResource { get; }
+        public Controller Board { get; }
+
+        /// <summary>
+        /// The eleven fruit sprites, one per catalog index, all of them 0.64 units wide.
+        /// </summary>
+        public IReadOnlyList<Sprite> ItemSprites { get; }
+
+        /// <summary>
+        /// A board sprite 1 by 2 units large.
+        /// </summary>
+        public Sprite SmallBoardSprite { get; }
+
+        /// <summary>
+        /// The same board picture at half the pixels per unit, 2 by 4 units large.
+        /// </summary>
+        public Sprite LargeBoardSprite { get; }
+
+        public TestBoard()
+        {
+            // The board measures itself against Camera.main, the first enabled camera tagged
+            // MainCamera, and the scene the test runner opens can already carry one. It is
+            // switched off while the test board exists.
+            foreach (Camera sceneCamera in Camera.allCameras)
+            {
+                if (sceneCamera.CompareTag("MainCamera"))
+                {
+                    sceneCamera.enabled = false;
+                    _disabledSceneCameras.Add(sceneCamera);
+                }
+            }
+
+            GameObject cameraObject = Track(new GameObject("TestBoardCamera") { tag = "MainCamera" });
+            cameraObject.transform.position = new Vector3(0.0f, 0.0f, -10.0f);
+
+            _screen = Track(new RenderTexture(ScreenWidth, ScreenHeight, 0));
+
+            Camera = cameraObject.AddComponent<Camera>();
+            Camera.orthographic = true;
+            Camera.orthographicSize = 10.0f;
+            Camera.targetTexture = _screen;
+
+            // A failed setup never reaches the fixture's teardown, so it gives the scene back itself.
+            if (Camera.main != Camera)
+            {
+                Dispose();
+                Assert.Fail($"The test board camera is not Camera.main, {Camera.main} is.");
+            }
+
+            Texture2D boardTexture = Track(new Texture2D(BoardTextureWidth, BoardTextureHeight));
+            SmallBoardSprite = CreateSprite(boardTexture, 100.0f);
+            LargeBoardSprite = CreateSprite(boardTexture, 50.0f);
+
+            Texture2D itemTexture = Track(new Texture2D(64, 64));
+            Sprite[] itemSprites = new Sprite[BoardItemsConfig.FruitItemCount];
+            for (int index = 0; index < itemSprites.Length; index++)
+            {
+                itemSprites[index] = CreateSprite(itemTexture, 100.0f);
+            }
+
+            ItemSprites = itemSprites;
+
+            Area = Track(new GameObject("TestBoardArea")).AddComponent<BoardArea>();
+
+            // The board hides its item resource in Start, which edit mode never calls.
+            GameObject itemObject = Track(new GameObject("TestBoardItem"));
+            ItemResource = itemObject.AddComponent<BoardItem>();
+            itemObject.SetActive(false);
+
+            Board = Track(new GameObject("TestBoardController")).AddComponent<Controller>();
+            Board.Setup(Area, ItemResource);
+        }
+
+        /// <summary>
+        /// A board configuration on the given board sprite, every fruit entry carrying its sprite
+        /// <br/> from <see cref="ItemSprites"/> except the ones listed.
+        /// </summary>
+        public BoardConfig CreateConfig(Sprite boardSprite, params int[] indicesWithoutSprite)
+        {
+            BoardConfig config = Track(ScriptableObject.CreateInstance<BoardConfig>());
+            config.name = "TestBoardConfig";
+
+            // The entries are written the way an asset holds them, as serialized list elements.
+            SerializedObject serializedConfig = new SerializedObject(config);
+            serializedConfig.FindProperty("_boardSprite").objectReferenceValue = boardSprite;
+
+            SerializedProperty itemInfos = serializedConfig.FindProperty("_itemConfig._itemInfos");
+            itemInfos.arraySize = BoardItemsConfig.FruitItemCount;
+            for (int index = 0; index < BoardItemsConfig.FruitItemCount; index++)
+            {
+                SerializedProperty sprite = itemInfos.GetArrayElementAtIndex(index).FindPropertyRelative("_sprite");
+                sprite.objectReferenceValue = Array.IndexOf(indicesWithoutSprite, index) >= 0 ? null : ItemSprites[index];
+            }
+
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+
+            return config;
+        }
+
+        /// <summary>
+        /// Takes the sprite away from one entry of a configuration that may already be applied.
+        /// </summary>
+        public static void RemoveItemSprite(BoardConfig config, int index)
+        {
+            SerializedObject serializedConfig = new SerializedObject(config);
+            serializedConfig.FindProperty("_itemConfig._itemInfos")
+                .GetArrayElementAtIndex(index)
+                .FindPropertyRelative("_sprite")
+                .objectReferenceValue = null;
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// Applies a configuration on the small board sprite and prepares the board on it.
+        /// </summary>
+        public BoardConfig Prepare(Sprite boardSprite = null)
+        {
+            BoardConfig config = CreateConfig(boardSprite != null ? boardSprite : SmallBoardSprite);
+
+            Board.SetBoardConfig(config);
+            Assert.AreSame(config, Board.Config, "The test configuration was refused.");
+
+            Board.Prepare();
+            Assert.IsTrue(Board.IsPrepared, "The test board could not be prepared.");
+
+            return config;
+        }
+
+        /// <summary>
+        /// Prepares the board and starts the game on it.
+        /// </summary>
+        public BoardConfig StartGame(Sprite boardSprite = null)
+        {
+            BoardConfig config = Prepare(boardSprite);
+
+            Board.GameStart();
+            Assert.IsTrue(Board.IsRunning, "The test board could not be started.");
+
+            return config;
+        }
+
+        public BoardItem SpawnItem(int itemIndex, Vector2 boardNormalizedPosition)
+        {
+            Assert.IsTrue(
+                Board.CommandContext.TrySpawnItem(itemIndex, boardNormalizedPosition, out BoardItem item),
+                $"No item could be spawned for index {itemIndex}.");
+
+            return item;
+        }
+
+        /// <summary>
+        /// Where an item sits as a fraction of the board area.
+        /// </summary>
+        public Vector2 GetBoardNormalizedPosition(BoardItem item)
+        {
+            Assert.IsTrue(
+                Area.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 boardNormalizedPosition),
+                "The board area has no rectangle.");
+
+            return boardNormalizedPosition;
+        }
+
+        /// <summary>
+        /// Sends OnDisable to a component the way play mode does when its hierarchy is hidden;
+        /// <br/> edit mode only does it for components that run in edit mode.
+        /// </summary>
+        public static void SendOnDisable(MonoBehaviour component)
+        {
+            MethodInfo onDisable = null;
+            for (Type type = component.GetType(); type != null && onDisable == null; type = type.BaseType)
+            {
+                onDisable = type.GetMethod(
+                    "OnDisable",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            }
+
+            Assert.IsNotNull(onDisable, $"{component.GetType().Name} has no OnDisable.");
+            onDisable.Invoke(component, null);
+        }
+
+        public void Dispose()
+        {
+            if (Camera != null)
+            {
+                Camera.targetTexture = null;
+            }
+
+            if (_screen != null)
+            {
+                _screen.Release();
+            }
+
+            // The items the board created are children of the board area and go with it.
+            for (int index = _objects.Count - 1; index >= 0; index--)
+            {
+                if (_objects[index] != null)
+                {
+                    Object.DestroyImmediate(_objects[index]);
+                }
+            }
+
+            _objects.Clear();
+
+            foreach (Camera sceneCamera in _disabledSceneCameras)
+            {
+                if (sceneCamera != null)
+                {
+                    sceneCamera.enabled = true;
+                }
+            }
+
+            _disabledSceneCameras.Clear();
+        }
+
+        private Sprite CreateSprite(Texture2D texture, float pixelsPerUnit)
+            => Track(Sprite.Create(
+                texture,
+                new Rect(0.0f, 0.0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit));
+
+        private T Track<T>(T obj) where T : Object
+        {
+            _objects.Add(obj);
+            return obj;
+        }
+    }
+}
