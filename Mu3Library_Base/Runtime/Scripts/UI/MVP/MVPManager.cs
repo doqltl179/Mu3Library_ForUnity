@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 using IDisposable = System.IDisposable;
 
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.UI;
 #endif
 
@@ -97,11 +97,7 @@ namespace Mu3Library.UI.MVP
                     m_eventSystem = EventSystem.current;
                     if (m_eventSystem == null)
                     {
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
-                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-#else
-                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-#endif
+                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), EventSystemInputModuleType);
                         m_eventSystem = go.GetComponent<EventSystem>();
 
                         // The manager created it, so it is also the one that destroys it. It lives
@@ -119,6 +115,19 @@ namespace Mu3Library.UI.MVP
             }
         }
         public EventSystem EventSystem => _eventSystem;
+
+        /// <summary>
+        /// The input module of the <c>EventSystem</c> the manager creates. It follows the input backend that
+        /// Active Input Handling enables, not only the installed package: <c>InputSystemUIInputModule</c> reads
+        /// nothing while the Input System backend is off, as under "Input Manager (Old)" with the package
+        /// installed, so only the "Input System Package (New)" and "Both" settings with the package get it.
+        /// </summary>
+        private static System.Type EventSystemInputModuleType =>
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            typeof(InputSystemUIInputModule);
+#else
+            typeof(StandaloneInputModule);
+#endif
 
         private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 

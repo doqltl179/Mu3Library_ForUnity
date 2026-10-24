@@ -11,6 +11,7 @@
         "Unity.InputSystem",
         "Unity.Localization",
         "Unity.ResourceManager",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

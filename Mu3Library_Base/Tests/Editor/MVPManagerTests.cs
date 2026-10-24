@@ -7,6 +7,7 @@ using Mu3Library.Utility;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using AnimationState = Mu3Library.UI.MVP.Animation.AnimationState;
@@ -14,6 +15,10 @@ using Object = UnityEngine.Object;
 
 #if MU3LIBRARY_UNITASK_SUPPORT
 using Cysharp.Threading.Tasks;
+#endif
+
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
 #endif
 
 namespace Mu3Library.Tests
@@ -443,6 +448,21 @@ namespace Mu3Library.Tests
 
             Time.timeScale = 1.0f;
             yield return RunUntilWithin(() => fade.ViewState == ViewState.Opened, "the view opened");
+        }
+
+        [Test]
+        public void EventSystem_CreatedByTheManager_UsesTheInputModuleOfTheActiveBackend()
+        {
+            EventSystem eventSystem = _manager.EventSystem;
+            Assert.IsFalse(_sceneRoots.Contains(eventSystem.gameObject), "The manager created the EventSystem.");
+
+            BaseInputModule inputModule = eventSystem.GetComponent<BaseInputModule>();
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            Assert.IsInstanceOf<InputSystemUIInputModule>(inputModule);
+#else
+            // Without the package, or with the package installed under "Input Manager (Old)".
+            Assert.IsInstanceOf<StandaloneInputModule>(inputModule);
+#endif
         }
 
 #if MU3LIBRARY_UNITASK_SUPPORT
