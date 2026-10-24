@@ -234,7 +234,12 @@ void Start()
     _audioManager.PlayBgm(bgmClip);
 
     // SFX再生
-    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+    _audioManager.PlaySfx(sfxClip);
+
+    // 既定の SFX 設定をもとに、この効果音だけの音量で再生
+    AudioSourceSettings sfxSettings = AudioSourceSettings.SfxStandard;
+    sfxSettings.Volume = 0.5f;
+    _audioManager.PlaySfx(sfxClip, sfxSettings);
 }
 ```
 
@@ -458,7 +463,8 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
 - Localization: Locales（KO/JA/EN）、String Tableサンプル
 - Resources: MVPサンプル用のPrefabと設定
-- Materials: デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）
+
+デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）は Template サンプルには含まれていません。Base パッケージのランタイムとして `Mu3Library_Base/Runtime/Materials/` に同梱されているため、Base をインストールした時点で `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` から使えます。
 
 ## 🏗 アーキテクチャ概要
 
@@ -486,7 +492,7 @@ protected override void Start()
     _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
 }
 
-// 方法2: Inject属性（CoreBase専用）
+// 方法2: Inject属性（Core、登録済みサービス、presenterで使用可能）
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 

@@ -235,7 +235,12 @@ void Start()
     _audioManager.PlayBgm(bgmClip);
 
     // Play SFX
-    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+    _audioManager.PlaySfx(sfxClip);
+
+    // Play SFX at its own volume, starting from the default SFX settings
+    AudioSourceSettings sfxSettings = AudioSourceSettings.SfxStandard;
+    sfxSettings.Volume = 0.5f;
+    _audioManager.PlaySfx(sfxClip, sfxSettings);
 }
 ```
 
@@ -459,7 +464,8 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales (KO/JA/EN), String Table samples
 - Resources: Prefabs and settings for MVP samples
-- Materials: Default color materials (Black, Blue, Green, Magenta, Red, White)
+
+The default color materials (Black, Blue, Green, Magenta, Red, White) are not part of the Template sample. They ship with the Base package runtime in `Mu3Library_Base/Runtime/Materials/`, so a project has them under `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` as soon as Base is installed.
 
 ## 🏗 Architecture Overview
 
@@ -487,7 +493,7 @@ protected override void Start()
     _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
 }
 
-// Method 2: Inject attribute (CoreBase only)
+// Method 2: Inject attribute (in a core, a registered service, or a presenter)
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 

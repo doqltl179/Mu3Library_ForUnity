@@ -234,7 +234,12 @@ void Start()
     _audioManager.PlayBgm(bgmClip);
 
     // SFX 재생
-    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+    _audioManager.PlaySfx(sfxClip);
+
+    // 기본 SFX 설정에서 시작해 이 효과음만의 볼륨으로 재생
+    AudioSourceSettings sfxSettings = AudioSourceSettings.SfxStandard;
+    sfxSettings.Volume = 0.5f;
+    _audioManager.PlaySfx(sfxClip, sfxSettings);
 }
 ```
 
@@ -458,7 +463,8 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab 및 설정
-- Materials: 기본 색깔 머티리얼 제공 (Black, Blue, Green, Magenta, Red, White)
+
+기본 색깔 머티리얼(Black, Blue, Green, Magenta, Red, White)은 Template 샘플에 들어 있지 않습니다. Base 패키지 런타임과 함께 `Mu3Library_Base/Runtime/Materials/`에 들어 있으므로, Base를 설치하면 바로 `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` 아래에서 쓸 수 있습니다.
 
 ## 🏗 아키텍처 개요
 
@@ -486,7 +492,7 @@ protected override void Start()
     _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
 }
 
-// 방법 2: Inject 속성 (CoreBase 전용)
+// 방법 2: Inject 속성 (코어, 등록된 서비스, presenter에서 사용 가능)
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
