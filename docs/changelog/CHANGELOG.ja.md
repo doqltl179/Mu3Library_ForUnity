@@ -21,8 +21,16 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - Base Editor: Unity 6.4 で `FindFirstObjectByType` が非推奨になったため、DI 検証 drawer とランタイム診断 drawer は `FindAnyObjectByType` で `CoreRoot` を探します。`AppDomain.GetAssemblies()` は Unity がすでにアンロードしたアセンブリまで返すことがあるため、MVP Helper は Unity 6.5 から `CurrentAssemblies.GetLoadedAssemblies()` で型を探します。
 - Watermelon Game: Unity 6.4 で `FindFirstObjectByType` が非推奨になったため、サンプルの `WatermelonGameManager` は `FindAnyObjectByType` で `BoardController` を探します。サンプルシーンのボードは 1 つだけなので、結果は同じです。
 
+### 削除
+- Base: Template サンプルの `Mu3Library.Sample.Template.Editor` アセンブリ定義を削除しました。スクリプトが 1 つもなく、サンプルをインポートしたすべてのプロジェクトで Unity が "will not be compiled, because it has no scripts associated with it" という警告を出していました。
+- URP: パッケージの `Mu3Library.URP.Editor` アセンブリ定義と ScreenEffect サンプルの `Mu3Library.URP.Sample.ScreenEffect.Editor` を削除しました。どちらもスクリプトがなく、パッケージをインストールした、またはサンプルをインポートしたすべてのプロジェクトで同じ警告が出ていました。スクリプトのないアセンブリは一度もコンパイルされていないため、これらを参照しても効果はありませんでした。
+
 ### 修正
 - Base: 使っていた API のうち 2 つがコンパイルエラーになった Unity 6.5 以降で、パッケージがコンパイルできるようになりました。`Scene.handle` が `int` に変換できない `SceneHandle` になったため、`SceneLoader` は処理が読み込む、または解放する `Scene` そのものを保持し、シーン同士を比較します。`Object.GetInstanceID()` が使えなくなったため、`GameObjectPool` は参照でプール内のオブジェクトを区別します。そのためコンポーネントが `Equals` をオーバーライドしていても影響を受けず、警告にはインスタンス ID の代わりにオブジェクト名を出します。`ObservableDictionaryDrawer` は `GetInstanceID()` が非推奨になった Unity 6.4 から `GetEntityId()` でサイズキャッシュのキーを作ります。同じコードは Unity 6000.0 でもそのままコンパイルできます。
+- Base: `package.json` が、パッケージのコードが define シンボルの外で使う Unity パッケージと組み込みモジュールを宣言します。uGUI（`com.unity.ugui`）と UI、Audio、Particle System、JSONSerialize、AssetBundle、UnityWebRequest、UnityWebRequestTexture モジュール、さらにエディタツールが使う IMGUI、Image Conversion、Screen Capture モジュールです。uGUI を削除した、またはこれらのモジュールのいずれかを無効にしたプロジェクトでは、読み取り専用のパッケージ内でコンパイルエラーが出ていましたが、これからは Package Manager がそれらを有効なまま保ちます。オプション統合（UniTask、Addressables、Localization、Input System、Mobile Notifications）はこれまでどおり `dependencies` に含めず、それぞれの define シンボルの中でだけコンパイルされます。
+- Watermelon Game: `package.json` が、ランタイムが使う Physics 2D、Audio、JSONSerialize モジュールも宣言します。
+- Base: ファイルが一度も入ったことのないフォルダのメタデータ `Runtime/Prefabs.meta` が、Git インストールに含まれなくなりました。Git は空のフォルダを保存しないため、インストールにはフォルダのない `.meta` だけが入っていました。
+- Base: UniTask がインストールされている場合、`CoreBase.PrepareCoreAsync(CancellationToken)` の既定の実装は `async` を使わずに、完了済みの `UniTask<bool>` を返します。以前は `await` のない `async` メソッドだったため、コンパイラ警告 CS1998 が出て、呼び出すたびにステートマシンが作られていました。シグネチャと `protected virtual` はそのままなので、オーバーライドしたコードもそのままコンパイルできます。
 
 ## [base/0.26.0] - 2026-08-17
 

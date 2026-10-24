@@ -19,6 +19,8 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | `CoreBase`, DI, MVP | Code-level module names | = | = |
 | sample | A package sample under `Samples~` | 샘플 | サンプル |
 | define symbol | A `MU3LIBRARY_*` scripting define | = (`Define`) | = (`Define`) |
+| optional integration | Code that compiles only while an optional package (UniTask, Addressables, Localization, Input System, Mobile Notifications) is installed | 선택 통합 | オプション統合 |
+| built-in module | A `com.unity.modules.*` package that switches an engine feature on or off | 내장 모듈 | 組み込みモジュール |
 
 ## Style Notes
 

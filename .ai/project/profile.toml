@@ -71,7 +71,7 @@ commands = ["build", "test"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
-paths = ["Mu3Library_Base/Editor/**", "Mu3Library_URP/Editor/**"]
+paths = ["Mu3Library_Base/Editor/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build"]
 notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
