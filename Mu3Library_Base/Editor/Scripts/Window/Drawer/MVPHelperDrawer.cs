@@ -121,13 +121,16 @@ namespace Mu3Library.Editor.Window.Drawer
                 _scriptSpaces,
                 _ignoreTypeOverlap,
                 _applyAnimationView);
+
+            // The overwrite dialog and the asset refresh ran inside this layout pass; end the event here.
+            GUIUtility.ExitGUI();
         }
 
         /// <summary>
         /// Returns why the inputs cannot produce compilable scripts, or null when they can.
         /// An empty namespace is valid and generates the scripts without a namespace block.
         /// </summary>
-        private static string GetInputWarning(string scriptNamespace, string scriptName)
+        internal static string GetInputWarning(string scriptNamespace, string scriptName)
         {
             if (!ScriptIdentifier.IsValidIdentifier(scriptName))
             {
@@ -187,21 +190,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 return;
             }
 
-            string argumentsClassName = $"{scriptName}Arguments";
-            string modelClassName = $"{scriptName}Model";
-            string viewClassName = $"{scriptName}View";
-            string presenterClassName = $"{scriptName}Presenter";
-
-            var components = new List<(string ClassName, string UsingLine, ScriptBuilder.CodeBlock ClassBlock)>
-            {
-                (argumentsClassName, "using Mu3Library.UI.MVP;", GetArgumentsBlock(argumentsClassName)),
-                (modelClassName, "using Mu3Library.UI.MVP;", GetModelBlock(modelClassName, argumentsClassName)),
-                (viewClassName, applyAnimationView ? "using Mu3Library.UI.MVP.Animation;" : "using Mu3Library.UI.MVP;", GetViewBlock(viewClassName, applyAnimationView)),
-                (presenterClassName, "using Mu3Library.UI.MVP;", GetPresenterBlock(presenterClassName, viewClassName, modelClassName, argumentsClassName)),
-            };
-
             var scripts = new List<(string ClassName, string Body)>();
-            foreach (var component in components)
+            foreach (var component in GetComponents(scriptName, applyAnimationView))
             {
                 string fullName = scriptNamespace.Length > 0 ? $"{scriptNamespace}.{component.ClassName}" : component.ClassName;
 
@@ -236,21 +226,37 @@ namespace Mu3Library.Editor.Window.Drawer
         }
 
         /// <summary>
+        /// The four MVP components of <paramref name="scriptName"/>: class name, using line, and class block.
+        /// </summary>
+        internal static List<(string ClassName, string UsingLine, ScriptBuilder.CodeBlock ClassBlock)> GetComponents(string scriptName, bool applyAnimationView)
+        {
+            string argumentsClassName = $"{scriptName}Arguments";
+            string modelClassName = $"{scriptName}Model";
+            string viewClassName = $"{scriptName}View";
+            string presenterClassName = $"{scriptName}Presenter";
+
+            return new List<(string ClassName, string UsingLine, ScriptBuilder.CodeBlock ClassBlock)>
+            {
+                (argumentsClassName, "using Mu3Library.UI.MVP;", GetArgumentsBlock(argumentsClassName)),
+                (modelClassName, "using Mu3Library.UI.MVP;", GetModelBlock(modelClassName, argumentsClassName)),
+                (viewClassName, applyAnimationView ? "using Mu3Library.UI.MVP.Animation;" : "using Mu3Library.UI.MVP;", GetViewBlock(viewClassName, applyAnimationView)),
+                (presenterClassName, "using Mu3Library.UI.MVP;", GetPresenterBlock(presenterClassName, viewClassName, modelClassName, argumentsClassName)),
+            };
+        }
+
+        /// <summary>
         /// Asks before replacing script files that already exist in the save folder.
         /// Returns true when none exists or the user agrees to overwrite them.
         /// </summary>
         private static bool ConfirmOverwrite(string folderSystemPath, List<(string ClassName, string Body)> scripts)
         {
-            var existingFiles = new List<string>();
+            var classNames = new List<string>();
             foreach (var script in scripts)
             {
-                string fileName = $"{script.ClassName}.cs";
-                if (File.Exists(Path.Combine(folderSystemPath, fileName)))
-                {
-                    existingFiles.Add(fileName);
-                }
+                classNames.Add(script.ClassName);
             }
 
+            List<string> existingFiles = GetExistingScriptFiles(folderSystemPath, classNames);
             if (existingFiles.Count == 0)
             {
                 return true;
@@ -265,7 +271,25 @@ namespace Mu3Library.Editor.Window.Drawer
                 "Cancel");
         }
 
-        private static bool TryBuildScript(int spaces, string scriptNamespace, string usingLine, ScriptBuilder.CodeBlock classBlock, out string body, out string error)
+        /// <summary>
+        /// The file names, "{class name}.cs", that already exist in the folder, in the order of the class names.
+        /// </summary>
+        internal static List<string> GetExistingScriptFiles(string folderSystemPath, IEnumerable<string> classNames)
+        {
+            var existingFiles = new List<string>();
+            foreach (string className in classNames)
+            {
+                string fileName = $"{className}.cs";
+                if (File.Exists(Path.Combine(folderSystemPath, fileName)))
+                {
+                    existingFiles.Add(fileName);
+                }
+            }
+
+            return existingFiles;
+        }
+
+        internal static bool TryBuildScript(int spaces, string scriptNamespace, string usingLine, ScriptBuilder.CodeBlock classBlock, out string body, out string error)
         {
             ScriptBuilder.CodeBlock usingBlock = new ScriptBuilder.CodeBlock()
             {
