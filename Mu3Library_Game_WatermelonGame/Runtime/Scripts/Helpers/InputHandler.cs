@@ -16,9 +16,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         protected bool _isDragging;
         public bool IsDragging => _isDragging;
 
-        public UnityEvent<Vector2> OnTouchBegan;
-        public UnityEvent<Vector2> OnTouchMoved;
-        public UnityEvent<Vector2> OnTouchEnded;
+        public UnityEvent<Vector2> OnTouchBegan = new UnityEvent<Vector2>();
+        public UnityEvent<Vector2> OnTouchMoved = new UnityEvent<Vector2>();
+        public UnityEvent<Vector2> OnTouchEnded = new UnityEvent<Vector2>();
 
         private int _activeFingerId = NoActiveFingerId;
         private Vector2 _lastMousePosition;
