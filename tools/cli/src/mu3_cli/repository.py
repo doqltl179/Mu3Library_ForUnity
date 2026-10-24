@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,14 +38,29 @@ STALE_AGENT_REFERENCE_PARTS = (
 REPOSITORY_TEXT_SUFFIXES = {".md", ".py", ".yml"}
 
 
-def repo_root() -> Path:
-    current = Path(__file__).resolve()
-
-    for candidate in current.parents:
+def _enclosing_root(path: Path) -> Path | None:
+    for candidate in (path, *path.parents):
         if (candidate / "AGENTS.md").exists() and (candidate / ".github").exists():
             return candidate
+    return None
 
-    raise RuntimeError("Could not locate the Mu3Library repository root.")
+
+def repo_root() -> Path:
+    """Return the repository root, spelled the way the command reached it.
+
+    On Windows `Path.resolve()` turns a `subst` drive back into the long path it maps, and the
+    Unity entry points open the project under whatever root they are given, so the root is never
+    resolved. An installed `mu3-cli` sits in the checkout it was installed from, so a working
+    directory inside that same checkout supplies its spelling, such as the subst drive it was run from.
+    """
+    module_root = _enclosing_root(Path(os.path.abspath(__file__)).parent)
+    if module_root is None:
+        raise RuntimeError("Could not locate the Mu3Library repository root.")
+
+    working_root = _enclosing_root(Path.cwd())
+    if working_root is not None and os.path.samefile(working_root, module_root):
+        return working_root
+    return module_root
 
 
 def is_generated_tool_artifact(relative_path: str) -> bool:
