@@ -23,6 +23,9 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | built-in module | A `com.unity.modules.*` package that switches an engine feature on or off | 내장 모듈 | 組み込みモジュール |
 | unscaled time, scaled time | The clock a timed transition follows: `Time.unscaledDeltaTime` (keeps running while `Time.timeScale` is 0) or `Time.deltaTime`; the values of `TimeMode` | 비스케일 시간, 스케일 시간 | 非スケール時間、スケール時間 |
 | time scale | `Time.timeScale` named in prose | 타임 스케일 | タイムスケール |
+| input backend | The input system that Player Settings > Active Input Handling enables: the Input Manager, the Input System package, or both | 입력 백엔드 | 入力バックエンド |
+| Active Input Handling | The Player Settings option and its values "Input Manager (Old)", "Input System Package (New)", "Both" | = | = |
+| time factor | `AnimationHandler`'s 0-to-1 progress between the closed and the opened pose | 시간 계수 | 時間係数 |
 
 ## Style Notes
 

@@ -23,7 +23,9 @@ namespace Mu3Library.Sample.Template.Localization
         [Space(20)]
         [SerializeField] private TMP_Dropdown _localeDropdown;
         [SerializeField] private TextMeshProUGUI _textComponent;
+#if TEMPLATE_LOCALIZATION_SUPPORT
         [SerializeField] private bool _getStringAsync = false;
+#endif
 
         [Space(20)]
         [SerializeField] private Button _backButton;

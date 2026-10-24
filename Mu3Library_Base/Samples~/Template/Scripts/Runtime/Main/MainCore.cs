@@ -84,7 +84,11 @@ namespace Mu3Library.Sample.Template.Main
         {
             if (entry.SceneName == SceneNames.SampleAddressables)
             {
+#if TEMPLATE_ADDRESSABLES_SUPPORT
                 _sceneLoader.LoadSingleSceneWithAddressables(entry.SceneName);
+#else
+                Debug.LogWarning("Addressables is not installed.");
+#endif
             }
             else
             {

@@ -158,9 +158,9 @@ namespace Mu3Library.Sample.Template.IS
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT
             _inputSystemManager.SetInputActionAssetEnable(false);
-#endif
 
             _resourceLoader.Release<InputActionAsset>(InputActionAssetResourcePath);
+#endif
         }
 
         private void RegisterUiEvents()
@@ -327,9 +327,11 @@ namespace Mu3Library.Sample.Template.IS
                 return;
             }
 
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
             _inputActionPages.GetValueOrDefault(_currentDeviceTab.Device.name)?
                 .GetValueOrDefault(_currentInputActionMapTab.InputActionMap.name)?
                 .gameObject.SetActive(active);
+#endif
         }
 
         private void SaveOverrideData()

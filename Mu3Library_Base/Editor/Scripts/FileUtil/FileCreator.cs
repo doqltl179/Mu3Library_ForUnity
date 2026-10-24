@@ -62,6 +62,38 @@ namespace Mu3Library.Editor.FileUtil {
 
             return filePath;
         }
+
+        /// <summary>
+        /// 생성한 스크립트를 define 심볼 조건 안에 넣는다.
+        /// <br/> 선택 패키지를 쓰는 스크립트가 그 패키지가 없는 프로젝트에서 컴파일되지 않게 할 때 쓴다.
+        /// <br/> 맨 앞의 주석 줄(자동 생성 표시)은 조건 밖에 남긴다. 심볼이 비어 있으면 스크립트를 그대로 돌려준다.
+        /// </summary>
+        /// <param name="script"> 스크립트 본문 </param>
+        /// <param name="defineSymbol"> 조건으로 쓸 define 심볼, 앞뒤 공백은 무시한다 </param>
+        internal static string WrapInDefineSymbol(string script, string defineSymbol) {
+            if(script == null) {
+                script = "";
+            }
+
+            if(string.IsNullOrWhiteSpace(defineSymbol)) {
+                return script;
+            }
+
+            int bodyStart = 0;
+            while(bodyStart < script.Length && string.CompareOrdinal(script, bodyStart, "//", 0, 2) == 0) {
+                int lineEnd = script.IndexOf('\n', bodyStart);
+                bodyStart = lineEnd < 0 ? script.Length : lineEnd + 1;
+            }
+
+            string newLine = System.Environment.NewLine;
+            string bodyEnd = script.Length == 0 || script.EndsWith("\n") ? "" : newLine;
+
+            return script.Substring(0, bodyStart)
+                + $"#if {defineSymbol.Trim()}{newLine}"
+                + script.Substring(bodyStart)
+                + bodyEnd
+                + $"#endif{newLine}";
+        }
         #endregion
     }
 }

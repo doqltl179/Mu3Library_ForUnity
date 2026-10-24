@@ -21,7 +21,7 @@
     "samples": [
         {
             "displayName": "ScreenEffect",
-            "description": "URP screen effect sample scene and scripts for Mu3Library URP",
+            "description": "URP screen effect sample scene and scripts for Mu3Library URP. Needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\": its scene's EventSystem uses InputSystemUIInputModule.",
             "path": "Samples~/ScreenEffect"
         }
     ]

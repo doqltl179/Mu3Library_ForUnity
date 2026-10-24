@@ -1,6 +1,8 @@
 using Mu3Library.DI;
-using Mu3Library.IS;
 using UnityEngine;
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
+using Mu3Library.IS;
+#endif
 
 namespace Mu3Library.Sample.Template.Global
 {

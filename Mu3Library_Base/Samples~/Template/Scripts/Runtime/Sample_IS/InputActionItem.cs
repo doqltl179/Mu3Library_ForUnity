@@ -39,7 +39,9 @@ namespace Mu3Library.Sample.Template.IS
 
         public void Patch()
         {
+#if TEMPLATE_INPUTSYSTEM_SUPPORT
             SetInputAction(_device, _inputAction);
+#endif
         }
 
 #if TEMPLATE_INPUTSYSTEM_SUPPORT

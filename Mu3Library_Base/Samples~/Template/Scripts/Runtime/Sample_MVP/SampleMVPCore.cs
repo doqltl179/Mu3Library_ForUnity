@@ -66,50 +66,50 @@ namespace Mu3Library.Sample.Template.MVP
 
         private void Update()
         {
-            if (Input.GetKeyDown(_notificationOneButtonKey))
+            if (SampleInput.GetKeyDown(_notificationOneButtonKey))
             {
                 OpenNotificationOneButton();
             }
-            else if (Input.GetKeyDown(_notificationTwoButtonKey))
+            else if (SampleInput.GetKeyDown(_notificationTwoButtonKey))
             {
                 OpenNotificationTwoButton();
             }
-            else if (Input.GetKeyDown(_oneCurveScaleAnimationPopupKey))
+            else if (SampleInput.GetKeyDown(_oneCurveScaleAnimationPopupKey))
             {
                 OpenOneCurveScaleAnimationPopup();
             }
-            else if (Input.GetKeyDown(_twoCurveScaleAnimationPopupKey))
+            else if (SampleInput.GetKeyDown(_twoCurveScaleAnimationPopupKey))
             {
                 OpenTwoCurveScaleAnimationPopup();
             }
-            else if (Input.GetKeyDown(_bottomToMiddleAnimationPopupKey))
+            else if (SampleInput.GetKeyDown(_bottomToMiddleAnimationPopupKey))
             {
                 OpenBottomToMiddleAnimationPopup();
             }
 
-            else if (Input.GetKeyDown(_loadingScreenOpenKey))
+            else if (SampleInput.GetKeyDown(_loadingScreenOpenKey))
             {
                 OpenLoadingScreen();
             }
-            else if (Input.GetKeyDown(_loadingScreenCloseKey))
+            else if (SampleInput.GetKeyDown(_loadingScreenCloseKey))
             {
                 CloseLoadingScreen();
             }
 
-            else if (Input.GetKeyDown(_openLinkParentKey))
+            else if (SampleInput.GetKeyDown(_openLinkParentKey))
             {
                 OpenLinkParent();
             }
-            else if (Input.GetKeyDown(_closeLinkParentKey))
+            else if (SampleInput.GetKeyDown(_closeLinkParentKey))
             {
                 CloseLinkParent();
             }
 
-            else if (Input.GetKeyDown(_closeAllWithoutDefaultKey))
+            else if (SampleInput.GetKeyDown(_closeAllWithoutDefaultKey))
             {
                 _mvpManager.CloseAllWithoutDefault();
             }
-            else if (Input.GetKeyDown(_closeAllWithoutDefaultForceKey))
+            else if (SampleInput.GetKeyDown(_closeAllWithoutDefaultForceKey))
             {
                 _mvpManager.CloseAllWithoutDefault(true);
             }
