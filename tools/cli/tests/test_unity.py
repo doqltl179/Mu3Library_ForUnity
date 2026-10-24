@@ -86,6 +86,16 @@ class UnityToolingTests(unittest.TestCase):
             entry_point_arguments("built-in", None, False, False, False, False, without_samples=True),
         )
 
+    def test_editor_version_reaches_the_script(self) -> None:
+        self.assertEqual(
+            ["all", "--editor-version", "6000.3.17f1"],
+            entry_point_arguments("all", None, False, False, False, False, editor_version="6000.3.17f1"),
+        )
+
+    def test_editor_version_rejects_in_place(self) -> None:
+        with self.assertRaisesRegex(ValueError, "--editor-version runs in an isolated mirror"):
+            entry_point_arguments("built-in", None, False, False, True, False, editor_version="6000.3.17f1")
+
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
 

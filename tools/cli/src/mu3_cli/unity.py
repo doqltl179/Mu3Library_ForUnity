@@ -760,11 +760,14 @@ def entry_point_arguments(
     in_place: bool,
     keep_staging: bool,
     without_samples: bool = False,
+    editor_version: str | None = None,
 ) -> list[str]:
     if isolated and in_place:
         raise ValueError("--isolated and --in-place cannot be used together.")
     if base and target != "changed":
         raise ValueError("--base can only be used with the changed target.")
+    if editor_version and in_place:
+        raise ValueError("--editor-version runs in an isolated mirror, so it cannot be used with --in-place.")
 
     arguments = [target]
     if base:
@@ -779,6 +782,8 @@ def entry_point_arguments(
         arguments.append("--keep-staging")
     if without_samples:
         arguments.append("--without-samples")
+    if editor_version:
+        arguments.extend(["--editor-version", editor_version])
     return arguments
 
 
@@ -843,11 +848,18 @@ def unity_compile(
     without_samples: bool = typer.Option(
         False, "--without-samples", help="Compile even when a samples link is missing, leaving the samples out."
     ),
+    editor_version: str | None = typer.Option(
+        None,
+        "--editor-version",
+        help="Compile with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
+    ),
 ) -> None:
     """Run the repository's change-aware Unity batchmode compiler."""
     root = repo_root()
     try:
-        arguments = entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples)
+        arguments = entry_point_arguments(
+            target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
+        )
         return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
@@ -868,11 +880,18 @@ def unity_test(
     without_samples: bool = typer.Option(
         False, "--without-samples", help="Test even when a samples link is missing, leaving the samples out."
     ),
+    editor_version: str | None = typer.Option(
+        None,
+        "--editor-version",
+        help="Test with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
+    ),
 ) -> None:
     """Run the EditMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
     try:
-        arguments = entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples)
+        arguments = entry_point_arguments(
+            target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
+        )
         return_code = run_entry_point(test_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error

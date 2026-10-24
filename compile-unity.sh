@@ -16,6 +16,8 @@ TARGET="changed"
 TARGET_WAS_SET=0
 BASE_REF=""
 RUN_MODE="auto"
+# An Editor version that replaces each project's own, set by --editor-version.
+EDITOR_VERSION=""
 DRY_RUN=0
 KEEP_STAGING=0
 STAGING_ROOT=""
@@ -188,6 +190,10 @@ Options:
   --keep-staging    Keep an isolated project after the run for diagnostics.
   --without-samples Run even when a project's link to its package samples is
                     missing, leaving the samples out with a warning.
+  --editor-version <version>
+                    Run with the Unity Hub Editor of that exact version, such
+                    as 6000.3.17f1, instead of the one ProjectVersion.txt
+                    names, always in an isolated mirror retargeted to it.
   -h, --help        Show this help.
 
 Environment:
@@ -221,6 +227,13 @@ A project counts as open while a process holds its Temp/UnityLockfile; a lock
 file that no process holds, left by an Editor that crashed, is reported and
 ignored. On Windows PowerShell checks the holder, elsewhere lsof does; without
 either, an existing lock file counts as open.
+
+--editor-version checks a package against another Editor, such as the lowest
+one its package.json declares, without letting that Editor open and rewrite a
+repository project. The mirror's ProjectVersion.txt names the requested
+version, its packages-lock.json is removed, and each Unity package version in
+its manifest becomes the one that Editor bundles; a built-in module the Editor
+does not ship is dropped, and a package it does not bundle stays as it is.
 EOF
 }
 
@@ -656,12 +669,20 @@ unity_executable() {
     local required_version
     local override_path="${UNITY_EDITOR:-${UNITY:-}}"
     local candidate
+    # Who asks for the version, as the messages below name it.
+    local requester
 
     project_path="$(project_path_for_target "$target_key")" || return 1
-    required_version="$(project_editor_version "$target_key")" || {
-        printf 'error: Unity version file not found for %s\n' "$project_path" >&2
-        return 1
-    }
+    requester="$project_path"
+    if [[ -n "$EDITOR_VERSION" ]]; then
+        required_version="$EDITOR_VERSION"
+        requester="--editor-version"
+    else
+        required_version="$(project_editor_version "$target_key")" || {
+            printf 'error: Unity version file not found for %s\n' "$project_path" >&2
+            return 1
+        }
+    fi
 
     if [[ -n "$override_path" ]]; then
         candidate="$override_path"
@@ -676,13 +697,13 @@ unity_executable() {
 
         if [[ "$candidate" != *"$(hub_editor_suffix "$required_version")" ]]; then
             printf 'warning: %s requires Unity %s but the explicit override will be used: %s\n' \
-                "$project_path" "$required_version" "$candidate" >&2
+                "$requester" "$required_version" "$candidate" >&2
         fi
     else
         candidate="$(hub_editor_executable "$required_version")"
         if [[ ! -x "$candidate" ]]; then
             printf 'error: required Unity Editor is not installed for %s: %s\n' \
-                "$project_path" "$candidate" >&2
+                "$requester" "$candidate" >&2
             return 1
         fi
     fi
@@ -782,6 +803,13 @@ decide_run_location() {
     project_path="$(project_path_for_target "$target_key")" || return 1
     RUN_LOCATION="in-place"
     RUN_NOTE=""
+
+    # Another Editor would rewrite the repository project's settings and Library.
+    if [[ -n "$EDITOR_VERSION" ]]; then
+        RUN_LOCATION="isolated"
+        RUN_NOTE="--editor-version asks for Unity $EDITOR_VERSION"
+        return 0
+    fi
 
     case "$(project_lock_state "$target_key")" in
         open)
@@ -890,8 +918,144 @@ warn_long_staging_path() {
     fi
 }
 
+# Prints the folder in which an Editor keeps the packages it bundles: beside the
+# executable in Data/ on Windows and Linux, and in Contents/Resources of
+# Unity.app on macOS.
+editor_package_manager_dir() {
+    local unity_path="$1"
+    local executable_dir
+    local candidate
+
+    executable_dir="$(dirname "$unity_path")"
+    for candidate in "$executable_dir/Data/Resources/PackageManager" "$executable_dir/../Resources/PackageManager"; do
+        if [[ -d "$candidate/BuiltInPackages" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# Prints the first "version" value of a JSON file, or of the object that opens
+# with the line "<key>": { when a key is given. Unity writes its manifests one
+# member per line, which is what this reads.
+json_version_value() {
+    local json_file="$1"
+    local object_key="${2:-}"
+
+    [[ -f "$json_file" ]] || return 1
+    awk -v key="\"$object_key\"" '
+        function trimmed(text) { sub(/^[[:space:]]+/, "", text); return text }
+        key != "\"\"" && !inside {
+            line = trimmed($0)
+            if (substr(line, 1, length(key)) == key && line ~ /\{[[:space:]]*$/) { inside = 1 }
+            next
+        }
+        key != "\"\"" && /^[[:space:]]*\}/ { exit 1 }
+        match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
+            value = substr($0, RSTART, RLENGTH)
+            sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", value)
+            sub(/"$/, "", value)
+            print value
+            found = 1
+            exit
+        }
+        END { exit !found }
+    ' "$json_file"
+}
+
+# Prints the version of a package that an Editor bundles: the one its package
+# manifest recommends, or else the one in the package's own built-in copy.
+editor_bundled_version() {
+    local package_manager_dir="$1"
+    local package_name="$2"
+
+    json_version_value "$package_manager_dir/Editor/manifest.json" "$package_name" \
+        || json_version_value "$package_manager_dir/BuiltInPackages/$package_name/package.json"
+}
+
+# Points a mirror at the Editor --editor-version asks for: ProjectVersion.txt
+# names it, the lock file goes so that Unity resolves the packages again, and
+# every com.unity.* dependency pinned to a version takes the version that
+# Editor bundles. A built-in module the Editor does not ship is dropped, since
+# Unity cannot resolve it; any other package it does not bundle stays.
+retarget_isolated_project() {
+    local staging_project="$1"
+    local unity_path="$2"
+    local manifest_file="$staging_project/Packages/manifest.json"
+    local package_manager_dir
+    local line
+    local in_dependencies=0
+    local found_dependencies=0
+    local last
+    local bundled
+    local entry_pattern='^([[:space:]]*)"(com\.unity\.[^"]+)"[[:space:]]*:[[:space:]]*"([0-9][^"]*)"(,?)[[:space:]]*$'
+    local output_lines=()
+    local changes=()
+
+    package_manager_dir="$(editor_package_manager_dir "$unity_path")" \
+        || fail "cannot find the packages that Unity $EDITOR_VERSION bundles next to $unity_path"
+
+    printf 'm_EditorVersion: %s\n' "$EDITOR_VERSION" > "$staging_project/ProjectSettings/ProjectVersion.txt"
+    rm -f -- "$staging_project/Packages/packages-lock.json"
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+
+        if [[ "$in_dependencies" -eq 0 ]]; then
+            if [[ "$found_dependencies" -eq 0 && "$line" =~ ^[[:space:]]*\"dependencies\"[[:space:]]*:[[:space:]]*\{[[:space:]]*$ ]]; then
+                in_dependencies=1
+                found_dependencies=1
+            fi
+            output_lines+=("$line")
+            continue
+        fi
+
+        if [[ "$line" =~ ^[[:space:]]*\} ]]; then
+            # A dropped last entry leaves the comma of the entry before it.
+            in_dependencies=0
+            last="${output_lines[${#output_lines[@]}-1]}"
+            output_lines[${#output_lines[@]}-1]="${last%,}"
+            output_lines+=("$line")
+            continue
+        fi
+
+        if [[ ! "$line" =~ $entry_pattern ]]; then
+            output_lines+=("$line")
+            continue
+        fi
+
+        if bundled="$(editor_bundled_version "$package_manager_dir" "${BASH_REMATCH[2]}")"; then
+            if [[ "$bundled" != "${BASH_REMATCH[3]}" ]]; then
+                changes+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} -> $bundled")
+            fi
+            output_lines+=("${BASH_REMATCH[1]}\"${BASH_REMATCH[2]}\": \"$bundled\"${BASH_REMATCH[4]}")
+        elif [[ "${BASH_REMATCH[2]}" == com.unity.modules.* ]]; then
+            changes+=("${BASH_REMATCH[2]} removed, Unity $EDITOR_VERSION does not ship it")
+        else
+            printf 'warning: Unity %s does not bundle %s, so the mirror keeps %s\n' \
+                "$EDITOR_VERSION" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" >&2
+            output_lines+=("$line")
+        fi
+    done < "$manifest_file"
+
+    [[ "$found_dependencies" -eq 1 ]] \
+        || fail "no dependencies block to retarget in $manifest_file"
+    printf '%s\n' "${output_lines[@]}" > "$manifest_file"
+
+    printf 'Retargeted the mirror to Unity %s: ProjectVersion.txt names it, packages-lock.json is removed' "$EDITOR_VERSION"
+    if [[ "${#changes[@]}" -eq 0 ]]; then
+        printf ', and every Unity package already has the version it bundles.\n'
+        return 0
+    fi
+    printf ', and these Unity packages follow it:\n'
+    printf '  - %s\n' "${changes[@]}"
+}
+
 prepare_isolated_project() {
     local target_key="$1"
+    local unity_path="$2"
     local project_path
     local source_project
     local staging_project
@@ -927,6 +1091,10 @@ prepare_isolated_project() {
 
     warn_long_staging_path "$staging_project"
 
+    if [[ -n "$EDITOR_VERSION" ]]; then
+        retarget_isolated_project "$staging_project" "$unity_path"
+    fi
+
     RUN_PROJECT_PATH="$staging_project"
 }
 
@@ -950,7 +1118,7 @@ run_unity_for_target() {
     fi
 
     if [[ "$RUN_LOCATION" == "isolated" ]]; then
-        prepare_isolated_project "$target_key"
+        prepare_isolated_project "$target_key" "$unity_path"
         run_project_path="$RUN_PROJECT_PATH"
         printf '%s %s (%s) in an isolated mirror because %s.\n' \
             "$verb" "$target_key" "$project_path" "$RUN_NOTE"
@@ -1011,6 +1179,14 @@ parse_arguments() {
             --without-samples)
                 SKIP_SAMPLES=1
                 ;;
+            --editor-version)
+                shift
+                [[ "$#" -gt 0 ]] || fail "--editor-version requires a Unity version"
+                # The version names a Unity Hub folder, so it may hold nothing else.
+                [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?$ ]] \
+                    || fail "--editor-version expects a full Unity version such as 6000.3.17f1: $1"
+                EDITOR_VERSION="$1"
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -1029,6 +1205,9 @@ parse_arguments() {
 
     if [[ -n "$BASE_REF" && "$TARGET" != "changed" ]]; then
         fail "--base can only be used with the changed target"
+    fi
+    if [[ -n "$EDITOR_VERSION" && "$RUN_MODE" == "in-place" ]]; then
+        fail "--editor-version runs in an isolated mirror, so it cannot be combined with --in-place"
     fi
 }
 
