@@ -19,8 +19,17 @@ namespace Mu3Library.Game.WatermelonGame.Board
         private readonly List<int> _incompleteItemIndices = new();
 
         /// <summary>
+        /// Where every board item sat as a fraction of the board, read right before a configuration
+        /// <br/> refits the board, in the order of <see cref="_createdItems"/>. NaN marks an item that
+        /// <br/> had no place to read.
+        /// </summary>
+        private readonly List<Vector2> _itemBoardPositions = new();
+
+        /// <summary>
         /// Applies a complete board configuration to the board and all currently active items.
         /// The configuration is validated before any visible or physical state is changed.
+        /// <br/> A board sprite of another size refits the board, and every item keeps the place it
+        /// <br/> had as a fraction of the board, so the pile stays between the walls.
         /// </summary>
         public virtual void SetBoardConfig(BoardConfig config)
         {
@@ -32,6 +41,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
             BoardConfig previousConfig = _boardConfig;
             _boardConfig = config;
 
+            // The items are children of the board area. Fitting a sprite of another size scales
+            // the board transform, which carries them along while their local places stay the
+            // same, so their places are read against the board before it is refitted.
+            ReadItemBoardPositions();
+
             _boardArea.SetBoardImage(config.BoardSprite);
             _boardArea.SetBoardLocalItemOutLine(config.BoardLineSprite);
             _boardArea.SetBoardSpawnImage(config.BoardSpawnSprite);
@@ -41,6 +55,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             {
                 ApplyBoardConfigToItem(_createdItems[index], previousConfig, config);
             }
+
+            PlaceItemsOnBoardPositions();
 
             ApplyBoardConfigToItem(_holdingItem, previousConfig, config);
 
@@ -159,6 +175,49 @@ namespace Mu3Library.Game.WatermelonGame.Board
             item.transform.localScale = Vector3.one * GetItemScale(itemIndex, itemInfo);
             ApplyItemPhysics(item, targetConfig);
             ApplyItemGravity(item);
+        }
+
+        private void ReadItemBoardPositions()
+        {
+            _itemBoardPositions.Clear();
+
+            for (int index = 0; index < _createdItems.Count; index++)
+            {
+                BoardItem item = _createdItems[index];
+                if (item == null ||
+                    !_boardArea.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 boardNormalizedPosition))
+                {
+                    // Without the board rectangle there is no place to keep, the item stays put.
+                    boardNormalizedPosition = new Vector2(float.NaN, float.NaN);
+                }
+
+                _itemBoardPositions.Add(boardNormalizedPosition);
+            }
+        }
+
+        private void PlaceItemsOnBoardPositions()
+        {
+            // The positions are only placed again on a board that still has its rectangle.
+            Rect boardRect = _boardArea.LocalRect;
+            bool hasBoardRect = boardRect.width > Mathf.Epsilon && boardRect.height > Mathf.Epsilon;
+
+            int itemCount = Mathf.Min(_createdItems.Count, _itemBoardPositions.Count);
+            for (int index = 0; hasBoardRect && index < itemCount; index++)
+            {
+                BoardItem item = _createdItems[index];
+                Vector2 boardNormalizedPosition = _itemBoardPositions[index];
+                if (item == null || float.IsNaN(boardNormalizedPosition.x))
+                {
+                    continue;
+                }
+
+                Transform itemTransform = item.transform;
+                Vector3 localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(boardNormalizedPosition);
+                localPosition.z = itemTransform.localPosition.z;
+                itemTransform.localPosition = localPosition;
+            }
+
+            _itemBoardPositions.Clear();
         }
 
         /// <summary>
