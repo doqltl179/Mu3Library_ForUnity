@@ -18,18 +18,19 @@ namespace Mu3Library.URP.Tests
 
         private const BindingFlags InstanceMembers = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        private sealed class MissingShaderPass : ScreenPassBase
+        // A pass a project derives for a shader the package does not ship.
+        private sealed class NamedShaderPass : ScreenPassBase
         {
-            private readonly string _missingShaderPath;
-            protected override string _shaderPath => _missingShaderPath;
+            private readonly string _namedShaderPath;
+            protected override string _shaderPath => _namedShaderPath;
 
             public Material Material => _material;
 
 
 
-            public MissingShaderPass(string shaderPath)
+            public NamedShaderPass(string shaderPath)
             {
-                _missingShaderPath = shaderPath;
+                _namedShaderPath = shaderPath;
             }
         }
 
@@ -45,9 +46,8 @@ namespace Mu3Library.URP.Tests
         {
             ScreenEffectShaders shaders = LoadShaders();
 
-            string assetPath = AssetDatabase.GetAssetPath(shaders);
-            StringAssert.StartsWith(PackagePath, assetPath);
-            StringAssert.Contains("/Resources/", assetPath);
+            // An Editor/Resources folder would load here as well but stays out of players.
+            Assert.AreEqual(PackagePath + "Runtime/Resources/" + ScreenEffectShaders.ResourcePath + ".asset", AssetDatabase.GetAssetPath(shaders));
         }
 
         [Test]
@@ -95,11 +95,33 @@ namespace Mu3Library.URP.Tests
         }
 
         [Test]
-        public void Material_MissingShader_LogsOneErrorForEveryPassAndAccess()
+        public void Material_ShaderOutsideTheAsset_IsCreatedFromShaderFind()
+        {
+            const string shaderPath = "Universal Render Pipeline/Unlit";
+            Shader expected = Shader.Find(shaderPath);
+            Assert.IsNotNull(expected, $"The project has no '{shaderPath}' shader to test with.");
+            Assert.IsNull(LoadShaders().Get(shaderPath));
+
+            NamedShaderPass pass = new(shaderPath);
+
+            try
+            {
+                Assert.IsNotNull(pass.Material);
+                Assert.AreSame(expected, pass.Material.shader);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                pass.Dispose();
+            }
+        }
+
+        [Test]
+        public void Material_MissingShader_LogsOneErrorAcrossPassesAndAccesses()
         {
             string shaderPath = CreateMissingShaderPath();
-            MissingShaderPass first = new(shaderPath);
-            MissingShaderPass second = new(shaderPath);
+            NamedShaderPass first = new(shaderPath);
+            NamedShaderPass second = new(shaderPath);
 
             LogAssert.Expect(LogType.Error, new Regex("^Shader not found\\. path: " + Regex.Escape(shaderPath)));
 
@@ -120,8 +142,8 @@ namespace Mu3Library.URP.Tests
         {
             string firstPath = CreateMissingShaderPath();
             string secondPath = CreateMissingShaderPath();
-            MissingShaderPass first = new(firstPath);
-            MissingShaderPass second = new(secondPath);
+            NamedShaderPass first = new(firstPath);
+            NamedShaderPass second = new(secondPath);
 
             LogAssert.Expect(LogType.Error, new Regex("^Shader not found\\. path: " + Regex.Escape(firstPath)));
             LogAssert.Expect(LogType.Error, new Regex("^Shader not found\\. path: " + Regex.Escape(secondPath)));
