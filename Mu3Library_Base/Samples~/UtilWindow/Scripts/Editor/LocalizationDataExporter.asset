@@ -351,4 +351,5 @@ MonoBehaviour:
   _scriptSaveFolder: {fileID: 102900000, guid: 4d5855ec628be2646b9ce0e18ba37ac1, type: 3}
   _scriptNamespace: Mu3Library.Sample.Template.Localization
   _scriptClassName: LocalizationTableKeys
+  _scriptDefineSymbol: TEMPLATE_LOCALIZATION_SUPPORT
   _foldoutTablePreview: 0

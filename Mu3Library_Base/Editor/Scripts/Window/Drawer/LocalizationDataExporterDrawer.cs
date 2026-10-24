@@ -23,6 +23,7 @@ namespace Mu3Library.Editor.Window.Drawer
         [SerializeField, HideInInspector] private DefaultAsset _scriptSaveFolder;
         [SerializeField, HideInInspector] private string _scriptNamespace = "";
         [SerializeField, HideInInspector] private string _scriptClassName = "";
+        [SerializeField, HideInInspector] private string _scriptDefineSymbol = "";
         [SerializeField, HideInInspector] private bool _foldoutTablePreview;
 
         private List<StringTableCollection> _tableCollections = new List<StringTableCollection>();
@@ -81,6 +82,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 DrawNamespaceField(_scriptNamespace, value => _scriptNamespace = value, "Localization Exporter: Namespace");
                 GUILayout.Space(4);
                 DrawClassNameField(_scriptClassName, value => _scriptClassName = value, "Localization Exporter: Class Name", DefaultClassName);
+                GUILayout.Space(4);
+                DrawDefineSymbolField(_scriptDefineSymbol, value => _scriptDefineSymbol = value, "Localization Exporter: Define Symbol");
                 GUILayout.Space(8);
                 DrawTablePreview();
                 GUILayout.Space(8);
@@ -171,6 +174,8 @@ namespace Mu3Library.Editor.Window.Drawer
                 return "No String Table Collections found. Click Refresh.";
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
+            if (!string.IsNullOrWhiteSpace(_scriptDefineSymbol) && !ScriptIdentifier.IsValidIdentifier(_scriptDefineSymbol.Trim()))
+                return $"Define Symbol \"{_scriptDefineSymbol.Trim()}\" is not a valid symbol name.";
             return null;
         }
 
@@ -216,7 +221,10 @@ namespace Mu3Library.Editor.Window.Drawer
 
         private void WriteGeneratedScript(string systemPath, string fileName, string body)
         {
-            string filePath = FileCreator.WriteScript(systemPath, fileName, body);
+            string filePath = FileCreator.WriteScript(
+                systemPath,
+                fileName,
+                FileCreator.WrapInDefineSymbol(body, _scriptDefineSymbol));
             Debug.Log($"Localization script generated. path: {filePath}");
         }
 
