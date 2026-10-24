@@ -168,12 +168,24 @@ inputHandler.DragStartFilter += screenPosition => !pauseMenu.IsOpen;
 
 A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, and drive the handler from another input source by overriding `IsMousePresent`, `MousePosition`, `GetMouseButtonDown()`, `GetMouseButton()`, `TouchCount`, and `GetTouch(int)` together. `BoardArea` uses a subclass that is already on its GameObject instead of adding an `InputHandler`.
 
-## Import
+## Install
 
-Add this package to a project that already references `Mu3Library_Base` and `Mu3Library_URP`:
+The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with `<version>` replaced by the release to install:
+
+```text
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<version>
+```
+
+The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags.
+
+The development projects in this repository reference the package folder by a relative path instead, which resolves only from a `UnityProject_*` folder of this repository:
 
 ```json
 "com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
 ```
+
+## Sample
 
 Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background and board-guide images, sample manager/core scripts, and playable `Demo` scene.

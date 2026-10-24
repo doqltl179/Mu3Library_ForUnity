@@ -62,7 +62,12 @@
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
+
+    # Watermelon Game package (install Base and URP first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.6.0
    ```
+
+Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
@@ -434,7 +439,7 @@ URP package (**Mu3 Library URP**):
 - **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
 
-Watermelon Game package (**Mu3 Library Watermelon Game**):
+Watermelon Game package (**Mu3 Library Game - Watermelon**):
 - **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
 - **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
 - **Item contact area**: The board-relative resize sizes the item collider, so an item index keeps the same contact area in every `BoardConfig`; `BoardItemInfo.ColliderScale` decides how much of the sprite that collider covers, `BoardItemInfo.ColliderOffset` moves it as a fraction of the collider diameter, and the sprite is drawn around the collider
@@ -444,7 +449,7 @@ Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Board input**: `InputHandler` reads the Input System while the package is installed and Active Input Handling enables its backend, and the Input Manager otherwise; a press over UI starts no drag, `InputHandler.DragStartFilter` holds a press back by a project's own rule, and a drag taken away before it is released is canceled with the held item kept in hand
 - **Merge effects**: `BoardItemInfo` supports optional `ParticleHandler` resources for merge effects, with completed spawned effects cleaned up automatically
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
-- **Board commands**: `BoardController.EnqueueCommand(...)` runs public board commands, with optional update/cancellation contracts, lifecycle-based `BoardCommand`, command flow groups, item/score commands, and `BoardController.CommandContext` for external commands
+- **Board commands**: `BoardController.EnqueueCommand(...)` takes commands into the board's public command queue. `IUpdatableBoardCommand` and `ICancelableBoardCommand` let a command run frame by frame and be canceled, and `BoardCommand` builds both on lifecycle hooks. `BoardController.CommandContext` is the narrow surface through which an external command reaches items, the score, and sounds, and the package carries Flow, Item, and Score commands, `MergingCommand` among them
 - **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
 - **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
 

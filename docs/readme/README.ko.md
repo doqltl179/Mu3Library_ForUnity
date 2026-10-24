@@ -44,6 +44,7 @@
 - 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper와 플레이 가능한 샘플 씬을 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
+
 ## 📋 요구사항
 
 - Unity 6.3 (6000.3+)
@@ -61,7 +62,12 @@
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
+
+    # Watermelon Game 패키지 (먼저 Base와 URP 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.6.0
    ```
+
+패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
@@ -433,7 +439,7 @@ URP 패키지 (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
 
-Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
+Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
 - **Watermelon Game**: 설정 가능한 보드, 과일 스프라이트, 샘플 manager/core 스크립트를 포함한 플레이 가능한 2D 낙하 과일 병합 씬
 - **Fruit item indexes**: 보드 설정은 항상 11개의 과일 항목을 포함하며 0부터 시작하는 목록 index로 접근합니다.
 - **Item contact area**: 보드 기준 리사이즈가 아이템 collider 크기를 맞추므로 어떤 `BoardConfig`에서도 아이템 index별 접촉 영역이 같습니다. `BoardItemInfo.ColliderScale`은 collider가 sprite에서 차지하는 비율을, `BoardItemInfo.ColliderOffset`은 collider 지름 대비 비율로 그 중심을 정하며, sprite는 collider를 감싸도록 그려집니다.
@@ -443,7 +449,7 @@ Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
 - **Board input**: `InputHandler`는 Input System 패키지가 설치되어 있고 Active Input Handling이 그 백엔드를 켜면 Input System을, 그 밖에는 Input Manager를 읽습니다. UI 위에서 누른 입력은 드래그를 시작하지 않고, `InputHandler.DragStartFilter`로 프로젝트 자체 규칙에 따라 누름을 막을 수 있으며, 놓기 전에 빼앗긴 드래그는 들고 있는 아이템을 손에 둔 채 취소됩니다.
 - **Merge effects**: `BoardItemInfo`는 선택적 병합 효과용 `ParticleHandler` 리소스를 지원하며, 완료된 생성 효과 인스턴스는 자동으로 정리됩니다.
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
-- **Board commands**: `BoardController.EnqueueCommand(...)`로 공개 커맨드 큐를 사용하고, `IUpdatableBoardCommand`/`ICancelableBoardCommand`와 `BoardCommand` lifecycle hook으로 프레임 단위 실행·취소를 구성할 수 있습니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면을 제공하며, Flow/Item/Score 커맨드와 `MergingCommand`를 함께 제공합니다.
+- **Board commands**: `BoardController.EnqueueCommand(...)`는 보드의 공개 커맨드 큐에 커맨드를 넣습니다. `IUpdatableBoardCommand`와 `ICancelableBoardCommand`로 커맨드를 프레임 단위로 실행하고 취소할 수 있으며, `BoardCommand`는 그 둘을 lifecycle hook 위에 구성합니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면이고, 패키지는 `MergingCommand`를 포함한 Flow/Item/Score 커맨드를 제공합니다.
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
 - **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
 
