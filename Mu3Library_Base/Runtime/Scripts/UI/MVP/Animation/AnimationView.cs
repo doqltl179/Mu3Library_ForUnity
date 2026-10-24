@@ -61,6 +61,18 @@ namespace Mu3Library.UI.MVP.Animation
             }
         }
 
+        internal override void SkipCloseTransition()
+        {
+            base.SkipCloseTransition();
+
+            // The handler is inactive as well, so it takes its closed pose at once. Without it, a view
+            // opened and closed under a hidden host would keep its opened pose and skip the next open.
+            if (_animationHandler != null)
+            {
+                _animationHandler.Close();
+            }
+        }
+
         protected override bool WaitClosingUntil()
         {
             if (_animationHandler != null)

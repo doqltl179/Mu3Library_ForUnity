@@ -260,6 +260,7 @@ namespace Mu3Library.UI.MVP
 
             CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
             CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
+            EndHiddenCloses();
             CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
             CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
         }
@@ -333,6 +334,24 @@ namespace Mu3Library.UI.MVP
             if (isViewDestroyed)
             {
                 UpdateFocus();
+            }
+        }
+
+        /// <summary>
+        /// Hiding a view stops its close coroutine, which is what happens to a child hosted under an
+        /// owner that finished closing first, or under a host the project hides. <c>View.OnDisable</c>
+        /// ends such a close, but only when a view that overrides <c>OnDisable</c> calls base, so the
+        /// manager ends it here as well, before the close check reads the view state.
+        /// </summary>
+        private void EndHiddenCloses()
+        {
+            for (int i = 0; i < _presenterCloseChecker.Count; i++)
+            {
+                PresenterBase presenter = _presenterCloseChecker[i].Presenter;
+                if (presenter.IsViewExist)
+                {
+                    presenter.EndHiddenClose();
+                }
             }
         }
 

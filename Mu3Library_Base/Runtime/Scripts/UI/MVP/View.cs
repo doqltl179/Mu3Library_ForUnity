@@ -147,6 +147,24 @@ namespace Mu3Library.UI.MVP
         {
             if (_lifeCycleCoroutine == null)
             {
+                // Unity refuses to start a coroutine on an object that is inactive in the hierarchy,
+                // such as a view opened under a host that is hidden. Such a view skips the wait of its
+                // open transition instead of never reaching Opened: OpenStart() and OpenEnd() run back
+                // to back, so the view is in its opened state when the host is shown. An AnimationView
+                // takes its opened pose at once.
+                if (!gameObject.activeInHierarchy)
+                {
+                    _viewState = ViewState.Opening;
+
+                    OpenStart();
+                    OpenEnd();
+
+                    _canvasGroup.interactable = true;
+
+                    _viewState = ViewState.Opened;
+                    return;
+                }
+
                 _lifeCycleCoroutine = OpenCoroutine();
                 StartCoroutine(_lifeCycleCoroutine);
             }
@@ -190,6 +208,8 @@ namespace Mu3Library.UI.MVP
                 {
                     _canvasGroup.interactable = false;
                     _viewState = ViewState.Closed;
+
+                    SkipCloseTransition();
                     return;
                 }
 
@@ -217,6 +237,34 @@ namespace Mu3Library.UI.MVP
         protected virtual bool WaitClosingUntil() { return true; }
         protected virtual IEnumerator WaitClosing() { yield return new WaitUntil(WaitClosingUntil); }
         protected virtual void CloseEnd() { }
+
+        /// <summary>
+        /// Runs when a view that is inactive in the hierarchy closes without its close transition.
+        /// A view that keeps a pose for its transitions puts it in the closed state here, so its next
+        /// open animates from the start.
+        /// </summary>
+        internal virtual void SkipCloseTransition() { }
+
+        /// <summary>
+        /// Ends a close that hiding the view cut short, as <see cref="OnDisable"/> does, for a view
+        /// whose own OnDisable does not call base. Does nothing while the view is not closing or is
+        /// still active in the hierarchy, where its close coroutine keeps running.
+        /// </summary>
+        internal void EndHiddenClose()
+        {
+            if (_viewState != ViewState.Closing || gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (_lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+
+            _viewState = ViewState.Closed;
+        }
 
         internal void Unload()
         {

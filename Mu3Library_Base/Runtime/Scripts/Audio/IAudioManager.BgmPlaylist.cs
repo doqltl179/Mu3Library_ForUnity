@@ -8,6 +8,7 @@ namespace Mu3Library.Audio
         /// Starts playing the given clips as a BGM playlist.
         /// Stops any currently playing BGM before starting.
         /// loopCount &lt;= 0 means infinite cycles. loopCount &gt; 0 plays that many full cycles.
+        /// PlayBgm, PlayBgmForce, TransitionBgm, or StopBgm called while it runs ends it.
         /// </summary>
         public void PlayBgmPlaylist(AudioClip[] clips);
         public void PlayBgmPlaylist(AudioClip[] clips, int loopCount);

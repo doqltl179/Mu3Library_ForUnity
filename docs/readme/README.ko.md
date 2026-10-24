@@ -200,7 +200,11 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner`는 생명주기 체인을 제어하고, `HostOptions`는 자식 view를 어디에 붙일지와 루트 `RectTransform` 레이아웃을 어떻게 적용할지를 제어합니다.
 
-자식은 `LoadFunc()`와 `OpenFunc()`를 포함한 어떤 presenter 콜백에서도 열 수 있으며, owner가 아직 열리지 않았어도 됩니다. owner를 닫으면 아직 loading 중인 자식까지 연쇄적으로 닫힙니다. owner의 view 아래에 host된 자식은 owner가 먼저 닫힘을 마쳐도 unload되며, 이때 자식의 닫힘 전환은 owner의 view가 숨겨지는 시점에 끝납니다. `OnDisable`을 override하는 view는 그 닫힘을 마무리하는 `base.OnDisable()`을 호출해야 합니다. 닫히기 시작한 presenter는 더 이상 새 자식을 받지 않습니다.
+자식은 `LoadFunc()`와 `OpenFunc()`를 포함한 어떤 presenter 콜백에서도 열 수 있으며, owner가 아직 열리지 않았어도 됩니다. owner를 닫으면 아직 loading 중인 자식까지 연쇄적으로 닫힙니다. owner의 view 아래에 host된 자식은 owner가 먼저 닫힘을 마쳐도 unload되며, 이때 자식의 닫힘 전환은 owner의 view가 숨겨지는 시점에 끝납니다. `OnDisable`을 override하는 view가 `base.OnDisable()`을 호출하지 않아도 매니저가 그 닫힘을 끝내지만, 그런 view도 호출하는 편이 좋습니다. 닫히기 시작한 presenter는 더 이상 새 자식을 받지 않습니다.
+
+`HostOptions.Host`가 비활성인 경우처럼 숨겨진 host 아래에서 연 창은 그곳에서 열림 전환을 진행할 수 없습니다. 대신 대기를 건너뜁니다. `OpenStart()`와 `OpenEnd()`가 연달아 실행되고, `AnimationView`는 곧바로 열린 자세를 취하며, 창은 다음 매니저 업데이트에서 열린 것으로 처리됩니다. host가 보이면 완전히 열린 모습으로 나타나고, 일반 `Close`로 닫을 수 있으며, `OpenAsync`도 완료됩니다. host가 숨겨진 채로 닫히면 닫힘 전환을 건너뛰고, `AnimationView`는 닫힌 자세를 취하므로 다음 열림에서 다시 애니메이션이 재생됩니다.
+
+`AnimationView` 애니메이션은 기본적으로 비스케일 시간으로 진행하므로, `Time.timeScale`을 0으로 만드는 일시정지 메뉴에서 연 팝업도 열리고 닫힙니다. 게임의 타임 스케일을 따라야 하는 애니메이션이라면 view의 `AnimationHandler`에서 **Time Mode**를 `Scaled`로 설정하거나 코드에서 `AnimationHandler.TimeMode`를 설정하세요. `TimeMode`는 `Mu3Library.Utility` 네임스페이스에 있습니다.
 
 manager에서 직접 여는 경우에도 같은 ownership/host 구성을 하나의 오버로드로 유지할 수 있습니다.
 
@@ -231,6 +235,8 @@ void Start()
     _audioManager.PlaySfx(sfxClip, volume: 1.0f);
 }
 ```
+
+페이드, 덕킹, 루프 간격, 플레이리스트 트랙 사이 간격은 기본적으로 비스케일 시간으로 진행하므로, 소스 자체가 계속 재생되듯 `Time.timeScale`이 0일 때도 계속 진행합니다. 게임의 타임 스케일을 따르게 하려면 `_audioManager.TimeMode = TimeMode.Scaled;`로 설정하세요. `PlayBgm`, `PlayBgmForce`, `TransitionBgm`은 `StopBgm`처럼 실행 중인 BGM 플레이리스트를 끝냅니다.
 
 ### Addressables
 Addressables 지원이 활성화된 경우, key로 해석되는 모든 에셋을 해당 resource location의 `PrimaryKey`로 인덱싱한 `Dictionary<string, T>`로 로드할 수 있습니다. `PrimaryKey`는 비어 있지 않고 고유해야 하며, 그렇지 않으면 로드 작업이 실패합니다.
