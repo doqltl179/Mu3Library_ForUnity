@@ -41,7 +41,7 @@
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
-- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts, and Localization character collection tools
+- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
 - 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, board fitting and coordinate helpers, and a playable sample scene
 
@@ -205,6 +205,8 @@ A child can be opened from any presenter callback, `LoadFunc()` and `OpenFunc()`
 
 A window opened under a host that is hidden, such as an inactive `HostOptions.Host`, cannot run its open transition there. It skips the wait instead: `OpenStart()` and `OpenEnd()` run back to back, an `AnimationView` takes its opened pose at once, and the window counts as opened in the next manager update. It shows fully open once the host is shown, a plain `Close` closes it, and `OpenAsync` completes for it. Closed while the host is still hidden, it skips its close transition, and an `AnimationView` takes its closed pose, so its next open animates again.
 
+A window whose host or owner is hidden while it is still opening, such as a panel behind a tab that is switched away during the open animation, finishes its open at that moment instead of staying on its way in. The rest of the open transition is skipped, `OpenEnd()` still runs, an `AnimationView` takes its opened pose, and the window counts as opened in the next manager update, so a plain `Close` closes it and `OpenAsync` completes for it. When the host is shown again, the window is fully open. The manager ends such an open as well when the view overrides `OnDisable` without calling `base.OnDisable()`. An `AnimationView` hidden in the middle of any animation takes the end pose of that animation, so its next animation starts from there.
+
 `AnimationView` animations advance on unscaled time by default, so a popup opened from a pause menu that sets `Time.timeScale` to 0 still opens and closes. For an animation that should follow the game's time scale instead, set **Time Mode** on the view's `AnimationHandler` to `Scaled`, or set `AnimationHandler.TimeMode` from code. `TimeMode` is in the `Mu3Library.Utility` namespace.
 
 Direct manager calls can keep the same ownership and host configuration in one overload:
@@ -364,6 +366,17 @@ When the following packages are installed, their features are automatically enab
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
+When no `EventSystem` exists yet, `MVPManager` creates one. Its input module follows the input backend that **Active Input Handling** in Player Settings enables, not only whether the Input System package is installed, because `InputSystemUIInputModule` reads nothing while the Input System backend is off:
+
+| Active Input Handling | Input System package | Input module of the created `EventSystem` |
+|---|---|---|
+| Input Manager (Old) | Installed | `StandaloneInputModule` |
+| Input System Package (New) | Installed | `InputSystemUIInputModule` |
+| Both | Installed | `InputSystemUIInputModule` |
+| Any | Not installed | `StandaloneInputModule` |
+
+Without the package, `StandaloneInputModule` reads input only under "Input Manager (Old)" or "Both". An `EventSystem` that already exists in the scene is used as it is.
+
 ## 🧩 Inspector Attributes
 
 Apply `ButtonInvokeAttribute` to a parameterless instance method that returns `void`. Its label and height are optional; an omitted label is displayed as `Invoke {method name}`. Buttons are appended after the default serialized properties by the fallback Inspector, so source declaration order cannot position them among fields. A type with its own custom Inspector must render its `ButtonInvoke` buttons there.
@@ -428,6 +441,8 @@ Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Board commands**: `BoardController.EnqueueCommand(...)` runs public board commands, with optional update/cancellation contracts, lifecycle-based `BoardCommand`, command flow groups, item/score commands, and `BoardController.CommandContext` for external commands
 - **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
 - **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
+
+**Sample input requirements:** the Template and Attribute samples of Base and the ScreenEffect sample of URP need the Input System package with **Active Input Handling** set to "Input System Package (New)" or "Both", because the `EventSystem` in their scenes uses `InputSystemUIInputModule`. Without the package that component is a missing script, and under "Input Manager (Old)" it reads nothing, so the buttons, toggles, and sliders of those scenes do not respond. The Template sample's keyboard shortcuts and mouse clicks go through its `SampleInput` class, which reads the Input System while its backend is on and the Input Manager otherwise. Addressables, Localization, and UniTask stay optional for the Template sample: it compiles without them, and a part that needs a missing package logs that the package is not installed. The UtilWindow sample's Addressable and Localization data exporters write the Template sample's key scripts inside `TEMPLATE_ADDRESSABLES_SUPPORT` and `TEMPLATE_LOCALIZATION_SUPPORT`, set in their **Define Symbol** field, so regenerated key scripts still compile without those packages.
 
 In this repository, the base sample sources live under `Mu3Library_Base/Samples~`, the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`, and the Watermelon Game sample source lives under `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`.
 

@@ -41,7 +41,7 @@
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
 - ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
-- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分ける Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
+- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
 - 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper、プレイ可能な sample scene を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
 ## 📋 要件
@@ -204,6 +204,8 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `HostOptions.Host` が非アクティブな場合のように、非表示の host の下で開いたウィンドウは、そこでは開く遷移を進められません。代わりに待機を省略します。`OpenStart()` と `OpenEnd()` が続けて実行され、`AnimationView` はすぐに開いた姿勢になり、ウィンドウは次のマネージャー更新で開いたものとして扱われます。host が表示されると完全に開いた状態で現れ、通常の `Close` で閉じられ、`OpenAsync` も完了します。host が非表示のまま閉じると閉じる遷移を省略し、`AnimationView` は閉じた姿勢になるため、次に開くときは再びアニメーションします。
 
+開くアニメーションの途中でタブを切り替えて奥のパネルが非表示になる場合のように、開いている途中で host や owner が非表示になったウィンドウは、開く途中のまま留まらず、その時点で開き終わります。残りの開く遷移は省略しますが `OpenEnd()` は実行され、`AnimationView` は開いた姿勢になり、ウィンドウは次のマネージャー更新で開いたものとして扱われます。そのため通常の `Close` で閉じられ、`OpenAsync` も完了します。host が再び表示されると、ウィンドウは完全に開いた状態です。view が `base.OnDisable()` を呼ばずに `OnDisable` を override していても、マネージャーがこの開く処理を終わらせます。どのアニメーションでも途中で非表示になった `AnimationView` はそのアニメーションの終わりの姿勢になるため、次のアニメーションはその姿勢から始まります。
+
 `AnimationView` のアニメーションは既定で非スケール時間で進むため、`Time.timeScale` を 0 にする一時停止メニューから開いたポップアップも開閉します。ゲームのタイムスケールに従わせたいアニメーションでは、view の `AnimationHandler` で **Time Mode** を `Scaled` に設定するか、コードで `AnimationHandler.TimeMode` を設定してください。`TimeMode` は `Mu3Library.Utility` 名前空間にあります。
 
 manager から直接開く場合でも、同じ ownership / host 構成を 1 つのオーバーロードで維持できます。
@@ -363,6 +365,17 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
+`EventSystem` がまだない場合は `MVPManager` が作成します。その入力モジュールは Input System パッケージがインストールされているかどうかだけでなく、Player Settings の **Active Input Handling** が有効にしている入力バックエンドに従います。Input System バックエンドが無効のとき、`InputSystemUIInputModule` は入力を何も読まないためです。
+
+| Active Input Handling | Input System パッケージ | 作成される `EventSystem` の入力モジュール |
+|---|---|---|
+| Input Manager (Old) | インストール済み | `StandaloneInputModule` |
+| Input System Package (New) | インストール済み | `InputSystemUIInputModule` |
+| Both | インストール済み | `InputSystemUIInputModule` |
+| すべての値 | 未インストール | `StandaloneInputModule` |
+
+パッケージがない場合、`StandaloneInputModule` が入力を読むのは "Input Manager (Old)" と "Both" のときだけです。シーンにすでにある `EventSystem` はそのまま使います。
+
 ## 🧩 Inspector 属性
 
 `ButtonInvokeAttribute` は、引数なしで `void` を返すインスタンスメソッドに適用します。label とボタン高さは任意であり、label を省略すると `Invoke {method name}` 形式で表示されます。ボタンは fallback Inspector が既定のシリアライズ済みプロパティを描画した後に追加されるため、ソースの宣言順でフィールド間の位置を指定することはできません。独自の Custom Inspector を持つ型では、その Inspector で `ButtonInvoke` ボタンを描画する必要があります。
@@ -427,6 +440,8 @@ Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
 - **Board commands**: `BoardController.EnqueueCommand(...)` で公開 command queue を使い、`IUpdatableBoardCommand` / `ICancelableBoardCommand` と `BoardCommand` の lifecycle hook でフレーム単位の実行・cancel を組み立てられます。`BoardController.CommandContext` は外部 command が item・score・sound に触れるための狭い surface を提供し、Flow / Item / Score command と `MergingCommand` も用意されています。
 - **Board sound volumes**: `BoardController.SfxVolume` と `BoardController.BgmVolume` で `BoardConfig.SoundConfig` とは別に board の再生 volume を設定でき、両方とも 0–1 に clamp されます。
 - **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
+
+**サンプルの入力要件:** Base の Template・Attribute サンプルと URP の ScreenEffect サンプルには Input System パッケージが必要で、**Active Input Handling** を "Input System Package (New)" か "Both" にする必要があります。これらのサンプルシーンの `EventSystem` が `InputSystemUIInputModule` を使うためです。パッケージがないとこのコンポーネントは Missing Script になり、"Input Manager (Old)" では入力を何も読まないため、シーンのボタン・トグル・スライダーが反応しません。Template サンプルのキーボードショートカットとマウスクリックはサンプルの `SampleInput` クラスを通り、このクラスは Input System バックエンドが有効なら Input System を、そうでなければ Input Manager を読みます。Template サンプルでは Addressables、Localization、UniTask は引き続きオプションです。これらのパッケージがなくてもサンプルはコンパイルでき、足りないパッケージを必要とする部分はパッケージがインストールされていないことをログに出します。UtilWindow サンプルの Addressable・Localization データエクスポーターは **Define Symbol** フィールドに設定された `TEMPLATE_ADDRESSABLES_SUPPORT` と `TEMPLATE_LOCALIZATION_SUPPORT` の中に Template サンプルのキースクリプトを書き出すため、キースクリプトを再生成してもそれらのパッケージなしでコンパイルできます。
 
 このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect`、Watermelon Game サンプルのソースは `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame` にあります。
 

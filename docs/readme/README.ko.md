@@ -41,7 +41,7 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper와 플레이 가능한 샘플 씬을 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
 ## 📋 요구사항
@@ -204,6 +204,8 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `HostOptions.Host`가 비활성인 경우처럼 숨겨진 host 아래에서 연 창은 그곳에서 열림 전환을 진행할 수 없습니다. 대신 대기를 건너뜁니다. `OpenStart()`와 `OpenEnd()`가 연달아 실행되고, `AnimationView`는 곧바로 열린 자세를 취하며, 창은 다음 매니저 업데이트에서 열린 것으로 처리됩니다. host가 보이면 완전히 열린 모습으로 나타나고, 일반 `Close`로 닫을 수 있으며, `OpenAsync`도 완료됩니다. host가 숨겨진 채로 닫히면 닫힘 전환을 건너뛰고, `AnimationView`는 닫힌 자세를 취하므로 다음 열림에서 다시 애니메이션이 재생됩니다.
 
+열림 애니메이션 도중에 탭을 바꿔 그 뒤의 패널이 숨겨지는 경우처럼, 창이 열리는 도중에 host나 owner가 숨겨지면 창은 열리는 중에 머무르지 않고 그 시점에 열림을 마칩니다. 남은 열림 전환은 건너뛰지만 `OpenEnd()`는 실행되고, `AnimationView`는 열린 자세를 취하며, 창은 다음 매니저 업데이트에서 열린 것으로 처리됩니다. 따라서 일반 `Close`로 닫을 수 있고 `OpenAsync`도 완료됩니다. host가 다시 보이면 창은 완전히 열린 모습입니다. view가 `base.OnDisable()`을 호출하지 않고 `OnDisable`을 override해도 매니저가 이 열림을 마칩니다. 어떤 애니메이션이든 진행 도중에 숨겨진 `AnimationView`는 그 애니메이션의 끝 자세를 취하므로, 다음 애니메이션은 그 자세에서 시작합니다.
+
 `AnimationView` 애니메이션은 기본적으로 비스케일 시간으로 진행하므로, `Time.timeScale`을 0으로 만드는 일시정지 메뉴에서 연 팝업도 열리고 닫힙니다. 게임의 타임 스케일을 따라야 하는 애니메이션이라면 view의 `AnimationHandler`에서 **Time Mode**를 `Scaled`로 설정하거나 코드에서 `AnimationHandler.TimeMode`를 설정하세요. `TimeMode`는 `Mu3Library.Utility` 네임스페이스에 있습니다.
 
 manager에서 직접 여는 경우에도 같은 ownership/host 구성을 하나의 오버로드로 유지할 수 있습니다.
@@ -363,6 +365,17 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
+아직 `EventSystem`이 없으면 `MVPManager`가 하나를 만듭니다. 그 입력 모듈은 Input System 패키지 설치 여부만이 아니라 Player Settings의 **Active Input Handling**이 켜 둔 입력 백엔드를 따릅니다. Input System 백엔드가 꺼져 있으면 `InputSystemUIInputModule`은 아무 입력도 읽지 못하기 때문입니다.
+
+| Active Input Handling | Input System 패키지 | 만들어지는 `EventSystem`의 입력 모듈 |
+|---|---|---|
+| Input Manager (Old) | 설치됨 | `StandaloneInputModule` |
+| Input System Package (New) | 설치됨 | `InputSystemUIInputModule` |
+| Both | 설치됨 | `InputSystemUIInputModule` |
+| 모든 값 | 설치되지 않음 | `StandaloneInputModule` |
+
+패키지가 없으면 `StandaloneInputModule`은 "Input Manager (Old)"나 "Both"에서만 입력을 읽습니다. 씬에 이미 있는 `EventSystem`은 그대로 사용합니다.
+
 ## 🧩 Inspector 속성
 
 `ButtonInvokeAttribute`는 매개변수가 없고 `void`를 반환하는 인스턴스 메서드에 적용합니다. label과 버튼 높이는 선택 사항이며, label을 생략하면 `Invoke {method name}` 형식으로 표시됩니다. 버튼은 fallback Inspector가 기본 직렬화 프로퍼티를 그린 뒤 추가하므로 소스 선언 순서로 필드 사이 위치를 지정할 수 없습니다. 자체 Custom Inspector가 있는 타입은 해당 Inspector에서 `ButtonInvoke` 버튼을 직접 그려야 합니다.
@@ -427,6 +440,8 @@ Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
 - **Board commands**: `BoardController.EnqueueCommand(...)`로 공개 커맨드 큐를 사용하고, `IUpdatableBoardCommand`/`ICancelableBoardCommand`와 `BoardCommand` lifecycle hook으로 프레임 단위 실행·취소를 구성할 수 있습니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면을 제공하며, Flow/Item/Score 커맨드와 `MergingCommand`를 함께 제공합니다.
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
 - **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
+
+**샘플의 입력 요구 사항:** Base의 Template·Attribute 샘플과 URP의 ScreenEffect 샘플에는 Input System 패키지가 필요하고, **Active Input Handling**이 "Input System Package (New)"나 "Both"여야 합니다. 이 샘플 씬의 `EventSystem`이 `InputSystemUIInputModule`을 쓰기 때문입니다. 패키지가 없으면 이 컴포넌트가 Missing Script가 되고, "Input Manager (Old)"에서는 아무 입력도 읽지 못하므로 씬의 버튼·토글·슬라이더가 반응하지 않습니다. Template 샘플의 키보드 단축키와 마우스 클릭은 샘플의 `SampleInput` 클래스를 거치며, 이 클래스는 Input System 백엔드가 켜져 있으면 Input System을, 그렇지 않으면 Input Manager를 읽습니다. Template 샘플에서 Addressables, Localization, UniTask는 계속 선택 사항입니다. 이 패키지들 없이도 샘플이 컴파일되며, 없는 패키지가 필요한 부분은 패키지가 설치되지 않았다는 로그를 남깁니다. UtilWindow 샘플의 Addressable·Localization 데이터 내보내기는 **Define Symbol** 필드에 설정된 `TEMPLATE_ADDRESSABLES_SUPPORT`와 `TEMPLATE_LOCALIZATION_SUPPORT` 안에 Template 샘플의 키 스크립트를 쓰므로, 키 스크립트를 다시 생성해도 그 패키지들 없이 컴파일됩니다.
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서, Watermelon Game 샘플 소스를 `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`에서 확인할 수 있습니다.
 
