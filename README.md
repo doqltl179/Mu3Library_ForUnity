@@ -108,7 +108,11 @@ public class GameCore : CoreBase
 }
 ```
 
-Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks.
+A core that overrides `Awake`, `Start`, `OnEnable`, `OnDisable`, or `OnDestroy` must call the base method: together they register the core with `CoreRoot`, inject it, prepare it, and take it out again.
+
+`[Inject]` members that a base class declares, private ones included, are injected as well; the search up the class hierarchy stops at `CoreBase`. The editor DI validator checks the same members.
+
+Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks. One registration, which is its implementation type, key, and lifetime, yields one instance whatever service type resolves it: one per container for a singleton and one per scope for a scoped service. A lifecycle callback that throws is logged with `Debug.LogException`, and the other services and cores keep running.
 
 ```csharp
 public class AudioPlaybackService

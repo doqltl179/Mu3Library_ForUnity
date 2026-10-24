@@ -14,6 +14,13 @@ namespace Mu3Library.DI
             {
                 if (m_instance == null)
                 {
+                    // A core torn down while the application quits must not bring a new root
+                    // to life, which would leave a ghost object behind once play mode ends.
+                    if (_isShuttingDown)
+                    {
+                        return null;
+                    }
+
                     lock (_lockObj)
                     {
                         // Double-checked locking
@@ -60,12 +67,29 @@ namespace Mu3Library.DI
 
         private static readonly object _lockObj = new object();
 
+        // Mirrors SingletonRuntimeState.IsShuttingDown. That flag is internal to the Mu3Library
+        // assembly, which references this one, so this assembly cannot read it; widening it
+        // would expose the whole Mu3Library internal surface to the DI assembly for one bool.
+        private static bool _isShuttingDown = false;
+
         private readonly Dictionary<Type, CoreBase> _cores = new();
         private readonly List<CoreBase> _orderedCores = new();
+
+        // A core that registers or leaves while the cores are walked changes the walk only once
+        // the walk is over: new cores wait here for the next frame, and a leaving core's slot is
+        // emptied in place and compacted afterwards.
+        private readonly List<CoreBase> _pendingCores = new();
+        private bool _isWalkingCores = false;
+        private bool _hasVacatedSlots = false;
 
         /// <summary>
         /// The registered cores in execution order, for diagnostics.
         /// </summary>
+        /// <remarks>
+        /// This is the list the root updates. Read from inside a core's update, it shows a core
+        /// that left during that update as a null entry, and it lists a core that registered
+        /// during an update only from the next frame on.
+        /// </remarks>
         public IReadOnlyList<CoreBase> RegisteredCores => _orderedCores;
 
         private readonly SubscribeHandler _subscribeHandler = new();
@@ -74,8 +98,25 @@ namespace Mu3Library.DI
 
 
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        internal static void ResetShutdownState()
+        {
+            _isShuttingDown = false;
+
+            // Subscribing twice is what a domain reload that was turned off would cause.
+            Application.quitting -= MarkShuttingDown;
+            Application.quitting += MarkShuttingDown;
+        }
+
+        internal static void MarkShuttingDown()
+        {
+            _isShuttingDown = true;
+        }
+
         private void OnDestroy()
         {
+            _pendingCores.Clear();
+
             var cores = new List<CoreBase>(_cores.Values);
             foreach (var core in cores)
             {
@@ -84,7 +125,14 @@ namespace Mu3Library.DI
                     continue;
                 }
 
-                UnregisterCore(core);
+                try
+                {
+                    UnregisterCore(core);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex, core);
+                }
             }
 
             _cores.Clear();
@@ -98,23 +146,69 @@ namespace Mu3Library.DI
 
         private void Update()
         {
-            for (int i = 0; i < _orderedCores.Count; i++)
-            {
-                CoreBase core = _orderedCores[i];
-                core?.UpdateCore();
-            }
+            UpdateCores();
         }
 
         private void LateUpdate()
         {
-            for (int i = 0; i < _orderedCores.Count; i++)
-            {
-                CoreBase core = _orderedCores[i];
-                core?.LateUpdateCore();
-            }
+            LateUpdateCores();
         }
 
         #region internal
+        internal void UpdateCores()
+        {
+            // Cores that registered during the previous frame's walks join here.
+            if (_pendingCores.Count > 0)
+            {
+                _orderedCores.AddRange(_pendingCores);
+                _pendingCores.Clear();
+                _orderedCores.Sort(CompareCoreOrder);
+            }
+
+            _isWalkingCores = true;
+            for (int i = 0; i < _orderedCores.Count; i++)
+            {
+                CoreBase core = _orderedCores[i];
+                if (ReferenceEquals(core, null))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    core.UpdateCore();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex, core);
+                }
+            }
+            EndCoreWalk();
+        }
+
+        internal void LateUpdateCores()
+        {
+            _isWalkingCores = true;
+            for (int i = 0; i < _orderedCores.Count; i++)
+            {
+                CoreBase core = _orderedCores[i];
+                if (ReferenceEquals(core, null))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    core.LateUpdateCore();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex, core);
+                }
+            }
+            EndCoreWalk();
+        }
+
         internal void UnregisterCore<T>(T core) where T : CoreBase
         {
             if (core == null)
@@ -131,7 +225,21 @@ namespace Mu3Library.DI
                 _cores.Remove(type);
             }
 
-            _orderedCores.Remove(core);
+            _pendingCores.Remove(core);
+            if (_isWalkingCores)
+            {
+                int index = _orderedCores.IndexOf(core);
+                if (index >= 0)
+                {
+                    _orderedCores[index] = null;
+                    _hasVacatedSlots = true;
+                }
+            }
+            else
+            {
+                _orderedCores.Remove(core);
+            }
+
             core.DisposeCore();
         }
 
@@ -149,15 +257,45 @@ namespace Mu3Library.DI
                 return;
             }
 
-            _orderedCores.Add(core);
-            _orderedCores.Sort(CompareCoreOrder);
+            // A core created while the cores are walked, from a service's Update for example,
+            // joins from the next frame: sorting it in now would make the running walk update
+            // one core twice and skip another.
+            if (_isWalkingCores)
+            {
+                _pendingCores.Add(core);
+            }
+            else
+            {
+                _orderedCores.Add(core);
+                _orderedCores.Sort(CompareCoreOrder);
+            }
 
             core.SubscribeOnInitializedOnce(() => OnCoreInitialized?.Invoke(type));
-            core.InitializeCore();
+            try
+            {
+                core.InitializeCore();
+            }
+            catch (Exception ex)
+            {
+                // A throwing initialized handler must not keep the prepared notification
+                // below from being wired up.
+                Debug.LogException(ex, core);
+            }
 
             core.SubscribeOnPreparedOnce(() => OnCorePrepared?.Invoke(type));
         }
         #endregion
+
+        private void EndCoreWalk()
+        {
+            _isWalkingCores = false;
+
+            if (_hasVacatedSlots)
+            {
+                _orderedCores.RemoveAll(core => ReferenceEquals(core, null));
+                _hasVacatedSlots = false;
+            }
+        }
 
         #region Utility
         public T GetClass<TCore, T>()

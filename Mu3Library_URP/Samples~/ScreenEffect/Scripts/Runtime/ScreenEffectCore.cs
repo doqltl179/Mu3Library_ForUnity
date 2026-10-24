@@ -48,6 +48,10 @@ namespace Mu3Library.URP.Sample.ScreenEffect
             DisposeHandler(_shakeHandler);
             DisposeHandler(_gaussianBlurHandler);
             DisposeHandler(_depthOutlineHandler);
+
+            // The handlers still use the manager while they let go, and base.OnDestroy()
+            // disposes it with this core's scope, so it runs last.
+            base.OnDestroy();
         }
 
         private void SetupHandler<TEffect>(ScreenEffectHandler<TEffect> handler) where TEffect : IScreenEffect, new()

@@ -15,6 +15,10 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- Base: `InjectableMembers.GetFields(Type)` と `InjectableMembers.GetProperties(Type)` は、ある型で `[Inject]` が値を設定するフィールドとプロパティを返します。コンテナとエディタの DI 検証ツールの両方がこれを使うため、検証ツールはコンテナが注入するメンバーをそのまま検査します。
+- Base: `CoreBase.OnDisable()` は `Awake`、`Start`、`OnEnable`、`OnDestroy` と同じく `protected virtual` です。独自の `OnDisable` を宣言しているコアは、これをオーバーライドして `base.OnDisable()` を呼び出してください。それまではコンパイラが警告 CS0114 を出し、下記の準備に関する修正もそのコアには適用されません。`OnDisable` で UI イベントを解除する Template サンプルのコアは、そのように変更しました。
+
 ### 変更
 - Base: `CoreBase`、`CoreRoot`、`MVPManager`、`Singleton`、`GenericSingleton` は Unity 6.4 から `FindObjectsSortMode` を受け取らない `FindObjectsByType` オーバーロードでシーンのオブジェクトを探します。6.4 でこの引数を受け取るオーバーロードが obsolete になったためです。それ以前のエディタは従来の呼び出しのままなので、どのバージョンでも同じオブジェクトを見つけ、ソートせずに返します。
 - Base: DI コンテナの登録ログは、Unity 6.6 で非推奨になった `DEVELOPMENT_BUILD` シンボルに依存しなくなりました。エディタは常にログを出し、プレイヤーは起動時に `Debug.isDebugBuild` を一度だけ読むため、これまでどおり development build でだけログが出力されます。
@@ -31,6 +35,13 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - Watermelon Game: `package.json` が、ランタイムが使う Physics 2D、Audio、JSONSerialize モジュールも宣言します。
 - Base: ファイルが一度も入ったことのないフォルダのメタデータ `Runtime/Prefabs.meta` が、Git インストールに含まれなくなりました。Git は空のフォルダを保存しないため、インストールにはフォルダのない `.meta` だけが入っていました。
 - Base: UniTask がインストールされている場合、`CoreBase.PrepareCoreAsync(CancellationToken)` の既定の実装は `async` を使わずに、完了済みの `UniTask<bool>` を返します。以前は `await` のない `async` メソッドだったため、コンパイラ警告 CS1998 が出て、呼び出すたびにステートマシンが作られていました。シグネチャと `protected virtual` はそのままなので、オーバーライドしたコードもそのままコンパイルできます。
+- Base: DI のライフサイクル callback は 1 つずつ個別に実行されます。サービスの `Initialize`、`Update`、`LateUpdate`、`Dispose` やコアの更新で起きた例外は `Debug.LogException` で記録され、残りのサービスとコアはそのフレームでもその後のフレームでも動き続けます。以前は 1 つのサービスが失敗すると、その後ろのサービスとコアがすべて止まり、`Initialize` に失敗したコアは `OnCoreInitialized` と `OnCorePrepared` を最後まで通知できませんでした。今はそのコアも両方を通知します。コアの初期化後に初めて resolve されたときに `Initialize` が例外を投げたサービスも、同じように記録されたうえで返されます。
+- Base: `CoreRoot` がコアを更新している途中で登録されたり外れたりするコア（たとえばサービスの `Update` でインスタンス化したコア）が、進行中のループの順序を変えなくなりました。以前はそのフレームで、あるコアが 2 回更新され、別のコアが飛ばされていました。新しいコアはこれまでどおりすぐに初期化され、更新ループには次のフレームから加わります。
+- Base: 基底クラスが宣言した `[Inject]` フィールドとプロパティが、private を含めて注入されます。派生型を対象にしたリフレクションでは基底クラスの private メンバーが見えず、そのメンバーはエラーもなく null のままで、必須のメンバーも検査されていませんでした。探索は `CoreBase`、`object`、エンジン自身の型で止まります。エディタの DI 検証ツールも同じメンバーを検査します。resolve できない必須の基底クラスメンバーは、コア自身のクラスにある必須メンバーと同じく、コアの開始時に "Inject failed" の例外を投げるようになり、そのコアは準備されなくなります。そのようなメンバーを持つ登録済みのサービスは resolve されるときに例外を投げ、`RegisterClass<T>()` で追加したサービスではそれが `ConfigureContainer` の中で起きるため、コアはまったく登録されません。空のままでよいメンバーには `[Inject(required: false)]` を付けてください。
+- Base: 1 つの登録（実装型、キー、ライフタイム）から得られるインスタンスは、どのサービス型で resolve しても同じです。キー付きのシングルトンはサービス型ごとに作られてインスタンスごとに `Initialize` と `Update` が実行され、スコープドの登録は 1 つのスコープ内でもサービス型ごとに別のインスタンスを返していました。1 つのサービス型に登録した複数のファクトリは `ResolveAll` でそれぞれ自分のインスタンスを作り、最初の resolve の後に登録したファクトリも反映されます。以前はシングルトンとスコープドのファクトリがすべて、最初のファクトリが作ったインスタンスを返していました。トランジェントのファクトリは影響を受けていませんでした。
+- Base: アプリケーションの終了が始まると（エディタでプレイモードを抜ける場合を含む）、`CoreRoot.Instance` は新しい `CoreRoot` を作らずに null を返します。ルートより後に破棄されるコアが、新しい `CoreRoot` オブジェクトを残さなくなりました。Unity はこれを "Some objects were not cleaned up when closing the scene" と報告していました。
+- Base: UniTask がない場合、準備中にオブジェクトが非アクティブになったコアは、オブジェクトが再びアクティブになると警告を 1 回出して準備を最初からやり直し、`OnPrepared` に到達します。以前は Unity が準備中のコルーチンを止めるため、コアはずっと `IsPreparing` のままでした。コンポーネントだけを無効にした場合は進行中の準備がそのまま終わり、UniTask の経路は変わりません。
+- URP: ScreenEffect サンプルの `ScreenEffectCore.OnDestroy` が自身の後片付けの後に `base.OnDestroy()` を呼ぶため、破棄されたコアは `CoreRoot` から外れてサービスを解放します。以前は同じセッションでシーンを読み込み直すと "Core is already exist" が記録され、新しいコアが初期化されませんでした。
 
 ## [base/0.26.0] - 2026-08-17
 
