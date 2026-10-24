@@ -406,8 +406,9 @@ namespace Mu3Library.Utility {
         // The easing functions all work with a normalized time (0 to 1) and the returned value here
         // reflects that. Values returned here should be divided by the actual time.
         //
-        // Derivative functions are validated by EditMode tests for endpoint/finite-value behavior.
-        // If motion speed anomalies appear, this section should be reviewed first.
+        // Every derivative is validated against a central-difference derivative of its easing function
+        // by the EditMode tests in EasingFunctionDerivativeTests. The InOut functions run their halves on
+        // a doubled time (value /= .5f), so their derivatives carry the chain-rule factor 2.
 
         public static float LinearD(float value) => LinearD(0, 1, value);
         public static float LinearD(float start, float end, float value)
@@ -429,9 +430,9 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return end * value;
+                return 2f * end * value;
 
-            return end * (1 - --value);
+            return 2f * end * (1 - --value);
         }
 
         public static float EaseInCubicD(float value) => EaseInCubicD(0, 1, value);
@@ -451,11 +452,11 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return (3f / 2f) * end * value * value;
+                return 3f * end * value * value;
 
             value -= 2;
 
-            return (3f / 2f) * end * value * value;
+            return 3f * end * value * value;
         }
 
         public static float EaseInQuartD(float value) => EaseInQuartD(0, 1, value);
@@ -475,11 +476,11 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return 2f * end * value * value * value;
+                return 4f * end * value * value * value;
 
             value -= 2;
 
-            return -2f * end * value * value * value;
+            return -4f * end * value * value * value;
         }
 
         public static float EaseInQuintD(float value) => EaseInQuintD(0, 1, value);
@@ -499,11 +500,11 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return (5f / 2f) * end * value * value * value * value;
+                return 5f * end * value * value * value * value;
 
             value -= 2;
 
-            return (5f / 2f) * end * value * value * value * value;
+            return 5f * end * value * value * value * value;
         }
 
         public static float EaseInSineD(float value) => EaseInSineD(0, 1, value);
@@ -538,11 +539,11 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return 5f * NATURAL_LOG_OF_2 * end * Mathf.Pow(2f, 10f * (value - 1));
+                return 10f * NATURAL_LOG_OF_2 * end * Mathf.Pow(2f, 10f * (value - 1));
 
             value--;
 
-            return (5f * NATURAL_LOG_OF_2 * end) / (Mathf.Pow(2f, 10f * value));
+            return (10f * NATURAL_LOG_OF_2 * end) / (Mathf.Pow(2f, 10f * value));
         }
 
         public static float EaseInCircD(float value) => EaseInCircD(0, 1, value);
@@ -562,11 +563,11 @@ namespace Mu3Library.Utility {
             end -= start;
 
             if(value < 1)
-                return (end * value) / (2f * Mathf.Sqrt(1f - value * value));
+                return (end * value) / Mathf.Sqrt(1f - value * value);
 
             value -= 2;
 
-            return (-end * value) / (2f * Mathf.Sqrt(1f - value * value));
+            return (-end * value) / Mathf.Sqrt(1f - value * value);
         }
 
         public static float EaseInBounceD(float value) => EaseInBounceD(0, 1, value);
@@ -600,9 +601,9 @@ namespace Mu3Library.Utility {
             float d = 1f;
 
             if(value < d * 0.5f)
-                return EaseInBounceD(0, end, value * 2) * 0.5f;
+                return EaseInBounceD(0, end, value * 2);
 
-            return EaseOutBounceD(0, end, value * 2 - d) * 0.5f;
+            return EaseOutBounceD(0, end, value * 2 - d);
         }
 
         public static float EaseInBackD(float value) => EaseInBackD(0, 1, value);
@@ -629,12 +630,12 @@ namespace Mu3Library.Utility {
 
             if((value) < 1) {
                 s *= (1.525f);
-                return 0.5f * end * (s + 1) * value * value + end * value * ((s + 1f) * value - s);
+                return end * (s + 1) * value * value + 2f * end * value * ((s + 1f) * value - s);
             }
 
             value -= 2;
             s *= (1.525f);
-            return 0.5f * end * ((s + 1) * value * value + 2f * value * ((s + 1f) * value + s));
+            return end * ((s + 1) * value * value + 2f * value * ((s + 1f) * value + s));
         }
 
         public static float EaseInElasticD(float value) => EaseInElasticD(0, 1, value);
@@ -678,17 +679,19 @@ namespace Mu3Library.Utility {
             else
                 s = p / (2 * Mathf.PI) * Mathf.Asin(end / a);
 
+            value /= d * 0.5f;
+
             if(value < 1) {
                 value -= 1;
 
-                return -5f * NATURAL_LOG_OF_2 * a * Mathf.Pow(2f, 10f * value) * Mathf.Sin(2 * Mathf.PI * (d * value - 2f) / p) -
-                    a * Mathf.PI * d * Mathf.Pow(2f, 10f * value) * Mathf.Cos(2 * Mathf.PI * (d * value - s) / p) / p;
+                return -10f * NATURAL_LOG_OF_2 * a * Mathf.Pow(2f, 10f * value) * Mathf.Sin(2 * Mathf.PI * (d * value - s) / p) -
+                    2f * a * Mathf.PI * d * Mathf.Pow(2f, 10f * value) * Mathf.Cos(2 * Mathf.PI * (d * value - s) / p) / p;
             }
 
             value -= 1;
 
-            return a * Mathf.PI * d * Mathf.Cos(2f * Mathf.PI * (d * value - s) / p) / (p * Mathf.Pow(2f, 10f * value)) -
-                5f * NATURAL_LOG_OF_2 * a * Mathf.Sin(2f * Mathf.PI * (d * value - s) / p) / (Mathf.Pow(2f, 10f * value));
+            return 2f * a * Mathf.PI * d * Mathf.Cos(2f * Mathf.PI * (d * value - s) / p) / (p * Mathf.Pow(2f, 10f * value)) -
+                10f * NATURAL_LOG_OF_2 * a * Mathf.Sin(2f * Mathf.PI * (d * value - s) / p) / (Mathf.Pow(2f, 10f * value));
         }
 
         public static float SpringD(float value) => SpringD(0, 1, value);
@@ -696,14 +699,12 @@ namespace Mu3Library.Utility {
             value = Mathf.Clamp01(value);
             end -= start;
 
-            // Derived from symbolic differentiation and kept for backward compatibility.
-            // If exact physical accuracy is required, consider replacing with project-specific tuning.
+            // Product rule over (sin(...) * (1 - value)^2.2 + value) * (1 + 1.2 * (1 - value)).
             return end * (6f * (1f - value) / 5f + 1f) * (-2.2f * Mathf.Pow(1f - value, 1.2f) *
                 Mathf.Sin(Mathf.PI * value * (2.5f * value * value * value + 0.2f)) + Mathf.Pow(1f - value, 2.2f) *
                 (Mathf.PI * (2.5f * value * value * value + 0.2f) + 7.5f * Mathf.PI * value * value * value) *
                 Mathf.Cos(Mathf.PI * value * (2.5f * value * value * value + 0.2f)) + 1f) -
-                6f * end * (Mathf.Pow(1 - value, 2.2f) * Mathf.Sin(Mathf.PI * value * (2.5f * value * value * value + 0.2f)) + value
-                / 5f);
+                6f / 5f * end * (Mathf.Pow(1 - value, 2.2f) * Mathf.Sin(Mathf.PI * value * (2.5f * value * value * value + 0.2f)) + value);
 
         }
 
