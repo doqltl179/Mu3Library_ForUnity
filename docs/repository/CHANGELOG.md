@@ -9,6 +9,9 @@ Package release notes remain in:
 
 ## 2026-10-24
 
+### Added
+- `compile-unity.sh`, `test-unity.sh`, and `mu3-cli unity compile` and `unity test` take `--editor-version <version>`, which runs the selected targets with that installed Editor instead of the one `ProjectVersion.txt` names, so the packages' lowest supported Editor (`"unity": "6000.3"`) has a compile path again. The run always uses an isolated mirror and refuses `--in-place`. The mirror's `ProjectVersion.txt` names the requested version, its `packages-lock.json` is removed, and each `com.unity.*` dependency pinned to a version takes the version that Editor bundles; a built-in module it does not ship is dropped. The script prints each change. With 6000.3.17f1, `built-in`, `urp`, and `watermelon` compile and pass their EditMode tests. `tools/README.md` and the project's verification page describe when to run it.
+
 ### Changed
 - `UnityProject_URP` lists the URP package under `testables`, so `test-unity.sh urp`, and `all` or `changed` with a URP change, runs the URP package's EditMode tests, new in `Mu3Library_URP/Tests/Editor`, where the target used to be reported as skipped. `tools/README.md` and the project's verification page say so.
 

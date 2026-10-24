@@ -1,7 +1,7 @@
 ---
 owns: "How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states"
 volatility: evolving
-reviewed: 2026-10-21
+reviewed: 2026-10-24
 ---
 
 # Unity Verification
@@ -27,6 +27,11 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 - Never substitute `dotnet build` on the generated `.csproj` files: Unity compiles from the `.asmdef` files and the package sources, and the generated projects drift from both.
 - On Windows the script runs through Git Bash.
 
+## Lowest Supported Editor
+
+- The packages declare their floor in the `unity` field of `package.json` (`6000.3`), and no development project runs that Editor. `--editor-version <version>` on either script runs the targets with that installed Editor in an isolated mirror retargeted to it, with the Unity package versions it bundles; [tools/README.md](../../../tools/README.md#lowest-supported-editor) describes the retargeting.
+- Never open a development project in an older Editor in place: the downgrade rewrites its tracked settings. The scripts refuse `--in-place` with `--editor-version`.
+
 ## By Change Type
 
 | Change | Also show |
@@ -35,6 +40,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 | Editor code | The editor assembly compiles; no runtime assembly depends on editor code |
 | DI or core lifecycle | Initialization and injection order unchanged for the samples that depend on it |
 | Optional integration | The code sits entirely inside its define symbol, and every development project that includes the file compiles, since their define sets differ |
+| Editor-version branch, version-sensitive API, package dependency, or the `unity` floor | The affected targets also compile with `--editor-version` set to an installed release of the floor |
 | Compile-only request | Compile only; do not add or run tests |
 
 ## Tests
@@ -47,6 +53,6 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## Report
 
-- The compile targets run, Unity's exit status, and the error and warning counts from its log.
+- The compile targets run, the Editor version, Unity's exit status, and the error and warning counts from its log.
 - For tests, the targets run and each target's total, passed, failed, and skipped counts from the summary.
 - Compile and test runs take minutes per target, so report the targets actually run rather than all targets.

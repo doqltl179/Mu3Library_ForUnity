@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
-from fixture_repository import MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
@@ -296,6 +298,177 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertIn("  - shared: in place", lines)
         self.assertIn("  - layered: skipped, ProjLayered/Packages/manifest.json lists no testables", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
+
+
+# What an older Editor bundles, laid out as an Editor keeps it beside its executable: the
+# versions its package manifest recommends, and built-in copies with their own package.json.
+# Its manifest names TextMeshPro without a version, so that version comes from the copy; the
+# entry comes first, so reading on past its end would take the version of the entry after it.
+FAKE_EDITOR_PACKAGES = {
+    "Editor/manifest.json": {
+        "schemaVersion": 4,
+        "packages": {
+            "com.unity.textmeshpro": {"minimumVersion": "5.0.0", "deprecated": "Included in com.unity.ugui."},
+            "com.unity.ugui": {"minimumVersion": "2.0.0", "isDiscoverable": True, "version": "2.0.0"},
+            "com.unity.inputsystem": {"minimumVersion": "1.19.0", "mustBeBundled": True, "version": "1.19.0"},
+        },
+    },
+    "BuiltInPackages/com.unity.modules.audio/package.json": {"name": "com.unity.modules.audio", "version": "1.0.0"},
+    "BuiltInPackages/com.unity.textmeshpro/package.json": {"name": "com.unity.textmeshpro", "version": "5.0.0"},
+}
+FLOOR_VERSION = "6000.3.17f1"
+
+
+class EditorVersionTests(FixtureRepositoryTestCase):
+    """--editor-version runs another Editor, which must only ever open a mirror set up for it."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+
+    def fake_editor(self, with_packages: bool = True) -> Path:
+        """A fake Unity executable, beside the bundled packages of an older Editor when asked."""
+        editor_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(editor_directory.cleanup)
+        executable = Path(editor_directory.name) / "Unity"
+        executable.write_text(FAKE_UNITY, encoding="utf-8", newline="\n")
+        executable.chmod(0o755)
+        if with_packages:
+            for relative, content in FAKE_EDITOR_PACKAGES.items():
+                path = Path(editor_directory.name) / "Data" / "Resources" / "PackageManager" / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8")
+        return executable
+
+    def give_leaf_unity_packages(self) -> tuple[Path, Path]:
+        """Gives the leaf project Unity packages and a lock file until the test ends."""
+        packages = self.root / "ProjLeaf" / "Packages"
+        manifest, lock = packages / "manifest.json", packages / "packages-lock.json"
+        original = manifest.read_bytes()
+        self.addCleanup(manifest.write_bytes, original)
+        self.addCleanup(lock.unlink, missing_ok=True)
+
+        content = json.loads(original)
+        # The module the older Editor lacks comes last, so dropping it must also drop a comma.
+        content["dependencies"].update(
+            {
+                "com.unity.inputsystem": "1.20.1",
+                "com.unity.terrain-tools": "5.3.3",
+                "com.unity.textmeshpro": "3.0.6",
+                "com.unity.ugui": "2.6.0",
+                "com.unity.modules.audio": "1.0.0",
+                "com.unity.modules.tetgen": "1.0.0",
+            }
+        )
+        manifest.write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8", newline="\r\n")
+        lock.write_text("{}\n", encoding="utf-8")
+        return manifest, lock
+
+    def test_mirror_is_retargeted_to_the_requested_editor(self) -> None:
+        manifest, lock = self.give_leaf_unity_packages()
+        repository_manifest = manifest.read_bytes()
+
+        completed = self.run_entry_point(
+            "compile-unity.sh",
+            "leaf",
+            "--editor-version",
+            FLOOR_VERSION,
+            "--keep-staging",
+            environment=self.unity_environment(UNITY_EDITOR=str(self.fake_editor())),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(
+            f"Compiling leaf (ProjLeaf) in an isolated mirror because --editor-version asks for Unity {FLOOR_VERSION}.",
+            completed.stdout,
+        )
+        [mirror] = self.mirrors_left()
+        project = mirror / "ProjLeaf"
+        [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+        self.assertIn(mirror.name, ran)
+        self.assertEqual(
+            f"m_EditorVersion: {FLOOR_VERSION}\n",
+            (project / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
+        )
+        self.assertFalse((project / "Packages" / "packages-lock.json").exists())
+        self.assertEqual(
+            {
+                "fixture.pkgshared": "file:../../PkgShared",
+                "fixture.pkglayered": "file:../../PkgLayered",
+                "fixture.pkgleaf": "file:../../PkgLeaf",
+                "com.unity.inputsystem": "1.19.0",
+                "com.unity.terrain-tools": "5.3.3",
+                "com.unity.textmeshpro": "5.0.0",
+                "com.unity.ugui": "2.0.0",
+                "com.unity.modules.audio": "1.0.0",
+            },
+            json.loads((project / "Packages" / "manifest.json").read_text(encoding="utf-8"))["dependencies"],
+        )
+        lines = completed.stdout.splitlines()
+        self.assertIn("  - com.unity.ugui 2.6.0 -> 2.0.0", lines)
+        self.assertIn(f"  - com.unity.modules.tetgen removed, Unity {FLOOR_VERSION} does not ship it", lines)
+        self.assertIn(
+            f"warning: Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the mirror keeps 5.3.3",
+            completed.stderr,
+        )
+        # The repository project keeps its own version, manifest, and lock file.
+        self.assertEqual(repository_manifest, manifest.read_bytes())
+        self.assertTrue(lock.is_file())
+        self.assertEqual(
+            "m_EditorVersion: 6000.6.7f1\n",
+            (self.root / "ProjLeaf" / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
+        )
+
+    def test_every_target_of_both_entry_points_runs_in_a_mirror(self) -> None:
+        for entry_point in ("compile-unity.sh", "test-unity.sh"):
+            with self.subTest(entry_point=entry_point):
+                completed = self.run_entry_point(entry_point, "all", "--editor-version", FLOOR_VERSION, "--dry-run")
+
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                self.assertIn(
+                    f"  - leaf: isolated mirror, because --editor-version asks for Unity {FLOOR_VERSION}",
+                    completed.stdout.splitlines(),
+                )
+
+    def test_in_place_is_refused(self) -> None:
+        completed = self.run_entry_point("compile-unity.sh", "leaf", "--editor-version", FLOOR_VERSION, "--in-place")
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("cannot be combined with --in-place", completed.stderr)
+
+    def test_version_must_name_a_full_release(self) -> None:
+        for version in ("6000.3", "../6000.3.17f1", "6000.3.17f1/x"):
+            with self.subTest(version=version):
+                completed = self.run_entry_point("compile-unity.sh", "leaf", "--editor-version", version, "--dry-run")
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn("--editor-version expects a full Unity version", completed.stderr)
+
+    def test_hub_lookup_asks_for_the_requested_version(self) -> None:
+        hub = tempfile.TemporaryDirectory()
+        self.addCleanup(hub.cleanup)
+        environment = self.unity_environment(UNITY_HUB_EDITOR_ROOT=hub.name)
+        del environment["UNITY_EDITOR"]
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", "--editor-version", FLOOR_VERSION, environment=environment)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        [missing] = [line for line in completed.stderr.splitlines() if "is not installed" in line]
+        self.assertIn("for --editor-version:", missing)
+        self.assertIn(f"/{FLOOR_VERSION}/", missing)
+        self.assertNotIn("6000.6.7f1", missing)
+
+    def test_editor_without_bundled_packages_stops_before_unity_runs(self) -> None:
+        completed = self.run_entry_point(
+            "compile-unity.sh",
+            "leaf",
+            "--editor-version",
+            FLOOR_VERSION,
+            environment=self.unity_environment(UNITY_EDITOR=str(self.fake_editor(with_packages=False))),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(f"cannot find the packages that Unity {FLOOR_VERSION} bundles", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
+        self.assertEqual([], self.mirrors_left())
 
 
 if __name__ == "__main__":

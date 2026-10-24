@@ -76,13 +76,30 @@ Add future package-to-project mappings to `unity-cli-packages.tsv`; the shell en
 
 It takes the same targets and options as `compile-unity.sh` and sources it for target selection, the Editor lookup, the lock check, the sample-link check, and the isolated mirror, so a project an Editor has open is tested in a mirror and `--in-place` refuses it. A project runs only the tests of the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the URP tests, and `watermelon` the Base and Watermelon Game tests; a project that lists none is reported as skipped. A failed test or Unity run does not stop the remaining targets, and a summary closes the run; a target that cannot start, such as an open project under `--in-place` or a mirror that cannot be copied, stops the script at once. Each run writes NUnit XML to `log/unity-tests/<target>-editmode.xml`, which is Git-ignored and removed before the run so an old result never stands in for a new one.
 
+## Lowest Supported Editor
+
+Each package declares the lowest Editor it supports in the `unity` field of its `package.json`, `6000.3` for all three, while the development projects run a newer Editor. `--editor-version <version>` compiles or tests the selected targets with another Editor installed through Unity Hub, such as a 6000.3 release, without letting it open a repository project:
+
+```bash
+./compile-unity.sh all --editor-version 6000.3.17f1
+./test-unity.sh all --editor-version 6000.3.17f1
+```
+
+Every target then runs in an isolated mirror, and `--in-place` is refused. Before Unity starts, the script retargets the mirror and prints each version it changed:
+
+- `ProjectSettings/ProjectVersion.txt` names the requested version.
+- `Packages/packages-lock.json` is removed, so Unity resolves the packages again.
+- Each `com.unity.*` dependency that `Packages/manifest.json` pins to a version takes the version that Editor bundles: the one its own package manifest recommends, or else the version of its built-in copy. A built-in module the Editor does not ship, such as `com.unity.modules.tetgen` on 6000.3, is dropped. A package it does not bundle keeps its version, with a warning.
+
+The check therefore compiles against the Unity packages a project on that Editor gets by default. Run it when a change touches code behind a `UNITY_6000_x_OR_NEWER` branch or an API that differs between Editor versions, changes a package's dependencies, or moves the declared floor. Each mirror imports from scratch, so a run takes minutes per target. `UNITY_EDITOR` still overrides the executable, with a warning when it is not the requested version.
+
 ## Environment
 
 The shell entrypoints and `mu3-cli unity doctor` read the same variables, so the Editor the doctor accepts is the one the script runs.
 
 | Variable | Effect |
 |---|---|
-| `UNITY_EDITOR` or `UNITY` | Path to a Unity executable (or `Unity.app`) used for every target instead of the version in `ProjectVersion.txt`. |
+| `UNITY_EDITOR` or `UNITY` | Path to a Unity executable (or `Unity.app`) used for every target instead of the version in `ProjectVersion.txt` or the one `--editor-version` names. |
 | `UNITY_HUB_EDITOR_ROOT` | Folder that holds one folder per installed Editor version, for a Unity Hub set to install Editors outside its default location (`C:\Program Files\Unity\Hub\Editor`, `/Applications/Unity/Hub/Editor`, or `~/Unity/Hub/Editor`). |
 | `TMPDIR` | Where the script creates isolated mirrors. Keep it short on Windows, where a long path pushes Unity's package cache past the path limit. |
 

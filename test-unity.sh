@@ -44,6 +44,10 @@ Options:
   --keep-staging    Keep an isolated project after the run for diagnostics.
   --without-samples Run even when a project's link to its package samples is
                     missing, leaving the samples out with a warning.
+  --editor-version <version>
+                    Test with the Unity Hub Editor of that exact version, such
+                    as 6000.3.17f1, instead of the one ProjectVersion.txt
+                    names, always in an isolated mirror retargeted to it.
   -h, --help        Show this help.
 
 A project runs the tests of the packages its Packages/manifest.json lists under
@@ -54,8 +58,9 @@ a target that cannot start, such as an open project under --in-place or a
 mirror that cannot be copied, stops the script at once.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
-project open), the sample-link check, and the environment variables work as in
-compile-unity.sh; see ./compile-unity.sh --help.
+project open), how --editor-version retargets the mirror, the sample-link
+check, and the environment variables work as in compile-unity.sh; see
+./compile-unity.sh --help.
 EOF
 }
 
