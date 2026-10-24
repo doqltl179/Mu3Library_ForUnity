@@ -1,7 +1,7 @@
 ---
 owns: "How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states"
 volatility: evolving
-reviewed: 2026-10-21
+reviewed: 2026-10-24
 ---
 
 # Unity Verification
