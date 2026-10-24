@@ -31,7 +31,7 @@ A new clone or worktree holds only tracked files. Set it up in this order before
    PYTHONPATH=tools/cli/src python -m mu3_cli unity doctor
    ```
 
-5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first.
+5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first and run the commands from that drive. The shell entrypoints and `mu3-cli` both open the project on the drive they run from.
 
 ## Unity Compile Entrypoint
 

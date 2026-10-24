@@ -21,6 +21,15 @@ Package release notes remain in:
 - `UnityProject_URP` lists the URP package under `testables`, so `test-unity.sh urp`, and `all` or `changed` with a URP change, runs the URP package's EditMode tests, new in `Mu3Library_URP/Tests/Editor`, where the target used to be reported as skipped. `tools/README.md` and the project's verification page say so.
 - The READMEs no longer repeat package versions in "Recent Updates" and "Package Info", which had fallen three to four releases behind; each version stays in its `package.json` and its notes in `CHANGELOG.md`. The only version strings left are the tags in the Git install URLs, and the release procedure in `.ai/project/wiki/package-release.md` now names updating them in all three README locales in the release commit. The same page fixes one package-local changelog format, which `Mu3Library_Game_WatermelonGame/CHANGELOG.md` now follows like Base and URP.
 
+### Fixed
+- `mu3-cli unity compile` and `unity test` run from a `subst` drive open the project on that drive. The CLI found the repository root through `Path.resolve()`, which on Windows turns a subst drive back into the long path it maps, and the shell entrypoints take the project path from their own location, so Unity opened the project on the long path whose `Library/PackageCache` exceeds the 260-character limit. The root now keeps the spelling of the path the CLI was loaded from, and an installed `mu3-cli` takes it from a working directory inside the same checkout. Unit tests in `tools/cli/tests/` pin both, and a run from `K:` logs `Successfully changed project path to: K:/UnityProject_BuiltIn`.
+- In-place compile and test runs no longer leave files modified whose line endings alone changed. The Unity Editor writes the YAML of scenes, assets, and `.meta` files with LF, while a checkout with `core.autocrlf = true` held them as CRLF, so every run showed eight settings files across the three development projects as modified. `.gitattributes` now checks the Unity YAML file types out with LF, with `text=auto` so a binary `.asset` stays untouched. Git already stored these files with LF, so no file changed in the repository, but a checkout made before this change keeps its CRLF copies until it checks them out again. Checking them out makes Unity import them again, and `DepthOutline.shader.meta` and `GaussianBlur.shader.meta` in `Mu3Library_URP`, which held only their GUID, now carry the importer section Unity fills in on every such import. On a checkout without uncommitted changes, run from its root:
+
+  ```bash
+  git ls-files --eol | awk -F'\t' '$1 ~ /eol=lf/ {print $2}' | while IFS= read -r p; do rm -f -- "$p"; done
+  git ls-files --eol | awk -F'\t' '$1 ~ /eol=lf/ {print $2}' | git checkout-index -f -u --stdin
+  ```
+
 ## 2026-10-21
 
 ### Added
