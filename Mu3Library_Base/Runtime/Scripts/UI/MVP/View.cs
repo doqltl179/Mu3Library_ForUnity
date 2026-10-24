@@ -311,11 +311,12 @@ namespace Mu3Library.UI.MVP
         /// <summary>
         /// Ends an open that hiding the view cut short, as <see cref="OnDisable"/> does, for a view
         /// whose own OnDisable does not call base. Does nothing while the view is not opening or is
-        /// still active in the hierarchy, where its open coroutine keeps running.
+        /// still active in the hierarchy, where its open coroutine keeps running, and for a view that
+        /// <see cref="DestroySelf"/> destroys.
         /// </summary>
         internal void EndHiddenOpen()
         {
-            if (_viewState != ViewState.Opening || gameObject.activeInHierarchy)
+            if (_viewState != ViewState.Opening || gameObject.activeInHierarchy || _isDestroying)
             {
                 return;
             }
