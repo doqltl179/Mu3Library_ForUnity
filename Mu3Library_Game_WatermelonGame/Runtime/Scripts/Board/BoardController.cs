@@ -188,6 +188,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             UpdateCommands();
+
+            // The commands raise the merge and score events, and a handler of those may end the
+            // game or prepare the board again, so the rest of the frame only runs on a board that
+            // is still running.
+            if (!_isRunning)
+            {
+                return;
+            }
+
             CreateMergingCommands();
             UpdateHoldingItem();
 
