@@ -37,12 +37,16 @@ namespace Mu3Library.Localization
             {
                 try
                 {
+                    // Mu3Library does not reference UniTask.Addressables, so the handle awaits in this
+                    // file bind to UniTask's IEnumerator extension, which waits for IsDone and does not
+                    // throw for a failed handle; the status read after each await decides the result.
+                    // OnInitializeCompleted logs a failed initialization and reports it through
+                    // InitializeError and OnInitializeResult. The catches keep each path's answer the
+                    // same should the handle extension ever be the one that binds.
                     await handle.ToUniTask();
                 }
                 catch (Exception)
                 {
-                    // OnInitializeCompleted logs the failure and reports it through InitializeError
-                    // and OnInitializeResult, so this path stays as quiet as Initialize(Action).
                 }
             }
 
