@@ -77,6 +77,14 @@ namespace Mu3Library.Localization
         private bool _isSelectedLocaleChangedHooked = false;
         private Action<Locale> _onLocaleChanged;
 
+        /// <summary>
+        /// The locale this manager selected last whose change the package has not announced yet.
+        /// <br/> A selection the package takes restarts its initialization and announces the locale once
+        /// <br/> that is over, so the mark stays until the announcement, whatever happens to the call
+        /// <br/> that made the selection.
+        /// </summary>
+        private Locale _unannouncedLocale;
+
         public event Action OnInitialized;
         public event Action<bool, string> OnInitializeResult;
         public event Action<float> OnInitializeProgress;
@@ -118,6 +126,7 @@ namespace Mu3Library.Localization
 
             m_defaultLocale = null;
             _currentLocale = null;
+            _unannouncedLocale = null;
 
             DestroyFallbackLocale();
 
@@ -154,12 +163,6 @@ namespace Mu3Library.Localization
         /// Implemented by the UniTask part, which owns the locale change cancellation.
         /// </summary>
         partial void DisposeLocaleChange();
-
-        /// <summary>
-        /// Implemented by the UniTask part, whose locale change waits for the package to announce
-        /// <br/> the locale it selected.
-        /// </summary>
-        partial void TrackLocaleAnnouncement(Locale locale);
 
         public void Update()
         {
@@ -443,8 +446,21 @@ namespace Mu3Library.Localization
 
             EnsureSelectedLocaleChangedHook();
 
+            // The package may announce the change inside the setter, so the locale is marked before
+            // the selection. A selection the package ignores, such as the locale already selected,
+            // keeps its initialization, and the mark goes back to what it was.
+            Locale previousUnannouncedLocale = _unannouncedLocale;
+            AsyncOperationHandle<LocalizationSettings> previousInitialization = LocalizationSettings.InitializationOperation;
+            _unannouncedLocale = locale;
+
             LocalizationSettings.SelectedLocale = locale;
             _currentLocale = locale;
+
+            if (LocalizationSettings.InitializationOperation.Equals(previousInitialization))
+            {
+                _unannouncedLocale = previousUnannouncedLocale;
+            }
+
             return true;
         }
 
@@ -651,7 +667,11 @@ namespace Mu3Library.Localization
         private void HandleSelectedLocaleChanged(Locale locale)
         {
             _currentLocale = locale;
-            TrackLocaleAnnouncement(locale);
+            if (ReferenceEquals(locale, _unannouncedLocale))
+            {
+                _unannouncedLocale = null;
+            }
+
             _onLocaleChanged?.Invoke(locale);
         }
         #endregion

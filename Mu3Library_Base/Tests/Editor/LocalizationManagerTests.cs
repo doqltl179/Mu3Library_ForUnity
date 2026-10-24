@@ -146,34 +146,68 @@ namespace Mu3Library.Tests
             if (_stringDatabase != null && _stringDatabase.IsHeld)
             {
                 _stringDatabase.Finish();
-                yield return RunUntil(() => LocalizationSettings.InitializationOperation.IsDone, "the held initialization finished");
+
+                // No assertion here: the project's settings and the editor preference are put back
+                // below whatever state the test left.
+                double start = EditorApplication.timeSinceStartup;
+                while (!LocalizationSettings.InitializationOperation.IsDone && EditorApplication.timeSinceStartup - start < MaxSeconds)
+                {
+                    EditorApplication.QueuePlayerLoopUpdate();
+                    yield return null;
+                }
             }
 
-            _manager?.Dispose();
-            _manager = null;
-            _announced.Clear();
+            try
+            {
+                _manager?.Dispose();
+            }
+            finally
+            {
+                _manager = null;
+                _announced.Clear();
+                RestoreGlobalState();
+            }
+        }
 
+        private void RestoreGlobalState()
+        {
             LocalizationSettings.Instance = _originalSettings;
-            if (_settings != null)
+
+            try
             {
-                ((IDisposable)_settings).Dispose();
-                Object.DestroyImmediate(_settings);
+                if (_settings != null)
+                {
+                    ((IDisposable)_settings).Dispose();
+                    Object.DestroyImmediate(_settings);
+                }
+
+                _stringDatabase?.Release();
+
+                if (_english != null)
+                {
+                    Object.DestroyImmediate(_english);
+                }
+
+                if (_japanese != null)
+                {
+                    Object.DestroyImmediate(_japanese);
+                }
+            }
+            finally
+            {
                 _settings = null;
-            }
+                _stringDatabase = null;
+                _english = null;
+                _japanese = null;
 
-            _stringDatabase?.Release();
-            _stringDatabase = null;
-
-            Object.DestroyImmediate(_english);
-            Object.DestroyImmediate(_japanese);
-
-            if (_hadEditorLocalePreference)
-            {
-                EditorPrefs.SetString(EditorLocalePreference, _editorLocalePreference);
-            }
-            else
-            {
-                EditorPrefs.DeleteKey(EditorLocalePreference);
+                if (_hadEditorLocalePreference)
+                {
+                    EditorPrefs.SetString(EditorLocalePreference, _editorLocalePreference);
+                }
+                else
+                {
+                    EditorPrefs.DeleteKey(EditorLocalePreference);
+                }
             }
         }
 
@@ -239,6 +273,30 @@ namespace Mu3Library.Tests
             _stringDatabase.Finish();
             yield return RunUntil(() => _announced.Contains(_japanese), "the change was announced");
             Assert.AreSame(_japanese, _manager.CurrentLocale, "The selection stays.");
+        }
+
+        [UnityTest]
+        public IEnumerator ChangeLocaleAsync_SameLocaleWhileTheFirstCallWaits_WaitsForTheChangeToFinish()
+        {
+            _stringDatabase.Hold();
+
+            UniTask first = _manager.ChangeLocaleAsync(_japanese);
+            yield return RunFrames(PendingFrames);
+            UniTask second = _manager.ChangeLocaleAsync(_japanese);
+            yield return RunFrames(PendingFrames);
+
+            Assert.AreNotEqual(UniTaskStatus.Pending, first.Status, "The newer call ended the first one's wait.");
+            Assert.AreEqual(UniTaskStatus.Pending, second.Status, "The package ignores the second selection, and the change the first one started is still under way.");
+            Assert.IsTrue(_manager.IsLocaleChanging);
+
+            _stringDatabase.Finish();
+            yield return RunUntil(() => second.Status != UniTaskStatus.Pending, "the second ChangeLocaleAsync completed");
+            first.GetAwaiter().GetResult();
+            second.GetAwaiter().GetResult();
+
+            CollectionAssert.Contains(_announced, _japanese, "OnLocaleChanged has been raised by the time the second call completes.");
+            Assert.IsFalse(_manager.IsLocaleChanging);
+            Assert.IsTrue(LocalizationSettings.InitializationOperation.IsDone);
         }
 
         [UnityTest]
