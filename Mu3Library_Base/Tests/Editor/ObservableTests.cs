@@ -48,6 +48,14 @@ namespace Mu3Library.Tests
             public ObservableDictionary<string, Item> Dictionary = new();
         }
 
+        // Declared inside the test class, so it has no MonoScript and AddComponent accepts it.
+        private sealed class ObservableTestComponent : MonoBehaviour
+        {
+            [SerializeField] private ObservableInt _health = new();
+
+            public ObservableInt Health => _health;
+        }
+
         private readonly List<UnityEngine.Object> _createdObjects = new();
 
         [TearDown]
@@ -62,6 +70,7 @@ namespace Mu3Library.Tests
             }
 
             _createdObjects.Clear();
+            Selection.activeObject = null;
         }
 
         [Test]
@@ -504,6 +513,135 @@ namespace Mu3Library.Tests
             Assert.IsEmpty(ObservableDrawerUtility.FindTargets<object>(serializedObject, "_nested._missing"));
             Assert.IsEmpty(ObservableDrawerUtility.FindTargets<object>(serializedObject, "_slotArray.Array.data[5]._health"));
             Assert.IsEmpty(ObservableDrawerUtility.FindTargets<ObservableInt>(serializedObject, "_direct"));
+        }
+
+        [Test]
+        public void RestoreNotifier_UndoAndRedoOfInspectorEdit_NotifyTheRestoredValue()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            asset.Nested.Health.SetWithoutEvent(2);
+            asset.Dictionary.Add("a", 1);
+            List<int> received = new();
+            int directCalls = 0;
+            int dictionaryCalls = 0;
+            asset.Nested.Health.Subscribe(received.Add);
+            asset.Direct.Subscribe(_ => directCalls++);
+            asset.Dictionary.Subscribe(_ => dictionaryCalls++);
+            Selection.activeObject = asset;
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty valueProp = serializedObject.FindProperty("_nested._health._value");
+
+            Undo.IncrementCurrentGroup();
+            valueProp.intValue = 7;
+            ObservableDrawerUtility.ApplyAndNotify(valueProp, 7);
+            Undo.PerformUndo();
+
+            Assert.AreEqual(2, asset.Nested.Health.Value);
+            CollectionAssert.AreEqual(new[] { 7, 2 }, received);
+
+            Undo.PerformRedo();
+
+            Assert.AreEqual(7, asset.Nested.Health.Value);
+            CollectionAssert.AreEqual(new[] { 7, 2, 7 }, received);
+            Assert.AreEqual(0, directCalls, "An Observable the undo left unchanged is not notified.");
+            Assert.AreEqual(0, dictionaryCalls, "A dictionary the undo left unchanged is not notified.");
+        }
+
+        [Test]
+        public void RestoreNotifier_UndoOnSelectedGameObject_NotifiesItsComponents()
+        {
+            GameObject gameObject = new(nameof(ObservableTests));
+            _createdObjects.Add(gameObject);
+            ObservableTestComponent component = gameObject.AddComponent<ObservableTestComponent>();
+            int received = -1;
+            component.Health.Subscribe(value => received = value);
+            Selection.activeGameObject = gameObject;
+            using SerializedObject serializedObject = new(component);
+            SerializedProperty valueProp = serializedObject.FindProperty("_health._value");
+
+            Undo.IncrementCurrentGroup();
+            valueProp.intValue = 4;
+            ObservableDrawerUtility.ApplyAndNotify(valueProp, 4);
+            Assert.AreEqual(4, received);
+
+            Undo.PerformUndo();
+
+            Assert.AreEqual(0, component.Health.Value);
+            Assert.AreEqual(0, received);
+        }
+
+        [Test]
+        public void RestoreNotifier_UndoOfListAndDictionaryEdits_NotifyTheRestoredContents()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            asset.Nested.Items.Add(1);
+            asset.Nested.Stats.Add("hp", 10);
+            List<int> receivedItems = null;
+            int receivedHp = -1;
+            asset.Nested.Items.Subscribe(value => receivedItems = new List<int>(value));
+            asset.Nested.Stats.Subscribe(value => receivedHp = value.TryGetValue("hp", out int hp) ? hp : -1);
+            Selection.activeObject = asset;
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty items = serializedObject.FindProperty("_nested._items");
+            SerializedProperty stats = serializedObject.FindProperty("_nested._stats");
+
+            Undo.IncrementCurrentGroup();
+            SerializedProperty itemValues = items.FindPropertyRelative("_value");
+            itemValues.arraySize = 2;
+            itemValues.GetArrayElementAtIndex(1).intValue = 2;
+            stats.FindPropertyRelative("_entries").GetArrayElementAtIndex(0).FindPropertyRelative("Value").intValue = 20;
+            serializedObject.ApplyModifiedProperties();
+            ObservableDrawerUtility.InvokeOnTargets(items, nameof(ObservableList<int>.Notify));
+            ObservableDrawerUtility.InvokeOnTargets(stats, nameof(ObservableDictionary<string, int>.RefreshFromSerialized));
+            CollectionAssert.AreEqual(new[] { 1, 2 }, receivedItems);
+            Assert.AreEqual(20, receivedHp);
+
+            Undo.PerformUndo();
+
+            CollectionAssert.AreEqual(new[] { 1 }, receivedItems);
+            Assert.AreEqual(10, receivedHp);
+        }
+
+        [Test]
+        public void RestoreNotifier_Deserialization_LeavesTheNotificationToTheEditor()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            UnityEngine.Object[] targets = { asset };
+            using SerializedObject serializedObject = new(asset);
+            SerializedProperty valueProp = serializedObject.FindProperty("_nested._health._value");
+            valueProp.intValue = 3;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            ObservableRestoreNotifier.NotifyRestored(targets);
+            List<int> received = new();
+            asset.Nested.Health.Subscribe(received.Add);
+
+            serializedObject.Update();
+            valueProp.intValue = 4;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            // Unity serializes a prefab instance again after an undo restores it, before the
+            // editor delivers the restore.
+            serializedObject.Update();
+
+            CollectionAssert.IsEmpty(received, "Deserializing a value never calls the subscribers.");
+
+            ObservableRestoreNotifier.NotifyRestored(targets);
+
+            CollectionAssert.AreEqual(new[] { 4 }, received);
+        }
+
+        [Test]
+        public void RestoreNotifier_LoadedCopy_HasNothingRestored()
+        {
+            ObservableTestAsset asset = CreateAsset();
+            asset.Nested.Health.SetWithoutEvent(5);
+            asset.Nested.Items.Add(1);
+            asset.Dictionary.Add("a", 1);
+
+            ObservableTestAsset copy = UnityEngine.Object.Instantiate(asset);
+            _createdObjects.Add(copy);
+
+            Assert.AreEqual(5, copy.Nested.Health.Value);
+            Assert.AreEqual(0, ObservableRestoreNotifier.NotifyRestored(new UnityEngine.Object[] { copy }));
         }
 
         private ObservableTestAsset CreateAsset()

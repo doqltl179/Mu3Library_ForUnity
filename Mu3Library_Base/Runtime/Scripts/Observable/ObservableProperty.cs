@@ -1,13 +1,27 @@
 namespace Mu3Library.Observable
 {
     [System.Serializable]
-    public abstract class ObservableProperty<T> : IObservableValue<T>
+    public abstract class ObservableProperty<T> :
+        IObservableValue<T>,
+        UnityEngine.ISerializationCallbackReceiver,
+        IRestorableObservable
     {
+        // Unity deserializes a list or another object in place, which leaves the settled value the
+        // same instance as the restored one, so only a value type or a string can be compared.
+        private static readonly bool s_canCompareRestoredValue =
+            typeof(T).IsValueType || typeof(T) == typeof(string);
+
         [UnityEngine.SerializeField] protected T _value;
         public T Value => _value;
         public IObservableValue<T> ReadOnly => this;
 
         protected System.Action<T> _callback;
+
+        // The value the subscribers were last given or a method here last set. An undo, a redo, or
+        // a prefab revert deserializes another value into _value without going through them.
+        private T _settledValue;
+        private bool _hasSettledValue;
+        private bool _isRestored;
 
 
 
@@ -23,7 +37,11 @@ namespace Mu3Library.Observable
             InvokeCallbacks(value);
         }
 
-        public void SetWithoutEvent(T value) => _value = value;
+        public void SetWithoutEvent(T value)
+        {
+            _value = value;
+            Settle();
+        }
 
         public void Notify() => InvokeCallbacks(_value);
 
@@ -33,6 +51,8 @@ namespace Mu3Library.Observable
         /// </summary>
         private void InvokeCallbacks(T value)
         {
+            Settle();
+
             System.Delegate[] listeners = _callback?.GetInvocationList();
             if (listeners == null)
             {
@@ -84,5 +104,48 @@ namespace Mu3Library.Observable
             return new SubscriptionToken(() => RemoveEvent(callback));
         }
         #endregion
+
+        private void Settle()
+        {
+            _settledValue = _value;
+            _hasSettledValue = true;
+            _isRestored = false;
+        }
+
+        void UnityEngine.ISerializationCallbackReceiver.OnBeforeSerialize() { }
+
+        /// <summary>
+        /// Only marks the restore: this can run on a loading thread, where the subscribers must not
+        /// be called. The first deserialization of an instance that nothing set yet loads it and
+        /// restores nothing.
+        /// </summary>
+        void UnityEngine.ISerializationCallbackReceiver.OnAfterDeserialize()
+        {
+            if (_hasSettledValue)
+            {
+                _isRestored = true;
+                return;
+            }
+
+            Settle();
+        }
+
+        bool IRestorableObservable.NotifyIfRestored()
+        {
+            if (!_isRestored)
+            {
+                return false;
+            }
+
+            _isRestored = false;
+            if (s_canCompareRestoredValue &&
+                System.Collections.Generic.EqualityComparer<T>.Default.Equals(_value, _settledValue))
+            {
+                return false;
+            }
+
+            Notify();
+            return true;
+        }
     }
 }
