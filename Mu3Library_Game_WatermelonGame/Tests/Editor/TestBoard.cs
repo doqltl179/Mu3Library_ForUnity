@@ -28,6 +28,11 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         /// </summary>
         internal sealed class Controller : BoardController
         {
+            /// <summary>
+            /// The screen positions every <see cref="BoardController.OnDragCancel"/> was called with.
+            /// </summary>
+            public List<Vector2> DragCancelPositions { get; } = new();
+
             public void Setup(BoardArea area, BoardItem itemResource)
             {
                 _boardArea = area;
@@ -52,6 +57,12 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             /// <br/> or an event handler could.
             /// </summary>
             public bool SpawnHoldingItem() => TrySpawnHoldingItem();
+
+            public override void OnDragCancel(Vector2 screenPos)
+            {
+                DragCancelPositions.Add(screenPos);
+                base.OnDragCancel(screenPos);
+            }
         }
 
         /// <summary>
@@ -133,6 +144,20 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             }
 
             public void BeginTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Began);
+
+            /// <summary>
+            /// Begins a touch that the platform also reports as a mouse press in the same frame, as the
+            /// <br/> Input Manager does while it simulates the mouse with touches.
+            /// </summary>
+            public void BeginTouchWithMousePress(int fingerId, Vector2 position)
+            {
+                _isMousePresent = true;
+                _isMousePressed = true;
+                _wasMousePressedThisFrame = true;
+                _mousePosition = position;
+
+                PlayTouch(fingerId, position, TouchPhase.Began);
+            }
 
             public void MoveTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Moved);
 

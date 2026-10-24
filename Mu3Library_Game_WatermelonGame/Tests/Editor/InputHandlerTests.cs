@@ -55,6 +55,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
 
         private readonly List<Vector2> _endedPositions = new();
         private readonly List<Vector2> _canceledPositions = new();
+        private readonly List<Vector2> _areaCanceledPositions = new();
         private readonly List<BoardItem> _droppedItems = new();
 
         [SetUp]
@@ -64,6 +65,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
 
             _board.Input.OnTouchEnded.AddListener(_endedPositions.Add);
             _board.Input.OnTouchCanceled.AddListener(_canceledPositions.Add);
+            _board.Area.OnTouchCanceled += _areaCanceledPositions.Add;
             _board.Board.OnItemDropped += _droppedItems.Add;
         }
 
@@ -94,6 +96,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             _objects.Clear();
             _endedPositions.Clear();
             _canceledPositions.Clear();
+            _areaCanceledPositions.Clear();
             _droppedItems.Clear();
         }
 
@@ -286,6 +289,46 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void RefusedTouch_DoesNotKeepAnotherFingerFromDragging()
+        {
+            BoardItem heldItem = StartRunningBoard();
+            CreateEventSystem();
+            CreateUIRaycaster(new Rect(0.0f, 0.0f, _board.GetScreenPosition(0.5f).x, 10000.0f));
+
+            _board.Input.BeginTouch(1, _board.GetScreenPosition(0.25f));
+            AssertNoDrag("A touch over UI");
+
+            // The first finger still rests on the UI while the second one takes the item.
+            Vector2 boardPosition = _board.GetScreenPosition(0.75f);
+            _board.Input.BeginTouch(2, boardPosition);
+            Assert.IsTrue(_board.Area.IsDragging, "The touch beside the UI did not start a board drag.");
+
+            _board.Input.EndTouch(2, boardPosition);
+
+            CollectionAssert.AreEqual(new[] { boardPosition }, _endedPositions);
+            CollectionAssert.AreEqual(new[] { heldItem }, _droppedItems);
+        }
+
+        [Test]
+        public void RefusedTouchReportedAsMousePress_IsAskedAboutOnce()
+        {
+            StartRunningBoard();
+
+            List<Vector2> askedPositions = new();
+            _board.Input.DragStartFilter = position =>
+            {
+                askedPositions.Add(position);
+                return false;
+            };
+
+            Vector2 position = _board.GetScreenPosition(0.5f);
+            _board.Input.BeginTouchWithMousePress(0, position);
+
+            CollectionAssert.AreEqual(new[] { position }, askedPositions);
+            AssertNoDrag("A refused touch with its mouse press");
+        }
+
+        [Test]
         public void DragStartFilter_RefusingPress_KeepsMouseAndTouchFromStartingDrag()
         {
             StartRunningBoard();
@@ -351,9 +394,11 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             List<Vector2> began = new();
             List<Vector2> moved = new();
             List<Vector2> ended = new();
+            List<Vector2> canceled = new();
             area.OnTouchBegan += began.Add;
             area.OnTouchMoved += moved.Add;
             area.OnTouchEnded += ended.Add;
+            area.OnTouchCanceled += canceled.Add;
 
             Vector2 beganPosition = area.BoardLocalNormalizedPositionToScreen(new Vector2(0.4f, 0.5f));
             Vector2 endedPosition = area.BoardLocalNormalizedPositionToScreen(new Vector2(0.6f, 0.5f));
@@ -361,9 +406,13 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             inputHandler.OnTouchMoved.Invoke(endedPosition);
             inputHandler.OnTouchEnded.Invoke(endedPosition);
 
-            CollectionAssert.AreEqual(new[] { beganPosition }, began);
+            inputHandler.OnTouchBegan.Invoke(beganPosition);
+            inputHandler.OnTouchCanceled.Invoke(beganPosition);
+
+            CollectionAssert.AreEqual(new[] { beganPosition, beganPosition }, began);
             CollectionAssert.AreEqual(new[] { endedPosition }, moved);
             CollectionAssert.AreEqual(new[] { endedPosition }, ended);
+            CollectionAssert.AreEqual(new[] { beganPosition }, canceled);
         }
 
         /// <summary>
@@ -384,6 +433,8 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         private void AssertCanceledAt(Vector2 lastPosition, BoardItem heldItem, float heldX, int spawnCount)
         {
             CollectionAssert.AreEqual(new[] { lastPosition }, _canceledPositions, "The drag was not canceled where it was last reported.");
+            CollectionAssert.AreEqual(new[] { lastPosition }, _areaCanceledPositions, "The board area did not forward the cancel.");
+            CollectionAssert.AreEqual(new[] { lastPosition }, _board.Board.DragCancelPositions, "The controller was not told about the cancel.");
             CollectionAssert.IsEmpty(_endedPositions, "The canceled drag was reported as released.");
             CollectionAssert.IsEmpty(_droppedItems, "The canceled drag dropped the held item.");
 

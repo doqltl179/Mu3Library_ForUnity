@@ -93,6 +93,30 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void Mouse_RemovedWhileDragging_KeepsHeldItemInHand()
+        {
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+
+            _input.Move(mouse.position, _board.GetScreenPosition(0.35f));
+            _board.Input.Tick();
+            _input.Press(mouse.leftButton);
+            _board.Input.Tick();
+            Vector2 lastPosition = _board.GetScreenPosition(0.65f);
+            _input.Move(mouse.position, lastPosition);
+            _board.Input.Tick();
+            float heldX = _board.Board.HoldingNormalizedX;
+
+            InputSystem.RemoveDevice(mouse);
+            _board.Input.Tick();
+
+            CollectionAssert.AreEqual(new[] { lastPosition }, _canceledPositions);
+            CollectionAssert.AreEqual(new[] { lastPosition }, _board.Board.DragCancelPositions);
+            CollectionAssert.IsEmpty(_droppedItems);
+            Assert.AreSame(_heldItem, _board.Board.HoldingItem);
+            Assert.AreEqual(heldX, _board.Board.HoldingNormalizedX);
+        }
+
+        [Test]
         public void Touch_BeginMoveEnd_DropsHeldItemWhereLifted()
         {
             InputSystem.AddDevice<Touchscreen>();
@@ -155,6 +179,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             _board.Input.Tick();
 
             CollectionAssert.AreEqual(new[] { lastPosition }, _canceledPositions);
+            CollectionAssert.AreEqual(new[] { lastPosition }, _board.Board.DragCancelPositions);
             CollectionAssert.IsEmpty(_droppedItems);
             Assert.AreSame(_heldItem, _board.Board.HoldingItem);
             Assert.AreEqual(heldX, _board.Board.HoldingNormalizedX);
@@ -174,6 +199,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             TestBoard.SendOnDisable(_board.Input);
 
             CollectionAssert.AreEqual(new[] { position }, _canceledPositions);
+            CollectionAssert.AreEqual(new[] { position }, _board.Board.DragCancelPositions);
             CollectionAssert.IsEmpty(_droppedItems);
             Assert.AreSame(_heldItem, _board.Board.HoldingItem);
             Assert.IsFalse(EnhancedTouchSupport.enabled, "The handler kept EnhancedTouch enabled.");
