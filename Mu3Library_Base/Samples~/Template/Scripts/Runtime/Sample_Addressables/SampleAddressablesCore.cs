@@ -30,6 +30,7 @@ namespace Mu3Library.Sample.Template.Addressable
         [SerializeField] private Button _backButton;
         [SerializeField] private Button _additiveSceneLoadButton;
 
+#if TEMPLATE_ADDRESSABLES_SUPPORT
         private readonly IReadOnlyList<string> _allLabels = new string[]
         {
             AddressableGroupKeysLabels.DownloadAll,
@@ -37,6 +38,7 @@ namespace Mu3Library.Sample.Template.Addressable
             AddressableGroupKeysLabels.TestLabel,
             ""              // Test for none included label
         };
+#endif
 
 
 
@@ -129,7 +131,11 @@ namespace Mu3Library.Sample.Template.Addressable
 
         private void OnAdditiveSceneLoadButtonClicked()
         {
+#if TEMPLATE_ADDRESSABLES_SUPPORT
             _sceneLoader.LoadAdditiveSceneWithAddressables(SceneNames.SampleAddressablesAdditive);
+#else
+            Debug.LogWarning("Addressables is not installed.");
+#endif
         }
 
         private void OnBackButtonClicked()
