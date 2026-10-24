@@ -4,3 +4,36 @@
 # trailing CR as part of the value and breaks on a CRLF checkout.
 *.sh text eol=lf
 *.tsv text eol=lf
+
+# The Unity Editor writes the YAML of its scenes, assets, and .meta files with LF line
+# endings on every platform, including the settings it saves again on each batch run.
+# A CRLF checkout, such as core.autocrlf=true makes, then shows those files as modified
+# although only their line endings changed. text=auto leaves a binary .asset, such as
+# lighting or terrain data, untouched.
+*.anim text=auto eol=lf
+*.asset text=auto eol=lf
+*.brush text=auto eol=lf
+*.controller text=auto eol=lf
+*.cubemap text=auto eol=lf
+*.flare text=auto eol=lf
+*.fontsettings text=auto eol=lf
+*.giparams text=auto eol=lf
+*.guiskin text=auto eol=lf
+*.lighting text=auto eol=lf
+*.mask text=auto eol=lf
+*.mat text=auto eol=lf
+*.meta text=auto eol=lf
+*.mixer text=auto eol=lf
+*.overrideController text=auto eol=lf
+*.physicMaterial text=auto eol=lf
+*.physicsMaterial2D text=auto eol=lf
+*.playable text=auto eol=lf
+*.prefab text=auto eol=lf
+*.preset text=auto eol=lf
+*.renderTexture text=auto eol=lf
+*.shadervariants text=auto eol=lf
+*.signal text=auto eol=lf
+*.spriteatlas text=auto eol=lf
+*.spriteatlasv2 text=auto eol=lf
+*.terrainlayer text=auto eol=lf
+*.unity text=auto eol=lf

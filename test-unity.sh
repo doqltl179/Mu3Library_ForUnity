@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# Runs the EditMode tests of the development projects through the Unity Test
-# Framework CLI. Target selection, the Editor lookup, the lock check, the sample
-# links, and the isolated mirror come from compile-unity.sh, which this sources.
+# Runs the EditMode or PlayMode tests of the development projects through the
+# Unity Test Framework CLI. Target selection, the Editor lookup, the lock check,
+# the sample links, and the isolated mirror come from compile-unity.sh, which
+# this sources.
 
 set -euo pipefail
 
@@ -11,6 +12,11 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compile-unity.sh"
 
 SELECTION_LABEL="test"
 readonly RESULTS_DIR="$REPO_ROOT/log/unity-tests"
+# The Unity Test Framework platform as --platform names it and as Unity does.
+PLATFORM_KEY="editmode"
+TEST_PLATFORM="EditMode"
+# The arguments left for compile-unity.sh's parse_arguments once --platform is out.
+COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
 FAILED_TARGET_COUNT=0
 
@@ -20,8 +26,9 @@ usage() {
     cat <<'EOF'
 Usage: ./test-unity.sh [changed|all|target] [options]
 
-Runs the EditMode tests of the selected development projects with the Unity
-Test Framework, and exits non-zero when a test fails or a run reports no result.
+Runs the EditMode or PlayMode tests of the selected development projects with
+the Unity Test Framework, and exits non-zero when a test fails or a run reports
+no result.
 
 Selection:
   changed          Test every project that consumes a package affected by Git
@@ -36,6 +43,8 @@ EOF
     cat <<'EOF'
 
 Options:
+  --platform <editmode|playmode>
+                    Run the EditMode tests (default) or the PlayMode tests.
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
   --dry-run         Print the selection and where each target would run,
                     without Unity.
@@ -52,7 +61,8 @@ Options:
 
 A project runs the tests of the packages its Packages/manifest.json lists under
 "testables"; a selected project that lists none is skipped. Each run writes
-NUnit XML results to log/unity-tests/<target>-editmode.xml. A failed test or
+NUnit XML results to log/unity-tests/<target>-<platform>.xml, such as
+log/unity-tests/urp-playmode.xml. A failed test or
 Unity run does not stop the remaining targets, and a summary closes the run;
 a target that cannot start, such as an open project under --in-place or a
 mirror that cannot be copied, stops the script at once.
@@ -62,6 +72,37 @@ project open), how --editor-version retargets the mirror, the sample-link
 check, and the environment variables work as in compile-unity.sh; see
 ./compile-unity.sh --help.
 EOF
+}
+
+# Takes --platform, which only this script has, out of the arguments and leaves
+# the rest in COMPILE_ARGUMENTS for the options it shares with compile-unity.sh.
+parse_test_arguments() {
+    COMPILE_ARGUMENTS=()
+
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --platform)
+                shift
+                [[ "$#" -gt 0 ]] || fail "--platform requires editmode or playmode"
+                case "$1" in
+                    editmode)
+                        TEST_PLATFORM="EditMode"
+                        ;;
+                    playmode)
+                        TEST_PLATFORM="PlayMode"
+                        ;;
+                    *)
+                        fail "--platform expects editmode or playmode: $1"
+                        ;;
+                esac
+                PLATFORM_KEY="$1"
+                ;;
+            *)
+                COMPILE_ARGUMENTS+=("$1")
+                ;;
+        esac
+        shift
+    done
 }
 
 # Unity runs package tests only for the packages a project's manifest lists
@@ -147,7 +188,7 @@ record_failure() {
 
 test_target() {
     local target_key="$1"
-    local results_file="$RESULTS_DIR/$target_key-editmode.xml"
+    local results_file="$RESULTS_DIR/$target_key-$PLATFORM_KEY.xml"
     local total
     local passed
     local failed
@@ -160,7 +201,7 @@ test_target() {
 
     run_unity_for_target "$target_key" "Testing" \
         -runTests \
-        -testPlatform EditMode \
+        -testPlatform "$TEST_PLATFORM" \
         -testResults "$(to_windows_path "$results_file")"
 
     if [[ ! -f "$results_file" ]]; then
@@ -185,7 +226,7 @@ test_target() {
     elif [[ "$UNITY_STATUS" -ne 0 ]]; then
         record_failure "$target_key" "Unity exited with $UNITY_STATUS although no test failed ($counts)"
     else
-        printf 'EditMode tests passed for %s: %s\n' "$target_key" "$counts"
+        printf '%s tests passed for %s: %s\n' "$TEST_PLATFORM" "$target_key" "$counts"
         SUMMARY_LINES+=("$target_key: $counts")
     fi
 }
@@ -193,7 +234,7 @@ test_target() {
 print_summary() {
     local line
 
-    printf 'EditMode test summary:\n'
+    printf '%s test summary:\n' "$TEST_PLATFORM"
     if [[ "${#SUMMARY_LINES[@]}" -gt 0 ]]; then
         for line in "${SUMMARY_LINES[@]}"; do
             printf '  - %s\n' "$line"
@@ -205,7 +246,8 @@ test_main() {
     local target_key
 
     load_package_config
-    parse_arguments "$@"
+    parse_test_arguments "$@"
+    parse_arguments ${COMPILE_ARGUMENTS[@]+"${COMPILE_ARGUMENTS[@]}"}
     select_requested_targets
     print_selection
 
@@ -236,10 +278,10 @@ test_main() {
     done
 
     print_summary
-    printf 'Results: log/unity-tests/<target>-editmode.xml\n'
+    printf 'Results: log/unity-tests/<target>-%s.xml\n' "$PLATFORM_KEY"
 
     if [[ "$FAILED_TARGET_COUNT" -gt 0 ]]; then
-        fail "EditMode tests failed for $FAILED_TARGET_COUNT target(s)"
+        fail "$TEST_PLATFORM tests failed for $FAILED_TARGET_COUNT target(s)"
     fi
 }
 

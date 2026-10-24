@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +28,7 @@ from mu3_cli.unity import (
     find_windows_bash,
     link_samples,
     load_target_specs,
+    platform_arguments,
     project_editor_version,
     project_lock_diagnostic,
     project_lock_state,
@@ -95,6 +97,13 @@ class UnityToolingTests(unittest.TestCase):
     def test_editor_version_rejects_in_place(self) -> None:
         with self.assertRaisesRegex(ValueError, "--editor-version runs in an isolated mirror"):
             entry_point_arguments("built-in", None, False, False, True, False, editor_version="6000.3.17f1")
+
+    def test_platform_reaches_the_test_script(self) -> None:
+        self.assertEqual(["--platform", "playmode"], platform_arguments("playmode"))
+
+    def test_platform_rejects_a_name_the_test_script_does_not_take(self) -> None:
+        with self.assertRaisesRegex(ValueError, "--platform expects one of: editmode, playmode"):
+            platform_arguments("PlayMode")
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
@@ -423,6 +432,43 @@ class EditorRootTests(unittest.TestCase):
         )
 
         self.assertEqual("found", completed.stdout, completed.stderr)
+
+
+class ShortPathTests(unittest.TestCase):
+    """Unity must open a project on the subst drive a command ran from, not on the long path it maps.
+
+    A link to the checkout stands in for the drive: Path.resolve() follows both back to the long path.
+    """
+
+    def setUp(self) -> None:
+        self.short_root = temporary_root(self) / "short"
+        create_directory_link(self.short_root, repo_root().resolve())
+        # Remove the link before the temporary folder goes, so cleanup never walks through it.
+        self.addCleanup(remove_directory_link, self.short_root)
+
+    def test_compile_starts_the_entry_point_on_the_short_path(self) -> None:
+        calls: list[tuple[list[str], dict[str, object]]] = []
+
+        def run(command: list[str], **keywords: object) -> subprocess.CompletedProcess[str]:
+            calls.append((command, keywords))
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(Path, "cwd", return_value=self.short_root), mock.patch(
+            "mu3_cli.unity.find_windows_bash", return_value=Path("bash.exe")
+        ), mock.patch("mu3_cli.unity.subprocess.run", run):
+            result = CliRunner().invoke(app, ["unity", "compile", "built-in", "--dry-run"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        [(command, keywords)] = calls
+        self.assertIn(str(self.short_root / "compile-unity.sh"), command)
+        self.assertEqual(self.short_root, keywords["cwd"])
+
+    def test_entry_point_keeps_the_short_path_it_was_started_from(self) -> None:
+        # compile-unity.sh passes $REPO_ROOT/<project> to Unity as -projectPath.
+        completed = run_sourced(self.short_root / "compile-unity.sh", 'to_windows_path "$REPO_ROOT/UnityProject_BuiltIn"')
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(self.short_root / "UnityProject_BuiltIn", Path(completed.stdout.strip()))
 
 
 if __name__ == "__main__":

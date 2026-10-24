@@ -23,6 +23,8 @@ area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
 [commands]
 build = "bash ./compile-unity.sh changed"
 test = "bash ./test-unity.sh changed"
+# The play-mode tests, which reach what only the player loop runs; urp runs them without UniTask.
+test_playmode = "bash ./test-unity.sh changed --platform playmode"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 # Links each development project's Assets/ to its package's Samples~, which a fresh clone or worktree lacks.
 worktree_setup = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -69,7 +71,7 @@ unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Libra
 [bindings.game-runtime-engineer]
 paths = ["Mu3Library_Base/Runtime/**", "Mu3Library_Base/Tests/**", "Mu3Library_Game_WatermelonGame/Runtime/**", "Mu3Library_Game_WatermelonGame/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build", "test"]
+commands = ["build", "test", "test_playmode"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
@@ -87,7 +89,7 @@ notes = "The URP package: camera, screen effects, renderer features, and shaders
 [bindings.optional-integration-engineer]
 paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**", "Mu3Library_Base/Runtime/Scripts/Notifications/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build", "test"]
+commands = ["build", "test", "test_playmode"]
 
 [bindings.sample-integrity-engineer]
 paths = ["Mu3Library_*/Samples~/**"]
