@@ -10,6 +10,6 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 - See `urp/0.3.0` in the repository root `CHANGELOG.md`. Highlights: `ScreenEffectManager` implements `IDisposable`, and `UnregisterEffectAll<TEffect>()` matches effect types again.
 
-## [0.2.1]
+## [0.2.1] - 2026-08-07
 
 - See `urp/0.2.1` in the repository root `CHANGELOG.md`.

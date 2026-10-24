@@ -286,7 +286,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `IBoardCommandContext`와 `BoardController.CommandContext`를 추가했습니다. 외부 커맨드는 이 표면을 통해 아이템 생성·교체·삭제, 점수·병합 카운트, 사운드, 큐와 보드 상태를 사용합니다. 표면은 `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `GetItemInfo`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`와 읽기용 `Area`, `Config`, `ScoreRule`, `Items`, `HoldingItem`, `ItemIndexCount`, `IsPrepared`, `IsRunning`, `Score`로 이루어집니다.
 - `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, `CompositeBoardCommand` flow 커맨드를 추가해 프로젝트가 자체 스케줄러를 작성하지 않고도 보드 작업을 순서화·지연·그룹화할 수 있습니다.
 - 보너스 아이템, 삭제 power-up, 단일 아이템 승급, 보드 흔들기, 점수 보너스를 위한 `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, `AddScoreCommand`를 추가했습니다.
-- `MergingCommand`가 보드가 전달한 두 callback을 실행하는 대신 `IBoardCommandContext`를 통해 병합 자체를 수행하도록 변경했습니다. 보드가 찾은 쌍과 프로젝트가 선택한 쌍에 같은 커맨드를 사용할 수 있고, 병합 index·점수·생성 위치·사운드 hook은 `protected virtual`로 확장할 수 있습니다. 보드 전체가 서브클래스를 쓰게 하려면 팩토리 `BoardController.CreateMergingCommand(BoardItem, BoardItem)`를 override하며, 쌍 검사는 `TryCreateMergingCommand`로 옮겼습니다.
+- `MergingCommand`가 보드가 전달한 두 callback을 실행하는 대신 `IBoardCommandContext`를 통해 병합 자체를 수행하도록 변경했습니다. 보드가 찾은 쌍과 프로젝트가 선택한 쌍에 같은 커맨드를 사용할 수 있고, 병합 결과 index, 점수, 병합된 아이템 생성, 그 위치, 사운드는 `protected virtual` hook `GetMergedIndex`, `GetMergeScore`, `SpawnMergedItem`, `TryGetMergedPosition`, `PlayMergeSound`로 확장할 수 있습니다. 보드 전체가 서브클래스를 쓰게 하려면 팩토리 `BoardController.CreateMergingCommand(BoardItem, BoardItem)`를 override하며, 쌍 검사는 `TryCreateMergingCommand`로 옮겼습니다.
 - `MergingCommand`를 다른 아이템 커맨드와 함께 `Board.Command.Item`으로 이동하고 `Board.Command.Merge` namespace와 폴더를 제거했습니다.
 - `BoardController.AddScore(int)`, `CountMerge()`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem(BoardItem)`, public `GetItemInfo(int)`를 추가했습니다. 모든 점수 변경과 병합 카운트가 한 경로를 사용하며 음수 점수는 0 아래로 내려가지 않습니다.
 - `BoardItem.AddVelocity(Vector2, float)`를 추가해 보드에 이미 놓인 아이템의 기존 속도를 유지하면서 밀어낼 수 있습니다.
@@ -294,7 +294,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardSoundConfig`: `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, `BgmLoopCount`로 구성되는 선택적 BGM 플레이리스트를 추가했습니다. 게임 시작에 재생을 시작하고 게임 종료에 정지하며, 보드가 직접 시작한 플레이리스트만 정지합니다.
 - `BoardSoundConfig`: `ItemMergeClips`와 `MergeComboInterval`로 연속 머지에 따라 달라지는 머지 효과음을 추가했습니다. 첫 머지는 첫 클립을 재생하고, 해당 간격(기본 5초) 안에 이어지는 머지마다 인덱스가 하나씩 올라가 마지막 클립에서 멈춥니다. 간격을 넘겨 발생한 머지는 연속성을 처음부터 다시 시작합니다. 현재 단계는 `BoardController.MergeComboIndex`로 확인할 수 있고 `PlayItemMergeSound()`는 `protected virtual`입니다.
 - `BoardController`: `SoundConfig`, `AudioManager`와 `protected virtual PlayBoardSound(BoardSoundType)` 훅을 추가했습니다. 이 패키지에 재생 경로를 따로 만들지 않고 보드 사운드를 `Mu3Library.Audio.AudioManager`로 재생합니다. 프로젝트가 이미 사용 중인 `IAudioManager`를 지정하면 동시 재생 개수 설정을 그대로 공유하며, 보드는 그 수명과 볼륨에 관여하지 않습니다. 지정하지 않으면 보드가 실제로 재생하는 첫 사운드에서 자체 인스턴스를 만들어(클립이 하나도 없는 설정에서는 생성되지 않습니다) `Update`에서 직접 구동하고, 보드와 함께 정리합니다.
-- `BoardController`: 보드 사운드 볼륨을 `SfxVolume`과 `BgmVolume`으로 이동했습니다. 두 값은 0–1 범위로 제한되며, `BgmVolume`은 보드가 소유한 오디오 매니저에 즉시 반영됩니다.
+- `BoardController`: 보드 사운드 볼륨을 `SfxVolume`과 `BgmVolume`으로 이동했습니다. 플레이어가 바꾸는 볼륨 설정이 닿지 않던 `BoardSoundConfig`에 두는 대신 프로젝트가 보드에서 직접 설정합니다. 두 값은 0–1 범위로 제한되며, `BgmVolume`은 보드가 소유한 오디오 매니저에 즉시 반영되고, 지정된 매니저는 자기 볼륨을 그대로 유지합니다.
 
 ### 변경됨
 - `BoardArea`: spawn guide line의 가로 크기를 spawn marker 가로의 1/10에서 2/5로 변경했습니다. board 가로 기준으로는 1/25입니다.
