@@ -1,6 +1,6 @@
 ﻿# Mu3 Library Game - Watermelon
 
-Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.URP`.
+Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.URP`, and `Unity.InputSystem` while the Input System package is installed.
 
 ## Runtime API
 
@@ -139,6 +139,34 @@ public class ClearRowCommand : BoardCommand
 `BoardArea` also calculates aspect-preserving local, screen, and world rectangles, mathematical screen-to-board-plane conversions, boundary-aware area checks, and position clamping helpers.
 
 Runtime configuration changes validate the complete default catalog before updating the board, active items, and the held item together. Pool reuse resets item presentation and physics state before the next item is initialized.
+
+## Input
+
+`BoardArea` takes its touches from the `InputHandler` on the same GameObject, which it adds itself when there is none, also on a board created in code with `AddComponent<BoardArea>()`. The handler turns the mouse and the touches into one drag at a time: a press inside the board takes the held item along, and the release drops it there.
+
+The handler reads the input backend that **Active Input Handling** (Project Settings > Player) enables:
+
+| Active Input Handling | Input System package | `InputHandler` reads |
+| --- | --- | --- |
+| Input Manager (Old) | Not needed | `UnityEngine.Input` |
+| Input System Package (New) | Required | `Mouse.current` and the touches of the EnhancedTouch API |
+| Both | Installed | The Input System, as under "Input System Package (New)" |
+| Both | Not installed | `UnityEngine.Input` |
+
+The package does not depend on the Input System. Its assembly defines `MU3LIBRARY_INPUTSYSTEM_SUPPORT` while `com.unity.inputsystem` is installed, and the handler reads the Input System while that symbol and Unity's `ENABLE_INPUT_SYSTEM` are both defined. While it reads the touches it holds one `EnhancedTouchSupport.Enable()` call, which `OnDisable` gives back. Under "Input System Package (New)" without the package there is nothing it can read, and it logs a warning once.
+
+A drag that is taken away before it is released is canceled, not dropped: the `InputHandler` is disabled, the touch it follows vanishes or is canceled by the system, or the mouse is disconnected. `InputHandler.OnTouchCanceled`, `BoardArea.OnTouchCanceled`, and `BoardController.OnDragCancel(Vector2)` report it, with the screen position the drag was last reported at, in place of `OnTouchEnded` and `OnDragEnd`. The held item stays in hand where the drag last put it, and nothing is dropped or counted, so a project can switch the input off for a popup, an ad, or the back button while the player holds the item. A listener that follows a drag through `OnTouchEnded` also listens to `OnTouchCanceled`.
+
+A press that lands on UI does not start a drag. The handler raycasts the press position through the current `EventSystem`, which reaches uGUI canvases and, while the scene has an `EventSystem`, UI Toolkit panels. A hit of a `PhysicsRaycaster` or `Physics2DRaycaster` is a scene object, such as a board item, and does not count, and without an `EventSystem` no press is held back. A press that was held back stays no drag until it is released, also when it moves onto the board. Turn **Ignore Press Over UI** off on the `InputHandler`, or set `IgnorePressOverUI` to false, to let such presses through. A full-screen raycast target over the board holds back every press, so leave **Raycast Target** off on a graphic that only decorates the board.
+
+`InputHandler.DragStartFilter` holds a press back by the project's own rule. It is asked with the screen position of every mouse press and touch before it starts a drag, and every function added has to return true:
+
+```csharp
+InputHandler inputHandler = boardArea.GetComponent<InputHandler>();
+inputHandler.DragStartFilter += screenPosition => !pauseMenu.IsOpen;
+```
+
+A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, and drive the handler from another input source by overriding `IsMousePresent`, `MousePosition`, `GetMouseButtonDown()`, `GetMouseButton()`, `TouchCount`, and `GetTouch(int)` together. `BoardArea` uses a subclass that is already on its GameObject instead of adding an `InputHandler`.
 
 ## Import
 

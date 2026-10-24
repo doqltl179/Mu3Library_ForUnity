@@ -436,6 +436,7 @@ Watermelon Game package (**Mu3 Library Watermelon Game**):
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
 - **Board collision boundaries**: `BoardArea.SetOutColliders()` creates or updates left, right, and bottom `BoxCollider2D` boundaries from the item-area viewport padding while keeping the top open
 - **Board-relative coordinate conversions**: `BoardArea` exposes world, screen, and local normalized-position conversions with initialization-safe `Try...` variants
+- **Board input**: `InputHandler` reads the Input System while the package is installed and Active Input Handling enables its backend, and the Input Manager otherwise; a press over UI starts no drag, `InputHandler.DragStartFilter` holds a press back by a project's own rule, and a drag taken away before it is released is canceled with the held item kept in hand
 - **Merge effects**: `BoardItemInfo` supports optional `ParticleHandler` resources for merge effects, with completed spawned effects cleaned up automatically
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
 - **Board commands**: `BoardController.EnqueueCommand(...)` runs public board commands, with optional update/cancellation contracts, lifecycle-based `BoardCommand`, command flow groups, item/score commands, and `BoardController.CommandContext` for external commands

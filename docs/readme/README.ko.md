@@ -435,6 +435,7 @@ Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
 - **Board fitting**: `BoardArea.Fit(...)`으로 설정된 카메라 뷰포트 padding 안에 보드 스프라이트를 맞출 수 있습니다.
 - **Board collision boundaries**: `BoardArea.SetOutColliders()`로 아이템 영역 viewport padding 기준의 left, right, bottom `BoxCollider2D` 경계를 생성·갱신할 수 있으며 top은 열려 있습니다.
 - **Board-relative coordinate conversions**: `BoardArea`는 world, screen, local 정규화 위치 변환과 초기화 안전성을 위한 `Try...` 변형을 제공합니다.
+- **Board input**: `InputHandler`는 Input System 패키지가 설치되어 있고 Active Input Handling이 그 백엔드를 켜면 Input System을, 그 밖에는 Input Manager를 읽습니다. UI 위에서 누른 입력은 드래그를 시작하지 않고, `InputHandler.DragStartFilter`로 프로젝트 자체 규칙에 따라 누름을 막을 수 있으며, 놓기 전에 빼앗긴 드래그는 들고 있는 아이템을 손에 둔 채 취소됩니다.
 - **Merge effects**: `BoardItemInfo`는 선택적 병합 효과용 `ParticleHandler` 리소스를 지원하며, 완료된 생성 효과 인스턴스는 자동으로 정리됩니다.
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
 - **Board commands**: `BoardController.EnqueueCommand(...)`로 공개 커맨드 큐를 사용하고, `IUpdatableBoardCommand`/`ICancelableBoardCommand`와 `BoardCommand` lifecycle hook으로 프레임 단위 실행·취소를 구성할 수 있습니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면을 제공하며, Flow/Item/Score 커맨드와 `MergingCommand`를 함께 제공합니다.
