@@ -278,6 +278,13 @@ _sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
     Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
 };
 
+// With Addressables, a load that started and then failed is reported once its command is over,
+// so IsLoading is already false here and the handler may start another load.
+_sceneLoaderEventBus.OnSceneLoadFailed += info =>
+{
+    Debug.LogWarning($"Load failed: target={info.Target}, additive={info.IsAdditive}, {info.ErrorMessage}");
+};
+
 await _sceneLoader.LoadSingleSceneAsync("Main");
 await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
 ```
@@ -309,6 +316,14 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
     "https://api.example.com/data",
     cancellationToken: token,
     propagateCancellation: true);
+
+// Results carry the status code and headers of an HTTP error response, with the callback API and
+// with UniTask alike. A request that got no response, such as a refused connection, has status code 0.
+WebRequestResult<DataModel> result = await _webRequest.GetResultAsync<DataModel>("https://api.example.com/data");
+if (!result.IsSuccess && result.StatusCode == 401)
+{
+    // Sign in again, then retry.
+}
 ```
 
 ### Observable Pattern
