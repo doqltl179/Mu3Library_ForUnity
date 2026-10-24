@@ -141,6 +141,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.OnTouchBegan += OnDragStart;
             _boardArea.OnTouchMoved += OnDragging;
             _boardArea.OnTouchEnded += OnDragEnd;
+            _boardArea.OnTouchCanceled += OnDragCancel;
 
             _isBoardAreaSubscribed = true;
         }
@@ -157,6 +158,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.OnTouchBegan -= OnDragStart;
             _boardArea.OnTouchMoved -= OnDragging;
             _boardArea.OnTouchEnded -= OnDragEnd;
+            _boardArea.OnTouchCanceled -= OnDragCancel;
 
             _isBoardAreaSubscribed = false;
         }

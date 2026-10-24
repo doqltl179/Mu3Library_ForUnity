@@ -135,6 +135,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // board as it stands after the drop.
             OnItemDropped?.Invoke(item);
         }
+
+        /// <summary>
+        /// The drag was taken away before the player released it: the input was disabled, the touch vanished or
+        /// <br/> was canceled by the system, or the mouse was disconnected. That is no drop, so the held item stays
+        /// <br/> in hand where the drag last placed it.
+        /// </summary>
+        public virtual void OnDragCancel(Vector2 screenPos)
+        {
+            _boardArea?.SetBoardSpawnGuideLineVisible(false);
+        }
         #endregion
 
         /// <summary>

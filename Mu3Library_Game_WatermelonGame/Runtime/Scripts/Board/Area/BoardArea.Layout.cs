@@ -232,6 +232,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             relay.TouchBegan += screenPos => OnTouchBegan?.Invoke(screenPos);
             relay.TouchMoved += screenPos => OnTouchMoved?.Invoke(screenPos);
             relay.TouchEnded += screenPos => OnTouchEnded?.Invoke(screenPos);
+            relay.TouchCanceled += screenPos => OnTouchCanceled?.Invoke(screenPos);
 
             return relay;
         }
