@@ -20,10 +20,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         /// <summary>
         /// Where every board item sat as a fraction of the board, read right before a configuration
-        /// <br/> refits the board, in the order of <see cref="_createdItems"/>. NaN marks an item that
-        /// <br/> had no place to read.
+        /// <br/> refits the board, in the order of <see cref="_createdItems"/>. A null item is kept as
+        /// <br/> NaN, and an item above the top edge reads above 1.
         /// </summary>
         private readonly List<Vector2> _itemBoardPositions = new();
+
+        /// <summary>
+        /// The board rectangle <see cref="_itemBoardPositions"/> was measured against.
+        /// </summary>
+        private Rect _itemBoardPositionsRect;
 
         /// <summary>
         /// Applies a complete board configuration to the board and all currently active items.
@@ -180,29 +185,40 @@ namespace Mu3Library.Game.WatermelonGame.Board
         private void ReadItemBoardPositions()
         {
             _itemBoardPositions.Clear();
+            _itemBoardPositionsRect = _boardArea.LocalRect;
+
+            // Without the board rectangle there is no place to keep, and the items stay put.
+            if (!HasArea(_itemBoardPositionsRect))
+            {
+                return;
+            }
 
             for (int index = 0; index < _createdItems.Count; index++)
             {
                 BoardItem item = _createdItems[index];
-                if (item == null ||
-                    !_boardArea.TryLocalToBoardLocalNormalizedPosition(item.transform.localPosition, out Vector2 boardNormalizedPosition))
-                {
-                    // Without the board rectangle there is no place to keep, the item stays put.
-                    boardNormalizedPosition = new Vector2(float.NaN, float.NaN);
-                }
 
-                _itemBoardPositions.Add(boardNormalizedPosition);
+                // The board conversions clamp into the board, which would pull an item that is
+                // stacked above the top edge back down onto the one below it, so the place is
+                // measured against the rectangle directly.
+                _itemBoardPositions.Add(item != null
+                    ? NormalizeInRect(_itemBoardPositionsRect, item.transform.localPosition)
+                    : new Vector2(float.NaN, float.NaN));
             }
         }
 
         private void PlaceItemsOnBoardPositions()
         {
-            // The positions are only placed again on a board that still has its rectangle.
             Rect boardRect = _boardArea.LocalRect;
-            bool hasBoardRect = boardRect.width > Mathf.Epsilon && boardRect.height > Mathf.Epsilon;
 
+            // A sprite of the same size refits the board onto the same rectangle, which leaves
+            // every item where it is.
             int itemCount = Mathf.Min(_createdItems.Count, _itemBoardPositions.Count);
-            for (int index = 0; hasBoardRect && index < itemCount; index++)
+            if (!HasArea(boardRect) || boardRect == _itemBoardPositionsRect)
+            {
+                itemCount = 0;
+            }
+
+            for (int index = 0; index < itemCount; index++)
             {
                 BoardItem item = _createdItems[index];
                 Vector2 boardNormalizedPosition = _itemBoardPositions[index];
@@ -212,13 +228,22 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 }
 
                 Transform itemTransform = item.transform;
-                Vector3 localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(boardNormalizedPosition);
-                localPosition.z = itemTransform.localPosition.z;
-                itemTransform.localPosition = localPosition;
+                itemTransform.localPosition = new Vector3(
+                    boardRect.xMin + boardNormalizedPosition.x * boardRect.width,
+                    boardRect.yMin + boardNormalizedPosition.y * boardRect.height,
+                    itemTransform.localPosition.z);
             }
 
             _itemBoardPositions.Clear();
         }
+
+        private static bool HasArea(Rect rect)
+            => rect.width > Mathf.Epsilon && rect.height > Mathf.Epsilon;
+
+        private static Vector2 NormalizeInRect(Rect rect, Vector3 localPosition)
+            => new Vector2(
+                (localPosition.x - rect.xMin) / rect.width,
+                (localPosition.y - rect.yMin) / rect.height);
 
         /// <summary>
         /// The catalog entry of an item index, null when the configuration the board runs on
