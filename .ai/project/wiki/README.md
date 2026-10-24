@@ -11,7 +11,7 @@ Facts about this project only. Rules that hold for every project live in the kit
 <!-- agentkit:begin index -->
 | Page | Owns |
 |---|---|
-| [rules/package-architecture.md](rules/package-architecture.md) | Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, DI and CoreBase, project C# conventions, and the review focus for package changes |
+| [rules/package-architecture.md](rules/package-architecture.md) | Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, Unity package and built-in module declarations in package.json, DI and CoreBase, project C# conventions, and the review focus for package changes |
 | [glossary.md](glossary.md) | Approved rendering of every project term in each language, terms kept as-is, and per-locale style choices for translated text |
 | [overview.md](overview.md) | What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification |
 | [package-release.md](package-release.md) | How the three Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes |

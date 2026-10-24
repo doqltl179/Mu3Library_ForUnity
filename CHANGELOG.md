@@ -151,7 +151,7 @@ This changelog tracks package release changes only. Repository development workf
 ## [game/watermelon/0.6.0] - 2026-08-17
 
 ### Added
-- `InputHandler`: the mouse drives the same drag pipeline as a touch, so the game plays in the editor and on desktop without a touch screen.
+- `InputHandler`: the mouse drives the same drag pipeline as a touch, under a finger id reserved for it, so the game plays in the editor and on desktop without a touch screen, and a project that only ever sees touches behaves as before.
 - Tests: an edit-mode suite for `BoardCommandRunner`, registered as a testable in the WatermelonGame project alongside the Base suites.
 
 ## [base/0.24.1] - 2026-08-16
@@ -264,7 +264,7 @@ This changelog tracks package release changes only. Repository development workf
 ## [game/watermelon/0.4.0] - 2026-08-15
 
 ### Added
-- `BoardController`: Added the `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, and `OnMergeComboChanged` events, so a project can drive its UI and effects from what the board reports instead of polling it. `OnScoreAdded` carries the points a single change paid out and skips a change the zero clamp swallowed, and `OnItemRemoved` runs while the item still carries its catalog entry and its place.
+- `BoardController`: Added the `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, and `OnMergeComboChanged` events, so a project can drive its UI and effects from what the board reports instead of polling it. `OnScoreAdded` carries the points a single change paid out and skips a change the zero clamp swallowed, `OnItemRemoved` runs while the item still carries its catalog entry and its place, and `OnItemAdded` covers every item that joins the board: the player's drop, a merge, a command, and a restored snapshot alike.
 - `BoardController`: Added `HoldingNormalizedX`, the place the held item waits on as a fraction of the board area width, which is what `OnHoldingItemMoved` reports.
 - `BoardMergeInfo`: Added the merge report handed to `BoardController.OnItemMerged`, carrying the catalog index that merged, the index and the instance it became, the board-normalized position it happened at, the score it paid out, and `IsValid`.
 - `BoardController.CountMerge(BoardMergeInfo)` and `IBoardCommandContext.CountMerge(BoardMergeInfo)`: Added the merge count that reports what it merged, which every merge the board and `MergingCommand` carry out now uses. `CountMerge()` still counts a merge without detail and reports `BoardMergeInfo.Unknown`.
@@ -285,15 +285,15 @@ This changelog tracks package release changes only. Repository development workf
 - `IUpdatableBoardCommand` and `ICancelableBoardCommand`: Added optional update and cancellation contracts while keeping `IBoardCommand` minimal.
 - `BoardCommand`: Changed the base to lifecycle hooks through `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel`, and `OnDispose`, with `Complete`, `Cancel`, and `BoardCommandState`; commands with their own state machine can implement `IBoardCommand` directly.
 - `BoardCommandRunner`: Added a shared runner for the board queue, command groups, and hosts outside a board.
-- `IBoardCommandContext` and `BoardController.CommandContext`: Added the narrow board surface external commands use for item operations, score, merge count, sounds, queueing, and board state.
-- Flow commands: Added `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, and `CompositeBoardCommand`.
-- Board commands: Added `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, and `AddScoreCommand`.
-- `MergingCommand`: Changed merge execution to use `IBoardCommandContext`, so the board and external projects can use the same merge command, with protected virtual hooks for merge index, score, spawn position, and sound.
+- `IBoardCommandContext` and `BoardController.CommandContext`: Added the narrow board surface external commands use for item operations, score, merge count, sounds, queueing, and board state: `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `GetItemInfo`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, and `EnqueueCommand`, with `Area`, `Config`, `ScoreRule`, `Items`, `HoldingItem`, `ItemIndexCount`, `IsPrepared`, `IsRunning`, and `Score` to read.
+- Flow commands: Added `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, and `CompositeBoardCommand`, so board work can be ordered, paced, and grouped without a project writing its own scheduler.
+- Board commands: Added `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, and `AddScoreCommand`, which cover bonus items, clearing power-ups, a single-item promotion, a board shake, and score bonuses.
+- `MergingCommand`: Changed merge execution to use `IBoardCommandContext`, so the board and external projects can use the same merge command, with the `protected virtual` hooks `GetMergedIndex`, `GetMergeScore`, `SpawnMergedItem`, `TryGetMergedPosition`, and `PlayMergeSound` for the merged index, the score, the merged item, its position, and the sound. `BoardController.CreateMergingCommand(BoardItem, BoardItem)` is the factory to override so the whole board runs a subclass, and the pair check moved to `TryCreateMergingCommand`.
 - `MergingCommand`: Moved the command to `Board.Command.Item` and removed the old `Board.Command.Merge` namespace and folder.
 - `BoardController`: Added `AddScore`, `CountMerge`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem`, and public `GetItemInfo`; score and merge updates now use one path, and negative score changes clamp at zero.
 - `BoardItem`: Added `AddVelocity(Vector2, float)` for pushing an item without replacing its existing velocity.
 - `BoardConfig`: Added an optional `SoundConfig` that carries the board sounds: one clip per `BoardSoundType`, `GameStart`, `GameEnd`, and `ItemDrop`. Every clip can be left empty and a moment without one stays silent, so a board can be configured with only the sounds a project already has.
-- `BoardController`: Changed sound volume ownership to `SfxVolume` and `BgmVolume`, which clamp to 0–1; BGM changes apply immediately to the board-owned audio manager while an assigned manager keeps its own volume.
+- `BoardController`: Changed sound volume ownership to `SfxVolume` and `BgmVolume`, so a project sets them on the board instead of carrying them in `BoardSoundConfig`, where a volume setting the player changes could not reach them. Both clamp to 0–1; BGM changes apply immediately to the board-owned audio manager while an assigned manager keeps its own volume.
 - `BoardSoundConfig`: Added an optional BGM playlist through `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, and `BgmLoopCount`. The board starts it on game start and stops it on game end, and it only ever stops a playlist it started itself.
 - `BoardSoundConfig`: Added combo-driven merge sounds through `ItemMergeClips` and `MergeComboInterval`. The first merge plays the first clip, and every merge that lands within the interval, 5 seconds by default, steps one clip further until the last one is reached; a merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step and `PlayItemMergeSound()` is `protected virtual`.
 - `BoardController`: Added `SoundConfig`, `AudioManager`, and the `protected virtual PlayBoardSound(BoardSoundType)` hook. Board sounds go through `Mu3Library.Audio.AudioManager` instead of a second playback path built into this package. Assign the `IAudioManager` a project already runs to share it, volumes and instance limit included, and the board leaves its lifetime alone. While none is assigned the board creates one of its own with the first sound it plays, so a configuration without any clip never builds one, drives it from `Update` because it is a plain class, and disposes it with the board.
@@ -309,7 +309,7 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Added
 - `BoardArea`: Added configurable item-out line placement and board-width fitting for the optional outline sprite.
-- `BoardConfig`: Added a configurable drag-only tiled spawn guide line sprite, rendered below the spawn marker at board sorting order `+1` while the marker renders at `+2`.
+- `BoardConfig`: Added a configurable drag-only vertical tiled spawn guide line sprite. The line is one tenth of the spawn marker's width and renders below the spawn marker at board sorting order `+1` while the marker renders at `+2`.
 - `BoardController`: Added a drop interval, 0.5 seconds by default, so a touch can no longer spawn items back to back, exposed through `CanSpawnItem` and `DropCooldown`.
 - `BoardController`: Added an initial downward speed for a released item, configured as a fraction of the board area height per second. The board area follows the screen resolution, so the same push is applied on every device. `BoardItem.SetDropVelocity(Vector2)` applies it as a velocity instead of a force, because the items differ in mass.
 - `BoardController`: Added a board-relative fall acceleration, configured as a fraction of the board area height per second squared and applied through `BoardItem.GravityScale` when an item is dropped. Together with the drop speed the whole fall, and not only its start, covers the same fraction of the board in the same time on every screen resolution. Only the board items are scaled, the project gravity is never modified.
@@ -317,16 +317,15 @@ This changelog tracks package release changes only. Repository development workf
 - `BoardController`: Added `ExportSnapshot`, `ExportSnapshotJson`, and `ImportSnapshotJson` to save and restore a board, including the item in hand, the preview item, and the positions and rotations of board items.
 - `BoardConfig`: Added optional `ItemPhysicsMaterial` and `ItemRigidbodySettings` settings for the physics material, linear damping, and angular damping applied to every board item.
 - `BoardItem`: Added `PhysicsMaterial`, `LinearDamping`, and `AngularDamping` properties so board-wide physics can be configured without changing the item prefab.
-
 - `BoardController`: Added a next-item preview through `NextItemIndex`, `NextItemInfo` and `OnNextItemChanged`. The spawn rule is drawn one item ahead, so the player can see what follows the item in hand, and `HoldingItem` exposes the item in hand itself.
 - `BoardController`: Added `IsGameEndCheckPaused`, which suspends the game-end check for the drop interval after an item is released. A dropped item lands on a high stack almost immediately, so the stack now gets that time to slide into place before it is judged.
 
 ### Changed
 - `BoardController`: Board configuration now goes through validated `SetBoardConfig(BoardConfig)` (`SetBoareConfig` remains as a compatibility alias), updating active and held items atomically, including their scale and board-relative physics.
 - `BoardItemsConfig`: Catalog entries beyond the eleven default fruits are now preserved for future rules, while the default spawn and merge rules remain limited to those eleven entries.
-- `BoardController`: Merge matching now groups active items by index before checking contacts, and board child renderers and out colliders are cached during layout rebuilds.
+- `BoardController`: Merge matching now groups active items by index before checking contacts, which skips comparing unrelated pairs and allocates no groups per frame after warmup, and board child renderers and out colliders are cached during layout rebuilds.
 - `BoardArea`: Local board bounds now remain correct for camera-aligned and tilted board planes while the public world XY bounds API is retained.
-- `WatermelonGame` sample: Preparation now validates and caches its dependencies, and game start is triggered only after a successful board preparation.
+- `WatermelonGame` sample: Preparation now validates and caches its dependencies, so a missing scene or configuration dependency no longer reports a prepared board, and game start is triggered only after a successful board preparation. The sample board is configured with its item-out line and spawn-marker images.
 - `BoardItemInfo`: Increased the default collider diameter ratio from `0.96` to `0.98` so fruit contacts better match the configured sprite size.
 - `BoardController`: The item to drop now waits at the top of the board as soon as the drop interval has passed, instead of being created on the next touch. It waits where the previous item was dropped from, and a touch only picks it up.
 - `BoardArea`: Split the component into single-purpose parts under `Board/Area` — `BoardAreaBoundsCalculator` measures the board rectangle, `BoardAreaCoordinateConverter` converts positions, `BoardAreaView` draws the board and the item-out line, `BoardAreaOutColliders` keeps the items inside, and `BoardAreaInputRelay` reports the touches that belong to the board, with the rectangle itself carried by the new `BoardAreaBounds` and `CoordinateBounds` types. The component keeps its public API and only forwards to those parts.
@@ -336,12 +335,13 @@ This changelog tracks package release changes only. Repository development workf
 - Merge effects: Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures. The prefabs were saved in the legacy Unity 5 prefab format, so their `ParticleSystemRenderer` had no `serializedVersion`, was missing most of its fields, and held a null material at index 0; instantiating one crashed the Editor natively in `ParticleSystemRenderer::PrepareForRender` on the first merge.
 
 ### Fixed
-- `BoardArea`: The spawn guide line now appears when a drag began during the drop cooldown and the held item becomes available afterward, and its board-relative dimensions are applied through transform scale.
+- `BoardArea`: The spawn guide line now appears when a drag began during the drop cooldown and the held item becomes available afterward, and its board-relative dimensions are applied through transform scale; applied through `SpriteRenderer.size`, they made the line disappear.
 - `MergingCommand`: Merge reservations are released for invalid, canceled, and failed commands without mutating a pooled item that has already been reused.
 - `BoardItem`: Pooled instances now reset their presentation, collider, physics, support, and merge state before reuse.
 - `InputHandler`: Touch moves and ends now stay tied to the finger that began the drag.
 - `BoardArea`: `CalculateBounds(Camera, float)` and `CalculateBounds(Camera, Vector2, float)` now use the aspect ratio they are given, they always fell back to the board sprite's own ratio.
-- `BoardController`: Game-end detection now ends the game when an item whose top edge is above the board line rests on the board floor or on other items. Items are always placed above the line, so an item that has not landed yet is excluded through its falling state. The side walls are never treated as a support.
+- `BoardController`: Game-end detection now ends the game when an item whose top edge is above the board line rests on the board floor or on other items. Items are always placed above the line, so an item that has not landed yet is excluded through its falling state. The side walls are never treated as a support, and the item-out line is now display only.
+- `BoardItem`: A fall now ends only on the board floor or on another item. Brushing a side wall counted as landing, so items stacked against a wall ended the game too early.
 - `BoardController`: Merging items stay registered on the board until their command completes and the same item can no longer be registered twice, so preparing the board again collects every item instead of leaking it or leaving stale duplicates that grew the board without bound. Renamed the misspelled `OnDestory` so commands are actually disposed.
 - `MergingCommand`: A merge can no longer start or complete more than once, and never completes after the command has been disposed.
 
@@ -349,6 +349,7 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Added
 - `BoardItemInfo`: Added optional `ParticleHandler` resources for merge effects and automatic cleanup after spawned effects complete.
+- Watermelon Game sample: Added static merge VFX textures and the `WatermelonMergingEffect` / `WatermelonMergedEffect` prefabs, wired through `BoardConfig`.
 
 ### Fixed
 - `MergingCommand`: Null merge effects are skipped instead of stopping the full merge command.

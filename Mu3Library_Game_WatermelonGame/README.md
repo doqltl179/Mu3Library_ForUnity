@@ -16,6 +16,8 @@ The board refuses a configuration until each of the first eleven item entries ca
 
 Merge sounds follow the combo: the first merge plays the first clip of `ItemMergeClips`, and every merge that lands within `MergeComboInterval` (5 seconds by default) of the one before it steps one clip further, stopping at the last one. A merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step, and `PlayBoardSound(BoardSoundType)` / `PlayItemMergeSound()` are `protected virtual`.
 
+The combo counts every merge whether or not the configuration carries merge sounds, so `OnMergeComboChanged` reports it on a silent board as well: the first merge reports 0, and `Prepare` reports -1 when it drops a running combo. The step climbs no further than the last entry of `ItemMergeClips`, empty slots included, so it stays at 0 while that list holds one entry or none; a board that shows a longer combo without sounds fills the list with that many empty slots. The end of the combo interval is not reported by itself: the next merge after it starts over at 0, which is reported only when the step was above 0.
+
 Board sounds are played through `Mu3Library.Audio.AudioManager`. `BoardController.AudioManager` accepts the `IAudioManager` a project already runs, which the board then shares without touching its lifetime or its volumes. While none is assigned the board creates one of its own with the first sound it plays, drives it from `Update`, applies `BoardController.BgmVolume` to it, and disposes it with the board.
 
 The volumes are not part of the configuration; the project sets them on the board. `BoardController.SfxVolume` (1 by default) is passed to the audio manager per sound, which scales it with its own SFX and master volume, so it works on a shared manager as well. `BoardController.BgmVolume` (0.8 by default) is only applied to the audio manager the board created for itself, and takes effect right away while that one is playing; an assigned manager keeps the BGM volume the project set on it. Both clamp to 0 to 1.
@@ -38,7 +40,7 @@ The volumes are not part of the configuration; the project sets them on the boar
 | `OnItemDropped` | The item the player released, already falling and counted. |
 | `OnItemAdded` / `OnItemRemoved` | An item that joined or left the board, whoever put it there. A removed item still carries its catalog entry and its place while the event runs. |
 | `OnItemMerged` | A `BoardMergeInfo`: the entry that merged, the entry it became, the item it became, where it happened, and the points it paid. |
-| `OnMergeComboChanged` | The merge combo step, -1 when the combo is dropped. |
+| `OnMergeComboChanged` | The merge combo step, also on a board without merge sounds; -1 when the combo is dropped. |
 | `OnCommandEnqueued` / `OnCommandFinished` / `OnCommandFailed` | The board command that was taken, finished, or threw. |
 
 ```csharp
@@ -168,12 +170,24 @@ inputHandler.DragStartFilter += screenPosition => !pauseMenu.IsOpen;
 
 A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, and drive the handler from another input source by overriding `IsMousePresent`, `MousePosition`, `GetMouseButtonDown()`, `GetMouseButton()`, `TouchCount`, and `GetTouch(int)` together. `BoardArea` uses a subclass that is already on its GameObject instead of adding an `InputHandler`.
 
-## Import
+## Install
 
-Add this package to a project that already references `Mu3Library_Base` and `Mu3Library_URP`:
+The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
+
+```text
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<base-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<urp-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<watermelon-version>
+```
+
+The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
+
+The development projects in this repository reference the package folder by a relative path instead, which resolves only from a `UnityProject_*` folder of this repository:
 
 ```json
 "com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
 ```
+
+## Sample
 
 Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background and board-guide images, sample manager/core scripts, and playable `Demo` scene.

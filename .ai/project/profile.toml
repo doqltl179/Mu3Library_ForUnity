@@ -61,6 +61,8 @@ disabled = ["schema-migration", "accessibility-review-perform", "security-review
 
 [stack_paths]
 # The packages live at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
+# "**/*.asmref" and "Mu3Library_*/Documentation~/**" match no tracked file today. They are intentional: they keep the
+# file kinds the packs cover by default routed to the pack, so the first assembly reference or package manual is too.
 unity = ["Mu3Library_*/**/*.cs", "UnityProject_*/Assets/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
 unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Library_*/**/*.asmdef", "Mu3Library_*/Samples~/**", "Mu3Library_*/Documentation~/**"]
 
@@ -77,15 +79,15 @@ commands = ["build"]
 notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.graphics-engineer]
-paths = ["Mu3Library_URP/Runtime/**"]
+paths = ["Mu3Library_URP/Runtime/**", "Mu3Library_URP/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
-notes = "The URP package: camera, screen effects, renderer features, and shaders."
+commands = ["build", "test"]
+notes = "The URP package: camera, screen effects, renderer features, and shaders. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.optional-integration-engineer]
-paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**"]
+paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**", "Mu3Library_Base/Runtime/Scripts/Notifications/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
+commands = ["build", "test"]
 
 [bindings.sample-integrity-engineer]
 paths = ["Mu3Library_*/Samples~/**"]

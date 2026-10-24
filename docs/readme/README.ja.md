@@ -44,6 +44,7 @@
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
 - 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper、プレイ可能な sample scene を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
+
 ## 📋 要件
 
 - Unity 6.3 (6000.3+)
@@ -61,7 +62,12 @@
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
+
+    # Watermelon Game パッケージ（先に Base と URP をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.6.0
    ```
+
+パッケージは Base、URP、Watermelon Game の順にインストールしてください。URP は Base に、Watermelon Game はその両方に依存します。
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
@@ -234,7 +240,12 @@ void Start()
     _audioManager.PlayBgm(bgmClip);
 
     // SFX再生
-    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+    _audioManager.PlaySfx(sfxClip);
+
+    // 既定の SFX 設定をもとに、この効果音だけの音量で再生
+    AudioSourceSettings sfxSettings = AudioSourceSettings.SfxStandard;
+    sfxSettings.Volume = 0.5f;
+    _audioManager.PlaySfx(sfxClip, sfxSettings);
 }
 ```
 
@@ -428,7 +439,7 @@ URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` が `SetCameraStackToMain(...)` と `SetCameraStack(...)` helper を提供し、任意の URP overlay camera を `Camera.main` または明示的な root camera stack に挿入しつつ、必要に応じて挿入 index を制御できます。
 
-Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
+Watermelon Game パッケージ (**Mu3 Library Game - Watermelon**):
 - **Watermelon Game**: 設定可能なボード、フルーツ sprite、sample manager/core script を含むプレイ可能な 2D 落下フルーツマージ scene
 - **Fruit item indexes**: ボード設定は常に11個のフルーツ項目を含み、0始まりのリスト index でアクセスします。
 - **Item contact area**: board 基準の resize が item collider の大きさを合わせるため、どの `BoardConfig` でも item index ごとの接触領域は同じです。`BoardItemInfo.ColliderScale` は collider が sprite に占める割合を、`BoardItemInfo.ColliderOffset` は collider 直径に対する比率でその中心を決め、sprite は collider を包むように描かれます。
@@ -438,7 +449,7 @@ Watermelon Game パッケージ (**Mu3 Library Watermelon Game**):
 - **Board input**: `InputHandler` は、Input System パッケージがインストールされていて Active Input Handling がそのバックエンドを有効にしていれば Input System を、それ以外は Input Manager を読みます。UI の上で押した入力はドラッグを始めず、`InputHandler.DragStartFilter` でプロジェクト独自のルールにより押下を止められ、離す前に取り上げられたドラッグは保持中のアイテムを手に残したままキャンセルされます。
 - **Merge effects**: `BoardItemInfo` は任意の merge effect 用 `ParticleHandler` resource をサポートし、完了した生成 effect instance を自動的に cleanup します。
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)` を override して標準の三角数 score progression をカスタマイズできます。
-- **Board commands**: `BoardController.EnqueueCommand(...)` で公開 command queue を使い、`IUpdatableBoardCommand` / `ICancelableBoardCommand` と `BoardCommand` の lifecycle hook でフレーム単位の実行・cancel を組み立てられます。`BoardController.CommandContext` は外部 command が item・score・sound に触れるための狭い surface を提供し、Flow / Item / Score command と `MergingCommand` も用意されています。
+- **Board commands**: `BoardController.EnqueueCommand(...)` は board の公開 command queue に command を追加します。`IUpdatableBoardCommand` と `ICancelableBoardCommand` により command をフレーム単位で実行し、キャンセルでき、`BoardCommand` はその両方を lifecycle hook の上に組み立てます。`BoardController.CommandContext` は外部 command が item・score・sound に触れるための狭い surface で、package は `MergingCommand` を含む Flow / Item / Score command を用意しています。
 - **Board sound volumes**: `BoardController.SfxVolume` と `BoardController.BgmVolume` で `BoardConfig.SoundConfig` とは別に board の再生 volume を設定でき、両方とも 0–1 に clamp されます。
 - **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
 
@@ -458,7 +469,8 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
 - Localization: Locales（KO/JA/EN）、String Tableサンプル
 - Resources: MVPサンプル用のPrefabと設定
-- Materials: デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）
+
+デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）は Template サンプルには含まれていません。Base パッケージのランタイムとして `Mu3Library_Base/Runtime/Materials/` に同梱されているため、Base をインストールした時点で `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` から使えます。
 
 ## 🏗 アーキテクチャ概要
 
@@ -486,7 +498,7 @@ protected override void Start()
     _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
 }
 
-// 方法2: Inject属性（CoreBase専用）
+// 方法2: Inject属性（Core、登録済みサービス、presenterで使用可能）
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
@@ -514,10 +526,8 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.22.0`
-- このリポジトリ上の現在の URP パッケージ版: `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
-- リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
+- [変更履歴](../changelog/CHANGELOG.ja.md)には、すべてのパッケージバージョンのリリースノートがパッケージとバージョンごとの見出しの下に、まだリリースされていない変更が Unreleased の下にあります。
+- インストール方法のインストール URL は、各パッケージの最新リリースタグを指します。各パッケージのバージョンと依存関係は、そのパッケージの `package.json` にあります。
 
 ## 🤝 貢献
 
@@ -537,8 +547,9 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- Base: `com.github.doqltl179.mu3library.base`
+- URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
+- バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)
 
 Unity開発者のために制作

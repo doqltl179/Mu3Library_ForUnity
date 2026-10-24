@@ -149,7 +149,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ## [game/watermelon/0.6.0] - 2026-08-17
 
 ### 추가됨
-- `InputHandler`: 마우스가 터치와 같은 드래그 파이프라인을 움직입니다. 터치 스크린이 없는 에디터와 데스크톱에서도 게임이 플레이됩니다.
+- `InputHandler`: 마우스가 자신에게 예약된 finger id로 터치와 같은 드래그 파이프라인을 움직입니다. 터치 스크린이 없는 에디터와 데스크톱에서도 게임이 플레이되며, 터치만 받는 프로젝트는 이전과 같이 동작합니다.
 - 테스트: `BoardCommandRunner`의 EditMode 테스트가 추가되었고, Base 테스트와 함께 WatermelonGame 프로젝트에 testable로 등록되었습니다.
 
 ## [base/0.24.1] - 2026-08-16
@@ -262,7 +262,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ## [game/watermelon/0.4.0] - 2026-08-15
 
 ### 추가됨
-- `BoardController`: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, `OnMergeComboChanged` event를 추가했습니다. 외부 프로젝트가 board를 polling 하지 않고 UI와 연출을 갱신할 수 있습니다. `OnScoreAdded`는 한 번의 변경이 실제로 지급한 점수를 전달하며 0으로 clamp 되어 변화가 없는 경우에는 발생하지 않고, `OnItemRemoved`는 item이 아직 catalog 정보와 위치를 유지한 상태에서 호출됩니다.
+- `BoardController`: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged`, `OnMergeComboChanged` event를 추가했습니다. 외부 프로젝트가 board를 polling 하지 않고 UI와 연출을 갱신할 수 있습니다. `OnScoreAdded`는 한 번의 변경이 실제로 지급한 점수를 전달하며 0으로 clamp 되어 변화가 없는 경우에는 발생하지 않고, `OnItemRemoved`는 item이 아직 catalog 정보와 위치를 유지한 상태에서 호출되며, `OnItemAdded`는 플레이어의 drop, 병합, command, 복원된 snapshot을 가리지 않고 board에 들어오는 모든 item에 대해 발생합니다.
 - `BoardController`: 들고 있는 item이 대기하는 위치를 board 영역 너비 비율로 읽는 `HoldingNormalizedX`를 추가했습니다. `OnHoldingItemMoved`가 전달하는 값과 같습니다.
 - `BoardMergeInfo`: `BoardController.OnItemMerged`로 전달되는 merge 정보를 추가했습니다. 합쳐진 catalog index, 생성된 index와 instance, board 정규화 위치, 지급 점수, `IsValid`를 담습니다.
 - `BoardController.CountMerge(BoardMergeInfo)`와 `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 내용을 함께 보고하는 merge 집계를 추가했습니다. board와 `MergingCommand`가 수행하는 모든 merge가 이 경로를 사용합니다. 기존 `CountMerge()`는 내용 없이 집계하며 `BoardMergeInfo.Unknown`을 보고합니다.
@@ -283,10 +283,10 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `IUpdatableBoardCommand`와 `ICancelableBoardCommand`를 커맨드 계약의 선택적 부분으로 추가했습니다. `IBoardCommand`는 최소 계약으로 유지하면서 프레임 업데이트와 사전 취소를 지원합니다.
 - `BoardCommand`를 `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel`, `OnDispose` hook과 `Complete`, `Cancel` 전환, `BoardCommandState` 상태를 제공하는 lifecycle base로 변경했습니다. 자체 상태 머신이 필요한 커맨드는 `IBoardCommand`를 직접 구현할 수 있습니다.
 - `BoardCommandRunner`를 추가해 선택적 계약을 포함한 단일 커맨드를 실행하며, 보드 큐·커맨드 그룹·보드 외부 host가 공유하도록 했습니다.
-- `IBoardCommandContext`와 `BoardController.CommandContext`를 추가했습니다. 외부 커맨드는 이 표면을 통해 아이템 생성·교체·삭제, 점수·병합 카운트, 사운드, 큐와 보드 상태를 사용합니다.
-- `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, `CompositeBoardCommand` flow 커맨드를 추가해 보드 작업을 순서화·지연·그룹화할 수 있습니다.
+- `IBoardCommandContext`와 `BoardController.CommandContext`를 추가했습니다. 외부 커맨드는 이 표면을 통해 아이템 생성·교체·삭제, 점수·병합 카운트, 사운드, 큐와 보드 상태를 사용합니다. 표면은 `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `GetItemInfo`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`와 읽기용 `Area`, `Config`, `ScoreRule`, `Items`, `HoldingItem`, `ItemIndexCount`, `IsPrepared`, `IsRunning`, `Score`로 이루어집니다.
+- `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand`, `CompositeBoardCommand` flow 커맨드를 추가해 프로젝트가 자체 스케줄러를 작성하지 않고도 보드 작업을 순서화·지연·그룹화할 수 있습니다.
 - 보너스 아이템, 삭제 power-up, 단일 아이템 승급, 보드 흔들기, 점수 보너스를 위한 `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand`, `AddScoreCommand`를 추가했습니다.
-- `MergingCommand`가 보드가 전달한 두 callback을 실행하는 대신 `IBoardCommandContext`를 통해 병합 자체를 수행하도록 변경했습니다. 보드가 찾은 쌍과 프로젝트가 선택한 쌍에 같은 커맨드를 사용할 수 있고, 병합 index·점수·생성 위치·사운드 hook은 `protected virtual`로 확장할 수 있습니다.
+- `MergingCommand`가 보드가 전달한 두 callback을 실행하는 대신 `IBoardCommandContext`를 통해 병합 자체를 수행하도록 변경했습니다. 보드가 찾은 쌍과 프로젝트가 선택한 쌍에 같은 커맨드를 사용할 수 있고, 병합 결과 index, 점수, 병합된 아이템 생성, 그 위치, 사운드는 `protected virtual` hook `GetMergedIndex`, `GetMergeScore`, `SpawnMergedItem`, `TryGetMergedPosition`, `PlayMergeSound`로 확장할 수 있습니다. 보드 전체가 서브클래스를 쓰게 하려면 팩토리 `BoardController.CreateMergingCommand(BoardItem, BoardItem)`를 override하며, 쌍 검사는 `TryCreateMergingCommand`로 옮겼습니다.
 - `MergingCommand`를 다른 아이템 커맨드와 함께 `Board.Command.Item`으로 이동하고 `Board.Command.Merge` namespace와 폴더를 제거했습니다.
 - `BoardController.AddScore(int)`, `CountMerge()`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem(BoardItem)`, public `GetItemInfo(int)`를 추가했습니다. 모든 점수 변경과 병합 카운트가 한 경로를 사용하며 음수 점수는 0 아래로 내려가지 않습니다.
 - `BoardItem.AddVelocity(Vector2, float)`를 추가해 보드에 이미 놓인 아이템의 기존 속도를 유지하면서 밀어낼 수 있습니다.
@@ -294,7 +294,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardSoundConfig`: `BgmClips`, `BgmShuffle`, `BgmTrackInterval`, `BgmLoopCount`로 구성되는 선택적 BGM 플레이리스트를 추가했습니다. 게임 시작에 재생을 시작하고 게임 종료에 정지하며, 보드가 직접 시작한 플레이리스트만 정지합니다.
 - `BoardSoundConfig`: `ItemMergeClips`와 `MergeComboInterval`로 연속 머지에 따라 달라지는 머지 효과음을 추가했습니다. 첫 머지는 첫 클립을 재생하고, 해당 간격(기본 5초) 안에 이어지는 머지마다 인덱스가 하나씩 올라가 마지막 클립에서 멈춥니다. 간격을 넘겨 발생한 머지는 연속성을 처음부터 다시 시작합니다. 현재 단계는 `BoardController.MergeComboIndex`로 확인할 수 있고 `PlayItemMergeSound()`는 `protected virtual`입니다.
 - `BoardController`: `SoundConfig`, `AudioManager`와 `protected virtual PlayBoardSound(BoardSoundType)` 훅을 추가했습니다. 이 패키지에 재생 경로를 따로 만들지 않고 보드 사운드를 `Mu3Library.Audio.AudioManager`로 재생합니다. 프로젝트가 이미 사용 중인 `IAudioManager`를 지정하면 동시 재생 개수 설정을 그대로 공유하며, 보드는 그 수명과 볼륨에 관여하지 않습니다. 지정하지 않으면 보드가 실제로 재생하는 첫 사운드에서 자체 인스턴스를 만들어(클립이 하나도 없는 설정에서는 생성되지 않습니다) `Update`에서 직접 구동하고, 보드와 함께 정리합니다.
-- `BoardController`: 보드 사운드 볼륨을 `SfxVolume`과 `BgmVolume`으로 이동했습니다. 두 값은 0–1 범위로 제한되며, `BgmVolume`은 보드가 소유한 오디오 매니저에 즉시 반영됩니다.
+- `BoardController`: 보드 사운드 볼륨을 `SfxVolume`과 `BgmVolume`으로 이동했습니다. 플레이어가 바꾸는 볼륨 설정이 닿지 않던 `BoardSoundConfig`에 두는 대신 프로젝트가 보드에서 직접 설정합니다. 두 값은 0–1 범위로 제한되며, `BgmVolume`은 보드가 소유한 오디오 매니저에 즉시 반영되고, 지정된 매니저는 자기 볼륨을 그대로 유지합니다.
 
 ### 변경됨
 - `BoardArea`: spawn guide line의 가로 크기를 spawn marker 가로의 1/10에서 2/5로 변경했습니다. board 가로 기준으로는 1/25입니다.
@@ -307,7 +307,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 추가됨
 - `BoardArea`: 선택적 아웃라인 스프라이트를 설정된 보드 폭에 맞추고 아이템 초과 경계에 배치하는 기능을 추가했습니다.
-- `BoardConfig`: 드래그 중에만 보이는 타일 방식 spawn guide line 스프라이트 설정을 추가했습니다. guide line은 보드 sorting order `+1`, spawn marker는 `+2`로 렌더링됩니다.
+- `BoardConfig`: 드래그 중에만 보이는 세로 타일 방식 spawn guide line 스프라이트 설정을 추가했습니다. guide line의 폭은 spawn marker 폭의 1/10이며, guide line은 보드 sorting order `+1`, spawn marker는 `+2`로 렌더링됩니다.
 - `BoardController`: 아이템 생성 간격(기본 0.5초)을 추가해 터치할 때마다 아이템이 연속으로 생성되지 않게 했으며, `CanSpawnItem`과 `DropCooldown`으로 상태를 확인할 수 있습니다.
 - `BoardController`: 아이템을 놓는 순간 아래 방향으로 가해지는 초기 속도를 추가했습니다. 이 값은 초당 board area 높이의 비율로 설정되며, board area는 화면 해상도에 따라 크기가 달라지므로 어떤 기기에서도 동일한 힘이 적용됩니다. 아이템마다 질량이 다르므로 `BoardItem.SetDropVelocity(Vector2)`는 힘이 아닌 속도로 적용합니다.
 - `BoardController`: 낙하 가속도를 board area 높이 대비 비율(초 제곱당)로 설정하고, 아이템을 놓을 때 `BoardItem.GravityScale`로 적용하도록 추가했습니다. 초기 속도와 함께 적용되어 낙하의 시작뿐 아니라 전 구간이 어떤 해상도에서도 보드 대비 같은 비율을 같은 시간에 이동합니다. 보드 아이템만 조정하며 프로젝트 중력 설정은 변경하지 않습니다.
@@ -315,16 +315,15 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - `BoardController`: 들고 있는 아이템, 미리보기 아이템, 보드 아이템의 위치와 회전을 포함해 보드를 저장·복원하는 `ExportSnapshot`, `ExportSnapshotJson`, `ImportSnapshotJson`을 추가했습니다.
 - `BoardConfig`: 모든 보드 아이템에 적용할 물리 머티리얼, 선형 감쇠, 각 감쇠를 설정하는 선택적 `ItemPhysicsMaterial`과 `ItemRigidbodySettings`를 추가했습니다.
 - `BoardItem`: 아이템 프리팹을 변경하지 않고 보드 전체 물리를 설정할 수 있도록 `PhysicsMaterial`, `LinearDamping`, `AngularDamping` 프로퍼티를 추가했습니다.
-
 - `BoardController`: 다음 아이템 미리보기를 `NextItemIndex`, `NextItemInfo`, `OnNextItemChanged`로 추가했습니다. spawn rule에서 한 개를 미리 뽑아두므로 현재 들고 있는 아이템 다음에 무엇이 나올지 확인할 수 있으며, 들고 있는 아이템 자체는 `HoldingItem`으로 노출됩니다.
 - `BoardController`: 아이템을 놓은 뒤 drop interval 동안 게임 종료 판정을 중단하는 `IsGameEndCheckPaused`를 추가했습니다. 아이템이 높이 쌓인 상태에서는 낙하 아이템이 거의 즉시 착지 판정을 받기 때문에, 이제 그 시간 동안 아이템이 미끄러져 자리를 잡은 뒤에 판정합니다.
 
 ### 변경됨
 - `BoardController`: 보드 설정을 검증된 `SetBoardConfig(BoardConfig)` 경계로 적용하도록 변경했습니다(`SetBoareConfig`은 호환성 별칭으로 유지). 활성 및 보유 아이템의 크기와 보드 기준 물리를 원자적으로 갱신합니다.
 - `BoardItemsConfig`: 11개 기본 과일 이후의 카탈로그 항목을 향후 규칙을 위해 보존하며, 기본 생성·병합 규칙은 11개 항목만 사용하도록 변경했습니다.
-- `BoardController`: 병합 후보를 접촉 확인 전에 인덱스별로 그룹화하고, 레이아웃 재구성 중 보드 자식 렌더러와 초과 경계 콜라이더를 캐시하도록 변경했습니다.
+- `BoardController`: 병합 후보를 접촉 확인 전에 인덱스별로 그룹화해 관계없는 쌍을 비교하지 않고 warmup 이후에는 프레임마다 그룹을 할당하지 않게 했으며, 레이아웃 재구성 중 보드 자식 렌더러와 초과 경계 콜라이더를 캐시하도록 변경했습니다.
 - `BoardArea`: 공개 world XY bounds API는 유지하면서 카메라 정렬 또는 기울어진 보드 평면에서도 로컬 보드 bounds가 올바르게 계산되도록 변경했습니다.
-- `WatermelonGame` 샘플: 의존성을 검증·캐시하고 보드 준비가 성공한 뒤에만 게임을 시작하도록 변경했습니다.
+- `WatermelonGame` 샘플: 의존성을 검증·캐시해 씬이나 설정 의존성이 없으면 보드가 준비되었다고 알리지 않고, 보드 준비가 성공한 뒤에만 게임을 시작하도록 변경했습니다. 샘플 보드에 아이템 초과 경계선과 spawn marker 이미지를 설정했습니다.
 - `BoardItemInfo`: 과일 접촉이 설정된 스프라이트 크기에 더 잘 맞도록 기본 콜라이더 지름 비율을 `0.96`에서 `0.98`로 변경했습니다.
 - `BoardController`: 떨어뜨릴 아이템이 터치 시점이 아니라 drop interval이 끝나는 즉시 보드 상단에서 대기하도록 변경했습니다. 직전 아이템을 떨어뜨린 위치에서 대기하며, 터치는 그 아이템을 집어 옮기기만 합니다.
 - `BoardArea`: 컴포넌트를 `Board/Area` 아래의 단일 책임 파트로 분할했습니다. `BoardAreaBoundsCalculator`는 보드 사각형을 계산하고, `BoardAreaCoordinateConverter`는 좌표를 변환하며, `BoardAreaView`는 보드와 아이템 기준선을 그리고, `BoardAreaOutColliders`는 아이템을 보드 안에 가두며, `BoardAreaInputRelay`는 보드에 속한 터치만 전달합니다. 사각형 자체는 새로 추가한 `BoardAreaBounds`와 `CoordinateBounds` 타입이 담습니다. 컴포넌트의 공개 API는 그대로이며 각 파트로 위임만 합니다.
@@ -334,12 +333,13 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 병합 이펙트: `BoardItemInfo.MergingEffect` / `MergedEffect`, `MergingCommand`의 이펙트 재생, 그리고 샘플의 병합 이펙트 프리팹·머티리얼·텍스처를 제거했습니다. 해당 프리팹은 Unity 5 시절의 레거시 프리팹 포맷으로 저장되어 `ParticleSystemRenderer`에 `serializedVersion`이 없고 대부분의 필드가 누락되었으며 0번 머티리얼이 null이었습니다. 이로 인해 첫 병합에서 이펙트가 생성되는 순간 `ParticleSystemRenderer::PrepareForRender`에서 에디터가 네이티브 크래시로 종료됐습니다.
 
 ### 수정됨
-- `BoardArea`: drop cooldown 중 시작한 드래그에서 보유 아이템이 준비된 뒤에도 guide line이 표시되도록 수정했으며, guide line의 보드 기준 크기를 renderer size가 아닌 transform scale로 적용하도록 수정했습니다.
+- `BoardArea`: drop cooldown 중 시작한 드래그에서 보유 아이템이 준비된 뒤에도 guide line이 표시되도록 수정했으며, guide line의 보드 기준 크기를 transform scale로 적용하도록 수정했습니다. `SpriteRenderer.size`로 적용하면 guide line이 사라졌습니다.
 - `MergingCommand`: 유효하지 않거나 취소·실패한 커맨드의 병합 예약을 해제하되, 이미 재사용된 풀 아이템은 변경하지 않도록 수정했습니다.
 - `BoardItem`: 풀에서 재사용되는 인스턴스가 다시 초기화되기 전에 표시, 콜라이더, 물리, 지지, 병합 상태를 초기화하도록 수정했습니다.
 - `InputHandler`: 터치 이동과 종료가 드래그를 시작한 손가락에 계속 연결되도록 수정했습니다.
 - `BoardArea`: `CalculateBounds(Camera, float)`와 `CalculateBounds(Camera, Vector2, float)`가 전달받은 aspect ratio를 실제로 사용하도록 수정했습니다. 기존에는 항상 보드 스프라이트의 비율로 대체되었습니다.
-- `BoardController`: 게임 종료 판정을 접촉 기반으로 수정했습니다. 상단이 보드 라인을 넘은 아이템이 바닥 또는 다른 아이템에 지지되어 있으면 게임을 종료합니다. 아이템은 항상 라인 위에 놓이므로 아직 착지하지 않은 아이템은 낙하 상태로 제외되며, 좌우 벽은 지지 대상에서 제외됩니다.
+- `BoardController`: 게임 종료 판정을 접촉 기반으로 수정했습니다. 상단이 보드 라인을 넘은 아이템이 바닥 또는 다른 아이템에 지지되어 있으면 게임을 종료합니다. 아이템은 항상 라인 위에 놓이므로 아직 착지하지 않은 아이템은 낙하 상태로 제외되며, 좌우 벽은 지지 대상에서 제외됩니다. 아이템 초과 경계선은 이제 표시용일 뿐입니다.
+- `BoardItem`: 낙하가 보드 바닥이나 다른 아이템 위에서만 끝나도록 수정했습니다. 옆 벽을 스치기만 해도 착지로 판정되어, 벽에 붙어 쌓인 아이템이 게임을 너무 일찍 끝냈습니다.
 - `BoardController`: 병합 중인 아이템이 커맨드 완료까지 보드에 등록된 상태를 유지하고 동일 아이템이 중복 등록되지 않도록 수정해, 보드를 다시 준비할 때 모든 아이템이 회수됩니다. 기존에는 아이템이 누락되거나 중복 항목이 남아 보드가 무한히 증가했습니다. 오타였던 `OnDestory`를 수정해 커맨드가 실제로 해제되게 했습니다.
 - `MergingCommand`: 병합이 두 번 이상 시작되거나 완료되지 않으며, 커맨드 해제 후에는 완료되지 않도록 수정했습니다.
 
@@ -347,6 +347,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 추가됨
 - `BoardItemInfo`: 병합 효과용 선택적 `ParticleHandler` 리소스와 생성된 효과 완료 후 자동 정리를 추가했습니다.
+- Watermelon Game 샘플: 정적 병합 VFX 텍스처와 `WatermelonMergingEffect` / `WatermelonMergedEffect` 프리팹을 추가하고 `BoardConfig`로 연결했습니다.
 
 ### 수정됨
 - `MergingCommand`: null 병합 효과를 만나도 전체 병합 명령을 중단하지 않고 건너뛰도록 수정했습니다.
