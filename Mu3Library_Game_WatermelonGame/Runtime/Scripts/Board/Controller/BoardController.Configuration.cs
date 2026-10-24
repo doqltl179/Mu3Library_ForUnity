@@ -14,6 +14,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public BoardConfig Config => _boardConfig;
 
         /// <summary>
+        /// Reused by <see cref="IsCompleteBoardConfig"/> to name the entries a configuration lacks.
+        /// </summary>
+        private readonly List<int> _incompleteItemIndices = new();
+
+        /// <summary>
         /// Applies a complete board configuration to the board and all currently active items.
         /// The configuration is validated before any visible or physical state is changed.
         /// </summary>
@@ -78,13 +83,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
-            for (int index = 0; index < BoardItemsConfig.FruitItemCount; index++)
+            // An entry without a sprite would make an item with no size, so the configuration is
+            // refused here rather than on the first item that draws the entry.
+            if (!itemConfig.IsComplete(_incompleteItemIndices))
             {
-                if (!itemConfig.TryGetInfoByIndex(index, out BoardItemInfo itemInfo) || itemInfo == null)
-                {
-                    Debug.LogError($"Board configuration is missing item info at index {index}.", config);
-                    return false;
-                }
+                Debug.LogError(
+                    $"Board configuration '{config.name}' cannot make the items at index {string.Join(", ", _incompleteItemIndices)}: " +
+                    $"each of the first {BoardItemsConfig.FruitItemCount} item entries needs a sprite.",
+                    config);
+                return false;
             }
 
             return true;
