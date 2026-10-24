@@ -18,6 +18,7 @@ namespace Mu3Library.URP.ScreenEffect
         internal IReadOnlyList<Shader> Shaders => _shaders;
 
         private static ScreenEffectShaders s_loaded = null;
+        private static readonly HashSet<string> s_reportedMissingShaders = new HashSet<string>();
 
 
 
@@ -42,6 +43,23 @@ namespace Mu3Library.URP.ScreenEffect
             return Shader.Find(shaderName);
         }
 
+        /// <summary>
+        /// Logs that a shader could not be found, once per shader name until the next play session,
+        /// however many passes, cameras, and frames ask for it.
+        /// </summary>
+        internal static void ReportMissing(string shaderName)
+        {
+            if (!s_reportedMissingShaders.Add(shaderName ?? string.Empty))
+            {
+                return;
+            }
+
+            Debug.LogError(
+                $"Shader not found. path: {shaderName}\n" +
+                "The screen effect that uses it draws nothing. A player finds only shaders that its build includes: " +
+                "reference the shader from an asset the build includes, or add it to Always Included Shaders in Graphics settings.");
+        }
+
         internal static ScreenEffectShaders Load()
         {
             if (s_loaded == null)
@@ -63,6 +81,13 @@ namespace Mu3Library.URP.ScreenEffect
             }
 
             return null;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetReportedMissingShaders()
+        {
+            // Without a domain reload the set would survive into the next play session and hide its errors.
+            s_reportedMissingShaders.Clear();
         }
     }
 }
