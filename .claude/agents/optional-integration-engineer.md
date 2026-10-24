@@ -1,6 +1,6 @@
 ---
 name: optional-integration-engineer
-description: "Implements the define-gated optional package integrations of the Mu3Library packages (UniTask, Addressables, Localization, Input System): split files, define symbols, versionDefines, and gated asmdef references. Use when the gate, the split file, or the optional dependency is the dominant concern; not for non-gated runtime or editor work."
+description: "Implements the define-gated optional package integrations of the Mu3Library packages (UniTask, Addressables, Localization, Input System, Mobile Notifications): split files, define symbols, versionDefines, defineConstraints, and gated asmdef references. Use when the gate, the split file, or the optional dependency is the dominant concern; not for non-gated runtime or editor work."
 ---
 <!-- agentkit:generated from .ai/kit/core/agents/client/game-runtime-engineer.md, .ai/project/agents/optional-integration-engineer.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
@@ -9,8 +9,8 @@ description: "Implements the define-gated optional package integrations of the M
 Mission: keep every optional package integration compiling and behaving the same whether its package is installed or not.
 
 ## Owns
-- Code behind the `MU3LIBRARY_*_SUPPORT` define symbols and the split files that hold it, per «Assemblies And Optional Integrations» in [package-architecture.md](.ai/project/wiki/rules/package-architecture.md).
-- `versionDefines` entries and gated references in the package `.asmdef` files.
+- Code behind the `MU3LIBRARY_*_SUPPORT` define symbols and the split files that hold it, per «Assemblies And Optional Integrations» in [package-architecture.md](.ai/project/wiki/rules/package-architecture.md), including the `Mu3Library.Notifications` assembly that its `defineConstraints` gate as a whole.
+- `versionDefines` entries, `defineConstraints`, and gated references in the package `.asmdef` files.
 - The fallback behavior a consuming project gets when the optional package is absent.
 
 ## Does Not Own
@@ -75,6 +75,6 @@ Mission: deliver gameplay and runtime changes that play correctly and hold the f
 
 ## Project Binding
 
-- Paths: `**/*.UniTask.cs`, `**/*.Addressables.cs`, `Mu3Library_Base/Runtime/Scripts/Addressable/**`, `Mu3Library_Base/Runtime/Scripts/Localization/**`, `Mu3Library_Base/Runtime/Scripts/IS/**`
+- Paths: `**/*.UniTask.cs`, `**/*.Addressables.cs`, `**/*.InputSystem.cs`, `Mu3Library_Base/Runtime/Scripts/Addressable/**`, `Mu3Library_Base/Runtime/Scripts/Localization/**`, `Mu3Library_Base/Runtime/Scripts/IS/**`, `Mu3Library_Base/Runtime/Scripts/Notifications/**`
 - Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
 - Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)
