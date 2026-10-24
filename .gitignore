@@ -1,5 +1,5 @@
 # This .gitignore file is placed at the monorepo root.
-# It covers both UnityProject_BuiltIn and UnityProject_URP.
+# It covers every UnityProject_* development project.
 #
 **/[Ll]ibrary/
 **/[Tt]emp/
@@ -88,10 +88,12 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
-# Symlink/Junction targets for package samples (source of truth is Samples~)
-UnityProject_BuiltIn/Assets/Mu3LibrarySamples/
-UnityProject_URP/Assets/Mu3LibrarySamplesURP/
-UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame/
+# Links to package samples (source of truth is Samples~), created by mu3-cli unity link-samples:
+# a junction on Windows, a symbolic link elsewhere. No trailing slash: Git applies a pattern
+# ending in / only to real directories, so it would miss a symbolic link.
+UnityProject_BuiltIn/Assets/Mu3LibrarySamples
+UnityProject_URP/Assets/Mu3LibrarySamplesURP
+UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame
 
 .vscode/
 .venv/

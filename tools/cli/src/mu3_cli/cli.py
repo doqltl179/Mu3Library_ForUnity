@@ -8,7 +8,7 @@ from mu3_cli.repository import (
     repository_hygiene_issues,
     run_agentkit_check,
 )
-from mu3_cli.unity import unity_app
+from mu3_cli.unity import load_target_specs, unity_app
 
 
 app = typer.Typer(
@@ -27,8 +27,14 @@ def repo_info() -> None:
     root = repo_root()
 
     typer.echo(f"Repository root: {root}")
-    typer.echo(f"Base package: {root / 'Mu3Library_Base'}")
-    typer.echo(f"URP package: {root / 'Mu3Library_URP'}")
+    # unity-cli-packages.tsv is the one list of packages and the projects that develop them.
+    try:
+        specs = load_target_specs(root)
+    except ValueError as error:
+        typer.echo(f"Packages: unreadable mapping ({error})")
+    else:
+        for spec in specs.values():
+            typer.echo(f"Package ({spec.key}): {root / spec.package_path}, developed in {spec.project_path}")
     typer.echo(f"Agent kit: {root / '.ai' / 'kit'}")
     typer.echo(f"Agent overlay: {root / '.ai' / 'project'}")
     typer.echo(f"CLI tooling: {root / 'tools' / 'cli'}")

@@ -28,7 +28,7 @@ Active owners, skills, and stack packs for this project. Choose an owner with [r
 
 | Owner | Use when | Binding |
 |---|---|---|
-| [`devtools-engineer`](.ai/kit/core/agents/platform/devtools-engineer.md) | Maintains developer tooling inside the repository: local scripts and CLIs, engine-independent tooling, dev containers and toolchain pins, cross-compilation and flashing tools, linter, formatter, build-tool, and monorepo configuration, and git hooks. Use when the change is to how developers build, lint, flash, or run the project locally; not for CI pipelines, test frameworks, or product code. | `tools/**`, `compile-unity.sh`, `unity-cli-packages.tsv`, `.editorconfig`, `.gitattributes`; python, shell |
+| [`devtools-engineer`](.ai/kit/core/agents/platform/devtools-engineer.md) | Maintains developer tooling inside the repository: local scripts and CLIs, engine-independent tooling, dev containers and toolchain pins, cross-compilation and flashing tools, linter, formatter, build-tool, and monorepo configuration, and git hooks. Use when the change is to how developers build, lint, flash, or run the project locally; not for CI pipelines, test frameworks, or product code. | `tools/**`, `compile-unity.sh`, `test-unity.sh`, `unity-cli-packages.tsv`, `.editorconfig`, `.gitattributes`; python, shell |
 
 ### documentation (execution)
 

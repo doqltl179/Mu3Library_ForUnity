@@ -22,7 +22,10 @@ area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
 
 [commands]
 build = "bash ./compile-unity.sh changed"
+test = "bash ./test-unity.sh changed"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
+# Links each development project's Assets/ to its package's Samples~, which a fresh clone or worktree lacks.
+worktree_setup = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
 
 [docs]
 source_locale = "en"
@@ -64,7 +67,7 @@ unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Libra
 [bindings.game-runtime-engineer]
 paths = ["Mu3Library_Base/Runtime/**", "Mu3Library_Base/Tests/**", "Mu3Library_Game_WatermelonGame/Runtime/**", "Mu3Library_Game_WatermelonGame/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
+commands = ["build", "test"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
@@ -90,7 +93,7 @@ stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build"]
 
 [bindings.devtools-engineer]
-paths = ["tools/**", "compile-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
+paths = ["tools/**", "compile-unity.sh", "test-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
 stacks = ["python", "shell"]
 commands = ["test_tools"]
 notes = "Repository support tooling only; it never owns Unity package behavior. Catalog: tools/README.md."
