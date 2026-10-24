@@ -43,9 +43,7 @@ namespace Mu3Library.URP.Tests
         [Test]
         public void Load_ReturnsTheAssetFromAResourcesFolderOfThePackage()
         {
-            ScreenEffectShaders shaders = ScreenEffectShaders.Load();
-
-            Assert.IsNotNull(shaders, $"Resources.Load found no asset at '{ScreenEffectShaders.ResourcePath}'.");
+            ScreenEffectShaders shaders = LoadShaders();
 
             string assetPath = AssetDatabase.GetAssetPath(shaders);
             StringAssert.StartsWith(PackagePath, assetPath);
@@ -55,8 +53,7 @@ namespace Mu3Library.URP.Tests
         [Test]
         public void Shaders_AreExactlyThePackagePassShaders()
         {
-            ScreenEffectShaders shaders = ScreenEffectShaders.Load();
-            Assert.IsNotNull(shaders);
+            ScreenEffectShaders shaders = LoadShaders();
 
             foreach (Shader shader in shaders.Shaders)
             {
@@ -73,7 +70,7 @@ namespace Mu3Library.URP.Tests
         public void Find_PackagePassShader_ReturnsTheReferencedShader(Type passType)
         {
             string shaderPath = GetShaderPath(passType);
-            Shader referenced = ScreenEffectShaders.Load().Get(shaderPath);
+            Shader referenced = LoadShaders().Get(shaderPath);
 
             Assert.IsNotNull(referenced, $"The asset does not reference '{shaderPath}'.");
             Assert.AreSame(referenced, ScreenEffectShaders.Find(shaderPath));
@@ -89,7 +86,7 @@ namespace Mu3Library.URP.Tests
                 Material material = (Material)passType.GetProperty("_material", InstanceMembers).GetValue(pass);
 
                 Assert.IsNotNull(material);
-                Assert.AreSame(ScreenEffectShaders.Load().Get(GetShaderPath(passType)), material.shader);
+                Assert.AreSame(LoadShaders().Get(GetShaderPath(passType)), material.shader);
             }
             finally
             {
@@ -138,6 +135,14 @@ namespace Mu3Library.URP.Tests
 
             first.Dispose();
             second.Dispose();
+        }
+
+        private static ScreenEffectShaders LoadShaders()
+        {
+            ScreenEffectShaders shaders = ScreenEffectShaders.Load();
+            Assert.IsNotNull(shaders, $"Resources.Load found no asset at '{ScreenEffectShaders.ResourcePath}'.");
+
+            return shaders;
         }
 
         private static string GetShaderPath(Type passType)
