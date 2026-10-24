@@ -69,10 +69,22 @@ namespace Mu3Library.Tests
         {
             public bool HoldOpen;
             public bool HoldClose;
+            public bool ThrowOnOpenEnd;
             public int DisableCount;
+            public int OpenEndCount;
 
             protected override bool WaitOpeningUntil() => !HoldOpen;
             protected override bool WaitClosingUntil() => !HoldClose;
+
+            protected override void OpenEnd()
+            {
+                OpenEndCount++;
+
+                if (ThrowOnOpenEnd)
+                {
+                    throw new InvalidOperationException("OpenEnd failed.");
+                }
+            }
 
             protected override void OnDisable()
             {
@@ -511,12 +523,64 @@ namespace Mu3Library.Tests
 
             yield return RunUntil(() => _events.Contains("Opened NoBaseDisableChildPresenter"), "the window opened");
             Assert.AreEqual(ViewState.Opened, window.ViewState);
+            Assert.AreEqual(1, window.View.OpenEndCount);
 
             host.gameObject.SetActive(true);
             Assert.IsTrue(_manager.Close(window), "A close that is not forced reaches the opened window.");
             yield return RunUntil(() => _events.Contains("Unloaded NoBaseDisableChildPresenter"), "the window unloaded");
 
             CollectionAssert.IsEmpty(_manager.GetPresenterDiagnostics());
+        }
+
+        [UnityTest]
+        public IEnumerator Open_HostHiddenWhileOpening_ThrowingOpenEndEndsTheOpenOnce()
+        {
+            RectTransform host = CreateHost();
+            NoBaseDisableChildPresenter window =
+                (NoBaseDisableChildPresenter)_manager.Open<NoBaseDisableChildPresenter>(new HostOptions { Host = host });
+            window.View.HoldOpen = true;
+
+            yield return RunUntil(() => window.ViewState == ViewState.Opening, "the window started opening");
+
+            window.View.ThrowOnOpenEnd = true;
+            host.gameObject.SetActive(false);
+
+            Assert.Throws<InvalidOperationException>(() => _manager.Update(), "The manager ended the open and OpenEnd() threw.");
+            Assert.AreEqual(ViewState.Opened, window.ViewState, "The view left Opening although OpenEnd() threw.");
+
+            // The next updates do not run OpenEnd() again, so the manager goes on with every window.
+            yield return RunUntil(() => _events.Contains("Opened NoBaseDisableChildPresenter"), "the window opened");
+            Assert.AreEqual(1, window.View.OpenEndCount);
+        }
+
+        [UnityTest]
+        public IEnumerator Open_HostDestroyedWhileOpening_ReleasesTheWindow()
+        {
+            RectTransform host = CreateHost();
+            ToastPresenter toast = (ToastPresenter)_manager.Open<ToastPresenter>(new HostOptions { Host = host });
+            toast.View.HoldOpen = true;
+
+            yield return RunUntil(() => toast.ViewState == ViewState.Opening, "the toast started opening");
+
+            // As a host in a scene that unloads while the window opens.
+            Object.DestroyImmediate(host.gameObject);
+
+            yield return RunUntil(() => _manager.GetPresenterDiagnostics().Count == 0, "the manager released the destroyed toast");
+        }
+
+        [UnityTest]
+        public IEnumerator Open_ViewComponentDisabledWhileOpening_Opens()
+        {
+            ToastPresenter toast = (ToastPresenter)_manager.Open<ToastPresenter>();
+            toast.View.HoldOpen = true;
+
+            yield return RunUntil(() => toast.ViewState == ViewState.Opening, "the toast started opening");
+
+            // OnDisable stops the open coroutine whether the object is hidden or only the view is disabled.
+            toast.View.enabled = false;
+
+            Assert.AreEqual(ViewState.Opened, toast.ViewState);
+            Assert.AreEqual(1, toast.View.OpenEndCount);
         }
 
         [UnityTest]
@@ -571,6 +635,29 @@ namespace Mu3Library.Tests
 
             Assert.AreEqual(ViewState.Closing, fade.ViewState, "The close animates from the opened pose.");
             Assert.AreEqual(1.0f, fade.View.Alpha);
+        }
+
+        [UnityTest]
+        public IEnumerator AnimationHandler_DisabledWhileClosing_EndsInItsClosedPose()
+        {
+            FadePresenter fade = (FadePresenter)_manager.Open<FadePresenter>();
+            yield return RunUntilWithin(() => fade.ViewState == ViewState.Opened, "the view opened");
+
+            // Game time stops from the next frame, so the close holds its first pose.
+            Time.timeScale = 0.0f;
+            fade.Handler.TimeMode = TimeMode.Scaled;
+            yield return RunFor(AnimationTime);
+
+            Assert.IsTrue(_manager.Close(fade));
+            yield return RunUntil(() => fade.Handler.State == AnimationState.Closing, "the view started closing");
+            Assert.AreEqual(1.0f, fade.View.Alpha);
+
+            DisableAsInPlayMode(fade.Handler);
+
+            Assert.AreEqual(AnimationState.Closed, fade.Handler.State);
+            Assert.AreEqual(0.0f, fade.View.Alpha, "The handler took its closed pose, not the pose of the frame it stopped in.");
+
+            yield return RunUntil(() => _events.Contains("Unloaded FadePresenter"), "the view unloaded");
         }
 
         [UnityTest]

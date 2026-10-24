@@ -110,6 +110,7 @@ namespace Mu3Library.UI.MVP
         }
 
         private IEnumerator _lifeCycleCoroutine = null;
+        private bool _isDestroying = false;
 
 
 
@@ -133,8 +134,9 @@ namespace Mu3Library.UI.MVP
             // An open cut short the same way would stay Opening, so OpenAsync would never complete and
             // a Close that is not forced would be refused. Such a view finishes its open here instead:
             // it is on screen again once its host is shown, so OpenEnd() still runs, as it does for a
-            // view opened under a host that is already hidden.
-            else if (_viewState == ViewState.Opening)
+            // view opened under a host that is already hidden. A view that DestroySelf() destroys is
+            // never shown again, so its open is left as it is.
+            else if (_viewState == ViewState.Opening && !_isDestroying)
             {
                 EndCutShortOpen();
             }
@@ -189,6 +191,11 @@ namespace Mu3Library.UI.MVP
         {
             OpenEnd();
 
+            SetOpened();
+        }
+
+        private void SetOpened()
+        {
             _canvasGroup.interactable = true;
 
             _viewState = ViewState.Opened;
@@ -200,8 +207,17 @@ namespace Mu3Library.UI.MVP
         /// </summary>
         private void EndCutShortOpen()
         {
-            SkipOpenTransition();
-            EndOpen();
+            // The view leaves Opening even when one of these callbacks throws. The manager would
+            // otherwise end the same open, and raise the same exception, on every update.
+            try
+            {
+                SkipOpenTransition();
+                OpenEnd();
+            }
+            finally
+            {
+                SetOpened();
+            }
         }
 
         protected virtual void OpenStart() { }
@@ -335,6 +351,7 @@ namespace Mu3Library.UI.MVP
                 _lifeCycleCoroutine = null;
             }
 
+            _isDestroying = true;
             Destroy(gameObject);
         }
 
