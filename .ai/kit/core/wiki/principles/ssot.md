@@ -29,6 +29,7 @@ Why: a duplicated fact drifts, because only one copy gets fixed, and an agent th
 4. When two files disagree, the owner wins. Fix or delete the other copy in the same change.
 5. A change to behavior updates its owning docs in the same unit of work.
 6. Inventories are generated from the files they list. Never hand-edit a generated file or a generated region.
+7. The repository's own files (manifests, scripts, configuration, directory layout, command help) own the facts they state. A doc records what no lookup reveals (the reason for a choice, an unwritten convention, a pitfall) and links to the file for the rest.
 
 ## Ownership Map
 

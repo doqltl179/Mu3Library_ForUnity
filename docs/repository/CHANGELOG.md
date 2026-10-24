@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-24 (agentkit 0.4.0)
+
+### Changed
+- Updated agentkit from 0.2.0 to 0.4.0. Agents now read `change-scope.md` (how much a change may touch) from `AGENTS.md`, and the kit adds the `decision-interview` skill, the idea-proposal skills `new-content-propose`, `content-expansion-propose`, and `content-revision-propose` with their evaluation, evidence, and record pages, and the `domain-terms.md` page. Existing skills and pages tighten their rules, among them `bug-diagnose`, `test-add`, `code-review-perform`, `issues-and-prs.md`, and `handoff-contract.md`. Neither release carries a migration step. The project skill `development-idea-bank` now only generates a bank of directions to choose from, and sends judging one idea to `new-content-propose` and an adopted idea to `requirements-spec-write`, so a request for an idea no longer matches both skills.
+
 ## 2026-10-24
 
 ### Added

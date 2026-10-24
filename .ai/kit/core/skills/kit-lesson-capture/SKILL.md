@@ -28,6 +28,7 @@ reviewed: 2026-10-09
    - `.ai/project/lessons.md`: continue with step 5;
    - a page in `.ai/project/wiki/`: run `kit-page-add` or `kit-page-update`, then skip to step 7;
    - `.ai/project/profile.toml`: set the key and run `agentkit.py sync`, then skip to step 7;
+   - an automated check: add it when the current unit owns that configuration, otherwise register it with `github-issue-create` for the configuration's owner; then skip to step 7;
    - the kit: run `kit-upstream-propose` and also keep the lesson locally per «Promotion», continuing with step 5;
    - any other store in that table: write it there, then skip to step 7.
 5. Append the lesson to `.ai/project/lessons.md` in the format given by «Lessons» in [project-overlay.md](../../wiki/integration/project-overlay.md).

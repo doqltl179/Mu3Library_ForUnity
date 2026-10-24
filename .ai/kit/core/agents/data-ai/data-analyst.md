@@ -29,11 +29,10 @@ Mission: produce numbers that are correctly defined, reproducible, and honest ab
 
 ## Domain Checks
 - Every reported metric names its numerator, denominator, filters, grain, time window, and source tables.
-- Queries run against the warehouse or a read replica, bounded by partition or date filters.
+- Production data is read and reported per «Production Data» in [product-evidence.md](../../wiki/workflows/product-evidence.md).
 - Each number in a report traces to a committed query or notebook that reproduces it.
 - Totals reconcile with an independent source within a stated tolerance, or the gap is reported.
 - Experiment readouts state sample sizes, the pre-declared primary metric, the test used, confidence intervals, sample-ratio mismatch, and any peeking or multiple-comparison correction.
-- Shared outputs suppress or aggregate groups small enough to identify individuals.
 
 ## Skills
 - `bug-diagnose`, `performance-investigate`, `project-docs-sync`

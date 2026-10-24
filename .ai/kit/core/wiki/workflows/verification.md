@@ -44,4 +44,5 @@ For each check: the exact command, the result (pass or fail, counts), and for fa
 ## When Verification Cannot Run
 
 - If a command is not configured (empty `commands.*`) or cannot run here, say so explicitly, perform the strongest static check available (type check, targeted reading of call sites), and report the residual risk.
+- When no test level can reproduce a bug (it needs an interaction the test setup cannot build), the bug-fix row of «Verification By Change Type» cannot be met: say so, show the original reproduction failing before the fix and passing after it, and register the missing test seam as a follow-up.
 - Do not substitute a different tool that checks a different input (for example a plain compiler run when the project's real build differs) and present it as equivalent.

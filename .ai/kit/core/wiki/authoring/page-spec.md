@@ -66,4 +66,4 @@ A wiki page owns one question. Section indexes are generated from page frontmatt
 
 - Project knowledge (architecture overview, domain glossary, decision records, local conventions) lives in `.ai/project/wiki/` with the same spec.
 - A project page never restates a core rule; it records project facts and the parameters core leaves open.
-- Project rules tied to paths (for example rules for one package or engine folder) go in `.ai/project/wiki/rules/` with `applies_to`, so tools load them exactly when those files are touched. Rules for every task go in `project.guardrails` instead.
+- Project rules tied to paths (for example rules for one package or engine folder) go in `.ai/project/wiki/rules/` with `applies_to`, so tools load them exactly when those files are touched. `agentkit.py new page rules/<name>` adds an empty `applies_to`, and `check` warns until it lists the paths. Rules for every task go in `project.guardrails` instead.

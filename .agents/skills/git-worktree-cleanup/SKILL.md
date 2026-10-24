@@ -27,8 +27,8 @@ description: "Clean up after a unit's pull request merged: confirm the merge, co
 3. If any condition fails, stop and report which one; never force-remove. With `policy.worktrees = false` there is no worktree: check the main checkout's `git status --short` instead, skip steps 4 and 5, and continue at step 6.
 4. Make sure nothing is using the worktree: run every command from the main checkout (move your own shell there first), and ask the user to close terminals or editor windows opened in it. A process whose current directory is inside the worktree blocks deleting it, notably on Windows.
 5. Remove the worktree: `git worktree remove <worktree>`, then `git worktree prune`. If it reports `Permission denied` after `git worktree list` no longer shows the worktree, Git already removed its files and only the empty directory is held by a process: once that process has left, delete the empty directory (`rmdir <worktree>`).
-6. Delete the branch: `git branch -d <branch>` (use `-D` only after step 2 proved a squash merge), and `git push origin --delete <branch>` only when the remote branch still exists (with head-branch deletion on, the platform already removed it).
-7. Update the main checkout: `git switch <integration_branch>` and `git pull --ff-only`.
+6. Update the main checkout before deleting the branch: `git switch <integration_branch>` and `git pull --ff-only`. `git branch -d` checks the branch against the checked-out branch, so it refuses a just-merged branch while the local integration branch is behind; with `policy.worktrees = false` this step also switches off the task branch, which cannot be deleted while checked out.
+7. Delete the branch: `git branch -d <branch>` (use `-D` only after step 2 proved a squash merge), and `git push origin --delete <branch>` only when the remote branch still exists (with head-branch deletion on, the platform already removed it).
 8. Confirm with `git worktree list` and `git branch -a --list "*<branch>*"`.
 
 ## Output

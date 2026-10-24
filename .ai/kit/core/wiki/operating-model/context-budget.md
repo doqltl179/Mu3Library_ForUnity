@@ -30,7 +30,8 @@ Context is the scarcest resource an agent has: everything loaded competes with t
 
 1. Summarize command output to the result, the failure point, affected files, and the next action.
 2. Answer with the smallest complete result.
-3. In long sessions, keep a running summary in the plan (decisions, touched files, open risks, verification state) so work survives context compaction.
+3. In long sessions, keep a running summary in the plan (decisions with their reasons, touched files, open risks, verification state) so work survives context compaction.
+4. Compact the context, clear it, or hand the work to a fresh session only between steps, after updating the running summary. A summary keeps conclusions and loses the reasons behind them, and mid-step the next action still needs those reasons [scaffold].
 
 ## Line Budgets
 

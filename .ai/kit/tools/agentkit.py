@@ -1020,7 +1020,8 @@ def check_duplicates(kit: Kit, report: Report) -> None:
     for path in authored_markdown(kit):
         if _within(path, CORE / "templates"):
             continue
-        text = REGION_RE.sub("", read_text(path))
+        meta, body = parse_frontmatter(read_text(path))
+        text = REGION_RE.sub("", body)
         fence = False
         for line in text.split("\n"):
             if line.lstrip().startswith("```"):
@@ -1100,6 +1101,41 @@ def check_profile_defaults(kit: Kit, report: Report) -> None:
     if redundant:
         report.warn(f"profile repeats {len(redundant)} kit default(s): {', '.join(redundant)}; remove them so "
                     "changed defaults in kit updates apply")
+
+
+PLACEHOLDER_RE = re.compile(r"<[A-Za-z][^<>\n]*>")
+
+
+def prose_only(text: str) -> str:
+    """Text without fenced code blocks and code spans, where placeholders are shown on purpose."""
+    out, fence = [], False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            fence = not fence
+            continue
+        if not fence:
+            out.append(re.sub(r"`[^`]*`", "", line))
+    return "\n".join(out)
+
+
+def check_scaffolds(kit: Kit, report: Report) -> None:
+    templates = CORE / "templates"
+    tokens = set()
+    for path in templates.rglob("*.md"):
+        tokens |= set(PLACEHOLDER_RE.findall(prose_only(read_text(path))))
+    docs = [*kit.agents.values(), *kit.skills.values(), *kit.stacks.values(), *kit.pages]
+    for doc in docs:
+        if _within(doc.path, templates):
+            continue
+        prose = prose_only(read_text(doc.path))
+        hits = sorted(token for token in tokens if token in prose)
+        if hits:
+            report.warn(f"{rel(doc.path, kit.project)}: unfilled scaffold placeholder(s) {', '.join(hits[:3])}"
+                        + (" …" if len(hits) > 3 else ""))
+        if doc in kit.pages and doc.origin == "project" and doc.path.parent == kit.overlay / "wiki" / "rules" \
+                and not doc.meta.get("applies_to"):
+            report.warn(f"{rel(doc.path, kit.project)}: rules page without 'applies_to' globs never loads; add the "
+                        "paths it governs or move it out of wiki/rules/")
 
 
 def check_integrity(kit: Kit, report: Report) -> None:
@@ -1223,6 +1259,7 @@ def cmd_check(kit: Kit) -> int:
     check_links(kit, report)
     check_integrity(kit, report)
     check_duplicates(kit, report)
+    check_scaffolds(kit, report)
     if not report.errors:
         renderer = Renderer(kit).render()
         check_drift(kit, renderer, report)
@@ -1297,6 +1334,8 @@ def cmd_new(kit: Kit, args: argparse.Namespace) -> int:
         base = (CORE / "wiki") if args.core else (kit.overlay / "wiki")
         dest = base / f"{name}.md"
         text = fill(read_text(templates / "page.md"), values)
+        if not args.core and name.startswith("rules/"):
+            text = text.replace("\nreviewed: ", "\napplies_to: []\nreviewed: ", 1)
     else:
         print(f"error: unknown kind '{kind}'")
         return 1

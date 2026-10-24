@@ -44,7 +44,7 @@ The kit is copied, not linked as a Git submodule: tools load instruction files f
   .ai/kit/                     the kit, read-only
   .ai/project/                 the overlay, owned by the project
   .ai/generated/               catalog and manifest, generated
-  .ai/tasks/                   plans, not committed
+  .ai/tasks/                   plans and idea records, not committed
   .worktrees/                  one worktree per unit, not committed
 ```
 

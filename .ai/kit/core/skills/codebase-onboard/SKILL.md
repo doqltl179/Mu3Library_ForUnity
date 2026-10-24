@@ -31,7 +31,7 @@ reviewed: 2026-10-09
 6. Sketch the architecture: top-level components, how they communicate (calls, HTTP, queues, shared database), where data persists, and which external services they use. Back each edge with a file reference.
 7. Record observed conventions: layering, naming, error handling, test layout, and branch and commit style from `git log --oneline -30`.
 8. Map each major path to an owner per «Selection Procedure» in [routing.md](../../wiki/operating-model/routing.md), and derive `bindings.<agent>` paths and stacks, `stacks.active`, and `agents.enabled`.
-9. Write the draft `.ai/project/wiki/overview.md`: purpose, directory map, architecture, entry points, commands, conventions, and unknowns, citing a file path for each claim.
+9. Write the draft `.ai/project/wiki/overview.md`: purpose, the responsibility of each major directory, architecture, entry points, conventions, and unknowns, citing a file path for each claim. Link the manifests and the profile for commands and file lists instead of copying them, per rule 7 of «Rules» in [ssot.md](../../wiki/principles/ssot.md).
 10. Present the proposed profile values with their evidence and wait for the user's confirmation before writing them. After they are applied, run `agentkit.py sync`, then `agentkit.py check`, and fix every error in `.ai/project/`.
 
 ## Output

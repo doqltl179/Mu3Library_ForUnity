@@ -1,17 +1,18 @@
 ---
 name: adr-write
-description: "Write an architecture decision record in docs.adr_dir with context, options considered and their trade-offs, the decision, consequences, and status, numbered sequentially; supersede an accepted record instead of editing it. Use when a decision about structure, technology, interfaces, data, or cross-cutting conventions is made or proposed and is costly to reverse."
+description: "Write an architecture decision record in docs.adr_dir with context, options considered and their trade-offs, the decision, consequences, and status, numbered sequentially; supersede an accepted record instead of editing it. Use when a decision about structure, technology, interfaces, data, or cross-cutting conventions is made or proposed, is costly to reverse, was chosen among real alternatives, and would surprise a later reader without its reason."
 ---
 <!-- agentkit:generated from .ai/kit/core/skills/adr-write/SKILL.md. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
 # Write Architecture Decision Record
 
 ## Use When
-- A decision is costly to reverse: architecture, technology or vendor choice, public interface, data model, or cross-cutting convention.
+- A decision is costly to reverse (architecture, technology or vendor choice, public interface, data model, or cross-cutting convention), was chosen among real alternatives, and would surprise a later reader who lacks its reason.
 - A plan, a review, or the user asks to record a decision.
 - An accepted record no longer holds and must be superseded.
 
 ## Do Not Use When
+- The decision is cheap to reverse, had no real alternative, or is the obvious default → state it in the commit or pull request body instead.
 - Deciding what to build rather than how → `requirements-spec-write`.
 - Describing how existing behavior works → `project-docs-sync`.
 - Changing a kit rule or policy → `kit-page-update`.
