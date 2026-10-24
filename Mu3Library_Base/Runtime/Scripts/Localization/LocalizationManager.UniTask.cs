@@ -18,6 +18,13 @@ namespace Mu3Library.Localization
 
         private CancellationTokenSource _localeChangeCts;
 
+        /// <summary>
+        /// The locale the running <see cref="ChangeLocaleAsync"/> waits to see announced, and whether
+        /// <br/> the package has announced it since that call selected it.
+        /// </summary>
+        private Locale _awaitedLocale;
+        private bool _isAwaitedLocaleAnnounced = false;
+
 
 
         public async UniTask InitializeAsync()
@@ -168,12 +175,35 @@ namespace Mu3Library.Localization
 
             try
             {
+                // Selecting another locale makes the package start its initialization again, table
+                // preloading included, and announce the change through SelectedLocaleChanged only
+                // once that is over, in the same frame or a later one. The selected-locale handle is
+                // already complete when the selection returns, so it says nothing about either. A
+                // selection the package ignores, such as the locale already selected, restarts
+                // nothing and announces nothing.
+                AsyncOperationHandle<LocalizationSettings> previousInitialization =
+                    LocalizationSettings.HasSettings ? LocalizationSettings.InitializationOperation : default;
+
+                _awaitedLocale = locale;
+                _isAwaitedLocaleAnnounced = false;
+
                 if (!SelectLocale(locale))
                 {
                     return;
                 }
 
-                await LocalizationSettings.SelectedLocaleAsync.ToUniTask(cancellationToken: cts.Token);
+                AsyncOperationHandle<LocalizationSettings> initialization = LocalizationSettings.InitializationOperation;
+                if (initialization.Equals(previousInitialization))
+                {
+                    return;
+                }
+
+                if (!_isAwaitedLocaleAnnounced || !initialization.IsDone)
+                {
+                    await UniTask.WaitUntil(
+                        () => _isAwaitedLocaleAnnounced && initialization.IsDone,
+                        cancellationToken: cts.Token);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -187,12 +217,18 @@ namespace Mu3Library.Localization
                 {
                     _localeChangeCts = null;
                     _isLocaleChanging = false;
+                    _awaitedLocale = null;
                 }
 
                 cts.Dispose();
             }
         }
 
+        /// <summary>
+        /// Stops the wait of a running <see cref="ChangeLocaleAsync"/>, which then completes. The locale
+        /// <br/> it selected stays selected, and the package still finishes its initialization and
+        /// <br/> announces the change through <see cref="OnLocaleChanged"/>.
+        /// </summary>
         public void CancelChangeLocale()
         {
             CancellationTokenSource cts = _localeChangeCts;
@@ -203,8 +239,17 @@ namespace Mu3Library.Localization
 
             _localeChangeCts = null;
             _isLocaleChanging = false;
+            _awaitedLocale = null;
 
             cts.Cancel();
+        }
+
+        partial void TrackLocaleAnnouncement(Locale locale)
+        {
+            if (_awaitedLocale != null && ReferenceEquals(locale, _awaitedLocale))
+            {
+                _isAwaitedLocaleAnnounced = true;
+            }
         }
 
         partial void DisposeLocaleChange()

@@ -155,6 +155,12 @@ namespace Mu3Library.Localization
         /// </summary>
         partial void DisposeLocaleChange();
 
+        /// <summary>
+        /// Implemented by the UniTask part, whose locale change waits for the package to announce
+        /// <br/> the locale it selected.
+        /// </summary>
+        partial void TrackLocaleAnnouncement(Locale locale);
+
         public void Update()
         {
             UpdateInitializeProgress();
@@ -645,6 +651,7 @@ namespace Mu3Library.Localization
         private void HandleSelectedLocaleChanged(Locale locale)
         {
             _currentLocale = locale;
+            TrackLocaleAnnouncement(locale);
             _onLocaleChanged?.Invoke(locale);
         }
         #endregion
