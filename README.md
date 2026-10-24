@@ -526,10 +526,8 @@ The callback is invoked once after the target Core has completed its preparation
 
 ## 📝 Recent Updates
 
-- Current Base package version in this repository: `0.22.0`
-- Current URP package version in this repository: `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Current Watermelon Game package version in this repository: `0.3.0` (depends on Base `0.22.0` and URP `0.2.1`)
-- See `CHANGELOG.md` for the repository release notes and draft version history.
+- [`CHANGELOG.md`](CHANGELOG.md) holds the release notes of every package version under one header per package and version, and the changes not released yet under Unreleased.
+- The install URLs under Installation name the latest release tag of each package; each package's `package.json` holds its version and its dependencies.
 
 ## 🤝 Contributing
 
@@ -549,8 +547,9 @@ This project is distributed under the MIT License.
 ---
 
 **Package Info:**
-- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest dependency: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0` (depends on Base `0.22.0` and URP `0.2.1`)
+- Base: `com.github.doqltl179.mu3library.base`
+- URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
+- Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)
 
 Made with ❤️ for Unity Developers

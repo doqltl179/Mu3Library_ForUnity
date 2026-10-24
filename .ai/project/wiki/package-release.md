@@ -1,7 +1,7 @@
 ---
 owns: "How the three Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes"
 volatility: evolving
-reviewed: 2026-10-09
+reviewed: 2026-10-24
 ---
 
 # Package Release
@@ -35,7 +35,8 @@ The detailed notes go in the root `CHANGELOG.md` (and its localized copies) unde
 https://github.com/doqltl179/Mu3Library_ForUnity.git?path=<package folder>#<tag>
 ```
 
-Update `README.md` and its localized copies when a new tag changes the install guidance.
+- In the same release commit, point the package's URL under «Option 1: Package Manager (Git URL)» in `README.md` and `docs/readme/README.{ko,ja}.md` at the new tag. These URLs are the only version strings the READMEs carry: the versions themselves stay in each `package.json` and the release notes in `CHANGELOG.md`, so a README section never repeats a version number.
+- A package README that shows install URLs (Watermelon Game) writes them with a `v<version>` placeholder and links to the root README, so a release leaves it unchanged.
 
 ## GitHub Release
 

@@ -526,10 +526,8 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.22.0`
-- 이 저장소의 현재 URP 패키지 버전: `0.2.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- 이 저장소의 현재 Watermelon Game 패키지 버전: `0.3.0` (Base `0.22.0`, URP `0.2.1` 의존)
-- 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
+- [변경 이력](../changelog/CHANGELOG.ko.md)에는 모든 패키지 버전의 릴리스 노트가 패키지와 버전마다 헤더를 두고 실려 있고, 아직 릴리스되지 않은 변경은 Unreleased 아래에 있습니다.
+- 설치 방법의 설치 URL은 각 패키지의 최신 릴리스 태그를 가리킵니다. 각 패키지의 버전과 의존성은 그 패키지의 `package.json`에 있습니다.
 
 ## 🤝 기여
 
@@ -549,8 +547,9 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0` (Base `0.22.0`, URP `0.2.1` 의존)
+- Base: `com.github.doqltl179.mu3library.base`
+- URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
+- 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)
 
 Unity 개발자를 위해 제작됨

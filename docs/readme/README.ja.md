@@ -526,10 +526,8 @@ callback は対象 Core の準備処理完了後に一度だけ呼び出され�
 
 ## 📝 最近のアップデート
 
-- このリポジトリ上の現在の Base パッケージ版: `0.22.0`
-- このリポジトリ上の現在の URP パッケージ版: `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- このリポジトリ上の現在の Watermelon Game パッケージ版: `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
-- リポジトリのリリースノートと草案版の履歴は `CHANGELOG.md` を参照してください。
+- [変更履歴](../changelog/CHANGELOG.ja.md)には、すべてのパッケージバージョンのリリースノートがパッケージとバージョンごとの見出しの下に、まだリリースされていない変更が Unreleased の下にあります。
+- インストール方法のインストール URL は、各パッケージの最新リリースタグを指します。各パッケージのバージョンと依存関係は、そのパッケージの `package.json` にあります。
 
 ## 🤝 貢献
 
@@ -549,8 +547,9 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 ---
 
 **パッケージ情報:**
-- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.1`（manifest 依存関係: `com.github.doqltl179.mu3library.base` `0.22.0`）
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0`（Base `0.22.0`、URP `0.2.1` に依存）
+- Base: `com.github.doqltl179.mu3library.base`
+- URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
+- バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)
 
 Unity開発者のために制作
