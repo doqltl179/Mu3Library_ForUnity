@@ -16,7 +16,7 @@ namespace Mu3Library.URP.ScreenEffect.Effects
             {
                 if (m_shader == null)
                 {
-                    m_shader = Shader.Find(_shaderPath);
+                    m_shader = ScreenEffectShaders.Find(_shaderPath);
                 }
 
                 if (m_shader == null)
