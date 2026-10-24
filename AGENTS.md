@@ -72,6 +72,7 @@ Each line's full rule lives on the linked page.
 | `commands.build` | `bash ./compile-unity.sh changed` |
 | `commands.test` | `bash ./test-unity.sh changed` |
 | `commands.worktree_setup` | `PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples` |
+| `commands.test_playmode` | `bash ./test-unity.sh changed --platform playmode` |
 | `commands.test_tools` | `PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests` |
 
 Not available (report the gap, do not guess): `install`, `lint`, `format`, `typecheck`, `e2e`, `run`

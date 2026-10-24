@@ -6,7 +6,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 |---|---|
 | [cli/](cli/README.md) | Python CLI (`mu3-cli`) with the `repo` command group for repository checks and the `unity` group for Unity automation |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
-| [../test-unity.sh](../test-unity.sh) | EditMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
+| [../test-unity.sh](../test-unity.sh) | EditMode and PlayMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
 
 Generated files under `bin/`, `obj/`, `.venv/`, and `*.egg-info/` are local artifacts and should not be tracked.
 
@@ -31,7 +31,7 @@ A new clone or worktree holds only tracked files. Set it up in this order before
    PYTHONPATH=tools/cli/src python -m mu3_cli unity doctor
    ```
 
-5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all`. The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first.
+5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all` and `./test-unity.sh all --platform playmode`, restoring the settings file the PlayMode run re-saves (see [Unity Test Entrypoint](#unity-test-entrypoint)). The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first and run the commands from that drive. The shell entrypoints and `mu3-cli` both open the project on the drive they run from.
 
 ## Unity Compile Entrypoint
 
@@ -64,17 +64,20 @@ Add future package-to-project mappings to `unity-cli-packages.tsv`; the shell en
 
 ## Unity Test Entrypoint
 
-`test-unity.sh` runs the EditMode tests through the Unity Test Framework CLI and exits non-zero when a test fails, Unity fails, or a run reports no result:
+`test-unity.sh` runs the EditMode tests, or with `--platform playmode` the PlayMode tests, through the Unity Test Framework CLI and exits non-zero when a test fails, Unity fails, or a run reports no result:
 
 ```bash
 ./test-unity.sh --dry-run
 ./test-unity.sh            # projects selected by Git changes, as compile-unity.sh selects them
 ./test-unity.sh built-in   # Base tests with the Built-In project's define set
+./test-unity.sh urp        # Base and URP tests with the URP project's define set, which lacks UniTask
 ./test-unity.sh watermelon # Base and Watermelon Game tests with that project's define set
 ./test-unity.sh all
+./test-unity.sh changed --platform playmode
+./test-unity.sh urp --platform playmode
 ```
 
-It takes the same targets and options as `compile-unity.sh` and sources it for target selection, the Editor lookup, the lock check, the sample-link check, and the isolated mirror, so a project an Editor has open is tested in a mirror and `--in-place` refuses it. A project runs only the tests of the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the URP tests, and `watermelon` the Base and Watermelon Game tests; a project that lists none is reported as skipped. A failed test or Unity run does not stop the remaining targets, and a summary closes the run; a target that cannot start, such as an open project under `--in-place` or a mirror that cannot be copied, stops the script at once. Each run writes NUnit XML to `log/unity-tests/<target>-editmode.xml`, which is Git-ignored and removed before the run so an old result never stands in for a new one.
+It takes the same targets and options as `compile-unity.sh` and sources it for target selection, the Editor lookup, the lock check, the sample-link check, and the isolated mirror, so a project an Editor has open is tested in a mirror and `--in-place` refuses it. A project runs only the tests of the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the Base and URP tests, and `watermelon` the Base and Watermelon Game tests; a project that lists none is reported as skipped. `urp` is the only project without UniTask, so it is where the Base tests reach the code paths that replace UniTask with coroutines; `--platform playmode` runs the tests that need the player loop, among them a core's coroutine preparation. A failed test or Unity run does not stop the remaining targets, and a summary closes the run; a target that cannot start, such as an open project under `--in-place` or a mirror that cannot be copied, stops the script at once. Each run writes NUnit XML to `log/unity-tests/<target>-<platform>.xml`, such as `urp-playmode.xml`, which is Git-ignored and removed before the run so an old result never stands in for a new one. A PlayMode run in place re-saves `ProjectSettings/ProjectSettings.asset` in `urp` and `watermelon`, whose files still hold an older Editor's format; restore it with `git restore` after the run until [#116](https://github.com/doqltl179/Mu3Library_ForUnity/issues/116) settles it.
 
 ## Lowest Supported Editor
 

@@ -787,6 +787,16 @@ def entry_point_arguments(
     return arguments
 
 
+TEST_PLATFORMS = ("editmode", "playmode")
+
+
+def platform_arguments(platform_name: str) -> list[str]:
+    """The --platform option that test-unity.sh takes on top of the shared selection options."""
+    if platform_name not in TEST_PLATFORMS:
+        raise ValueError(f"--platform expects one of: {', '.join(TEST_PLATFORMS)}.")
+    return ["--platform", platform_name]
+
+
 def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
     """Run compile-unity.sh or test-unity.sh, which take the same selection options."""
     if not script_path.is_file():
@@ -885,13 +895,16 @@ def unity_test(
         "--editor-version",
         help="Test with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
     ),
+    test_platform: str = typer.Option(
+        "editmode", "--platform", help="editmode or playmode: the Unity Test Framework platform to run."
+    ),
 ) -> None:
-    """Run the EditMode tests of the selected projects through test-unity.sh."""
+    """Run the EditMode or PlayMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
     try:
         arguments = entry_point_arguments(
             target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        )
+        ) + platform_arguments(test_platform)
         return_code = run_entry_point(test_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error

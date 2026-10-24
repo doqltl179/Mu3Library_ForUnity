@@ -75,5 +75,5 @@ Mission: deliver gameplay and runtime changes that play correctly and hold the f
 
 - Paths: `**/*.UniTask.cs`, `**/*.Addressables.cs`, `**/*.InputSystem.cs`, `Mu3Library_Base/Runtime/Scripts/Addressable/**`, `Mu3Library_Base/Runtime/Scripts/Localization/**`, `Mu3Library_Base/Runtime/Scripts/IS/**`, `Mu3Library_Base/Runtime/Scripts/Notifications/**`
 - Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
-- Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`), `commands.test` (`bash ./test-unity.sh changed`)
+- Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`), `commands.test` (`bash ./test-unity.sh changed`), `commands.test_playmode` (`bash ./test-unity.sh changed --platform playmode`)
 '''

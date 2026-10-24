@@ -181,7 +181,7 @@ namespace Mu3Library.Editor.Window.Drawer
             if (string.IsNullOrWhiteSpace(_assetId))
                 return "Asset ID is empty. Please enter an ID.";
 
-            return null;
+            return GetNamespaceWarning(_scriptNamespace);
         }
 
         /// <summary>
