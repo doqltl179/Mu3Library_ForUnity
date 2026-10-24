@@ -26,6 +26,12 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | input backend | The input system that Player Settings > Active Input Handling enables: the Input Manager, the Input System package, or both | 입력 백엔드 | 入力バックエンド |
 | Active Input Handling | The Player Settings option and its values "Input Manager (Old)", "Input System Package (New)", "Both" | = | = |
 | time factor | `AnimationHandler`'s 0-to-1 progress between the closed and the opened pose | 시간 계수 | 時間係数 |
+| board item, held item | An item on the Watermelon Game board, and the one waiting in the player's hand until it is dropped | 보드 아이템, 들고 있는 아이템 | ボードアイテム、保持中のアイテム |
+| merge | Two board items of one entry turning into the next one | 병합 | 合成 |
+| item pool | The pool a board item goes back to when it leaves the board | 아이템 풀 | アイテムプール |
+| item entry | One element of the `BoardItemsConfig` catalog, the entry an item index is made from | 아이템 항목 | アイテムエントリ |
+| spawn bag, stage | The weighted bag of item indices `BoardItemSpawnRule` draws from, and the spawn-count range whose weights fill it | 스폰 가방, 단계 | スポーンバッグ、ステージ |
+| snapshot | A saved board, `BoardSnapshot` | 스냅샷 | スナップショット |
 
 ## Style Notes
 
