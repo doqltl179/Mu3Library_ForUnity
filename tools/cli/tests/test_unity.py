@@ -28,6 +28,7 @@ from mu3_cli.unity import (
     find_windows_bash,
     link_samples,
     load_target_specs,
+    platform_arguments,
     project_editor_version,
     project_lock_diagnostic,
     project_lock_state,
@@ -96,6 +97,13 @@ class UnityToolingTests(unittest.TestCase):
     def test_editor_version_rejects_in_place(self) -> None:
         with self.assertRaisesRegex(ValueError, "--editor-version runs in an isolated mirror"):
             entry_point_arguments("built-in", None, False, False, True, False, editor_version="6000.3.17f1")
+
+    def test_platform_reaches_the_test_script(self) -> None:
+        self.assertEqual(["--platform", "playmode"], platform_arguments("playmode"))
+
+    def test_platform_rejects_a_name_the_test_script_does_not_take(self) -> None:
+        with self.assertRaisesRegex(ValueError, "--platform expects one of: editmode, playmode"):
+            platform_arguments("PlayMode")
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
