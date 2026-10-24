@@ -22,7 +22,10 @@ area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
 
 [commands]
 build = "bash ./compile-unity.sh changed"
+test = "bash ./test-unity.sh changed"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
+# Links each development project's Assets/ to its package's Samples~, which a fresh clone or worktree lacks.
+worktree_setup = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
 
 [docs]
 source_locale = "en"
@@ -58,31 +61,33 @@ disabled = ["schema-migration", "accessibility-review-perform", "security-review
 
 [stack_paths]
 # The packages live at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
+# "**/*.asmref" and "Mu3Library_*/Documentation~/**" match no tracked file today. They are intentional: they keep the
+# file kinds the packs cover by default routed to the pack, so the first assembly reference or package manual is too.
 unity = ["Mu3Library_*/**/*.cs", "UnityProject_*/Assets/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
 unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Library_*/**/*.asmdef", "Mu3Library_*/Samples~/**", "Mu3Library_*/Documentation~/**"]
 
 [bindings.game-runtime-engineer]
 paths = ["Mu3Library_Base/Runtime/**", "Mu3Library_Base/Tests/**", "Mu3Library_Game_WatermelonGame/Runtime/**", "Mu3Library_Game_WatermelonGame/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
+commands = ["build", "test"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
-paths = ["Mu3Library_Base/Editor/**", "Mu3Library_URP/Editor/**"]
+paths = ["Mu3Library_Base/Editor/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build"]
 notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.graphics-engineer]
-paths = ["Mu3Library_URP/Runtime/**"]
+paths = ["Mu3Library_URP/Runtime/**", "Mu3Library_URP/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
-notes = "The URP package: camera, screen effects, renderer features, and shaders."
+commands = ["build", "test"]
+notes = "The URP package: camera, screen effects, renderer features, and shaders. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.optional-integration-engineer]
-paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**"]
+paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**", "Mu3Library_Base/Runtime/Scripts/Notifications/**"]
 stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
+commands = ["build", "test"]
 
 [bindings.sample-integrity-engineer]
 paths = ["Mu3Library_*/Samples~/**"]
@@ -90,7 +95,7 @@ stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build"]
 
 [bindings.devtools-engineer]
-paths = ["tools/**", "compile-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
+paths = ["tools/**", "compile-unity.sh", "test-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
 stacks = ["python", "shell"]
 commands = ["test_tools"]
 notes = "Repository support tooling only; it never owns Unity package behavior. Catalog: tools/README.md."

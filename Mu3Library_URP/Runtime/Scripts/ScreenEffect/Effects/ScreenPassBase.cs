@@ -10,18 +10,22 @@ namespace Mu3Library.URP.ScreenEffect.Effects
         protected abstract string _shaderPath { get; }
 
         private Shader m_shader = null;
+        private bool m_isShaderMissing = false;
         protected Shader _shader
         {
             get
             {
-                if (m_shader == null)
+                if (m_shader == null && !m_isShaderMissing)
                 {
-                    m_shader = Shader.Find(_shaderPath);
-                }
+                    m_shader = ScreenEffectShaders.Find(_shaderPath);
 
-                if (m_shader == null)
-                {
-                    Debug.LogError($"Shader not found. path: {_shaderPath}");
+                    if (m_shader == null)
+                    {
+                        // A pass looks for its shader once: the material is asked for on every frame,
+                        // for every active effect and camera, so a shader loaded later needs a new pass.
+                        m_isShaderMissing = true;
+                        ScreenEffectShaders.ReportMissing(_shaderPath);
+                    }
                 }
 
                 return m_shader;

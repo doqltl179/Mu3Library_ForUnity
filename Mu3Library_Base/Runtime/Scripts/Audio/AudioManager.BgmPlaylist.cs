@@ -1,3 +1,4 @@
+using Mu3Library.Utility;
 using UnityEngine;
 
 namespace Mu3Library.Audio
@@ -104,7 +105,7 @@ namespace Mu3Library.Audio
                 return;
             }
 
-            _playlistIntervalElapsed += Time.deltaTime;
+            _playlistIntervalElapsed += _timeMode.GetDeltaTime();
 
             if (_playlistIntervalElapsed >= _playlistInterval)
             {
@@ -115,8 +116,9 @@ namespace Mu3Library.Audio
 
         /// <summary>
         /// Resets playlist state without touching the BGM controller.
-        /// Called by <see cref="StopBgm"/> so that any external stop also
-        /// deactivates the playlist.
+        /// Called by <see cref="StopBgm"/>, <see cref="PlayBgm(AudioClip, AudioSourceSettings)"/>,
+        /// and the BGM transition, so that a stop or a track the caller plays also
+        /// deactivates the playlist. The playlist itself plays through <see cref="PlayBgmInternal"/>.
         /// </summary>
         private void CancelPlaylist()
         {
@@ -205,7 +207,7 @@ namespace Mu3Library.Audio
             AudioSourceSettings settings = AudioSourceSettings.BgmStandard;
             settings.LoopCount = 1;
 
-            PlayBgm(clip, settings);
+            PlayBgmInternal(clip, settings);
 
             // Subscribe after Play so the handler is registered before completion can fire.
             if (_bgmMainController != null)

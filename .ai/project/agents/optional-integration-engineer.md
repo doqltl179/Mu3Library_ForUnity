@@ -1,12 +1,12 @@
 ---
 name: optional-integration-engineer
-description: "Implements the define-gated optional package integrations of the Mu3Library packages (UniTask, Addressables, Localization, Input System): split files, define symbols, versionDefines, and gated asmdef references. Use when the gate, the split file, or the optional dependency is the dominant concern; not for non-gated runtime or editor work."
+description: "Implements the define-gated optional package integrations of the Mu3Library packages (UniTask, Addressables, Localization, Input System, Mobile Notifications): split files, define symbols, versionDefines, defineConstraints, and gated asmdef references. Use when the gate, the split file, or the optional dependency is the dominant concern; not for non-gated runtime or editor work."
 department: client
 tier: standard
 access: read-write
 extends: game-runtime-engineer
 volatility: evolving
-reviewed: 2026-10-09
+reviewed: 2026-10-24
 ---
 
 # Optional Integration Engineer
@@ -14,8 +14,8 @@ reviewed: 2026-10-09
 Mission: keep every optional package integration compiling and behaving the same whether its package is installed or not.
 
 ## Owns
-- Code behind the `MU3LIBRARY_*_SUPPORT` define symbols and the split files that hold it, per «Assemblies And Optional Integrations» in [package-architecture.md](../wiki/rules/package-architecture.md).
-- `versionDefines` entries and gated references in the package `.asmdef` files.
+- Code behind the optional-integration define symbols in the table of «Assemblies And Optional Integrations» in [package-architecture.md](../wiki/rules/package-architecture.md), the split files that hold it, and the assemblies that `defineConstraints` gate as a whole on one of those symbols.
+- The `versionDefines` and `defineConstraints` entries for those symbols, and the gated references, in the package `.asmdef` files.
 - The fallback behavior a consuming project gets when the optional package is absent.
 
 ## Does Not Own

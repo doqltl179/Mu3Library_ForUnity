@@ -3,8 +3,13 @@ using System;
 namespace Mu3Library.DI
 {
     /// <summary>
-    /// Cache key for singleton/scoped instances.
+    /// A service, implementation, and key triple.
     /// </summary>
+    /// <remarks>
+    /// The container no longer keys its singleton and scoped instances by this triple: the
+    /// service type is not part of a registration's identity, so one registration answers every
+    /// service type with the same instance. The type stays for code that already uses it.
+    /// </remarks>
     public readonly struct ServiceKey : IEquatable<ServiceKey>
     {
         public readonly Type ServiceType;

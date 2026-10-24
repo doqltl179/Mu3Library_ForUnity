@@ -70,9 +70,11 @@ Each line's full rule lives on the linked page.
 | Key | Command |
 |---|---|
 | `commands.build` | `bash ./compile-unity.sh changed` |
+| `commands.test` | `bash ./test-unity.sh changed` |
+| `commands.worktree_setup` | `PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples` |
 | `commands.test_tools` | `PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests` |
 
-Not available (report the gap, do not guess): `install`, `test`, `lint`, `format`, `typecheck`, `e2e`, `run`, `worktree_setup`
+Not available (report the gap, do not guess): `install`, `lint`, `format`, `typecheck`, `e2e`, `run`
 
 ### Parameters
 

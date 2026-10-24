@@ -348,9 +348,9 @@ MonoBehaviour:
     m_FixedHeight: 32
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _scriptSaveFolder: {fileID: 102900000, guid: 82ddb95a394dd67429e836e0d6e28dad, type: 3}
-  _scriptNamespace: Mu3Library.Sample.Template.MVP
-  _scriptName: LinkParent
+  _scriptSaveFolder: {fileID: 0}
+  _scriptNamespace: 
+  _scriptName: 
   _scriptSpaces: 4
-  _ignoreTypeOverlap: 1
+  _ignoreTypeOverlap: 0
   _applyAnimationView: 0

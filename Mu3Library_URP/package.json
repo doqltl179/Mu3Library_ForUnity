@@ -3,7 +3,7 @@
     "version": "0.3.0",
     "displayName": "Mu3 Library URP",
     "description": "URP (Universal Render Pipeline) extensions for Mu3Library. Requires com.github.doqltl179.mu3library.base and com.unity.render-pipelines.universal.",
-    "unity": "6000.0",
+    "unity": "6000.3",
     "author": {
         "name": "Mu3",
         "url": "https://github.com/doqltl179"
@@ -21,7 +21,7 @@
     "samples": [
         {
             "displayName": "ScreenEffect",
-            "description": "URP screen effect sample scene and scripts for Mu3Library URP",
+            "description": "URP screen effect sample scene and scripts for Mu3Library URP. Needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\": its scene's EventSystem uses InputSystemUIInputModule.",
             "path": "Samples~/ScreenEffect"
         }
     ]

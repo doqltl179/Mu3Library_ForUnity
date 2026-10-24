@@ -371,39 +371,76 @@ namespace Mu3Library.Addressable
             };
         }
 
+        /// <summary>
+        /// Checks the remote catalogs for updates. The result is read inside the completion callback,
+        /// <br/> the last moment the handle is valid when Addressables releases it itself, and the
+        /// <br/> handle is released once: by Addressables when <paramref name="autoReleaseHandle"/> is
+        /// <br/> true, by this manager after the callback when it is false.
+        /// </summary>
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
             handle.Completed += operation =>
             {
-                IList<string> catalogs = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
-                callback?.Invoke(catalogs);
-
-                if (!autoReleaseHandle && handle.IsValid())
+                try
                 {
-                    Addressables.Release(handle);
+                    IList<string> catalogs = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
+                    callback?.Invoke(catalogs);
+                }
+                finally
+                {
+                    ReleaseOwnedHandle(handle, autoReleaseHandle);
                 }
             };
         }
 
+        /// <summary>
+        /// Updates every catalog that has an update. The bundle cache is left alone; use the
+        /// <br/> overload that takes <c>autoCleanBundleCache</c> to remove the bundles the updated
+        /// <br/> catalogs no longer reference. The handle is read and released as in
+        /// <br/> <see cref="CheckForCatalogUpdates"/>.
+        /// </summary>
         public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoReleaseHandle = true)
+            => UpdateCatalogs(callback, autoCleanBundleCache: false, autoReleaseHandle: autoReleaseHandle);
+
+        /// <summary>
+        /// Updates every catalog that has an update and, when <paramref name="autoCleanBundleCache"/>
+        /// <br/> is true, removes the cached bundles the updated catalogs no longer reference. Addressables
+        /// <br/> fails the update when it cannot clean the cache, and the callback then receives null.
+        /// </summary>
+        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoCleanBundleCache, bool autoReleaseHandle)
         {
-            AsyncOperationHandle<List<IResourceLocator>> handle = Addressables.UpdateCatalogs(autoReleaseHandle);
+            AsyncOperationHandle<List<IResourceLocator>> handle =
+                Addressables.UpdateCatalogs(autoCleanBundleCache, catalogs: null, autoReleaseHandle: autoReleaseHandle);
             handle.Completed += operation =>
             {
-                IList<IResourceLocator> locators = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
-                if (locators != null)
+                try
                 {
-                    RefreshLocatorKeys();
+                    IList<IResourceLocator> locators = operation.Status == AsyncOperationStatus.Succeeded ? operation.Result : null;
+                    if (locators != null)
+                    {
+                        RefreshLocatorKeys();
+                    }
+
+                    callback?.Invoke(locators);
                 }
-
-                callback?.Invoke(locators);
-
-                if (!autoReleaseHandle && handle.IsValid())
+                finally
                 {
-                    Addressables.Release(handle);
+                    ReleaseOwnedHandle(handle, autoReleaseHandle);
                 }
             };
+        }
+
+        /// <summary>
+        /// Releases a handle this manager kept from Addressables, which is the one it asked for
+        /// <br/> without auto-release. A handle Addressables auto-releases is never released here.
+        /// </summary>
+        private static void ReleaseOwnedHandle(AsyncOperationHandle handle, bool autoReleaseHandle)
+        {
+            if (!autoReleaseHandle && handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
         }
 
         /// <summary>

@@ -1,4 +1,3 @@
-using System.Reflection;
 using Mu3Library.Observable;
 using UnityEditor;
 using UnityEngine;
@@ -37,28 +36,10 @@ namespace Mu3Library.Editor.Observable
             if (EditorGUI.EndChangeCheck())
             {
                 valueProp.serializedObject.ApplyModifiedProperties();
-                InvokeNotify(property.serializedObject.targetObject);
+                ObservableDrawerUtility.InvokeOnTargets(property, nameof(ObservableList<int>.Notify));
             }
 
             EditorGUI.EndProperty();
         }
-
-        private void InvokeNotify(object targetObject)
-        {
-            if (targetObject == null)
-            {
-                return;
-            }
-
-            object observableInstance = fieldInfo?.GetValue(targetObject);
-            if (observableInstance == null)
-            {
-                return;
-            }
-
-            MethodInfo notifyMethod = observableInstance.GetType().GetMethod("Notify", BindingFlags.Instance | BindingFlags.Public);
-            notifyMethod?.Invoke(observableInstance, null);
-        }
     }
 }
-

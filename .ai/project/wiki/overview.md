@@ -1,7 +1,7 @@
 ---
 owns: "What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
-reviewed: 2026-10-09
+reviewed: 2026-10-24
 ---
 
 # Overview
@@ -37,25 +37,25 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `UnityProject_Game_WatermelonGame` | Watermelon Game | `watermelon` |
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
-- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports, and a fresh worktree lacks the sample junctions below. This is why `policy.worktrees` is off.
+- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
 
 ## Directory Map
 
 | Path | Holds |
 |---|---|
-| `Mu3Library_*/Runtime/` | Package runtime: scripts, plus materials and prefabs in Base and shaders in URP |
-| `Mu3Library_*/Editor/` | Editor tooling (Base, URP) |
+| `Mu3Library_*/Runtime/` | Package runtime: scripts, plus materials and textures in Base, and in URP shaders and the `Resources/` asset that keeps the screen-effect shaders in player builds |
+| `Mu3Library_*/Editor/` | Editor tooling (Base) |
 | `Mu3Library_*/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
-| `Mu3Library_*/Tests/` | EditMode tests (Base, Watermelon Game) |
-| `UnityProject_*/` | Development projects; `Assets/Mu3LibrarySamples*` is a Git-ignored junction to the package's `Samples~`, so each sample has one source |
-| `tools/`, `compile-unity.sh`, `unity-cli-packages.tsv` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
+| `Mu3Library_*/Tests/` | EditMode tests (each package) |
+| `UnityProject_*/` | Development projects; `Assets/Mu3LibrarySamples*` is a Git-ignored link to the package's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source |
+| `tools/`, `compile-unity.sh`, `test-unity.sh`, `unity-cli-packages.tsv` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |
 | `docs/repository/CHANGELOG.md` | Repository workflow and tooling changes, kept out of package release notes |
 
 ## Commit Scopes
 
 - A scope names a package (`base`, `urp`, `watermelon`), a surface inside one (`di`, `object-pool`, `audio`, `mvp`, `localization`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
-- Area labels are `hosting.area_labels`: the three packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/` and `compile-unity.sh`. Work inside a development project takes the area of the package it exercises.
+- Area labels are `hosting.area_labels`: the three packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. Work inside a development project takes the area of the package it exercises.
 - Commits written before Korean became the commit language keep their original language; never rewrite them.
 
 ## Human-Facing Docs

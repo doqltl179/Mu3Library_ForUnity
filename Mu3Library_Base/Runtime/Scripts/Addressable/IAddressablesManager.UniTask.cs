@@ -19,6 +19,7 @@ namespace Mu3Library.Addressable
 
         public UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true);
         public UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoReleaseHandle = true);
+        public UniTask<IList<IResourceLocator>> UpdateCatalogsAsync(bool autoCleanBundleCache, bool autoReleaseHandle);
 
         public UniTask DownloadDependenciesAsync(object key, Action<float> progress = null, bool autoReleaseHandle = true);
         public UniTask DownloadDependenciesAsync(IEnumerable keys, Addressables.MergeMode mergeMode, Action<float> progress = null, bool autoReleaseHandle = true);

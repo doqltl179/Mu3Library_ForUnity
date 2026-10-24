@@ -1,6 +1,6 @@
 ﻿# Mu3 Library Game - Watermelon
 
-Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.URP`.
+Reusable 2D Watermelon Game board runtime for Unity 6.3 and later. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.URP`, and `Unity.InputSystem` while the Input System package is installed.
 
 ## Runtime API
 
@@ -8,11 +8,15 @@ Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `
 
 `BoardController` coordinates falling items and merges through `BoardItem`, `BoardConfig`, and `BoardItemsConfig`. Call `SetBoardConfig(BoardConfig)` before `Prepare`, then call `GameStart()` after a successful preparation. The default Watermelon Game uses the first eleven fruit entries addressed by zero-based list index. Extra catalog entries are preserved for future rules but are not spawned or merged by the default rules.
 
+The board refuses a configuration until each of the first eleven item entries carries a sprite, since an item is sized from its sprite. `BoardItemsConfig.IsComplete(List<int>)` lists the entries that lack one, and both the error the board logs and the warning `BoardConfig` logs while the asset is edited name their indices. A configuration applied during a game keeps every item at the same place relative to the board, also when its board sprite has another size. Hiding the board hierarchy, for a pause menu or a screen change, keeps every item as it was; only an item that goes back to the pool is reset.
+
 `BoardConfig.BoardSpawnGuideLineSprite` configures the one-segment sprite used for the vertical, tiled spawn guide line. The guide line appears only during a drag, is two fifths of the spawn marker's width, and renders at board sorting order `+1`; the spawn marker is drawn at `+2`.
 
 `BoardConfig.SoundConfig` holds the optional board sounds, but not the volumes they are played at. Every clip can be left empty, and a moment without one stays silent, so a board can be configured with only the sounds a project already has. It carries one clip per `BoardSoundType` (`GameStart`, `GameEnd`, `ItemDrop`), a BGM playlist with shuffle, inter-track interval, and cycle count, and the merge clip list. The playlist starts on `GameStart()` and stops on `GameEnd()`.
 
 Merge sounds follow the combo: the first merge plays the first clip of `ItemMergeClips`, and every merge that lands within `MergeComboInterval` (5 seconds by default) of the one before it steps one clip further, stopping at the last one. A merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step, and `PlayBoardSound(BoardSoundType)` / `PlayItemMergeSound()` are `protected virtual`.
+
+The combo counts every merge whether or not the configuration carries merge sounds, so `OnMergeComboChanged` reports it on a silent board as well: the first merge reports 0, and `Prepare` reports -1 when it drops a running combo. The step climbs no further than the last entry of `ItemMergeClips`, empty slots included, so it stays at 0 while that list holds one entry or none; a board that shows a longer combo without sounds fills the list with that many empty slots. The end of the combo interval is not reported by itself: the next merge after it starts over at 0, which is reported only when the step was above 0.
 
 Board sounds are played through `Mu3Library.Audio.AudioManager`. `BoardController.AudioManager` accepts the `IAudioManager` a project already runs, which the board then shares without touching its lifetime or its volumes. While none is assigned the board creates one of its own with the first sound it plays, drives it from `Update`, applies `BoardController.BgmVolume` to it, and disposes it with the board.
 
@@ -27,7 +31,7 @@ The volumes are not part of the configuration; the project sets them on the boar
 | Event | Raised with |
 | --- | --- |
 | `OnBoardPrepared` / `OnGameStarted` / `OnGameEnded` | Nothing; the session moved on. |
-| `OnScoreChanged` | The new score. |
+| `OnScoreChanged` | The new score, also when `Prepare` starts the board over or restores a snapshot with another score. |
 | `OnScoreAdded` | The points a single change paid out, and the score they were added to. A change that moves nothing, because the score stops at zero, is not reported. |
 | `OnNextItemChanged` | `NextItemIndex`, the preview one item ahead. |
 | `OnBoardConfigChanged` | The configuration that was applied to the board and to every item on it. |
@@ -36,7 +40,7 @@ The volumes are not part of the configuration; the project sets them on the boar
 | `OnItemDropped` | The item the player released, already falling and counted. |
 | `OnItemAdded` / `OnItemRemoved` | An item that joined or left the board, whoever put it there. A removed item still carries its catalog entry and its place while the event runs. |
 | `OnItemMerged` | A `BoardMergeInfo`: the entry that merged, the entry it became, the item it became, where it happened, and the points it paid. |
-| `OnMergeComboChanged` | The merge combo step, -1 when the combo is dropped. |
+| `OnMergeComboChanged` | The merge combo step, also on a board without merge sounds; -1 when the combo is dropped. |
 | `OnCommandEnqueued` / `OnCommandFinished` / `OnCommandFailed` | The board command that was taken, finished, or threw. |
 
 ```csharp
@@ -58,6 +62,8 @@ boardController.OnItemMerged += info =>
 ```
 
 Every merge is reported, the ones the board finds by itself and the ones a command carries out, because both run through `CountMerge(BoardMergeInfo)`. `CountMerge()` still counts a merge that cannot tell what it merged, and reports `BoardMergeInfo.Unknown`.
+
+A handler can call `GameEnd()` or `Prepare()`, as a rule that wins the game on the first watermelon does from `OnItemMerged`. The board then hands out no further item in that frame, and a drag on a board that is not running neither moves nor drops the item in hand. The commands that frame already advances still finish their step, so a second merge found in the same frame is still scored and reported after the handler ended the game.
 
 ## Commands
 
@@ -136,12 +142,52 @@ public class ClearRowCommand : BoardCommand
 
 Runtime configuration changes validate the complete default catalog before updating the board, active items, and the held item together. Pool reuse resets item presentation and physics state before the next item is initialized.
 
-## Import
+## Input
 
-Add this package to a project that already references `Mu3Library_Base` and `Mu3Library_URP`:
+`BoardArea` takes its touches from the `InputHandler` on the same GameObject, which it adds itself when there is none, also on a board created in code with `AddComponent<BoardArea>()`. The handler turns the mouse and the touches into one drag at a time: a press inside the board takes the held item along, and the release drops it there.
+
+The handler reads the input backend that **Active Input Handling** (Project Settings > Player) enables:
+
+| Active Input Handling | Input System package | `InputHandler` reads |
+| --- | --- | --- |
+| Input Manager (Old) | Not needed | `UnityEngine.Input` |
+| Input System Package (New) | Required | `Mouse.current` and the touches of the EnhancedTouch API |
+| Both | Installed | The Input System, as under "Input System Package (New)" |
+| Both | Not installed | `UnityEngine.Input` |
+
+The package does not depend on the Input System. Its assembly defines `MU3LIBRARY_INPUTSYSTEM_SUPPORT` while `com.unity.inputsystem` is installed, and the handler reads the Input System while that symbol and Unity's `ENABLE_INPUT_SYSTEM` are both defined. While it reads the touches it holds one `EnhancedTouchSupport.Enable()` call, which `OnDisable` gives back. Under "Input System Package (New)" without the package there is nothing it can read, and it logs a warning once.
+
+A drag that is taken away before it is released is canceled, not dropped: the `InputHandler` is disabled, the touch it follows vanishes or is canceled by the system, or the mouse is disconnected. `InputHandler.OnTouchCanceled`, `BoardArea.OnTouchCanceled`, and `BoardController.OnDragCancel(Vector2)` report it in place of `OnTouchEnded` and `OnDragEnd`, with the screen position the `InputHandler` last reported for the drag, which can lie outside the board since moves outside it are not forwarded to the board. The held item stays in hand where the drag last put it, and nothing is dropped or counted, so a project can switch the input off for a popup, an ad, or the back button while the player holds the item. A listener that follows a drag through `OnTouchEnded` also listens to `OnTouchCanceled`.
+
+A press that lands on UI does not start a drag. The handler raycasts the press position through the current `EventSystem`, which reaches uGUI canvases and UI Toolkit panels; it reaches a UI Toolkit panel only while that `EventSystem` has an input module and keeps its UI Toolkit integration on, as it does by default. A hit of a `PhysicsRaycaster` or `Physics2DRaycaster` is a scene object, such as a board item, and does not count, and without an `EventSystem` no press is held back. A press that was held back stays no drag until it is released, also when it moves onto the board. Turn **Ignore Press Over UI** off on the `InputHandler`, or set `IgnorePressOverUI` to false, to let such presses through. A full-screen raycast target over the board holds back every press, so leave **Raycast Target** off on a graphic that only decorates the board.
+
+`InputHandler.DragStartFilter` holds a press back by the project's own rule. It is asked with the screen position of every mouse press and touch before it starts a drag, and every function added has to return true:
+
+```csharp
+InputHandler inputHandler = boardArea.GetComponent<InputHandler>();
+inputHandler.DragStartFilter += screenPosition => !pauseMenu.IsOpen;
+```
+
+A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, and drive the handler from another input source by overriding `IsMousePresent`, `MousePosition`, `GetMouseButtonDown()`, `GetMouseButton()`, `TouchCount`, and `GetTouch(int)` together. `BoardArea` uses a subclass that is already on its GameObject instead of adding an `InputHandler`.
+
+## Install
+
+The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
+
+```text
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<base-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<urp-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<watermelon-version>
+```
+
+The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
+
+The development projects in this repository reference the package folder by a relative path instead, which resolves only from a `UnityProject_*` folder of this repository:
 
 ```json
 "com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
 ```
+
+## Sample
 
 Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background and board-guide images, sample manager/core scripts, and playable `Demo` scene.

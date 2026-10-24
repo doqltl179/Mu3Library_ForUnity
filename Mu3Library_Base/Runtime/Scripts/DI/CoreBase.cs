@@ -44,6 +44,7 @@ namespace Mu3Library.DI
         private CancellationTokenSource _prepareCoreCts = null;
 #else
         private IEnumerator _prepareCoreCoroutine = null;
+        private bool _isPrepareInterrupted = false;
 #endif
 
         private readonly SubscribeHandler _subscribeHandler = new();
@@ -90,7 +91,7 @@ namespace Mu3Library.DI
             CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
-        private void InitializeContainer()
+        internal void InitializeContainer()
         {
             if (_isContainerConfigured)
             {
@@ -121,7 +122,8 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Retries a preparation that could not start yet, which is what a core whose object was
-        /// inactive while <see cref="Start"/> ran is left with on the coroutine path.
+        /// inactive while <see cref="Start"/> ran is left with on the coroutine path, or that
+        /// <see cref="OnDisable"/> stopped there; the latter logs one warning.
         /// </summary>
         /// <remarks>
         /// Derived classes that override this method must call <c>base.OnEnable()</c> to preserve the core lifecycle.
@@ -130,15 +132,55 @@ namespace Mu3Library.DI
         {
             if (_isPrepareRequested && !_isPrepared && !_isPreparing)
             {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+                if (_isPrepareInterrupted)
+                {
+                    _isPrepareInterrupted = false;
+                    Debug.LogWarning($"Core prepare was interrupted because the core's object was deactivated, and starts again. type: {GetType().Name}", this);
+                }
+#endif
+
                 PrepareCore();
             }
         }
 
+        /// <summary>
+        /// Rewinds a preparation that deactivating this core's object cut off, which on the
+        /// coroutine path is what Unity does to the preparing coroutine, so that
+        /// <see cref="OnEnable"/> starts it again.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDisable()</c> to preserve the core lifecycle.
+        /// </remarks>
+        protected virtual void OnDisable()
+        {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+            // Disabling only the component leaves the coroutine running, and the preparation
+            // then finishes on its own. The warning waits for OnEnable, so a core destroyed
+            // while it prepares does not announce a restart that never comes.
+            if (_prepareCoreCoroutine != null && !gameObject.activeInHierarchy)
+            {
+                StopPrepareCore();
+                _isPreparing = false;
+                _isPrepareInterrupted = true;
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Stops a running preparation and takes this core out of <see cref="CoreRoot"/>, which
+        /// disposes its scope.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDestroy()</c> to preserve the core lifecycle.
+        /// </remarks>
         protected virtual void OnDestroy()
         {
             StopPrepareCore();
 
             _subscribeHandler.Dispose();
+            // Null once the application quits and the root is gone: the accessor no longer
+            // creates a root then.
             CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 
@@ -203,9 +245,9 @@ namespace Mu3Library.DI
             }
         }
 
-        protected async virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
+        protected virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
         {
-            return true;
+            return UniTask.FromResult(true);
         }
 
         private void StopPrepareCore()

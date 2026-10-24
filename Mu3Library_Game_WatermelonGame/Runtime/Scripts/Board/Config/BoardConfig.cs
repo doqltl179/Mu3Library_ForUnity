@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mu3Library.Game.WatermelonGame.Board.Config
@@ -58,7 +59,23 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
 
         private void OnValidate()
         {
-            _itemConfig?.EnsureItemInfoCount();
+            if (_itemConfig == null)
+            {
+                return;
+            }
+
+            _itemConfig.EnsureItemInfoCount();
+
+            // The board refuses a catalog it cannot make every fruit of, so the asset says so
+            // while it is being edited instead of first when a board is prepared on it.
+            List<int> incompleteIndices = new();
+            if (!_itemConfig.IsComplete(incompleteIndices))
+            {
+                Debug.LogWarning(
+                    $"Board configuration '{name}' has no sprite for the items at index {string.Join(", ", incompleteIndices)}. " +
+                    $"A board refuses it until each of the first {BoardItemsConfig.FruitItemCount} item entries has a sprite.",
+                    this);
+            }
         }
     }
 }

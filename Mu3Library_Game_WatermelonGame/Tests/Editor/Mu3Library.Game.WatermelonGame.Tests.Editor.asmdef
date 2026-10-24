@@ -3,6 +3,9 @@
     "rootNamespace": "Mu3Library.Game.WatermelonGame.Tests",
     "references": [
         "Mu3Library.Game.WatermelonGame",
+        "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -19,6 +22,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        }
+    ],
     "noEngineReferences": false
 }

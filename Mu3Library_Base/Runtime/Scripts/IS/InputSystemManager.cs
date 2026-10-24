@@ -30,17 +30,27 @@ namespace Mu3Library.IS
 
 
 
+        /// <summary>
+        /// Every asset leaves the manager here, and leaves it as a replaced or removed one does: it
+        /// <br/> is disabled, so it stops firing for a scope that is gone, and only an asset the manager
+        /// <br/> built itself from JSON is destroyed. An asset added from outside stays alive with its
+        /// <br/> caller, who enables it again if it should keep running.
+        /// </summary>
         public void Dispose()
         {
             foreach (InputActionAsset asset in _inputActionAssets.Values)
             {
-                if (asset == null || !_createdAssets.Contains(asset))
+                if (asset == null)
                 {
                     continue;
                 }
 
                 asset.Disable();
-                UnityEngine.Object.Destroy(asset);
+
+                if (_createdAssets.Contains(asset))
+                {
+                    UnityEngine.Object.Destroy(asset);
+                }
             }
 
             _createdAssets.Clear();
@@ -101,68 +111,98 @@ namespace Mu3Library.IS
                 Debug.LogError($"Binding index out of range. action: {action.name}, bindingIndex: {bindingIndex}");
                 return null;
             }
+            else if (action.bindings[bindingIndex].isComposite)
+            {
+                // The Input System rebinds the parts of a composite, never its head, and throws for one.
+                Debug.LogError($"Binding index points at a composite, rebind one of its parts instead. action: {action.name}, bindingIndex: {bindingIndex}");
+                return null;
+            }
 
+            // A rebind needs the action disabled. Whatever ends it gives the action back the state it
+            // had, so an action that was off, for example in a disabled asset, stays off.
+            bool wasEnabled = action.enabled;
             action.Disable();
 
-            var rebind = action.PerformInteractiveRebinding(bindingIndex);
-
-            if (targetDeviceTypes != null && targetDeviceTypes.Length > 0)
+            InputActionRebindingExtensions.RebindingOperation rebind = null;
+            try
             {
-                // targetDeviceTypes 중 어느 타입에도 해당하지 않는 device의 control을 제외한다.
-                // OnPotentialMatch 방식과 달리 입력 시스템 단에서 원천 차단한다.
-                foreach (var device in InputSystem.devices)
+                rebind = action.PerformInteractiveRebinding(bindingIndex);
+
+                if (targetDeviceTypes != null && targetDeviceTypes.Length > 0)
                 {
-                    Type deviceType = device.GetType();
-                    bool isTarget = false;
-                    foreach (var type in targetDeviceTypes)
+                    // targetDeviceTypes 중 어느 타입에도 해당하지 않는 device의 control을 제외한다.
+                    // OnPotentialMatch 방식과 달리 입력 시스템 단에서 원천 차단한다.
+                    foreach (var device in InputSystem.devices)
                     {
-                        if (type != null && type.IsAssignableFrom(deviceType))
+                        Type deviceType = device.GetType();
+                        bool isTarget = false;
+                        foreach (var type in targetDeviceTypes)
                         {
-                            isTarget = true;
-                            break;
+                            if (type != null && type.IsAssignableFrom(deviceType))
+                            {
+                                isTarget = true;
+                                break;
+                            }
+                        }
+
+                        if (!isTarget)
+                        {
+                            rebind = rebind.WithControlsExcluding(device.path + "/*");
                         }
                     }
+                }
 
-                    if (!isTarget)
+                if (cancellingThroughControls != null)
+                {
+                    foreach (var control in cancellingThroughControls)
                     {
-                        rebind = rebind.WithControlsExcluding(device.path + "/*");
+                        if (control != null)
+                        {
+                            rebind = rebind.WithCancelingThrough(control);
+                        }
                     }
                 }
-            }
 
-            if (cancellingThroughControls != null)
+                rebind = rebind
+                    .OnComplete(op =>
+                    {
+                        op.Dispose();
+                        RestoreEnabledState(action, wasEnabled);
+                        onComplete?.Invoke();
+                        OnRebindCompleted?.Invoke(action, bindingIndex);
+                        onFinally?.Invoke();
+                    })
+                    .OnCancel(op =>
+                    {
+                        op.Dispose();
+                        RestoreEnabledState(action, wasEnabled);
+                        onCancel?.Invoke();
+                        OnRebindCanceled?.Invoke(action, bindingIndex);
+                        onFinally?.Invoke();
+                    })
+                    .Start();
+            }
+            catch (Exception exception)
             {
-                foreach (var control in cancellingThroughControls)
-                {
-                    if (control != null)
-                    {
-                        rebind = rebind.WithCancelingThrough(control);
-                    }
-                }
+                // A rebind that could not start leaves the action as it found it, and is reported
+                // like the other input errors here: logged, with null for an answer.
+                Debug.LogException(exception);
+                rebind?.Dispose();
+                RestoreEnabledState(action, wasEnabled);
+                return null;
             }
-
-            var rebindOperation = rebind
-                .OnComplete(op =>
-                {
-                    op.Dispose();
-                    action.Enable();
-                    onComplete?.Invoke();
-                    OnRebindCompleted?.Invoke(action, bindingIndex);
-                    onFinally?.Invoke();
-                })
-                .OnCancel(op =>
-                {
-                    op.Dispose();
-                    action.Enable();
-                    onCancel?.Invoke();
-                    OnRebindCanceled?.Invoke(action, bindingIndex);
-                    onFinally?.Invoke();
-                })
-                .Start();
 
             OnRebindStarted?.Invoke(action, bindingIndex);
 
-            return rebindOperation;
+            return rebind;
+        }
+
+        private static void RestoreEnabledState(InputAction action, bool wasEnabled)
+        {
+            if (wasEnabled)
+            {
+                action.Enable();
+            }
         }
 
         public void RemoveInputActionBindingOverride(string actionId, int bindingIndex)

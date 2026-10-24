@@ -14,8 +14,27 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public BoardConfig Config => _boardConfig;
 
         /// <summary>
+        /// Reused by <see cref="IsCompleteBoardConfig"/> to name the entries a configuration lacks.
+        /// </summary>
+        private readonly List<int> _incompleteItemIndices = new();
+
+        /// <summary>
+        /// Where every board item sat as a fraction of the board, read right before a configuration
+        /// <br/> refits the board, in the order of <see cref="_createdItems"/>. A null item is kept as
+        /// <br/> NaN, and an item above the top edge reads above 1.
+        /// </summary>
+        private readonly List<Vector2> _itemBoardPositions = new();
+
+        /// <summary>
+        /// The board rectangle <see cref="_itemBoardPositions"/> was measured against.
+        /// </summary>
+        private Rect _itemBoardPositionsRect;
+
+        /// <summary>
         /// Applies a complete board configuration to the board and all currently active items.
         /// The configuration is validated before any visible or physical state is changed.
+        /// <br/> A board sprite of another size refits the board, and every item keeps the place it
+        /// <br/> had as a fraction of the board, so the pile stays between the walls.
         /// </summary>
         public virtual void SetBoardConfig(BoardConfig config)
         {
@@ -27,6 +46,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
             BoardConfig previousConfig = _boardConfig;
             _boardConfig = config;
 
+            // The items are children of the board area. Fitting a sprite of another size scales
+            // the board transform, which carries them along while their local places stay the
+            // same, so their places are read against the board before it is refitted.
+            ReadItemBoardPositions();
+
             _boardArea.SetBoardImage(config.BoardSprite);
             _boardArea.SetBoardLocalItemOutLine(config.BoardLineSprite);
             _boardArea.SetBoardSpawnImage(config.BoardSpawnSprite);
@@ -36,6 +60,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             {
                 ApplyBoardConfigToItem(_createdItems[index], previousConfig, config);
             }
+
+            PlaceItemsOnBoardPositions();
 
             ApplyBoardConfigToItem(_holdingItem, previousConfig, config);
 
@@ -78,13 +104,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
-            for (int index = 0; index < BoardItemsConfig.FruitItemCount; index++)
+            // An entry without a sprite would make an item with no size, so the configuration is
+            // refused here rather than on the first item that draws the entry.
+            if (!itemConfig.IsComplete(_incompleteItemIndices))
             {
-                if (!itemConfig.TryGetInfoByIndex(index, out BoardItemInfo itemInfo) || itemInfo == null)
-                {
-                    Debug.LogError($"Board configuration is missing item info at index {index}.", config);
-                    return false;
-                }
+                Debug.LogError(
+                    $"Board configuration '{config.name}' cannot make the items at index {string.Join(", ", _incompleteItemIndices)}: " +
+                    $"each of the first {BoardItemsConfig.FruitItemCount} item entries needs a sprite.",
+                    config);
+                return false;
             }
 
             return true;
@@ -153,6 +181,69 @@ namespace Mu3Library.Game.WatermelonGame.Board
             ApplyItemPhysics(item, targetConfig);
             ApplyItemGravity(item);
         }
+
+        private void ReadItemBoardPositions()
+        {
+            _itemBoardPositions.Clear();
+            _itemBoardPositionsRect = _boardArea.LocalRect;
+
+            // Without the board rectangle there is no place to keep, and the items stay put.
+            if (!HasArea(_itemBoardPositionsRect))
+            {
+                return;
+            }
+
+            for (int index = 0; index < _createdItems.Count; index++)
+            {
+                BoardItem item = _createdItems[index];
+
+                // The board conversions clamp into the board, which would pull an item that is
+                // stacked above the top edge back down onto the one below it, so the place is
+                // measured against the rectangle directly.
+                _itemBoardPositions.Add(item != null
+                    ? NormalizeInRect(_itemBoardPositionsRect, item.transform.localPosition)
+                    : new Vector2(float.NaN, float.NaN));
+            }
+        }
+
+        private void PlaceItemsOnBoardPositions()
+        {
+            Rect boardRect = _boardArea.LocalRect;
+
+            // A sprite of the same size refits the board onto the same rectangle, which leaves
+            // every item where it is.
+            int itemCount = Mathf.Min(_createdItems.Count, _itemBoardPositions.Count);
+            if (!HasArea(boardRect) || boardRect == _itemBoardPositionsRect)
+            {
+                itemCount = 0;
+            }
+
+            for (int index = 0; index < itemCount; index++)
+            {
+                BoardItem item = _createdItems[index];
+                Vector2 boardNormalizedPosition = _itemBoardPositions[index];
+                if (item == null || float.IsNaN(boardNormalizedPosition.x))
+                {
+                    continue;
+                }
+
+                Transform itemTransform = item.transform;
+                itemTransform.localPosition = new Vector3(
+                    boardRect.xMin + boardNormalizedPosition.x * boardRect.width,
+                    boardRect.yMin + boardNormalizedPosition.y * boardRect.height,
+                    itemTransform.localPosition.z);
+            }
+
+            _itemBoardPositions.Clear();
+        }
+
+        private static bool HasArea(Rect rect)
+            => rect.width > Mathf.Epsilon && rect.height > Mathf.Epsilon;
+
+        private static Vector2 NormalizeInRect(Rect rect, Vector3 localPosition)
+            => new Vector2(
+                (localPosition.x - rect.xMin) / rect.width,
+                (localPosition.y - rect.yMin) / rect.height);
 
         /// <summary>
         /// The catalog entry of an item index, null when the configuration the board runs on

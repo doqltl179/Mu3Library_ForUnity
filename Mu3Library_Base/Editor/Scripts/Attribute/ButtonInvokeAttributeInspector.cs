@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using Mu3Library.Attribute;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Mu3Library.Editor.Attribute {
     [CanEditMultipleObjects]
@@ -16,16 +18,44 @@ namespace Mu3Library.Editor.Attribute {
     public class ButtonInvokeScriptableObjectEditor : ButtonInvokeEditorBase {
     }
 
+    /// <summary>
+    /// Draws the default inspector followed by the <see cref="ButtonInvokeAttribute"/> buttons.
+    /// <br/> The inspector window uses <see cref="CreateInspectorGUI"/>, which builds Unity's UI Toolkit default
+    /// inspector, so property drawers that implement only CreatePropertyGUI render and IMGUI drawers keep working.
+    /// <br/> <see cref="OnInspectorGUI"/> stays for IMGUI hosts that draw an editor directly.
+    /// <br/> A derived editor that overrides <see cref="OnInspectorGUI"/> keeps drawing through it:
+    /// <see cref="CreateInspectorGUI"/> then returns null, so the inspector window falls back to IMGUI.
+    /// </summary>
     public abstract class ButtonInvokeEditorBase : UnityEditor.Editor {
+        public override VisualElement CreateInspectorGUI() {
+            if(OverridesOnInspectorGUI()) {
+                return null;
+            }
+
+            VisualElement root = new VisualElement();
+
+            InspectorElement.FillDefaultInspector(root, serializedObject, this);
+            ButtonInvokeAttributeInspector.AddButtons(root, targets);
+
+            return root;
+        }
+
         public override void OnInspectorGUI() {
             DrawDefaultInspector();
             ButtonInvokeAttributeInspector.Draw(targets);
+        }
+
+        private bool OverridesOnInspectorGUI() {
+            MethodInfo method = GetType().GetMethod(nameof(OnInspectorGUI), BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+            return method != null && method.DeclaringType != typeof(ButtonInvokeEditorBase);
         }
     }
 
     internal static class ButtonInvokeAttributeInspector {
         private const BindingFlags methodBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
         private const string buttonSectionTitle = "Buttons";
+
+        internal const string ButtonSectionName = "ButtonInvoke-Section";
 
         public static void Draw(UnityEngine.Object[] targets) {
             if(targets == null || targets.Length == 0 || targets[0] == null) {
@@ -48,14 +78,63 @@ namespace Mu3Library.Editor.Attribute {
                     continue;
                 }
 
-                float buttonHeight = buttonInvokeAttribute.ButtonHeight > 0f
-                    ? buttonInvokeAttribute.ButtonHeight
-                    : EditorGUIUtility.singleLineHeight;
-
-                if(GUILayout.Button(GetButtonLabel(buttonInvokeAttribute, methodInfo), GUILayout.Height(buttonHeight))) {
+                if(GUILayout.Button(GetButtonLabel(buttonInvokeAttribute, methodInfo), GUILayout.Height(GetButtonHeight(buttonInvokeAttribute)))) {
                     InvokeMethods(targets, methodInfo);
                 }
             }
+        }
+
+        /// <summary>
+        /// Adds the UI Toolkit version of <see cref="Draw"/> to <paramref name="root"/>: a section with one button per
+        /// <see cref="ButtonInvokeAttribute"/> method, or an error box for a method that cannot be invoked.
+        /// <br/> Nothing is added when the target type declares no such method.
+        /// </summary>
+        public static void AddButtons(VisualElement root, UnityEngine.Object[] targets) {
+            if(root == null || targets == null || targets.Length == 0 || targets[0] == null) {
+                return;
+            }
+
+            List<MethodInfo> methods = GetInspectableMethods(targets[0].GetType());
+            if(methods.Count == 0) {
+                return;
+            }
+
+            VisualElement section = new VisualElement { name = ButtonSectionName };
+            section.style.marginTop = 8f;
+
+            VisualElement separator = new VisualElement();
+            separator.style.height = 1f;
+            separator.style.backgroundColor = EditorGUIUtility.isProSkin
+                ? new Color(1f, 1f, 1f, 0.2f)
+                : new Color(0f, 0f, 0f, 0.2f);
+            separator.style.marginBottom = 4f;
+            section.Add(separator);
+
+            Label title = new Label(buttonSectionTitle);
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            section.Add(title);
+
+            foreach(MethodInfo methodInfo in methods) {
+                VisualElement item;
+
+                ButtonInvokeAttribute buttonInvokeAttribute = GetAttribute<ButtonInvokeAttribute>(methodInfo);
+                if(!TryGetValidationMessage(methodInfo, out string validationMessage)) {
+                    item = new HelpBox(validationMessage, HelpBoxMessageType.Error);
+                }
+                else {
+                    MethodInfo method = methodInfo;
+                    Button button = new Button(() => InvokeMethods(targets, method)) {
+                        text = GetButtonLabel(buttonInvokeAttribute, methodInfo),
+                    };
+                    button.style.height = GetButtonHeight(buttonInvokeAttribute);
+                    item = button;
+                }
+
+                item.style.marginTop = 6f;
+                section.Add(item);
+            }
+
+            root.Add(section);
         }
 
         private static void DrawButtonSectionHeader() {
@@ -111,6 +190,12 @@ namespace Mu3Library.Editor.Attribute {
             return string.IsNullOrWhiteSpace(buttonInvokeAttribute.ButtonLabel)
                 ? $"Invoke {methodInfo.Name}"
                 : buttonInvokeAttribute.ButtonLabel;
+        }
+
+        private static float GetButtonHeight(ButtonInvokeAttribute buttonInvokeAttribute) {
+            return buttonInvokeAttribute.ButtonHeight > 0f
+                ? buttonInvokeAttribute.ButtonHeight
+                : EditorGUIUtility.singleLineHeight;
         }
 
         private static bool TryGetValidationMessage(MethodInfo methodInfo, out string validationMessage) {

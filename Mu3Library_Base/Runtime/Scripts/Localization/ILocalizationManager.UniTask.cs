@@ -7,6 +7,9 @@ namespace Mu3Library.Localization
 {
     public partial interface ILocalizationManager
     {
+        /// <summary>
+        /// True while a <see cref="ChangeLocaleAsync"/> waits for its locale change to finish.
+        /// </summary>
         public bool IsLocaleChanging { get; }
 
 
@@ -29,6 +32,15 @@ namespace Mu3Library.Localization
 
         public UniTask ChangeLocaleToNativeAsync();
         public UniTask ChangeLocaleWithEnglishNameAsync(string englishName);
+        /// <summary>
+        /// Selects the locale and completes once the change is over: the Localization package has
+        /// <br/> initialized again for the new locale, preloaded tables included, and has raised
+        /// <br/> <see cref="ILocalizationManagerEventBus.OnLocaleChanged"/> for it. Selecting the locale
+        /// <br/> that is already selected restarts nothing: the call then waits only for an initialization
+        /// <br/> or an announcement still under way, such as the one an earlier call for the same locale
+        /// <br/> started, and otherwise completes at once. A newer call or <see cref="CancelChangeLocale"/>
+        /// <br/> ends the wait early; the selection itself stays.
+        /// </summary>
         public UniTask ChangeLocaleAsync(Locale locale);
         public void CancelChangeLocale();
     }

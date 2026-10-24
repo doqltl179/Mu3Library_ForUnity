@@ -50,6 +50,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public event Action OnGameStarted;
         public event Action OnGameEnded;
 
+        /// <summary>
+        /// Raised with the score as it now stands: on every <see cref="AddScore"/> with an amount
+        /// <br/> other than zero, and on <see cref="Prepare"/> when the board starts over from zero or
+        /// <br/> a snapshot brings back another score than the one the board had. Prepare raises it
+        /// <br/> once the board is prepared, right before <see cref="OnBoardPrepared"/>.
+        /// </summary>
         public event Action<int> OnScoreChanged;
 
         /// <summary>
@@ -114,8 +120,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Raised with <see cref="MergeComboIndex"/> whenever the merge combo step changes, and
         /// <br/> with -1 when the combo is dropped.
-        /// <br/> The combo is what the merge sounds climb, so a board configuration without sounds
-        /// <br/> never reports one.
+        /// <br/> Every merge counts into the combo whether or not the configuration carries merge
+        /// <br/> sounds, so a board without them reports it as well. The step climbs no further than
+        /// <see cref="BoardSoundConfig.MergeComboIndexMax"/>, which keeps it at 0 while
+        /// <see cref="BoardSoundConfig.ItemMergeClips"/> holds one entry or none.
         /// </summary>
         public event Action<int> OnMergeComboChanged;
 
@@ -135,6 +143,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.OnTouchBegan += OnDragStart;
             _boardArea.OnTouchMoved += OnDragging;
             _boardArea.OnTouchEnded += OnDragEnd;
+            _boardArea.OnTouchCanceled += OnDragCancel;
 
             _isBoardAreaSubscribed = true;
         }
@@ -151,6 +160,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _boardArea.OnTouchBegan -= OnDragStart;
             _boardArea.OnTouchMoved -= OnDragging;
             _boardArea.OnTouchEnded -= OnDragEnd;
+            _boardArea.OnTouchCanceled -= OnDragCancel;
 
             _isBoardAreaSubscribed = false;
         }
@@ -188,6 +198,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             UpdateCommands();
+
+            // The commands raise the merge and score events, and a handler of those may end the
+            // game or prepare the board again, so the rest of the frame only runs on a board that
+            // is still running.
+            if (!_isRunning)
+            {
+                return;
+            }
+
             CreateMergingCommands();
             UpdateHoldingItem();
 

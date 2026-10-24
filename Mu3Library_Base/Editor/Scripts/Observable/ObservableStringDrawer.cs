@@ -10,16 +10,14 @@ namespace Mu3Library.Editor.Observable
         protected override void DrawField(Rect position, SerializedProperty valueProp, GUIContent label)
         {
             EditorGUI.BeginProperty(position, label, valueProp);
+            EditorGUI.BeginChangeCheck();
 
-            string oldValue = valueProp.stringValue;
-            string newValue = EditorGUI.TextField(position, $"[Observable] {label}", oldValue);
+            string newValue = EditorGUI.TextField(position, $"[Observable] {label}", valueProp.stringValue);
 
-            if (oldValue != newValue)
+            if (EditorGUI.EndChangeCheck())
             {
                 valueProp.stringValue = newValue;
-
-                var target = fieldInfo.GetValue(valueProp.serializedObject.targetObject) as ObservableString;
-                target?.Set(newValue);
+                ObservableDrawerUtility.ApplyAndNotify(valueProp, newValue);
             }
 
             EditorGUI.EndProperty();

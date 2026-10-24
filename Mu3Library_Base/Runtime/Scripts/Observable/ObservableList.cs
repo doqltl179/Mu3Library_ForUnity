@@ -7,6 +7,11 @@ namespace Mu3Library.Observable
     [Serializable]
     public class ObservableList<T> : ObservableProperty<List<T>>, IList<T>, IReadOnlyList<T>
     {
+        public ObservableList()
+        {
+            _value = new List<T>();
+        }
+
         private List<T> _list
         {
             get

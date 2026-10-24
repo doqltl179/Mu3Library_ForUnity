@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Mu3Library.Utility;
 using UnityEngine;
 
 namespace Mu3Library.UI.MVP.Animation
@@ -25,7 +26,18 @@ namespace Mu3Library.UI.MVP.Animation
 
         [SerializeField] private bool _useTransition = true;
         [SerializeField, Range(0.0f, 2.0f)] private float _animationTime = 0.4f;
+        [Tooltip("Unscaled keeps the animation running while Time.timeScale is 0, as under a pause menu. Scaled follows the game's time scale.")]
+        [SerializeField] private TimeMode _timeMode = TimeMode.Unscaled;
         private float _timeFactor = 0.0f;
+
+        /// <summary>
+        /// The clock the animation advances on. A running animation switches from the next frame.
+        /// </summary>
+        public TimeMode TimeMode
+        {
+            get => _timeMode;
+            set => _timeMode = value;
+        }
 
         [Space(20)]
         [SerializeField] private AnimationConfig[] _animationConfigs;
@@ -36,8 +48,29 @@ namespace Mu3Library.UI.MVP.Animation
 
         private void OnDisable()
         {
-            Stop();
-            _timeFactor = 0.0f;
+            // A hidden or disabled handler does not finish its animation coroutine. A running animation
+            // ends in its end pose instead of the pose of that frame, as one started on an inactive
+            // object does, and the time factor keeps matching the pose, so the next animation starts
+            // from it.
+            if (_animationCoroutine == null)
+            {
+                return;
+            }
+
+            switch (_state)
+            {
+                case AnimationState.Opening:
+                    CompleteOpen();
+                    break;
+
+                case AnimationState.Closing:
+                    Complete(0.0f, AnimationState.Closed, false);
+                    break;
+
+                default:
+                    Stop();
+                    break;
+            }
         }
 
         public void Open()
@@ -100,6 +133,15 @@ namespace Mu3Library.UI.MVP.Animation
 
         private void Animation(float factorFrom, float factorTo, AnimationState stayState, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)
         {
+            // Unity refuses to start a coroutine on an object that is inactive in the hierarchy, such
+            // as a view opened under a hidden host. Nothing of it is on screen, so it takes its end
+            // pose at once and shows in that pose once its host is shown.
+            if (!gameObject.activeInHierarchy)
+            {
+                Complete(factorTo, endState, isOpening);
+                return;
+            }
+
             if (_useTransition)
             {
                 Stop();
@@ -122,6 +164,24 @@ namespace Mu3Library.UI.MVP.Animation
             }
         }
 
+        /// <summary>
+        /// Puts the view in its opened pose at once, ending an open animation that is running.
+        /// </summary>
+        internal void CompleteOpen() => Complete(1.0f, AnimationState.Opened, true);
+
+        private void Complete(float factorTo, AnimationState endState, bool isOpening)
+        {
+            Stop();
+
+            _timeFactor = factorTo;
+            if (_animationConfigs != null)
+            {
+                Animate(_animationConfigs, isOpening);
+            }
+
+            _state = endState;
+        }
+
         private IEnumerator AnimationCoroutine(float factorFrom, float factorTo, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)
         {
             if (!HasAnimationConfig(animationConfigs, isOpening))
@@ -135,7 +195,7 @@ namespace Mu3Library.UI.MVP.Animation
             float timer = Mathf.Lerp(factorFrom, factorTo, _timeFactor) * _animationTime;
             while (timer < _animationTime)
             {
-                timer += Time.deltaTime;
+                timer += _timeMode.GetDeltaTime();
                 _timeFactor = Mathf.Lerp(factorFrom, factorTo, timer / _animationTime);
 
                 Animate(animationConfigs, isOpening);

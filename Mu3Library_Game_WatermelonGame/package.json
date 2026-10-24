@@ -3,7 +3,7 @@
   "version": "0.6.0",
   "displayName": "Mu3 Library Game - Watermelon",
   "description": "A reusable 2D Watermelon Game board runtime with merge rules, configuration assets, and a playable sample scene.",
-  "unity": "6000.0",
+  "unity": "6000.3",
   "author": {
     "name": "Mu3",
     "url": "https://github.com/doqltl179"
@@ -18,7 +18,10 @@
   "dependencies": {
     "com.github.doqltl179.mu3library.base": "0.25.0",
     "com.github.doqltl179.mu3library.urp": "0.3.0",
-    "com.unity.ugui": "2.0.0"
+    "com.unity.ugui": "2.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.physics2d": "1.0.0"
   },
   "samples": [
     {
