@@ -1,5 +1,6 @@
 namespace Mu3Library.Observable
 {
+    [System.Serializable]
     public abstract class ObservableProperty<T> : IObservableValue<T>
     {
         [UnityEngine.SerializeField] protected T _value;
@@ -54,6 +55,11 @@ namespace Mu3Library.Observable
         public void AddEvent(System.Action<T> callback) => _callback += callback;
         public void RemoveEvent(System.Action<T> callback) => _callback -= callback;
 
+        /// <summary>
+        /// Registers the callback and returns the token that removes it. When
+        /// <paramref name="notifyImmediately"/> is set and the first call throws, the callback is
+        /// removed again before the exception leaves, since the caller never gets a token for it.
+        /// </summary>
         public System.IDisposable Subscribe(System.Action<T> callback, bool notifyImmediately = false)
         {
             if (callback == null)
@@ -64,7 +70,15 @@ namespace Mu3Library.Observable
             AddEvent(callback);
             if (notifyImmediately)
             {
-                callback.Invoke(_value);
+                try
+                {
+                    callback.Invoke(_value);
+                }
+                catch
+                {
+                    RemoveEvent(callback);
+                    throw;
+                }
             }
 
             return new SubscriptionToken(() => RemoveEvent(callback));

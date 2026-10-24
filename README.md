@@ -309,6 +309,7 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
 Detects value changes and publishes events.
 
 ```csharp
+[Serializable]
 public class PlayerData
 {
     public ObservableInt Health = new ObservableInt();
@@ -325,6 +326,8 @@ _playerData.Health.AddEvent(newHealth =>
 // Change value (automatically publishes event)
 _playerData.Health.Set(80);
 ```
+
+An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
 
 ## 🔧 Optional Packages
 
