@@ -133,7 +133,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         /// <summary>
         /// Raised instead of <see cref="OnTouchEnded"/> for a board drag that was taken away before it was released,
-        /// <br/> with the position it was last reported at. See <see cref="InputHandler.OnTouchCanceled"/>.
+        /// <br/> with the position the <see cref="InputHandler"/> last reported, which can lie outside the board
+        /// <br/> since moves outside it are not forwarded. See <see cref="InputHandler.OnTouchCanceled"/>.
         /// </summary>
         public Action<Vector2> OnTouchCanceled;
 

@@ -58,7 +58,13 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
                 // The touch id is unique among the active touches and lasts as long as the touch.
                 fingerId = touch.touchId,
                 position = touch.screenPosition,
+                rawPosition = touch.screenPosition,
+                deltaPosition = touch.delta,
                 phase = ToTouchPhase(touch.phase),
+                tapCount = touch.tapCount,
+                pressure = touch.pressure,
+                maximumPossiblePressure = 1.0f,
+                type = UnityEngine.TouchType.Direct,
             };
         }
 

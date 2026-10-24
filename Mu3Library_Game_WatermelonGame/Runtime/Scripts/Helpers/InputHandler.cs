@@ -67,6 +67,10 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         private readonly List<RaycastResult> _uiRaycastResults = new();
 
 
+        /// <summary>
+        /// Cancels a running drag and gives back the EnhancedTouch use of the Input System backend, so an override
+        /// <br/> calls <c>base.OnDisable()</c>.
+        /// </summary>
         protected virtual void OnDisable()
         {
             // The player did not release this drag, so it is canceled where it was last reported.
@@ -96,7 +100,7 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
                 return;
             }
 
-            if (TryGetBeganTouch(out Touch beganTouch))
+            if (TryGetBeganTouch(out Touch beganTouch, out bool hasBeganTouch))
             {
                 OnTouchBeganHandler(beganTouch);
                 return;
@@ -104,7 +108,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
             // The mouse drives the same drag pipeline on a platform without a touch screen,
             // which is what makes the game playable in the editor and on desktop.
-            if (IsMousePresent && GetMouseButtonDown())
+            // A platform that also reports a touch as a mouse press would ask about a refused
+            // touch a second time, so the mouse waits while a touch begins.
+            if (!hasBeganTouch && IsMousePresent && GetMouseButtonDown())
             {
                 Vector2 mousePosition = MousePosition;
                 if (CanStartDrag(mousePosition))
@@ -251,7 +257,8 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         /// <summary>
         /// Whether a screen position lies on UI: on anything a raycaster of the current <c>EventSystem</c> hits,
-        /// <br/> which covers uGUI canvases and, while the scene has an <c>EventSystem</c>, UI Toolkit panels.
+        /// <br/> which covers uGUI canvases and UI Toolkit panels. A UI Toolkit panel is reached only while that
+        /// <br/> <c>EventSystem</c> has an input module and keeps its UI Toolkit integration on, as it does by default.
         /// <br/> A hit of a <c>PhysicsRaycaster</c> or <c>Physics2DRaycaster</c> is a scene object, such as a board item,
         /// <br/> and does not count. Without an <c>EventSystem</c> nothing counts.
         /// </summary>
@@ -300,13 +307,21 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
             return false;
         }
 
-        private bool TryGetBeganTouch(out Touch beganTouch)
+        private bool TryGetBeganTouch(out Touch beganTouch, out bool hasBeganTouch)
         {
+            hasBeganTouch = false;
+
             int touchCount = TouchCount;
             for (int i = 0; i < touchCount; i++)
             {
                 Touch touch = GetTouch(i);
-                if (touch.phase == TouchPhase.Began && CanStartDrag(touch.position))
+                if (touch.phase != TouchPhase.Began)
+                {
+                    continue;
+                }
+
+                hasBeganTouch = true;
+                if (CanStartDrag(touch.position))
                 {
                     beganTouch = touch;
                     return true;
@@ -406,6 +421,9 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         /// <summary>
         /// One of the <see cref="TouchCount"/> touches of this frame. Its <c>fingerId</c> stays the same while the
         /// <br/> touch lasts and is never negative.
+        /// <br/> The Input System backend fills <c>fingerId</c> with the touch id, which a new touch does not reuse
+        /// <br/> the way the Input Manager reuses a finger index, plus <c>position</c>, <c>rawPosition</c>,
+        /// <br/> <c>deltaPosition</c>, <c>phase</c>, <c>tapCount</c>, <c>pressure</c>, and <c>type</c>.
         /// </summary>
         protected virtual Touch GetTouch(int index)
         {
