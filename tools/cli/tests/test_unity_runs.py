@@ -302,14 +302,15 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
 
 # What an older Editor bundles, laid out as an Editor keeps it beside its executable: the
 # versions its package manifest recommends, and built-in copies with their own package.json.
-# Its manifest names TextMeshPro without a version, so that version comes from the copy.
+# Its manifest names TextMeshPro without a version, so that version comes from the copy; the
+# entry comes first, so reading on past its end would take the version of the entry after it.
 FAKE_EDITOR_PACKAGES = {
     "Editor/manifest.json": {
         "schemaVersion": 4,
         "packages": {
+            "com.unity.textmeshpro": {"minimumVersion": "5.0.0", "deprecated": "Included in com.unity.ugui."},
             "com.unity.ugui": {"minimumVersion": "2.0.0", "isDiscoverable": True, "version": "2.0.0"},
             "com.unity.inputsystem": {"minimumVersion": "1.19.0", "mustBeBundled": True, "version": "1.19.0"},
-            "com.unity.textmeshpro": {"minimumVersion": "5.0.0", "deprecated": "Included in com.unity.ugui."},
         },
     },
     "BuiltInPackages/com.unity.modules.audio/package.json": {"name": "com.unity.modules.audio", "version": "1.0.0"},
