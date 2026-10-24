@@ -74,7 +74,7 @@ namespace Mu3Library.Scene
         }
     }
 
-    public interface ISceneLoaderEventBus
+    public partial interface ISceneLoaderEventBus
     {
         public event Action<string> OnSingleSceneLoadStarted;
         public event Action<string, float> OnSingleScenePreloadProgress;
