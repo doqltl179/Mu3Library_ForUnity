@@ -16,7 +16,7 @@ The board refuses a configuration until each of the first eleven item entries ca
 
 Merge sounds follow the combo: the first merge plays the first clip of `ItemMergeClips`, and every merge that lands within `MergeComboInterval` (5 seconds by default) of the one before it steps one clip further, stopping at the last one. A merge that comes later starts the combo over. `BoardController.MergeComboIndex` exposes the current step, and `PlayBoardSound(BoardSoundType)` / `PlayItemMergeSound()` are `protected virtual`.
 
-The combo counts every merge whether or not the configuration carries merge sounds, so `OnMergeComboChanged` drives a combo display on a silent board as well: the first merge reports 0, and `Prepare` reports -1 when it drops a running combo. The step climbs no further than the last entry of `ItemMergeClips`, empty slots included, so it stays at 0 while that list holds one entry or none.
+The combo counts every merge whether or not the configuration carries merge sounds, so `OnMergeComboChanged` reports it on a silent board as well: the first merge reports 0, and `Prepare` reports -1 when it drops a running combo. The step climbs no further than the last entry of `ItemMergeClips`, empty slots included, so it stays at 0 while that list holds one entry or none; a board that shows a longer combo without sounds fills the list with that many empty slots. The end of the combo interval is not reported by itself: the next merge after it starts over at 0, which is reported only when the step was above 0.
 
 Board sounds are played through `Mu3Library.Audio.AudioManager`. `BoardController.AudioManager` accepts the `IAudioManager` a project already runs, which the board then shares without touching its lifetime or its volumes. While none is assigned the board creates one of its own with the first sound it plays, drives it from `Update`, applies `BoardController.BgmVolume` to it, and disposes it with the board.
 
@@ -172,15 +172,15 @@ A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, 
 
 ## Install
 
-The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with `<version>` replaced by the release to install:
+The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
 
 ```text
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<version>
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<version>
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<base-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<urp-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<watermelon-version>
 ```
 
-The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags.
+The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
 
 The development projects in this repository reference the package folder by a relative path instead, which resolves only from a `UnityProject_*` folder of this repository:
 

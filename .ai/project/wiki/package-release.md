@@ -36,7 +36,7 @@ https://github.com/doqltl179/Mu3Library_ForUnity.git?path=<package folder>#<tag>
 ```
 
 - In the same release commit, point the package's URL under «Option 1: Package Manager (Git URL)» in `README.md` and `docs/readme/README.{ko,ja}.md` at the new tag. These URLs are the only version strings the READMEs carry: the versions themselves stay in each `package.json` and the release notes in `CHANGELOG.md`, so a README section never repeats a version number.
-- A package README that shows install URLs (Watermelon Game) writes them with a `v<version>` placeholder and links to the root README, so a release leaves it unchanged.
+- A package README that shows install URLs (Watermelon Game) writes them with version placeholders and links to the root README, so a release leaves it unchanged.
 
 ## GitHub Release
 
