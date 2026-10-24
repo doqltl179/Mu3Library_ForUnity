@@ -4,6 +4,7 @@ using System.Reflection;
 using Mu3Library.Game.WatermelonGame.Board;
 using Mu3Library.Game.WatermelonGame.Board.Config;
 using Mu3Library.Game.WatermelonGame.Board.Item;
+using Mu3Library.Game.WatermelonGame.Helpers;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -16,7 +17,8 @@ namespace Mu3Library.Game.WatermelonGame.Tests
     /// <br/> of a fixed size, a board area, a board item resource and a controller, plus the board
     /// <br/> configurations a test asks for. Dispose it to destroy all of it again.
     /// <br/> Edit mode runs no component callbacks, so <see cref="Controller.Tick"/> stands in for
-    /// <br/> a frame and <see cref="SendOnDisable"/> for a hierarchy being hidden.
+    /// <br/> a frame, <see cref="ConnectInput"/> for the board being enabled, and <see cref="SendOnDisable"/>
+    /// <br/> for a hierarchy being hidden.
     /// </summary>
     internal sealed class TestBoard : IDisposable
     {
@@ -52,6 +54,132 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             public bool SpawnHoldingItem() => TrySpawnHoldingItem();
         }
 
+        /// <summary>
+        /// The input handler of the test board. It plays the mouse and the touches its methods are given,
+        /// <br/> one frame per call, unless <see cref="IsFake"/> is turned off.
+        /// </summary>
+        internal sealed class Handler : InputHandler
+        {
+            private readonly List<Touch> _touches = new();
+
+            private bool _isMousePresent = true;
+            private bool _isMousePressed;
+            private bool _wasMousePressedThisFrame;
+            private Vector2 _mousePosition;
+
+            /// <summary>
+            /// While true, the default, the handler reads the input played to it. While false it reads the
+            /// <br/> project's input backend, as the handler of a board in a game does.
+            /// </summary>
+            public bool IsFake { get; set; } = true;
+
+            /// <summary>
+            /// Runs one frame of the handler. The touches then move on the way the input backends report them:
+            /// <br/> one that began or moved stands still, one that ended or was canceled is gone.
+            /// </summary>
+            public void Tick()
+            {
+                Update();
+
+                _wasMousePressedThisFrame = false;
+
+                for (int index = _touches.Count - 1; index >= 0; index--)
+                {
+                    Touch touch = _touches[index];
+                    if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                    {
+                        _touches.RemoveAt(index);
+                    }
+                    else
+                    {
+                        touch.phase = TouchPhase.Stationary;
+                        _touches[index] = touch;
+                    }
+                }
+            }
+
+            public void PressMouse(Vector2 position)
+            {
+                _isMousePresent = true;
+                _isMousePressed = true;
+                _wasMousePressedThisFrame = true;
+                _mousePosition = position;
+
+                Tick();
+            }
+
+            public void MoveMouse(Vector2 position)
+            {
+                _mousePosition = position;
+
+                Tick();
+            }
+
+            public void ReleaseMouse(Vector2 position)
+            {
+                _isMousePressed = false;
+                _mousePosition = position;
+
+                Tick();
+            }
+
+            public void DisconnectMouse()
+            {
+                _isMousePresent = false;
+                _isMousePressed = false;
+                _mousePosition = Vector2.zero;
+
+                Tick();
+            }
+
+            public void BeginTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Began);
+
+            public void MoveTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Moved);
+
+            public void EndTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Ended);
+
+            public void CancelTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Canceled);
+
+            /// <summary>
+            /// Takes a touch away without an end, as a backend that loses track of it does.
+            /// </summary>
+            public void LoseTouch(int fingerId)
+            {
+                _touches.RemoveAll(touch => touch.fingerId == fingerId);
+
+                Tick();
+            }
+
+            private void PlayTouch(int fingerId, Vector2 position, TouchPhase phase)
+            {
+                Touch touch = new Touch { fingerId = fingerId, position = position, phase = phase };
+
+                int index = _touches.FindIndex(playedTouch => playedTouch.fingerId == fingerId);
+                if (index >= 0)
+                {
+                    _touches[index] = touch;
+                }
+                else
+                {
+                    _touches.Add(touch);
+                }
+
+                Tick();
+            }
+
+            protected override bool IsMousePresent => IsFake ? _isMousePresent : base.IsMousePresent;
+
+            protected override Vector2 MousePosition => IsFake ? _mousePosition : base.MousePosition;
+
+            protected override bool GetMouseButtonDown() => IsFake ? _wasMousePressedThisFrame : base.GetMouseButtonDown();
+
+            protected override bool GetMouseButton() => IsFake ? _isMousePressed : base.GetMouseButton();
+
+            protected override int TouchCount => IsFake ? _touches.Count : base.TouchCount;
+
+            protected override Touch GetTouch(int index) => IsFake ? _touches[index] : base.GetTouch(index);
+        }
+
         private const int ScreenWidth = 1080;
         private const int ScreenHeight = 1920;
 
@@ -63,6 +191,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         private readonly RenderTexture _screen;
 
         public Camera Camera { get; }
+        public Handler Input { get; }
         public BoardArea Area { get; }
         public BoardItem ItemResource { get; }
         public Controller Board { get; }
@@ -124,7 +253,11 @@ namespace Mu3Library.Game.WatermelonGame.Tests
 
                 ItemSprites = itemSprites;
 
-                Area = Track(new GameObject("TestBoardArea")).AddComponent<BoardArea>();
+                // The handler goes on first, so the board area takes it instead of adding one of its own.
+                GameObject areaObject = Track(new GameObject("TestBoardArea"));
+                Input = areaObject.AddComponent<Handler>();
+                Area = areaObject.AddComponent<BoardArea>();
+                Assert.AreSame(Input, Area.GetComponent<InputHandler>(), "The board area added an input handler of its own.");
 
                 // The board hides its item resource in Start, which edit mode never calls.
                 GameObject itemObject = Track(new GameObject("TestBoardItem"));
@@ -209,6 +342,22 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             return config;
         }
 
+        /// <summary>
+        /// Enables the board area and the controller the way play mode does, so the touches of the input
+        /// <br/> handler reach the board.
+        /// </summary>
+        public void ConnectInput()
+        {
+            SendOnEnable(Area);
+            SendOnEnable(Board);
+        }
+
+        /// <summary>
+        /// The screen position of a fraction of the board area.
+        /// </summary>
+        public Vector2 GetScreenPosition(float boardNormalizedX, float boardNormalizedY = 0.5f)
+            => Area.BoardLocalNormalizedPositionToScreen(new Vector2(boardNormalizedX, boardNormalizedY));
+
         public BoardItem SpawnItem(int itemIndex, Vector2 boardNormalizedPosition)
         {
             Assert.IsTrue(
@@ -260,21 +409,37 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         /// <br/> edit mode only does it for components that run in edit mode.
         /// </summary>
         public static void SendOnDisable(MonoBehaviour component)
+            => SendCallback(component, "OnDisable");
+
+        /// <summary>
+        /// Sends OnEnable to a component the way play mode does when it is added or shown;
+        /// <br/> edit mode only does it for components that run in edit mode.
+        /// </summary>
+        public static void SendOnEnable(MonoBehaviour component)
+            => SendCallback(component, "OnEnable");
+
+        private static void SendCallback(MonoBehaviour component, string methodName)
         {
-            MethodInfo onDisable = null;
-            for (Type type = component.GetType(); type != null && onDisable == null; type = type.BaseType)
+            MethodInfo method = null;
+            for (Type type = component.GetType(); type != null && method == null; type = type.BaseType)
             {
-                onDisable = type.GetMethod(
-                    "OnDisable",
+                method = type.GetMethod(
+                    methodName,
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
             }
 
-            Assert.IsNotNull(onDisable, $"{component.GetType().Name} has no OnDisable.");
-            onDisable.Invoke(component, null);
+            Assert.IsNotNull(method, $"{component.GetType().Name} has no {methodName}.");
+            method.Invoke(component, null);
         }
 
         public void Dispose()
         {
+            // A handler that read the Input System gives its EnhancedTouch use back here.
+            if (Input != null)
+            {
+                SendOnDisable(Input);
+            }
+
             if (Camera != null)
             {
                 Camera.targetTexture = null;
