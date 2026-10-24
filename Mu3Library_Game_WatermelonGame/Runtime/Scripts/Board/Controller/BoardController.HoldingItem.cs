@@ -99,7 +99,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public virtual void OnDragging(Vector2 screenPos)
         {
-            if (_holdingItem == null || _boardArea == null)
+            // Only a running board hands out items, so a board that ended or was prepared again
+            // in the middle of a drag leaves whatever is still in hand where it is.
+            if (!_isRunning || _holdingItem == null || _boardArea == null)
             {
                 return;
             }
@@ -111,7 +113,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         {
             _boardArea?.SetBoardSpawnGuideLineVisible(false);
 
-            if (_holdingItem == null || _boardArea == null)
+            // A drop is counted into the session, so a board that is not running drops nothing.
+            if (!_isRunning || _holdingItem == null || _boardArea == null)
             {
                 return;
             }

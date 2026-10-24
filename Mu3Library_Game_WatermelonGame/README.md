@@ -8,6 +8,8 @@ Reusable 2D Watermelon Game board runtime for Unity 6. The runtime assembly is `
 
 `BoardController` coordinates falling items and merges through `BoardItem`, `BoardConfig`, and `BoardItemsConfig`. Call `SetBoardConfig(BoardConfig)` before `Prepare`, then call `GameStart()` after a successful preparation. The default Watermelon Game uses the first eleven fruit entries addressed by zero-based list index. Extra catalog entries are preserved for future rules but are not spawned or merged by the default rules.
 
+The board refuses a configuration until each of the first eleven item entries carries a sprite, since an item is sized from its sprite. `BoardItemsConfig.IsComplete(List<int>)` lists the entries that lack one, and both the error the board logs and the warning `BoardConfig` logs while the asset is edited name their indices. A configuration applied during a game keeps every item at the same place relative to the board, also when its board sprite has another size. Hiding the board hierarchy, for a pause menu or a screen change, keeps every item as it was; only an item that goes back to the pool is reset.
+
 `BoardConfig.BoardSpawnGuideLineSprite` configures the one-segment sprite used for the vertical, tiled spawn guide line. The guide line appears only during a drag, is two fifths of the spawn marker's width, and renders at board sorting order `+1`; the spawn marker is drawn at `+2`.
 
 `BoardConfig.SoundConfig` holds the optional board sounds, but not the volumes they are played at. Every clip can be left empty, and a moment without one stays silent, so a board can be configured with only the sounds a project already has. It carries one clip per `BoardSoundType` (`GameStart`, `GameEnd`, `ItemDrop`), a BGM playlist with shuffle, inter-track interval, and cycle count, and the merge clip list. The playlist starts on `GameStart()` and stops on `GameEnd()`.
@@ -27,7 +29,7 @@ The volumes are not part of the configuration; the project sets them on the boar
 | Event | Raised with |
 | --- | --- |
 | `OnBoardPrepared` / `OnGameStarted` / `OnGameEnded` | Nothing; the session moved on. |
-| `OnScoreChanged` | The new score. |
+| `OnScoreChanged` | The new score, also when `Prepare` starts the board over or restores a snapshot with another score. |
 | `OnScoreAdded` | The points a single change paid out, and the score they were added to. A change that moves nothing, because the score stops at zero, is not reported. |
 | `OnNextItemChanged` | `NextItemIndex`, the preview one item ahead. |
 | `OnBoardConfigChanged` | The configuration that was applied to the board and to every item on it. |
@@ -58,6 +60,8 @@ boardController.OnItemMerged += info =>
 ```
 
 Every merge is reported, the ones the board finds by itself and the ones a command carries out, because both run through `CountMerge(BoardMergeInfo)`. `CountMerge()` still counts a merge that cannot tell what it merged, and reports `BoardMergeInfo.Unknown`.
+
+A handler can call `GameEnd()` or `Prepare()`, as a rule that wins the game on the first watermelon does from `OnItemMerged`. The board then hands out no further item in that frame, and a drag on a board that is not running neither moves nor drops the item in hand. The commands that frame already advances still finish their step, so a second merge found in the same frame is still scored and reported after the handler ended the game.
 
 ## Commands
 

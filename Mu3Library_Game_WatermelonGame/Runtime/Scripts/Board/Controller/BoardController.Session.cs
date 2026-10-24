@@ -128,6 +128,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
+            int previousScore = _score;
+
             _score = 0;
             _spawnCount = 0;
             _mergeCount = 0;
@@ -161,6 +163,14 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Debug.Log("Game Prepared");
 
             SetSessionState(SessionState.Prepared);
+
+            // The score was set here and not through AddScore, so a score label is told once about
+            // the score the board starts over with or the one the snapshot brought back. It is
+            // told once the board is prepared, so the handler reads the board it will play on.
+            if (_score != previousScore)
+            {
+                OnScoreChanged?.Invoke(_score);
+            }
 
             OnBoardPrepared?.Invoke();
         }

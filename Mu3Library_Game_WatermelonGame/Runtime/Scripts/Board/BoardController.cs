@@ -50,6 +50,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public event Action OnGameStarted;
         public event Action OnGameEnded;
 
+        /// <summary>
+        /// Raised with the score as it now stands: on every <see cref="AddScore"/> with an amount
+        /// <br/> other than zero, and on <see cref="Prepare"/> when the board starts over from zero or
+        /// <br/> a snapshot brings back another score than the one the board had. Prepare raises it
+        /// <br/> once the board is prepared, right before <see cref="OnBoardPrepared"/>.
+        /// </summary>
         public event Action<int> OnScoreChanged;
 
         /// <summary>
@@ -188,6 +194,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
             }
 
             UpdateCommands();
+
+            // The commands raise the merge and score events, and a handler of those may end the
+            // game or prepare the board again, so the rest of the frame only runs on a board that
+            // is still running.
+            if (!_isRunning)
+            {
+                return;
+            }
+
             CreateMergingCommands();
             UpdateHoldingItem();
 
