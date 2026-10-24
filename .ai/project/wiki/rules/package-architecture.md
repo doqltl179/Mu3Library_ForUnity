@@ -1,5 +1,5 @@
 ---
-owns: "Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, DI and CoreBase, project C# conventions, and the review focus for package changes"
+owns: "Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, Unity package and built-in module declarations in package.json, DI and CoreBase, project C# conventions, and the review focus for package changes"
 applies_to: ["Mu3Library_*/**"]
 volatility: evolving
 reviewed: 2026-10-24
@@ -45,6 +45,8 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 - Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in that integration's folder (`Addressable/`, `Localization/`, `IS/`, `Notifications/`).
 - `Notifications/` is its own assembly, `Mu3Library.Notifications`, which lists `MU3LIBRARY_NOTIFICATIONS_SUPPORT` in `defineConstraints`: without the package Unity skips the whole assembly, so its files need no `#if` for that symbol.
+- `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui` or `com.unity.render-pipelines.universal` is declared at the version the `unity` floor bundles (`2.0.0` and `17.3.0` for `6000.3`); a higher version raises the floor in effect. The development projects enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit.
+- A module that only a sample under `Samples~` uses is not declared, such as the 3D physics of Base's Template sample, and an optional integration from the table above never is: it stays behind its define gate.
 
 ## DI, CoreBase, And MVP
 
@@ -68,5 +70,5 @@ In order of severity:
 1. Behavioral regressions.
 2. Public API compatibility: interfaces, classes, methods, and properties.
 3. Assembly boundary safety: minimal and correct `.asmdef` references, dependency direction.
-4. Optional gate correctness: every optional-package use inside its define symbol.
+4. Optional gate and dependency correctness: every optional-package use inside its define symbol, and every Unity package or built-in module newly used outside a gate declared in `package.json` `dependencies`.
 5. Alignment: `.meta`-safe asset operations, README and CHANGELOG with their localized copies, and verification evidence.
