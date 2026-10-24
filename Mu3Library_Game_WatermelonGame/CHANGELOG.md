@@ -1,102 +1,35 @@
-﻿# Changelog
+﻿# Changelog — Mu3 Library Game - Watermelon
+
+Release history for `com.github.doqltl179.mu3library.game.watermelon`.
+
+Detailed per-release notes live in the repository root `CHANGELOG.md` under the `game/watermelon/x.y.z` tags; this file marks the package-local view of them.
 
 ## [Unreleased]
 
-## [game/watermelon/0.6.0] - 2026-08-17
+## [0.6.0] - 2026-08-17
 
-- Added mouse support to `InputHandler`. The mouse drives the same drag pipeline as a touch under a reserved finger id, so the game plays in the editor and on desktop without a touch screen, and a project that only ever sees touches behaves as before.
-- Added an edit-mode test suite for `BoardCommandRunner` and registered the package as a testable in the development project.
+- See `game/watermelon/0.6.0` in the repository root `CHANGELOG.md`. Highlights: the mouse drives `InputHandler` like a touch, so the game plays in the editor and on desktop, and an edit-mode test suite covers `BoardCommandRunner`.
 
-## [game/watermelon/0.5.0] - 2026-08-16
+## [0.5.0] - 2026-08-16
 
-- Changed the board-relative resize to size the item collider instead of the item sprite. The sprite was fitted to the diameter its item index asks for and the collider was shrunk inside it afterwards, so `BoardItemInfo.ColliderScale` decided how large an item really played and a new configuration moved the contact area of every index with it. An item is now scaled until its collider reaches that diameter and its sprite is drawn around it at whatever size that takes, so an item index touches over the same area whichever configuration is applied, and a catalog entry whose collider covers less of its sprite is drawn larger than before.
-- Added `BoardItemInfo.ColliderOffset`, the collider center of a catalog entry as a fraction of the collider diameter, which starts at `(0.0, -0.03)`. The collider diameter of an item index is the same on every screen resolution, so this offset is too. An entry serialized before this field existed reads `(0, 0)` and keeps its collider centered on the sprite.
-- Changed `BoardItemScaleRule.GetBoardScale` to take the `BoardItemInfo` where it took a `Sprite`, because the collider scale of the entry is now part of what is measured. `GetBoardScale(int, Sprite, Vector2)` and `GetBoardScale(int, Sprite, Vector2, float, float)` are gone; a subclass that overrode the sprite overload overrides the new one instead.
-- Added `BoardItemScaleRule.GetBoardContactDiameter(int, Vector2)` and `GetBoardContactDiameter(int, Vector2, float, float)`, the contact diameter of an item index in the board local space, which depends on the index and the board size alone.
-- Added `BoardItem.BoardLocalColliderCenter`, the collider center measured from the item position in the parent(board) local space.
-- Changed the held item to be kept inside the item area by its contact area instead of its sprite bounds, with the spawn marker above the contact center, so where an item index can be dropped from no longer depends on the padding its sprite carries.
+- See `game/watermelon/0.5.0` in the repository root `CHANGELOG.md`. Highlights: the board-relative resize sizes the item collider instead of the sprite, so an item index keeps its contact area in every configuration, plus `BoardItemInfo.ColliderOffset` and `BoardItemScaleRule.GetBoardContactDiameter` (breaking: `GetBoardScale` takes a `BoardItemInfo`).
 
-## [game/watermelon/0.4.0] - 2026-08-15
+## [0.4.0] - 2026-08-15
 
-- Added the `BoardController` events a project drives its UI and its effects from: `OnScoreAdded`, `OnBoardConfigChanged`, `OnHoldingItemChanged`, `OnHoldingItemMoved`, `OnItemDropped`, `OnItemAdded`, `OnItemRemoved`, `OnItemMerged` and `OnMergeComboChanged`. `OnScoreAdded` carries what a single change really paid out, so a change the zero clamp swallowed is not reported, `OnItemRemoved` runs while the item still carries its catalog entry and its place, and `OnItemAdded` covers every item that joins the board, the player's drop, a merge, a command and a restored snapshot alike.
-- Added `BoardController.HoldingNormalizedX`, where the held item waits as a fraction of the board area width, which is the value `OnHoldingItemMoved` reports.
-- Added `BoardMergeInfo`, the merge report handed to `OnItemMerged`: the catalog index that merged, the index and the instance it became, the board-normalized position it happened at, the score it paid out, and `IsValid`.
-- Added `BoardController.CountMerge(BoardMergeInfo)` and `IBoardCommandContext.CountMerge(BoardMergeInfo)`, which every merge the board and `MergingCommand` carry out now counts through, so a merge a project's own command performs is reported like one the board found by itself. `CountMerge()` still counts a merge that cannot tell what it merged and reports `BoardMergeInfo.Unknown`; a subclass that overrode it to follow merges should override the overload instead.
-- Changed `MergingCommand` to play its merge sound before it counts the merge, so a listener of `OnItemMerged` already sees the combo step the merge landed on.
-- Removed `BoardController.SetBoareConfig(BoardConfig)`, the misspelled compatibility alias of `SetBoardConfig(BoardConfig)`. Call `SetBoardConfig(BoardConfig)` instead.
-- Changed `BoardSnapshot.FromJson` to report a snapshot it cannot read with `Debug.LogException` instead of a `Debug.LogError` that stringified the exception, so the exception type and its stack trace survive in the console.
-- Removed the `BoardArea` "board world normalized" conversions, which only forwarded to their board local counterparts and named the same coordinate space twice: `BoardWorldNormalizedPositionToWorld`, `BoardWorldNormalizedPositionToScreen`, `BoardWorldNormalizedPositionToLocal`, `WorldToBoardWorldNormalizedPosition`, `TryWorldToBoardWorldNormalizedPosition`, `ScreenToBoardWorldNormalizedPosition`, `TryScreenToBoardWorldNormalizedPosition`, `LocalToBoardWorldNormalizedPosition` and `TryLocalToBoardWorldNormalizedPosition`. Use the matching `BoardLocalNormalized` conversion instead.
+- See `game/watermelon/0.4.0` in the repository root `CHANGELOG.md`. Highlights: the `BoardController` events a project drives its UI from, `BoardMergeInfo` and `CountMerge(BoardMergeInfo)`, and the removal of `SetBoareConfig` and the "board world normalized" conversions (breaking).
 
-## [game/watermelon/0.3.0] - 2026-08-09
+## [0.3.0] - 2026-08-09
 
-- Added a public board command queue to `BoardController`: `EnqueueCommand`, `CancelCommand`, `CancelCommands<T>`, `CancelAllCommands`, `HasCommand<T>`, `Commands`, `CommandCount`, and the `OnCommandEnqueued`, `OnCommandFinished` and `OnCommandFailed` events. A command that throws is logged, canceled and dropped without stopping the rest, and commands enqueued or canceled from a running command are applied once the board is done advancing the current ones.
-- Added `IUpdatableBoardCommand` and `ICancelableBoardCommand` as the optional parts of the command contract, so a command can be advanced every frame and stopped before its end while `IBoardCommand` stays the minimal one.
-- Changed `BoardCommand` into a lifecycle base with the `OnRun`, `OnUpdate`, `OnComplete`, `OnCancel` and `OnDispose` hooks, the `Complete` and `Cancel` transitions, and a `State` of `BoardCommandState`. A command that owns its own state machine implements `IBoardCommand` directly instead.
-- Added `BoardCommandRunner`, which drives one command through the optional parts of the contract and is shared by the board queue, the command groups, and any host outside a board.
-- Added `IBoardCommandContext` and `BoardController.CommandContext`, the board surface a command written outside this package reaches: `TrySpawnItem`, `TryReplaceItem`, `RemoveItem`, `ContainsItem`, `AddScore`, `CountMerge`, `PlayBoardSound`, `PlayItemMergeSound`, `EnqueueCommand`, `Area`, `Config`, `ScoreRule`, `Items`, `HoldingItem` and `ItemIndexCount`.
-- Added the `ActionCommand`, `DelayCommand`, `WaitUntilCommand`, `SequenceCommand`, `ParallelCommand` and `CompositeBoardCommand` flow commands, so board work can be ordered, paced, and grouped without a project writing its own scheduler.
-- Added the `SpawnItemCommand`, `RemoveItemsCommand`, `PromoteItemCommand`, `ShakeBoardCommand` and `AddScoreCommand` board commands, which cover bonus items, clearing power-ups, a single-item promotion, a board shake, and score bonuses.
-- Changed `MergingCommand` to carry out the merge itself through `IBoardCommandContext` instead of running the two callbacks the board passed it, so one merge command serves both the pairs the board finds and a pair a project picked, which no longer has to be reproduced anywhere. It takes a context and the pair, keeps reserving them, and exposes `GetMergedIndex`, `GetMergeScore`, `SpawnMergedItem`, `TryGetMergedPosition` and `PlayMergeSound` as `protected virtual`. `BoardController.CreateMergingCommand(BoardItem, BoardItem)` is the factory to override for a subclass, and the pair check moved to `TryCreateMergingCommand`.
-- Changed `MergingCommand` to live in `Board.Command.Item` with the other item commands; the `Board.Command.Merge` namespace and folder are gone.
-- Added `BoardController.AddScore(int)`, `CountMerge()`, `Items`, `Config`, `Area`, `ItemIndexCount`, `ContainsItem(BoardItem)` and a public `GetItemInfo(int)`; every score change and every merge count, the board's own merges included, now runs through them, and a negative score amount never pushes the score below zero.
-- Added `BoardItem.AddVelocity(Vector2, float)`, which pushes an item that already rests on the board without wiping the speed it carries.
-- Added an optional board sound configuration to `BoardConfig`, with optional game start, game end, and item drop clips. Every clip can be left empty, and a moment without one stays silent.
-- Changed the board sound volumes into `BoardController.SfxVolume` and `BoardController.BgmVolume`, so a project sets them on the board instead of carrying them in `BoardSoundConfig`, where a volume setting the player changes could not reach them. Both clamp to 0 to 1, and `BgmVolume` reaches the audio manager the board owns right away.
-- Added an optional board BGM playlist to `BoardConfig.SoundConfig`, with shuffle, an inter-track interval, and a cycle count. It starts on game start and stops on game end.
-- Added combo-driven merge sounds; the first merge plays the first clip of `BoardSoundConfig.ItemMergeClips` and every merge that follows within the combo interval, 5 seconds by default, steps one clip further until the last one is reached. `BoardController.MergeComboIndex` exposes the current step.
-- Added `BoardController.AudioManager`, which the board plays every sound through. The board creates and drives a `Mu3Library.Audio.AudioManager` of its own with the first sound it plays; assign the one a project already runs to share it instead.
-- Changed the spawn guide line width from one tenth to two fifths of the spawn marker width.
-- Fixed the spawn guide line being drawn at an unintended size; the tiled renderer is now fitted through `SpriteRenderer.size`, and its transform scale, which sizes one repeated segment, stays the same on both axes.
-- Added the item-area rectangle to the `BoardArea` gizmos and refreshed the Watermelon sample board background and sound configuration.
+- See `game/watermelon/0.3.0` in the repository root `CHANGELOG.md`. Highlights: the public board command queue with `IBoardCommandContext`, lifecycle-based `BoardCommand`, flow, item, and score commands, a `MergingCommand` shared by the board and projects, and optional board sounds played through `AudioManager`.
 
-## [game/watermelon/0.2.0] - 2026-08-08
+## [0.2.0] - 2026-08-08
 
-- Fixed the spawn guide line disappearing when its board-relative dimensions were applied through `SpriteRenderer.size`; it now fits through its child transform scale.
-- Fixed the spawn guide line staying hidden when a drag begins during the drop cooldown and the held item becomes available afterward.
-- Added a configurable drag-only vertical tiled spawn guide line; it is one tenth of the spawn marker's width, renders at board sorting order `+1`, and moves the spawn marker to `+2`.
-- Fixed the package sample lifecycle so a successfully prepared board starts running.
-- Configured the package sample board with its item-out line and spawn-marker images.
-- Added `BoardController.SetBoardConfig(BoardConfig)` as the validated configuration boundary; `SetBoareConfig` remains as a compatibility alias.
-- Changed default item catalog validation to preserve entries after the eleven default fruits without enabling them in the default spawn or merge rules.
-- Changed board configuration application to update active and held items atomically, including their scale and board-relative physics.
-- Changed merge matching to group active items by index before checking contacts, avoiding unrelated pair comparisons and per-frame group allocations after warmup.
-- Fixed merge reservations to be released for invalid, canceled, and failed commands without changing a pooled instance that has already been reused.
-- Fixed pooled `BoardItem` instances to reset presentation, collider, physics, support, and merge state before reuse.
-- Fixed board local bounds calculation for camera-aligned or tilted board planes while retaining the public world XY bounds API.
-- Fixed touch handling to track the finger that began a drag, preventing another finger's move/end event from changing it.
-- Improved cached board child renderers and out colliders to avoid repeated hierarchy/component lookups during layout rebuilds.
-- Improved sample preparation so absent scene/config dependencies do not publish a prepared board state, and its resource lookup is cached.
-- Changed the default `BoardItemInfo` collider diameter ratio from `0.96` to `0.98` so fruit contacts better match the configured sprite size.
-- Added configurable item-out line placement and board-width fitting for `BoardArea`.
-- Added a drop interval to `BoardController`, 0.5 seconds by default, so a touch can no longer spawn items back to back.
-- Added an initial downward speed for a released item, set as a fraction of the board area height per second so every screen resolution gives the same push.
-- Added a board-relative fall acceleration, set as a fraction of the board area height per second squared and applied through the item gravity scale, so the whole fall stays the same on every screen resolution without touching the project gravity.
-- Added JSON serialization and deserialization to `BoardSnapshot` through `ToJson` and `FromJson`, preserving board counters, the held and preview item indices, item positions, and rotations.
-- Added `BoardController.ExportSnapshot`, `ExportSnapshotJson`, and `ImportSnapshotJson` to save and restore the board, including the held item, preview item, and board item positions and rotations.
-- Added optional `BoardConfig.ItemPhysicsMaterial` and `BoardConfig.ItemRigidbodySettings` settings for the physics material, linear damping, and angular damping applied to every board item.
-- Added `BoardItem.PhysicsMaterial`, `LinearDamping`, and `AngularDamping` so board-wide physics can be configured without changing the item prefab.
-- Added a next-item preview to `BoardController`(`NextItemIndex`, `NextItemInfo`, `OnNextItemChanged`), drawn one item ahead of the one in hand.
-- Added `BoardController.IsGameEndCheckPaused`, which suspends the game-end check for the drop interval so a freshly dropped stack can slide into place before it is judged.
-- Changed the item to drop to wait at the top of the board as soon as the drop interval has passed, at the place the previous item was dropped from, instead of being created on the next touch.
-- Split `BoardArea` into single-purpose parts under `Board/Area`(bounds calculation, coordinate conversion, view, out colliders, input relay) while keeping its public API.
-- Changed `BoardItemScaleRule` to spread the item diameters linearly over the board area width, from `1/20` for the smallest fruit to `2/5` for the largest one.
-- Fixed `BoardArea.CalculateBounds` overloads so the aspect ratio argument is used instead of the board sprite's own ratio.
-- Removed `BoardItemInfo.MergingEffect` / `MergedEffect`, the effect playback in `MergingCommand`, and the sample merge effect prefabs, materials and textures; the prefabs were saved in the legacy Unity 5 prefab format and crashed the Editor natively inside the particle renderer when instantiated.
-- Fixed `BoardController` game-end detection to end the game when an item stacked above the top edge of the board area rests on the board floor or on other items, excluding items that have not landed yet and the side walls; the item-out line is now display only.
-- Fixed board item fall detection so a fall only ends on the board floor or another item; brushing a side wall no longer counts as landing, which made items stacked against a wall end the game too early.
-- Fixed board item bookkeeping so merging items stay registered until their command completes and the same item cannot be registered twice, preventing leaked items and stale duplicates that grew the board without bound.
-- Fixed `MergingCommand` so a merge cannot start or complete more than once and never completes after disposal.
+- See `game/watermelon/0.2.0` in the repository root `CHANGELOG.md`. Highlights: `SetBoardConfig`, the drop interval and board-relative fall, board snapshots, the next-item preview, the split of `BoardArea` into single-purpose parts, and fixes to merging, pooling, and game-end detection.
 
 ## [0.1.1] - 2026-08-07
 
-- Added optional `ParticleHandler` merge effects to `BoardItemInfo` and cleaned up spawned effects after completion.
-- Added static Watermelon merge VFX textures and `WatermelonMergingEffect` / `WatermelonMergedEffect` prefabs to the sample, wired through `BoardConfig`.
-- Made merge effect processing skip null effect entries instead of stopping the full merge command.
+- See `game/watermelon/0.1.1` in the repository root `CHANGELOG.md`. Highlights: optional `ParticleHandler` merge effects.
 
 ## [0.1.0] - 2026-08-07
 
-- Added the reusable `Mu3Library.Game.WatermelonGame` runtime assembly with board, item, merge, configuration, and input helpers.
-- Added `BoardArea` fitting, collision boundaries, normalized-position conversions, camera projection helpers, and safe `Try...` variants.
-- Added eleven fixed fruit entries addressed by zero-based index and the virtual `BoardItemScoreRule.GetScore(int)` scoring extension point.
-- Added the complete Watermelon Game sample surface with the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and playable `Demo` scene.
-- Fixed board-area calculations for orthographic and perspective cameras, item sizing, boundary collider placement, and item collider synchronization.
+- See `game/watermelon/0.1.0` in the repository root `CHANGELOG.md`. Highlights: the first release of the `Mu3Library.Game.WatermelonGame` runtime assembly and its playable sample.

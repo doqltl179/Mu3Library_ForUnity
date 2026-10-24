@@ -151,7 +151,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [game/watermelon/0.6.0] - 2026-08-17
 
 ### 追加
-- `InputHandler`: マウスがタッチと同じドラッグパイプラインを動かします。タッチスクリーンのないエディターとデスクトップでもゲームがプレイできます。
+- `InputHandler`: マウスが専用に予約された finger id でタッチと同じドラッグパイプラインを動かします。タッチスクリーンのないエディターとデスクトップでもゲームがプレイでき、タッチしか受け取らないプロジェクトはこれまでどおり動作します。
 - テスト: `BoardCommandRunner` の EditMode テストを追加し、Base のテストと合わせて WatermelonGame プロジェクトに testable として登録しました。
 
 ## [base/0.24.1] - 2026-08-16
@@ -264,7 +264,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [game/watermelon/0.4.0] - 2026-08-15
 
 ### 追加
-- `BoardController`: `OnScoreAdded`、`OnBoardConfigChanged`、`OnHoldingItemChanged`、`OnHoldingItemMoved`、`OnItemDropped`、`OnItemAdded`、`OnItemRemoved`、`OnItemMerged`、`OnMergeComboChanged` event を追加しました。外部 project は board を polling せずに UI や演出を更新できます。`OnScoreAdded` は 1 回の変更が実際に支払った点数を渡し、0 での clamp により変化しなかった場合は発生しません。`OnItemRemoved` は item が catalog 情報と位置を保持したまま呼ばれます。
+- `BoardController`: `OnScoreAdded`、`OnBoardConfigChanged`、`OnHoldingItemChanged`、`OnHoldingItemMoved`、`OnItemDropped`、`OnItemAdded`、`OnItemRemoved`、`OnItemMerged`、`OnMergeComboChanged` event を追加しました。外部 project は board を polling せずに UI や演出を更新できます。`OnScoreAdded` は 1 回の変更が実際に支払った点数を渡し、0 での clamp により変化しなかった場合は発生しません。`OnItemRemoved` は item が catalog 情報と位置を保持したまま呼ばれます。`OnItemAdded` は player の drop、合成、command、復元された snapshot を問わず、board に加わるすべての item で発生します。
 - `BoardController`: 保持中の item が待機する位置を board 領域の幅比率で読む `HoldingNormalizedX` を追加しました。`OnHoldingItemMoved` が渡す値と同じです。
 - `BoardMergeInfo`: `BoardController.OnItemMerged` に渡す merge 情報を追加しました。合成された catalog index、生成された index と instance、board 正規化位置、支払った点数、`IsValid` を保持します。
 - `BoardController.CountMerge(BoardMergeInfo)` と `IBoardCommandContext.CountMerge(BoardMergeInfo)`: merge 内容を併せて報告する merge 集計を追加しました。board と `MergingCommand` が行うすべての merge がこの経路を使用します。既存の `CountMerge()` は内容なしで集計し、`BoardMergeInfo.Unknown` を報告します。
@@ -285,10 +285,10 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `IUpdatableBoardCommand` と `ICancelableBoardCommand` を command contract の任意部分として追加しました。`IBoardCommand` は最小 contract のまま、frame 更新と事前 cancel をサポートします。
 - `BoardCommand` を `OnRun`、`OnUpdate`、`OnComplete`、`OnCancel`、`OnDispose` hook、`Complete` / `Cancel` transition、`BoardCommandState` state を持つ lifecycle base に変更しました。独自 state machine が必要な command は `IBoardCommand` を直接実装できます。
 - `BoardCommandRunner` を追加し、任意 contract を含む単一 command を実行します。board queue、command group、board 外部の host で共有できます。
-- `IBoardCommandContext` と `BoardController.CommandContext` を追加しました。外部 command はこの surface を通じて item の生成・置換・削除、score・merge count、sound、queue、board state を利用します。
-- `ActionCommand`、`DelayCommand`、`WaitUntilCommand`、`SequenceCommand`、`ParallelCommand`、`CompositeBoardCommand` の flow command を追加し、board work を順序化・遅延・group 化できるようにしました。
+- `IBoardCommandContext` と `BoardController.CommandContext` を追加しました。外部 command はこの surface を通じて item の生成・置換・削除、score・merge count、sound、queue、board state を利用します。surface は `TrySpawnItem`、`TryReplaceItem`、`RemoveItem`、`ContainsItem`、`GetItemInfo`、`AddScore`、`CountMerge`、`PlayBoardSound`、`PlayItemMergeSound`、`EnqueueCommand` と、読み取り用の `Area`、`Config`、`ScoreRule`、`Items`、`HoldingItem`、`ItemIndexCount`、`IsPrepared`、`IsRunning`、`Score` から成ります。
+- `ActionCommand`、`DelayCommand`、`WaitUntilCommand`、`SequenceCommand`、`ParallelCommand`、`CompositeBoardCommand` の flow command を追加し、project が独自の scheduler を書かなくても board work を順序化・遅延・group 化できるようにしました。
 - bonus item、削除 power-up、単一 item の昇格、board の shake、score bonus 用に `SpawnItemCommand`、`RemoveItemsCommand`、`PromoteItemCommand`、`ShakeBoardCommand`、`AddScoreCommand` を追加しました。
-- `MergingCommand` が board から渡された 2 つの callback を実行する代わりに `IBoardCommandContext` を通じて merge 自体を行うように変更しました。board が見つけた pair と project が選んだ pair に同じ command を使え、merge index・score・生成位置・sound hook を `protected virtual` で拡張できます。
+- `MergingCommand` が board から渡された 2 つの callback を実行する代わりに `IBoardCommandContext` を通じて merge 自体を行うように変更しました。board が見つけた pair と project が選んだ pair に同じ command を使え、merge index・score・生成位置・sound hook を `protected virtual` で拡張できます。board 全体で subclass を使うには factory の `BoardController.CreateMergingCommand(BoardItem, BoardItem)` を override し、pair の確認は `TryCreateMergingCommand` に移りました。
 - `MergingCommand` を他の item command と同じ `Board.Command.Item` に移動し、`Board.Command.Merge` namespace と folder を削除しました。
 - `BoardController.AddScore(int)`、`CountMerge()`、`Items`、`Config`、`Area`、`ItemIndexCount`、`ContainsItem(BoardItem)`、public `GetItemInfo(int)` を追加しました。すべての score 変更と merge count が 1 つの経路を通り、負の score は 0 未満になりません。
 - `BoardItem.AddVelocity(Vector2, float)` を追加し、board 上にすでにある item の速度を保ったまま押せるようにしました。
@@ -309,7 +309,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - `BoardArea`: 任意の outline sprite を設定した board 幅に合わせ、item 超過境界へ配置する機能を追加しました。
-- `BoardConfig`: drag 中だけ表示する tiled 方式の spawn guide line sprite 設定を追加しました。guide line は board sorting order `+1`、spawn marker は `+2` で描画されます。
+- `BoardConfig`: drag 中だけ表示する縦方向の tiled 方式の spawn guide line sprite 設定を追加しました。guide line の幅は spawn marker の幅の 1/10 で、guide line は board sorting order `+1`、spawn marker は `+2` で描画されます。
 - `BoardController`: item の生成間隔（既定 0.5 秒）を追加し、touch のたびに item が連続生成されないようにしました。状態は `CanSpawnItem` と `DropCooldown` で確認できます。
 - `BoardController`: item を放した瞬間に下方向へ与える初速度を追加しました。値は 1 秒あたりの board area 高さの比率として設定し、board area は画面解像度に応じて大きさが変わるため、どの端末でも同じ力が加わります。item ごとに質量が異なるため、`BoardItem.SetDropVelocity(Vector2)` は force ではなく velocity として適用します。
 - `BoardController`: 落下加速度を board area 高さに対する比率（1 秒の 2 乗あたり）で設定し、item を落とす際に `BoardItem.GravityScale` として適用するようにしました。初速度と併せて、落下の開始だけでなく全区間が、どの解像度でも board に対して同じ割合を同じ時間で移動します。調整されるのは board item のみで、project の gravity 設定は変更しません。
@@ -317,16 +317,15 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - `BoardController`: holding item、preview item、board item の位置と回転を含めて board を保存・復元する `ExportSnapshot`、`ExportSnapshotJson`、`ImportSnapshotJson` を追加しました。
 - `BoardConfig`: すべての board item に適用する physics material、linear damping、angular damping を設定する任意の `ItemPhysicsMaterial` と `ItemRigidbodySettings` を追加しました。
 - `BoardItem`: item prefab を変更せず board 全体の physics を設定できる `PhysicsMaterial`、`LinearDamping`、`AngularDamping` property を追加しました。
-
 - `BoardController`: 次の item の preview を `NextItemIndex`、`NextItemInfo`、`OnNextItemChanged` として追加しました。spawn rule から 1 つ先に引いておくため、手持ちの item の次に何が来るかを確認でき、手持ちの item 自体は `HoldingItem` で公開されます。
 - `BoardController`: item を落とした後の drop interval の間、game end 判定を停止する `IsGameEndCheckPaused` を追加しました。item が高く積まれた状態では落下 item がほぼ即座に着地判定となるため、その間に item が滑って落ち着いてから判定します。
 
 ### 変更
 - `BoardController`: board 設定を検証済みの `SetBoardConfig(BoardConfig)` 境界から適用するように変更しました（`SetBoareConfig` は compatibility alias として維持）。active item と holding item の scale、board 基準の physics を atomic に更新します。
 - `BoardItemsConfig`: 11 個の default fruit より後ろの catalog entry を将来の rule 用に保持し、default spawn / merge rule は 11 個の entry のみに制限するように変更しました。
-- `BoardController`: merge candidate を contact 確認前に index ごとに group 化し、layout rebuild 中の board child renderer と out collider を cache するように変更しました。
+- `BoardController`: merge candidate を contact 確認前に index ごとに group 化して無関係な pair の比較を省き、warmup 後は frame ごとに group を確保しないようにしたうえで、layout rebuild 中の board child renderer と out collider を cache するように変更しました。
 - `BoardArea`: 公開している world XY bounds API を維持しつつ、camera に aligned または tilted な board plane でも local board bounds が正しくなるように変更しました。
-- `WatermelonGame` sample: dependency を検証・cache し、board の prepare が成功した後だけ game start するように変更しました。
+- `WatermelonGame` sample: dependency を検証・cache し、scene や設定の dependency が欠けていれば board を prepared と通知せず、board の prepare が成功した後だけ game start するように変更しました。sample board に item-out line と spawn marker の画像を設定しました。
 - `BoardItemInfo`: fruit の contact が設定した sprite size により近くなるよう、default collider diameter ratio を `0.96` から `0.98` に変更しました。
 - `BoardController`: 落とす item が touch 時ではなく drop interval の終了と同時に board 上端で待機するようにしました。直前の item を落とした位置で待機し、touch はその item を掴んで動かすだけになります。
 - `BoardArea`: component を `Board/Area` 配下の単一責務の部品へ分割しました。`BoardAreaBoundsCalculator` が board の矩形を計算し、`BoardAreaCoordinateConverter` が座標を変換し、`BoardAreaView` が board と item 基準線を描画し、`BoardAreaOutColliders` が item を board 内に留め、`BoardAreaInputRelay` が board に属する touch のみを通知します。矩形そのものは新規の `BoardAreaBounds` と `CoordinateBounds` が保持します。component の public API は変更なく、各部品へ委譲するだけです。
@@ -336,12 +335,13 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - merge effect: `BoardItemInfo.MergingEffect` / `MergedEffect`、`MergingCommand` の effect 再生、および sample の merge effect prefab・material・texture を削除しました。当該 prefab は Unity 5 時代の legacy prefab format で保存されており、`ParticleSystemRenderer` に `serializedVersion` が無く大半の field が欠落し、0 番の material が null でした。このため最初の merge で effect を生成した瞬間に `ParticleSystemRenderer::PrepareForRender` で editor が native crash していました。
 
 ### 修正
-- `BoardArea`: drop cooldown 中に開始した drag でも holding item の準備後に guide line が表示されるようにし、guide line の board 基準サイズを renderer size ではなく transform scale で適用するようにしました。
+- `BoardArea`: drop cooldown 中に開始した drag でも holding item の準備後に guide line が表示されるようにし、guide line の board 基準サイズを transform scale で適用するようにしました。`SpriteRenderer.size` で適用すると guide line が消えていました。
 - `MergingCommand`: 無効・cancel・failure となった command の merge reservation を解放し、すでに pool で再利用された item を変更しないように修正しました。
 - `BoardItem`: pool から再利用する instance の presentation、collider、physics、support、merge state を次の初期化前に reset するように修正しました。
 - `InputHandler`: touch の移動と終了が drag を開始した finger に紐づいたままになるように修正しました。
 - `BoardArea`: `CalculateBounds(Camera, float)` と `CalculateBounds(Camera, Vector2, float)` が渡された aspect ratio を実際に使用するようにしました。従来は常に board sprite の比率にフォールバックしていました。
-- `BoardController`: game end 判定を接触ベースに変更しました。上端が board line を越えた item が床または他の item に支えられている場合に game end とします。item は必ず line より上に置かれるため、まだ着地していない item は落下状態として除外され、左右の壁は支持対象から除外されます。
+- `BoardController`: game end 判定を接触ベースに変更しました。上端が board line を越えた item が床または他の item に支えられている場合に game end とします。item は必ず line より上に置かれるため、まだ着地していない item は落下状態として除外され、左右の壁は支持対象から除外されます。item-out line は表示専用になりました。
+- `BoardItem`: 落下が board の床か他の item の上でのみ終わるように修正しました。側面の壁をかすめただけでも着地と判定され、壁際に積まれた item が早すぎる game end を招いていました。
 - `BoardController`: merge 中の item が command 完了まで board に登録されたままになり、同一 item の重複登録を防ぐようにしました。board を再準備するとすべての item が回収されます。従来は item が失われたり重複 entry が残って board が際限なく増えていました。誤記だった `OnDestory` を修正し、command が実際に破棄されるようにしました。
 - `MergingCommand`: merge が二度以上開始・完了せず、command 破棄後には完了しないように修正しました。
 
@@ -349,6 +349,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - `BoardItemInfo`: merge effect 用の任意 `ParticleHandler` resource と、生成 effect 完了後の自動 cleanup を追加しました。
+- Watermelon Game sample: 静的な合成 VFX texture と `WatermelonMergingEffect` / `WatermelonMergedEffect` prefab を追加し、`BoardConfig` から参照するようにしました。
 
 ### 修正
 - `MergingCommand`: null の merge effect があっても merge command 全体を停止せずスキップするようにしました。

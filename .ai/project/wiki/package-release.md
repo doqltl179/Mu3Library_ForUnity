@@ -18,7 +18,7 @@ The kit's [release.md](../../kit/core/wiki/workflows/release.md) owns the releas
 
 ## Changelogs And Titles
 
-The detailed notes go in the root `CHANGELOG.md` (and its localized copies) under a per-package header. The package-local `CHANGELOG.md` gets a short entry for the same version that points to the root entry, in the same commit.
+The detailed notes go in the root `CHANGELOG.md` (and its localized copies) under a per-package header. The package-local `CHANGELOG.md` gets a short entry for the same version that points to the root entry, in the same commit. In all three packages its header is `## [X.Y.Z] - YYYY-MM-DD`, the version without the tag path, and its entry reads ``- See `<package>/X.Y.Z` in the repository root `CHANGELOG.md`.``, optionally followed by highlights, with `<package>` the tag path of the root header (`game/watermelon` for Watermelon Game).
 
 | Package | Root `CHANGELOG.md` header | Release title |
 |---|---|---|
