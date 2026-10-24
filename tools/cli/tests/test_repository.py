@@ -76,6 +76,12 @@ class RepositoryRootSpellingTests(unittest.TestCase):
 
         self.assertEqual(self.short_root, self.root_for(self.short_root, other))
 
+    def test_deleted_working_directory_leaves_the_module_spelling(self) -> None:
+        with mock.patch.object(repository, "__file__", str(self.short_root / MODULE_PATH)), mock.patch.object(
+            Path, "cwd", side_effect=FileNotFoundError("deleted")
+        ):
+            self.assertEqual(self.short_root, repo_root())
+
 
 if __name__ == "__main__":
     unittest.main()

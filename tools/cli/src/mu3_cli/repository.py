@@ -57,8 +57,13 @@ def repo_root() -> Path:
     if module_root is None:
         raise RuntimeError("Could not locate the Mu3Library repository root.")
 
-    working_root = _enclosing_root(Path.cwd())
-    if working_root is not None and os.path.samefile(working_root, module_root):
+    try:
+        working_root = _enclosing_root(Path.cwd())
+    except OSError:
+        # A working directory that was deleted leaves only the module's own spelling.
+        return module_root
+    # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
+    if working_root is not None and working_root.resolve() == module_root.resolve():
         return working_root
     return module_root
 

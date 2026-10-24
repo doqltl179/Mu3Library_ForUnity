@@ -26,8 +26,8 @@ Package release notes remain in:
 - In-place compile and test runs no longer leave files modified whose line endings alone changed. The Unity Editor writes the YAML of scenes, assets, and `.meta` files with LF, while a checkout with `core.autocrlf = true` held them as CRLF, so every run showed eight settings files across the three development projects as modified. `.gitattributes` now checks the Unity YAML file types out with LF, with `text=auto` so a binary `.asset` stays untouched. Git already stored these files with LF, so no file changed in the repository, but a checkout made before this change keeps its CRLF copies until it checks them out again. Checking them out makes Unity import them again, and `DepthOutline.shader.meta` and `GaussianBlur.shader.meta` in `Mu3Library_URP`, which held only their GUID, now carry the importer section Unity fills in on every such import. On a checkout without uncommitted changes, run from its root:
 
   ```bash
-  git ls-files --eol | awk -F'\t' '$1 ~ /eol=lf/ {print $2}' | while IFS= read -r p; do rm -f -- "$p"; done
-  git ls-files --eol | awk -F'\t' '$1 ~ /eol=lf/ {print $2}' | git checkout-index -f -u --stdin
+  git ls-files --eol | awk -F'\t' '$1 ~ /text=auto eol=lf/ {print $2}' | while IFS= read -r p; do rm -f -- "$p"; done
+  git ls-files --eol | awk -F'\t' '$1 ~ /text=auto eol=lf/ {print $2}' | git checkout-index -f -u --stdin
   ```
 
 ## 2026-10-21
