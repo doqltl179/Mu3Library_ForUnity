@@ -39,9 +39,9 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## Tests
 
-- EditMode tests live in `Mu3Library_Base/Tests/Editor` (`Mu3Library.Tests.Editor.asmdef`) and `Mu3Library_Game_WatermelonGame/Tests/Editor`. Add new ones next to the nearest existing pattern.
+- EditMode tests live in `Mu3Library_Base/Tests/Editor` (`Mu3Library.Tests.Editor.asmdef`), `Mu3Library_URP/Tests/Editor` (`Mu3Library.URP.Tests.Editor.asmdef`), and `Mu3Library_Game_WatermelonGame/Tests/Editor`. Add new ones next to the nearest existing pattern.
 - `commands.test` runs them through the Unity Test Framework CLI for the projects that consume a changed package, selected as `commands.build` selects them. Explicit targets: `bash ./test-unity.sh built-in|urp|watermelon|all`, with the compile script's options; `mu3-cli unity test` wraps it.
-- A project runs only the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `watermelon` the Base and Watermelon Game tests, and `urp` lists none and is skipped. Base tests therefore run under two define sets.
+- A project runs only the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the URP tests, and `watermelon` the Base and Watermelon Game tests. Base tests therefore run under two define sets.
 - The command exits non-zero when a test fails, Unity fails, or a run writes no result. Such a failure does not stop the remaining targets; a target that cannot start, such as an open project under `--in-place`, stops the command at once. NUnit XML lands in `log/unity-tests/<target>-editmode.xml`. A project open in an Editor is tested in an isolated mirror, as in compile.
 - Tests take minutes per target on a first import; when a request does not need them, report that they did not run.
 
