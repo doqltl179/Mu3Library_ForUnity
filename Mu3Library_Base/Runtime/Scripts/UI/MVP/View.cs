@@ -130,6 +130,14 @@ namespace Mu3Library.UI.MVP
             {
                 _viewState = ViewState.Closed;
             }
+            // An open cut short the same way would stay Opening, so OpenAsync would never complete and
+            // a Close that is not forced would be refused. Such a view finishes its open here instead:
+            // it is on screen again once its host is shown, so OpenEnd() still runs, as it does for a
+            // view opened under a host that is already hidden.
+            else if (_viewState == ViewState.Opening)
+            {
+                EndCutShortOpen();
+            }
         }
 
         internal void Load()
@@ -157,11 +165,7 @@ namespace Mu3Library.UI.MVP
                     _viewState = ViewState.Opening;
 
                     OpenStart();
-                    OpenEnd();
-
-                    _canvasGroup.interactable = true;
-
-                    _viewState = ViewState.Opened;
+                    EndOpen();
                     return;
                 }
 
@@ -176,19 +180,41 @@ namespace Mu3Library.UI.MVP
 
             OpenStart();
             yield return StartCoroutine(WaitOpening());
+            EndOpen();
+
+            _lifeCycleCoroutine = null;
+        }
+
+        private void EndOpen()
+        {
             OpenEnd();
 
             _canvasGroup.interactable = true;
 
             _viewState = ViewState.Opened;
+        }
 
-            _lifeCycleCoroutine = null;
+        /// <summary>
+        /// Ends an open whose coroutine stopped because the view was hidden: the rest of the open
+        /// transition is skipped and the view takes its opened state.
+        /// </summary>
+        private void EndCutShortOpen()
+        {
+            SkipOpenTransition();
+            EndOpen();
         }
 
         protected virtual void OpenStart() { }
         protected virtual bool WaitOpeningUntil() { return true; }
         protected virtual IEnumerator WaitOpening() { yield return new WaitUntil(WaitOpeningUntil); }
         protected virtual void OpenEnd() { }
+
+        /// <summary>
+        /// Runs when hiding the view cut its open transition short, before <see cref="OpenEnd"/>. A view
+        /// that keeps a pose for its transitions takes its opened pose here, so it shows fully open once
+        /// it is visible again.
+        /// </summary>
+        internal virtual void SkipOpenTransition() { }
 
         internal void Close(bool forceClose = false)
         {
@@ -264,6 +290,27 @@ namespace Mu3Library.UI.MVP
             }
 
             _viewState = ViewState.Closed;
+        }
+
+        /// <summary>
+        /// Ends an open that hiding the view cut short, as <see cref="OnDisable"/> does, for a view
+        /// whose own OnDisable does not call base. Does nothing while the view is not opening or is
+        /// still active in the hierarchy, where its open coroutine keeps running.
+        /// </summary>
+        internal void EndHiddenOpen()
+        {
+            if (_viewState != ViewState.Opening || gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (_lifeCycleCoroutine != null)
+            {
+                StopCoroutine(_lifeCycleCoroutine);
+                _lifeCycleCoroutine = null;
+            }
+
+            EndCutShortOpen();
         }
 
         internal void Unload()

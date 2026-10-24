@@ -48,8 +48,29 @@ namespace Mu3Library.UI.MVP.Animation
 
         private void OnDisable()
         {
-            Stop();
-            _timeFactor = 0.0f;
+            // A hidden or disabled handler does not finish its animation coroutine. A running animation
+            // ends in its end pose instead of the pose of that frame, as one started on an inactive
+            // object does, and the time factor keeps matching the pose, so the next animation starts
+            // from it.
+            if (_animationCoroutine == null)
+            {
+                return;
+            }
+
+            switch (_state)
+            {
+                case AnimationState.Opening:
+                    CompleteOpen();
+                    break;
+
+                case AnimationState.Closing:
+                    Complete(0.0f, AnimationState.Closed, false);
+                    break;
+
+                default:
+                    Stop();
+                    break;
+            }
         }
 
         public void Open()
@@ -117,12 +138,7 @@ namespace Mu3Library.UI.MVP.Animation
             // pose at once and shows in that pose once its host is shown.
             if (!gameObject.activeInHierarchy)
             {
-                Stop();
-
-                _timeFactor = factorTo;
-                Animate(animationConfigs, isOpening);
-
-                _state = endState;
+                Complete(factorTo, endState, isOpening);
                 return;
             }
 
@@ -146,6 +162,24 @@ namespace Mu3Library.UI.MVP.Animation
             {
                 _state = endState;
             }
+        }
+
+        /// <summary>
+        /// Puts the view in its opened pose at once, ending an open animation that is running.
+        /// </summary>
+        internal void CompleteOpen() => Complete(1.0f, AnimationState.Opened, true);
+
+        private void Complete(float factorTo, AnimationState endState, bool isOpening)
+        {
+            Stop();
+
+            _timeFactor = factorTo;
+            if (_animationConfigs != null)
+            {
+                Animate(_animationConfigs, isOpening);
+            }
+
+            _state = endState;
         }
 
         private IEnumerator AnimationCoroutine(float factorFrom, float factorTo, AnimationState endState, AnimationConfig[] animationConfigs, bool isOpening)

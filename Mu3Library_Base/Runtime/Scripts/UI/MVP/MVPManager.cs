@@ -268,6 +268,7 @@ namespace Mu3Library.UI.MVP
             CleanupDestroyedPresenters();
 
             CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
+            EndHiddenOpens();
             CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
             EndHiddenCloses();
             CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
@@ -343,6 +344,24 @@ namespace Mu3Library.UI.MVP
             if (isViewDestroyed)
             {
                 UpdateFocus();
+            }
+        }
+
+        /// <summary>
+        /// Hiding a view stops its open coroutine too, which is what happens to a window whose host or
+        /// owner is hidden while it opens. <c>View.OnDisable</c> ends such an open, but only when a view
+        /// that overrides <c>OnDisable</c> calls base, so the manager ends it here as well, before the
+        /// open check reads the view state.
+        /// </summary>
+        private void EndHiddenOpens()
+        {
+            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            {
+                PresenterBase presenter = _presenterOpenChecker[i].Presenter;
+                if (presenter.IsViewExist)
+                {
+                    presenter.EndHiddenOpen();
+                }
             }
         }
 
