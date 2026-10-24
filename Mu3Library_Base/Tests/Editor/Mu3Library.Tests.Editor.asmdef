@@ -7,6 +7,10 @@
         "Mu3Library.Editor",
         "Mu3Library.Foundation",
         "UniTask",
+        "Unity.Addressables",
+        "Unity.InputSystem",
+        "Unity.Localization",
+        "Unity.ResourceManager",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -28,6 +32,21 @@
             "name": "com.cysharp.unitask",
             "expression": "",
             "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "",
+            "define": "MU3LIBRARY_ADDRESSABLES_SUPPORT"
         }
     ],
     "noEngineReferences": false
