@@ -23,9 +23,15 @@ namespace Mu3Library.Editor.Attribute {
     /// <br/> The inspector window uses <see cref="CreateInspectorGUI"/>, which builds Unity's UI Toolkit default
     /// inspector, so property drawers that implement only CreatePropertyGUI render and IMGUI drawers keep working.
     /// <br/> <see cref="OnInspectorGUI"/> stays for IMGUI hosts that draw an editor directly.
+    /// <br/> A derived editor that overrides <see cref="OnInspectorGUI"/> keeps drawing through it:
+    /// <see cref="CreateInspectorGUI"/> then returns null, so the inspector window falls back to IMGUI.
     /// </summary>
     public abstract class ButtonInvokeEditorBase : UnityEditor.Editor {
         public override VisualElement CreateInspectorGUI() {
+            if(OverridesOnInspectorGUI()) {
+                return null;
+            }
+
             VisualElement root = new VisualElement();
 
             InspectorElement.FillDefaultInspector(root, serializedObject, this);
@@ -37,6 +43,11 @@ namespace Mu3Library.Editor.Attribute {
         public override void OnInspectorGUI() {
             DrawDefaultInspector();
             ButtonInvokeAttributeInspector.Draw(targets);
+        }
+
+        private bool OverridesOnInspectorGUI() {
+            MethodInfo method = GetType().GetMethod(nameof(OnInspectorGUI), BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+            return method != null && method.DeclaringType != typeof(ButtonInvokeEditorBase);
         }
     }
 

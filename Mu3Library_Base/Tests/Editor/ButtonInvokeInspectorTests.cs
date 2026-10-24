@@ -67,6 +67,20 @@ namespace Mu3Library.Tests
             public int Number => _number;
         }
 
+        // A project editor that extends the base to add its own IMGUI around the buttons.
+        private sealed class IMGUIOverrideEditor : ButtonInvokeEditorBase
+        {
+            public override void OnInspectorGUI()
+            {
+                EditorGUILayout.HelpBox("Project IMGUI", MessageType.Info);
+                base.OnInspectorGUI();
+            }
+        }
+
+        private sealed class PlainDerivedEditor : ButtonInvokeEditorBase
+        {
+        }
+
         private readonly List<Object> _created = new List<Object>();
 
         [TearDown]
@@ -139,6 +153,17 @@ namespace Mu3Library.Tests
             Assert.That(root.Q(ButtonInvokeAttributeInspector.ButtonSectionName), Is.Null);
         }
 
+        [Test]
+        public void DerivedEditor_OverridingOnInspectorGUI_KeepsDrawingThroughIMGUI()
+        {
+            ButtonInvokeTestComponent component = CreateComponent();
+            UnityEditor.Editor imguiEditor = CreateEditorOfType(typeof(IMGUIOverrideEditor), component);
+            UnityEditor.Editor plainEditor = CreateEditorOfType(typeof(PlainDerivedEditor), component);
+
+            Assert.That(imguiEditor.CreateInspectorGUI(), Is.Null, "The inspector window must fall back to the overridden OnInspectorGUI.");
+            Assert.That(plainEditor.CreateInspectorGUI(), Is.Not.Null);
+        }
+
         [UnityTest]
         public IEnumerator FallbackEditor_InAWindow_DrawsCreatePropertyGUIDrawerAndInvokesEveryTarget()
         {
@@ -191,6 +216,13 @@ namespace Mu3Library.Tests
         private UnityEditor.Editor CreateEditor(params Object[] targets)
         {
             UnityEditor.Editor editor = UnityEditor.Editor.CreateEditor(targets);
+            _created.Add(editor);
+            return editor;
+        }
+
+        private UnityEditor.Editor CreateEditorOfType(Type editorType, Object target)
+        {
+            UnityEditor.Editor editor = UnityEditor.Editor.CreateEditor(target, editorType);
             _created.Add(editor);
             return editor;
         }
