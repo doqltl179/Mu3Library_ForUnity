@@ -21,8 +21,8 @@ namespace Mu3Library.URP.ScreenEffect.Effects
 
                     if (m_shader == null)
                     {
-                        // A pass looks for its shader once: every frame asks for the material of every
-                        // active effect on every camera, and each miss used to search and log again.
+                        // A pass looks for its shader once: the material is asked for on every frame,
+                        // for every active effect and camera, so a shader loaded later needs a new pass.
                         m_isShaderMissing = true;
                         ScreenEffectShaders.ReportMissing(_shaderPath);
                     }
