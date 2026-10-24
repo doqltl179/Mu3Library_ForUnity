@@ -14,6 +14,7 @@ Package release notes remain in:
 
 ### Changed
 - `UnityProject_URP` lists the URP package under `testables`, so `test-unity.sh urp`, and `all` or `changed` with a URP change, runs the URP package's EditMode tests, new in `Mu3Library_URP/Tests/Editor`, where the target used to be reported as skipped. `tools/README.md` and the project's verification page say so.
+- The READMEs no longer repeat package versions in "Recent Updates" and "Package Info", which had fallen three to four releases behind; each version stays in its `package.json` and its notes in `CHANGELOG.md`. The only version strings left are the tags in the Git install URLs, and the release procedure in `.ai/project/wiki/package-release.md` now names updating them in all three README locales in the release commit. The same page fixes one package-local changelog format, which `Mu3Library_Game_WatermelonGame/CHANGELOG.md` now follows like Base and URP.
 
 ## 2026-10-21
 
