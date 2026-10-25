@@ -360,7 +360,7 @@ _playerData.Health.AddEvent(newHealth =>
 _playerData.Health.Set(80);
 ```
 
-An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
+An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers, and so does undoing or redoing that edit or reverting a prefab instance, with the restored value. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
 
 ## 🔧 Optional Packages
 

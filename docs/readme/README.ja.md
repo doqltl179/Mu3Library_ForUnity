@@ -360,7 +360,7 @@ _playerData.Health.AddEvent(newHealth =>
 _playerData.Health.Set(80);
 ```
 
-Observable フィールドは、コンポーネントや ScriptableObject の `[Serializable]` クラス、配列、リストの中に置くこともできます。Inspector で値を変えると、値が適用され購読者に通知されます。`ObservableDictionary` では同じキーを持つ行のうち最初の行が使われ、キーが重なる行はキーを変えるまで警告付きでリストに残ります。
+Observable フィールドは、コンポーネントや ScriptableObject の `[Serializable]` クラス、配列、リストの中に置くこともできます。Inspector で値を変えると、値が適用され購読者に通知されます。その編集を Undo や Redo したときや、プレハブインスタンスを元に戻したときも、元に戻った値で通知されます。`ObservableDictionary` では同じキーを持つ行のうち最初の行が使われ、キーが重なる行はキーを変えるまで警告付きでリストに残ります。
 
 ## 🔧 オプションパッケージ
 

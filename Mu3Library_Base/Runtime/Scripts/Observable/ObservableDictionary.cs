@@ -10,7 +10,8 @@ namespace Mu3Library.Observable
         IObservableValue<IReadOnlyDictionary<TKey, TValue>>,
         ISerializationCallbackReceiver,
         IDictionary<TKey, TValue>,
-        IReadOnlyDictionary<TKey, TValue>
+        IReadOnlyDictionary<TKey, TValue>,
+        IRestorableObservable
     {
         [Serializable]
         private struct Entry
@@ -19,11 +20,21 @@ namespace Mu3Library.Observable
             public TValue Value;
         }
 
+        private static readonly bool s_canCompareRestoredEntries =
+            RestoredValueComparison.CanCompare(typeof(TKey)) && RestoredValueComparison.CanCompare(typeof(TValue));
+
         [SerializeField] private List<Entry> _entries = new List<Entry>();
 
         private Dictionary<TKey, TValue> _dictionary;
         private Action<IReadOnlyDictionary<TKey, TValue>> _callback;
         private HashSet<TKey> _seenKeys;
+
+        // The last dictionary built before Unity deserialized the rows again (an undo, a redo, or a
+        // prefab revert restores them), kept until the subscribers are notified or a method here
+        // sets the entries. Null when nothing built one since then.
+        private Dictionary<TKey, TValue> _dictionaryBeforeRestore;
+        private bool _hasSettledEntries;
+        private bool _isRestored;
 
         private Dictionary<TKey, TValue> _dictionaryValue
         {
@@ -83,6 +94,7 @@ namespace Mu3Library.Observable
             EnsureDictionary();
 
             ReplaceContents(value);
+            Settle();
         }
 
         private void ReplaceContents(Dictionary<TKey, TValue> value)
@@ -105,6 +117,8 @@ namespace Mu3Library.Observable
         /// </summary>
         private void InvokeCallbacks(IReadOnlyDictionary<TKey, TValue> value)
         {
+            Settle();
+
             Delegate[] listeners = _callback?.GetInvocationList();
             if (listeners == null)
             {
@@ -238,9 +252,71 @@ namespace Mu3Library.Observable
             WriteDictionaryToEntries();
         }
 
+        /// <summary>
+        /// Drops the dictionary so it is built again from the deserialized rows, and only marks
+        /// the restore: this can run on a loading thread, where the subscribers must not be called.
+        /// The first deserialization of rows that nothing set yet loads them and restores nothing.
+        /// </summary>
         public void OnAfterDeserialize()
         {
+            _isRestored = _hasSettledEntries;
+            _hasSettledEntries = true;
+            if (_dictionary != null)
+            {
+                _dictionaryBeforeRestore = _dictionary;
+            }
+
             _dictionary = null;
+        }
+
+        bool IRestorableObservable.NotifyIfRestored()
+        {
+            if (!_isRestored)
+            {
+                return false;
+            }
+
+            Dictionary<TKey, TValue> before = _dictionaryBeforeRestore;
+            _isRestored = false;
+            _dictionaryBeforeRestore = null;
+            if (before != null && s_canCompareRestoredEntries && HasSameEntries(before))
+            {
+                return false;
+            }
+
+            Notify();
+            return true;
+        }
+
+        private void Settle()
+        {
+            _hasSettledEntries = true;
+            _isRestored = false;
+            _dictionaryBeforeRestore = null;
+        }
+
+        /// <summary>
+        /// Compares the entries by the rule the indexer notifies by, so a restore notifies when a
+        /// set would have.
+        /// </summary>
+        private bool HasSameEntries(Dictionary<TKey, TValue> other)
+        {
+            EnsureDictionary();
+            if (_dictionary.Count != other.Count)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            {
+                if (!other.TryGetValue(pair.Key, out TValue value) ||
+                    !EqualityComparer<TValue>.Default.Equals(pair.Value, value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void RefreshFromSerialized()

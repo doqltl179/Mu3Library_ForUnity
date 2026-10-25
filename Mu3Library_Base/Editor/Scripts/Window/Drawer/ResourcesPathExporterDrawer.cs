@@ -210,7 +210,7 @@ namespace Mu3Library.Editor.Window.Drawer
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
 
-            return null;
+            return GetNamespaceWarning(_scriptNamespace);
         }
 
         private void GenerateScript()
