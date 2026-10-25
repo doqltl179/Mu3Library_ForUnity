@@ -524,6 +524,7 @@ GameObject:
   - component: {fileID: 133501436}
   - component: {fileID: 133501438}
   - component: {fileID: 133501437}
+  - component: {fileID: 133501439}
   m_Layer: 5
   m_Name: HeaderText
   m_TagString: Untagged
@@ -650,6 +651,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 133501435}
   m_CullTransparentMesh: 1
+--- !u!114 &133501439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 133501435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e69939822f0f34e9fe2c04acaf2488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.SampleTextPreferredSize
 --- !u!1 &156772966
 GameObject:
   m_ObjectHideFlags: 0
@@ -1980,6 +1993,7 @@ GameObject:
   - component: {fileID: 702681824}
   - component: {fileID: 702681826}
   - component: {fileID: 702681825}
+  - component: {fileID: 702681827}
   m_Layer: 5
   m_Name: HeaderText
   m_TagString: Untagged
@@ -2106,6 +2120,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 702681823}
   m_CullTransparentMesh: 1
+--- !u!114 &702681827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 702681823}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e69939822f0f34e9fe2c04acaf2488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.SampleTextPreferredSize
 --- !u!1 &741962538
 GameObject:
   m_ObjectHideFlags: 0
@@ -6015,6 +6041,7 @@ GameObject:
   - component: {fileID: 1871165104}
   - component: {fileID: 1871165106}
   - component: {fileID: 1871165105}
+  - component: {fileID: 1871165107}
   m_Layer: 5
   m_Name: HeaderText
   m_TagString: Untagged
@@ -6141,6 +6168,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1871165103}
   m_CullTransparentMesh: 1
+--- !u!114 &1871165107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1871165103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e69939822f0f34e9fe2c04acaf2488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.SampleTextPreferredSize
 --- !u!1 &1878897127
 GameObject:
   m_ObjectHideFlags: 0
@@ -6152,6 +6191,7 @@ GameObject:
   - component: {fileID: 1878897128}
   - component: {fileID: 1878897130}
   - component: {fileID: 1878897129}
+  - component: {fileID: 1878897131}
   m_Layer: 5
   m_Name: HeaderText
   m_TagString: Untagged
@@ -6278,6 +6318,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1878897127}
   m_CullTransparentMesh: 1
+--- !u!114 &1878897131
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1878897127}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e69939822f0f34e9fe2c04acaf2488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.SampleTextPreferredSize
 --- !u!1 &1909693699
 GameObject:
   m_ObjectHideFlags: 0
@@ -7021,6 +7073,7 @@ GameObject:
   - component: {fileID: 2087510530}
   - component: {fileID: 2087510532}
   - component: {fileID: 2087510531}
+  - component: {fileID: 2087510533}
   m_Layer: 5
   m_Name: HeaderText
   m_TagString: Untagged
@@ -7147,6 +7200,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2087510529}
   m_CullTransparentMesh: 1
+--- !u!114 &2087510533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2087510529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4e69939822f0f34e9fe2c04acaf2488, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.Global.SampleTextPreferredSize
 --- !u!1 &2111808637
 GameObject:
   m_ObjectHideFlags: 0
