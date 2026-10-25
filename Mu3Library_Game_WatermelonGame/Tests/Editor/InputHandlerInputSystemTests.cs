@@ -117,11 +117,11 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
-        public void Mouse_ResetWhenFocusIsLostInGameView_KeepsHeldItemInHand()
+        public void Mouse_ResetWhenFocusIsLostWhileRunningInBackground_KeepsHeldItemInHand()
         {
-            // The fixture makes the editor behave like a player that does not run in the background. The Editor's own
-            // default, under which the play mode keeps running without the Game view focus, goes the way of a player
-            // that runs in the background.
+            // The fixture makes the editor behave like a player that does not run in the background. Under the Editor's
+            // default Game view focus behavior the Input System takes the editor as running in the background, which is
+            // how a player with Run In Background goes.
             InputSystem.settings.editorInputBehaviorInPlayMode =
                 InputSettings.EditorInputBehaviorInPlayMode.PointersAndKeyboardsRespectGameViewFocus;
 
@@ -169,7 +169,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
-        public void Touch_CanceledWhenFocusIsLostInGameView_KeepsHeldItemInHand()
+        public void Touch_CanceledWhenFocusIsLostWhileRunningInBackground_KeepsHeldItemInHand()
         {
             InputSystem.settings.editorInputBehaviorInPlayMode =
                 InputSettings.EditorInputBehaviorInPlayMode.PointersAndKeyboardsRespectGameViewFocus;
