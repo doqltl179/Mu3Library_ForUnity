@@ -39,12 +39,12 @@
     "samples": [
         {
             "displayName": "Template",
-            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization. Needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\": its scenes' EventSystem uses InputSystemUIInputModule. Addressables, Localization, and UniTask are optional.",
+            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization. Its scenes respond to input with or without the Input System package, and their TextMesh Pro text renders in a player without the TMP Essential Resources. The Sample_IS scene needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\" for its Input System features. Addressables, Localization, and UniTask are optional.",
             "path": "Samples~/Template"
         },
         {
             "displayName": "Attribute",
-            "description": "ConditionalHide and ButtonInvoke attribute usage examples for Inspector customization. Needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\": its scene's EventSystem uses InputSystemUIInputModule.",
+            "description": "ConditionalHide and ButtonInvoke attribute usage examples for Inspector customization. Its scene responds to input with or without the Input System package, and its TextMesh Pro text renders in a player without the TMP Essential Resources.",
             "path": "Samples~/Attribute"
         },
         {
