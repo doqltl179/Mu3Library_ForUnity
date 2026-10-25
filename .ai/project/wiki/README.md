@@ -16,5 +16,5 @@ Facts about this project only. Rules that hold for every project live in the kit
 | [overview.md](overview.md) | What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification |
 | [package-release.md](package-release.md) | How the three Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes |
 | [unity-verification.md](unity-verification.md) | How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states |
-| [unity-yaml-guide.md](unity-yaml-guide.md) | Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here, the procedure for a declared direct-YAML edit, and the verified ScreenEffect sample anchors and wiring |
+| [unity-yaml-guide.md](unity-yaml-guide.md) | Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here, the procedure for a declared direct-YAML edit, the verified ScreenEffect sample anchors and wiring, and what sample TextMesh Pro text and EventSystems need |
 <!-- agentkit:end index -->

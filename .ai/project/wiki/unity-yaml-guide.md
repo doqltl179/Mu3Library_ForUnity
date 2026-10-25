@@ -1,5 +1,5 @@
 ---
-owns: "Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here, the procedure for a declared direct-YAML edit, and the verified ScreenEffect sample anchors and wiring"
+owns: "Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here, the procedure for a declared direct-YAML edit, the verified ScreenEffect sample anchors and wiring, and what sample TextMesh Pro text and EventSystems need"
 volatility: evolving
 reviewed: 2026-10-09
 ---
@@ -11,6 +11,7 @@ The `unity` stack pack owns how serialized assets change: the route order (live 
 ## When
 
 - changing a sample scene or prefab,
+- adding TextMesh Pro text or an `EventSystem` to a sample scene or prefab,
 - extending the URP ScreenEffect sample's panels, toggles, or slider events.
 
 ## Route Away When
@@ -25,6 +26,17 @@ The `unity` stack pack owns how serialized assets change: the route order (live 
 - The Editor and batch routes therefore edit a sample in place through that path. There is no copy to bring back, and the `.meta` files Unity writes land in `Samples~`, where they are tracked.
 - A fresh clone or worktree has no links until `commands.worktree_setup` (`mu3-cli unity link-samples`) creates them; run it before taking the Editor or batch route.
 - The scene owns the ScreenEffect sample's wiring. Never replace scene wiring with runtime UI generation to avoid a scene edit.
+
+## Sample Text And Input
+
+No development project carries the TMP Essential Resources, and a consuming project may lack them or the Input System package, so a sample scene or prefab works without both. Verified 2026-10-25 on 6000.6.7f1 with uGUI 2.6.0.
+
+- Every TextMesh Pro text references the sample's own font asset with that asset's material, and `Fonts/Sample Style Sheet.asset`. The font asset is `Fonts/Sample Sans SDF.asset`, a static Latin font asset, except the Template sample's Korean and Japanese text, which uses `Fonts/NotoSansKR-Bold SDF.asset`.
+- At runtime TextMesh Pro reads `TMP Settings` for more than the default font, and in a player without them each read throws `NullReferenceException`: a text without a style sheet of its own reads the default style sheet, a character its font asset lacks reads the fallback fonts, a character from a fallback font asset reads the material preset setting, and wrapped Chinese, Japanese, or Korean text reads the line-breaking rules. Keep each text on one font asset that carries its characters, and keep CJK text unwrapped.
+- A font asset material uses the sample's `Shaders/TMP_SDF-Mobile.shader`, a renamed copy of TextMesh Pro's mobile distance field shader; TextMesh Pro's own shaders come only with the TMP Essential Resources. A dynamic font asset keeps **Get Font Features** off, since adding a glyph at runtime reads `TMP Settings` while it is on.
+- A new text takes its defaults from `TMP Settings`, so retarget it afterwards from a batch script with `SerializedObject` (`m_fontAsset`, `m_sharedMaterial`, `m_StyleSheet`), which changes only the serialized references while TextMesh Pro has skipped its own setup.
+- A batch save without `TMP Settings` stores 0 for layout-driven sizes that TextMesh Pro text decides, because TextMesh Pro skips its setup in the Editor then; layout recomputes them at runtime.
+- An `EventSystem` holds a `StandaloneInputModule` and the sample's `SampleInputModuleSelector`, never a serialized `InputSystemUIInputModule`, which is a missing script without the Input System package.
 
 ## Declared Direct-YAML Edit
 
