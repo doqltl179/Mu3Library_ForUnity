@@ -208,8 +208,8 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             environment=self.unity_environment(FAKE_UNITY_RESULTS=results, FAKE_UNITY_STATUS=str(unity_status)),
         )
 
-    def results_file(self, target: str) -> Path:
-        return self.root / "log" / "unity-tests" / f"{target}-editmode.xml"
+    def results_file(self, target: str, platform: str = "editmode") -> Path:
+        return self.root / "log" / "unity-tests" / f"{target}-{platform}.xml"
 
     def tearDown(self) -> None:
         shutil.rmtree(self.root / "log", ignore_errors=True)
@@ -230,6 +230,24 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertIn("-runTests -testPlatform EditMode -testResults ", arguments)
         self.assertIn("-logFile -", arguments)
         self.assertNotIn("-quit", arguments)
+
+    def test_playmode_runs_the_playmode_tests_into_their_own_results(self) -> None:
+        completed = self.run_tests("leaf", "--platform", "playmode", results=nunit_results(passed=2))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn("-runTests -testPlatform PlayMode -testResults ", arguments)
+        self.assertIn("PlayMode tests passed for leaf: 2 tests, 2 passed, 0 failed, 0 skipped", completed.stdout)
+        self.assertIn("PlayMode test summary:", completed.stdout.splitlines())
+        self.assertTrue(self.results_file("leaf", "playmode").is_file())
+        self.assertFalse(self.results_file("leaf").is_file())
+
+    def test_unknown_platform_stops_before_unity_runs(self) -> None:
+        completed = self.run_tests("leaf", "--platform", "PlayMode", results=nunit_results())
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("--platform expects editmode or playmode: PlayMode", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
 
     def test_failed_test_fails_the_run_and_is_named(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)
