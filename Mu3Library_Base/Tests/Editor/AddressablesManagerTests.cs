@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using Mu3Library.Addressable;
 using NUnit.Framework;
@@ -24,6 +25,7 @@ namespace Mu3Library.Tests
         private const double MaxSeconds = 20.0;
         private const int SettleFrames = 5;
         private const string FailedInitializationMessage = "Test initialization failed.";
+        private const string ThrowingInitializationMessage = "Test initialization threw.";
 
         private AddressablesManager _manager;
         private readonly List<AddressablesManager> _extraManagers = new();
@@ -393,6 +395,29 @@ namespace Mu3Library.Tests
 
             yield return RunFrames(SettleFrames);
             AssertNoHandleErrors();
+        }
+
+        [Test]
+        public void Initialize_InitializeAsyncThrows_LeavesNoInitializationRunning()
+        {
+            AddressablesManager manager = CreateManager(() => throw new InvalidOperationException(ThrowingInitializationMessage));
+
+            Assert.Throws<InvalidOperationException>(() => manager.Initialize());
+            Assert.IsFalse(manager.IsInitializing, "An initialization that threw is not left running.");
+
+            // A catalog update logs the throw and reports it as a failure instead of waiting for it.
+            LogAssert.Expect(LogType.Exception, new Regex(Regex.Escape(ThrowingInitializationMessage)));
+            bool isUpdated = false;
+            IList<IResourceLocator> locators = new List<IResourceLocator>();
+            manager.UpdateCatalogs(result =>
+            {
+                locators = result;
+                isUpdated = true;
+            });
+
+            Assert.IsTrue(isUpdated, "The update reported the throw at once.");
+            Assert.IsNull(locators, "The update reports a failure.");
+            Assert.IsFalse(manager.IsInitializing, "The update left no initialization running.");
         }
 
         /// <summary>
