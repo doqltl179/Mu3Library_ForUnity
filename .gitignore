@@ -77,6 +77,10 @@ crashlytics-build.properties
 **/[Aa]ssets/[Cc]ustomPackages.meta
 **/[Aa]ssets/[Aa]ddressableAssetsData
 **/[Aa]ssets/[Aa]ddressableAssetsData.meta
+# The tracked ProjectSettings/EditorBuildSettings.asset of UnityProject_BuiltIn points at these
+# settings, so they are tracked there; the content state files stay ignored (Packed Addressables).
+!UnityProject_BuiltIn/Assets/AddressableAssetsData
+!UnityProject_BuiltIn/Assets/AddressableAssetsData.meta
 **/[Aa]ssets/[Ss]amples.meta
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
