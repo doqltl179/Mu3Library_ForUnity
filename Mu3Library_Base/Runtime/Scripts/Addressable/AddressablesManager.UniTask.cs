@@ -245,9 +245,12 @@ namespace Mu3Library.Addressable
 
         // The catalog calls go through the callback path, which reads the handle inside its completion
         // callback: with auto-release, Addressables releases the handle right after the callbacks ran,
-        // before an await on the handle itself resumes. The result is only taken over there, and the
-        // await resumes on the player loop as before, so the caller's code never runs inside an
-        // Addressables callback, where a WaitForCompletion would re-enter the ResourceManager update.
+        // before an await on the handle itself resumes. A chain operation it does not release is released
+        // by this manager on the next ResourceManager update instead, which can come after such an await
+        // resumed, so the callback is the one place that reads every handle while it is valid. The
+        // result is only taken over there, and the await resumes on the player loop as before, so the
+        // caller's code never runs inside an Addressables callback, where a WaitForCompletion would
+        // re-enter the ResourceManager update.
 
         public async UniTask<IList<string>> CheckForCatalogUpdatesAsync(bool autoReleaseHandle = true)
         {

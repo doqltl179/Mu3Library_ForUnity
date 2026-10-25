@@ -374,12 +374,15 @@ namespace Mu3Library.Addressable
         /// <summary>
         /// Checks the remote catalogs for updates. The result is read inside the completion callback,
         /// <br/> the last moment the handle is valid when Addressables releases it itself, and the
-        /// <br/> handle is released once: by Addressables when <paramref name="autoReleaseHandle"/> is
-        /// <br/> true, by this manager after the callback when it is false.
+        /// <br/> handle is released once: by this manager after the callback when
+        /// <br/> <paramref name="autoReleaseHandle"/> is false, otherwise by Addressables, or by this
+        /// <br/> manager on the next ResourceManager update when Addressables returned a chain
+        /// <br/> operation it does not release.
         /// </summary>
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true)
         {
             AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
+            LastCatalogHandle = handle;
             handle.Completed += operation =>
             {
                 try
@@ -389,7 +392,7 @@ namespace Mu3Library.Addressable
                 }
                 finally
                 {
-                    ReleaseOwnedHandle(handle, autoReleaseHandle);
+                    ReleaseCatalogHandle(handle, autoReleaseHandle);
                 }
             };
         }
@@ -412,6 +415,7 @@ namespace Mu3Library.Addressable
         {
             AsyncOperationHandle<List<IResourceLocator>> handle =
                 Addressables.UpdateCatalogs(autoCleanBundleCache, catalogs: null, autoReleaseHandle: autoReleaseHandle);
+            LastCatalogHandle = handle;
             handle.Completed += operation =>
             {
                 try
@@ -426,21 +430,46 @@ namespace Mu3Library.Addressable
                 }
                 finally
                 {
-                    ReleaseOwnedHandle(handle, autoReleaseHandle);
+                    ReleaseCatalogHandle(handle, autoReleaseHandle);
                 }
             };
         }
 
         /// <summary>
-        /// Releases a handle this manager kept from Addressables, which is the one it asked for
-        /// <br/> without auto-release. A handle Addressables auto-releases is never released here.
+        /// Releases a catalog handle once its callback has run, and exactly once. A handle asked for
+        /// <br/> without auto-release belongs to this manager and is released right away. With auto-release,
+        /// <br/> Addressables releases the catalog operation itself, but when it first has to wait, for its
+        /// <br/> initialization or, in an update that knows of no catalog update yet, for the check it
+        /// <br/> starts, it returns a chain operation around that one, and nothing releases the chain.
+        /// <br/> Every handle is still valid inside the completion callback, so the two cannot be told
+        /// <br/> apart there; on the next ResourceManager update an auto-released handle is gone, and one
+        /// <br/> that is still valid is released.
         /// </summary>
-        private static void ReleaseOwnedHandle(AsyncOperationHandle handle, bool autoReleaseHandle)
+        private static void ReleaseCatalogHandle(AsyncOperationHandle handle, bool autoReleaseHandle)
         {
-            if (!autoReleaseHandle && handle.IsValid())
+            if (!autoReleaseHandle)
             {
-                Addressables.Release(handle);
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+
+                return;
             }
+
+            // A callback added to an operation that has already finished runs on the next ResourceManager
+            // update, after Addressables has finished completing the catalog operation. Releasing the
+            // chain any earlier, inside its own completion, would release the auto-released operation it
+            // wraps a second time when the chain is destroyed.
+            AsyncOperationHandle<bool> afterCompletion = Addressables.ResourceManager.CreateCompletedOperation(true, null);
+            afterCompletion.Completed += _ =>
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+            };
+            afterCompletion.ReleaseHandleOnCompletion();
         }
 
         /// <summary>
@@ -472,6 +501,12 @@ namespace Mu3Library.Addressable
 
         /// <summary>The base keys the cache currently holds anything for, for diagnostics.</summary>
         public IReadOnlyCollection<object> CachedBaseKeys => _cacheKeysByBaseKey.Keys;
+
+        /// <summary>
+        /// The handle Addressables returned for the latest catalog check or update, for tests. It holds
+        /// <br/> no reference of its own, so it reads invalid once the operation has been released.
+        /// </summary>
+        internal AsyncOperationHandle LastCatalogHandle { get; private set; }
         #endregion
 
         public bool IsKeyExist(object key)
