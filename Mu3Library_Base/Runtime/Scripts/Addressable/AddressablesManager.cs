@@ -23,7 +23,9 @@ namespace Mu3Library.Addressable
         private bool _isInitializing = false;
         public bool IsInitializing => _isInitializing;
 
-        private AsyncOperationHandle _initializeHandle;
+        // Typed on purpose: the untyped handle's Completed wraps every handler it is given, so a
+        // handler added through it can never be taken back off.
+        private AsyncOperationHandle<IResourceLocator> _initializeHandle;
         private float _lastInitializeProgress = -1.0f;
         private float _lastDownloadProgress = -1.0f;
 
@@ -61,12 +63,14 @@ namespace Mu3Library.Addressable
 
             if (_initializeHandle.IsValid())
             {
-                // Both initialize paths attach this handler now, so it is taken back off before
-                // the handle goes, and a completion that lands later cannot write state back
-                // into a manager that has already been torn down.
+                // The handle is only detached, never released: Addressables releases its initialization
+                // itself once it completes and hands the running one to every caller without adding a
+                // reference, so this manager never owns one. Taking the handler off keeps a completion
+                // that lands later out of a manager that has already been torn down.
                 _initializeHandle.Completed -= OnInitializeCompleted;
-                Addressables.Release(_initializeHandle);
             }
+
+            List<CatalogCall> abandonedCatalogCalls = TakeCatalogCallsNotInAddressables();
 
             ClearCache();
 
@@ -82,6 +86,19 @@ namespace Mu3Library.Addressable
             OnInitializeResult = null;
             OnInitializeProgress = null;
             OnDownloadProgress = null;
+
+            // Reported last, so a callback that throws cannot leave the teardown half done.
+            foreach (CatalogCall call in abandonedCatalogCalls)
+            {
+                try
+                {
+                    call.Abandon();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+            }
         }
 
         public void Update()
@@ -150,9 +167,13 @@ namespace Mu3Library.Addressable
                 return;
             }
 
+            // Set once the handle is there, so an InitializeAsync that throws does not leave every later
+            // initialize call and catalog update waiting for an initialization that never started.
+            _initializeHandle = InitializeOperationOverride != null
+                ? InitializeOperationOverride()
+                : Addressables.InitializeAsync();
             _isInitializing = true;
 
-            _initializeHandle = Addressables.InitializeAsync();
             if (_initializeHandle.IsDone)
             {
                 OnInitializeCompleted(_initializeHandle);
@@ -162,7 +183,7 @@ namespace Mu3Library.Addressable
             _initializeHandle.Completed += OnInitializeCompleted;
         }
 
-        private void OnInitializeCompleted(AsyncOperationHandle handle)
+        private void OnInitializeCompleted(AsyncOperationHandle<IResourceLocator> handle)
         {
             bool isSuccess = false;
             string errorMessage = string.Empty;
@@ -192,10 +213,19 @@ namespace Mu3Library.Addressable
             _lastInitializeProgress = handle.PercentComplete;
             _initializeError = errorMessage;
 
-            OnInitializeProgress?.Invoke(_lastInitializeProgress);
+            try
+            {
+                OnInitializeProgress?.Invoke(_lastInitializeProgress);
 
-            OnInitialized?.Invoke();
-            OnInitializeResult?.Invoke(isSuccess, errorMessage);
+                OnInitialized?.Invoke();
+                OnInitializeResult?.Invoke(isSuccess, errorMessage);
+            }
+            finally
+            {
+                // After the events, so their handlers see the initialization finished before the update
+                // that waited for it goes on, and even when one of them throws.
+                ResumeCatalogCallAwaitingInitialization();
+            }
         }
 
         public void LoadAsset<T>(object key, Action<T> callback = null) where T : class
@@ -372,14 +402,183 @@ namespace Mu3Library.Addressable
         }
 
         /// <summary>
-        /// Checks the remote catalogs for updates. The result is read inside the completion callback,
-        /// <br/> the last moment the handle is valid when Addressables releases it itself, and the
-        /// <br/> handle is released once: by this manager after the callback when
-        /// <br/> <paramref name="autoReleaseHandle"/> is false, otherwise by Addressables, or by this
-        /// <br/> manager on the next ResourceManager update when Addressables returned a chain
-        /// <br/> operation it does not release.
+        /// Checks the remote catalogs for updates. Catalog calls reach Addressables one at a time, in
+        /// <br/> call order: a check made while another catalog call runs, from that call's callback
+        /// <br/> included, starts once the earlier handle is settled. The result is read inside the
+        /// <br/> completion callback, the last moment the handle is valid when Addressables releases it
+        /// <br/> itself. A handle still valid on the next ResourceManager update, because
+        /// <br/> <paramref name="autoReleaseHandle"/> is false or Addressables returned a chain operation it
+        /// <br/> does not release, is released by this manager then, so every handle is released once.
+        /// <br/> Disposing the manager reports a call that has not reached Addressables yet with null.
         /// </summary>
         public void CheckForCatalogUpdates(Action<IList<string>> callback, bool autoReleaseHandle = true)
+            => EnqueueCatalogCall(new CatalogCall(
+                call => StartCheckForCatalogUpdates(call, callback, autoReleaseHandle),
+                () => callback?.Invoke(null)));
+
+        /// <summary>
+        /// Updates every catalog that has an update. The bundle cache is left alone; use the
+        /// <br/> overload that takes <c>autoCleanBundleCache</c> to remove the bundles the updated
+        /// <br/> catalogs no longer reference. The manager initializes first as described there.
+        /// </summary>
+        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoReleaseHandle = true)
+            => UpdateCatalogs(callback, autoCleanBundleCache: false, autoReleaseHandle: autoReleaseHandle);
+
+        /// <summary>
+        /// Updates every catalog that has an update and, when <paramref name="autoCleanBundleCache"/>
+        /// <br/> is true, removes the cached bundles the updated catalogs no longer reference. Addressables
+        /// <br/> fails the update when it cannot clean the cache, and the callback then receives null.
+        /// <br/> The update reaches Addressables only once this manager is initialized, so the check
+        /// <br/> Addressables starts for it never waits inside a chain operation nothing releases. A manager
+        /// <br/> that has not initialized yet runs the initialization <see cref="Initialize"/> runs, with the
+        /// <br/> same <c>IsInitializing</c> state and the same events, and an update made while one runs
+        /// <br/> waits for it. When that initialization fails, the callback receives null and Addressables
+        /// <br/> is not called. Later updates fail the same way without another attempt, since Addressables
+        /// <br/> does not run a failed initialization again, until an initialize call succeeds. The call
+        /// <br/> waits for its turn and its handle is released as in <see cref="CheckForCatalogUpdates"/>.
+        /// </summary>
+        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoCleanBundleCache, bool autoReleaseHandle)
+            => EnqueueCatalogCall(new CatalogCall(
+                call => StartUpdateCatalogs(call, callback, autoCleanBundleCache, autoReleaseHandle),
+                () => callback?.Invoke(null)));
+
+        #region Catalog Calls
+        /// <summary>
+        /// A catalog check or update the manager accepted. Addressables releases the check handle it
+        /// <br/> still holds whenever a new check starts, the one an update starts by itself included, so
+        /// <br/> catalog calls that overlap there release one handle twice, and the second destroy throws
+        /// <br/> out of the ResourceManager update and stops every later one. The manager therefore hands
+        /// <br/> them to Addressables one at a time and starts the next only once the previous handle is
+        /// <br/> settled.
+        /// </summary>
+        private sealed class CatalogCall
+        {
+            private readonly Action<CatalogCall> _start;
+            private readonly Action _abandon;
+
+            public CatalogCall(Action<CatalogCall> start, Action abandon)
+            {
+                _start = start;
+                _abandon = abandon;
+            }
+
+            /// <summary>Set once Addressables runs the call, which then reports it through the handle.</summary>
+            public bool IsInAddressables { get; set; }
+
+            /// <summary>Hands the call to Addressables, or first to the manager's initialization.</summary>
+            public void Start() => _start(this);
+
+            /// <summary>Reports the call as failed without it reaching Addressables.</summary>
+            public void Abandon() => _abandon();
+        }
+
+        private readonly Queue<CatalogCall> _queuedCatalogCalls = new();
+        private CatalogCall _activeCatalogCall;
+        private CatalogCall _catalogCallAwaitingInitialization;
+
+        private void EnqueueCatalogCall(CatalogCall call)
+        {
+            if (_activeCatalogCall != null)
+            {
+                _queuedCatalogCalls.Enqueue(call);
+                return;
+            }
+
+            StartCatalogCall(call);
+        }
+
+        private void StartCatalogCall(CatalogCall call)
+        {
+            _activeCatalogCall = call;
+            try
+            {
+                call.Start();
+            }
+            catch (Exception exception)
+            {
+                if (_activeCatalogCall != call || call.IsInAddressables)
+                {
+                    // The call has already reported and ended, or Addressables runs it and reports it
+                    // later; what threw was a callback that ran meanwhile, such as an initialization
+                    // event handler.
+                    throw;
+                }
+
+                // A call that throws before it reaches Addressables is reported like a failed one, so its
+                // caller is not left waiting and the calls queued behind it still get their turn.
+                Debug.LogException(exception);
+                if (_catalogCallAwaitingInitialization == call)
+                {
+                    _catalogCallAwaitingInitialization = null;
+                }
+
+                FailCatalogCall(call);
+            }
+        }
+
+        /// <summary>
+        /// Ends the active call and gives the next queued one its turn. Runs once the call's handle is
+        /// <br/> settled, or once the call failed before it reached Addressables.
+        /// </summary>
+        private void EndCatalogCall(CatalogCall call)
+        {
+            if (_activeCatalogCall != call)
+            {
+                return;
+            }
+
+            _activeCatalogCall = null;
+            if (_queuedCatalogCalls.Count > 0)
+            {
+                StartCatalogCall(_queuedCatalogCalls.Dequeue());
+            }
+        }
+
+        private void FailCatalogCall(CatalogCall call)
+        {
+            try
+            {
+                call.Abandon();
+            }
+            finally
+            {
+                EndCatalogCall(call);
+            }
+        }
+
+        private void ResumeCatalogCallAwaitingInitialization()
+        {
+            CatalogCall call = _catalogCallAwaitingInitialization;
+            if (call == null)
+            {
+                return;
+            }
+
+            _catalogCallAwaitingInitialization = null;
+            StartCatalogCall(call);
+        }
+
+        /// <summary>
+        /// Takes out the catalog calls that have not reached Addressables yet, the one waiting for the
+        /// <br/> initialization first, for Dispose to report as failed. A call Addressables is running stays
+        /// <br/> active: it completes and releases its handle as before, and a call made later waits for it.
+        /// </summary>
+        private List<CatalogCall> TakeCatalogCallsNotInAddressables()
+        {
+            List<CatalogCall> calls = new();
+            if (_catalogCallAwaitingInitialization != null)
+            {
+                calls.Add(_catalogCallAwaitingInitialization);
+                _catalogCallAwaitingInitialization = null;
+                _activeCatalogCall = null;
+            }
+
+            calls.AddRange(_queuedCatalogCalls);
+            _queuedCatalogCalls.Clear();
+            return calls;
+        }
+
+        private void StartCheckForCatalogUpdates(CatalogCall call, Action<IList<string>> callback, bool autoReleaseHandle)
         {
             AsyncOperationHandle<List<string>> handle = Addressables.CheckForCatalogUpdates(autoReleaseHandle);
             LastCatalogHandle = handle;
@@ -392,27 +591,28 @@ namespace Mu3Library.Addressable
                 }
                 finally
                 {
-                    ReleaseCatalogHandle(handle, autoReleaseHandle);
+                    SettleCatalogHandle(call, handle);
                 }
             };
+            call.IsInAddressables = true;
         }
 
-        /// <summary>
-        /// Updates every catalog that has an update. The bundle cache is left alone; use the
-        /// <br/> overload that takes <c>autoCleanBundleCache</c> to remove the bundles the updated
-        /// <br/> catalogs no longer reference. The handle is read and released as in
-        /// <br/> <see cref="CheckForCatalogUpdates"/>.
-        /// </summary>
-        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoReleaseHandle = true)
-            => UpdateCatalogs(callback, autoCleanBundleCache: false, autoReleaseHandle: autoReleaseHandle);
-
-        /// <summary>
-        /// Updates every catalog that has an update and, when <paramref name="autoCleanBundleCache"/>
-        /// <br/> is true, removes the cached bundles the updated catalogs no longer reference. Addressables
-        /// <br/> fails the update when it cannot clean the cache, and the callback then receives null.
-        /// </summary>
-        public void UpdateCatalogs(Action<IList<IResourceLocator>> callback, bool autoCleanBundleCache, bool autoReleaseHandle)
+        private void StartUpdateCatalogs(CatalogCall call, Action<IList<IResourceLocator>> callback, bool autoCleanBundleCache, bool autoReleaseHandle)
         {
+            if (!_isInitialized)
+            {
+                if (!_isInitializing && !string.IsNullOrEmpty(_initializeError))
+                {
+                    FailCatalogCall(call);
+                    return;
+                }
+
+                // OnInitializeCompleted starts the call again, possibly before BeginInitialize returns.
+                _catalogCallAwaitingInitialization = call;
+                BeginInitialize();
+                return;
+            }
+
             AsyncOperationHandle<List<IResourceLocator>> handle =
                 Addressables.UpdateCatalogs(autoCleanBundleCache, catalogs: null, autoReleaseHandle: autoReleaseHandle);
             LastCatalogHandle = handle;
@@ -430,33 +630,25 @@ namespace Mu3Library.Addressable
                 }
                 finally
                 {
-                    ReleaseCatalogHandle(handle, autoReleaseHandle);
+                    SettleCatalogHandle(call, handle);
                 }
             };
+            call.IsInAddressables = true;
         }
 
         /// <summary>
-        /// Releases a catalog handle once its callback has run, and exactly once. A handle asked for
-        /// <br/> without auto-release belongs to this manager and is released right away. With auto-release,
+        /// Settles a catalog handle once its callback has run, then ends the call. With auto-release,
         /// <br/> Addressables releases the catalog operation itself, but when it first has to wait, for its
         /// <br/> initialization or, in an update that knows of no catalog update yet, for the check it
         /// <br/> starts, it returns a chain operation around that one, and nothing releases the chain.
         /// <br/> Every handle is still valid inside the completion callback, so the two cannot be told
         /// <br/> apart there; on the next ResourceManager update an auto-released handle is gone, and one
-        /// <br/> that is still valid is released.
+        /// <br/> that is still valid, a chain or a handle asked for without auto-release, is released.
+        /// <br/> Only then does the next call start, so a check it begins finds no earlier check handle
+        /// <br/> for Addressables to release.
         /// </summary>
-        private static void ReleaseCatalogHandle(AsyncOperationHandle handle, bool autoReleaseHandle)
+        private void SettleCatalogHandle(CatalogCall call, AsyncOperationHandle handle)
         {
-            if (!autoReleaseHandle)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-
-                return;
-            }
-
             // A callback added to an operation that has already finished runs on the next ResourceManager
             // update, after Addressables has finished completing the catalog operation. Releasing the
             // chain any earlier, inside its own completion, would release the auto-released operation it
@@ -464,13 +656,21 @@ namespace Mu3Library.Addressable
             AsyncOperationHandle<bool> afterCompletion = Addressables.ResourceManager.CreateCompletedOperation(true, null);
             afterCompletion.Completed += _ =>
             {
-                if (handle.IsValid())
+                try
                 {
-                    Addressables.Release(handle);
+                    if (handle.IsValid())
+                    {
+                        Addressables.Release(handle);
+                    }
+                }
+                finally
+                {
+                    EndCatalogCall(call);
                 }
             };
             afterCompletion.ReleaseHandleOnCompletion();
         }
+        #endregion
 
         /// <summary>
         /// Rebuilds the known-key set from every locator Addressables currently holds, so
@@ -507,6 +707,13 @@ namespace Mu3Library.Addressable
         /// <br/> no reference of its own, so it reads invalid once the operation has been released.
         /// </summary>
         internal AsyncOperationHandle LastCatalogHandle { get; private set; }
+
+        /// <summary>
+        /// Starts the initialization in place of <c>Addressables.InitializeAsync()</c>, for tests that need
+        /// <br/> one Addressables does not produce on demand, still running or failed. Like the operation it
+        /// <br/> stands in for, it must release itself once it completes; this manager never releases it.
+        /// </summary>
+        internal Func<AsyncOperationHandle<IResourceLocator>> InitializeOperationOverride { get; set; }
         #endregion
 
         public bool IsKeyExist(object key)
