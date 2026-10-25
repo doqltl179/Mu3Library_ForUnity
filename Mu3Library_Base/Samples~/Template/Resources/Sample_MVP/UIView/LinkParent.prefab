@@ -67,8 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Instantiate Child
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: e5e1537c060f5b94585e75b825216200, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: e5e1537c060f5b94585e75b825216200, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -86,7 +86,7 @@ MonoBehaviour:
   m_fontColorGradientPreset: {fileID: 0}
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
-  m_StyleSheet: {fileID: 0}
+  m_StyleSheet: {fileID: 11400000, guid: d4eb8460df59f8e44bb914ed28b6044d, type: 2}
   m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
@@ -115,7 +115,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -259,8 +259,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 2055929094992856022}
-        m_TargetAssemblyTypeName: Mu3Library.Sample.Template.MVP.LinkParentView,
-          Mu3Library.Sample.Template
+        m_TargetAssemblyTypeName: Mu3Library.Sample.Template.MVP.LinkParentView, Mu3Library.Sample.Template
         m_MethodName: OnClickInstantiateChildButton
         m_Mode: 1
         m_Arguments:
@@ -330,6 +329,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: -84221361
@@ -399,3 +399,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76e65c770a218414ba8822ae75b21b3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Mu3Library.Sample.Template::Mu3Library.Sample.Template.MVP.LinkParentView
+  _childHost: {fileID: 0}

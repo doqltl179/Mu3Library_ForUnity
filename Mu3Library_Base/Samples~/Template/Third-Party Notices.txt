@@ -1,0 +1,26 @@
+This sample ships third-party content so that its TextMesh Pro text renders without the TMP Essential Resources.
+
+Fonts/LiberationSans.ttf
+  Liberation Sans Regular, copied unchanged from the TMP Essential Resources of com.unity.ugui 2.6.0.
+  Digitized data copyright (c) 2010 Google Corporation, with Reserved Font Arimo, Tinos and Cousine.
+  Copyright (c) 2012 Red Hat, Inc., with Reserved Font Name Liberation.
+  Licensed under the SIL Open Font License, Version 1.1: Fonts/LiberationSans - OFL.txt
+
+Fonts/Sample Sans SDF.asset
+  The TextMesh Pro font asset that TextMesh Pro built from Liberation Sans (LiberationSans SDF in the TMP
+  Essential Resources), with its material set to Shaders/TMP_SDF-Mobile.shader and its fallback font removed.
+  It is a Modified Version of that font under the SIL Open Font License, Version 1.1, and is distributed under
+  the same license: Fonts/LiberationSans - OFL.txt. The license reserves the name "Liberation" for the original
+  font, so the asset is named "Sample Sans".
+
+Shaders/TMP_SDF-Mobile.shader, Shaders/TMPro_Properties.cginc
+  The "TextMeshPro/Mobile/Distance Field" shader and its property include from the TMP Essential Resources of
+  com.unity.ugui 2.6.0, with the shader renamed so that it does not clash with those resources.
+  uGUI copyright (c) 2015 Unity Technologies.
+  Licensed under the Unity Companion License for Unity-dependent projects:
+  https://unity.com/legal/licenses/unity-companion-license
+
+Fonts/NotoSansKR-Bold.ttf, Fonts/NotoSansKR-Bold SDF.asset
+  Noto Sans KR Bold and the TextMesh Pro font asset built from it.
+  Copyright (c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+  Licensed under the SIL Open Font License, Version 1.1: Fonts/NotoSansKR-Bold - OFL.txt
