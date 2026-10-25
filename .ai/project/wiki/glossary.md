@@ -27,7 +27,7 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | Active Input Handling | The Player Settings option and its values "Input Manager (Old)", "Input System Package (New)", "Both" | = | = |
 | time factor | `AnimationHandler`'s 0-to-1 progress between the closed and the opened pose | 시간 계수 | 時間係数 |
 | board item, held item | An item on the Watermelon Game board, and the one waiting in the player's hand until it is dropped | 보드 아이템, 들고 있는 아이템 | ボードアイテム、保持中のアイテム |
-| drag, canceled drag | A press the Watermelon Game board follows from where it starts to where it is released, and one taken away before it is released (input disabled, touch lost or canceled by the system, mouse disconnected), which drops nothing | 드래그, 취소된 드래그 | ドラッグ、キャンセルされたドラッグ |
+| drag, canceled drag | A press the Watermelon Game board follows from where it starts to where it is released, and one taken away before it is released (input disabled, application focus lost or paused, touch lost or canceled by the system, mouse disconnected or reset by the Input System), which drops nothing | 드래그, 취소된 드래그 | ドラッグ、キャンセルされたドラッグ |
 | merge | Two board items of one entry turning into the next one | 병합 | 合成 |
 | item pool | The pool a board item goes back to when it leaves the board | 아이템 풀 | アイテムプール |
 | item entry | One element of the `BoardItemsConfig` catalog, the entry an item index is made from | 아이템 항목 | アイテムエントリ |
