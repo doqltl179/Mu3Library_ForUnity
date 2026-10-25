@@ -46,7 +46,8 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
         /// <summary>
         /// Raised instead of <see cref="OnTouchEnded"/> when a drag is taken away before it was released: the handler
-        /// <br/> was disabled, the tracked touch vanished or was canceled by the system, or the mouse was disconnected.
+        /// <br/> was disabled, the application lost focus or was paused, the tracked touch vanished or was canceled by the
+        /// <br/> system, the mouse was disconnected, or the Input System reset the mouse.
         /// <br/> It carries the position the drag was last reported at.
         /// </summary>
         public UnityEvent<Vector2> OnTouchCanceled = new UnityEvent<Vector2>();
@@ -68,8 +69,8 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
 
         /// <summary>
-        /// Cancels a running drag and gives back the EnhancedTouch use of the Input System backend, so an override
-        /// <br/> calls <c>base.OnDisable()</c>.
+        /// Cancels a running drag and gives back what the Input System backend holds, its EnhancedTouch use and its
+        /// <br/> watch on mouse resets, so an override calls <c>base.OnDisable()</c>.
         /// </summary>
         protected virtual void OnDisable()
         {
@@ -81,7 +82,34 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
 #if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
             DisableEnhancedTouch();
+            StopWatchingMouseReset();
 #endif
+        }
+
+        /// <summary>
+        /// Cancels a running drag when the application loses focus, so an override calls
+        /// <br/> <c>base.OnApplicationFocus(hasFocus)</c>.
+        /// </summary>
+        protected virtual void OnApplicationFocus(bool hasFocus)
+        {
+            // The player switched to another window and did not release the drag, and the input backend can report
+            // the button released or the touch ended once the focus is gone.
+            if (!hasFocus && _isDragging)
+            {
+                CancelDrag();
+            }
+        }
+
+        /// <summary>
+        /// Cancels a running drag when the application is paused, as it is when it goes to the background, so an
+        /// <br/> override calls <c>base.OnApplicationPause(pauseStatus)</c>.
+        /// </summary>
+        protected virtual void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus && _isDragging)
+            {
+                CancelDrag();
+            }
         }
 
         protected virtual void Update()

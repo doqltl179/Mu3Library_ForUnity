@@ -166,6 +166,16 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             public void CancelTouch(int fingerId, Vector2 position) => PlayTouch(fingerId, position, TouchPhase.Canceled);
 
             /// <summary>
+            /// Sends what Unity sends when the application loses or regains focus.
+            /// </summary>
+            public void ChangeFocus(bool hasFocus) => OnApplicationFocus(hasFocus);
+
+            /// <summary>
+            /// Sends what Unity sends when the application is paused or resumed.
+            /// </summary>
+            public void ChangePause(bool isPaused) => OnApplicationPause(isPaused);
+
+            /// <summary>
             /// Takes a touch away without an end, as a backend that loses track of it does.
             /// </summary>
             public void LoseTouch(int fingerId)

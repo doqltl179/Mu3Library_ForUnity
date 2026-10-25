@@ -231,6 +231,84 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void FocusLostWhileMouseDragging_CancelsDragAndKeepsHeldItem()
+        {
+            BoardItem heldItem = StartRunningBoard();
+
+            _board.Input.PressMouse(_board.GetScreenPosition(0.35f));
+            Vector2 lastPosition = _board.GetScreenPosition(0.65f);
+            _board.Input.MoveMouse(lastPosition);
+            float heldX = _board.Board.HoldingNormalizedX;
+            int spawnCount = _board.Board.SpawnCount;
+
+            _board.Input.ChangeFocus(false);
+
+            // An input backend can report the button released once the focus is gone.
+            _board.Input.ReleaseMouse(_board.GetScreenPosition(0.9f));
+            _board.Input.ChangeFocus(true);
+
+            AssertCanceledAt(lastPosition, heldItem, heldX, spawnCount);
+
+            // The handler takes the next press as a drag of its own.
+            Vector2 pressPosition = _board.GetScreenPosition(0.5f);
+            _board.Input.PressMouse(pressPosition);
+            _board.Input.ReleaseMouse(pressPosition);
+
+            CollectionAssert.AreEqual(new[] { heldItem }, _droppedItems);
+        }
+
+        [Test]
+        public void PausedWhileTouchDragging_CancelsDragAndKeepsHeldItem()
+        {
+            BoardItem heldItem = StartRunningBoard();
+
+            _board.Input.BeginTouch(2, _board.GetScreenPosition(0.35f));
+            Vector2 lastPosition = _board.GetScreenPosition(0.65f);
+            _board.Input.MoveTouch(2, lastPosition);
+            float heldX = _board.Board.HoldingNormalizedX;
+            int spawnCount = _board.Board.SpawnCount;
+
+            _board.Input.ChangePause(true);
+
+            // An input backend can report the touch ended once the application is in the background.
+            _board.Input.EndTouch(2, _board.GetScreenPosition(0.9f));
+            _board.Input.ChangePause(false);
+
+            AssertCanceledAt(lastPosition, heldItem, heldX, spawnCount);
+        }
+
+        [Test]
+        public void FocusGainedAndResumedWhileDragging_KeepDragRunning()
+        {
+            BoardItem heldItem = StartRunningBoard();
+
+            _board.Input.PressMouse(_board.GetScreenPosition(0.35f));
+            _board.Input.ChangeFocus(true);
+            _board.Input.ChangePause(false);
+
+            Vector2 releasePosition = _board.GetScreenPosition(0.65f);
+            _board.Input.MoveMouse(releasePosition);
+            _board.Input.ReleaseMouse(releasePosition);
+
+            CollectionAssert.AreEqual(new[] { releasePosition }, _endedPositions);
+            CollectionAssert.IsEmpty(_canceledPositions);
+            CollectionAssert.AreEqual(new[] { heldItem }, _droppedItems);
+        }
+
+        [Test]
+        public void FocusLostWithoutDrag_ReportsNothing()
+        {
+            StartRunningBoard();
+
+            _board.Input.ChangeFocus(false);
+            _board.Input.ChangePause(true);
+
+            CollectionAssert.IsEmpty(_canceledPositions);
+            CollectionAssert.IsEmpty(_board.Board.DragCancelPositions);
+            AssertNoDrag("Losing the focus");
+        }
+
+        [Test]
         public void PressOverUI_DoesNotStartDrag_OnMouseAndTouch()
         {
             StartRunningBoard();
