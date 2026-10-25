@@ -117,6 +117,82 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void Mouse_ResetWhenFocusIsLostInGameView_KeepsHeldItemInHand()
+        {
+            // The fixture makes the editor behave like a player that does not run in the background. The Editor's own
+            // default, under which the play mode keeps running without the Game view focus, goes the way of a player
+            // that runs in the background.
+            InputSystem.settings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.PointersAndKeyboardsRespectGameViewFocus;
+
+            Mouse mouse = StartMouseDrag(out Vector2 lastPosition, out float heldX);
+
+            // The default background behavior resets the mouse once the focus is gone, which releases its button.
+            // This test sends no Unity focus message.
+            _input.ScheduleFocusChangedEvent(false);
+            InputSystem.Update();
+            Assert.IsFalse(mouse.leftButton.isPressed, "Losing the focus did not reset the mouse.");
+            _board.Input.Tick();
+
+            AssertCanceledAt(lastPosition, heldX);
+
+            // The mouse comes back with the focus, and its next press is a drag of its own.
+            _input.ScheduleFocusChangedEvent(true);
+            InputSystem.Update();
+            _input.Press(mouse.leftButton);
+            _board.Input.Tick();
+            _input.Release(mouse.leftButton);
+            _board.Input.Tick();
+
+            CollectionAssert.AreEqual(new[] { _heldItem }, _droppedItems);
+        }
+
+        [Test]
+        public void Mouse_ResetWhenFocusComesBack_KeepsHeldItemInHand()
+        {
+            Mouse mouse = StartMouseDrag(out Vector2 lastPosition, out float heldX);
+
+            // A player that does not run in the background leaves the mouse as it is while the focus is gone, and it
+            // resets the mouse once the focus comes back, as a mouse that cannot be synced to its current state is.
+            _input.ScheduleFocusChangedEvent(false);
+            InputSystem.Update();
+            _board.Input.Tick();
+            Assert.IsTrue(mouse.leftButton.isPressed, "Losing the focus reset the mouse.");
+            Assert.IsTrue(_board.Area.IsDragging, "The drag ended without a reset.");
+
+            _input.ScheduleFocusChangedEvent(true);
+            InputSystem.Update();
+            Assert.IsFalse(mouse.leftButton.isPressed, "Regaining the focus did not reset the mouse.");
+            _board.Input.Tick();
+
+            AssertCanceledAt(lastPosition, heldX);
+        }
+
+        [Test]
+        public void Touch_CanceledWhenFocusIsLostInGameView_KeepsHeldItemInHand()
+        {
+            InputSystem.settings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.PointersAndKeyboardsRespectGameViewFocus;
+
+            InputSystem.AddDevice<Touchscreen>();
+            _board.Input.Tick();
+
+            _input.BeginTouch(1, _board.GetScreenPosition(0.35f));
+            _board.Input.Tick();
+            Vector2 lastPosition = _board.GetScreenPosition(0.65f);
+            _input.MoveTouch(1, lastPosition);
+            _board.Input.Tick();
+            float heldX = _board.Board.HoldingNormalizedX;
+
+            // Resetting the touch screen cancels the touches it carries.
+            _input.ScheduleFocusChangedEvent(false);
+            InputSystem.Update();
+            _board.Input.Tick();
+
+            AssertCanceledAt(lastPosition, heldX);
+        }
+
+        [Test]
         public void Touch_BeginMoveEnd_DropsHeldItemWhereLifted()
         {
             InputSystem.AddDevice<Touchscreen>();
@@ -203,6 +279,39 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             CollectionAssert.IsEmpty(_droppedItems);
             Assert.AreSame(_heldItem, _board.Board.HoldingItem);
             Assert.IsFalse(EnhancedTouchSupport.enabled, "The handler kept EnhancedTouch enabled.");
+        }
+
+        /// <summary>
+        /// Presses a new mouse on the board and drags it along, reporting where the drag was last reported and where
+        /// <br/> the held item is.
+        /// </summary>
+        private Mouse StartMouseDrag(out Vector2 lastPosition, out float heldX)
+        {
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+
+            _input.Move(mouse.position, _board.GetScreenPosition(0.35f));
+            _board.Input.Tick();
+            _input.Press(mouse.leftButton);
+            _board.Input.Tick();
+            lastPosition = _board.GetScreenPosition(0.65f);
+            _input.Move(mouse.position, lastPosition);
+            _board.Input.Tick();
+            Assert.IsTrue(_board.Area.IsDragging, "The mouse press did not start a board drag.");
+
+            heldX = _board.Board.HoldingNormalizedX;
+
+            return mouse;
+        }
+
+        private void AssertCanceledAt(Vector2 lastPosition, float heldX)
+        {
+            CollectionAssert.AreEqual(new[] { lastPosition }, _canceledPositions, "The drag was not canceled where it was last reported.");
+            CollectionAssert.AreEqual(new[] { lastPosition }, _board.Board.DragCancelPositions, "The controller was not told about the cancel.");
+            CollectionAssert.IsEmpty(_droppedItems, "The canceled drag dropped the held item.");
+            Assert.IsFalse(_board.Area.IsDragging, "The board area is still dragging.");
+            Assert.AreSame(_heldItem, _board.Board.HoldingItem, "The held item left the hand.");
+            Assert.AreEqual(heldX, _board.Board.HoldingNormalizedX, "The held item moved.");
+            Assert.AreEqual(0, _board.Board.SpawnCount, "The canceled drag was counted as a drop.");
         }
     }
 }

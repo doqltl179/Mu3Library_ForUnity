@@ -17,7 +17,22 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
         /// </summary>
         private bool _isEnhancedTouchEnabled;
 
-        private static bool IsInputSystemMousePresent => Mouse.current != null;
+        /// <summary>
+        /// Whether this handler listens to <c>InputSystem.onDeviceChange</c> for a reset of the mouse it reads.
+        /// </summary>
+        private bool _isWatchingMouseReset;
+
+        private bool IsInputSystemMousePresent
+        {
+            get
+            {
+                // A reset releases the buttons of the mouse it reads, so the mouse is watched from the first read on,
+                // and OnDisable stops watching it.
+                WatchMouseReset();
+
+                return Mouse.current != null;
+            }
+        }
 
         private static Vector2 InputSystemMousePosition
         {
@@ -88,6 +103,44 @@ namespace Mu3Library.Game.WatermelonGame.Helpers
 
             EnhancedTouch.EnhancedTouchSupport.Disable();
             _isEnhancedTouchEnabled = false;
+        }
+
+        private void WatchMouseReset()
+        {
+            if (_isWatchingMouseReset)
+            {
+                return;
+            }
+
+            InputSystem.onDeviceChange += OnInputSystemDeviceChange;
+            _isWatchingMouseReset = true;
+        }
+
+        private void StopWatchingMouseReset()
+        {
+            if (!_isWatchingMouseReset)
+            {
+                return;
+            }
+
+            InputSystem.onDeviceChange -= OnInputSystemDeviceChange;
+            _isWatchingMouseReset = false;
+        }
+
+        private void OnInputSystemDeviceChange(InputDevice device, InputDeviceChange change)
+        {
+            if (change != InputDeviceChange.SoftReset && change != InputDeviceChange.HardReset)
+            {
+                return;
+            }
+
+            // The Input System resets the mouse when the application goes to the background and when it comes back
+            // without having run there, which releases the button the drag is held with. The player released nothing,
+            // so the drag is canceled before the next frame reads the button.
+            if (_isDragging && _activeFingerId == MouseFingerId && device == Mouse.current)
+            {
+                CancelDrag();
+            }
         }
 
         private static UnityEngine.TouchPhase ToTouchPhase(UnityEngine.InputSystem.TouchPhase phase)
