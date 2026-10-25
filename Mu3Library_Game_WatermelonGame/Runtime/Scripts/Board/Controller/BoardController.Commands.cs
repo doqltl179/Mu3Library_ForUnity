@@ -169,6 +169,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
             => ContainsCommandOfType<T>(_commands) || ContainsCommandOfType<T>(_pendingCommands);
         #endregion
 
+        /// <summary>
+        /// Advances the commands one step each, in the order they were enqueued, while the board runs.
+        /// <br/> A handler of what a command raised can end the game or prepare the board again, and the
+        /// <br/> pass stops there: the command that raised it finishes the step it is in, and the ones after
+        /// <br/> it are not advanced.
+        /// </summary>
         protected void UpdateCommands()
         {
             _isUpdatingCommands = true;
@@ -183,6 +189,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
                 for (int index = 0; index < _commands.Count; index++)
                 {
+                    // An ended game keeps the score and the events it ended with, so the commands
+                    // left over wait. They stay in the list as they are, and Prepare drops them.
+                    if (!_isRunning)
+                    {
+                        break;
+                    }
+
                     IBoardCommand command = _commands[index];
                     if (BoardCommandRunner.IsFinished(command))
                     {
