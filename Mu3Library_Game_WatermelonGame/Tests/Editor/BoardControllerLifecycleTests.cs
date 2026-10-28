@@ -60,6 +60,28 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             }
         }
 
+        /// <summary>
+        /// A command that implements only <see cref="IBoardCommand"/> and does not report itself finished
+        /// <br/> when it is disposed, the way a project's own command may be written.
+        /// </summary>
+        private sealed class RunCountingCommand : IBoardCommand
+        {
+            public bool IsRunning { get; private set; }
+            public bool IsCompleted { get; private set; }
+
+            public int RunCount { get; private set; }
+
+            public void Run()
+            {
+                RunCount++;
+                IsRunning = true;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
         private TestBoard _board;
 
         [SetUp]
@@ -351,7 +373,10 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         public void PrepareWithSnapshotInRemovedHandler_LeavesTheRestoredItemsOnTheBoard()
         {
             _board.StartGame();
-            MergingCommand merge = EnqueueMerge(0, 0.4f);
+            BoardItem first = _board.SpawnItem(0, new Vector2(0.4f, 0.1f));
+            BoardItem second = _board.SpawnItem(0, new Vector2(0.6f, 0.1f));
+            MergingCommand merge = new(_board.Board.CommandContext, first, second);
+            Assert.IsTrue(_board.Board.EnqueueCommand(merge));
 
             // The pair is saved as the two items it still is, so the restored board takes the
             // instances back out of the pool, the second item of the pair among them.
@@ -387,6 +412,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.IsTrue(hasPrepared, "The merge did not take its pair off the board.");
             Assert.AreEqual(2, restoredCount);
             Assert.AreEqual(restoredCount, _board.Board.Items.Count, "The merge took a restored item off the new board.");
+            CollectionAssert.Contains(_board.Board.Items, second, "The restored board did not reuse the second item of the pair, so the case is not covered.");
             Assert.AreEqual(0, itemsRemovedAfterPrepare);
             Assert.AreEqual(0, CountItemsOfIndex(1), "The merged item fell onto the restored board.");
             Assert.AreEqual(snapshot.MergeCount, _board.Board.MergeCount);
@@ -432,7 +458,8 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             _board.StartGame();
             MergingCommand firstMerge = CreateMerge(0, 0.2f);
             MergingCommand secondMerge = CreateMerge(3, 0.7f);
-            ParallelCommand group = new(firstMerge, secondMerge);
+            RunCountingCommand plainCommand = new();
+            ParallelCommand group = new(firstMerge, secondMerge, plainCommand);
             Assert.IsTrue(_board.Board.EnqueueCommand(group));
 
             List<BoardMergeInfo> merges = new();
@@ -452,6 +479,9 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.AreEqual(0, CountItemsOfIndex(3), "The pair of the second merge is still on the board.");
             Assert.IsTrue(group.IsDisposed);
             Assert.IsTrue(secondMerge.IsDisposed);
+
+            // The board runs again and its guard allows the group, but the group itself was dropped.
+            Assert.AreEqual(0, plainCommand.RunCount, "A command of the dropped group ran on the new board.");
             Assert.AreEqual(0, _board.Board.CommandCount);
         }
 
