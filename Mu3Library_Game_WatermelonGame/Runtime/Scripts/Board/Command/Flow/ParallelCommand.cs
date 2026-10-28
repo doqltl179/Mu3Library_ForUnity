@@ -8,6 +8,9 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
     /// <br/> falls into it, so the board keeps them as a single thing it can also cancel as one.
     /// <br/> A command that gives up does not stop the others, they were started to run together;
     /// <br/> put the ones that depend on each other in a <see cref="SequenceCommand"/> instead.
+    /// <br/> On a board, a handler of what one command raised that ends the game or prepares the
+    /// <br/> board again stops the group there: that command finishes its step, and the ones after
+    /// <br/> it are not advanced in that frame.
     /// </summary>
     public class ParallelCommand : CompositeBoardCommand
     {
@@ -29,7 +32,20 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
 
             for (int index = 0; index < _commands.Length; index++)
             {
-                if (BoardCommandRunner.Advance(_commands[index], deltaTime))
+                IBoardCommand command = _commands[index];
+                if (BoardCommandRunner.IsFinished(command))
+                {
+                    continue;
+                }
+
+                // A handler of what an earlier command raised can stop the board, and the commands
+                // left then wait, as the commands after the group on the board do.
+                if (!CanContinueStep())
+                {
+                    return;
+                }
+
+                if (BoardCommandRunner.Advance(command, deltaTime))
                 {
                     hasWorkLeft = true;
                 }
