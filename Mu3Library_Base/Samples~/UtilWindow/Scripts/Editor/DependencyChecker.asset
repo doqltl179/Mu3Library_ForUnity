@@ -76,10 +76,13 @@ MonoBehaviour:
     m_TextClipping: 0
     m_ImagePosition: 0
     m_ContentOffset: {x: 0, y: 0}
+    m_ContentSpacing: 1
     m_FixedWidth: 0
     m_FixedHeight: 48
+    m_ImageIsTopAligned: 0
     m_StretchWidth: 1
     m_StretchHeight: 0
+    m_IsSDF: 0
   _header2Style:
     m_Name: 
     m_Normal:
@@ -143,10 +146,13 @@ MonoBehaviour:
     m_TextClipping: 0
     m_ImagePosition: 0
     m_ContentOffset: {x: 0, y: 0}
+    m_ContentSpacing: 1
     m_FixedWidth: 0
     m_FixedHeight: 32
+    m_ImageIsTopAligned: 0
     m_StretchWidth: 1
     m_StretchHeight: 0
+    m_IsSDF: 0
   _header3Style:
     m_Name: 
     m_Normal:
@@ -210,10 +216,13 @@ MonoBehaviour:
     m_TextClipping: 0
     m_ImagePosition: 0
     m_ContentOffset: {x: 0, y: 0}
+    m_ContentSpacing: 1
     m_FixedWidth: 0
     m_FixedHeight: 22
+    m_ImageIsTopAligned: 0
     m_StretchWidth: 1
     m_StretchHeight: 0
+    m_IsSDF: 0
   _toggleIcon1Style:
     m_Name: 
     m_Normal:
@@ -277,10 +286,13 @@ MonoBehaviour:
     m_TextClipping: 0
     m_ImagePosition: 0
     m_ContentOffset: {x: 0, y: 0}
+    m_ContentSpacing: 1
     m_FixedWidth: 0
     m_FixedHeight: 48
+    m_ImageIsTopAligned: 0
     m_StretchWidth: 1
     m_StretchHeight: 0
+    m_IsSDF: 0
   _toggleIcon2Style:
     m_Name: 
     m_Normal:
@@ -344,12 +356,14 @@ MonoBehaviour:
     m_TextClipping: 0
     m_ImagePosition: 0
     m_ContentOffset: {x: 0, y: 0}
+    m_ContentSpacing: 1
     m_FixedWidth: 0
     m_FixedHeight: 32
+    m_ImageIsTopAligned: 0
     m_StretchWidth: 1
     m_StretchHeight: 0
-  _objectList:
-  - {fileID: 102900000, guid: c43e154e2f9bde64d8c3b7cac4561f0b, type: 3}
+    m_IsSDF: 0
+  _objectList: []
   _excludePackages: 1
   _recursive: 1
   _searchWithExtensions: 0
