@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using Mu3Library.Game.WatermelonGame.Board;
 using Mu3Library.Game.WatermelonGame.Board.Command;
+using Mu3Library.Game.WatermelonGame.Board.Command.Flow;
 using Mu3Library.Game.WatermelonGame.Board.Command.Item;
+using Mu3Library.Game.WatermelonGame.Board.Command.Score;
 using Mu3Library.Game.WatermelonGame.Board.Item;
 using NUnit.Framework;
 using UnityEngine;
@@ -230,6 +232,77 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void GameEndInMergeHandler_StopsTheParallelGroupOfThatFrame()
+        {
+            _board.StartGame();
+            MergingCommand firstMerge = CreateMerge(0, 0.2f);
+            MergingCommand secondMerge = CreateMerge(3, 0.7f);
+            ParallelCommand group = new(firstMerge, secondMerge);
+            Assert.IsTrue(_board.Board.EnqueueCommand(group));
+
+            List<BoardMergeInfo> merges = new();
+            _board.Board.OnItemMerged += info =>
+            {
+                merges.Add(info);
+                _board.Board.GameEnd();
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(_board.Board.IsEnded, "The merge did not run.");
+            Assert.AreEqual(1, merges.Count, "The group merged again after the game ended.");
+            Assert.AreEqual(firstMerge.ItemIndex, merges[0].ItemIndex);
+            Assert.AreEqual(_board.Board.ScoreRule.GetScore(firstMerge.ItemIndex), _board.Board.Score);
+            Assert.AreEqual(1, _board.Board.MergeCount);
+
+            Assert.IsFalse(secondMerge.IsRunning || secondMerge.IsCompleted, "The second merge was advanced.");
+            Assert.AreEqual(2, CountItemsOfIndex(secondMerge.ItemIndex), "The pair of the second merge left the board.");
+            Assert.IsFalse(group.IsCompleted);
+            CollectionAssert.AreEqual(new IBoardCommand[] { group }, _board.Board.Commands);
+
+            _board.Board.Prepare();
+            Assert.IsTrue(secondMerge.IsDisposed, "Prepare did not drop the group that was left.");
+        }
+
+        [Test]
+        public void GameEndInMergeHandler_StopsTheSequenceOfThatFrame()
+        {
+            _board.StartGame();
+            MergingCommand merge = CreateMerge(0, 0.4f);
+            AddScoreCommand bonus = new(_board.Board.CommandContext, 100);
+            SequenceCommand sequence = new(merge, bonus);
+            Assert.IsTrue(_board.Board.EnqueueCommand(sequence));
+
+            _board.Board.OnItemMerged += _ => _board.Board.GameEnd();
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(_board.Board.IsEnded, "The merge did not run.");
+            Assert.AreEqual(_board.Board.ScoreRule.GetScore(0), _board.Board.Score, "The step after the merge paid into the ended game.");
+            Assert.IsFalse(bonus.IsRunning || bonus.IsCompleted, "The step after the merge started.");
+            Assert.AreEqual(1, sequence.CurrentIndex);
+            Assert.IsFalse(sequence.IsCompleted);
+        }
+
+        [Test]
+        public void GameEndInMergeHandler_StopsTheGroupsInsideAGroup()
+        {
+            _board.StartGame();
+            MergingCommand merge = CreateMerge(0, 0.4f);
+            AddScoreCommand bonus = new(_board.Board.CommandContext, 100);
+            ParallelCommand group = new(new SequenceCommand(merge, bonus));
+            Assert.IsTrue(_board.Board.EnqueueCommand(group));
+
+            _board.Board.OnItemMerged += _ => _board.Board.GameEnd();
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(_board.Board.IsEnded, "The merge did not run.");
+            Assert.AreEqual(_board.Board.ScoreRule.GetScore(0), _board.Board.Score, "The inner sequence paid into the ended game.");
+            Assert.IsFalse(bonus.IsRunning || bonus.IsCompleted, "The step after the merge started.");
+        }
+
+        [Test]
         public void DragOnRunningBoard_MovesAndDropsTheHeldItem()
         {
             _board.StartGame();
@@ -294,13 +367,22 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         /// </summary>
         private MergingCommand EnqueueMerge(int itemIndex, float boardNormalizedX)
         {
-            BoardItem first = _board.SpawnItem(itemIndex, new Vector2(boardNormalizedX, 0.1f));
-            BoardItem second = _board.SpawnItem(itemIndex, new Vector2(boardNormalizedX + 0.2f, 0.1f));
-
-            MergingCommand merge = new MergingCommand(_board.Board.CommandContext, first, second);
+            MergingCommand merge = CreateMerge(itemIndex, boardNormalizedX);
             Assert.IsTrue(_board.Board.EnqueueCommand(merge));
 
             return merge;
+        }
+
+        /// <summary>
+        /// Puts two items of one entry on the board, side by side from a fraction of the board width on,
+        /// <br/> and builds the merge of the pair without handing it to the board.
+        /// </summary>
+        private MergingCommand CreateMerge(int itemIndex, float boardNormalizedX)
+        {
+            BoardItem first = _board.SpawnItem(itemIndex, new Vector2(boardNormalizedX, 0.1f));
+            BoardItem second = _board.SpawnItem(itemIndex, new Vector2(boardNormalizedX + 0.2f, 0.1f));
+
+            return new MergingCommand(_board.Board.CommandContext, first, second);
         }
 
         /// <summary>

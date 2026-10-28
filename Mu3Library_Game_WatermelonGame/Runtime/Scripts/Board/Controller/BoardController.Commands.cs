@@ -29,6 +29,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         private bool _isUpdatingCommands;
 
         /// <summary>
+        /// Handed to every <see cref="IGuardedBoardCommand"/> the board accepts, created once.
+        /// </summary>
+        private Func<bool> _commandStepGuard;
+
+        /// <summary>
         /// The commands the board is running, in the order they are advanced.
         /// <br/> A command enqueued during the current frame joins them when the board is done
         /// <br/> advancing the ones it already had.
@@ -84,6 +89,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
             if (ContainsCommand(command))
             {
                 return false;
+            }
+
+            // A command group advances several commands within its one step, and it stops between
+            // them once the board stops running, as the pass over the board's own list does.
+            if (command is IGuardedBoardCommand guardedCommand)
+            {
+                guardedCommand.SetStepGuard(_commandStepGuard ??= CanContinueCommandStep);
             }
 
             if (_isUpdatingCommands)
@@ -173,7 +185,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Advances the commands one step each, in the order they were enqueued, while the board runs.
         /// <br/> A handler of what a command raised can end the game or prepare the board again, and the
         /// <br/> pass stops there: the command that raised it finishes the step it is in, and the ones after
-        /// <br/> it are not advanced.
+        /// <br/> it are not advanced. A command group stops between the commands it holds in the same way.
         /// </summary>
         protected void UpdateCommands()
         {
@@ -299,6 +311,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         private bool ContainsCommand(IBoardCommand command)
             => _commands.Contains(command) || _pendingCommands.Contains(command);
+
+        private bool CanContinueCommandStep()
+            => _isRunning;
 
         private void RequestCommandRemoval(IBoardCommand command)
         {
