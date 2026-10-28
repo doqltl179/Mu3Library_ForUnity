@@ -95,12 +95,15 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
         }
 
         /// <summary>
-        /// True while the group may advance another of its commands within this step, and always
-        /// <br/> for a group without a guard. <see cref="Step"/> asks it before each command it
-        /// <br/> advances; a false answer leaves the group where it is, neither finished nor canceled.
+        /// True while the group may advance another of its commands within this step.
+        /// <br/> It is false once the group itself was stopped during the step, canceled or disposed
+        /// <br/> by a handler of what one of its commands raised, and while its guard says false; a
+        /// <br/> group without a guard only stops for the first. <see cref="Step"/> asks it before
+        /// <br/> each command it advances. A false answer from the guard leaves the group where it
+        /// <br/> is, neither finished nor canceled.
         /// </summary>
         protected bool CanContinueStep()
-            => _stepGuard == null || _stepGuard();
+            => !_isCompleted && (_stepGuard == null || _stepGuard());
 
         protected override void OnCancel()
         {

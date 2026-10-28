@@ -427,6 +427,35 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void PrepareAndStartInMergeHandler_RunsNoOtherCommandOfTheGroupOnTheNewBoard()
+        {
+            _board.StartGame();
+            MergingCommand firstMerge = CreateMerge(0, 0.2f);
+            MergingCommand secondMerge = CreateMerge(3, 0.7f);
+            ParallelCommand group = new(firstMerge, secondMerge);
+            Assert.IsTrue(_board.Board.EnqueueCommand(group));
+
+            List<BoardMergeInfo> merges = new();
+            _board.Board.OnItemMerged += info =>
+            {
+                merges.Add(info);
+                _board.Board.Prepare();
+                _board.Board.GameStart();
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(_board.Board.IsRunning, "The board did not start again.");
+            Assert.AreEqual(1, merges.Count, "The group merged again on the new board.");
+            Assert.AreEqual(0, _board.Board.MergeCount);
+            Assert.AreEqual(0, _board.Board.Score);
+            Assert.AreEqual(0, CountItemsOfIndex(3), "The pair of the second merge is still on the board.");
+            Assert.IsTrue(group.IsDisposed);
+            Assert.IsTrue(secondMerge.IsDisposed);
+            Assert.AreEqual(0, _board.Board.CommandCount);
+        }
+
+        [Test]
         public void DragOnRunningBoard_MovesAndDropsTheHeldItem()
         {
             _board.StartGame();
