@@ -270,6 +270,8 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
+카탈로그 확인과 갱신(`CheckForCatalogUpdates`, `UpdateCatalogs`와 그 UniTask 변형)은 호출 순서대로 하나씩 Addressables에 닿습니다. 다른 호출이 진행 중일 때 부른 호출은(그 호출의 콜백 안에서 부른 것 포함) 앞선 콜백 다음 ResourceManager 업데이트에서, 즉 그 핸들이 정리된 뒤에 시작하며, `Dispose`는 아직 Addressables에 닿지 않은 호출을 null로 알립니다. 갱신은 매니저가 초기화된 뒤에만 Addressables에 닿습니다. 아직 초기화되지 않은 매니저는 `Initialize`와 같은 초기화를 같은 `IsInitializing` 상태와 이벤트로 거치고, 초기화가 진행 중일 때 부른 갱신은 그 초기화를 기다립니다. 그 초기화가 실패하면 갱신의 콜백은 null을 받고, 이후의 갱신도 초기화 호출이 성공할 때까지 다시 시도하지 않고 같은 방식으로 실패합니다.
+
 ### Scene Loader
 built-in 및 Addressables 씬 모두에 대해 명시적인 씬 명령을 지원합니다.
 

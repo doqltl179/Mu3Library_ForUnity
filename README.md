@@ -270,6 +270,8 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
+Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
+
 ### Scene Loader
 Supports explicit scene commands for both built-in and Addressables scenes.
 

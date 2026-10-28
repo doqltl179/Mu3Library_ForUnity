@@ -270,6 +270,8 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
+カタログの確認と更新（`CheckForCatalogUpdates`、`UpdateCatalogs` とその UniTask 版）は、呼んだ順に 1 つずつ Addressables に届きます。別の呼び出しの実行中に呼んだ呼び出しは（そのコールバックの中で呼んだものを含め）、先のコールバックの次の ResourceManager の更新で、つまりそのハンドルが整理された後に始まり、`Dispose` はまだ Addressables に届いていない呼び出しを null で通知します。更新は、マネージャーが初期化された後にだけ Addressables に届きます。まだ初期化されていないマネージャーは、`Initialize` と同じ初期化を同じ `IsInitializing` の状態とイベントで行い、初期化の実行中に呼んだ更新はその初期化を待ちます。その初期化が失敗すると、更新のコールバックは null を受け取り、以降の更新も初期化の呼び出しが成功するまで再試行せずに同じように失敗します。
+
 ### Scene Loader
 built-in と Addressables の両方に対して明示的な scene command を提供します。
 
