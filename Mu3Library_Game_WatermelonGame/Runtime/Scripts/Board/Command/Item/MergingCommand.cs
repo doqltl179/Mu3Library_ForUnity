@@ -113,11 +113,17 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Item
             ReleaseMergeReservation();
 
             _context.RemoveItem(_item01);
-            _context.RemoveItem(_item02);
 
             // Each call to the board here raises an event, and a handler that prepares the board
             // again drops this command with the board it merged on. The rest of the merge is
             // skipped then, so none of it reaches the new board.
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _context.RemoveItem(_item02);
+
             if (_isDisposed)
             {
                 return;
@@ -143,6 +149,12 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Item
             // The sound runs before the merge is reported, so whoever listens for the merge
             // already sees the combo step it landed on.
             PlayMergeSound();
+
+            if (_isDisposed)
+            {
+                _mergedItem = null;
+                return;
+            }
 
             _context.CountMerge(new BoardMergeInfo(
                 _itemIndex,

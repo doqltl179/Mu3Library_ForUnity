@@ -348,6 +348,85 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void PrepareWithSnapshotInRemovedHandler_LeavesTheRestoredItemsOnTheBoard()
+        {
+            _board.StartGame();
+            MergingCommand merge = EnqueueMerge(0, 0.4f);
+
+            // The pair is saved as the two items it still is, so the restored board takes the
+            // instances back out of the pool, the second item of the pair among them.
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            int restoredCount = snapshot.BoardItemsSnapshot.Count;
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int itemsRemovedAfterPrepare = 0;
+            int mergesReported = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsRemovedAfterPrepare++;
+                    return;
+                }
+
+                // Prepare takes the second item of the pair off the old board as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnItemMerged += _ => mergesReported++;
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The merge did not take its pair off the board.");
+            Assert.AreEqual(2, restoredCount);
+            Assert.AreEqual(restoredCount, _board.Board.Items.Count, "The merge took a restored item off the new board.");
+            Assert.AreEqual(0, itemsRemovedAfterPrepare);
+            Assert.AreEqual(0, CountItemsOfIndex(1), "The merged item fell onto the restored board.");
+            Assert.AreEqual(snapshot.MergeCount, _board.Board.MergeCount);
+            Assert.AreEqual(snapshot.Score, _board.Board.Score);
+            Assert.AreEqual(0, mergesReported);
+            Assert.IsTrue(merge.IsDisposed);
+        }
+
+        [Test]
+        public void PrepareInMergeComboHandler_LeavesNothingOfTheMergeOnTheNewBoard()
+        {
+            _board.StartGame();
+            MergingCommand merge = EnqueueMerge(0, 0.4f);
+
+            bool hasPrepared = false;
+            int mergesReported = 0;
+            _board.Board.OnMergeComboChanged += _ =>
+            {
+                // Prepare drops the combo the merge started and reports that as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnItemMerged += _ => mergesReported++;
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The merge sound did not move the combo.");
+            Assert.AreEqual(0, _board.Board.Items.Count, "The merged item stayed on the new board.");
+            Assert.AreEqual(0, _board.Board.MergeCount, "The merge was counted on the new board.");
+            Assert.AreEqual(0, mergesReported, "The merge was reported after the board was prepared again.");
+            Assert.IsTrue(merge.IsDisposed);
+            Assert.IsNull(merge.MergedItem);
+        }
+
+        [Test]
         public void DragOnRunningBoard_MovesAndDropsTheHeldItem()
         {
             _board.StartGame();
