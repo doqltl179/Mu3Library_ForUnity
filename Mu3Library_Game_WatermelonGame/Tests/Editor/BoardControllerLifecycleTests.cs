@@ -303,6 +303,51 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void PrepareInScoreHandler_LeavesNothingOfTheMergeOnTheNewBoard()
+        {
+            _board.StartGame();
+            MergingCommand merge = EnqueueMerge(0, 0.4f);
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int mergesReported = 0;
+            int itemsAddedAfterPrepare = 0;
+            _board.Board.OnScoreChanged += _ =>
+            {
+                // Prepare reports the score it starts over with as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsAddedAfterPrepare++;
+                }
+            };
+            _board.Board.OnItemMerged += _ => mergesReported++;
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The merge did not pay its points.");
+            Assert.IsTrue(_board.Board.IsPrepared);
+            Assert.IsFalse(_board.Board.IsRunning);
+            Assert.AreEqual(0, _board.Board.Items.Count, "The merged item fell onto the new board.");
+            Assert.AreEqual(0, itemsAddedAfterPrepare);
+            Assert.AreEqual(0, _board.Board.MergeCount, "The merge was counted on the new board.");
+            Assert.AreEqual(0, _board.Board.Score);
+            Assert.AreEqual(0, mergesReported, "The merge was reported after the board was prepared again.");
+            Assert.IsTrue(merge.IsDisposed);
+            Assert.IsNull(merge.MergedItem);
+        }
+
+        [Test]
         public void DragOnRunningBoard_MovesAndDropsTheHeldItem()
         {
             _board.StartGame();
