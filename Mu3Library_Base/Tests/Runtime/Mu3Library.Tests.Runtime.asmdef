@@ -2,6 +2,7 @@
     "name": "Mu3Library.Tests.Runtime",
     "rootNamespace": "Mu3Library.Tests",
     "references": [
+        "Mu3Library",
         "Mu3Library.DI",
         "UniTask",
         "UnityEngine.TestRunner",
