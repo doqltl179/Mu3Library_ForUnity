@@ -68,7 +68,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 ## File Encoding
 
 - Markdown is UTF-8 with BOM and LF per `.editorconfig`; the agentkit section at its end keeps `.ai/` and the generated agent files without BOM.
-- `.gitattributes` pins `*.md`, `*.sh`, and `*.tsv` to LF; bash reads a trailing CR as part of a value.
+- `.gitattributes` pins `*.md`, `*.sh`, and `*.tsv` to LF; bash reads a trailing CR as part of a value. It also pins `.ai/`, `.agents/`, `.claude/`, and `.codex/` to LF, which agentkit writes, so a kit update does not show unchanged files as modified on a `core.autocrlf=true` checkout.
 
 ## Local-Only Verification
 
