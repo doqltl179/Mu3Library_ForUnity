@@ -4,6 +4,32 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-30
+
+### Added
+- Stack pack `firebase`: CLI and `firebase.json`, Emulator Suite, Firestore and Security Rules, Cloud Functions, Auth, Storage, Crashlytics, and FCM, with FlutterFire and Unity SDK setup. The `infra` kind now also covers cloud platforms and managed backend services (`stack-spec.md`). (minor)
+- Stack pack `aws`: credentials, IAM, Regions, tags, and cost; Lambda, API Gateway, DynamoDB, Cognito, S3, and CloudFront; Terraform through the `terraform` pack. It has no default paths: bind it to a role or set `[stack_paths]` in the profile. (minor)
+
+### Changed
+- Stack pack `csharp`: in a Unity project, settings come from what Unity compiles with (`Assets/csc.rsp`, `.ruleset` files or `.editorconfig`, analyzer plug-ins) rather than the generated `.csproj`, and nullable reference types follow the project. Async code picks `Awaitable`, `Task`, or `ValueTask` by Unity's criteria, never awaits one `Awaitable` twice, keeps per-frame functions synchronous, and cancels with `Application.exitCancellationToken` or `destroyCancellationToken`. Unity Manual sources use the `docs.unity.com/en-us/engine/current/` addresses. (minor)
+- Stack pack `unity-upm`: Unity 6.3–6.6 package changes. Create package writes a `.sample.json` that makes packing ignore the `samples` array, and samples gain `images` (6.5). Packages are signature-checked from 6.3, with the signing methods listed. Unity 6.5 drops bundled copies of four class-library assemblies, and 6.6 turns more packages into core packages. Unity Mathematics (6.5) and Burst (6.6) become built-in modules. Unity 6.6 deprecates `DEVELOPMENT_BUILD` and `UNITY_64`; its guide plans their removal in 6.8, and the Unity 7.0 alpha (`7000.0.0a12`) already leaves them undefined, so `#if` blocks on them compile out there and their `#else` branches always compile. The pack names the replacement defines, and code that must stay out of release Players checks `Debug.isDebugBuild`. Packages that also support older Editors pick between the new defines and the older fallbacks with `UNITY_6000_6_OR_NEWER`. New conventions cover `license` and `LICENSE.md`, the 50-character name limit, and `scopedRegistries` scopes. (minor)
+- Stack pack `unity-upm`: Export adds the tilde to `Samples` only, so authors rename `Documentation` to `Documentation~` in the Project window before sharing. Git LFS pointer files can arrive even with the LFS client installed, because the Package Manager clones shallowly. The Samples note follows the Unity 6000.6 manual, and unversioned Unity Manual sources use the `docs.unity.com/en-us/engine/current/` addresses they redirect to. (patch)
+- Stack pack `unity`: an open Editor that does not answer (Safe Mode after compile errors, a sandbox that hides it, a modal dialog) no longer counts as "no Editor", and `com.unity.pipeline` in the manifest marks the Unity CLI as the live-Editor bridge. A raw `-runTests` verdict comes only from the results XML, Unity CLI exit codes are read by their documented meaning (`unity test` 0, 8, and 6; `unity recompile` 7), and a change made through an Editor needs a clean console, with advancing frames before Play Mode counts as evidence. The CLI's dialog codes come with the Editor versions that report them. Batch runs with asynchronous work omit `-quit`; CLI worktrees can be seeded, with one Editor each. (minor)
+- Stack pack `unity`: Unity 6.3–6.6 changes. `[SerializeField]` applies only to fields (6.3). `InstanceID` APIs give way to the 8-byte `EntityId`, and the obsolete shortcut properties and `AddComponent(string)` are gone (6.5). Dictionary fields serialize from 6.6 and migrate only by copying their data. New 6.6 projects skip the domain reload on entering Play Mode, and `[AutoStaticsCleanup]` resets marked statics from 6.5. The Editor log moves into the project (6.5), the Built-in Render Pipeline is deprecated, and 6.6 YAML word-wrapping changes stay out of feature diffs. The class-library copies and deprecated defines link to the `unity-upm` pack, the `6000.x` version note names the current release streams, and unversioned Unity Manual and Scripting API sources use the `docs.unity.com/en-us/engine/current/` addresses. (minor)
+
+### Fixed
+- Stack pack `unity`: the Unity CLI version note names the latest beta, 1.0.0-beta.14 (2026-10-21); there is still no stable release. (patch)
+- Stack pack `unity`: Unity 6.3, not 6.4, removes URP Compatibility Mode (6.4 removes the define used to convert a project); render pipeline detection reads a Quality level's asset before the Graphics default; scripts under the top-level `Assets/Plugins` folder compile into the `-firstpass` assemblies, and asmdefs can reference none of the predefined assemblies; the Unity 6.2 malformed-YAML note names general parse errors instead of invalid IDs and says earlier versions often, not always, discard malformed data. (patch)
+- Stack packs `unity` and `unity-upm`: binding a package folder outside `Assets/` and `Packages/` with `stack_paths` keeps the pack's default globs the project still needs, because `stack_paths` replaces a pack's defaults; the profile template's `[stack_paths]` note now states the replacement. (patch)
+- Stack pack `csharp`: Unity projects compile C# 9 at the .NET Standard 2.1 or .NET Framework 4.8 API level, so the pack names the C# 9 features Unity rejects and forbids `record` in serialized types. There it also drops `record` for immutable data and `TimeProvider` (unless the project includes `Microsoft.Bcl.TimeProvider`), and the `unity` pack's Verify replaces the `dotnet` commands. (patch)
+
+### Reviewed
+- Stack pack `unity`, ahead of its due date because an intake record named it. (patch)
+- Stack pack `unity-upm`, against the Unity 6000.6 manual, ahead of its due date because an intake record named it. (patch)
+
+### Migration
+1. If `[stack_paths]` in `.ai/project/profile.toml` has a `unity` or `unity-upm` entry, add to that entry each of the pack's default globs listed in `.ai/kit/core/stacks/CATALOG.md` that matches project files the entry does not already cover. From v0.2.0 to v0.4.0 those packs advised binding a package folder there, and an entry replaces the pack's defaults, so such an entry dropped globs like `**/Assets/**/*.cs`.
+
 ## [0.4.0] - 2026-10-24
 
 ### Added

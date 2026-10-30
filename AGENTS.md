@@ -55,7 +55,7 @@ Each line's full rule lives on the linked page.
 ## This Project
 
 - Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them.
-- Kit: version 0.4.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Kit: version 0.5.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 

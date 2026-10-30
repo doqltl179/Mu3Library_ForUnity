@@ -26,7 +26,7 @@ A stack pack holds the knowledge an owner needs to work correctly in one languag
 |---|---|---|
 | `language` | `core/stacks/languages/` | A programming or query language and its ecosystem tooling |
 | `framework` | `core/stacks/frameworks/` | An application, UI, game-engine, data, or ML framework |
-| `infra` | `core/stacks/infra/` | Containers, orchestration, infrastructure as code, CI services |
+| `infra` | `core/stacks/infra/` | Containers, orchestration, infrastructure as code, CI services, cloud platforms and managed backend services |
 
 ## Frontmatter
 
