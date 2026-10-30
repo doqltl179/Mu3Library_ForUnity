@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer
 {

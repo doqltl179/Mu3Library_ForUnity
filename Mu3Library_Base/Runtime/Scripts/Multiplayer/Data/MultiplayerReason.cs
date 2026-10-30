@@ -1,4 +1,4 @@
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Data
 {
     /// <summary>
     /// Why a request failed or a session ended. The library never builds player-facing text;

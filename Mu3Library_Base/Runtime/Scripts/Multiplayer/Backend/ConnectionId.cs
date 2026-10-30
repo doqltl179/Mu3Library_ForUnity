@@ -1,6 +1,6 @@
 using System;
 
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Backend
 {
     /// <summary>
     /// Identifies one connection a backend holds. The same account may hold two connections at

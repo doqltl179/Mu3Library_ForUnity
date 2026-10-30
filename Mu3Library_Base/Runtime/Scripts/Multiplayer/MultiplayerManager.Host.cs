@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 using UnityEngine;
 

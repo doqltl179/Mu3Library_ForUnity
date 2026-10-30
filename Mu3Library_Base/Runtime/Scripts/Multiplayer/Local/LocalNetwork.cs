@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer.Local
 {
@@ -117,25 +119,5 @@ namespace Mu3Library.Multiplayer.Local
 
             return false;
         }
-    }
-
-    internal sealed class LocalLobby
-    {
-        public LobbyId Id;
-        public LocalBackend Owner;
-        public LobbyVisibility Visibility;
-        public int Capacity;
-        public bool IsJoinable = true;
-        public readonly List<LocalBackend> Members = new List<LocalBackend>();
-        public readonly Dictionary<string, string> Data = new Dictionary<string, string>();
-    }
-
-    internal sealed class LocalConnection
-    {
-        public ConnectionId Id;
-        public LocalBackend Owner;
-        public PlayerId RemotePlayer;
-        public LocalConnection Remote;
-        public bool IsOpen;
     }
 }

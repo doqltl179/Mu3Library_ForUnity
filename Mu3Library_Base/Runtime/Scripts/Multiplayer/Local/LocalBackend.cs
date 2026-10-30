@@ -2,6 +2,8 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer.Local
 {

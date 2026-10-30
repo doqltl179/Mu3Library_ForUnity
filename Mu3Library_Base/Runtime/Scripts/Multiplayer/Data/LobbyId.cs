@@ -1,6 +1,6 @@
 using System;
 
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Data
 {
     /// <summary>
     /// Identifies one lobby: a Steam lobby ID on the Steam backend, a number the local network

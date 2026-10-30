@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;

@@ -1,4 +1,4 @@
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Data
 {
     /// <summary>
     /// One player in the session as the host last reported them.

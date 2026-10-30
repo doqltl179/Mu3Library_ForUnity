@@ -1,4 +1,4 @@
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Data
 {
     public enum LobbyVisibility
     {

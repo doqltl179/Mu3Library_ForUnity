@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Data
 {
     public sealed class LobbyCreateOptions
     {

@@ -1,75 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Mu3Library.Multiplayer.Data;
 
-namespace Mu3Library.Multiplayer
+namespace Mu3Library.Multiplayer.Backend
 {
-    public enum BackendDisconnectKind
-    {
-        /// <summary>The connection was never established.</summary>
-        ConnectFailed = 0,
-        /// <summary>The other side closed the connection, with the reason code it passed.</summary>
-        ClosedByPeer = 1,
-        /// <summary>The connection dropped: a timeout, a crash, or a network problem.</summary>
-        ConnectionLost = 2,
-    }
-
-    /// <summary>
-    /// One lobby as a backend's search found it, with all of its lobby data.
-    /// </summary>
-    public readonly struct BackendLobby
-    {
-        public LobbyId Id { get; }
-        public int MemberCount { get; }
-        public int Capacity { get; }
-        public IReadOnlyDictionary<string, string> Data { get; }
-
-        public BackendLobby(LobbyId id, int memberCount, int capacity, IReadOnlyDictionary<string, string> data)
-        {
-            Id = id;
-            MemberCount = memberCount;
-            Capacity = capacity;
-            Data = data;
-        }
-    }
-
-    /// <summary>
-    /// Receives what a backend reports. The backend calls it only from inside
-    /// <see cref="IMultiplayerBackend.Update"/>, on the main thread.
-    /// </summary>
-    public interface IMultiplayerBackendListener
-    {
-        /// <summary>
-        /// A connection opened: one another player made to this listening host
-        /// (<paramref name="isIncoming"/> true), or one this player made with
-        /// <see cref="IMultiplayerBackend.Connect"/>. <paramref name="remote"/> is the identity the
-        /// backend verified, never one the other side claimed.
-        /// </summary>
-        void OnConnected(ConnectionId connection, PlayerId remote, bool isIncoming);
-
-        /// <summary>
-        /// A connection closed without this side calling <see cref="IMultiplayerBackend.Disconnect"/>.
-        /// <paramref name="reasonCode"/> is what the other side passed to its own Disconnect, and 0
-        /// when it passed none.
-        /// </summary>
-        void OnDisconnected(ConnectionId connection, PlayerId remote, BackendDisconnectKind kind, int reasonCode);
-
-        /// <summary>
-        /// Data arrived. The span is valid only during the call.
-        /// </summary>
-        void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data);
-
-        /// <summary>
-        /// The lobby passed to another member, as a lobby does when its owner leaves.
-        /// </summary>
-        void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner);
-
-        /// <summary>
-        /// The player asked, outside the game, to join this lobby: an accepted invite, a join from
-        /// the friends list, or a launch from either.
-        /// </summary>
-        void OnLobbyJoinRequested(LobbyId lobby);
-    }
-
     /// <summary>
     /// Where lobbies and connections actually live. The Steam backend and the local backend
     /// implement it; the session logic in <see cref="MultiplayerManager"/> runs the same on both.
