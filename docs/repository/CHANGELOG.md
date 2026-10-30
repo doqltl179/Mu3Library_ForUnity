@@ -7,6 +7,20 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-30
+
+### Changed
+- `.ai/project/lessons.md` keeps only the four of its 25 lessons that hold for every project and wait for a kit proposal. The project rules among the rest moved to the pages that own them. Manager callbacks, initialization, disposal, and object ownership, superseded async operations, the Watermelon board commands, and the Watermelon board and sample rules went to the new `.ai/project/wiki/runtime-design.md`, which `rules/package-architecture.md` routes to. The `ContainerScope.InjectInto` boundary and the layout of an oversized `MonoBehaviour` went to `rules/package-architecture.md`. Opening one development project at a time and proving a Base sample's optional-package guards went to `unity-verification.md`; that rule no longer says every development project carries Addressables, Localization, and the Input System, since only `UnityProject_BuiltIn`, where Base's samples compile, resolves every optional package. Two lessons were dropped because a page already owned them: running Unity from a `subst` drive (`tools/README.md`) and keeping reusable runtime code in the packages (`project.guardrails`).
+- `.gitignore` no longer lists `**/[Aa]ssets/[Ss]amples.meta` twice.
+
+### Fixed
+- A kit update no longer shows unchanged agentkit files as modified on a `core.autocrlf=true` checkout. `agentkit.py update` writes `.ai/kit/` with LF, while such a checkout held its `.py`, `.json`, `.toml`, and extensionless files with CRLF, so reinstalling the same v0.5.0 listed six files in `git status` with an empty `git diff`. `.gitattributes` now checks `.ai/`, `.agents/`, `.claude/`, and `.codex/` out with LF, as agentkit writes them, with `text=auto` so a binary file stays untouched. Git already stored these files with LF, so no file changed in the repository, but a checkout made before this change keeps its CRLF copies until it checks them out again. On a checkout without uncommitted changes in those folders, run from its root:
+
+  ```bash
+  git ls-files -z .ai .agents .claude .codex | xargs -0 rm -f
+  git checkout -- .ai .agents .claude .codex
+  ```
+
 ## 2026-10-30 (agentkit 0.5.0)
 
 ### Changed
