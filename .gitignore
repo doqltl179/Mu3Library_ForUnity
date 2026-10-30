@@ -72,7 +72,6 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # My ignores
-# **/[Ss]amples~/
 **/[Aa]ssets/[Cc]ustomPackages
 **/[Aa]ssets/[Cc]ustomPackages.meta
 **/[Aa]ssets/[Aa]ddressableAssetsData
@@ -108,3 +107,6 @@ tools/**/*.egg-info/
 # agentkit working records and per-unit worktrees
 .ai/tasks/
 .worktrees/
+
+# Claude Code session worktrees
+.claude/worktrees/

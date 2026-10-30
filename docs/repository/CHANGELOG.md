@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-31
+
+### Changed
+- `.gitignore` ignores `.claude/worktrees/`, where Claude Code creates its session worktrees. Only a checkout's own `.git/info/exclude` held it before, so a new clone listed those worktrees as untracked. The commented-out `# **/[Ss]amples~/` line, which ignored nothing, is gone.
+
 ## 2026-10-30
 
 ### Changed

@@ -16,6 +16,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [Unreleased]
 
 ### 追加
+- Base, URP, Watermelon Game: 各パッケージのルートに、リポジトリの `LICENSE` と同じ MIT ライセンス全文を収めた `LICENSE.md` が入ります。Git インストールはパッケージフォルダだけを受け取るため、これまではライセンスファイルなしでインストールされていました。各 `package.json` は `"license": "MIT"` も宣言し、Package Manager がリポジトリを指すよう、`documentationUrl` を README に（Watermelon Game はランタイム API を説明するパッケージの README に）、`changelogUrl` をルートの `CHANGELOG.md` に設定します。ルートの `CHANGELOG.md` には、パッケージ内の `CHANGELOG.md` が参照するだけの完全なリリースノートがあります。
 - Base: `InjectableMembers.GetFields(Type)` と `InjectableMembers.GetProperties(Type)` は、ある型で `[Inject]` が値を設定するフィールドとプロパティを返します。コンテナとエディタの DI 検証ツールの両方がこれを使うため、検証ツールはコンテナが注入するメンバーをそのまま検査します。
 - Base: `CoreBase.OnDisable()` は `Awake`、`Start`、`OnEnable`、`OnDestroy` と同じく `protected virtual` です。独自の `OnDisable` を宣言しているコアは、これをオーバーライドして `base.OnDisable()` を呼び出してください。それまではコンパイラが警告 CS0114 を出し、下記の準備に関する修正もそのコアには適用されません。`OnDisable` で UI イベントを解除する Template サンプルのコアは、そのように変更しました。
 - Base: `TimeMode`(`Mu3Library.Utility`)は、時間とともに進む遷移がどの時計に従うかを表します。`Unscaled` は `Time.unscaledDeltaTime` に、`Scaled` は `Time.deltaTime` に従います。各 `AnimationHandler` にはその view 用の **Time Mode** フィールドと `TimeMode` プロパティがあり、`IAudioManager.TimeMode` はそのマネージャーのすべてのフェード、ダッキング、ループ間隔、プレイリストのトラック間の間隔に使う時計を設定します。どちらも既定値は `Unscaled` で、「変更」に説明があります。`IAudioManager` を自前で実装しているクラスは、このプロパティを追加する必要があります。
