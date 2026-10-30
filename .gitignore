@@ -82,8 +82,6 @@ crashlytics-build.properties
 !UnityProject_BuiltIn/Assets/AddressableAssetsData.meta
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
-**/[Aa]ssets/builtin_shaders
-**/[Aa]ssets/builtin_shaders.meta
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 

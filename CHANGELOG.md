@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Fixed
+- Base: the `Black`, `Blue`, `Green`, `Magenta`, `Red`, and `White` materials in `Runtime/Materials` use Unity's built-in Standard shader. They pointed at a copy of `Standard.shader` from Unity's built-in shader source that the repository never contained, so a project that installed Base could not find their shader.
+
 ## [base/0.27.0] - 2026-10-31
 
 ### Added
