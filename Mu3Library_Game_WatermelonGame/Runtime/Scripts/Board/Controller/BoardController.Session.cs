@@ -32,8 +32,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
         protected int _mergeCount;
         public int MergeCount => _mergeCount;
 
-        // Counts every Prepare, so a call that raises an event can tell whether a handler
-        // prepared the board again before the call went on.
+        /// <summary>
+        /// How many times the board was prepared, a refused Prepare not counted. A call that
+        /// <br/> raises an event reads it before and after, which tells it whether a handler prepared
+        /// <br/> the board again before the call went on.
+        /// </summary>
         private int _preparationCount;
 
         #region Utility
