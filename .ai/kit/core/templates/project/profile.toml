@@ -92,7 +92,8 @@ disabled = []
 active = []
 
 # [stack_paths]
-# Override a pack's default path globs for this project:
+# Replace a pack's default path globs (its `applies_to`) for this project. The defaults stop
+# applying, so also list each default glob the project still needs:
 # typescript = ["apps/**/*.ts", "packages/**/*.ts"]
 
 # [bindings.<agent-name>]

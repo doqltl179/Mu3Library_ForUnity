@@ -48,7 +48,9 @@ Every core stack pack, by kind.
 
 | Pack | Default paths | Related |
 |---|---|---|
+| [`aws`](infra/aws.md) AWS | — | terraform, github-actions, python, typescript, csharp |
 | [`docker`](infra/docker.md) Docker | `**/Dockerfile*`, `**/*.dockerfile`, `**/.dockerignore`, `**/compose*.y*ml`, `**/docker-compose*.y*ml`, `**/docker-bake.hcl` | kubernetes, github-actions, shell |
+| [`firebase`](infra/firebase.md) Firebase | `**/firebase.json`, `**/.firebaserc`, `**/firestore.rules`, `**/firestore.indexes.json`, `**/storage.rules`, `**/database.rules.json`, `**/functions/src/**`, `**/functions/main.py`, `**/firebase_options.dart`, `**/google-services.json`, `**/GoogleService-Info.plist` | flutter, unity, typescript, python, terraform |
 | [`github-actions`](infra/github-actions.md) GitHub Actions | `.github/workflows/*.y*ml`, `.github/actions/**` | docker, terraform, shell |
 | [`kubernetes`](infra/kubernetes.md) Kubernetes | `**/k8s/**/*.y*ml`, `**/charts/**`, `**/Chart.yaml`, `**/kustomization.y*ml` | docker, terraform, github-actions |
 | [`terraform`](infra/terraform.md) Terraform / OpenTofu | `**/*.tf`, `**/*.tfvars`, `**/*.tofu`, `**/*.tftest.hcl`, `**/.terraform.lock.hcl` | kubernetes, docker, github-actions |
