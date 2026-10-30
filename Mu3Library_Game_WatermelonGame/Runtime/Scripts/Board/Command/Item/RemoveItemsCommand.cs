@@ -92,12 +92,26 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Item
 
                 _removedCount++;
 
+                // Each call to the board here raises an event, and a handler that prepares the
+                // board again drops this command with the board it removed from. The rest of the
+                // removal is skipped then, so none of it reaches the new board, whose items can be
+                // the same instances taken back out of the pool.
+                if (_isDisposed)
+                {
+                    return;
+                }
+
                 if (!_awardScore || itemIndex < 0)
                 {
                     continue;
                 }
 
                 _context.AddScore(_context.ScoreRule.GetScore(itemIndex));
+
+                if (_isDisposed)
+                {
+                    return;
+                }
             }
 
             Complete();

@@ -453,6 +453,331 @@ namespace Mu3Library.Game.WatermelonGame.Tests
         }
 
         [Test]
+        public void PrepareInRemovedHandler_RemoveItemsCommandPaysNothingIntoTheNewBoard()
+        {
+            _board.StartGame();
+            BoardItem first = _board.SpawnItem(0, new Vector2(0.2f, 0.1f));
+            BoardItem second = _board.SpawnItem(2, new Vector2(0.8f, 0.1f));
+            int completions = 0;
+            RemoveItemsCommand remove = new(_board.Board.CommandContext, new[] { first, second }, true, _ => completions++);
+            Assert.IsTrue(_board.Board.EnqueueCommand(remove));
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int scoresAddedAfterPrepare = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                // Prepare takes the second item off the old board as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnScoreAdded += (_, _) =>
+            {
+                if (isPrepared)
+                {
+                    scoresAddedAfterPrepare++;
+                }
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The command did not take its first item off the board.");
+            Assert.IsTrue(_board.Board.IsPrepared);
+            Assert.AreEqual(0, _board.Board.Score, "The removed item paid its points into the new board.");
+            Assert.AreEqual(0, scoresAddedAfterPrepare);
+            Assert.AreEqual(1, remove.RemovedCount);
+            Assert.AreEqual(0, completions, "The command completed on the new board.");
+            Assert.IsTrue(remove.IsDisposed);
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInRemovedHandler_RemoveItemsCommandLeavesTheRestoredItemsOnTheBoard()
+        {
+            _board.StartGame();
+            BoardItem first = _board.SpawnItem(0, new Vector2(0.2f, 0.1f));
+            BoardItem second = _board.SpawnItem(2, new Vector2(0.8f, 0.1f));
+            RemoveItemsCommand remove = new(_board.Board.CommandContext, new[] { first, second });
+            Assert.IsTrue(_board.Board.EnqueueCommand(remove));
+
+            // The two items are saved as they are, so the restored board takes the instances back
+            // out of the pool, the second item among them.
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            int restoredCount = snapshot.BoardItemsSnapshot.Count;
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int itemsRemovedAfterPrepare = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsRemovedAfterPrepare++;
+                    return;
+                }
+
+                // Prepare takes the second item off the old board as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The command did not take its first item off the board.");
+            Assert.AreEqual(2, restoredCount);
+            Assert.AreEqual(restoredCount, _board.Board.Items.Count, "The command took a restored item off the new board.");
+            CollectionAssert.Contains(_board.Board.Items, second, "The restored board did not reuse the second item, so the case is not covered.");
+            Assert.AreEqual(0, itemsRemovedAfterPrepare);
+            Assert.IsTrue(remove.IsDisposed);
+        }
+
+        [Test]
+        public void PrepareInRemovedHandler_PromoteItemCommandPutsNothingOnTheNewBoard()
+        {
+            _board.StartGame();
+            BoardItem item = _board.SpawnItem(0, new Vector2(0.5f, 0.1f));
+            int promotions = 0;
+            PromoteItemCommand promote = new(_board.Board.CommandContext, item, onPromoted: _ => promotions++);
+            Assert.IsTrue(_board.Board.EnqueueCommand(promote));
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int itemsAddedAfterPrepare = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsAddedAfterPrepare++;
+                }
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The promotion did not take the item off the board.");
+            Assert.AreEqual(0, _board.Board.Items.Count, "The promoted item fell onto the new board.");
+            Assert.AreEqual(0, itemsAddedAfterPrepare);
+            Assert.AreEqual(0, _board.Board.Score, "The promotion paid its points into the new board.");
+            Assert.AreEqual(0, promotions, "The promotion was reported after the board was prepared again.");
+            Assert.IsTrue(promote.IsDisposed);
+            Assert.IsNull(promote.PromotedItem);
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInAddedHandler_PromoteItemCommandPaysNothingIntoTheRestoredBoard()
+        {
+            _board.StartGame();
+            _board.Board.AddScore(7);
+            BoardItem item = _board.SpawnItem(0, new Vector2(0.5f, 0.1f));
+            int promotions = 0;
+            PromoteItemCommand promote = new(_board.Board.CommandContext, item, onPromoted: _ => promotions++);
+            Assert.IsTrue(_board.Board.EnqueueCommand(promote));
+
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+
+            bool hasPrepared = false;
+            int scoresAdded = 0;
+            _board.Board.OnItemAdded += _ =>
+            {
+                // The restored board adds its own items as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnScoreAdded += (_, _) => scoresAdded++;
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The promotion did not put its item on the board.");
+            Assert.AreEqual(snapshot.Score, _board.Board.Score, "The promotion paid its points into the restored board.");
+            Assert.AreEqual(0, scoresAdded);
+            Assert.AreEqual(snapshot.BoardItemsSnapshot.Count, _board.Board.Items.Count);
+            Assert.AreEqual(0, promotions, "The promotion was reported after the board was prepared again.");
+            Assert.IsTrue(promote.IsDisposed);
+            Assert.IsNull(promote.PromotedItem);
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInScoreHandler_RemoveItemsCommandLeavesTheRestoredItemsOnTheBoard()
+        {
+            _board.StartGame();
+            BoardItem first = _board.SpawnItem(0, new Vector2(0.2f, 0.1f));
+            BoardItem second = _board.SpawnItem(2, new Vector2(0.5f, 0.1f));
+            _board.SpawnItem(4, new Vector2(0.8f, 0.1f));
+            RemoveItemsCommand remove = new(_board.Board.CommandContext, new[] { first, second }, true);
+            Assert.IsTrue(_board.Board.EnqueueCommand(remove));
+
+            // The three items are saved as they are, and the restored board takes three instances back out of
+            // the pool, which holds the first item by then, so the second item is among them.
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            int restoredCount = snapshot.BoardItemsSnapshot.Count;
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int itemsRemovedAfterPrepare = 0;
+            _board.Board.OnScoreChanged += _ =>
+            {
+                // Prepare reports the score it restores as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsRemovedAfterPrepare++;
+                }
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The removed item paid no points.");
+            Assert.AreEqual(3, restoredCount);
+            Assert.AreEqual(restoredCount, _board.Board.Items.Count, "The command took a restored item off the new board.");
+            CollectionAssert.Contains(_board.Board.Items, second, "The restored board did not reuse the second item, so the case is not covered.");
+            Assert.AreEqual(0, itemsRemovedAfterPrepare);
+            Assert.AreEqual(snapshot.Score, _board.Board.Score, "The command paid points into the restored board.");
+            Assert.IsTrue(remove.IsDisposed);
+        }
+
+        [Test]
+        public void PrepareInScoreHandler_PromoteItemCommandLeavesNoPromotedItem()
+        {
+            _board.StartGame();
+            BoardItem item = _board.SpawnItem(0, new Vector2(0.5f, 0.1f));
+            int promotions = 0;
+            PromoteItemCommand promote = new(_board.Board.CommandContext, item, onPromoted: _ => promotions++);
+            Assert.IsTrue(_board.Board.EnqueueCommand(promote));
+
+            bool hasPrepared = false;
+            _board.Board.OnScoreChanged += _ =>
+            {
+                // Prepare reports the score it starts over with as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The promotion paid no points.");
+            Assert.AreEqual(0, _board.Board.Items.Count, "The promoted item stayed on the new board.");
+            Assert.AreEqual(0, _board.Board.Score);
+            Assert.AreEqual(0, promotions, "The promotion was reported after the board was prepared again.");
+            Assert.IsTrue(promote.IsDisposed);
+            Assert.IsNull(promote.PromotedItem, "The command kept the item that went back to the pool with the old board.");
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInRemovedHandler_TryReplaceItemPutsNoReplacementOnTheRestoredBoard()
+        {
+            _board.StartGame();
+            BoardItem item = _board.SpawnItem(0, new Vector2(0.5f, 0.1f));
+
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            int restoredCount = snapshot.BoardItemsSnapshot.Count;
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int itemsAddedAfterPrepare = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (isPrepared)
+                {
+                    itemsAddedAfterPrepare++;
+                }
+            };
+
+            bool isReplaced = _board.Board.TryReplaceItem(item, 1, out BoardItem replacement);
+
+            Assert.IsTrue(hasPrepared, "The item did not leave the board.");
+            Assert.IsFalse(isReplaced, "The item was replaced on the restored board.");
+            Assert.IsNull(replacement);
+            Assert.AreEqual(1, restoredCount);
+            Assert.AreEqual(restoredCount, _board.Board.Items.Count, "The replacement fell onto the restored board.");
+            Assert.AreEqual(0, CountItemsOfIndex(1));
+            Assert.AreEqual(0, itemsAddedAfterPrepare);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PrepareInScoreHandler_AddScoreReportsNoAddedPoints(bool restoresSnapshot)
+        {
+            _board.StartGame();
+            _board.Board.AddScore(3);
+            BoardSnapshot snapshot = restoresSnapshot ? _board.Board.ExportSnapshot() : null;
+            _board.Board.AddScore(7);
+            int startingScore = restoresSnapshot ? snapshot.Score : 0;
+
+            bool hasPrepared = false;
+            List<int> addedPoints = new();
+            _board.Board.OnScoreChanged += _ =>
+            {
+                // Prepare reports the score it starts over with as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnScoreAdded += (added, _) => addedPoints.Add(added);
+
+            _board.Board.AddScore(5);
+
+            Assert.IsTrue(hasPrepared);
+            Assert.AreEqual(startingScore, _board.Board.Score);
+            CollectionAssert.IsEmpty(addedPoints, "The points were reported after the board was prepared again.");
+        }
+
+        [Test]
         public void PrepareAndStartInMergeHandler_RunsNoOtherCommandOfTheGroupOnTheNewBoard()
         {
             _board.StartGame();
