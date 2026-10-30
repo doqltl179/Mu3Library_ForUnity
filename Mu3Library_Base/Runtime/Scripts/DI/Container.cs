@@ -17,9 +17,7 @@ namespace Mu3Library.DI
         // Index for fast descriptor lookup: (ServiceType, Key) -> List of indices
         private readonly Dictionary<(Type, string), List<int>> _descriptorIndex = new();
 
-        private readonly Dictionary<ServiceKey, object> _singletons = new();
-        // Cache singletons by implementation type to ensure all interfaces of same implementation share instance
-        private readonly Dictionary<Type, object> _implementationSingletons = new();
+        private readonly RegistrationInstanceCache _singletons = new();
 
         private readonly HashSet<Type> _interfaceIgnoreTypes = new()
         {
@@ -29,7 +27,23 @@ namespace Mu3Library.DI
             typeof(ILateUpdatable),
         };
 
+        // The registration log ran in the Editor and in development builds behind
+        // UNITY_EDITOR || DEVELOPMENT_BUILD, a symbol Unity 6.6 deprecates. Debug.isDebugBuild
+        // may only be read on the main thread while a container can be filled from any thread,
+        // so a player reads it once at startup.
+#if UNITY_EDITOR
+        private static bool _logsRegistrations = true;
+#else
+        private static bool _logsRegistrations;
+#endif
 
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void CacheLogsRegistrations()
+        {
+            _logsRegistrations = Debug.isDebugBuild;
+        }
 
         public Container(CoreBase owner)
         {
@@ -144,13 +158,7 @@ namespace Mu3Library.DI
         public IReadOnlyCollection<object> GetActiveSingletonInstances()
         {
             HashSet<object> instances = new();
-            foreach (object instance in _singletons.Values)
-            {
-                if (instance != null)
-                {
-                    instances.Add(instance);
-                }
-            }
+            _singletons.CollectInstances(instances);
 
             foreach (ServiceDescriptor descriptor in _descriptors)
             {
@@ -209,41 +217,19 @@ namespace Mu3Library.DI
         }
 
         /// <summary>
-        /// Get or create a singleton instance for the given key.
-        /// Ensures that all interfaces of the same implementation type share the same instance.
+        /// Get or create the singleton instance of a registration.
+        /// Every service type that one registration answers, keyed or not, shares the instance;
+        /// see <see cref="RegistrationInstanceCache"/> for what makes two registrations one.
         /// </summary>
-        internal object GetOrCreateSingleton(ServiceKey key, Func<object> factory)
+        internal object GetOrCreateSingleton(ServiceDescriptor descriptor, Func<object> factory)
         {
-            // Fast path: check exact service/key combination first
-            if (_singletons.TryGetValue(key, out object instance))
+            if (_singletons.TryGet(descriptor, out object instance))
             {
                 return instance;
             }
 
-            // For default key (null/empty), check if implementation type already has an instance
-            // This ensures all interfaces of same implementation share the same singleton
-            if (key.ImplementationType != null && string.IsNullOrEmpty(key.Key))
-            {
-                if (_implementationSingletons.TryGetValue(key.ImplementationType, out instance))
-                {
-                    // Reuse existing instance and cache this service type mapping
-                    _singletons[key] = instance;
-                    return instance;
-                }
-            }
-
-            // No existing instance found - create new one
             instance = factory();
-
-            // Cache for future lookups
-            _singletons[key] = instance;
-            
-            // Also cache by implementation type for default key to enable instance sharing
-            if (key.ImplementationType != null && string.IsNullOrEmpty(key.Key))
-            {
-                _implementationSingletons[key.ImplementationType] = instance;
-            }
-
+            _singletons.Set(descriptor, instance);
             return instance;
         }
 
@@ -328,12 +314,13 @@ namespace Mu3Library.DI
             }
 
             // Log registration (optional, can be disabled for production)
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
-            string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
-            string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
-            Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
-#endif
+            if (_logsRegistrations)
+            {
+                string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
+                string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
+                string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
+                Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
+            }
         }
     }
 }

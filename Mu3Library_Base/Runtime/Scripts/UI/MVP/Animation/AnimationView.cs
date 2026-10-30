@@ -51,10 +51,34 @@ namespace Mu3Library.UI.MVP.Animation
             }
         }
 
+        internal override void SkipOpenTransition()
+        {
+            base.SkipOpenTransition();
+
+            // Hiding the view stops the handler's animation as well, which would leave the view in the
+            // pose of that frame.
+            if (_animationHandler != null)
+            {
+                _animationHandler.CompleteOpen();
+            }
+        }
+
         protected override void CloseStart()
         {
             base.CloseStart();
 
+            if (_animationHandler != null)
+            {
+                _animationHandler.Close();
+            }
+        }
+
+        internal override void SkipCloseTransition()
+        {
+            base.SkipCloseTransition();
+
+            // The handler is inactive as well, so it takes its closed pose at once. Without it, a view
+            // opened and closed under a hidden host would keep its opened pose and skip the next open.
             if (_animationHandler != null)
             {
                 _animationHandler.Close();

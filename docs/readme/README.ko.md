@@ -4,7 +4,7 @@
 
 [![English](https://img.shields.io/badge/EN-English-2D7FF9?style=flat-square)](../../README.md) [![Korean](https://img.shields.io/badge/KO-한국어-00A86B?style=flat-square)](README.ko.md) [![Japanese](https://img.shields.io/badge/JA-日本語-EA4AAA?style=flat-square)](README.ja.md)
 
-[![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
+[![Unity Version](https://img.shields.io/badge/Unity-6000.3%2B-blue.svg)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../LICENSE)
 
 </div>
@@ -21,7 +21,7 @@
 ### 기여자 문서
 
 - [저장소 워크플로 변경 이력](../repository/CHANGELOG.md)
-- [AI agent 및 기여자 워크플로](../ai-agents/README.md) — 작업 소유자, 절차, 검증 경로를 선택합니다.
+- [AI agent 및 기여자 워크플로](../../AGENTS.md) — [agentkit](https://github.com/doqltl179/ai-agents)이 `.ai/`에서 생성하며, 작업 소유자, 절차, 검증 경로로 안내합니다.
 - [저장소 도구](../../tools/README.md)
 
 ## ✨ 주요 특징
@@ -41,12 +41,13 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper와 플레이 가능한 샘플 씬을 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
+
 ## 📋 요구사항
 
-- Unity 6 (6000.0+)
+- Unity 6.3 (6000.3+)
 - .NET Standard 2.1
 
 ## 📦 설치 방법
@@ -57,11 +58,16 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.26.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.27.0
 
     # URP 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.3.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
+
+    # Watermelon Game 패키지 (먼저 Base와 URP 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.7.0
    ```
+
+패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
@@ -107,7 +113,11 @@ public class GameCore : CoreBase
 }
 ```
 
-등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다.
+`Awake`, `Start`, `OnEnable`, `OnDisable`, `OnDestroy`를 재정의하는 코어는 반드시 base 메서드를 호출해야 합니다. 이 메서드들이 함께 코어를 `CoreRoot`에 등록하고, 주입하고, 준비시키고, 다시 등록 해제합니다.
+
+기반 클래스가 선언한 `[Inject]` 멤버도 private까지 포함해 주입됩니다. 클래스 계층을 거슬러 올라가는 탐색은 `CoreBase`에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
+
+등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다. 등록 하나(구현 타입, 키, 수명)는 어떤 서비스 타입으로 resolve하든 인스턴스 하나를 돌려줍니다. 싱글턴은 컨테이너당 하나, 스코프드 서비스는 스코프당 하나입니다. 예외를 던진 생명주기 콜백은 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 계속 실행됩니다.
 
 ```csharp
 public class AudioPlaybackService
@@ -196,7 +206,13 @@ public class InventoryPresenter : Presenter<InventoryView, InventoryModel, Inven
 
 `Owner`는 생명주기 체인을 제어하고, `HostOptions`는 자식 view를 어디에 붙일지와 루트 `RectTransform` 레이아웃을 어떻게 적용할지를 제어합니다.
 
-자식은 `LoadFunc()`와 `OpenFunc()`를 포함한 어떤 presenter 콜백에서도 열 수 있으며, owner가 아직 열리지 않았어도 됩니다. owner를 닫으면 아직 loading 중인 자식까지 연쇄적으로 닫힙니다. 닫히기 시작한 presenter는 더 이상 새 자식을 받지 않습니다.
+자식은 `LoadFunc()`와 `OpenFunc()`를 포함한 어떤 presenter 콜백에서도 열 수 있으며, owner가 아직 열리지 않았어도 됩니다. owner를 닫으면 아직 loading 중인 자식까지 연쇄적으로 닫힙니다. owner의 view 아래에 host된 자식은 owner가 먼저 닫힘을 마쳐도 unload되며, 이때 자식의 닫힘 전환은 owner의 view가 숨겨지는 시점에 끝납니다. `OnDisable`을 override하는 view가 `base.OnDisable()`을 호출하지 않아도 매니저가 그 닫힘을 끝내지만, 그런 view도 호출하는 편이 좋습니다. 닫히기 시작한 presenter는 더 이상 새 자식을 받지 않습니다.
+
+`HostOptions.Host`가 비활성인 경우처럼 숨겨진 host 아래에서 연 창은 그곳에서 열림 전환을 진행할 수 없습니다. 대신 대기를 건너뜁니다. `OpenStart()`와 `OpenEnd()`가 연달아 실행되고, `AnimationView`는 곧바로 열린 자세를 취하며, 창은 다음 매니저 업데이트에서 열린 것으로 처리됩니다. host가 보이면 완전히 열린 모습으로 나타나고, 일반 `Close`로 닫을 수 있으며, `OpenAsync`도 완료됩니다. host가 숨겨진 채로 닫히면 닫힘 전환을 건너뛰고, `AnimationView`는 닫힌 자세를 취하므로 다음 열림에서 다시 애니메이션이 재생됩니다.
+
+열림 애니메이션 도중에 탭을 바꿔 그 뒤의 패널이 숨겨지는 경우처럼, 창이 열리는 도중에 host나 owner가 숨겨지면 창은 열리는 중에 머무르지 않고 그 시점에 열림을 마칩니다. 남은 열림 전환은 건너뛰지만 `OpenEnd()`는 실행되고, `AnimationView`는 열린 자세를 취하며, 창은 다음 매니저 업데이트에서 열린 것으로 처리됩니다. 따라서 일반 `Close`로 닫을 수 있고 `OpenAsync`도 완료됩니다. host가 다시 보이면 창은 완전히 열린 모습입니다. view가 `base.OnDisable()`을 호출하지 않고 `OnDisable`을 override해도 view가 숨겨져 있는 동안 매니저가 다음 업데이트에서 이 열림을 마칩니다. 다만 그런 view가 같은 프레임 안에 다시 보이면 열리는 중에 남으므로, 그런 view도 `base.OnDisable()`을 호출하는 편이 좋습니다. 어떤 애니메이션이든 진행 도중에 숨겨진 `AnimationView`는 그 애니메이션의 끝 자세를 취하므로, 다음 애니메이션은 그 자세에서 시작합니다. 열리는 도중에 파괴되는 view도 같은 방식으로 열림을 마치므로, 예를 들어 host가 있는 씬이 언로드될 때 정리 과정에서 그 `OpenEnd()`가 실행됩니다. `DestroySelf()`로 파괴할 때만 열림을 그대로 둡니다.
+
+`AnimationView` 애니메이션은 기본적으로 비스케일 시간으로 진행하므로, `Time.timeScale`을 0으로 만드는 일시정지 메뉴에서 연 팝업도 열리고 닫힙니다. 게임의 타임 스케일을 따라야 하는 애니메이션이라면 view의 `AnimationHandler`에서 **Time Mode**를 `Scaled`로 설정하거나 코드에서 `AnimationHandler.TimeMode`를 설정하세요. `TimeMode`는 `Mu3Library.Utility` 네임스페이스에 있습니다.
 
 manager에서 직접 여는 경우에도 같은 ownership/host 구성을 하나의 오버로드로 유지할 수 있습니다.
 
@@ -224,9 +240,16 @@ void Start()
     _audioManager.PlayBgm(bgmClip);
 
     // SFX 재생
-    _audioManager.PlaySfx(sfxClip, volume: 1.0f);
+    _audioManager.PlaySfx(sfxClip);
+
+    // 기본 SFX 설정에서 시작해 이 효과음만의 볼륨으로 재생
+    AudioSourceSettings sfxSettings = AudioSourceSettings.SfxStandard;
+    sfxSettings.Volume = 0.5f;
+    _audioManager.PlaySfx(sfxClip, sfxSettings);
 }
 ```
+
+페이드, 덕킹, 루프 간격, 플레이리스트 트랙 사이 간격은 기본적으로 비스케일 시간으로 진행하므로, 소스 자체가 계속 재생되듯 `Time.timeScale`이 0일 때도 계속 진행합니다. 게임의 타임 스케일을 따르게 하려면 `_audioManager.TimeMode = TimeMode.Scaled;`로 설정하세요. `PlayBgm`, `PlayBgmForce`, `TransitionBgm`은 `StopBgm`처럼 실행 중인 BGM 플레이리스트를 끝냅니다.
 
 ### Addressables
 Addressables 지원이 활성화된 경우, key로 해석되는 모든 에셋을 해당 resource location의 `PrimaryKey`로 인덱싱한 `Dictionary<string, T>`로 로드할 수 있습니다. `PrimaryKey`는 비어 있지 않고 고유해야 하며, 그렇지 않으면 로드 작업이 실패합니다.
@@ -247,6 +270,8 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
+카탈로그 확인과 갱신(`CheckForCatalogUpdates`, `UpdateCatalogs`와 그 UniTask 변형)은 호출 순서대로 하나씩 Addressables에 닿습니다. 다른 호출이 진행 중일 때 부른 호출은(그 호출의 콜백 안에서 부른 것 포함) 앞선 콜백 다음 ResourceManager 업데이트에서, 즉 그 핸들이 정리된 뒤에 시작하며, `Dispose`는 아직 Addressables에 닿지 않은 호출을 null로 알립니다. 갱신은 매니저가 초기화된 뒤에만 Addressables에 닿습니다. 아직 초기화되지 않은 매니저는 `Initialize`와 같은 초기화를 같은 `IsInitializing` 상태와 이벤트로 거치고, 초기화가 진행 중일 때 부른 갱신은 그 초기화를 기다립니다. 그 초기화가 실패하면 갱신의 콜백은 null을 받고, 이후의 갱신도 초기화 호출이 성공할 때까지 다시 시도하지 않고 같은 방식으로 실패합니다.
+
 ### Scene Loader
 built-in 및 Addressables 씬 모두에 대해 명시적인 씬 명령을 지원합니다.
 
@@ -265,6 +290,13 @@ _sceneLoaderEventBus.OnSingleSceneLoaded += target =>
 _sceneLoaderEventBus.OnSingleSceneLifecycle += info =>
 {
     Debug.Log($"{info.Phase}: target={info.Target}, resolved={info.ResolvedSceneName}");
+};
+
+// Addressables가 있으면, 시작한 뒤 실패한 로드를 그 명령이 끝난 다음에 알립니다.
+// 그래서 여기서는 IsLoading이 이미 false이고, 핸들러가 다른 로드를 시작해도 됩니다.
+_sceneLoaderEventBus.OnSceneLoadFailed += info =>
+{
+    Debug.LogWarning($"Load failed: target={info.Target}, additive={info.IsAdditive}, {info.ErrorMessage}");
 };
 
 await _sceneLoader.LoadSingleSceneAsync("Main");
@@ -298,12 +330,21 @@ var cancellableData = await _webRequest.GetAsync<DataModel>(
     "https://api.example.com/data",
     cancellationToken: token,
     propagateCancellation: true);
+
+// 결과에는 HTTP 오류 응답의 상태 코드와 헤더가 담깁니다. 콜백 API와 UniTask 모두 같습니다.
+// 연결이 거부된 경우처럼 응답을 받지 못한 요청의 상태 코드는 0입니다.
+WebRequestResult<DataModel> result = await _webRequest.GetResultAsync<DataModel>("https://api.example.com/data");
+if (!result.IsSuccess && result.StatusCode == 401)
+{
+    // 다시 로그인한 뒤 재시도합니다.
+}
 ```
 
 ### Observable 패턴
 값 변경을 감지하고 이벤트를 발행합니다.
 
 ```csharp
+[Serializable]
 public class PlayerData
 {
     public ObservableInt Health = new ObservableInt();
@@ -321,6 +362,8 @@ _playerData.Health.AddEvent(newHealth =>
 _playerData.Health.Set(80);
 ```
 
+Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래스, 배열, 리스트 안에 두어도 됩니다. Inspector에서 값을 바꾸면 값이 적용되고 구독자에게 통지됩니다. 그 편집을 Undo나 Redo하거나 프리팹 인스턴스를 되돌릴 때도 되돌아간 값으로 통지됩니다. `ObservableDictionary`에서는 같은 키를 가진 행 가운데 첫 행이 쓰이며, 키가 겹치는 행은 키를 바꿀 때까지 경고와 함께 목록에 남습니다.
+
 ## 🔧 선택적 패키지
 
 다음 패키지들이 설치되면 해당 기능이 자동으로 활성화됩니다:
@@ -332,6 +375,19 @@ _playerData.Health.Set(80);
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | 로컬 알림 (Android/iOS, 별도 `Mu3Library.Notifications` 어셈블리) |
+
+Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
+
+아직 `EventSystem`이 없으면 `MVPManager`가 하나를 만듭니다. 그 입력 모듈은 Input System 패키지 설치 여부만이 아니라 Player Settings의 **Active Input Handling**이 켜 둔 입력 백엔드를 따릅니다. Input System 백엔드가 꺼져 있으면 `InputSystemUIInputModule`은 아무 입력도 읽지 못하기 때문입니다.
+
+| Active Input Handling | Input System 패키지 | 만들어지는 `EventSystem`의 입력 모듈 |
+|---|---|---|
+| Input Manager (Old) | 설치됨 | `StandaloneInputModule` |
+| Input System Package (New) | 설치됨 | `InputSystemUIInputModule` |
+| Both | 설치됨 | `InputSystemUIInputModule` |
+| 모든 값 | 설치되지 않음 | `StandaloneInputModule` |
+
+패키지가 없으면 `StandaloneInputModule`은 "Input Manager (Old)"나 "Both"에서만 입력을 읽습니다. 씬에 이미 있는 `EventSystem`은 그대로 사용합니다.
 
 ## 🧩 Inspector 속성
 
@@ -349,6 +405,8 @@ private void ResetData()
     // Inspector label: Invoke ResetData
 }
 ```
+
+fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallback`으로 등록되므로, Base를 설치하면 `ButtonInvoke` 사용 여부와 관계없이 자체 Custom Inspector가 없는 모든 해당 타입을 이 Inspector가 그립니다. 이 Inspector는 `CreateInspectorGUI`를 통해 UI Toolkit으로 만들어지며, Unity의 기본 Inspector를 먼저 그리고 그 아래에 버튼을 붙입니다. 따라서 `CreatePropertyGUI`만 구현한 property drawer와 IMGUI property drawer가 Unity 자체 기본 Inspector에서처럼 그려지고, 다중 오브젝트 편집이 동작하며, 버튼은 선택된 모든 오브젝트에서 메서드를 실행합니다. 자체 에디터는 `ButtonInvokeEditorBase`를 상속해 같은 기본 Inspector와 버튼을 얻을 수 있으며, 그 에디터가 `OnInspectorGUI`를 재정의하면 Inspector는 UI Toolkit 대신 그 IMGUI 메서드를 계속 호출합니다. `OnInspectorGUI`를 직접 호출해 IMGUI로 에디터를 그리는 도구에는 IMGUI 버전이 그려지며, 그곳에서 `CreatePropertyGUI`만 구현한 drawer는 "No GUI Implemented"로 표시됩니다.
 
 ## 📖 전체 모듈 목록
 
@@ -383,18 +441,21 @@ URP 패키지 (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
 
-Watermelon Game 패키지 (**Mu3 Library Watermelon Game**):
+Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
 - **Watermelon Game**: 설정 가능한 보드, 과일 스프라이트, 샘플 manager/core 스크립트를 포함한 플레이 가능한 2D 낙하 과일 병합 씬
 - **Fruit item indexes**: 보드 설정은 항상 11개의 과일 항목을 포함하며 0부터 시작하는 목록 index로 접근합니다.
 - **Item contact area**: 보드 기준 리사이즈가 아이템 collider 크기를 맞추므로 어떤 `BoardConfig`에서도 아이템 index별 접촉 영역이 같습니다. `BoardItemInfo.ColliderScale`은 collider가 sprite에서 차지하는 비율을, `BoardItemInfo.ColliderOffset`은 collider 지름 대비 비율로 그 중심을 정하며, sprite는 collider를 감싸도록 그려집니다.
 - **Board fitting**: `BoardArea.Fit(...)`으로 설정된 카메라 뷰포트 padding 안에 보드 스프라이트를 맞출 수 있습니다.
 - **Board collision boundaries**: `BoardArea.SetOutColliders()`로 아이템 영역 viewport padding 기준의 left, right, bottom `BoxCollider2D` 경계를 생성·갱신할 수 있으며 top은 열려 있습니다.
 - **Board-relative coordinate conversions**: `BoardArea`는 world, screen, local 정규화 위치 변환과 초기화 안전성을 위한 `Try...` 변형을 제공합니다.
+- **Board input**: `InputHandler`는 Input System 패키지가 설치되어 있고 Active Input Handling이 그 백엔드를 켜면 Input System을, 그 밖에는 Input Manager를 읽습니다. UI 위에서 누른 입력은 드래그를 시작하지 않고, `InputHandler.DragStartFilter`로 프로젝트 자체 규칙에 따라 누름을 막을 수 있으며, 놓기 전에 빼앗긴 드래그는 들고 있는 아이템을 손에 둔 채 취소됩니다.
 - **Merge effects**: `BoardItemInfo`는 선택적 병합 효과용 `ParticleHandler` 리소스를 지원하며, 완료된 생성 효과 인스턴스는 자동으로 정리됩니다.
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
-- **Board commands**: `BoardController.EnqueueCommand(...)`로 공개 커맨드 큐를 사용하고, `IUpdatableBoardCommand`/`ICancelableBoardCommand`와 `BoardCommand` lifecycle hook으로 프레임 단위 실행·취소를 구성할 수 있습니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면을 제공하며, Flow/Item/Score 커맨드와 `MergingCommand`를 함께 제공합니다.
+- **Board commands**: `BoardController.EnqueueCommand(...)`는 보드의 공개 커맨드 큐에 커맨드를 넣습니다. `IUpdatableBoardCommand`와 `ICancelableBoardCommand`로 커맨드를 프레임 단위로 실행하고 취소할 수 있으며, `BoardCommand`는 그 둘을 lifecycle hook 위에 구성합니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면이고, 패키지는 `MergingCommand`를 포함한 Flow/Item/Score 커맨드를 제공합니다.
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
 - **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
+
+**샘플의 입력과 텍스트:** Base의 Template·Attribute 샘플과 URP의 ScreenEffect 샘플 씬은 Input System 패키지가 있든 없든 입력에 반응합니다. 씬의 `EventSystem`에는 Input Manager를 읽는 `StandaloneInputModule`과 `SampleInputModuleSelector`가 있습니다. Input System 패키지가 설치되어 있고 **Active Input Handling**이 "Input System Package (New)"나 "Both"이면 `SampleInputModuleSelector`가 씬이 시작될 때 그 모듈을 `InputSystemUIInputModule`로 바꿉니다. `MVPManager`가 직접 만드는 `EventSystem`에 적용하는 규칙과 같습니다. Template 샘플의 `Sample_IS` 씬은 `InputSystemManager`를 보여 주므로 그 기능에는 Input System 패키지와 "Input System Package (New)"나 "Both"가 필요하며, 그 UI는 모든 설정에서 반응합니다. Template 샘플의 키보드 단축키와 마우스 클릭은 샘플의 `SampleInput` 클래스를 거치며, 이 클래스는 Input System 백엔드가 켜져 있으면 Input System을, 그렇지 않으면 Input Manager를 읽습니다. 이 샘플들의 TextMesh Pro 텍스트는 TMP Essential Resources 없이 만든 플레이어에서도 그려집니다. 각 샘플이 텍스트가 쓰는 폰트 에셋·스타일 시트·셰이더를 `Fonts/`와 `Shaders/`에 담고 있으며, 그 라이선스는 샘플의 `Third-Party Notices.txt`에 있습니다. 그런 플레이어에서 TextMesh Pro는 레이아웃에 텍스트 크기를 0으로 알리므로, WebRequest 씬의 스크롤 로그처럼 레이아웃이 텍스트 크기에 맞추는 곳은 Template 샘플의 `SampleTextPreferredSize`가 텍스트를 잽니다. Editor에서는 TMP Essential Resources를 가져오기 전까지 TextMesh Pro가 텍스트를 그리지 않으며, 가져오기를 제안합니다. Template 샘플에서 Addressables, Localization, UniTask는 계속 선택 사항입니다. 이 패키지들 없이도 샘플이 컴파일되며, 없는 패키지가 필요한 부분은 패키지가 설치되지 않았다는 로그를 남깁니다. UtilWindow 샘플의 Addressable·Localization 데이터 내보내기는 **Define Symbol** 필드에 설정된 `TEMPLATE_ADDRESSABLES_SUPPORT`와 `TEMPLATE_LOCALIZATION_SUPPORT` 안에 Template 샘플의 키 스크립트를 쓰므로, 키 스크립트를 다시 생성해도 그 패키지들 없이 컴파일됩니다.
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서, Watermelon Game 샘플 소스를 `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`에서 확인할 수 있습니다.
 
@@ -410,7 +471,8 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
 - Localization: Locales(KO/JA/EN), String Table 샘플
 - Resources: MVP 샘플용 Prefab 및 설정
-- Materials: 기본 색깔 머티리얼 제공 (Black, Blue, Green, Magenta, Red, White)
+
+기본 색깔 머티리얼(Black, Blue, Green, Magenta, Red, White)은 Template 샘플에 들어 있지 않습니다. Base 패키지 런타임과 함께 `Mu3Library_Base/Runtime/Materials/`에 들어 있으므로, Base를 설치하면 바로 `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` 아래에서 쓸 수 있습니다.
 
 ## 🏗 아키텍처 개요
 
@@ -438,7 +500,7 @@ protected override void Start()
     _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
 }
 
-// 방법 2: Inject 속성 (CoreBase 전용)
+// 방법 2: Inject 속성 (코어, 등록된 서비스, presenter에서 사용 가능)
 [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 ```
 
@@ -466,10 +528,8 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 ## 📝 최근 업데이트
 
-- 이 저장소의 현재 Base 패키지 버전: `0.22.0`
-- 이 저장소의 현재 URP 패키지 버전: `0.2.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- 이 저장소의 현재 Watermelon Game 패키지 버전: `0.3.0` (Base `0.22.0`, URP `0.2.1` 의존)
-- 저장소 릴리스 노트 및 초안 버전 이력은 `CHANGELOG.md`를 참고하세요.
+- [변경 이력](../changelog/CHANGELOG.ko.md)에는 모든 패키지 버전의 릴리스 노트가 패키지와 버전마다 헤더를 두고 실려 있고, 아직 릴리스되지 않은 변경은 Unreleased 아래에 있습니다.
+- 설치 방법의 설치 URL은 각 패키지의 최신 릴리스 태그를 가리킵니다. 각 패키지의 버전과 의존성은 그 패키지의 `package.json`에 있습니다.
 
 ## 🤝 기여
 
@@ -489,8 +549,9 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 ---
 
 **패키지 정보:**
-- Base: `com.github.doqltl179.mu3library.base` `0.22.0`
-- URP: `com.github.doqltl179.mu3library.urp` `0.2.1` (manifest 의존성: `com.github.doqltl179.mu3library.base` `0.22.0`)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` `0.3.0` (Base `0.22.0`, URP `0.2.1` 의존)
+- Base: `com.github.doqltl179.mu3library.base`
+- URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
+- 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)
 
 Unity 개발자를 위해 제작됨

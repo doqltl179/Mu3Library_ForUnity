@@ -1,9 +1,12 @@
 {
     "name": "com.github.doqltl179.mu3library.base",
-    "version": "0.26.0",
+    "version": "0.27.0",
     "displayName": "Mu3 Library",
     "description": "A modular architecture framework for Unity featuring custom DI (Dependency Injection), MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more. Supports optional packages like UniTask, Addressables, and Localization.",
-    "unity": "6000.0",
+    "unity": "6000.3",
+    "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/README.md",
+    "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
+    "license": "MIT",
     "author": {
         "name": "Mu3",
         "url": "https://github.com/doqltl179"
@@ -23,16 +26,28 @@
         "UniTask",
         "Addressables"
     ],
-    "dependencies": {},
+    "dependencies": {
+        "com.unity.ugui": "2.0.0",
+        "com.unity.modules.assetbundle": "1.0.0",
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.imageconversion": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.jsonserialize": "1.0.0",
+        "com.unity.modules.particlesystem": "1.0.0",
+        "com.unity.modules.screencapture": "1.0.0",
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0",
+        "com.unity.modules.unitywebrequesttexture": "1.0.0"
+    },
     "samples": [
         {
             "displayName": "Template",
-            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization",
+            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization. Its scenes respond to input with or without the Input System package, and their TextMesh Pro text renders in a player without the TMP Essential Resources. The Sample_IS scene needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\" for its Input System features. Addressables, Localization, and UniTask are optional.",
             "path": "Samples~/Template"
         },
         {
             "displayName": "Attribute",
-            "description": "ConditionalHide and ButtonInvoke attribute usage examples for Inspector customization",
+            "description": "ConditionalHide and ButtonInvoke attribute usage examples for Inspector customization. Its scene responds to input with or without the Input System package, and its TextMesh Pro text renders in a player without the TMP Essential Resources.",
             "path": "Samples~/Attribute"
         },
         {

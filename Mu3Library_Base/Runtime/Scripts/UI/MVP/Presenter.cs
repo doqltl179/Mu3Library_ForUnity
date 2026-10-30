@@ -45,6 +45,16 @@ namespace Mu3Library.UI.MVP
         internal abstract void Close(bool forceClose = false);
         internal abstract void Unload();
 
+        /// <summary>
+        /// Ends the view's close when hiding the view cut it short. See <see cref="View.EndHiddenClose"/>.
+        /// </summary>
+        internal abstract void EndHiddenClose();
+
+        /// <summary>
+        /// Ends the view's open when hiding the view cut it short. See <see cref="View.EndHiddenOpen"/>.
+        /// </summary>
+        internal abstract void EndHiddenOpen();
+
         protected void CloseSelf(bool forceClose = false)
         {
             _mvpManager.Close(this, forceClose);
@@ -205,6 +215,26 @@ namespace Mu3Library.UI.MVP
         }
 
         protected virtual void CloseFunc() { }
+
+        internal sealed override void EndHiddenClose()
+        {
+            if (_view == null)
+            {
+                return;
+            }
+
+            _view.EndHiddenClose();
+        }
+
+        internal sealed override void EndHiddenOpen()
+        {
+            if (_view == null)
+            {
+                return;
+            }
+
+            _view.EndHiddenOpen();
+        }
 
         internal sealed override void Unload()
         {

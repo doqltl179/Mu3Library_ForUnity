@@ -163,7 +163,7 @@ namespace Mu3Library.Scene
             AsyncOperation ao = EditorSceneManager.UnloadSceneAsync(sceneName);
 
             SceneOperation operation = CreateUnloadOperation(sceneName, ao);
-            operation.SceneHandle = ResolveBuiltInSceneHandle(sceneName);
+            operation.UnityScene = ResolveBuiltInScene(sceneName);
             _unloadAdditiveSceneOperations.Add(sceneName, operation);
             EmitStatusChanged(operation, force: true);
             return true;

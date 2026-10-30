@@ -1,4 +1,5 @@
 #if MU3LIBRARY_ADDRESSABLES_SUPPORT
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -16,6 +17,7 @@ namespace Mu3Library.Scene
             public AsyncOperationHandle<SceneInstance> AddressablesHandle;
             public AsyncOperation ActivationOperation;
             public bool AutoReleaseHandle;
+            public string FailureMessage;
         }
 
         private SceneOperation _singleAddressablesSceneOperation = null;
@@ -23,6 +25,7 @@ namespace Mu3Library.Scene
         private readonly Dictionary<string, SceneOperation> _unloadAdditiveAddressablesSceneOperations = new();
         private readonly Dictionary<string, AsyncOperationHandle<SceneInstance>> _loadedAddressableSceneHandles = new();
 
+        public event Action<SceneLoadFailedInfo> OnSceneLoadFailed;
 
 
         public void PreloadSingleSceneWithAddressables(string key)
@@ -157,7 +160,7 @@ namespace Mu3Library.Scene
 
             AsyncOperationHandle<SceneInstance> unloadHandle = Addressables.UnloadSceneAsync(handle, autoReleaseHandle);
             SceneOperation operation = CreateAddressablesUnloadOperation(key, unloadHandle, handle, autoReleaseHandle);
-            operation.SceneHandle = handle.Result.Scene.handle;
+            operation.UnityScene = handle.Result.Scene;
             _unloadAdditiveAddressablesSceneOperations.Add(key, operation);
             EmitStatusChanged(operation, force: true);
             return true;
@@ -221,6 +224,10 @@ namespace Mu3Library.Scene
             {
                 operation.HasCompletionResult = true;
                 operation.CompletedSuccessfully = completed.Status == AsyncOperationStatus.Succeeded;
+                if (!operation.CompletedSuccessfully)
+                {
+                    operation.FailureMessage = completed.OperationException?.Message;
+                }
             };
         }
 
@@ -238,29 +245,45 @@ namespace Mu3Library.Scene
                 return;
             }
 
-            if (!UpdateAddressablesOperation(_singleAddressablesSceneOperation))
+            SceneOperation operation = _singleAddressablesSceneOperation;
+            if (!UpdateAddressablesOperation(operation))
             {
                 return;
             }
 
-            string key = _singleAddressablesSceneOperation.SceneName;
-            bool succeeded = IsAddressablesOperationSuccessful(_singleAddressablesSceneOperation);
+            string key = operation.SceneName;
+            bool succeeded = IsAddressablesOperationSuccessful(operation);
             Debug.Log($"Addressable single scene operation end. key: {key} succeeded={succeeded}");
 
             if (succeeded)
             {
                 FinalizeSingleSceneLoaded(
-                    _singleAddressablesSceneOperation,
-                    ResolveLoadedSceneName(_singleAddressablesSceneOperation),
-                    ResolveLoadedSceneHandle(_singleAddressablesSceneOperation));
-            }
-            else
-            {
-                Debug.LogError($"Addressable single scene load failed. key: {key}");
-                ReleaseFailedLoadHandle(_singleAddressablesSceneOperation);
+                    operation,
+                    ResolveLoadedSceneName(operation),
+                    ResolveLoadedScene(operation));
+                _singleAddressablesSceneOperation = null;
+                return;
             }
 
+            Debug.LogError($"Addressable single scene load failed. key: {key}");
+            ReleaseFailedLoadHandle(operation);
+
+            // The failed command ends before it is reported, so IsLoading and the status queries
+            // already say so inside the handler, and a handler may start the next load.
             _singleAddressablesSceneOperation = null;
+            EmitSceneLoadFailed(operation);
+        }
+
+        /// <summary>
+        /// Reports a load that failed after it started. The caller takes the operation out of
+        /// <br/> tracking first, so a handler sees the command over and may start the next one.
+        /// </summary>
+        private void EmitSceneLoadFailed(SceneOperation operation)
+        {
+            OnSceneLoadFailed?.Invoke(new SceneLoadFailedInfo(
+                operation.SceneName,
+                operation.IsAdditive,
+                operation.FailureMessage ?? string.Empty));
         }
 
         /// <summary>
@@ -298,15 +321,17 @@ namespace Mu3Library.Scene
 
                 if (succeeded)
                 {
-                    FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedSceneHandle(operation));
-                }
-                else
-                {
-                    Debug.LogError($"Addressable additive scene load failed. key: {key}");
-                    ReleaseFailedLoadHandle(operation);
+                    FinalizeAdditiveSceneLoaded(operation, ResolveLoadedSceneName(operation), ResolveLoadedScene(operation));
+                    RemoveTrackedOperation(_loadAdditiveAddressablesSceneOperations, operation);
+                    continue;
                 }
 
+                Debug.LogError($"Addressable additive scene load failed. key: {key}");
+                ReleaseFailedLoadHandle(operation);
+
+                // Taken out of tracking before it is reported, as the single scene load is.
                 RemoveTrackedOperation(_loadAdditiveAddressablesSceneOperations, operation);
+                EmitSceneLoadFailed(operation);
             }
         }
 
@@ -349,8 +374,11 @@ namespace Mu3Library.Scene
 
             if (operation.AddressablesHandle.Status == AsyncOperationStatus.Failed)
             {
+                // Addressables defers the completion callback of a failed operation, so the
+                // failure can be seen here first.
                 operation.HasCompletionResult = true;
                 operation.CompletedSuccessfully = false;
+                operation.FailureMessage = operation.AddressablesHandle.OperationException?.Message;
                 return true;
             }
 

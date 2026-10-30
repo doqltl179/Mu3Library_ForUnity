@@ -1,0 +1,122 @@
+# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
+# a key that merely repeats a default would pin today's default when a kit update changes it.
+# Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
+
+[project]
+name = "Mu3Library_ForUnity"
+summary = "Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them."
+language = "ko"
+guardrails = [
+    "Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).",
+    "No breaking change to a package's public API unless the request asks for it.",
+    "Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.",
+]
+
+[policy]
+# Each development project's Library/ holds 1.3-2.3 GB that a fresh worktree re-imports (.ai/project/wiki/overview.md).
+worktrees = false
+
+[hosting]
+ci = false
+area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
+
+[commands]
+build = "bash ./compile-unity.sh changed"
+test = "bash ./test-unity.sh changed"
+# The play-mode tests, which reach what only the player loop runs; urp runs them without UniTask.
+test_playmode = "bash ./test-unity.sh changed --platform playmode"
+test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
+# Links each development project's Assets/ to its package's Samples~, which a fresh clone or worktree lacks.
+worktree_setup = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+
+[docs]
+source_locale = "en"
+locales = ["ko", "ja"]
+
+[docs.locale_paths]
+"README.md" = "docs/readme/README.{locale}.md"
+"CHANGELOG.md" = "docs/changelog/CHANGELOG.{locale}.md"
+
+[[release.packages]]
+name = "base"
+version_file = "Mu3Library_Base/package.json"
+changelog = "Mu3Library_Base/CHANGELOG.md"
+tag_pattern = "base/v{version}"
+
+[[release.packages]]
+name = "urp"
+version_file = "Mu3Library_URP/package.json"
+changelog = "Mu3Library_URP/CHANGELOG.md"
+tag_pattern = "urp/v{version}"
+
+[[release.packages]]
+name = "watermelon"
+version_file = "Mu3Library_Game_WatermelonGame/package.json"
+changelog = "Mu3Library_Game_WatermelonGame/CHANGELOG.md"
+tag_pattern = "game/watermelon/v{version}"
+
+[agents]
+enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
+
+[skills]
+disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform", "kit-trend-scan"]
+
+[stack_paths]
+# The packages live at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
+# "**/*.asmref" and "Mu3Library_*/Documentation~/**" match no tracked file today. They are intentional: they keep the
+# file kinds the packs cover by default routed to the pack, so the first assembly reference or package manual is too.
+unity = ["Mu3Library_*/**/*.cs", "UnityProject_*/Assets/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
+unity-upm = ["Mu3Library_*/package.json", "Mu3Library_*/CHANGELOG.md", "Mu3Library_*/**/*.asmdef", "Mu3Library_*/Samples~/**", "Mu3Library_*/Documentation~/**"]
+
+[bindings.game-runtime-engineer]
+paths = ["Mu3Library_Base/Runtime/**", "Mu3Library_Base/Tests/**", "Mu3Library_Game_WatermelonGame/Runtime/**", "Mu3Library_Game_WatermelonGame/Tests/**"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build", "test", "test_playmode"]
+notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
+
+[bindings.game-tools-engineer]
+paths = ["Mu3Library_Base/Editor/**"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
+notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
+
+[bindings.graphics-engineer]
+paths = ["Mu3Library_URP/Runtime/**", "Mu3Library_URP/Tests/**"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build", "test"]
+notes = "The URP package: camera, screen effects, renderer features, and shaders. Compile targets and tests: .ai/project/wiki/unity-verification.md."
+
+[bindings.optional-integration-engineer]
+paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "Mu3Library_Base/Runtime/Scripts/Addressable/**", "Mu3Library_Base/Runtime/Scripts/Localization/**", "Mu3Library_Base/Runtime/Scripts/IS/**", "Mu3Library_Base/Runtime/Scripts/Notifications/**"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build", "test", "test_playmode"]
+
+[bindings.sample-integrity-engineer]
+paths = ["Mu3Library_*/Samples~/**"]
+stacks = ["csharp", "unity", "unity-upm"]
+commands = ["build"]
+
+[bindings.devtools-engineer]
+paths = ["tools/**", "compile-unity.sh", "test-unity.sh", "unity-cli-packages.tsv", ".editorconfig", ".gitattributes"]
+stacks = ["python", "shell"]
+commands = ["test_tools"]
+notes = "Repository support tooling only; it never owns Unity package behavior. Catalog: tools/README.md."
+
+[bindings.technical-writer]
+paths = ["README.md", "CHANGELOG.md", "Mu3Library_*/README.md", "Mu3Library_*/CHANGELOG.md", "docs/repository/**"]
+notes = "Doc layout and the repository workflow changelog: .ai/project/wiki/overview.md."
+
+[bindings.localization-specialist]
+paths = ["docs/readme/**", "docs/changelog/**"]
+notes = "Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .ai/project/wiki/glossary.md."
+
+[bindings.release-manager]
+paths = ["Mu3Library_*/package.json"]
+stacks = ["unity-upm"]
+notes = "Packages, tags, and version files are in [[release.packages]]; root changelog headers, release titles, and notes: .ai/project/wiki/package-release.md."
+
+[bindings.code-reviewer]
+notes = "Package review focus: «Review Focus» in .ai/project/wiki/rules/package-architecture.md."
+
+[bindings.kit-librarian]
+paths = [".ai/project/**"]

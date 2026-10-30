@@ -23,7 +23,9 @@ namespace Mu3Library.Sample.Template.Localization
         [Space(20)]
         [SerializeField] private TMP_Dropdown _localeDropdown;
         [SerializeField] private TextMeshProUGUI _textComponent;
+#if TEMPLATE_LOCALIZATION_SUPPORT
         [SerializeField] private bool _getStringAsync = false;
+#endif
 
         [Space(20)]
         [SerializeField] private Button _backButton;
@@ -143,7 +145,9 @@ namespace Mu3Library.Sample.Template.Localization
             int currentIndex = 0;
             for (int i = 0; i < locales.Count; i++)
             {
-                options.Add(locales[i].Identifier.CultureInfo.EnglishName);
+                // CultureInfo is null for a custom locale code, so fall back to the code itself.
+                LocaleIdentifier identifier = locales[i].Identifier;
+                options.Add(identifier.CultureInfo?.EnglishName ?? identifier.Code);
                 if (locales[i] == _localizationManager.CurrentLocale)
                 {
                     currentIndex = i;

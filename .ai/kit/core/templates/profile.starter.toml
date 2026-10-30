@@ -1,0 +1,9 @@
+# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
+# a key that merely repeats a default would pin today's default when a kit update changes it.
+# Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
+
+[project]
+name = {{name}}
+summary = ""                    # One sentence: what the project is and who uses it.
+language = "en"                 # Language for reports, commits, pull requests, and issues.
+{{tools}}

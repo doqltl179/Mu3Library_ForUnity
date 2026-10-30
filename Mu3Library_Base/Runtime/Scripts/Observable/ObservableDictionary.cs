@@ -10,7 +10,8 @@ namespace Mu3Library.Observable
         IObservableValue<IReadOnlyDictionary<TKey, TValue>>,
         ISerializationCallbackReceiver,
         IDictionary<TKey, TValue>,
-        IReadOnlyDictionary<TKey, TValue>
+        IReadOnlyDictionary<TKey, TValue>,
+        IRestorableObservable
     {
         [Serializable]
         private struct Entry
@@ -19,10 +20,21 @@ namespace Mu3Library.Observable
             public TValue Value;
         }
 
+        private static readonly bool s_canCompareRestoredEntries =
+            RestoredValueComparison.CanCompare(typeof(TKey)) && RestoredValueComparison.CanCompare(typeof(TValue));
+
         [SerializeField] private List<Entry> _entries = new List<Entry>();
 
         private Dictionary<TKey, TValue> _dictionary;
         private Action<IReadOnlyDictionary<TKey, TValue>> _callback;
+        private HashSet<TKey> _seenKeys;
+
+        // The last dictionary built before Unity deserialized the rows again (an undo, a redo, or a
+        // prefab revert restores them), kept until the subscribers are notified or a method here
+        // sets the entries. Null when nothing built one since then.
+        private Dictionary<TKey, TValue> _dictionaryBeforeRestore;
+        private bool _hasSettledEntries;
+        private bool _isRestored;
 
         private Dictionary<TKey, TValue> _dictionaryValue
         {
@@ -82,6 +94,7 @@ namespace Mu3Library.Observable
             EnsureDictionary();
 
             ReplaceContents(value);
+            Settle();
         }
 
         private void ReplaceContents(Dictionary<TKey, TValue> value)
@@ -104,6 +117,8 @@ namespace Mu3Library.Observable
         /// </summary>
         private void InvokeCallbacks(IReadOnlyDictionary<TKey, TValue> value)
         {
+            Settle();
+
             Delegate[] listeners = _callback?.GetInvocationList();
             if (listeners == null)
             {
@@ -126,6 +141,11 @@ namespace Mu3Library.Observable
         public void AddEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback += callback;
         public void RemoveEvent(Action<IReadOnlyDictionary<TKey, TValue>> callback) => _callback -= callback;
 
+        /// <summary>
+        /// Registers the callback and returns the token that removes it. When
+        /// <paramref name="notifyImmediately"/> is set and the first call throws, the callback is
+        /// removed again before the exception leaves, since the caller never gets a token for it.
+        /// </summary>
         public IDisposable Subscribe(
             Action<IReadOnlyDictionary<TKey, TValue>> callback,
             bool notifyImmediately = false)
@@ -138,7 +158,15 @@ namespace Mu3Library.Observable
             AddEvent(callback);
             if (notifyImmediately)
             {
-                callback.Invoke(_dictionaryValue);
+                try
+                {
+                    callback.Invoke(_dictionaryValue);
+                }
+                catch
+                {
+                    RemoveEvent(callback);
+                    throw;
+                }
             }
 
             return new SubscriptionToken(() => RemoveEvent(callback));
@@ -203,20 +231,92 @@ namespace Mu3Library.Observable
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>
+        /// Writes runtime changes back to the serialized rows. Rows the dictionary does not hold,
+        /// a repeated key or a missing one, are kept: they are rows someone is still editing in
+        /// the inspector, and rewriting the list from the dictionary would delete them.
+        /// </summary>
         public void OnBeforeSerialize()
         {
-            EnsureDictionary();
-
-            _entries.Clear();
-            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            if (_dictionary == null)
             {
-                _entries.Add(new Entry { Key = pair.Key, Value = pair.Value });
+                // Nothing built the dictionary since the rows were loaded, so they are current.
+                return;
             }
+
+            if (_entries == null)
+            {
+                _entries = new List<Entry>(_dictionary.Count);
+            }
+
+            WriteDictionaryToEntries();
         }
 
+        /// <summary>
+        /// Drops the dictionary so it is built again from the deserialized rows, and only marks
+        /// the restore: this can run on a loading thread, where the subscribers must not be called.
+        /// The first deserialization of rows that nothing set yet loads them and restores nothing.
+        /// </summary>
         public void OnAfterDeserialize()
         {
+            _isRestored = _hasSettledEntries;
+            _hasSettledEntries = true;
+            if (_dictionary != null)
+            {
+                _dictionaryBeforeRestore = _dictionary;
+            }
+
             _dictionary = null;
+        }
+
+        bool IRestorableObservable.NotifyIfRestored()
+        {
+            if (!_isRestored)
+            {
+                return false;
+            }
+
+            Dictionary<TKey, TValue> before = _dictionaryBeforeRestore;
+            _isRestored = false;
+            _dictionaryBeforeRestore = null;
+            if (before != null && s_canCompareRestoredEntries && HasSameEntries(before))
+            {
+                return false;
+            }
+
+            Notify();
+            return true;
+        }
+
+        private void Settle()
+        {
+            _hasSettledEntries = true;
+            _isRestored = false;
+            _dictionaryBeforeRestore = null;
+        }
+
+        /// <summary>
+        /// Compares the entries by the rule the indexer notifies by, so a restore notifies when a
+        /// set would have.
+        /// </summary>
+        private bool HasSameEntries(Dictionary<TKey, TValue> other)
+        {
+            EnsureDictionary();
+            if (_dictionary.Count != other.Count)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            {
+                if (!other.TryGetValue(pair.Key, out TValue value) ||
+                    !EqualityComparer<TValue>.Default.Equals(pair.Value, value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void RefreshFromSerialized()
@@ -225,6 +325,11 @@ namespace Mu3Library.Observable
             Notify();
         }
 
+        /// <summary>
+        /// Builds the dictionary from the serialized rows. The first row with a key wins; a later
+        /// row with the same key and a row without a key stay in the list but not in the
+        /// dictionary, so a row added in the inspector never overwrites an existing entry.
+        /// </summary>
         private void EnsureDictionary()
         {
             if (_dictionary != null)
@@ -247,8 +352,59 @@ namespace Mu3Library.Observable
                     continue;
                 }
 
-                _dictionary[entry.Key] = entry.Value;
+                _dictionary.TryAdd(entry.Key, entry.Value);
             }
+        }
+
+        /// <summary>
+        /// Updates the rows in place: the first row of a key takes the dictionary's value or
+        /// leaves with its key, repeated rows leave with it too, rows without a key stay, and
+        /// keys the dictionary gained are appended. Rows that already describe the dictionary
+        /// come out unchanged, so this runs on every serialization instead of first comparing
+        /// values, which an <c>Equals</c> that ignores some fields would answer wrongly.
+        /// </summary>
+        private void WriteDictionaryToEntries()
+        {
+            if (_seenKeys == null)
+            {
+                _seenKeys = new HashSet<TKey>();
+            }
+
+            HashSet<TKey> seenKeys = _seenKeys;
+            int writeIndex = 0;
+
+            for (int readIndex = 0; readIndex < _entries.Count; readIndex++)
+            {
+                Entry entry = _entries[readIndex];
+                if (entry.Key != null)
+                {
+                    bool isFirstRow = seenKeys.Add(entry.Key);
+                    if (!_dictionary.TryGetValue(entry.Key, out TValue value))
+                    {
+                        continue;
+                    }
+
+                    if (isFirstRow)
+                    {
+                        entry.Value = value;
+                    }
+                }
+
+                _entries[writeIndex++] = entry;
+            }
+
+            _entries.RemoveRange(writeIndex, _entries.Count - writeIndex);
+
+            foreach (KeyValuePair<TKey, TValue> pair in _dictionary)
+            {
+                if (!seenKeys.Contains(pair.Key))
+                {
+                    _entries.Add(new Entry { Key = pair.Key, Value = pair.Value });
+                }
+            }
+
+            // Release the keys, which may be objects the dictionary no longer holds.
+            seenKeys.Clear();
         }
     }
 }

@@ -307,6 +307,36 @@ namespace Mu3Library.Editor.Window.Drawer
         }
 
         /// <summary>
+        /// <see cref="DrawNamespaceField"/>에 입력한 namespace로 컴파일되는 스크립트를 만들 수 없는 이유를 반환한다. 만들 수 있으면 null이다.
+        /// <br/> 비어 있는 namespace는 namespace 블록 없이 생성하므로 유효하다.
+        /// </summary>
+        internal static string GetNamespaceWarning(string scriptNamespace)
+        {
+            string trimmed = scriptNamespace?.Trim() ?? string.Empty;
+            if (trimmed.Length == 0 || ScriptIdentifier.IsValidNamespace(trimmed))
+                return null;
+
+            return $"Namespace \"{trimmed}\" is not a valid namespace. " +
+                "Join C# identifiers with '.', or leave it empty to generate without a namespace.";
+        }
+
+        /// <summary>
+        /// 생성 스크립트 전체를 감쌀 define 심볼 입력 필드를 그린다.
+        /// <br/> 선택 패키지를 쓰는 스크립트를 그 패키지의 versionDefines 심볼 안에 둘 때 쓴다.
+        /// </summary>
+        protected void DrawDefineSymbolField(string value, Action<string> setter, string undoName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField(
+                    new GUIContent(
+                        "Define Symbol (optional)",
+                        "Wraps every generated script in #if <symbol>, so it compiles only where the symbol is defined."),
+                    value),
+                setter,
+                undoName);
+        }
+
+        /// <summary>
         /// 생성 스크립트의 클래스 이름 입력 필드를 그린다.
         /// </summary>
         /// <param name="defaultClassName"> 입력이 비었을 때 사용할 이름, 비어 있으면 안내를 표시하지 않는다. </param>

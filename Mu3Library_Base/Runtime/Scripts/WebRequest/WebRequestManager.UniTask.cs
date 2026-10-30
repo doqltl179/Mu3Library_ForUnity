@@ -151,7 +151,16 @@ namespace Mu3Library.WebRequest
                 {
                     using (UnityWebRequest request = createRequest())
                     {
-                        await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
+                        try
+                        {
+                            await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
+                        }
+                        catch (UnityWebRequestException)
+                        {
+                            // UniTask throws when the request ends in an HTTP error or a connection error.
+                            // The request still holds the response code and headers, so it is settled
+                            // below like any other finished request, the way the callback API does.
+                        }
 
                         if (request.result == UnityWebRequest.Result.Success)
                         {

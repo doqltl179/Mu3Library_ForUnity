@@ -44,6 +44,10 @@ namespace Mu3Library.DI
         private CancellationTokenSource _prepareCoreCts = null;
 #else
         private IEnumerator _prepareCoreCoroutine = null;
+        // Moves on whenever a preparation is stopped, so a preparation stopped while it runs its
+        // own step can tell, once that step returns, that it is no longer the current one.
+        private int _prepareCoreGeneration = 0;
+        private bool _isPrepareInterrupted = false;
 #endif
 
         private readonly SubscribeHandler _subscribeHandler = new();
@@ -70,7 +74,11 @@ namespace Mu3Library.DI
             if (_dontDestroyOnLoad)
             {
                 Type instanceType = GetType();
+#if UNITY_6000_4_OR_NEWER
+                int instanceCount = FindObjectsByType(instanceType, FindObjectsInactive.Include).Length;
+#else
                 int instanceCount = FindObjectsByType(instanceType, FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+#endif
                 if (instanceCount > 1)
                 {
                     Debug.LogWarning($"Core is set as global, but multiple instances of {instanceType.Name} detected. There should only be one in the scene.", this);
@@ -86,7 +94,7 @@ namespace Mu3Library.DI
             CoreRoot.InstanceInternal?.RegisterCore(this);
         }
 
-        private void InitializeContainer()
+        internal void InitializeContainer()
         {
             if (_isContainerConfigured)
             {
@@ -116,8 +124,10 @@ namespace Mu3Library.DI
         }
 
         /// <summary>
-        /// Retries a preparation that could not start yet, which is what a core whose object was
-        /// inactive while <see cref="Start"/> ran is left with on the coroutine path.
+        /// Retries a preparation that could not start yet, which is what a core that was disabled
+        /// or whose object was inactive while <see cref="Start"/> ran is left with on the
+        /// coroutine path, or that <see cref="OnDisable"/> stopped there; the latter logs one
+        /// warning.
         /// </summary>
         /// <remarks>
         /// Derived classes that override this method must call <c>base.OnEnable()</c> to preserve the core lifecycle.
@@ -126,15 +136,56 @@ namespace Mu3Library.DI
         {
             if (_isPrepareRequested && !_isPrepared && !_isPreparing)
             {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+                if (_isPrepareInterrupted)
+                {
+                    _isPrepareInterrupted = false;
+                    Debug.LogWarning($"Core prepare was interrupted because the core was disabled or its object deactivated, and starts again. type: {GetType().Name}", this);
+                }
+#endif
+
                 PrepareCore();
             }
         }
 
+        /// <summary>
+        /// Stops and rewinds a preparation on the coroutine path when this core is disabled or its
+        /// object deactivated, so that <see cref="OnEnable"/> starts it again from the beginning.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDisable()</c> to preserve the core lifecycle.
+        /// </remarks>
+        protected virtual void OnDisable()
+        {
+#if !MU3LIBRARY_UNITASK_SUPPORT
+            // Unity stops the coroutine when the object is deactivated and leaves it running when
+            // only the component is disabled, but deactivating the object after that stops it
+            // with no OnDisable left to rewind it, and the core would wait on it for good. So
+            // both stop the preparation here. The warning waits for OnEnable, so a core destroyed
+            // while it prepares does not announce a restart that never comes.
+            if (_prepareCoreCoroutine != null)
+            {
+                StopPrepareCore();
+                _isPreparing = false;
+                _isPrepareInterrupted = true;
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Stops a running preparation and takes this core out of <see cref="CoreRoot"/>, which
+        /// disposes its scope.
+        /// </summary>
+        /// <remarks>
+        /// Derived classes that override this method must call <c>base.OnDestroy()</c> to preserve the core lifecycle.
+        /// </remarks>
         protected virtual void OnDestroy()
         {
             StopPrepareCore();
 
             _subscribeHandler.Dispose();
+            // Null once the application quits and the root is gone: the accessor no longer
+            // creates a root then.
             CoreRoot.InstanceInternal?.UnregisterCore(this);
         }
 
@@ -160,9 +211,10 @@ namespace Mu3Library.DI
                 PrepareCoreHandler(_prepareCoreCts.Token);
             }
 #else
-            if (_prepareCoreCoroutine == null && gameObject.activeSelf)
+            // OnEnable starts what a disabled or inactive core could not start here.
+            if (_prepareCoreCoroutine == null && enabled && gameObject.activeInHierarchy)
             {
-                _prepareCoreCoroutine = PrepareCoreHandler();
+                _prepareCoreCoroutine = PrepareCoreHandler(_prepareCoreGeneration);
                 StartCoroutine(_prepareCoreCoroutine);
             }
 #endif
@@ -199,9 +251,9 @@ namespace Mu3Library.DI
             }
         }
 
-        protected async virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
+        protected virtual UniTask<bool> PrepareCoreAsync(CancellationToken token)
         {
-            return true;
+            return UniTask.FromResult(true);
         }
 
         private void StopPrepareCore()
@@ -214,7 +266,7 @@ namespace Mu3Library.DI
             }
         }
 #else
-        private IEnumerator PrepareCoreHandler()
+        private IEnumerator PrepareCoreHandler(int generation)
         {
             _isPreparing = true;
 
@@ -231,12 +283,46 @@ namespace Mu3Library.DI
                 error = ex;
             }
 
+            // PrepareCoreAsync and each step of its routine may disable this core or its object.
+            // That stops this preparation, and one that OnEnable started since then is the
+            // current one, so a stopped preparation leaves the state alone.
+            if (generation != _prepareCoreGeneration)
+            {
+                yield break;
+            }
+
             if (error == null)
             {
-                yield return CoroutineSafeRunner.Run(
-                    routine,
-                    exception => error = exception
-                );
+                // The routine and the routines it yields are stepped here instead of being handed
+                // to Unity, which does not document whether stopping this coroutine also stops a
+                // routine it yielded. Stepped here, they stop with this coroutine, and each step
+                // returns here, which is why the generation is checked after it.
+                var routines = new System.Collections.Generic.Stack<IEnumerator>();
+                routines.Push(CoroutineSafeRunner.Run(routine, exception => error = exception));
+
+                while (routines.Count > 0)
+                {
+                    IEnumerator current = routines.Peek();
+                    bool hasNext = current.MoveNext();
+
+                    if (generation != _prepareCoreGeneration)
+                    {
+                        yield break;
+                    }
+
+                    if (!hasNext)
+                    {
+                        routines.Pop();
+                    }
+                    else if (current.Current is IEnumerator nested)
+                    {
+                        routines.Push(nested);
+                    }
+                    else
+                    {
+                        yield return current.Current;
+                    }
+                }
             }
 
             _isPreparing = false;
@@ -254,6 +340,16 @@ namespace Mu3Library.DI
             }
         }
 
+        /// <summary>
+        /// Override to prepare this core, and call <paramref name="onSucceed"/> once it is ready.
+        /// </summary>
+        /// <remarks>
+        /// The core steps the returned routine and every routine it yields itself. Disabling the
+        /// core or deactivating its object abandons them without running their <c>finally</c>
+        /// blocks, and enabling the core again calls this method anew. A coroutine the routine
+        /// starts with <c>StartCoroutine</c>, or an asynchronous operation it waits on, is not
+        /// abandoned with them: disabling only the component leaves it running.
+        /// </remarks>
         protected virtual IEnumerator PrepareCoreAsync(Action onSucceed)
         {
             onSucceed?.Invoke();
@@ -264,6 +360,7 @@ namespace Mu3Library.DI
         {
             if (_prepareCoreCoroutine != null)
             {
+                _prepareCoreGeneration++;
                 StopCoroutine(_prepareCoreCoroutine);
                 _prepareCoreCoroutine = null;
             }

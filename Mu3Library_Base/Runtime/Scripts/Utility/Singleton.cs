@@ -57,7 +57,11 @@ namespace Mu3Library.Utility
                 {
                     lock (lockObj)
                     {
+#if UNITY_6000_4_OR_NEWER
+                        T[] instances = FindObjectsByType<T>();
+#else
                         T[] instances = FindObjectsByType<T>(FindObjectsSortMode.None);
+#endif
                         if (instances.Length == 0)
                         {
                             Debug.LogWarning($"'{typeof(T).Name}' not exist.");

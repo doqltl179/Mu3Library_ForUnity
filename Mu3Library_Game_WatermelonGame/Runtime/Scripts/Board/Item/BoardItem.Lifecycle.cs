@@ -14,14 +14,21 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item
         private float m_defaultLinearDamping;
         private float m_defaultAngularDamping;
 
+        /// <summary>
+        /// Leaves the item as it is. Disabling is not the same as returning to the pool: a project
+        /// <br/> that hides the board hierarchy, for a pause menu or a screen change, gets every item
+        /// <br/> back with its index, sprite, collider and physics once the hierarchy is shown again.
+        /// <br/> The board resets an item itself before it returns it to the pool.
+        /// </summary>
         protected virtual void OnDisable()
         {
-            ResetForPool();
         }
 
         #region Utility
         /// <summary>
         /// Restores the state that must not survive a return to the item pool.
+        /// <br/> The board calls it right before it hands an item back to the pool and again when it
+        /// <br/> takes one out, never on a plain disable.
         /// </summary>
         internal void ResetForPool()
         {

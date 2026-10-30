@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-31
+
+- See `base/0.27.0` in the repository root `CHANGELOG.md`. Highlights: Unity 6000.3 becomes the lowest supported Editor; MVP view animations and audio fades run on unscaled time by default, with the new `TimeMode` to choose the clock; a failed Addressables scene load reaches `ISceneLoaderEventBus.OnSceneLoadFailed`, and catalog updates can clean the bundle cache (a class that implements `IAddressablesManager` itself has to add the new overloads); the package compiles on Unity 6.5 and later; and the Template sample shrinks from 30.4 MiB to 15.7 MiB.
+
 ## [0.26.0] - 2026-08-17
 
 - See `base/0.26.0` in the repository root `CHANGELOG.md`. Highlights: the new optional `Mu3Library.Notifications` assembly wrapping the Mobile Notifications package's unified `NotificationCenter` — initialization, permission requests, scheduling, cancels, badge clearing, the opened-from notification, a received-notification event bus, and UniTask async variants; compiled only on Android/iOS/Editor while `com.unity.mobile.notifications` is installed.

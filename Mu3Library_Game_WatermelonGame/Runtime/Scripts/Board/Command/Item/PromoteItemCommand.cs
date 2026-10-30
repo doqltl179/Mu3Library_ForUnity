@@ -88,11 +88,26 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Item
                 return;
             }
 
+            // Each call to the board here raises an event, and a handler that prepares the board
+            // again drops this command with the board it promoted on. The rest of the promotion is
+            // skipped then, so none of it reaches the new board.
+            if (_isDisposed)
+            {
+                return;
+            }
+
             _promotedItem = promotedItem;
 
             if (_awardScore)
             {
                 _context.AddScore(_context.ScoreRule.GetScore(itemIndex));
+
+                if (_isDisposed)
+                {
+                    // The item went back to the pool with the board it was spawned on.
+                    _promotedItem = null;
+                    return;
+                }
             }
 
             Complete();

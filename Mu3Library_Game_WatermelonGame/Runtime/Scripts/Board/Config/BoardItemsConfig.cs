@@ -48,6 +48,47 @@ namespace Mu3Library.Game.WatermelonGame.Board.Config
             return null;
         }
 
+        /// <summary>
+        /// True when every fruit entry, the first <see cref="FruitItemCount"/>, can make an item.
+        /// <br/> See <see cref="IsComplete(List{int})"/> for what an entry needs.
+        /// </summary>
+        public bool IsComplete() => IsComplete(null);
+
+        /// <summary>
+        /// True when every fruit entry, the first <see cref="FruitItemCount"/>, can make an item:
+        /// <br/> the entry is there and carries a sprite. An item is sized from its sprite, so an
+        /// <br/> entry without one would make an item with no size and nothing to touch with, and
+        /// <br/> the board refuses such a catalog instead.
+        /// </summary>
+        /// <param name="incompleteIndices">
+        /// Cleared and filled with the indices of the fruit entries that cannot make an item,
+        /// <br/> in ascending order. Null only asks.
+        /// </param>
+        public bool IsComplete(List<int> incompleteIndices)
+        {
+            incompleteIndices?.Clear();
+
+            bool isComplete = true;
+            for (int index = 0; index < FruitItemCount; index++)
+            {
+                if (TryGetInfoByIndex(index, out BoardItemInfo itemInfo) && itemInfo.Sprite != null)
+                {
+                    continue;
+                }
+
+                isComplete = false;
+
+                if (incompleteIndices == null)
+                {
+                    break;
+                }
+
+                incompleteIndices.Add(index);
+            }
+
+            return isComplete;
+        }
+
         internal bool TryGetInfoByIndex(int index, out BoardItemInfo itemInfo)
         {
             itemInfo = null;

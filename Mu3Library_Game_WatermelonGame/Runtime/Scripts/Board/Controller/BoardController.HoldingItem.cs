@@ -99,7 +99,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         public virtual void OnDragging(Vector2 screenPos)
         {
-            if (_holdingItem == null || _boardArea == null)
+            // Only a running board hands out items, so a board that ended or was prepared again
+            // in the middle of a drag leaves whatever is still in hand where it is.
+            if (!_isRunning || _holdingItem == null || _boardArea == null)
             {
                 return;
             }
@@ -111,17 +113,40 @@ namespace Mu3Library.Game.WatermelonGame.Board
         {
             _boardArea?.SetBoardSpawnGuideLineVisible(false);
 
-            if (_holdingItem == null || _boardArea == null)
+            // A drop is counted into the session, so a board that is not running drops nothing.
+            if (!_isRunning || _holdingItem == null || _boardArea == null)
             {
                 return;
             }
 
+            int preparationCount = _preparationCount;
+
             SetHoldingItemPosition(screenPos);
+
+            // Each step of the drop raises an event, and a handler that prepares the board again
+            // takes the drop away with the game it belonged to, so nothing of it reaches the new board.
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             var item = _holdingItem;
             SetHoldingItem(null);
 
+            if (WasPreparedSince(preparationCount))
+            {
+                // The item had already left the hand, so Prepare found it neither held nor on the
+                // board, and it goes back to the pool here.
+                PoolItem(item);
+                return;
+            }
+
             DropItem(item, true);
+
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             _lastDropTime = Time.time;
             _spawnCount++;
@@ -131,6 +156,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // The drop is reported once the item is falling and counted, so a listener reads the
             // board as it stands after the drop.
             OnItemDropped?.Invoke(item);
+        }
+
+        /// <summary>
+        /// The drag was taken away before the player released it: the input was disabled, the touch vanished or
+        /// <br/> was canceled by the system, or the mouse was disconnected. That is no drop, so the held item stays
+        /// <br/> in hand where the drag last placed it.
+        /// </summary>
+        public virtual void OnDragCancel(Vector2 screenPos)
+        {
+            _boardArea?.SetBoardSpawnGuideLineVisible(false);
         }
         #endregion
 
@@ -165,6 +200,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Creates the item the player holds until they release it, and draws the item that
         /// follows it so <see cref="NextItemIndex"/> keeps showing one item ahead.
+        /// <br/> It returns false when a handler of its events prepares the board again, which
+        /// <br/> leaves the hand empty.
         /// </summary>
         protected virtual bool TrySpawnHoldingItem()
         {
@@ -173,9 +210,18 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
+            int preparationCount = _preparationCount;
+
+            // Each step here raises an event, and a handler that prepares the board again empties
+            // the hand and draws the preview of the new board, which this call leaves as it is.
             if (_nextItemIndex < 0)
             {
                 SetNextItemIndex(DrawNextItemIndex());
+
+                if (WasPreparedSince(preparationCount))
+                {
+                    return false;
+                }
             }
 
             BoardItemInfo info = GetItemInfo(_nextItemIndex);
@@ -195,10 +241,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             SetHoldingItem(item);
 
+            if (WasPreparedSince(preparationCount))
+            {
+                return false;
+            }
+
             // The preview always shows the item after the one now in hand.
             SetNextItemIndex(DrawNextItemIndex());
 
-            return true;
+            return !WasPreparedSince(preparationCount);
         }
 
         /// <summary>

@@ -71,28 +71,28 @@ namespace Mu3Library.Sample.Template.WebRequest
 
         private void Update()
         {
-            if (Input.GetKeyDown(_getDownloadSizeKey))
+            if (SampleInput.GetKeyDown(_getDownloadSizeKey))
             {
                 TestGetDownloadSize();
             }
-            else if (Input.GetKeyDown(_getStringKey))
+            else if (SampleInput.GetKeyDown(_getStringKey))
             {
                 TestGetString();
             }
-            else if (Input.GetKeyDown(_getTextureKey))
+            else if (SampleInput.GetKeyDown(_getTextureKey))
             {
                 TestGetTexture();
             }
-            else if (Input.GetKeyDown(_callbackSmokeCheckKey))
+            else if (SampleInput.GetKeyDown(_callbackSmokeCheckKey))
             {
                 RunCallbackFailureSmokeCheck();
             }
 #if TEMPLATE_UNITASK_SUPPORT
-            else if (Input.GetKeyDown(_asyncFailureSmokeCheckKey))
+            else if (SampleInput.GetKeyDown(_asyncFailureSmokeCheckKey))
             {
                 RunAsyncFailureSmokeCheckAsync().Forget();
             }
-            else if (Input.GetKeyDown(_asyncCancellationSmokeCheckKey))
+            else if (SampleInput.GetKeyDown(_asyncCancellationSmokeCheckKey))
             {
                 RunAsyncCancellationSmokeCheckAsync().Forget();
             }

@@ -9,8 +9,20 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
 
         private readonly List<int> _indexBag = new(IndexBagCapacity);
 
+        /// <summary>
+        /// The stage the bag was filled for, -1 before the first draw.
+        /// </summary>
+        private int _indexBagStage = -1;
 
 
+
+        /// <summary>
+        /// Draws the index of the item that comes with the given draw count, out of a bag filled
+        /// <br/> with the weights of the stage that count falls into.
+        /// <br/> A count can jump, when a board is prepared again or restored from a snapshot, so a
+        /// <br/> count that falls into another stage than the bag was filled for starts that stage's
+        /// <br/> bag instead of finishing the old one.
+        /// </summary>
         public virtual int GetNextIndex(int spawnCount)
         {
             const int stage01MaxCount = 16;
@@ -25,7 +37,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
             bool isStageStart = spawnCount == 0 ||
                 spawnCount == stage01MaxCount + 1 ||
                 spawnCount == stage02MaxCount + 1;
-            if (isStageStart || _indexBag.Count == 0)
+            if (isStageStart || _indexBag.Count == 0 || stage != _indexBagStage)
             {
                 RebuildIndexBag(stage);
             }
@@ -42,6 +54,7 @@ namespace Mu3Library.Game.WatermelonGame.Board.Item.Rule
         private void RebuildIndexBag(int stage)
         {
             _indexBag.Clear();
+            _indexBagStage = stage;
 
             switch (stage)
             {

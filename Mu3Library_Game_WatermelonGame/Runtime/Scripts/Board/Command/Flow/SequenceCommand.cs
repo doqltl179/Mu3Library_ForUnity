@@ -9,6 +9,8 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
     /// <br/> <c>new SequenceCommand(new SpawnItemCommand(...), new DelayCommand(1.0f), new AddScoreCommand(...))</c>
     /// <br/> A step that gives up cancels the sequence, so the steps after it never run on a board
     /// <br/> that is no longer in the state they were written for.
+    /// <br/> On a board, a handler of what a step raised that ends the game or prepares the board
+    /// <br/> again stops the sequence there: that step finishes, and the next one does not start.
     /// </summary>
     public class SequenceCommand : CompositeBoardCommand
     {
@@ -40,6 +42,13 @@ namespace Mu3Library.Game.WatermelonGame.Board.Command.Flow
         {
             while (_currentIndex < _commands.Length)
             {
+                // A handler of what the previous step raised can stop the board, and the next step
+                // then waits, as the commands after the sequence on the board do.
+                if (!CanContinueStep())
+                {
+                    return;
+                }
+
                 IBoardCommand command = _commands[_currentIndex];
 
                 if (BoardCommandRunner.Advance(command, deltaTime))

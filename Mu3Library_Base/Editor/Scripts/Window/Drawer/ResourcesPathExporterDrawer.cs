@@ -210,7 +210,7 @@ namespace Mu3Library.Editor.Window.Drawer
             if (_scriptSaveFolder == null)
                 return "Script Save Folder is not set. Drag & drop a project folder.";
 
-            return null;
+            return GetNamespaceWarning(_scriptNamespace);
         }
 
         private void GenerateScript()
@@ -229,7 +229,12 @@ namespace Mu3Library.Editor.Window.Drawer
             string className = !string.IsNullOrWhiteSpace(_scriptClassName)
                 ? SanitizeIdentifier(_scriptClassName.Trim())
                 : DefaultClassName;
-            string scriptBody = BuildScriptBody(className);
+            if (!TryBuildScriptBody(className, out string scriptBody, out string error))
+            {
+                Debug.LogError($"Resources path script was not generated. {error}");
+                return;
+            }
+
             string filePath = FileCreator.WriteScript(systemPath, className, scriptBody);
 
             AssetDatabase.Refresh();
@@ -237,7 +242,7 @@ namespace Mu3Library.Editor.Window.Drawer
             Debug.Log($"Resources path script generated. path: {filePath}");
         }
 
-        private string BuildScriptBody(string className)
+        private bool TryBuildScriptBody(string className, out string scriptBody, out string error)
         {
             var byRoot = _entries.GroupBy(e => e.ResourcesRoot).OrderBy(g => g.Key).ToList();
 
@@ -270,17 +275,24 @@ namespace Mu3Library.Editor.Window.Drawer
             string usingStatement = "using System.Collections.Generic;" + System.Environment.NewLine
                 + "using Mu3Library.Resource.Data;" + System.Environment.NewLine + System.Environment.NewLine;
 
+            ScriptBuilder.CodeBlock rootBlock = classBlock;
             if (!string.IsNullOrWhiteSpace(_scriptNamespace))
             {
-                var namespaceBlock = new ScriptBuilder.CodeBlock
+                rootBlock = new ScriptBuilder.CodeBlock
                 {
                     Header = $"namespace {_scriptNamespace.Trim()}",
                     Content = new List<object> { classBlock }
                 };
-                return usingStatement + ScriptBuilder.Build(4, namespaceBlock);
             }
 
-            return usingStatement + ScriptBuilder.Build(4, classBlock);
+            if (!ScriptBuilder.TryBuild(4, out string script, out error, rootBlock))
+            {
+                scriptBody = null;
+                return false;
+            }
+
+            scriptBody = usingStatement + script;
+            return true;
         }
 
         private static FolderNode BuildTree(IEnumerable<ResourceEntry> entries)

@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 using IDisposable = System.IDisposable;
 
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.UI;
 #endif
 
@@ -32,7 +32,11 @@ namespace Mu3Library.UI.MVP
                 {
                     m_root = new GameObject("MVPManagerRoot");
 
-                    Object.DontDestroyOnLoad(m_root);
+                    // DontDestroyOnLoad throws outside play mode, where no scene load can happen.
+                    if (Application.isPlaying)
+                    {
+                        Object.DontDestroyOnLoad(m_root);
+                    }
                 }
 
                 return m_root;
@@ -93,18 +97,17 @@ namespace Mu3Library.UI.MVP
                     m_eventSystem = EventSystem.current;
                     if (m_eventSystem == null)
                     {
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
-                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-#else
-                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-#endif
+                        GameObject go = new GameObject("EventSystem", typeof(EventSystem), EventSystemInputModuleType);
                         m_eventSystem = go.GetComponent<EventSystem>();
 
                         // The manager created it, so it is also the one that destroys it. It lives
                         // outside the manager root because it has to survive a scene change.
                         _isEventSystemOwned = true;
 
-                        Object.DontDestroyOnLoad(go);
+                        if (Application.isPlaying)
+                        {
+                            Object.DontDestroyOnLoad(go);
+                        }
                     }
                 }
 
@@ -112,6 +115,19 @@ namespace Mu3Library.UI.MVP
             }
         }
         public EventSystem EventSystem => _eventSystem;
+
+        /// <summary>
+        /// The input module of the <c>EventSystem</c> the manager creates. It follows the input backend that
+        /// Active Input Handling enables, not only the installed package: <c>InputSystemUIInputModule</c> reads
+        /// nothing while the Input System backend is off, as under "Input Manager (Old)" with the package
+        /// installed, so only the "Input System Package (New)" and "Both" settings with the package get it.
+        /// </summary>
+        private static System.Type EventSystemInputModuleType =>
+#if MU3LIBRARY_INPUTSYSTEM_SUPPORT && ENABLE_INPUT_SYSTEM
+            typeof(InputSystemUIInputModule);
+#else
+            typeof(StandaloneInputModule);
+#endif
 
         private readonly Dictionary<System.Type, Queue<PresenterBase>> _presenterPool = new();
 
@@ -252,7 +268,9 @@ namespace Mu3Library.UI.MVP
             CleanupDestroyedPresenters();
 
             CheckLifecycle(_presenterLoadChecker, ViewState.Loaded, WindowLoadedEvent);
+            EndHiddenOpens();
             CheckLifecycle(_presenterOpenChecker, ViewState.Opened, WindowOpenedEvent);
+            EndHiddenCloses();
             CheckLifecycle(_presenterCloseChecker, ViewState.Closed, WindowClosedEvent);
             CheckLifecycle(_presenterUnloadChecker, ViewState.Unloaded, WindowUnloadedEvent);
         }
@@ -326,6 +344,42 @@ namespace Mu3Library.UI.MVP
             if (isViewDestroyed)
             {
                 UpdateFocus();
+            }
+        }
+
+        /// <summary>
+        /// Hiding a view stops its open coroutine too, which is what happens to a window whose host or
+        /// owner is hidden while it opens. <c>View.OnDisable</c> ends such an open, but only when a view
+        /// that overrides <c>OnDisable</c> calls base, so the manager ends it here as well, before the
+        /// open check reads the view state.
+        /// </summary>
+        private void EndHiddenOpens()
+        {
+            for (int i = 0; i < _presenterOpenChecker.Count; i++)
+            {
+                PresenterBase presenter = _presenterOpenChecker[i].Presenter;
+                if (presenter.IsViewExist)
+                {
+                    presenter.EndHiddenOpen();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Hiding a view stops its close coroutine, which is what happens to a child hosted under an
+        /// owner that finished closing first, or under a host the project hides. <c>View.OnDisable</c>
+        /// ends such a close, but only when a view that overrides <c>OnDisable</c> calls base, so the
+        /// manager ends it here as well, before the close check reads the view state.
+        /// </summary>
+        private void EndHiddenCloses()
+        {
+            for (int i = 0; i < _presenterCloseChecker.Count; i++)
+            {
+                PresenterBase presenter = _presenterCloseChecker[i].Presenter;
+                if (presenter.IsViewExist)
+                {
+                    presenter.EndHiddenClose();
+                }
             }
         }
 
@@ -590,7 +644,11 @@ namespace Mu3Library.UI.MVP
                 return;
             }
 
+#if UNITY_6000_4_OR_NEWER
+            var eventSystems = MonoBehaviour.FindObjectsByType<EventSystem>(FindObjectsInactive.Include);
+#else
             var eventSystems = MonoBehaviour.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
             foreach (var es in eventSystems)
             {
                 if (es == _eventSystem)
@@ -831,6 +889,15 @@ namespace Mu3Library.UI.MVP
                 return false;
             }
 
+            // A presenter that is still loading has never been shown, so its view object is inactive and
+            // cannot run the close coroutine. Activate it first to keep the close/unload pipeline intact.
+            // This runs before the cascade because a child hosted under this view is inactive along with
+            // it, and could not run its own close coroutine either.
+            if (param.Phase == PresenterPhase.Loading)
+            {
+                param.Presenter.SetActiveView(true);
+            }
+
             // Close children depth-first. Copy to avoid mutation during iteration.
             if (param.OwnedChildren.Count > 0)
             {
@@ -839,13 +906,6 @@ namespace Mu3Library.UI.MVP
                 {
                     ClosePresenterWithOwnedChildren(child, forceClose: true);
                 }
-            }
-
-            // A presenter that is still loading has never been shown, so its view object is inactive and
-            // cannot run the close coroutine. Activate it first to keep the close/unload pipeline intact.
-            if (param.Phase == PresenterPhase.Loading)
-            {
-                param.Presenter.SetActiveView(true);
             }
 
             param.DetachFromOwner();

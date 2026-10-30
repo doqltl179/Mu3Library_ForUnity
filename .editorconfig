@@ -16,3 +16,8 @@ charset = utf-8
 # Shader files
 [*.shader]
 charset = utf-8
+
+# agentkit: kit, overlay, and generated agent files stay UTF-8 without a byte-order mark,
+# because frontmatter parsers misread a BOM before the opening ---.
+[{.ai/**,AGENTS.md,CLAUDE.md,GEMINI.md,.claude/**,.codex/**,.agents/**,.cursor/**,.github/agents/**,.github/instructions/**,.github/skills/**,.github/copilot-instructions.md}]
+charset = utf-8

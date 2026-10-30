@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import re
+import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -37,14 +38,34 @@ STALE_AGENT_REFERENCE_PARTS = (
 REPOSITORY_TEXT_SUFFIXES = {".md", ".py", ".yml"}
 
 
-def repo_root() -> Path:
-    current = Path(__file__).resolve()
-
-    for candidate in current.parents:
+def _enclosing_root(path: Path) -> Path | None:
+    for candidate in (path, *path.parents):
         if (candidate / "AGENTS.md").exists() and (candidate / ".github").exists():
             return candidate
+    return None
 
-    raise RuntimeError("Could not locate the Mu3Library repository root.")
+
+def repo_root() -> Path:
+    """Return the repository root, spelled the way the command reached it.
+
+    On Windows `Path.resolve()` turns a `subst` drive back into the long path it maps, and the
+    Unity entry points open the project under whatever root they are given, so the root is never
+    resolved. An installed `mu3-cli` sits in the checkout it was installed from, so a working
+    directory inside that same checkout supplies its spelling, such as the subst drive it was run from.
+    """
+    module_root = _enclosing_root(Path(os.path.abspath(__file__)).parent)
+    if module_root is None:
+        raise RuntimeError("Could not locate the Mu3Library repository root.")
+
+    try:
+        working_root = _enclosing_root(Path.cwd())
+    except OSError:
+        # A working directory that was deleted leaves only the module's own spelling.
+        return module_root
+    # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
+    if working_root is not None and working_root.resolve() == module_root.resolve():
+        return working_root
+    return module_root
 
 
 def is_generated_tool_artifact(relative_path: str) -> bool:
@@ -78,7 +99,6 @@ def repository_text_paths(root: Path) -> list[str]:
             "--",
             ".github",
             "docs",
-            "tasks",
             "tools",
         ],
         cwd=root,
@@ -144,46 +164,12 @@ def repository_hygiene_issues(
     return issues
 
 
-def agent_paths() -> list[Path]:
-    return sorted((repo_root() / ".github" / "agents").glob("*.agent.md"))
+def agentkit_cli_path(root: Path) -> Path:
+    """Return the installed agentkit CLI, which owns validation of the agent docs."""
+    return root / ".ai" / "kit" / "tools" / "agentkit.py"
 
 
-def parse_agent_name(file_path: Path) -> str:
-    pattern = re.compile(r'^name:\s*"?(.*?)"?$')
-
-    for line in file_path.read_text(encoding="utf-8-sig").splitlines():
-        match = pattern.match(line.strip())
-        if match:
-            return match.group(1)
-
-    return file_path.stem
-
-
-def read_handoff_template() -> str:
-    contract_path = repo_root() / "docs" / "ai-agents" / "contracts" / "handoff-contract.md"
-    contract_text = contract_path.read_text(encoding="utf-8-sig")
-    marker = "## Required Handoff Packet"
-    marker_index = contract_text.find(marker)
-
-    if marker_index == -1:
-        raise RuntimeError(
-            "Could not locate the Required Handoff Packet section in docs/ai-agents/contracts/handoff-contract.md."
-        )
-
-    after_marker = contract_text[marker_index + len(marker) :]
-    code_fence_index = after_marker.find("```md")
-
-    if code_fence_index == -1:
-        raise RuntimeError(
-            "Could not locate the handoff packet code fence in docs/ai-agents/contracts/handoff-contract.md."
-        )
-
-    after_fence = after_marker[code_fence_index + len("```md") :]
-    fence_end_index = after_fence.find("```")
-
-    if fence_end_index == -1:
-        raise RuntimeError(
-            "Could not locate the handoff packet template in docs/ai-agents/contracts/handoff-contract.md."
-        )
-
-    return after_fence[:fence_end_index].strip()
+def run_agentkit_check(root: Path | None = None) -> int:
+    """Run `agentkit.py check` from the repository root and return its exit code."""
+    root = root or repo_root()
+    return subprocess.run([sys.executable, str(agentkit_cli_path(root)), "check"], cwd=root, check=False).returncode

@@ -1,4 +1,5 @@
 using System;
+using Mu3Library.Sample.Template.Global;
 using UnityEngine;
 
 namespace Mu3Library.Sample.Template.Audio3D {
@@ -8,8 +9,8 @@ namespace Mu3Library.Sample.Template.Audio3D {
 
 
         private void Update() {
-            if(Input.GetMouseButtonDown(0)) {
-                OnClick?.Invoke(Input.mousePosition);
+            if(SampleInput.GetMouseButtonDown(0)) {
+                OnClick?.Invoke(SampleInput.MousePosition);
             }
         }
     }

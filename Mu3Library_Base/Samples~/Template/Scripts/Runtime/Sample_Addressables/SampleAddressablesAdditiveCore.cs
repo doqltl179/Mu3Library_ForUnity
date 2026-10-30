@@ -31,7 +31,11 @@ namespace Mu3Library.Sample.Template.Addressable
 
         private void OnBackButtonClicked()
         {
+#if TEMPLATE_ADDRESSABLES_SUPPORT
             _sceneLoader.UnloadAdditiveSceneWithAddressables(SceneNames.SampleAddressablesAdditive);
+#else
+            Debug.LogWarning("Addressables is not installed.");
+#endif
         }
     }
 }
