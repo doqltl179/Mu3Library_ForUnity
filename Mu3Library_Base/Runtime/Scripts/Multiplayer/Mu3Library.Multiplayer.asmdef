@@ -1,0 +1,16 @@
+{
+    "name": "Mu3Library.Multiplayer",
+    "rootNamespace": "Mu3Library.Multiplayer",
+    "references": [
+        "GUID:6391e8445d9411043ab0bbeae0fbab5b"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- Base: `Mu3Library.Multiplayer`, a new assembly for player-hosted multiplayer sessions, where one player's machine hosts and the others find it through a lobby, without a server of your own. `MultiplayerManager` (`IMultiplayerManager`, `IMultiplayerManagerEventBus`) creates, searches, joins, and leaves lobbies, keeps the roster and ready flags, enforces the session rules (`SessionRules`: a capacity of 1 to 16 players including the host, the minimum player count, the ready check, and whether players may join a running game), starts and ends games with start data, kicks players for the rest of the session, and ends the session for everyone when the host leaves. Lobbies and connections come from an `IMultiplayerBackend`; this release ships `LocalBackend` on a `LocalNetwork`, which runs several players inside one process for tests. Every failure and every ended session names a `MultiplayerReason`. The requirements are in `docs/specs/steam-player-hosted-multiplayer.md`.
+
 ### Fixed
 - Base: the `Black`, `Blue`, `Green`, `Magenta`, `Red`, and `White` materials in `Runtime/Materials` use Unity's built-in Standard shader. They pointed at a copy of `Standard.shader` from Unity's built-in shader source that the repository never contained, so a project that installed Base could not find their shader.
 

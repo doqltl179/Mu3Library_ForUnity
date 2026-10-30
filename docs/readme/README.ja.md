@@ -418,6 +418,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
+- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、定員ルール、ゲーム開始、キックを扱うプレイヤーホスト型セッション。`LocalBackend` はテスト用に 1 つのプロセス内で複数のプレイヤーを動かします
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
