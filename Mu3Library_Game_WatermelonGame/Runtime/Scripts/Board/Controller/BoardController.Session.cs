@@ -33,6 +33,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public int MergeCount => _mergeCount;
 
         /// <summary>
+        /// The score <see cref="OnScoreChanged"/> last reported. Prepare reports its score when it
+        /// <br/> differs from this one, so a Prepare that a handler runs inside another, after the
+        /// <br/> outer one already reset the score, still tells the listeners where the score went.
+        /// </summary>
+        private int _lastReportedScore;
+
+        /// <summary>
         /// How many times the board was prepared, a refused Prepare not counted. A call that
         /// <br/> raises an event reads it before and after, which tells it whether a handler prepared
         /// <br/> the board again before the call went on.
@@ -67,6 +74,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             int preparationCount = _preparationCount;
 
+            _lastReportedScore = _score;
             OnScoreChanged?.Invoke(_score);
 
             // A handler that prepared the board again already reported the score the new board
@@ -163,8 +171,6 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             int preparationCount = ++_preparationCount;
 
-            int previousScore = _score;
-
             _score = 0;
             _spawnCount = 0;
             _mergeCount = 0;
@@ -237,8 +243,9 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // The score was set here and not through AddScore, so a score label is told once about
             // the score the board starts over with or the one the snapshot brought back. It is
             // told once the board is prepared, so the handler reads the board it will play on.
-            if (_score != previousScore)
+            if (_score != _lastReportedScore)
             {
+                _lastReportedScore = _score;
                 OnScoreChanged?.Invoke(_score);
 
                 if (WasPreparedSince(preparationCount))

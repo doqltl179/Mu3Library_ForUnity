@@ -246,17 +246,21 @@ namespace Mu3Library.Game.WatermelonGame.Board
         {
             _removingCommands.Clear();
 
+            int preparationCount = _preparationCount;
+
             // A command that is still waiting to join holds what it reserved just like a running
             // one, so it is disposed here as well instead of only being dropped.
-            DisposeCommands(_pendingCommands);
-            DisposeCommands(_commands);
+            DisposeCommands(_pendingCommands, preparationCount);
+            DisposeCommands(_commands, preparationCount);
         }
 
-        private static void DisposeCommands(List<IBoardCommand> commands)
+        private void DisposeCommands(List<IBoardCommand> commands, int preparationCount)
         {
             // Disposing a command runs what it registered for the moment it gives up, and that
-            // can reach the board again, so the list is drained instead of walked.
-            while (commands.Count > 0)
+            // can reach the board again, so the list is drained instead of walked. A handler that
+            // prepared the board again cleared the lists itself, and what it enqueued afterwards
+            // belongs to the new board, so the drain stops there.
+            while (commands.Count > 0 && !WasPreparedSince(preparationCount))
             {
                 int lastIndex = commands.Count - 1;
                 IBoardCommand command = commands[lastIndex];
