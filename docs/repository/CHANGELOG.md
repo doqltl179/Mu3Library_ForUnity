@@ -7,6 +7,12 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-31 (agentkit 0.6.0)
+
+### Changed
+- Updated agentkit from 0.5.0 to 0.6.0. The `shell` stack pack now reads a file's line endings with `git ls-files --eol` or `file` instead of counting `\r` with `grep`, which is the lesson `.ai/project/lessons.md` held, so that lesson is gone. `release-cut` tags with `--cleanup=verbatim`, so release notes keep their Markdown headings in the tag message.
+- `.gitattributes` ends with the agentkit section that `agentkit.py install` and `update` now maintain, checking the kit, the overlay, and the generated agent files out with LF. It replaces the block added on 2026-10-30 for `.ai/`, `.agents/`, `.claude/`, and `.codex/`, and adds `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/`, and the agent files under `.github/`. Every tracked file under the added paths is Markdown, which `*.md` already checked out with LF, so none of them needs a new checkout.
+
 ## 2026-10-31
 
 ### Changed
