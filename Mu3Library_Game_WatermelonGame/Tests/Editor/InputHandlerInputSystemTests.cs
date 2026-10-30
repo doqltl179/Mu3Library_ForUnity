@@ -116,6 +116,10 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.AreEqual(heldX, _board.Board.HoldingNormalizedX);
         }
 
+#if MU3LIBRARY_INPUTSYSTEM_1_20_OR_NEWER
+        // The fixture sends a focus change through ScheduleFocusChangedEvent from Input System 1.20.0 on. The 1.19.0
+        // that Unity 6000.3 resolves to changes the focus only through its internal test runtime, so these tests
+        // run from 1.20.0 on.
         [Test]
         public void Mouse_ResetWhenFocusIsLostWhileRunningInBackground_KeepsHeldItemInHand()
         {
@@ -191,6 +195,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
 
             AssertCanceledAt(lastPosition, heldX);
         }
+#endif
 
         [Test]
         public void Touch_BeginMoveEnd_DropsHeldItemWhereLifted()
@@ -281,6 +286,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.IsFalse(EnhancedTouchSupport.enabled, "The handler kept EnhancedTouch enabled.");
         }
 
+#if MU3LIBRARY_INPUTSYSTEM_1_20_OR_NEWER
         /// <summary>
         /// Presses a new mouse on the board and drags it along, reporting where the drag was last reported and where
         /// <br/> the held item is.
@@ -313,6 +319,7 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.AreEqual(heldX, _board.Board.HoldingNormalizedX, "The held item moved.");
             Assert.AreEqual(0, _board.Board.SpawnCount, "The canceled drag was counted as a drop.");
         }
+#endif
     }
 }
 #endif
