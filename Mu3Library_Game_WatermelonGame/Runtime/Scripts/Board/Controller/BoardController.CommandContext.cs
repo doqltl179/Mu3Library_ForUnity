@@ -40,6 +40,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// Puts an item on the board and lets it fall, the way the result of a merge appears.
         /// <br/> It is not counted as a player drop, so the drop interval and
         /// <see cref="SpawnCount"/> are left alone.
+        /// <br/> It returns false when a handler of <see cref="OnItemAdded"/> prepares the board
+        /// <br/> again, since the item went back to the pool with the board it fell on.
         /// </summary>
         /// <param name="itemIndex">The catalog index of the item.</param>
         /// <param name="boardNormalizedPosition">Where it appears, as a fraction of the board area.</param>
@@ -72,7 +74,17 @@ namespace Mu3Library.Game.WatermelonGame.Board
             Vector2 clampedPosition = _boardArea.ClampBoardNormalizedPosition(boardNormalizedPosition);
             spawnedItem.transform.localPosition = _boardArea.BoardLocalNormalizedPositionToLocal(clampedPosition);
 
+            int preparationCount = _preparationCount;
+
             DropItem(spawnedItem);
+
+            // A handler of the added item that prepared the board again returned the item to the
+            // pool with the board it fell on, so the caller gets no item that a restored board
+            // may already be using.
+            if (WasPreparedSince(preparationCount))
+            {
+                return false;
+            }
 
             item = spawnedItem;
             return true;
@@ -81,6 +93,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Swaps an item on the board for another catalog entry, keeping the place it took.
         /// <br/> The old item goes back to the pool and the new one falls in from there.
+        /// <br/> It returns false when a handler of the removal or of the new item prepares the
+        /// <br/> board again.
         /// </summary>
         public virtual bool TryReplaceItem(BoardItem item, int itemIndex, out BoardItem replacement)
         {
@@ -113,7 +127,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             // A handler of the removal that prepared the board again took the item off the board
             // before it, so no replacement falls onto the new one.
-            if (preparationCount != _preparationCount)
+            if (WasPreparedSince(preparationCount))
             {
                 return false;
             }

@@ -82,6 +82,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
+            int preparationCount = _preparationCount;
+
             foreach (var itemSnapshot in snapshot.BoardItemsSnapshot)
             {
                 if (itemSnapshot == null)
@@ -108,6 +110,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
                     Quaternion.Euler(0.0f, 0.0f, itemSnapshot.LocalRotation));
 
                 DropItem(item);
+
+                // A handler of the added item that prepared the board again set up the board the
+                // game goes on with, and the rest of this snapshot does not belong on it.
+                if (WasPreparedSince(preparationCount))
+                {
+                    return;
+                }
             }
         }
 

@@ -221,6 +221,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
         protected void PoolItemAll()
         {
+            int preparationCount = _preparationCount;
+
             // 'PoolItem' removes every entry of the item, so the count always decreases.
             while (_createdItems.Count > 0)
             {
@@ -234,6 +236,13 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 }
 
                 PoolItem(item);
+
+                // A handler of the removal that prepared the board again cleared what was left
+                // and may have restored a board in its place, which stays.
+                if (WasPreparedSince(preparationCount))
+                {
+                    return;
+                }
             }
         }
 

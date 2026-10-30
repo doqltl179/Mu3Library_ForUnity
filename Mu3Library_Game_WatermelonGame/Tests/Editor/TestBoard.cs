@@ -58,6 +58,12 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             /// </summary>
             public bool SpawnHoldingItem() => TrySpawnHoldingItem();
 
+            /// <summary>
+            /// Forgets the preview, as on a board that was never prepared, so the next item put into
+            /// <br/> the hand draws its preview first.
+            /// </summary>
+            public void ForgetNextItemIndex() => _nextItemIndex = -1;
+
             public override void OnDragCancel(Vector2 screenPos)
             {
                 DragCancelPositions.Add(screenPos);

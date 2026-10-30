@@ -33,11 +33,26 @@ namespace Mu3Library.Game.WatermelonGame.Board
         public int MergeCount => _mergeCount;
 
         /// <summary>
+        /// The score <see cref="OnScoreChanged"/> last reported. Prepare reports its score when it
+        /// <br/> differs from this one, so a Prepare that a handler runs inside another, after the
+        /// <br/> outer one already reset the score, still tells the listeners where the score went.
+        /// </summary>
+        private int _lastReportedScore;
+
+        /// <summary>
         /// How many times the board was prepared, a refused Prepare not counted. A call that
         /// <br/> raises an event reads it before and after, which tells it whether a handler prepared
         /// <br/> the board again before the call went on.
         /// </summary>
         private int _preparationCount;
+
+        /// <summary>
+        /// True when the board was prepared again after a call read <paramref name="preparationCount"/>
+        /// <br/> from <see cref="_preparationCount"/>. The new board was already set up and reported by
+        /// <br/> then, so the call leaves the rest of its work undone.
+        /// </summary>
+        private bool WasPreparedSince(int preparationCount)
+            => preparationCount != _preparationCount;
 
         #region Utility
         /// <summary>
@@ -59,11 +74,12 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             int preparationCount = _preparationCount;
 
+            _lastReportedScore = _score;
             OnScoreChanged?.Invoke(_score);
 
             // A handler that prepared the board again already reported the score the new board
             // starts with, and the points paid here belong to the board before it.
-            if (preparationCount != _preparationCount)
+            if (WasPreparedSince(preparationCount))
             {
                 return;
             }
@@ -124,8 +140,17 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             SetSessionState(SessionState.Ended);
 
+            int preparationCount = _preparationCount;
+
             // The player can still be holding an item when the board overflows.
             ReleaseHoldingItem();
+
+            // A handler of the emptied hand that prepared the board again started over, and the
+            // new board is not told that the old game ended.
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             Debug.Log("Game Ended");
             Debug.Log($"Score: {_score}");
@@ -144,9 +169,7 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
-            _preparationCount++;
-
-            int previousScore = _score;
+            int preparationCount = ++_preparationCount;
 
             _score = 0;
             _spawnCount = 0;
@@ -159,17 +182,47 @@ namespace Mu3Library.Game.WatermelonGame.Board
             StopBoardBgm();
             ResetMergeCombo();
 
+            // Each step from here on can raise an event, and a handler that prepares the board
+            // again runs a whole Prepare of its own. That one is the board the game goes on with,
+            // so this call stops instead of clearing it, restoring over it, or reporting it twice.
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
+
             _restoredItemIndices.Clear();
 
             ClearAllCommands();
+
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
+
             ReleaseHoldingItem();
+
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
+
             PoolItemAll();
+
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             _boardArea.CalculateBounds();
 
             if (snapshot != null)
             {
                 RestoreSnapshot(snapshot);
+
+                if (WasPreparedSince(preparationCount))
+                {
+                    return;
+                }
             }
 
             // The preview runs one item ahead, so the first one is drawn before the game starts.
@@ -178,6 +231,11 @@ namespace Mu3Library.Game.WatermelonGame.Board
             _drawCount = _spawnCount + _restoredItemIndices.Count;
             SetNextItemIndex(DrawNextItemIndex());
 
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
+
             Debug.Log("Game Prepared");
 
             SetSessionState(SessionState.Prepared);
@@ -185,9 +243,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
             // The score was set here and not through AddScore, so a score label is told once about
             // the score the board starts over with or the one the snapshot brought back. It is
             // told once the board is prepared, so the handler reads the board it will play on.
-            if (_score != previousScore)
+            if (_score != _lastReportedScore)
             {
+                _lastReportedScore = _score;
                 OnScoreChanged?.Invoke(_score);
+
+                if (WasPreparedSince(preparationCount))
+                {
+                    return;
+                }
             }
 
             OnBoardPrepared?.Invoke();

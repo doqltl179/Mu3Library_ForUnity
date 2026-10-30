@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mu3Library.Game.WatermelonGame.Board;
 using Mu3Library.Game.WatermelonGame.Board.Command;
@@ -79,6 +80,33 @@ namespace Mu3Library.Game.WatermelonGame.Tests
 
             public void Dispose()
             {
+            }
+        }
+
+        /// <summary>
+        /// A project's own command that runs a callback of its own once it is disposed, which can reach the
+        /// <br/> board while the board is dropping its commands.
+        /// </summary>
+        private sealed class DisposeCallbackCommand : IBoardCommand
+        {
+            private readonly Action _onDispose;
+
+            public bool IsRunning { get; private set; }
+            public bool IsCompleted => false;
+
+            public DisposeCallbackCommand(Action onDispose)
+            {
+                _onDispose = onDispose;
+            }
+
+            public void Run()
+            {
+                IsRunning = true;
+            }
+
+            public void Dispose()
+            {
+                _onDispose?.Invoke();
             }
         }
 
@@ -775,6 +803,533 @@ namespace Mu3Library.Game.WatermelonGame.Tests
             Assert.IsTrue(hasPrepared);
             Assert.AreEqual(startingScore, _board.Board.Score);
             CollectionAssert.IsEmpty(addedPoints, "The points were reported after the board was prepared again.");
+        }
+
+        [Test]
+        public void PrepareInEmptiedHandHandler_OnDragEndDropsNothingOntoTheNewBoard()
+        {
+            _board.StartGame();
+            _board.Board.Tick();
+            BoardItem heldItem = _board.Board.HoldingItem;
+            Assert.IsNotNull(heldItem, "The running board did not hand out an item.");
+
+            bool hasPrepared = false;
+            int drops = 0;
+            _board.Board.OnHoldingItemChanged += item =>
+            {
+                if (item != null || hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnItemDropped += _ => drops++;
+
+            // Released where the item waits, so the release does not move it first.
+            _board.Board.OnDragEnd(_board.GetScreenPosition(_board.Board.HoldingNormalizedX));
+
+            Assert.IsTrue(hasPrepared, "The release did not empty the hand.");
+            Assert.IsTrue(_board.Board.IsPrepared);
+            Assert.IsFalse(_board.Board.IsRunning);
+            Assert.AreEqual(0, _board.Board.Items.Count, "The held item fell onto the new board.");
+            Assert.AreEqual(0, _board.Board.SpawnCount, "The drop was counted on the new board.");
+            Assert.AreEqual(0, drops, "The drop was reported after the board was prepared again.");
+            Assert.IsFalse(heldItem.gameObject.activeSelf, "The held item was left outside the pool.");
+        }
+
+        [Test]
+        public void PrepareInAddedHandler_OnDragEndCountsNoDropOnTheNewBoard()
+        {
+            _board.StartGame();
+            _board.Board.Tick();
+            Assert.IsNotNull(_board.Board.HoldingItem, "The running board did not hand out an item.");
+
+            bool hasPrepared = false;
+            int drops = 0;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnItemDropped += _ => drops++;
+
+            _board.Board.OnDragEnd(_board.GetScreenPosition(_board.Board.HoldingNormalizedX));
+
+            Assert.IsTrue(hasPrepared, "The released item did not join the board.");
+            Assert.AreEqual(0, _board.Board.Items.Count, "The dropped item stayed on the new board.");
+            Assert.AreEqual(0, _board.Board.SpawnCount, "The drop was counted on the new board.");
+            Assert.AreEqual(0, drops, "The drop was reported after the board was prepared again.");
+        }
+
+        [Test]
+        public void PrepareInMovedHandler_OnDragEndDropsNothingOntoTheNewBoard()
+        {
+            _board.StartGame();
+            _board.Board.Tick();
+            Assert.IsNotNull(_board.Board.HoldingItem, "The running board did not hand out an item.");
+
+            bool hasPrepared = false;
+            int drops = 0;
+            _board.Board.OnHoldingItemMoved += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnItemDropped += _ => drops++;
+
+            // Released away from where the item waits, so the release moves it first.
+            _board.Board.OnDragEnd(_board.GetScreenPosition(0.2f));
+
+            Assert.IsTrue(hasPrepared, "The release did not move the held item.");
+            Assert.IsNull(_board.Board.HoldingItem);
+            Assert.AreEqual(0, _board.Board.Items.Count, "An item fell onto the new board.");
+            Assert.AreEqual(0, _board.Board.SpawnCount, "The drop was counted on the new board.");
+            Assert.AreEqual(0, drops, "The drop was reported after the board was prepared again.");
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInHoldingHandler_SpawnHoldingItemKeepsTheRestoredPreview()
+        {
+            _board.StartGame();
+            _board.Board.Tick();
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            Assert.GreaterOrEqual(snapshot.HoldingItemIndex, 0, "The snapshot holds no item in hand.");
+
+            _board.Board.Prepare();
+            Assert.IsNull(_board.Board.HoldingItem);
+
+            bool hasPrepared = false;
+            bool isPrepared = false;
+            int previewsAfterPrepare = 0;
+            _board.Board.OnHoldingItemChanged += item =>
+            {
+                // Prepare empties the hand again, which it reports as well.
+                if (item == null || hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => isPrepared = true;
+            _board.Board.OnNextItemChanged += _ =>
+            {
+                if (isPrepared)
+                {
+                    previewsAfterPrepare++;
+                }
+            };
+
+            bool isHolding = _board.Board.SpawnHoldingItem();
+
+            Assert.IsTrue(hasPrepared, "No item came into the hand.");
+            Assert.IsFalse(isHolding, "An item was reported in hand after the board was prepared again.");
+            Assert.IsNull(_board.Board.HoldingItem);
+            Assert.AreEqual(snapshot.HoldingItemIndex, _board.Board.NextItemIndex, "The restored preview was drawn over.");
+            Assert.AreEqual(0, previewsAfterPrepare, "The preview was drawn again after the board was prepared again.");
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInRemovedHandlerOfPrepare_KeepsTheInnerBoard()
+        {
+            _board.StartGame();
+            _board.SpawnItem(0, new Vector2(0.3f, 0.1f));
+            BoardSnapshot innerSnapshot = _board.Board.ExportSnapshot();
+            _board.SpawnItem(2, new Vector2(0.7f, 0.1f));
+            BoardSnapshot outerSnapshot = _board.Board.ExportSnapshot();
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            _board.Board.OnItemRemoved += _ =>
+            {
+                // The inner Prepare clears the item that is left as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(innerSnapshot);
+            };
+            _board.Board.OnBoardPrepared += () => prepares++;
+
+            _board.Board.Prepare(outerSnapshot);
+
+            Assert.IsTrue(hasPrepared, "Prepare did not clear the board.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            Assert.AreEqual(innerSnapshot.BoardItemsSnapshot.Count, _board.Board.Items.Count, "The outer Prepare cleared or restored over the inner board.");
+            Assert.AreEqual(0, CountItemsOfIndex(2), "The outer snapshot was restored over the inner board.");
+        }
+
+        [Test]
+        public void PrepareInAddedHandlerOfARestore_KeepsTheInnerBoard()
+        {
+            _board.StartGame();
+            _board.SpawnItem(0, new Vector2(0.3f, 0.1f));
+            _board.SpawnItem(2, new Vector2(0.7f, 0.1f));
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => prepares++;
+
+            _board.Board.Prepare(snapshot);
+
+            Assert.IsTrue(hasPrepared, "The snapshot restored no item.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            Assert.AreEqual(0, _board.Board.Items.Count, "The rest of the snapshot was restored onto the inner board.");
+        }
+
+        [Test]
+        public void PrepareInPreviewHandlerOfPrepare_ReportsTheBoardOnce()
+        {
+            _board.StartGame();
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            _board.Board.OnNextItemChanged += _ =>
+            {
+                // The inner Prepare draws its own preview as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => prepares++;
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(hasPrepared, "Prepare drew no preview.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+        }
+
+        [Test]
+        public void PrepareInScoreHandlerOfPrepare_ReportsTheBoardOnce()
+        {
+            _board.StartGame();
+            _board.Board.AddScore(5);
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            _board.Board.OnScoreChanged += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () => prepares++;
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(hasPrepared, "Prepare did not report the score it starts over with.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            Assert.AreEqual(0, _board.Board.Score);
+        }
+
+        [Test]
+        public void PrepareInAddedHandler_TrySpawnItemHandsBackNoItem()
+        {
+            _board.StartGame();
+
+            bool hasPrepared = false;
+            _board.Board.OnItemAdded += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+
+            bool isSpawned = _board.Board.CommandContext.TrySpawnItem(0, new Vector2(0.5f, 0.1f), out BoardItem item);
+
+            Assert.IsTrue(hasPrepared, "The item did not join the board.");
+            Assert.IsFalse(isSpawned, "The spawn was reported after the board was prepared again.");
+            Assert.IsNull(item, "The item that went back to the pool was handed out.");
+            Assert.AreEqual(0, _board.Board.Items.Count);
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInAddedHandler_SpawnItemCommandKeepsNoItem()
+        {
+            _board.StartGame();
+            _board.SpawnItem(2, new Vector2(0.7f, 0.1f));
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+
+            int spawns = 0;
+            SpawnItemCommand spawn = new(_board.Board.CommandContext, 0, new Vector2(0.3f, 0.1f), _ => spawns++);
+            Assert.IsTrue(_board.Board.EnqueueCommand(spawn));
+
+            bool hasPrepared = false;
+            _board.Board.OnItemAdded += _ =>
+            {
+                // The restored board adds its own items as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+
+            _board.Board.Tick();
+
+            Assert.IsTrue(hasPrepared, "The command put no item on the board.");
+            Assert.AreEqual(snapshot.BoardItemsSnapshot.Count, _board.Board.Items.Count);
+            Assert.AreEqual(0, CountItemsOfIndex(0), "The spawned item stayed on the restored board.");
+            Assert.IsNull(spawn.SpawnedItem, "The command kept the item that went back to the pool with the old board.");
+            Assert.AreEqual(0, spawns, "The spawn was reported after the board was prepared again.");
+            Assert.IsTrue(spawn.IsDisposed);
+        }
+
+        [Test]
+        public void PrepareInEmptiedHandHandler_GameEndReportsNoEnd()
+        {
+            _board.StartGame();
+            _board.Board.Tick();
+            Assert.IsNotNull(_board.Board.HoldingItem, "The running board did not hand out an item.");
+
+            bool hasPrepared = false;
+            int ends = 0;
+            _board.Board.OnHoldingItemChanged += item =>
+            {
+                if (item != null || hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnGameEnded += () => ends++;
+
+            _board.Board.GameEnd();
+
+            Assert.IsTrue(hasPrepared, "The game end did not empty the hand.");
+            Assert.IsTrue(_board.Board.IsPrepared);
+            Assert.IsFalse(_board.Board.IsEnded, "The new board was left ended.");
+            Assert.AreEqual(0, ends, "The end of the old game was reported on the new board.");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PrepareInPreviewHandlerOfPrepare_ReportsTheScoreTheBoardEndsWith(bool restoresSnapshot)
+        {
+            _board.StartGame();
+            _board.Board.AddScore(3);
+            BoardSnapshot snapshot = restoresSnapshot ? _board.Board.ExportSnapshot() : null;
+            _board.Board.AddScore(7);
+
+            bool hasPrepared = false;
+            List<int> reportedScores = new();
+            _board.Board.OnNextItemChanged += _ =>
+            {
+                // The inner Prepare draws its own preview as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnScoreChanged += reportedScores.Add;
+
+            _board.Board.Prepare(snapshot);
+
+            Assert.IsTrue(hasPrepared, "Prepare drew no preview.");
+            Assert.AreEqual(restoresSnapshot ? 3 : 0, _board.Board.Score);
+            Assert.IsNotEmpty(reportedScores, "Nobody was told that the score changed.");
+            Assert.AreEqual(_board.Board.Score, reportedScores[reportedScores.Count - 1], "The last reported score is not the score of the board.");
+        }
+
+        [Test]
+        public void PrepareInMergeComboHandlerOfPrepare_ReportsTheBoardOnce()
+        {
+            _board.StartGame();
+            EnqueueMerge();
+            _board.Board.Tick();
+            Assert.AreEqual(1, _board.Board.MergeCount, "The merge that starts the combo did not run.");
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            RunCountingCommand innerCommand = new();
+            _board.Board.OnMergeComboChanged += _ =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+            _board.Board.OnBoardPrepared += () =>
+            {
+                prepares++;
+
+                // The board the game goes on with takes a command of its own.
+                _board.Board.EnqueueCommand(innerCommand);
+            };
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(hasPrepared, "Prepare did not drop the combo.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            CollectionAssert.AreEqual(new IBoardCommand[] { innerCommand }, _board.Board.Commands, "The outer Prepare dropped the command of the inner board.");
+        }
+
+        [Test]
+        public void PrepareInDisposeOfACommand_KeepsTheCommandsOfTheInnerBoard()
+        {
+            _board.StartGame();
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            RunCountingCommand innerCommand = new();
+            DisposeCallbackCommand command = new(() =>
+            {
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            });
+            Assert.IsTrue(_board.Board.EnqueueCommand(command));
+            _board.Board.OnBoardPrepared += () =>
+            {
+                prepares++;
+
+                // The board the game goes on with takes a command of its own and hands out its first item.
+                _board.Board.EnqueueCommand(innerCommand);
+                _board.Board.SpawnHoldingItem();
+            };
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(hasPrepared, "Prepare did not dispose the command.");
+            Assert.IsNotNull(_board.Board.HoldingItem, "The outer Prepare emptied the hand of the inner board.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            CollectionAssert.AreEqual(new IBoardCommand[] { innerCommand }, _board.Board.Commands, "The outer Prepare dropped the command of the inner board.");
+        }
+
+        [Test]
+        public void PrepareWithSnapshotInEmptiedHandHandlerOfPrepare_KeepsTheInnerBoard()
+        {
+            _board.StartGame();
+            _board.SpawnItem(0, new Vector2(0.3f, 0.1f));
+            _board.SpawnItem(2, new Vector2(0.7f, 0.1f));
+            BoardSnapshot snapshot = _board.Board.ExportSnapshot();
+            _board.Board.Tick();
+            Assert.IsNotNull(_board.Board.HoldingItem, "The running board did not hand out an item.");
+
+            bool hasPrepared = false;
+            int prepares = 0;
+            _board.Board.OnHoldingItemChanged += item =>
+            {
+                if (item != null || hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare(snapshot);
+            };
+            _board.Board.OnBoardPrepared += () => prepares++;
+
+            _board.Board.Prepare();
+
+            Assert.IsTrue(hasPrepared, "Prepare did not empty the hand.");
+            Assert.AreEqual(1, prepares, "The board was reported prepared more than once.");
+            Assert.AreEqual(snapshot.BoardItemsSnapshot.Count, _board.Board.Items.Count, "The outer Prepare cleared the restored board.");
+            Assert.IsNull(_board.Board.HoldingItem);
+        }
+
+        [Test]
+        public void PrepareInFirstPreviewHandler_SpawnHoldingItemPutsNothingIntoTheHand()
+        {
+            _board.StartGame();
+            _board.Board.ForgetNextItemIndex();
+
+            bool hasPrepared = false;
+            _board.Board.OnNextItemChanged += _ =>
+            {
+                // The inner Prepare draws its own preview as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+
+            bool isHolding = _board.Board.SpawnHoldingItem();
+
+            Assert.IsTrue(hasPrepared, "No preview was drawn before the item was handed out.");
+            Assert.IsFalse(isHolding, "An item was reported in hand after the board was prepared again.");
+            Assert.IsNull(_board.Board.HoldingItem, "An item came into the hand of the new board.");
+        }
+
+        [Test]
+        public void PrepareInPreviewHandler_SpawnHoldingItemReportsAnEmptyHand()
+        {
+            _board.StartGame();
+            Assert.IsNull(_board.Board.HoldingItem);
+
+            bool hasPrepared = false;
+            _board.Board.OnNextItemChanged += _ =>
+            {
+                // The inner Prepare draws its own preview as well.
+                if (hasPrepared)
+                {
+                    return;
+                }
+
+                hasPrepared = true;
+                _board.Board.Prepare();
+            };
+
+            bool isHolding = _board.Board.SpawnHoldingItem();
+
+            Assert.IsTrue(hasPrepared, "No preview was drawn after the item was handed out.");
+            Assert.IsFalse(isHolding, "An item was reported in hand after the board was prepared again.");
+            Assert.IsNull(_board.Board.HoldingItem);
         }
 
         [Test]
