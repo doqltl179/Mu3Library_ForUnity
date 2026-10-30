@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-31
+
+- See `game/watermelon/0.7.0` in the repository root `CHANGELOG.md`. Highlights: Unity 6000.3 becomes the lowest supported Editor; `InputHandler` reads the input backend Active Input Handling enables, and a press over UI no longer starts a board drag; a drag taken away or interrupted by a focus loss is canceled through the new `OnTouchCanceled` and `OnDragCancel`; and the board stops its remaining steps once an event handler ends or prepares the game again.
+
 ## [0.6.0] - 2026-08-17
 
 - See `game/watermelon/0.6.0` in the repository root `CHANGELOG.md`. Highlights: the mouse drives `InputHandler` like a touch, so the game plays in the editor and on desktop, and an edit-mode test suite covers `BoardCommandRunner`.
