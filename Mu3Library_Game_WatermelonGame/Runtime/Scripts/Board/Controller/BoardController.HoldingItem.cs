@@ -119,12 +119,34 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return;
             }
 
+            int preparationCount = _preparationCount;
+
             SetHoldingItemPosition(screenPos);
+
+            // Each step of the drop raises an event, and a handler that prepares the board again
+            // takes the drop away with the game it belonged to, so nothing of it reaches the new board.
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             var item = _holdingItem;
             SetHoldingItem(null);
 
+            if (WasPreparedSince(preparationCount))
+            {
+                // The item had already left the hand, so Prepare found it neither held nor on the
+                // board, and it goes back to the pool here.
+                PoolItem(item);
+                return;
+            }
+
             DropItem(item, true);
+
+            if (WasPreparedSince(preparationCount))
+            {
+                return;
+            }
 
             _lastDropTime = Time.time;
             _spawnCount++;
@@ -178,6 +200,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
         /// <summary>
         /// Creates the item the player holds until they release it, and draws the item that
         /// follows it so <see cref="NextItemIndex"/> keeps showing one item ahead.
+        /// <br/> It returns false when a handler of its events prepares the board again, which
+        /// <br/> leaves the hand empty.
         /// </summary>
         protected virtual bool TrySpawnHoldingItem()
         {
@@ -186,9 +210,18 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
+            int preparationCount = _preparationCount;
+
+            // Each step here raises an event, and a handler that prepares the board again empties
+            // the hand and draws the preview of the new board, which this call leaves as it is.
             if (_nextItemIndex < 0)
             {
                 SetNextItemIndex(DrawNextItemIndex());
+
+                if (WasPreparedSince(preparationCount))
+                {
+                    return false;
+                }
             }
 
             BoardItemInfo info = GetItemInfo(_nextItemIndex);
@@ -208,10 +241,15 @@ namespace Mu3Library.Game.WatermelonGame.Board
 
             SetHoldingItem(item);
 
+            if (WasPreparedSince(preparationCount))
+            {
+                return false;
+            }
+
             // The preview always shows the item after the one now in hand.
             SetNextItemIndex(DrawNextItemIndex());
 
-            return true;
+            return !WasPreparedSince(preparationCount);
         }
 
         /// <summary>
