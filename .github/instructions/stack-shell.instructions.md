@@ -30,7 +30,7 @@ applyTo: "**/*.sh,**/*.bash,**/*.ps1,**/*.psm1"
 - Unquoted expansions word-split and glob; `for f in $(ls)` breaks on spaces. Iterate globs directly, or use `find ... -print0` with `while IFS= read -r -d ''`.
 - `set -e` does not fire inside `if`/`while` conditions, `&&`/`||` lists, or functions called from them; check critical commands explicitly.
 - GNU-only forms fail on BSD/macOS: `sed -i` without a suffix argument, `date -d`, `stat -c`. Use portable alternatives or branch on `uname`.
-- CRLF line endings break bash scripts (`$'\r': command not found`); keep LF.
+- CRLF line endings break bash scripts (`$'\r': command not found`); keep LF. Read a file's line endings with `git ls-files --eol <path>` or `file <path>`, not by counting `\r` with `grep`: on Windows, GNU grep may read each CR-LF pair as a plain newline unless `-U` is given.
 - PowerShell functions return every uncaptured value; assign unwanted results to `$null` or cast to `[void]`.
 - PowerShell: put `$null` on the left (`$null -eq $x`); with a collection on the left, the comparison filters elements instead.
 

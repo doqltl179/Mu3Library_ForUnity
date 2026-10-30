@@ -5,15 +5,6 @@
 *.sh text eol=lf
 *.tsv text eol=lf
 
-# agentkit writes the kit, the overlay, and the generated agent files with LF. A CRLF
-# checkout, such as core.autocrlf=true makes, then shows the .py, .json, .toml, and
-# extensionless files it rewrites on every kit update as modified although only their
-# line endings changed.
-.ai/** text=auto eol=lf
-.agents/** text=auto eol=lf
-.claude/** text=auto eol=lf
-.codex/** text=auto eol=lf
-
 # The Unity Editor writes the YAML of its scenes, assets, and .meta files with LF line
 # endings on every platform, including the settings it saves again on each batch run.
 # A CRLF checkout, such as core.autocrlf=true makes, then shows those files as modified
@@ -46,3 +37,17 @@
 *.spriteatlasv2 text=auto eol=lf
 *.terrainlayer text=auto eol=lf
 *.unity text=auto eol=lf
+
+# agentkit: kit, overlay, and generated agent files check out with LF, the line endings agentkit.py writes, so a converting checkout does not list them as modified
+.ai/** text=auto eol=lf
+AGENTS.md text=auto eol=lf
+CLAUDE.md text=auto eol=lf
+GEMINI.md text=auto eol=lf
+.claude/** text=auto eol=lf
+.codex/** text=auto eol=lf
+.agents/** text=auto eol=lf
+.cursor/** text=auto eol=lf
+.github/agents/** text=auto eol=lf
+.github/instructions/** text=auto eol=lf
+.github/skills/** text=auto eol=lf
+.github/copilot-instructions.md text=auto eol=lf

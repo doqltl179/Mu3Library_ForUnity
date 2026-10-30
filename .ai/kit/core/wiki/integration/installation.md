@@ -29,7 +29,7 @@ From a checkout of the kit repository:
 python tools/agentkit.py install <project-dir> --tools claude,codex,copilot
 ```
 
-This copies the kit payload (`core/`, `tools/agentkit.py`, `VERSION`, `CHANGELOG.md`, `LICENSE`) into `<project>/.ai/kit/` with an integrity manifest, creates `.ai/project/` from templates with a minimal profile (only the keys the project sets; every other key takes the kit default), adds `.ai/tasks/` and the worktree root (`policy.worktree_root`) to `.gitignore`, applies «Editor Settings», and runs `sync`. Exit code 0 means ready; 2 means installed but hand-written instruction files block generation and need «Adopt Existing Instructions»; 1 means an error. Commit `.ai/kit/`, `.ai/project/`, `.ai/generated/`, and the generated entry and tool files, so every collaborator and hosted agent sees the same setup.
+This copies the kit payload (`core/`, `tools/agentkit.py`, `VERSION`, `CHANGELOG.md`, `LICENSE`) into `<project>/.ai/kit/` with an integrity manifest, creates `.ai/project/` from templates with a minimal profile (only the keys the project sets; every other key takes the kit default), adds `.ai/tasks/` and the worktree root (`policy.worktree_root`) to `.gitignore`, applies «Editor Settings» and «Line Endings», and runs `sync`. Exit code 0 means ready; 2 means installed but hand-written instruction files block generation and need «Adopt Existing Instructions»; 1 means an error. Commit `.ai/kit/`, `.ai/project/`, `.ai/generated/`, and the generated entry and tool files, so every collaborator and hosted agent sees the same setup.
 
 On a hosted repository, apply the settings in «Repository Settings» in [issues-and-prs.md](../workflows/issues-and-prs.md) after the user confirms them. When the project runs CI (`hosting.ci`), add `python .ai/kit/tools/agentkit.py check` to it so a hand-edited generated file, a local kit edit, or a broken link fails the build. Without CI, `check` is part of the verification run before every pull request.
 
@@ -51,6 +51,21 @@ The kit is copied, not linked as a Git submodule: tools load instruction files f
 ## Editor Settings
 
 Agent files must stay UTF-8 without a byte-order mark: a BOM before the opening `---` breaks frontmatter parsing in several tools. `agentkit.py` reads files with or without a BOM, but editors write one when `.editorconfig` sets `charset = utf-8-bom`, which is common in Unity, .NET, and Windows repositories. When the project's `.editorconfig` does, `install` appends a section that sets `charset = utf-8` for `.ai/**` and the generated agent files, and `check` warns while that section is missing. Later sections override earlier ones, so keep it at the end ([EditorConfig specification](https://spec.editorconfig.org/)).
+
+## Line Endings
+
+`agentkit.py` writes the kit, the overlay, and the generated agent files with LF on every platform. A checkout that converts line endings, such as one with `core.autocrlf=true`, holds text files that have no `eol` attribute with CRLF. Every file `agentkit.py` rewrites there, which on `update` is every kit file, gets a new size, so `git status` lists it as modified while `git diff` stays empty. `install` and `update` therefore append a section to `.gitattributes` that checks the paths of «Editor Settings» out with `text=auto eol=lf`, writing only the lines the file lacks; `text=auto` leaves binary files untouched. A later matching line overrides an earlier one ([gitattributes](https://git-scm.com/docs/gitattributes)), so the section must come after the project's own lines. To give a file under these paths other attributes, such as CRLF for a `.cmd` script under `.claude/`, add a line after the section instead of deleting one of its lines: `update` appends a missing line again at the end, where it would override the project's line.
+
+The section does not rewrite files a clone already holds with CRLF. Run this once in each clone and worktree to check them out again with LF. It touches only tracked files whose attributes ask for LF, skips files marked `assume-unchanged` or `skip-worktree` (a `git ls-files -v` tag other than `H`), and skips files whose content differs from the index, so uncommitted edits stay:
+
+```bash
+git -c core.quotePath=false ls-files -v --eol | grep '^H .*w/crlf.*eol=lf' | cut -f2 |
+  while IFS= read -r f; do
+    [ "$(git hash-object -- "$f")" = "$(git rev-parse -q --verify ":$f")" ] && rm -f -- "$f" && git checkout -- "$f"
+  done
+```
+
+Files that an `update` rewrote before the section existed already hold LF, but `git status` lists them until they are staged, although `git diff` is empty; staging them records no change. `git ls-files --eol <path>` shows a file's line endings in the index (`i/`) and the working tree (`w/`), and its attributes.
 
 ## Adopt Existing Instructions
 
@@ -77,7 +92,7 @@ python .ai/kit/tools/agentkit.py update [--from <kit-repo-url-or-path>] [--ref <
 - From a git URL without `--ref`, the update installs the latest release tag (`vX.Y.Z`), never an unreleased branch; it stops when the source has no release tag. Pass `--ref` to choose a tag or branch explicitly.
 - From a local checkout, the update copies that checkout as it is; check out the wanted version there first (`--ref` is refused).
 
-The update refuses to run when kit files were edited locally, replaces `.ai/kit/`, prints the changelog since the installed version, and runs `sync`. Apply every migration step it prints. See [versioning.md](../evolution/versioning.md).
+The update refuses to run when kit files were edited locally, replaces `.ai/kit/`, appends the missing lines of the «Line Endings» section to `.gitattributes`, prints the changelog since the installed version, and runs `sync`. Apply every migration step it prints. See [versioning.md](../evolution/versioning.md).
 
 ## Remove
 

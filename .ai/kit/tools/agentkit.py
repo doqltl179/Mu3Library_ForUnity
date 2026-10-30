@@ -77,13 +77,18 @@ INSTRUCTION_SURFACES = [
     ".github/copilot-instructions.md", ".github/agents/**", ".github/instructions/**",
     ".github/prompts/**", ".github/skills/**",
 ]
+# Kit, overlay, and generated agent files: the paths «Editor Settings» and «Line Endings» in installation.md cover.
+AGENT_FILE_GLOBS = [".ai/**", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".claude/**", ".codex/**", ".agents/**", ".cursor/**",
+                    ".github/agents/**", ".github/instructions/**", ".github/skills/**", ".github/copilot-instructions.md"]
 EDITORCONFIG_SECTION = (
     "\n# agentkit: kit, overlay, and generated agent files stay UTF-8 without a byte-order mark,\n"
     "# because frontmatter parsers misread a BOM before the opening ---.\n"
-    "[{.ai/**,AGENTS.md,CLAUDE.md,GEMINI.md,.claude/**,.codex/**,.agents/**,.cursor/**,"
-    ".github/agents/**,.github/instructions/**,.github/skills/**,.github/copilot-instructions.md}]\n"
+    "[{" + ",".join(AGENT_FILE_GLOBS) + "}]\n"
     "charset = utf-8\n"
 )
+GITATTRIBUTES_COMMENT = ("agentkit: kit, overlay, and generated agent files check out with LF, the line endings "
+                         "agentkit.py writes, so a converting checkout does not list them as modified")
+GITATTRIBUTES_LINES = [f"{glob} text=auto eol=lf" for glob in AGENT_FILE_GLOBS]
 READ_ONLY_TOOLS = {
     "claude": "Edit, Write, NotebookEdit",
     "copilot": '["read", "search", "execute", "web"]',
@@ -1366,6 +1371,28 @@ def copy_payload(src_root: Path, dest: Path) -> dict[str, str]:
     return digests
 
 
+def append_missing_lines(path: Path, comment: str, entries: list[str]) -> list[str]:
+    """Append the entries the file lacks under one comment line; return the appended entries."""
+    lines = read_text(path).split("\n") if path.exists() else []
+    missing = [entry for entry in entries if entry not in [line.strip() for line in lines]]
+    if missing:
+        prefix = "" if not lines or lines[-1] == "" else "\n"
+        with open(path, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(f"{prefix}# {comment}\n" + "".join(f"{e}\n" for e in missing))
+    return missing
+
+
+def ensure_gitattributes(project: Path) -> None:
+    try:
+        added = append_missing_lines(project / ".gitattributes", GITATTRIBUTES_COMMENT, GITATTRIBUTES_LINES)
+    except UnicodeDecodeError:
+        print("warning: .gitattributes is not UTF-8, so it was left unchanged; add these lines at its end "
+              "(«Line Endings» in installation.md):\n" + "\n".join(GITATTRIBUTES_LINES))
+        return
+    if added:
+        print("added an agentkit section to .gitattributes: agent files check out with LF line endings")
+
+
 def cmd_install(target_arg: str, tools: str | None) -> int:
     target = Path(target_arg).resolve()
     if not target.is_dir():
@@ -1395,13 +1422,8 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
     profile = Kit(target).profile
     worktree_root = str(profile.get("policy", {}).get("worktree_root", "")).strip("/")
     wanted = [".ai/tasks/"] + ([f"{worktree_root}/"] if worktree_root else [])
-    gitignore = target / ".gitignore"
-    lines = read_text(gitignore).split("\n") if gitignore.exists() else []
-    missing = [entry for entry in wanted if entry not in [line.strip() for line in lines]]
-    if missing:
-        prefix = "" if not lines or lines[-1] == "" else "\n"
-        with open(gitignore, "a", encoding="utf-8", newline="\n") as fh:
-            fh.write(f"{prefix}# agentkit working records and per-unit worktrees\n" + "".join(f"{e}\n" for e in missing))
+    append_missing_lines(target / ".gitignore", "agentkit working records and per-unit worktrees", wanted)
+    ensure_gitattributes(target)
     if editorconfig_forces_bom(target):
         with open(target / ".editorconfig", "a", encoding="utf-8", newline="\n") as fh:
             fh.write(EDITORCONFIG_SECTION)
@@ -1573,6 +1595,7 @@ def cmd_update(kit: Kit, source: str | None, ref: str | None) -> int:
         copy_payload(src, KIT_ROOT)
         notes = changelog_between(src / "CHANGELOG.md", old_version, new_version)
     print(f"kit updated {old_version} -> {new_version}")
+    ensure_gitattributes(kit.project)
     for section, values in kit.user_profile.items():
         if not isinstance(values, dict):
             continue

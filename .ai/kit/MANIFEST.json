@@ -1,10 +1,10 @@
 {
   "_generated": "agentkit:generated; kit integrity manifest, do not edit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "files": {
-    "CHANGELOG.md": "7984bf538b248704449422d8ebce678580a8ca40b7225c3929677467c3a45823",
+    "CHANGELOG.md": "e9f35058c20dee163649e2505510bb76be4b6270163fa93c820a610611083d2a",
     "LICENSE": "8e2bfb8804a638467b3148fda822ad072076c4f317f4b9e16ae4ee9139770083",
-    "VERSION": "a0ad50640139a524f86591157145bf1d4674ea9c065bfea21558f0f7b04430c8",
+    "VERSION": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
     "core/START.md": "6fc3d6c21ac4eaec41495438db8278b713d4f31175379089b67791d00d6b1bb7",
     "core/agents/CATALOG.md": "40d7c243e835e4892eeaf4fbe909b567321c9bc44329bd0848547fc957c2801f",
     "core/agents/client/android-engineer.md": "e7efdd8f2606054635069ad5ba93a674c1342a248f053afe20e57e00cb64cb31",
@@ -80,7 +80,7 @@
     "core/skills/performance-investigate/SKILL.md": "461e037d63034c4a65ac06f1e8d4c0b3b2637b7d96c2ddc90484920cff70612a",
     "core/skills/project-docs-sync/SKILL.md": "5aaf6387f8919108ebe7b49109307b5b636b1be09ee7313b766a7620bc9a350c",
     "core/skills/refactor-safely/SKILL.md": "10599ddc2a5cb18f2a88822fcc6e41c4c1862f6429fb1bd53875319db68869f6",
-    "core/skills/release-cut/SKILL.md": "57fc15cf20048ad19d3dccc2336a361bdca8ad2b60939821de3d6e41ea68c087",
+    "core/skills/release-cut/SKILL.md": "1f00b9844d6fe3bd5e8fc432a42d52bfcb000f535b4b032b6cae9734b359ecdf",
     "core/skills/requirements-spec-write/SKILL.md": "9b13f97cf1baa2075175b03adf953dfc1892892afac015e59c3351f762794668",
     "core/skills/schema-migration/SKILL.md": "309cb03f29e0722fe5cdae266b16abd2ec348b4a55a99872c6689fbee82b630e",
     "core/skills/security-review-perform/SKILL.md": "3cf25bdb952f27e223c4a8f5e897e5539a153a55bc384fbca7dd4b124a81acc0",
@@ -121,7 +121,7 @@
     "core/stacks/languages/kotlin.md": "951cac67b4450e15c6a7c69a9b58701e83db14b7bc9c9e232e4be840de420688",
     "core/stacks/languages/python.md": "69c9cc89592b8221245181d2f9175121ce86103469b8735f331932f092e349b3",
     "core/stacks/languages/rust.md": "0c4ea2bfd9dcacf6fe057f9db27e29c9f1bbdd29924868e896cb2b851b97521b",
-    "core/stacks/languages/shell.md": "dd2874517bbd092588cc8cd36cb775715cecb29af127377855865ca1a93e9a5c",
+    "core/stacks/languages/shell.md": "88a9a8e305ce64219e3fdb4ba69626f615a844be780d8dacfafa983503eb0941",
     "core/stacks/languages/sql.md": "61919641be2370448e78233621b633cef54533e66fc9b064f2a1bc745585fada",
     "core/stacks/languages/swift.md": "5aec1ac141365bd5c49cadbd70dafe7170de4c5f4e283a7d4f0a294ce8f77a3f",
     "core/stacks/languages/typescript.md": "5a8438bf7bde563ea1b150cba0e74b5333fd6cfb5cb5c56951e2d1a2a7a07c90",
@@ -149,7 +149,7 @@
     "core/wiki/evolution/tech-radar.md": "891df2e8955bd750f65b7b627f1183f36195126b27533ebeeda5454051a83728",
     "core/wiki/evolution/versioning.md": "ef30cb5b3bcb2ed3d4df1cf9318721607031dda24397ab449004da5c893ba7e0",
     "core/wiki/integration/README.md": "28dcd38a56b6b477b0669cd7bc42ec4be244cb6891cbac38dc5c0ef1f316020d",
-    "core/wiki/integration/installation.md": "b71eee7086b2ab0d8b3763ffa14442c21d8f862086e7c9ac994a9f17faf3a9a5",
+    "core/wiki/integration/installation.md": "89c97e44b54a4ba14fbba67d0ff5cd894a767b0aa475a55c4c92e04ec14f61df",
     "core/wiki/integration/project-overlay.md": "91a3688b16a78af86621f84e6b508326c0d0cb96eba3ca261593a2f18565ba67",
     "core/wiki/integration/tool-adapters.md": "9c2156bbcf61643e95c3d52c7d7fb8b32299a8890b5cc7350412023e43cf6e7b",
     "core/wiki/operating-model/README.md": "fa10f2e83774fa31b816260e968a95c1ab557788c68dc1d81ee112f162eb7227",
@@ -180,6 +180,6 @@
     "core/wiki/workflows/review.md": "70a606d43df4c9a05bda334bd0bebff84e98695564eb46938ecbc002e7153e4a",
     "core/wiki/workflows/translation.md": "c9a945de559903c8b8b58fba5b7d3628b5715591fd96e6484463e19eb4ff37de",
     "core/wiki/workflows/verification.md": "dda4fa614f8e49963272d817a75ecd9a161688c1b92f15199299b1e88829686b",
-    "tools/agentkit.py": "46ca2afe40a1624af882b4f52cb6ec45604cc37bf5388ba8180d99d89f8bdba1"
+    "tools/agentkit.py": "0aca20afa127ed8863e75edd87a0ca1922da454513e90a5686d9d9b0a671418d"
   }
 }

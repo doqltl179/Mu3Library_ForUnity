@@ -4,6 +4,21 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-31
+
+### Added
+- `install` and `update` append a section to `.gitattributes` that checks the kit, the overlay, and the generated agent files out with LF (`text=auto eol=lf`), writing only the lines the file lacks. In a checkout with `core.autocrlf=true` those files had CRLF, so every `update` listed the kit files as modified in `git status` while `git diff` stayed empty. The rule and the command that converts files a clone already holds with CRLF are in «Line Endings» in `installation.md`. (minor)
+
+### Changed
+- Stack pack `shell`: read a file's line endings with `git ls-files --eol` or `file`, not by counting `\r` with `grep`, which on Windows may read each CR-LF pair as a plain newline unless given `-U`. (patch)
+
+### Fixed
+- `release-cut`: the tag command passes `--cleanup=verbatim`, because `git tag -F` by default deletes lines starting with `#`, so release notes lost their Markdown headings in the tag message. (patch)
+
+### Migration
+1. Run `python .ai/kit/tools/agentkit.py update` once more with the same `--from` and `--ref`: the run that installed this version still used the previous `agentkit.py`, which does not add the `.gitattributes` section of «Line Endings» in `.ai/kit/core/wiki/integration/installation.md`.
+2. Run the command in «Line Endings» in `.ai/kit/core/wiki/integration/installation.md`, which checks out again with LF the files this clone still holds with CRLF and changes nothing when there are none. Kit files the update rewrote stay listed in `git status` with an empty `git diff` until they are staged.
+
 ## [0.5.0] - 2026-10-30
 
 ### Added
