@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-10-30 (agentkit 0.5.0)
+
+### Changed
+- Updated agentkit from 0.4.0 to 0.5.0. The release updates the `csharp`, `unity`, and `unity-upm` stack packs that this project's roles load: Unity 6.3–6.6 API and package changes, among them the `DEVELOPMENT_BUILD` and `UNITY_64` deprecation in 6.6, the C# 9 features Unity rejects, the Unity CLI as the live-Editor bridge, and reading a `-runTests` verdict only from the results XML. It also adds the `firebase` and `aws` stack packs, which this project does not use. Its one migration step asks a project whose `[stack_paths]` has a `unity` or `unity-upm` entry to add each default glob of the pack that matches files the entry misses; the entries here already cover every tracked file those defaults match, so `profile.toml` is unchanged.
+
 ## 2026-10-25
 
 ### Fixed
