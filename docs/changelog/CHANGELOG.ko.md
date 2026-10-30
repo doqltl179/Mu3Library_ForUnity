@@ -13,6 +13,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 수정됨
+- Base: `Runtime/Materials`의 `Black`, `Blue`, `Green`, `Magenta`, `Red`, `White` 머티리얼이 Unity 내장 Standard 셰이더를 씁니다. 이전에는 저장소에 들어 있지 않은, Unity 내장 셰이더 소스의 `Standard.shader` 사본을 가리켜서 Base를 설치한 프로젝트에서 셰이더를 찾지 못했습니다.
+
 ## [base/0.27.0] - 2026-10-31
 
 ### 추가됨

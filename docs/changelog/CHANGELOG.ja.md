@@ -15,6 +15,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 修正
+- Base: `Runtime/Materials` の `Black`、`Blue`、`Green`、`Magenta`、`Red`、`White` マテリアルが Unity の組み込み Standard シェーダーを使うようになりました。以前はリポジトリに含まれていない、Unity 組み込みシェーダーソースの `Standard.shader` のコピーを参照していたため、Base をインストールしたプロジェクトではシェーダーが見つかりませんでした。
+
 ## [base/0.27.0] - 2026-10-31
 
 ### 追加
