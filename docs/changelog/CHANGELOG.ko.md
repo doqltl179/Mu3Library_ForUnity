@@ -13,6 +13,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- Base: 새 어셈블리 `Mu3Library.Multiplayer`가 추가되었습니다. 플레이어 한 명의 PC가 호스트를 맡고 다른 플레이어가 로비로 찾아 들어오는 멀티플레이 세션을, 직접 운영하는 서버 없이 만들 수 있습니다. `MultiplayerManager`(`IMultiplayerManager`, `IMultiplayerManagerEventBus`)는 로비 생성, 검색, 참가, 나가기를 처리하고 참가자 목록과 준비 상태를 관리합니다. 세션 규칙(`SessionRules`: 호스트를 포함한 정원 1~16명, 최소 시작 인원, 준비 확인, 게임 중 참가 허용 여부)을 지키게 하고, 시작 데이터와 함께 게임을 시작하고 끝냅니다. 강퇴한 플레이어는 그 세션이 끝날 때까지 다시 들어올 수 없고, 호스트가 나가면 모두의 세션이 끝납니다. 로비와 연결은 `IMultiplayerBackend`가 제공하며, 이번에는 한 프로세스 안에서 여러 플레이어를 돌리는 테스트용 `LocalBackend`와 `LocalNetwork`가 들어 있습니다. 모든 실패와 세션 종료에는 `MultiplayerReason`이 붙습니다. 요구사항은 `docs/specs/steam-player-hosted-multiplayer.md`에 있습니다.
+
 ### 수정됨
 - Base: `Runtime/Materials`의 `Black`, `Blue`, `Green`, `Magenta`, `Red`, `White` 머티리얼이 Unity 내장 Standard 셰이더를 씁니다. 이전에는 저장소에 들어 있지 않은, Unity 내장 셰이더 소스의 `Standard.shader` 사본을 가리켜서 Base를 설치한 프로젝트에서 셰이더를 찾지 못했습니다.
 
