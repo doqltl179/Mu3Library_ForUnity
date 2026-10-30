@@ -104,7 +104,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
                 return false;
             }
 
+            int preparationCount = _preparationCount;
+
             if (!RemoveItem(item))
+            {
+                return false;
+            }
+
+            // A handler of the removal that prepared the board again took the item off the board
+            // before it, so no replacement falls onto the new one.
+            if (preparationCount != _preparationCount)
             {
                 return false;
             }

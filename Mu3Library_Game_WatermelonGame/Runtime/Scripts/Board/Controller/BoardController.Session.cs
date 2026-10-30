@@ -32,6 +32,10 @@ namespace Mu3Library.Game.WatermelonGame.Board
         protected int _mergeCount;
         public int MergeCount => _mergeCount;
 
+        // Counts every Prepare, so a call that raises an event can tell whether a handler
+        // prepared the board again before the call went on.
+        private int _preparationCount;
+
         #region Utility
         /// <summary>
         /// Adds to the board score and reports it through <see cref="OnScoreChanged"/> and
@@ -50,7 +54,16 @@ namespace Mu3Library.Game.WatermelonGame.Board
             int previousScore = _score;
             _score = Mathf.Max(0, _score + amount);
 
+            int preparationCount = _preparationCount;
+
             OnScoreChanged?.Invoke(_score);
+
+            // A handler that prepared the board again already reported the score the new board
+            // starts with, and the points paid here belong to the board before it.
+            if (preparationCount != _preparationCount)
+            {
+                return;
+            }
 
             // The score stops at zero, so what was really paid out can be less than what the
             // amount asked for, and a change that moved nothing is worth no popup.
@@ -127,6 +140,8 @@ namespace Mu3Library.Game.WatermelonGame.Board
             {
                 return;
             }
+
+            _preparationCount++;
 
             int previousScore = _score;
 
