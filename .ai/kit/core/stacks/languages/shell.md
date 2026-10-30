@@ -6,7 +6,7 @@ applies_to: ["**/*.sh", "**/*.bash", "**/*.ps1", "**/*.psm1"]
 related: [docker, github-actions]
 volatility: volatile
 reviewed: 2026-10-09
-sources: ["https://www.gnu.org/software/bash/manual/", "https://tiswww.case.edu/php/chet/bash/NEWS", "https://github.com/apple-oss-distributions/bash", "https://pubs.opengroup.org/onlinepubs/9799919799/", "https://git.kernel.org/pub/scm/utils/dash/dash.git", "https://github.com/koalaman/shellcheck/wiki", "https://learn.microsoft.com/en-us/powershell/scripting/overview", "https://learn.microsoft.com/en-us/powershell/scripting/whats-new/what-s-new-in-powershell-70", "https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle", "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_character_encoding", "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables", "https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/approved-verbs-for-windows-powershell-commands"]
+sources: ["https://www.gnu.org/software/bash/manual/", "https://tiswww.case.edu/php/chet/bash/NEWS", "https://github.com/apple-oss-distributions/bash", "https://pubs.opengroup.org/onlinepubs/9799919799/", "https://git.kernel.org/pub/scm/utils/dash/dash.git", "https://github.com/koalaman/shellcheck/wiki", "https://www.gnu.org/software/grep/manual/", "https://git-scm.com/docs/git-ls-files", "https://learn.microsoft.com/en-us/powershell/scripting/overview", "https://learn.microsoft.com/en-us/powershell/scripting/whats-new/what-s-new-in-powershell-70", "https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle", "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_character_encoding", "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables", "https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/approved-verbs-for-windows-powershell-commands"]
 ---
 
 # Shell (Bash, sh, PowerShell)
@@ -36,7 +36,7 @@ sources: ["https://www.gnu.org/software/bash/manual/", "https://tiswww.case.edu/
 - Unquoted expansions word-split and glob; `for f in $(ls)` breaks on spaces. Iterate globs directly, or use `find ... -print0` with `while IFS= read -r -d ''`.
 - `set -e` does not fire inside `if`/`while` conditions, `&&`/`||` lists, or functions called from them; check critical commands explicitly.
 - GNU-only forms fail on BSD/macOS: `sed -i` without a suffix argument, `date -d`, `stat -c`. Use portable alternatives or branch on `uname`.
-- CRLF line endings break bash scripts (`$'\r': command not found`); keep LF.
+- CRLF line endings break bash scripts (`$'\r': command not found`); keep LF. Read a file's line endings with `git ls-files --eol <path>` or `file <path>`, not by counting `\r` with `grep`: on Windows, GNU grep may read each CR-LF pair as a plain newline unless `-U` is given.
 - PowerShell functions return every uncaptured value; assign unwanted results to `$null` or cast to `[void]`.
 - PowerShell: put `$null` on the left (`$null -eq $x`); with a collection on the left, the comparison filters elements instead.
 
