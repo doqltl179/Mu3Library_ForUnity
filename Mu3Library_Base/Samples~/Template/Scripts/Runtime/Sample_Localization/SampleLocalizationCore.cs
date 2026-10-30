@@ -145,7 +145,9 @@ namespace Mu3Library.Sample.Template.Localization
             int currentIndex = 0;
             for (int i = 0; i < locales.Count; i++)
             {
-                options.Add(locales[i].Identifier.CultureInfo.EnglishName);
+                // CultureInfo is null for a custom locale code, so fall back to the code itself.
+                LocaleIdentifier identifier = locales[i].Identifier;
+                options.Add(identifier.CultureInfo?.EnglishName ?? identifier.Code);
                 if (locales[i] == _localizationManager.CurrentLocale)
                 {
                     currentIndex = i;
