@@ -17,6 +17,7 @@ Package release notes remain in:
 
 ### Changed
 - `.gitignore` ignores `.claude/worktrees/`, where Claude Code creates its session worktrees. Only a checkout's own `.git/info/exclude` held it before, so a new clone listed those worktrees as untracked. The commented-out `# **/[Ss]amples~/` line, which ignored nothing, is gone.
+- The three Unity lessons that `.ai/project/lessons.md` kept for a kit proposal moved to `.ai/project/wiki/runtime-design.md` instead, so the file now holds only its header. The upstream `unity` pack takes items that prevent compile errors, data loss, or misread verification first and leaves narrow ones out, and none of the three fits it. `Vector2.Lerp` taking one interpolation value is basic API whose misuse fails to compile, the tiled `SpriteRenderer` sizing applies only to 2D tiled and sliced renderers, and the `LocalizationSettings.HasSettings` check only to projects that use the Localization package. The `LocalizationSettings` checks went to «Managers», and the tiled guide line and `CoordinateBounds.Lerp` to «Watermelon Board And Sample».
 
 ## 2026-10-30
 
