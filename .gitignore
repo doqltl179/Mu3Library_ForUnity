@@ -81,7 +81,6 @@ crashlytics-build.properties
 # settings, so they are tracked there; the content state files stay ignored (Packed Addressables).
 !UnityProject_BuiltIn/Assets/AddressableAssetsData
 !UnityProject_BuiltIn/Assets/AddressableAssetsData.meta
-**/[Aa]ssets/[Ss]amples.meta
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
 **/[Aa]ssets/builtin_shaders

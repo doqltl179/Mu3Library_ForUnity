@@ -26,6 +26,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 - A development project compiles its package's samples only through a Git-ignored link from `Assets/` to `Samples~`. The script stops before Unity when a selected project lacks it; `commands.worktree_setup` creates the links in a fresh clone or worktree. `--without-samples` runs without them and says so; a report must then state that the samples were not compiled.
 - Never substitute `dotnet build` on the generated `.csproj` files: Unity compiles from the `.asmdef` files and the package sources, and the generated projects drift from both.
 - On Windows the script runs through Git Bash.
+- Open one development project in an Editor at a time. The three projects share the packages through `file:` references, so a newer Editor that rewrites a shared `.meta` while it imports breaks another project's import of the same file with `Import Error Code:(4)`.
 
 ## Lowest Supported Editor
 
@@ -42,6 +43,8 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 | Optional integration | The code sits entirely inside its define symbol, and every development project that includes the file compiles, since their define sets differ |
 | Editor-version branch, version-sensitive API, package dependency, or the `unity` floor | The affected targets also compile with `--editor-version` set to an installed release of the floor |
 | Compile-only request | Compile only; do not add or run tests |
+
+- Base's samples compile only in `UnityProject_BuiltIn`, which resolves every optional package, so an unguarded optional-package reference in a Base sample compiles there. Prove a sample's guards by compiling a temporary mirror of that project with the optional packages removed from its manifest, and read the assembly's defines from its `Library/Bee` response file. A reading-only audit of the Template sample missed six unguarded files.
 
 ## Tests
 

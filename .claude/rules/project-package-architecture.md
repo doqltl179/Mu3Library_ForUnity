@@ -16,6 +16,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 - which package or folder: [overview.md](.ai/project/wiki/overview.md),
 - compile targets and EditMode tests: [unity-verification.md](.ai/project/wiki/unity-verification.md),
+- manager initialization, disposal, and async operations, or the Watermelon board commands and sample: [runtime-design.md](.ai/project/wiki/runtime-design.md),
 - sample scenes and prefabs: [unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md).
 
 ## Package Surfaces
@@ -49,7 +50,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## DI, CoreBase, And MVP
 
-- Keep the DI and MVP modules decoupled; use the existing DI rather than ad-hoc globals or new singletons.
+- Keep the DI and MVP modules decoupled; use the existing DI rather than ad-hoc globals or new singletons. `ContainerScope.InjectInto` stays internal across that boundary: a container-owned service that uses `[Inject]` resolves the narrow `IObjectInjector`, which every scope provides.
 - Use `MonoBehaviour` only for scene components; keep service and domain logic in plain C# classes.
 - `Singleton<T>` and `GenericSingleton<T>` stay public for consuming projects even though the packages drive their services through `CoreBase`; do not remove them as unused.
 
@@ -59,6 +60,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
   - a leaf named like a Unity type its own code uses: `URP/Runtime/Scripts/Camera` is `Mu3Library.URP.Cam`;
   - a folder that only groups the parts of one feature keeps its parent's namespace: Base's `UI/Area/Boundary` is `Mu3Library.UI.Area` in the runtime and `Mu3Library.Editor.UI.Area` in the editor;
   - a file of a partial class takes the namespace of the class it extends, since every part shares one: Watermelon Game's `Board/Area/BoardArea.*.cs` and `Board/Controller/BoardController.*.cs` are `Mu3Library.Game.WatermelonGame.Board`, while the other types in `Board/Area` follow the folder rule as `Mu3Library.Game.WatermelonGame.Board.Area`.
+- An oversized `MonoBehaviour` keeps its serialized façade at its existing path and GUID and moves responsibilities into partial files grouped under named subfolders, such as `Controller`, `Area`, and `Item`.
 - Explicit access modifiers on every member; interface names start with `I`.
 - Log actionable problems with `Debug.LogWarning` or `Debug.LogError`; keep hot paths quiet. Catch exceptions at I/O, parsing, and network boundaries.
 - Async code follows the coroutine or UniTask pattern already used nearby; reuse the existing pooling and utilities.
