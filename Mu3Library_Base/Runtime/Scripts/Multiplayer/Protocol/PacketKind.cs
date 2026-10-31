@@ -34,5 +34,9 @@ namespace Mu3Library.Multiplayer.Protocol
         SetParticipantData = 13,
         /// <summary>Host to clients: one value of a player's participant data changed.</summary>
         ParticipantDataChanged = 14,
+        /// <summary>Client to host: a lobby chat message.</summary>
+        ChatToHost = 15,
+        /// <summary>Host to clients: a lobby chat message with its sender.</summary>
+        ChatFromHost = 16,
     }
 }

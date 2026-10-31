@@ -454,6 +454,10 @@ namespace Mu3Library.Multiplayer
                     HostHandleParticipantData(peer, ref reader);
                     break;
 
+                case PacketKind.ChatToHost:
+                    HostHandleChat(peer, ref reader);
+                    break;
+
                 default:
                     // Only the host sends the other kinds; a client that sends one is ignored.
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}.");

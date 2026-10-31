@@ -73,6 +73,7 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantChanged;
         public event Action<Participant, string> OnParticipantDataChanged;
         public event Action<string, string> OnLobbyDataChanged;
+        public event Action<Participant, string> OnChatReceived;
         public event Action<SessionRules> OnRulesChanged;
         public event Action<ReadOnlyMemory<byte>> OnGameStarted;
         public event Action OnReturnedToLobby;
@@ -173,6 +174,7 @@ namespace Mu3Library.Multiplayer
             OnParticipantChanged = null;
             OnParticipantDataChanged = null;
             OnLobbyDataChanged = null;
+            OnChatReceived = null;
             OnRulesChanged = null;
             OnGameStarted = null;
             OnReturnedToLobby = null;

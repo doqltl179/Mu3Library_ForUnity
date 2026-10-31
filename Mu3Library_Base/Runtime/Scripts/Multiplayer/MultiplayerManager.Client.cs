@@ -220,6 +220,10 @@ namespace Mu3Library.Multiplayer
                     HandleParticipantDataChanged(ref reader);
                     break;
 
+                case PacketKind.ChatFromHost:
+                    HandleChatFromHost(ref reader);
+                    break;
+
                 default:
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
                     break;

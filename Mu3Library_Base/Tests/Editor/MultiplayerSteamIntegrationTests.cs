@@ -188,6 +188,29 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamLobby_HostHearsItsOwnChat_AndAMessageOverSteamsLimitGoesNowhere()
+        {
+            // FR-12 on Steam itself, with one account: the host's side of lobby chat.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                List<(Participant Sender, string Text)> chats = new List<(Participant, string)>();
+                manager.OnChatReceived += (sender, text) => chats.Add((sender, text));
+                CreateFriendsOnlyLobby(manager, "forest");
+
+                Assert.That(manager.SendChat("hello").IsSuccess, Is.True);
+                Assert.That(manager.SendChat(new string('x', MultiplayerLimits.MaxChatMessageSize + 1)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+                Assert.That(chats.Select(chat => (chat.Sender.Id, chat.Text)), Is.EqualTo(new[] { (_backend.LocalPlayerId, "hello") }));
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
         /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
         private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
         {

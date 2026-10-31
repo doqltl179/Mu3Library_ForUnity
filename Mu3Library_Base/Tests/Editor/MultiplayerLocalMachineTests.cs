@@ -35,6 +35,7 @@ namespace Mu3Library.Tests
             public readonly List<SessionStateChange> States = new List<SessionStateChange>();
             public readonly List<byte[]> GameStarts = new List<byte[]>();
             public readonly List<(PlayerId Sender, byte[] Payload)> Messages = new List<(PlayerId, byte[])>();
+            public readonly List<(PlayerId Sender, string Text)> Chats = new List<(PlayerId, string)>();
 
             public PlayerId Id => Backend.LocalPlayerId;
         }
@@ -254,6 +255,28 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(seen, Is.EqualTo("desert"));
+        }
+
+        [Test]
+        public void Chat_ReachesEveryProcess_InTheSameOrder()
+        {
+            // FR-12 between "processes".
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+
+            Assert.That(a.Manager.SendChat("from A").IsSuccess, Is.True);
+            Assert.That(host.Manager.SendChat("from the host").IsSuccess, Is.True);
+            Assert.That(b.Manager.SendChat(new string('x', MultiplayerLimits.MaxChatMessageSize + 1)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+
+            Node[] everyone = { host, a, b };
+            PumpUntil(() => everyone.All(node => node.Chats.Count == 2), "every player to hear both messages");
+            PumpFor(0.2);
+
+            // The host's own message left first; A's passed through the host after it.
+            (PlayerId, string)[] expected = { (host.Id, "from the host"), (a.Id, "from A") };
+            Assert.That(everyone.Select(node => node.Chats), Is.All.EqualTo(expected));
         }
 
         [Test]
@@ -523,6 +546,7 @@ namespace Mu3Library.Tests
             Node node = new Node { Backend = backend, Manager = manager };
             manager.OnStateChanged += change => node.States.Add(change);
             manager.OnGameStarted += data => node.GameStarts.Add(data.ToArray());
+            manager.OnChatReceived += (sender, text) => node.Chats.Add((sender.Id, text));
             Assert.That(manager.RegisterMessage(Chat, (context, payload) => node.Messages.Add((context.Sender, payload.ToArray()))).IsSuccess, Is.True);
 
             _nodes.Add(node);

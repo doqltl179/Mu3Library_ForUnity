@@ -37,5 +37,11 @@ namespace Mu3Library.Multiplayer.Data
         /// has to stay inside one send even for <see cref="MaxCapacity"/> players.
         /// </summary>
         public const int MaxParticipantDataSize = 2 * 1024;
+
+        /// <summary>
+        /// Longest lobby chat message, in UTF-8 bytes: the 4 KB Steam allows for one lobby chat
+        /// message, so a game that fits here fits there.
+        /// </summary>
+        public const int MaxChatMessageSize = 4 * 1024;
     }
 }

@@ -45,6 +45,13 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         public event Action<string, string> OnLobbyDataChanged;
 
+        /// <summary>
+        /// Raised for every lobby chat message, this player's own included, with its text and its
+        /// sender as the connection proved it: the host names the sender from the connection a
+        /// message arrived on, never from what the message says.
+        /// </summary>
+        public event Action<Participant, string> OnChatReceived;
+
         public event Action<SessionRules> OnRulesChanged;
 
         /// <summary>Raised after the state turns to <see cref="SessionState.InGame"/>, with the start data.</summary>

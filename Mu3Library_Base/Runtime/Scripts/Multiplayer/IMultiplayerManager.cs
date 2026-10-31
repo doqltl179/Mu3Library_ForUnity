@@ -119,6 +119,20 @@ namespace Mu3Library.Multiplayer
         public MultiplayerResult SetParticipantData(string key, string value);
         #endregion
 
+        #region Chat
+        /// <summary>
+        /// In the lobby only. Sends a text message to every player of the session, this player
+        /// included, through <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or
+        /// empty text answers <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
+        /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
+        /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. The host's own
+        /// message is handled before the call returns, and a client's, its own copy included, once
+        /// the host passed it on, so every player hears the messages in the same order. The host
+        /// drops a client's message that arrives after the game started.
+        /// </summary>
+        public MultiplayerResult SendChat(string text);
+        #endregion
+
         #region Game
         /// <summary>
         /// Host only, in the lobby. Starts the game for everyone with the given start data, such

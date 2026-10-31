@@ -68,9 +68,17 @@ namespace Mu3Library.Multiplayer.Protocol
             return value;
         }
 
-        public string ReadString()
+        public string ReadString() => ReadString(MaxBlockLength);
+
+        /// <summary>Reads a string and throws when its UTF-8 bytes exceed <paramref name="maxByteCount"/>.</summary>
+        public string ReadString(int maxByteCount)
         {
             int length = ReadBlockLength();
+            if (length > maxByteCount)
+            {
+                throw new FormatException($"A string of {length} bytes exceeds the {maxByteCount}-byte limit.");
+            }
+
             string value = Encoding.UTF8.GetString(_data.Slice(_position, length));
             _position += length;
             return value;
