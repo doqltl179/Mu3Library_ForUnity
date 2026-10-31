@@ -19,18 +19,20 @@ namespace Mu3Library.Tests
     /// The load of NFR-1 in docs/specs/steam-player-hosted-multiplayer.md on the local backend:
     /// a full session of 16 players, every client sending 30 unreliable messages of 256 bytes a
     /// second and the host 30 reliable messages of 1 KB a second to everyone, at 60 frames a
-    /// second, each run once with the clients' messages going to the host only and once to every
-    /// other player through the host. It times only the host's own calls, its manager's update
+    /// second, with the clients' messages going to the host only; each network also runs once
+    /// with them going to every other player through the host, as a reference measurement that
+    /// NFR-1 does not hold to its target. It times only the host's own calls, its manager's update
     /// (which updates its backend) and its sends, and counts what they allocate; it also checks
     /// NFR-2, that each message reaches its handler in the frame after it was sent at the latest.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It asserts what does not depend on the machine, no allocation in the steady state and no
-    /// message handled later than the frame after the one it was sent in (one frame more on a
-    /// machine-wide network, for the loopback), and only logs the timing against the 0.5 ms
-    /// target, in a line that starts with <c>[NFR-1]</c>, in the Unity log and in the test's
-    /// output in the results file.
+    /// Every case asserts no allocation in the steady state and no message handled later than
+    /// the frame after the one it was sent in (one frame more on a machine-wide network, for the
+    /// loopback), and logs the timing in a line that starts with <c>[NFR-1]</c>, in the Unity log
+    /// and in the test's output in the results file. The cases whose clients send to the host
+    /// also assert that the host's average stays within the 0.5 ms target, which depends on the
+    /// machine; the relayed cases only log theirs.
     /// </para>
     /// <para>
     /// On a network inside this process the players run frame by frame on a test clock as fast
@@ -51,9 +53,9 @@ namespace Mu3Library.Tests
         /// <summary>Who the clients' messages go to.</summary>
         public enum ClientRoute
         {
-            /// <summary>To the host only.</summary>
+            /// <summary>To the host only: the load NFR-1 holds to its target.</summary>
             ToHost,
-            /// <summary>To every other player, which the host relays to the other clients.</summary>
+            /// <summary>To every other player, which the host relays to the other clients: a reference measurement.</summary>
             ToOthers,
         }
 
@@ -231,6 +233,12 @@ namespace Mu3Library.Tests
 
             Assert.That(SumOf(samples.UpdateAllocations, samples), Is.Zero, "NFR-1: the host's update allocated in the steady state.");
             Assert.That(SumOf(samples.SendAllocations, samples), Is.Zero, "NFR-1: the host's sends allocated in the steady state.");
+
+            if (route == ClientRoute.ToHost)
+            {
+                double average = Average(samples.UpdateMilliseconds, samples.Count) + Average(samples.SendMilliseconds, samples.Count);
+                Assert.That(average, Is.LessThanOrEqualTo(TargetMilliseconds), "NFR-1: the host's average time per frame missed the target on this machine.");
+            }
         }
 
         /// <summary>
@@ -557,6 +565,11 @@ namespace Mu3Library.Tests
                 clientsSent += _players[i].Sent;
             }
 
+            // NFR-1 holds only the clients' messages to the host to its target; the relay is a reference.
+            string verdict = route == ClientRoute.ToHost
+                ? "target " + Format(TargetMilliseconds) + " ms " + (Average(total) <= TargetMilliseconds ? "met" : "MISSED")
+                : "reference, not held to the " + Format(TargetMilliseconds) + " ms target";
+
             StringBuilder report = new StringBuilder();
             report.Append("[NFR-1] mode=").Append(mode)
                 .Append(" route=").Append(route)
@@ -571,8 +584,7 @@ namespace Mu3Library.Tests
                 .Append(" max=").Append(Format(Max(total)))
                 .Append(" (update avg=").Append(Format(Average(samples.UpdateMilliseconds, count)))
                 .Append(" sends avg=").Append(Format(Average(samples.SendMilliseconds, count)))
-                .Append(") target ").Append(Format(TargetMilliseconds)).Append(" ms ")
-                .Append(Average(total) <= TargetMilliseconds ? "met" : "MISSED")
+                .Append(") ").Append(verdict)
                 .Append(" | frames over ").Append(Format(LongFrameMilliseconds)).Append(" ms=").Append(longFrames)
                 .Append(" | allocating frames=").Append(allocatingFrames)
                 .Append(", allocations=").Append(allocationCount)
