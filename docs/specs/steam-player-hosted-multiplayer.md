@@ -475,11 +475,11 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 
 | 코드 | 값 | 뜻 |
 |---|---|---|
-| `None` | 0 | 실패가 아니다. 성공한 요청과, 실패나 종료가 아닌 상태 변경이 싣는다. |
+| `None` | 0 | 실패가 아니다. 성공한 요청, 성공을 알리는 이벤트, 실패나 종료가 아닌 상태 변경이 싣는다. |
 | `NotInitialized` | 1 | 매니저가 백엔드로 초기화되지 않았거나 이미 해제되었다. Steam 백엔드의 초대 요청 (`OpenInviteDialog`, `InviteFriend`)은 백엔드를 쓸 수 없을 때도 이 코드를 답한다. |
 | `SteamNotRunning` | 2 | Steam을 쓸 수 없다. `SteamBackend.TryCreate`에서 Steam 클라이언트가 없거나 시작하지 못했거나 Steam 네이티브 라이브러리를 읽지 못했을 때 (FR-1, FR-39), 그리고 Steam이 꺼진 뒤의 로비 생성, 참가, 검색과 Steam 연결이 없어 실패한 로비 생성이 이 코드다. |
 | `OverlayUnavailable` | 3 | Steam 오버레이가 꺼져 있어 초대 대화상자를 열 수 없다 (`SteamBackend.OpenInviteDialog`, FR-8). |
-| `BackendError` | 4 | 백엔드가 이름 붙이지 않은 이유로 요청을 거부하거나 실패했다. 쓸 수 없는 백엔드로 한 `Initialize`, Steam이 보고한 그 밖의 실패 (`SteamAPI.InitEx`의 버전 불일치 포함, 에디터는 `SteamNotRunning`처럼 이때도 로컬 백엔드로 대체한다), 플랫폼이 거부한 정원, 로비 데이터, 프레즌스 변경과 초대, 백엔드를 쓸 수 없거나 Steam이 이미지를 주지 못한 아바타 요청이 이 코드다. |
+| `BackendError` | 4 | 백엔드가 이름 붙이지 않은 이유로 요청을 거부하거나 실패했다. 쓸 수 없는 백엔드로 한 `Initialize`, Steam이 보고한 그 밖의 실패 (`SteamAPI.InitEx`의 버전 불일치 포함, 대체 설정 (`SteamBackendOptions.EditorFallbackNetwork`)이 켜진 에디터는 `SteamNotRunning`처럼 이때도 로컬 백엔드로 대체한다), 플랫폼이 거부한 정원, 로비 데이터, 프레즌스 변경과 초대, 백엔드를 쓸 수 없거나 Steam이 이미지를 주지 못한 아바타 요청이 이 코드다. |
 | `NotSupported` | 5 | 백엔드에 그 기능이 없다. 지금은 아바타가 없는 로컬 백엔드의 `LoadAvatar`만 이 코드를 답한다. |
 | `InvalidState` | 10 | 지금 세션 상태에서는 할 수 없는 요청이다. 예: 세션 중의 로비 생성이나 참가, 로비 밖의 준비, 규칙 변경, 게임 시작, 채팅, 게임 밖의 게임 종료나 로드 완료 보고, 로비나 게임 밖의 메시지 송신, 세션 밖의 프레즌스 설정, 이미 초기화했거나 해제한 매니저의 `Initialize`. |
 | `InvalidArgument` | 11 | 요청 인자가 없거나 범위를 벗어났다. 예: 쓸 수 없는 설정, 옵션, 규칙 값, 잘못된 로비 ID, 플레이어, 아바타 크기, 대소문자만 다른 로비 데이터 키 (FR-11), NUL 문자나 짝 없는 UTF-16 서로게이트가 든 텍스트. |
@@ -493,7 +493,7 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 | `DuplicateAccount` | 24 | 같은 계정이 이미 세션에 있다 (호스트 자신의 계정 포함). 슬롯이 예약된 계정의 연결은 중복이 아니라 복귀로 처리한다 (FR-21). |
 | `Banned` | 25 | 호스트가 이 세션에서 강퇴한 계정이다. 다시 참가하거나 슬롯으로 돌아오려 하면 호스트가 이 코드로 거부하고, Steam 로비가 입장을 차단해도 이 코드다. 로비 재입장은 이 코드에서만 바로 멈춘다 (FR-20, FR-22). |
 | `ConnectionFailed` | 26 | 연결을 맺지 못했다. 클라이언트가 호스트에 연결하지 못했거나 첫 인사를 보내지 못했거나 참가 중에 연결이 라이브러리 사유 없이 닫혔을 때, 그리고 호스트가 로비 생성에서 연결 받기를 시작하지 못했을 때가 이 코드다 (FR-29). |
-| `Timeout` | 27 | 제한 시간 안에 끝나지 않았다. 참가 (`MultiplayerConfig.JoinTimeoutSeconds`), 호스트 쪽 핸드셰이크 (`HandshakeTimeoutSeconds`), Steam 로비 검색 (25초)과 아바타 (10초), 응답이 없었던 로비 재입장 (`OnLobbyRejoinFailed`)이 이 코드다. 호스트는 한 계정의 받아들이지 않은 연결이 `MultiplayerLimits.MaxPendingConnectionsPerAccount`를 넘을 때도 이 코드로 닫는다. |
+| `Timeout` | 27 | 제한 시간 안에 끝나지 않았다. 참가 (`MultiplayerConfig.JoinTimeoutSeconds`), 호스트 쪽 핸드셰이크 (`MultiplayerConfig.HandshakeTimeoutSeconds`), Steam 로비 검색 (25초)과 아바타 (10초), 응답이 없었던 로비 재입장 (`OnLobbyRejoinFailed`)이 이 코드다. 호스트는 한 계정의 받아들이지 않은 연결이 `MultiplayerLimits.MaxPendingConnectionsPerAccount`를 넘을 때도 이 코드로 닫는다. |
 | `LeftNormally` | 30 | 참가자가 스스로 나갔다. `Leave`, 세션 중의 매니저 해제 (이벤트 없음), 다른 로비의 참가 요청 (Steam 초대 수락 등)으로 지금 세션을 끝낼 때가 이 코드다. |
 | `Kicked` | 31 | 호스트가 강퇴했다 (`Kick`). 강퇴된 클라이언트의 세션이 이 코드로 끝나고, 다른 참가자는 `OnParticipantLeft`로 이 코드를 받는다 (FR-22). |
 | `HostLeft` | 32 | 호스트가 나갔거나 연결을 잃었거나 멈췄다. 호스트가 세션을 끝내며 닫은 연결, 로비가 보여 준 호스트 이탈 (소유자 변경, 호스트가 멤버에서 빠짐), 재접속을 거치지 않고 끊긴 호스트 연결, 예약 시간보다 먼저 끝난 재접속 시도 시간 (7장, 결정 D8)이 이 코드다. |
