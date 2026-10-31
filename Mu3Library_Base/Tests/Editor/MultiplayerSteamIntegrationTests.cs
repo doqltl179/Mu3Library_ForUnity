@@ -418,6 +418,7 @@ namespace Mu3Library.Tests
             {
                 CreateFriendsOnlyLobby(manager, "forest");
                 Assert.That(Steamworks.SteamFriends.SetRichPresence("mu3_test", "kept"), Is.True);
+                Assert.That(Steamworks.SteamFriends.SetRichPresence(SteamBackend.DisplayKey, "#GameOwn"), Is.True);
                 Assert.That(manager.SetPresenceStatus("Mu3 test").IsSuccess, Is.True);
                 Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
 
@@ -426,11 +427,13 @@ namespace Mu3Library.Tests
                 Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
                 Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
                 Assert.That(OwnPresence("mu3_test"), Is.EqualTo("kept"));
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True, "without a token, steam_display stays the game's");
             }
             finally
             {
                 manager.Dispose();
                 Steamworks.SteamFriends.SetRichPresence("mu3_test", string.Empty);
+                Steamworks.SteamFriends.SetRichPresence(SteamBackend.DisplayKey, string.Empty);
             }
         }
 
@@ -457,6 +460,61 @@ namespace Mu3Library.Tests
             Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
             Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
             Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        [Test]
+        public void SteamPresence_WithADisplayToken_SetsSteamDisplayWhileAStatusIsSet()
+        {
+            // FR-13: the token is what Steam's friends list shows; the test app has none of this
+            // library's, so only the keys are read back. Steam lists steam_display among the
+            // account's keys but answers its value as empty, so for that key the test sees only
+            // whether it is set. A second backend leaves Steam running.
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480, PresenceDisplayToken = "#Mu3Status" }, out SteamBackend second);
+            Assert.That(created.IsSuccess, Is.True, created.ToString());
+            try
+            {
+                Assert.That(second.SetPresence(null, new LobbyId(123), 2), Is.True);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False, "no status, no line");
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"));
+
+                Assert.That(second.SetPresence("Mu3 test", new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True);
+                TestContext.WriteLine($"Steam reads steam_display back as '{OwnPresence(SteamBackend.DisplayKey)}'.");
+
+                Assert.That(second.SetPresence(null, new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"), "the group stays without a status");
+
+                Assert.That(second.SetPresence("Again", new LobbyId(123), 2), Is.True);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True);
+            }
+            finally
+            {
+                second.Dispose();
+            }
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False, "disposing the backend deletes the token it set");
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        /// <summary>Whether this account's own rich presence lists the key.</summary>
+        private bool HasOwnPresenceKey(string key)
+        {
+            Steamworks.CSteamID self = new Steamworks.CSteamID(_backend.LocalPlayerId.Value);
+            int count = Steamworks.SteamFriends.GetFriendRichPresenceKeyCount(self);
+            for (int i = 0; i < count; i++)
+            {
+                if (Steamworks.SteamFriends.GetFriendRichPresenceKeyByIndex(self, i) == key)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>A value of this account's own rich presence; empty when the key is not set.</summary>

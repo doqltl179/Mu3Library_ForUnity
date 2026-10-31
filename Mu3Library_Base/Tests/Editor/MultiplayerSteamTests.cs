@@ -110,6 +110,22 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void TryCreate_RefusesADisplayTokenThatIsNoToken()
+        {
+            // FR-13: a steam_display value names a localization token, which starts with #.
+            foreach (string token in new[] { "Status", "#", "#a\0b", "#" + new string('x', MultiplayerLimits.MaxPresenceStatusSize) })
+            {
+                MultiplayerResult result = SteamBackend.TryCreate(new SteamBackendOptions { PresenceDisplayToken = token }, out SteamBackend backend);
+                Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), token);
+                Assert.That(backend, Is.Null);
+            }
+
+            Assert.That(SteamBackend.IsValidDisplayToken(null), Is.True);
+            Assert.That(SteamBackend.IsValidDisplayToken(string.Empty), Is.True);
+            Assert.That(SteamBackend.IsValidDisplayToken("#Status"), Is.True);
+        }
+
+        [Test]
         public void TryCreate_RefusesANonPositiveTimeout()
         {
             MultiplayerResult result = SteamBackend.TryCreate(new SteamBackendOptions { ConnectionTimeoutSeconds = 0f }, out SteamBackend backend);

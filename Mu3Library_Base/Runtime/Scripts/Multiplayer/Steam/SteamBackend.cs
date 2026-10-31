@@ -90,6 +90,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             InitializeConnections(options);
             InitializeLobbies();
+            InitializePresence(options);
             _lobbyJoinRequested = Callback<GameLobbyJoinRequested_t>.Create(HandleLobbyJoinRequested);
 
             if (!s_launchLobbyTaken && SteamLaunchArguments.TryGetConnectLobby(Environment.GetCommandLineArgs(), out LobbyId lobby))
@@ -113,7 +114,7 @@ namespace Mu3Library.Multiplayer.Steam
         {
             backend = null;
             options ??= new SteamBackendOptions();
-            if (!(options.ConnectionTimeoutSeconds > 0f))
+            if (!(options.ConnectionTimeoutSeconds > 0f) || !IsValidDisplayToken(options.PresenceDisplayToken))
             {
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }

@@ -235,12 +235,16 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// In a session, from <see cref="CreateLobby"/> or <see cref="JoinLobby"/> on; outside one
-        /// it answers <see cref="MultiplayerReason.InvalidState"/>. Sets the status text the
-        /// platform shows this player's friends, and null or empty removes it. Without a call, the
-        /// manager still tells the platform which session this player is in and how many players
-        /// it has, the ones whose slot the host keeps while they are away included, so the
-        /// players of one session show as one group: from the lobby or the game on, for a late
-        /// joiner too, and through <see cref="SessionState.Reconnecting"/>. When the session ends
+        /// it answers <see cref="MultiplayerReason.InvalidState"/>. Sets this player's status text
+        /// in the platform's presence, and null or empty removes it. Where friends see it is the
+        /// platform's to decide: Steam's friends list shows it only through a
+        /// <c>steam_display</c> localization token that the game defines for its app ID and names
+        /// in <c>SteamBackendOptions.PresenceDisplayToken</c>. Without a call, the manager still
+        /// tells the platform which session this player is in and how many players it has, the
+        /// ones whose slot the host keeps while they are away included, so the platform can show
+        /// the players of one session as one group, which Steam does through
+        /// <c>steam_player_group</c>: from the lobby or the game on, for a late joiner too, and
+        /// through <see cref="SessionState.Reconnecting"/>. When the session ends
         /// for any reason, or the manager is disposed, the manager removes the status and the
         /// group before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change
         /// to Offline, so every session starts without a status. Text that holds a NUL character

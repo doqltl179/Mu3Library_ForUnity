@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Text;
 using Mu3Library.Multiplayer.Data;
 using Steamworks;
 
@@ -8,30 +9,51 @@ namespace Mu3Library.Multiplayer.Steam
     public sealed partial class SteamBackend
     {
         internal const string StatusKey = "status";
+        internal const string DisplayKey = "steam_display";
         internal const string GroupKey = "steam_player_group";
         internal const string GroupSizeKey = "steam_player_group_size";
 
+        // The token set as steam_display while a status is set; null leaves that key to the game.
+        private string _presenceDisplayToken = null;
+
         // What this backend set on Steam's rich presence keys; null for a key it did not set.
         private string _presenceStatus = null;
+        private string _presenceDisplay = null;
         private string _presenceGroup = null;
         private string _presenceGroupSize = null;
 
 
 
+        private void InitializePresence(SteamBackendOptions options)
+        {
+            _presenceDisplayToken = string.IsNullOrEmpty(options.PresenceDisplayToken) ? null : options.PresenceDisplayToken;
+        }
+
+        internal static bool IsValidDisplayToken(string token)
+        {
+            return string.IsNullOrEmpty(token)
+                || (token.Length > 1
+                    && token[0] == '#'
+                    && token.IndexOf('\0') < 0
+                    && Encoding.UTF8.GetByteCount(token) <= MultiplayerLimits.MaxPresenceStatusSize);
+        }
+
         /// <summary>
-        /// Sets Steam's rich presence: the key <c>status</c> to the status, and
-        /// <c>steam_player_group</c> to the lobby ID with <c>steam_player_group_size</c> to the
-        /// player count, and deletes a key that a call leaves empty. It touches no other key.
+        /// Sets Steam's rich presence: the key <c>status</c> to the status, with
+        /// <see cref="SteamBackendOptions.PresenceDisplayToken"/> as <c>steam_display</c> while a
+        /// status is set, and <c>steam_player_group</c> to the lobby ID with
+        /// <c>steam_player_group_size</c> to the player count. It deletes a key that a call leaves
+        /// empty, and touches no key it did not set.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Steam documents <c>status</c> as the text of the game info that its friends list opens
-        /// for a friend; the rich presence line in the friends list comes from
-        /// <c>steam_display</c>, a localization token that a game configures for its own app ID,
-        /// which this backend does not set. Steam's test app 480 has tokens of its own,
-        /// not a game's. A game that wants that line sets <c>steam_display</c> itself with
-        /// Steamworks.NET, and clears it itself, since the backend deletes only the keys it set.
-        /// The group shows no text: Steam uses it to place the players of one session together.
+        /// Steam's friends list shows a friend's rich presence line only through
+        /// <c>steam_display</c>, a localization token that a game defines for its own app ID;
+        /// Steam documents <c>status</c> alone as the text of the game info that its friends list
+        /// opens for a friend. Without <see cref="SteamBackendOptions.PresenceDisplayToken"/> the
+        /// backend leaves <c>steam_display</c> to the game, which then sets and clears it itself
+        /// with Steamworks.NET. Steam's test app 480 has tokens of its own, not a game's. The
+        /// group shows no text: Steam uses it to place the players of one session together.
         /// </para>
         /// <para>
         /// The backend sets no <c>connect</c> key: joining from the friends list goes through the
@@ -46,11 +68,29 @@ namespace Mu3Library.Multiplayer.Steam
                 return false;
             }
 
+            if (string.IsNullOrEmpty(status))
+            {
+                status = null;
+            }
+
+            string display = status != null ? _presenceDisplayToken : null;
             string groupText = group.IsValid ? group.Value.ToString(CultureInfo.InvariantCulture) : null;
             string sizeText = group.IsValid && groupSize > 0 ? groupSize.ToString(CultureInfo.InvariantCulture) : null;
 
-            // Every key is tried, so one Steam refuses holds no other back.
-            bool isSet = SetPresenceKey(StatusKey, status, ref _presenceStatus);
+            // Every key is tried, so one Steam refuses holds no other back. The status goes in
+            // before the token that shows it and comes out after it, so the line is never empty.
+            bool isSet;
+            if (display != null)
+            {
+                isSet = SetPresenceKey(StatusKey, status, ref _presenceStatus);
+                isSet &= SetPresenceKey(DisplayKey, display, ref _presenceDisplay);
+            }
+            else
+            {
+                isSet = SetPresenceKey(DisplayKey, null, ref _presenceDisplay);
+                isSet &= SetPresenceKey(StatusKey, status, ref _presenceStatus);
+            }
+
             isSet &= SetPresenceKey(GroupKey, groupText, ref _presenceGroup);
             isSet &= SetPresenceKey(GroupSizeKey, sizeText, ref _presenceGroupSize);
             return isSet;
@@ -82,12 +122,14 @@ namespace Mu3Library.Multiplayer.Steam
         {
             if (steamRuns)
             {
+                SetPresenceKey(DisplayKey, null, ref _presenceDisplay);
                 SetPresenceKey(StatusKey, null, ref _presenceStatus);
                 SetPresenceKey(GroupKey, null, ref _presenceGroup);
                 SetPresenceKey(GroupSizeKey, null, ref _presenceGroupSize);
             }
 
             _presenceStatus = null;
+            _presenceDisplay = null;
             _presenceGroup = null;
             _presenceGroupSize = null;
         }
