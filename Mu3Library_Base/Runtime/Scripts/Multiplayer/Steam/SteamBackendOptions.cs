@@ -1,3 +1,4 @@
+using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 
 namespace Mu3Library.Multiplayer.Steam
@@ -39,5 +40,20 @@ namespace Mu3Library.Multiplayer.Steam
         public LocalNetwork EditorFallbackNetwork { get; set; }
 
         public string EditorFallbackPlayerName { get; set; } = "Editor";
+
+        /// <summary>
+        /// A rich presence localization token, such as <c>#Status</c>, that the backend sets as
+        /// Steam's <c>steam_display</c> key while a status from
+        /// <see cref="IMultiplayerManager.SetPresenceStatus"/> is set, and deletes with the status.
+        /// Steam's friends list shows a friend's rich presence line only through that key, so a
+        /// game that wants the status there defines the token for its own app ID in the rich
+        /// presence localization on the Steamworks partner site, for example
+        /// <c>"#Status" "%status%"</c>, where <c>%status%</c> stands for the status. Null or
+        /// empty, the default, leaves <c>steam_display</c> to the game. A token starts with
+        /// <c>#</c> and holds at most <see cref="MultiplayerLimits.MaxPresenceStatusSize"/>
+        /// UTF-8 bytes; another value makes <see cref="SteamBackend.TryCreate"/> answer
+        /// <see cref="MultiplayerReason.InvalidArgument"/>.
+        /// </summary>
+        public string PresenceDisplayToken { get; set; }
     }
 }

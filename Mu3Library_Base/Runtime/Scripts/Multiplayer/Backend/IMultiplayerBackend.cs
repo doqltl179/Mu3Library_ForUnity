@@ -14,9 +14,9 @@ namespace Mu3Library.Multiplayer.Backend
     /// <see cref="Update"/>. A backend never calls back from inside the request itself.
     /// </para>
     /// <para>
-    /// A backend also promises that every lobby request answers exactly once, even when several
-    /// searches overlap or the platform refuses the request, since the manager has no timeout
-    /// while it creates a lobby. It reports a connection that stops answering as
+    /// A backend also promises that every lobby request and every avatar request answers exactly
+    /// once, even when several searches overlap or the platform refuses the request, since the
+    /// manager has no timeout while it creates a lobby or waits for an avatar. It reports a connection that stops answering as
     /// <see cref="BackendDisconnectKind.ConnectionLost"/> within its own timeout (10 seconds by
     /// default), which is how a client notices that its host crashed. And it keeps a join request
     /// that arrives before <see cref="SetListener"/>, such as the lobby a launch from an invite
@@ -115,6 +115,25 @@ namespace Mu3Library.Multiplayer.Backend
         /// this backend does not hold open, such as one either side closed.
         /// </summary>
         public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality);
+        #endregion
+
+        #region Platform
+        /// <summary>
+        /// Reads a player's avatar at the given size. The callback answers with
+        /// <see cref="MultiplayerReason.None"/> and the image, or with a failure reason and no
+        /// image: <see cref="MultiplayerReason.NotSupported"/> on a backend that has no avatars,
+        /// and <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or size.
+        /// </summary>
+        public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted);
+
+        /// <summary>
+        /// Shows this player's friends a status text and the session this player is in, as a
+        /// group of <paramref name="groupSize"/> players. A null status removes the status, and
+        /// <see cref="LobbyId.None"/> removes the group; the manager calls it only when something
+        /// changed, and with neither to remove both. A backend without such a feature does nothing
+        /// and answers true. False when the platform refused it.
+        /// </summary>
+        public bool SetPresence(string status, LobbyId group, int groupSize);
         #endregion
     }
 }

@@ -49,6 +49,8 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | kick | The host removing a player from the session, who then cannot rejoin it | 강퇴 | キック |
 | reconnect, reservation | A dropped client connecting back to its session, and the time the host keeps its slot for it (`ReconnectReservationSeconds`) | 재접속, 예약 | 再接続、予約 |
 | outage | A simulated temporary loss of a local backend's connections (`LocalBackend.SimulateOutage`) | 네트워크 끊김 | 通信断 |
+| avatar | A player's Steam profile picture, loaded as a texture (`LoadAvatar`) | 아바타 | アバター |
+| rich presence, friends list | Steam's per-player key-value status that friends see, and the Steam friends list that shows it | 리치 프레즌스, 친구 목록 | リッチプレゼンス、フレンドリスト |
 | TMP Essential Resources | The TextMesh Pro resources a project imports from the Editor: `TMP Settings`, the LiberationSans SDF font asset, the TextMesh Pro shaders, and the default style sheet | = | = |
 | font asset, style sheet | A TextMesh Pro `TMP_FontAsset` and `TMP_StyleSheet` | 폰트 에셋, 스타일 시트 | フォントアセット、スタイルシート |
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |

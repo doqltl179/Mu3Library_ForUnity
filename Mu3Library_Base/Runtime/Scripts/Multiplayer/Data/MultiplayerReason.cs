@@ -20,6 +20,8 @@ namespace Mu3Library.Multiplayer.Data
         OverlayUnavailable = 3,
         /// <summary>The backend refused or failed the request for a reason it does not name.</summary>
         BackendError = 4,
+        /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>
+        NotSupported = 5,
 
         /// <summary>The request does not fit the current session state.</summary>
         InvalidState = 10,

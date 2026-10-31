@@ -315,6 +315,33 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadAvatar_AnswersNotSupported_OnTheNextUpdate()
+        {
+            // FR-4: the machine-wide network has no avatars either.
+            LocalBackend backend = CreateRawBackend(CreateNetwork(), "A");
+
+            MultiplayerReason? reason = null;
+            MultiplayerReason? invalid = null;
+            backend.LoadAvatar(backend.LocalPlayerId, AvatarSize.Large, (answer, avatar) => reason = answer);
+            backend.LoadAvatar(PlayerId.None, AvatarSize.Large, (answer, avatar) => invalid = answer);
+            Assert.That(reason.HasValue || invalid.HasValue, Is.False);
+
+            backend.Update();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.NotSupported));
+            Assert.That(invalid, Is.EqualTo(MultiplayerReason.InvalidArgument));
+        }
+
+        [Test]
+        public void SetPresence_ChangesNothingAndSucceeds()
+        {
+            // FR-13: the machine-wide network has no friends list either.
+            LocalBackend backend = CreateRawBackend(CreateNetwork(), "A");
+
+            Assert.That(backend.SetPresence("Status", new LobbyId(1), 2), Is.True);
+            Assert.That(backend.SetPresence(null, LobbyId.None, 0), Is.True);
+        }
+
+        [Test]
         public void Crash_IsReportedAsALostConnection()
         {
             (LocalBackend host, _, _, RecordingListener clientEvents) = ConnectPair();

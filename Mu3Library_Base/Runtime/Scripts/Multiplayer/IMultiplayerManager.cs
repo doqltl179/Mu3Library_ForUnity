@@ -12,8 +12,9 @@ namespace Mu3Library.Multiplayer
     /// </summary>
     /// <remarks>
     /// Everything runs on the main thread. What the backend reports, and the answers to
-    /// <see cref="CreateLobby"/>, <see cref="JoinLobby"/>, and <see cref="SearchLobbies"/>, arrive
-    /// from inside <c>Update</c>. A request that changes the session raises its own events before
+    /// <see cref="CreateLobby"/>, <see cref="JoinLobby"/>, <see cref="SearchLobbies"/>, and
+    /// <see cref="LoadAvatar"/> for an avatar the manager does not hold yet, arrive from inside
+    /// <c>Update</c>. A request that changes the session raises its own events before
     /// it returns: <see cref="CreateLobby"/> and <see cref="JoinLobby"/> their first state change,
     /// <see cref="Leave"/> the change to Offline and the failed answer of a pending create or join,
     /// and the host's requests the events they cause. A handler may call back into the manager.
@@ -199,6 +200,61 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </summary>
         public MultiplayerResult ReportLoaded();
+        #endregion
+
+        #region Platform
+        /// <summary>
+        /// Loads a player's avatar as a texture of the given size: this player's own, another
+        /// player's of the session, or any other account the backend can tell about, such as the
+        /// host of a lobby that search found. It answers at once when the manager already holds
+        /// that avatar or the request fails its own checks, and otherwise from inside <c>Update</c>
+        /// once the backend has the image, which on Steam can take a moment for an avatar it still
+        /// downloads. A failure answers a null texture and the reason:
+        /// <see cref="MultiplayerReason.NotSupported"/> on a backend without avatars, such as the
+        /// local backend, <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or
+        /// size, <see cref="MultiplayerReason.BackendError"/> at once when the backend is no
+        /// longer available, for example once it is disposed, and
+        /// <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10 seconds.
+        /// Several requests for the same avatar while it loads share one answer, and a request that
+        /// failed is tried again the next time.
+        /// <para>
+        /// The manager owns every texture it hands out: never destroy or change one. Asking again
+        /// for the same player and size answers the same texture. An avatar of another player
+        /// that arrived while that player was in the session lasts until the session ends, even
+        /// when the player left earlier: the manager asks Unity to destroy it before
+        /// <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change to Offline,
+        /// and in play mode Unity destroys it at the end of that frame, in edit mode at once. An
+        /// avatar that arrives after its player left, and any other avatar, this player's own
+        /// included, lasts until the manager is disposed. A game that still shows an avatar after
+        /// that asks for it again. When one of several callbacks for the same avatar ends the
+        /// session, the manager asks again for the ones after it, so none gets a texture that is
+        /// being destroyed.
+        /// </para>
+        /// </summary>
+        public void LoadAvatar(PlayerId player, AvatarSize size, Action<AvatarResult> callback);
+
+        /// <summary>
+        /// In a session, from <see cref="CreateLobby"/> or <see cref="JoinLobby"/> on; outside one
+        /// it answers <see cref="MultiplayerReason.InvalidState"/>. Sets this player's status text
+        /// in the platform's presence, and null or empty removes it. Where friends see it is the
+        /// platform's to decide: Steam's friends list shows it only through a
+        /// <c>steam_display</c> localization token that the game defines for its app ID and names
+        /// in <c>SteamBackendOptions.PresenceDisplayToken</c>. Without a call, the manager still
+        /// tells the platform which session this player is in and how many players it has, the
+        /// ones whose slot the host keeps while they are away included, so the platform can show
+        /// the players of one session as one group, which Steam does through
+        /// <c>steam_player_group</c>: from the lobby or the game on, for a late joiner too, and
+        /// through <see cref="SessionState.Reconnecting"/>. When the session ends
+        /// for any reason, or the manager is disposed, the manager removes the status and the
+        /// group before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change
+        /// to Offline, so every session starts without a status. Text that holds a NUL character
+        /// or an unpaired UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>,
+        /// text longer than <see cref="MultiplayerLimits.MaxPresenceStatusSize"/> UTF-8 bytes
+        /// <see cref="MultiplayerReason.MessageTooLarge"/>, and a platform that refuses it
+        /// <see cref="MultiplayerReason.BackendError"/>. The local backend shows nothing and
+        /// succeeds. What Steam shows of it is in the remarks of <c>SteamBackend.SetPresence</c>.
+        /// </summary>
+        public MultiplayerResult SetPresenceStatus(string status);
         #endregion
     }
 }

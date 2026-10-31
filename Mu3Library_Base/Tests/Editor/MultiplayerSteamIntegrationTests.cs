@@ -299,6 +299,230 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
+        {
+            // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(_backend, new MultiplayerConfig("mu3.test.avatar", 1)).IsSuccess, Is.True);
+                PlayerId self = _backend.LocalPlayerId;
+                Steamworks.CSteamID steamId = new Steamworks.CSteamID(self.Value);
+                List<UnityEngine.Texture2D> textures = new List<UnityEngine.Texture2D>();
+
+                foreach ((AvatarSize size, int side) in new[] { (AvatarSize.Small, 32), (AvatarSize.Medium, 64), (AvatarSize.Large, 184) })
+                {
+                    AvatarResult? result = null;
+                    Stopwatch watch = Stopwatch.StartNew();
+                    manager.LoadAvatar(self, size, r => result = r);
+                    Pump(manager, () => result.HasValue, 15);
+                    TestContext.WriteLine($"Steam answered the {size} avatar with {result?.Reason.ToString() ?? "nothing"} after {watch.Elapsed.TotalSeconds:0.00} s.");
+                    Assert.That(result?.IsSuccess, Is.True, result?.Reason.ToString());
+
+                    UnityEngine.Texture2D texture = result.Value.Texture;
+                    Assert.That(texture != null, Is.True);
+                    Assert.That((texture.width, texture.height), Is.EqualTo((side, side)));
+
+                    // Steam's own copy runs from the top row down, the texture from the bottom row up.
+                    int image = size == AvatarSize.Small ? Steamworks.SteamFriends.GetSmallFriendAvatar(steamId)
+                        : size == AvatarSize.Medium ? Steamworks.SteamFriends.GetMediumFriendAvatar(steamId)
+                        : Steamworks.SteamFriends.GetLargeFriendAvatar(steamId);
+                    byte[] steam = new byte[side * side * 4];
+                    Assert.That(Steamworks.SteamUtils.GetImageRGBA(image, steam, steam.Length), Is.True);
+
+                    UnityEngine.Color32[] pixels = texture.GetPixels32();
+                    int mismatches = 0;
+                    bool readsTheSameUpsideDown = true;
+                    for (int y = 0; y < side; y++)
+                    {
+                        for (int x = 0; x < side; x++)
+                        {
+                            UnityEngine.Color32 pixel = pixels[y * side + x];
+                            int i = ((side - 1 - y) * side + x) * 4;
+                            if (pixel.r != steam[i] || pixel.g != steam[i + 1] || pixel.b != steam[i + 2] || pixel.a != steam[i + 3])
+                            {
+                                mismatches++;
+                            }
+
+                            int mirrored = (y * side + x) * 4;
+                            if (steam[i] != steam[mirrored] || steam[i + 1] != steam[mirrored + 1] || steam[i + 2] != steam[mirrored + 2])
+                            {
+                                readsTheSameUpsideDown = false;
+                            }
+                        }
+                    }
+
+                    TestContext.WriteLine(readsTheSameUpsideDown
+                        ? $"The {size} avatar reads the same upside down, so it cannot show the orientation."
+                        : $"The {size} avatar differs upside down, so the comparison checks the orientation.");
+                    Assert.That(mismatches, Is.Zero, "pixels that differ from Steam's, the top row taken as the texture's top");
+
+                    AvatarResult? again = null;
+                    manager.LoadAvatar(self, size, r => again = r);
+                    Assert.That(again?.Texture, Is.SameAs(texture), "the same texture, at once");
+                    textures.Add(texture);
+                }
+
+                manager.Dispose();
+                Assert.That(textures.TrueForAll(texture => texture == null), Is.True, "disposing the manager destroys its textures");
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamPresence_ShowsTheStatusAndTheSessionAsAGroup_UntilTheSessionEnds()
+        {
+            // FR-13 and FR-28 on Steam itself, read back from this account's own rich presence:
+            // how another account's friends list shows them is a manual check.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreateFriendsOnlyLobby(manager, "forest");
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo(lobby.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.EqualTo("1"));
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+
+                Assert.That(manager.SetPresenceStatus("Mu3 test: 숲").IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test: 숲"));
+
+                // The longest status the manager takes reads back whole; Steam itself refuses one byte more.
+                string longest = new string('x', MultiplayerLimits.MaxPresenceStatusSize);
+                Assert.That(manager.SetPresenceStatus(longest).IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo(longest));
+                bool takesOneMore = Steamworks.SteamFriends.SetRichPresence(SteamBackend.StatusKey, longest + "x");
+                TestContext.WriteLine($"Steam {(takesOneMore ? "took" : "refused")} a status of {longest.Length + 1} bytes; it reads back {OwnPresence(SteamBackend.StatusKey).Length} bytes.");
+                Assert.That(takesOneMore, Is.False, "Steam refuses a status one byte longer");
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo(longest));
+
+                manager.Leave();
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamPresence_IsRemovedWhenTheManagerIsDisposed_AndLeavesTheGamesOwnKeys()
+        {
+            // FR-28 on Steam itself; a key the game set through Steamworks stays the game's.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                CreateFriendsOnlyLobby(manager, "forest");
+                Assert.That(Steamworks.SteamFriends.SetRichPresence("mu3_test", "kept"), Is.True);
+                Assert.That(Steamworks.SteamFriends.SetRichPresence(SteamBackend.DisplayKey, "#GameOwn"), Is.True);
+                Assert.That(manager.SetPresenceStatus("Mu3 test").IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+
+                manager.Dispose();
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+                Assert.That(OwnPresence("mu3_test"), Is.EqualTo("kept"));
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True, "without a token, steam_display stays the game's");
+            }
+            finally
+            {
+                manager.Dispose();
+                Steamworks.SteamFriends.SetRichPresence("mu3_test", string.Empty);
+                Steamworks.SteamFriends.SetRichPresence(SteamBackend.DisplayKey, string.Empty);
+            }
+        }
+
+        [Test]
+        public void SteamPresence_IsRemovedWhenTheBackendIsDisposed()
+        {
+            // FR-28 for a game that disposes the backend without the manager. A second backend
+            // finds Steam running, so disposing it leaves Steam up to read the keys back.
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480 }, out SteamBackend second);
+            Assert.That(created.IsSuccess, Is.True, created.ToString());
+            try
+            {
+                Assert.That(second.OwnsSteam, Is.False);
+                Assert.That(second.SetPresence("Mu3 test", new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"));
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.EqualTo("2"));
+            }
+            finally
+            {
+                second.Dispose();
+            }
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        [Test]
+        public void SteamPresence_WithADisplayToken_SetsSteamDisplayWhileAStatusIsSet()
+        {
+            // FR-13: the token is what Steam's friends list shows; the test app has none of this
+            // library's, so only the keys are read back. Steam lists steam_display among the
+            // account's keys but answers its value as empty, so for that key the test sees only
+            // whether it is set. A second backend leaves Steam running.
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480, PresenceDisplayToken = "#Mu3Status" }, out SteamBackend second);
+            Assert.That(created.IsSuccess, Is.True, created.ToString());
+            try
+            {
+                Assert.That(second.SetPresence(null, new LobbyId(123), 2), Is.True);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False, "no status, no line");
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"));
+
+                Assert.That(second.SetPresence("Mu3 test", new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True);
+                TestContext.WriteLine($"Steam reads steam_display back as '{OwnPresence(SteamBackend.DisplayKey)}'.");
+
+                Assert.That(second.SetPresence(null, new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"), "the group stays without a status");
+
+                Assert.That(second.SetPresence("Again", new LobbyId(123), 2), Is.True);
+                Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.True);
+            }
+            finally
+            {
+                second.Dispose();
+            }
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False, "disposing the backend deletes the token it set");
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        /// <summary>Whether this account's own rich presence lists the key.</summary>
+        private bool HasOwnPresenceKey(string key)
+        {
+            Steamworks.CSteamID self = new Steamworks.CSteamID(_backend.LocalPlayerId.Value);
+            int count = Steamworks.SteamFriends.GetFriendRichPresenceKeyCount(self);
+            for (int i = 0; i < count; i++)
+            {
+                if (Steamworks.SteamFriends.GetFriendRichPresenceKeyByIndex(self, i) == key)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>A value of this account's own rich presence; empty when the key is not set.</summary>
+        private string OwnPresence(string key)
+        {
+            return Steamworks.SteamFriends.GetFriendRichPresence(new Steamworks.CSteamID(_backend.LocalPlayerId.Value), key);
+        }
+
         /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
         private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
         {

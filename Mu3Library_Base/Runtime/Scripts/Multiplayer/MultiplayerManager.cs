@@ -159,11 +159,14 @@ namespace Mu3Library.Multiplayer
             UpdateLoadWait();
             UpdateJoinTimeout();
             UpdateReconnect();
+            ShowPresence();
         }
 
         /// <summary>
         /// Leaves any session without raising events, then lets go of the backend. The backend
-        /// itself belongs to whoever created it.
+        /// itself belongs to whoever created it. Every avatar texture the manager handed out is
+        /// destroyed, the requests still waiting for one are never answered, and the presence the
+        /// session showed is removed.
         /// </summary>
         public void Dispose()
         {
@@ -179,6 +182,7 @@ namespace Mu3Library.Multiplayer
                 _listener = null;
             }
 
+            ReleaseAvatars();
             _isDisposed = true;
 
             OnStateChanged = null;
@@ -575,6 +579,8 @@ namespace Mu3Library.Multiplayer
             ResetMessageState();
             ResetDataState();
             ResetLoadState();
+            ReleaseSessionAvatars();
+            ResetPresenceState();
         }
 
         private int IndexOfParticipant(PlayerId player)

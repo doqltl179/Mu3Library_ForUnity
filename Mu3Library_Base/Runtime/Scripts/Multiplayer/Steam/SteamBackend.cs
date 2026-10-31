@@ -90,6 +90,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             InitializeConnections(options);
             InitializeLobbies();
+            InitializePresence(options);
             _lobbyJoinRequested = Callback<GameLobbyJoinRequested_t>.Create(HandleLobbyJoinRequested);
 
             if (!s_launchLobbyTaken && SteamLaunchArguments.TryGetConnectLobby(Environment.GetCommandLineArgs(), out LobbyId lobby))
@@ -113,7 +114,7 @@ namespace Mu3Library.Multiplayer.Steam
         {
             backend = null;
             options ??= new SteamBackendOptions();
-            if (!(options.ConnectionTimeoutSeconds > 0f))
+            if (!(options.ConnectionTimeoutSeconds > 0f) || !IsValidDisplayToken(options.PresenceDisplayToken))
             {
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
@@ -229,9 +230,14 @@ namespace Mu3Library.Multiplayer.Steam
 
             DisposeFinishedCalls();
             CheckSearchTimeout();
-            if (!IsAvailable)
+            if (IsAvailable)
+            {
+                UpdateAvatars();
+            }
+            else
             {
                 FailSearches(MultiplayerReason.SteamNotRunning);
+                FailAvatars(MultiplayerReason.SteamNotRunning);
             }
 
             // What a callback queues while being handed on waits for the next update.
@@ -359,12 +365,14 @@ namespace Mu3Library.Multiplayer.Steam
             _isDisposed = true;
             _listener = null;
             _events.Clear();
+            _pendingAvatars.Clear();
 
             _lobbyJoinRequested?.Dispose();
             _lobbyJoinRequested = null;
 
             ShutdownConnections(steamRuns);
             ShutdownLobbies(steamRuns);
+            ShutdownPresence(steamRuns);
 
             if (_ownsSteam && steamRuns)
             {

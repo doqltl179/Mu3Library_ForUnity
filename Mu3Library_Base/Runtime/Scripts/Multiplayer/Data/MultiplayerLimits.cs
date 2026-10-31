@@ -46,6 +46,13 @@ namespace Mu3Library.Multiplayer.Data
         public const int MaxChatMessageSize = 4 * 1024;
 
         /// <summary>
+        /// Longest status text, in UTF-8 bytes, that <see cref="IMultiplayerManager.SetPresenceStatus"/>
+        /// takes: the longest rich presence value Steam keeps, which takes 256 bytes with the NUL
+        /// character that ends it.
+        /// </summary>
+        public const int MaxPresenceStatusSize = 255;
+
+        /// <summary>
         /// Most ready changes, load reports, and participant data requests of one client that the
         /// host holds back for the rate limits (<see cref="SessionRules.MaxMessagesPerSecond"/>,
         /// <see cref="SessionRules.MaxBytesPerSecond"/>) at a time. One more disconnects the client
