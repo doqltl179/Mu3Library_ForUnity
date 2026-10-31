@@ -709,17 +709,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            // What the simulated network still holds back goes out now, ahead of the close and
+            // without the rest of its delay, since the close follows the data already sent. A
+            // backend disposed without a close sends it too, as a process that ends delivers
+            // what it already put on the wire, and the in-process backend does the same.
+            ReleaseDelayed(link, double.PositiveInfinity);
             if (sendClose)
             {
-                // What the simulated network still holds back goes out now, ahead of the close,
-                // since the close follows the data already sent.
-                ReleaseDelayed(link, double.PositiveInfinity);
                 _writer.Clear().WriteInt(reasonCode);
                 QueueFrame(link, MachineFrameKind.Close, _writer.Written, force: true);
-            }
-            else
-            {
-                DiscardDelayed(link);
             }
 
             // What the socket does not take now, the lingering socket sends.

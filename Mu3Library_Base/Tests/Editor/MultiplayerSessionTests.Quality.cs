@@ -150,6 +150,34 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void UnderSimulation_AHostThatLeaves_DeliversItsLastReliableMessagesFirst()
+        {
+            // FR-32: the lobby passing on, which the network does not delay, must not overtake the
+            // host's last messages and its close, or the clients would end their sessions first.
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(2);
+            Dictionary<Node, Inbox> inboxes = ListenAll(Chat, clients);
+            _network.SimulatedLatencyMilliseconds = 50f;
+            _network.SimulatedJitterMilliseconds = 20f;
+            _network.SimulatedLossPercent = 20f;
+
+            for (int i = 0; i < 20; i++)
+            {
+                Assert.That(host.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Others).IsSuccess, Is.True);
+            }
+
+            host.Manager.Leave();
+            Advance(2.0);
+
+            foreach (Node client in clients)
+            {
+                Assert.That(Indices(inboxes[client], DeliveryMode.Reliable), Is.EqualTo(Enumerable.Range(0, 20)), client.Backend.PlayerName);
+                Assert.That(client.Manager.State, Is.EqualTo(SessionState.Offline));
+                Assert.That(client.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            }
+        }
+
+        [Test]
         public void SimulatedConditions_RefuseValuesOutOfRange()
         {
             LocalNetwork network = new LocalNetwork();

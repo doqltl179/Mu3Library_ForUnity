@@ -616,7 +616,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 lobby.RejoinDeadline = now + RejoinGraceSeconds;
             }
 
-            _listener?.OnLobbyOwnerChanged(lobby.Id, owner.Id);
+            // Heard in the next update. An owner that leaves sends what its session connection
+            // still carries, its close included, before its hand-over on the lobby connection,
+            // and this update may read that session connection only after this one; heard now,
+            // the owner change would end the session first and drop those packets.
+            LobbyId lobbyId = lobby.Id;
+            PlayerId ownerId = owner.Id;
+            Defer(() => _listener?.OnLobbyOwnerChanged(lobbyId, ownerId));
         }
 
         private void TakeOver(MachineLobby lobby, double now)

@@ -585,6 +585,78 @@ namespace Mu3Library.Tests
             PumpFor(0.2);
             Assert.That(host.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, 1000)));
         }
+
+        [Test]
+        public void SimulatedJitter_KeepsReliableMessagesInOrder_ThroughTheHost()
+        {
+            // FR-32, FR-40: both hops between processes stray in their delay.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+            foreach (Node node in new[] { host, a, b })
+            {
+                node.Network.SeedSimulation(4);
+                node.Network.SimulatedLatencyMilliseconds = 20f;
+                node.Network.SimulatedJitterMilliseconds = 15f;
+            }
+
+            for (int i = 0; i < 300; i++)
+            {
+                Assert.That(a.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.To(b.Id)).IsSuccess, Is.True);
+                Assert.That(a.Manager.Send(Chat, BitConverter.GetBytes(1000 + i), MessageTarget.To(b.Id), DeliveryMode.Unreliable).IsSuccess, Is.True);
+            }
+
+            PumpUntil(() => b.Messages.Count >= 600, "every message");
+            List<int> received = b.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)).ToList();
+            Assert.That(received.Where(value => value < 1000), Is.EqualTo(Enumerable.Range(0, 300)));
+            Assert.That(received.Where(value => value >= 1000), Is.EquivalentTo(Enumerable.Range(1000, 300)));
+        }
+
+        [Test]
+        public void SimulatedLatency_AHostThatLeaves_DeliversItsLastReliableMessagesFirst()
+        {
+            // FR-32: the host's hand-over on the lobby connection must not end a client's session
+            // before the host's last messages and its close on the session connection arrive.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+            host.Network.SimulatedLatencyMilliseconds = 100f;
+            host.Network.SimulatedJitterMilliseconds = 30f;
+
+            for (int i = 0; i < 20; i++)
+            {
+                Assert.That(host.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Others).IsSuccess, Is.True);
+            }
+
+            host.Manager.Leave();
+            PumpUntil(() => a.Manager.State == SessionState.Offline && b.Manager.State == SessionState.Offline, "both clients to end their sessions");
+            foreach (Node client in new[] { a, b })
+            {
+                Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, 20)), client.Backend.PlayerName);
+                Assert.That(client.States.Last().Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            }
+        }
+
+        [Test]
+        public void SimulatedLatency_ABackendDisposedWithoutClosing_StillSendsWhatItHeldBack()
+        {
+            // As the in-process backend: what a backend already sent arrives even when it goes away.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            client.Network.SimulatedLatencyMilliseconds = 500f;
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.That(client.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Host).IsSuccess, Is.True);
+            }
+
+            client.Backend.Dispose();
+            PumpUntil(() => host.Manager.Participants.Count == 1, "the host to drop the client");
+            Assert.That(host.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, 10)));
+        }
         #endregion
 
         #region Helpers

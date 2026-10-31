@@ -784,6 +784,13 @@ namespace Mu3Library.Multiplayer.Local
         #endregion
 
         #region Events
+        /// <summary>
+        /// Tells this member that the lobby passed on. The news comes after the reliable packets
+        /// and the closes already on their way to this player's session connections, even while
+        /// the simulated network still holds them back: a client that heard first that its host
+        /// left the lobby would end its session and drop them, so a host that leaves would lose
+        /// its last messages.
+        /// </summary>
         internal void EnqueueOwnerChanged(LobbyId lobby, PlayerId newOwner)
         {
             if (_isDisposed)
@@ -791,7 +798,26 @@ namespace Mu3Library.Multiplayer.Local
                 return;
             }
 
-            _events.Enqueue(new PendingEvent { Kind = EventKind.OwnerChanged, Lobby = lobby, Player = newOwner });
+            PendingEvent pending = new PendingEvent { Kind = EventKind.OwnerChanged, Lobby = lobby, Player = newOwner };
+
+            LocalConnection behind = null;
+            foreach (LocalConnection connection in _connections.Values)
+            {
+                if (behind == null || connection.LastOrderedDue > behind.LastOrderedDue)
+                {
+                    behind = connection;
+                }
+            }
+
+            if (behind == null)
+            {
+                _events.Enqueue(pending);
+                return;
+            }
+
+            pending.Target = behind;
+            double now = _network.Now;
+            Arrive(pending, now, isOrdered: true, now);
         }
 
         private void EnqueueCallback(Action callback)
