@@ -169,11 +169,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 link.LastOrderedDue = due;
             }
 
-            // Without a delay, and with nothing held back that it must not overtake, it goes out at once.
+            // Without a delay, and with nothing held back that it must not overtake, it goes out at
+            // once; during an update, with everything else the update queued, once it ends.
             if (due <= now && (link.Delayed == null || link.Delayed.Count == 0))
             {
                 QueueFrame(link, kind, payload, force: true);
-                if (link.State == MachineLinkState.Open && !IsCutOff)
+                if ((!_isUpdating || link.PendingCount >= UpdateFlushBytes) && link.State == MachineLinkState.Open && !IsCutOff)
                 {
                     Flush(link);
                 }

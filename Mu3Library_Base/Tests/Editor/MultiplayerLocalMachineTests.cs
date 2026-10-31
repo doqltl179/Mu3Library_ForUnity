@@ -281,6 +281,42 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void RelayedBurst_LeavesInOneSocketCallPerConnection_AndArrivesWithoutAnotherHostUpdate()
+        {
+            // NFR-1, NFR-2: a host relaying a burst it read in one update makes one socket call for
+            // each connection instead of one for each message, and makes it before the update ends.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+
+            // B joined last, so the host reads B's connection after A's: what it relays to A from
+            // there leaves only at the end of the update.
+            const int burst = 50;
+            for (int i = 0; i < burst; i++)
+            {
+                Assert.That(b.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Others, DeliveryMode.Unreliable).IsSuccess, Is.True);
+            }
+
+            // B sends between updates, so the burst is on the loopback already; let it cross.
+            Thread.Sleep(100);
+            long before = host.Backend.SocketSends;
+            host.Manager.Update();
+            long sends = host.Backend.SocketSends - before;
+
+            Assert.That(host.Messages.Count, Is.EqualTo(burst), "The host read the whole burst in one update.");
+            // The host has four connections, a session and a lobby one to each client: at most one
+            // call each, pings and probes included, at the end of the update.
+            Assert.That(sends, Is.LessThanOrEqualTo(4));
+
+            _paused.Add(host.Backend);
+            _paused.Add(b.Backend);
+            PumpUntil(() => a.Messages.Count == burst, "the relayed burst to reach A while the host waits");
+            Assert.That(a.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, burst)));
+            Assert.That(a.Messages.All(message => message.Sender == b.Id), Is.True);
+        }
+
+        [Test]
         public void Disconnect_ArrivesAfterTheDataSentBeforeIt_WithItsReason()
         {
             (_, RecordingListener hostEvents, LocalBackend client, RecordingListener clientEvents) = ConnectPair();

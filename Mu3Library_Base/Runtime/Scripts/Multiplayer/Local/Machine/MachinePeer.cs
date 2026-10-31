@@ -24,6 +24,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// <remarks>
     /// Everything runs on the main thread inside <see cref="Update"/>, on non-blocking sockets;
     /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>).
+    /// What the session sends during an update, such as the messages a host relays, waits in its
+    /// connection's queue until the update ends, so each connection takes one socket call for all
+    /// of them instead of one for each; what the game sends between updates leaves at once.
     /// Every packet travels over TCP, so none is lost or reordered, whichever
     /// <see cref="DeliveryMode"/> it uses, unless the network simulates a worse one: then this
     /// side drops or holds back the session packets it sends before they reach the socket, and its
@@ -44,6 +47,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // One update reads at most this much from one connection, so a fast sender cannot keep it
         // from returning.
         private const int MaxReceiveBytesPerUpdate = 4 * 1024 * 1024;
+
+        // During an update, a connection that queued this much sends it without waiting for the
+        // update to end, so a burst of relays never piles up against MaxPendingBytes.
+        private const int UpdateFlushBytes = 64 * 1024;
 
         private const int InitialBufferBytes = 16 * 1024;
         private const int MinReceiveSpace = 4 * 1024;
@@ -66,6 +73,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private IMultiplayerBackendListener _listener;
         private bool _isDisposed = false;
         private bool _isListening = false;
+        private bool _isUpdating = false;
         private uint _nextConnectionId = 1;
 
         // A join request that arrived while nothing listened, as one from a launch does before
@@ -77,6 +85,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>The loopback port this player listens on; it also tells two processes of one account apart.</summary>
         public int Port { get; }
+
+        /// <summary>How many times this peer has handed data to a socket; tests count it.</summary>
+        public long SocketSends { get; private set; }
 
         public bool IsAvailable => !_isDisposed;
         public bool IsListening => _isListening && !_isDisposed;
@@ -158,30 +169,40 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
-            // Whatever a callback queues waits for the next Update, as an answer from another
-            // process would.
-            int count = _deferred.Count;
-            for (int i = 0; i < count && !_isDisposed; i++)
+            _isUpdating = true;
+            try
             {
-                _deferred.Dequeue()();
+                // Whatever a callback queues waits for the next Update, as an answer from another
+                // process would.
+                int count = _deferred.Count;
+                for (int i = 0; i < count && !_isDisposed; i++)
+                {
+                    _deferred.Dequeue()();
+                }
+
+                double now = Now;
+                AcceptIncoming(now);
+
+                int linkCount = _links.Count;
+                for (int i = 0; i < linkCount && !_isDisposed; i++)
+                {
+                    UpdateLink(_links[i], now);
+                }
+
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                UpdateLobbies(now);
+                _links.RemoveAll(IsDead);
             }
-
-            double now = Now;
-            AcceptIncoming(now);
-
-            int linkCount = _links.Count;
-            for (int i = 0; i < linkCount && !_isDisposed; i++)
+            finally
             {
-                UpdateLink(_links[i], now);
+                // Also when a listener threw: what the update queued before it still leaves now.
+                _isUpdating = false;
+                FlushQueued();
             }
-
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            UpdateLobbies(now);
-            _links.RemoveAll(IsDead);
         }
 
         public void RequestJoin(LobbyId lobby)
@@ -396,8 +417,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            // What the delay released, and what the socket did not take before, leaves at the end
+            // of the update with the rest; a send that failed before is reported now.
             ReleaseDelayed(link, now);
-            Flush(link);
             if (link.HasFailed)
             {
                 EndLink(link, LinkEnd.Lost, 0);
@@ -445,7 +467,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
             if (now - link.LastSent >= PingIntervalSeconds)
             {
                 QueueFrame(link, MachineFrameKind.Ping, ReadOnlySpan<byte>.Empty, force: true);
-                Flush(link);
             }
         }
 
@@ -541,10 +562,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// Sends what the socket of an open connection takes now; a failure waits for the next
         /// update to be reported.
         /// </summary>
-        private static void Flush(MachineLink link)
+        private void Flush(MachineLink link)
         {
             while (link.PendingCount > 0 && !link.HasFailed)
             {
+                SocketSends++;
                 int sent = link.Socket.Send(link.Pending, link.PendingStart, link.PendingCount, SocketFlags.None, out SocketError error);
                 if (error == SocketError.WouldBlock)
                 {
@@ -564,6 +586,29 @@ namespace Mu3Library.Multiplayer.Local.Machine
             if (link.PendingCount == 0)
             {
                 link.PendingStart = 0;
+            }
+        }
+
+        /// <summary>
+        /// Sends what the session queued during the update, one socket call for each connection
+        /// that has something to send. A session connection that an outage cuts off keeps it.
+        /// </summary>
+        private void FlushQueued()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            bool isCutOff = IsCutOff;
+            for (int i = 0; i < _links.Count; i++)
+            {
+                MachineLink link = _links[i];
+                if (link.PendingCount > 0 && link.State == MachineLinkState.Open
+                    && !(isCutOff && link.Role == MachineLinkRole.Session))
+                {
+                    Flush(link);
+                }
             }
         }
 

@@ -140,6 +140,9 @@ namespace Mu3Library.Multiplayer.Local
         /// <summary>The loopback port this backend listens on; 0 on a network inside one process.</summary>
         internal int Port => _machine != null ? _machine.Port : 0;
 
+        /// <summary>How many times this backend has handed data to a socket; 0 on a network inside one process.</summary>
+        internal long SocketSends => _machine != null ? _machine.SocketSends : 0;
+
 
 
         public LocalBackend(LocalNetwork network, string playerName)
