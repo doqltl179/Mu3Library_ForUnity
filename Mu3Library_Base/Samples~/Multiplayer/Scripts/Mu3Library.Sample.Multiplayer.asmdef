@@ -1,0 +1,24 @@
+{
+    "name": "Mu3Library.Sample.Multiplayer",
+    "rootNamespace": "Mu3Library.Sample.Multiplayer",
+    "references": [
+        "GUID:6391e8445d9411043ab0bbeae0fbab5b",
+        "GUID:e8cd03960cfe03647ada1ecc7577e225",
+        "GUID:29435b2f38fe9fd46a72093aa219de1f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "2025.164.1",
+            "define": "MULTIPLAYER_STEAMWORKS_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}
