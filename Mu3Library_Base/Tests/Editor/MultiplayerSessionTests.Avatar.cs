@@ -437,6 +437,131 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ReleaseAvatar_DestroysEverySizeOfThatPlayer_AndARequestAfterwardsReadsItAgain()
+        {
+            Node node = CreatePlatformNode("A");
+            PlayerId stranger = new PlayerId(424242);
+            foreach (AvatarSize size in new[] { AvatarSize.Small, AvatarSize.Large })
+            {
+                node.Platform.Avatars[(node.Id, size)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            }
+
+            node.Platform.Avatars[(stranger, AvatarSize.Medium)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            Texture2D small = LoadAvatar(node, node.Id, AvatarSize.Small).Texture;
+            Texture2D large = LoadAvatar(node, node.Id, AvatarSize.Large).Texture;
+            Texture2D ofStranger = LoadAvatar(node, stranger, AvatarSize.Medium).Texture;
+
+            node.Manager.ReleaseAvatar(node.Id);
+            Assert.That(small == null && large == null, Is.True, "every size, this player's own included");
+            Assert.That(ofStranger != null, Is.True, "another player's stays");
+
+            AvatarResult? again = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => again = r);
+            Assert.That(again.HasValue, Is.False, "a released avatar is no avatar the manager holds");
+            Pump();
+            Assert.That(again?.IsSuccess, Is.True);
+            Assert.That(again.Value.Texture != null, Is.True);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(4), "read from the backend again");
+
+            // Nothing to release changes nothing.
+            node.Manager.ReleaseAvatar(new PlayerId(7));
+            node.Manager.ReleaseAvatar(PlayerId.None);
+            Assert.That(ofStranger != null && again.Value.Texture != null, Is.True);
+
+            MultiplayerManager uninitialized = new MultiplayerManager();
+            uninitialized.ReleaseAvatar(node.Id);
+            uninitialized.ReleaseAvatars();
+            uninitialized.Dispose();
+            uninitialized.ReleaseAvatars();
+        }
+
+        [Test]
+        public void ReleaseAvatars_KeepsThisPlayersOwnAndThoseOfThePlayersInTheSession_AndDestroysTheRest()
+        {
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            Node c = CreatePlatformNode("C");
+            PlayerId stranger = new PlayerId(424242);
+            foreach (PlayerId player in new[] { host.Id, a.Id, b.Id, c.Id, stranger })
+            {
+                host.Platform.Avatars[(player, AvatarSize.Medium)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            }
+
+            // C's avatar arrives before C joins, as a lobby list shows a host before the game joins.
+            Texture2D ofC = LoadAvatar(host, c.Id, AvatarSize.Medium).Texture;
+            Assert.That(Join(c, host).IsSuccess, Is.True);
+            Texture2D own = LoadAvatar(host, host.Id, AvatarSize.Medium).Texture;
+            Texture2D ofA = LoadAvatar(host, a.Id, AvatarSize.Medium).Texture;
+            Texture2D ofB = LoadAvatar(host, b.Id, AvatarSize.Medium).Texture;
+            Texture2D ofStranger = LoadAvatar(host, stranger, AvatarSize.Medium).Texture;
+            b.Manager.Leave();
+            Pump();
+
+            host.Manager.ReleaseAvatars();
+            Assert.That(own != null, Is.True, "this player's own stays");
+            Assert.That(ofA != null && ofC != null, Is.True, "the players in the session keep theirs, also one that arrived before they joined");
+            Assert.That(ofB == null, Is.True, "a player who left");
+            Assert.That(ofStranger == null, Is.True, "an account outside the session");
+
+            // The session still ends with the avatars it holds.
+            host.Manager.Leave();
+            Assert.That(ofA == null, Is.True);
+            Assert.That(ofC != null, Is.True, "it did not arrive while C was in the session");
+            host.Manager.ReleaseAvatars();
+            Assert.That(ofC == null && own != null, Is.True);
+        }
+
+        [Test]
+        public void ReleaseAvatar_FromACallback_LeavesTheNextOnesAFreshTexture()
+        {
+            Node node = CreatePlatformNode("A");
+            PlayerId stranger = new PlayerId(424242);
+            node.Platform.Avatars[(stranger, AvatarSize.Large)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+
+            Texture2D released = null;
+            List<AvatarResult> later = new List<AvatarResult>();
+            node.Manager.LoadAvatar(stranger, AvatarSize.Large, result =>
+            {
+                released = result.Texture;
+                node.Manager.ReleaseAvatars();
+            });
+            node.Manager.LoadAvatar(stranger, AvatarSize.Large, later.Add);
+            Pump();
+
+            node.Platform.HoldsAvatars = false;
+            Pump();
+            Assert.That(released == null, Is.True, "the first callback's texture was released");
+            Assert.That(later.Count, Is.EqualTo(1), "the next callback was asked again, and answered once");
+            Assert.That(later[0].IsSuccess, Is.True);
+            Assert.That(later[0].Texture != null, Is.True);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ReleaseAvatar_LeavesARequestStillWaiting_WhichIsAnsweredAndHeldAsUsual()
+        {
+            Node node = CreatePlatformNode("A");
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+            AvatarResult? result = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => result = r);
+            Pump();
+
+            node.Manager.ReleaseAvatar(node.Id);
+            node.Platform.HoldsAvatars = false;
+            Pump();
+            Texture2D texture = result?.Texture;
+            Assert.That(texture != null, Is.True);
+
+            AvatarResult? again = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => again = r);
+            Assert.That(again?.Texture, Is.SameAs(texture), "held, so answered at once");
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(1));
+        }
+
+        [Test]
         public void LocalBackend_AnswersAnInvalidAvatarRequestWithInvalidArgument()
         {
             LocalBackend backend = CreateRawBackend("A");

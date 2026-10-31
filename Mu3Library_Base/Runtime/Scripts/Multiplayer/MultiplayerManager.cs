@@ -184,7 +184,7 @@ namespace Mu3Library.Multiplayer
                 _listener = null;
             }
 
-            ReleaseAvatars();
+            DisposeAvatars();
             _isDisposed = true;
 
             OnStateChanged = null;

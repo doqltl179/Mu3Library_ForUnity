@@ -112,13 +112,13 @@ namespace Mu3Library.Multiplayer
             }
 
             AvatarResult result = new AvatarResult(reason, player, size, texture);
-            int generation = _sessionGeneration;
             for (int i = 0; i < waiters.Count && !_isDisposed; i++)
             {
-                // A handler that ended the session destroyed the texture with the session's other
-                // avatars, so the callbacks after it ask again, as if they came now. A destroyed
-                // texture compares equal to null, so the reason tells that one was made.
-                if (reason == MultiplayerReason.None && generation != _sessionGeneration)
+                // A handler that ended the session or released the avatar destroyed the texture,
+                // so the callbacks after it ask again, as if they came now. In play mode Unity
+                // destroys it only at the end of the frame, so the manager tells by whether it
+                // still holds that texture, not by comparing it to null.
+                if (reason == MultiplayerReason.None && !HoldsAvatar(key, texture))
                 {
                     for (int rest = i; rest < waiters.Count && !_isDisposed; rest++)
                     {
@@ -209,6 +209,46 @@ namespace Mu3Library.Multiplayer
             }
         }
 
+        public void ReleaseAvatar(PlayerId player)
+        {
+            if (!player.IsValid)
+            {
+                return;
+            }
+
+            foreach ((PlayerId Player, AvatarSize Size) key in _avatars.Keys)
+            {
+                if (key.Player == player)
+                {
+                    _endingAvatars.Add(key);
+                }
+            }
+
+            DestroyEndingAvatars();
+        }
+
+        public void ReleaseAvatars()
+        {
+            // A player of the session now keeps theirs, also one whose avatar arrived before they
+            // joined, such as the host of a lobby that search found, so a game that releases the
+            // avatars of its lobby list once it joined one keeps the ones the lobby shows.
+            PlayerId self = LocalPlayerId;
+            foreach ((PlayerId Player, AvatarSize Size) key in _avatars.Keys)
+            {
+                if (key.Player != self && IndexOfParticipant(key.Player) < 0)
+                {
+                    _endingAvatars.Add(key);
+                }
+            }
+
+            DestroyEndingAvatars();
+        }
+
+        private bool HoldsAvatar((PlayerId Player, AvatarSize Size) key, Texture2D texture)
+        {
+            return _avatars.TryGetValue(key, out OwnedAvatar owned) && ReferenceEquals(owned.Texture, texture);
+        }
+
         /// <summary>
         /// Destroys the avatars of other players that arrived while they were in the session that
         /// now ends, those who left before it ended included.
@@ -223,6 +263,12 @@ namespace Mu3Library.Multiplayer
                 }
             }
 
+            DestroyEndingAvatars();
+        }
+
+        /// <summary>Destroys and forgets the avatars listed in <see cref="_endingAvatars"/>.</summary>
+        private void DestroyEndingAvatars()
+        {
             for (int i = 0; i < _endingAvatars.Count; i++)
             {
                 (PlayerId, AvatarSize) key = _endingAvatars[i];
@@ -234,7 +280,7 @@ namespace Mu3Library.Multiplayer
         }
 
         /// <summary>Destroys every avatar and drops the requests still waiting, as the manager is disposed.</summary>
-        private void ReleaseAvatars()
+        private void DisposeAvatars()
         {
             foreach (OwnedAvatar owned in _avatars.Values)
             {

@@ -305,13 +305,46 @@ namespace Mu3Library.Multiplayer
         /// <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change to Offline,
         /// and in play mode Unity destroys it at the end of that frame, in edit mode at once. An
         /// avatar that arrives after its player left, and any other avatar, this player's own
-        /// included, lasts until the manager is disposed. A game that still shows an avatar after
-        /// that asks for it again. When one of several callbacks for the same avatar ends the
-        /// session, the manager asks again for the ones after it, so none gets a texture that is
-        /// being destroyed.
+        /// included, lasts until the manager is disposed. Before then the game releases what it
+        /// no longer shows with <see cref="ReleaseAvatar"/> and <see cref="ReleaseAvatars"/>, which
+        /// destroy the textures the same way. A game that still shows an avatar after that asks
+        /// for it again, and gets a new texture. When one of several callbacks for the same avatar
+        /// ends the session or releases that avatar, the manager asks again for the ones after it,
+        /// so none gets a texture that is being destroyed.
         /// </para>
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<AvatarResult> callback);
+
+        /// <summary>
+        /// Destroys every texture the manager holds of this player's avatar, in every size,
+        /// whoever the player is: this player, a player of the session, or any other account, such
+        /// as the host of a lobby that search found. A texture the game still shows or keeps is
+        /// destroyed with it, in play mode at the end of the frame and in edit mode at once, so the
+        /// game stops using it; <see cref="LoadAvatar"/> for that player then reads the avatar from
+        /// the backend again and answers a new texture. A request still waiting for the backend is
+        /// left alone: it answers when the backend does, and the manager holds that texture as
+        /// usual. A player whose avatar the manager does not hold, an invalid player, and a manager
+        /// that is not initialized or is disposed change nothing.
+        /// </summary>
+        /// <remarks>
+        /// The manager has no limit of its own on the textures it holds, such as a cap that
+        /// destroys the least recently used, since it cannot tell which texture the game still
+        /// shows, and a cap would destroy one under the game's feet. The game decides instead: a
+        /// large avatar is a readable 184-pixel-square texture, about 135 KB on the GPU and as much
+        /// in memory.
+        /// </remarks>
+        public void ReleaseAvatar(PlayerId player);
+
+        /// <summary>
+        /// Destroys, as <see cref="ReleaseAvatar"/> does, every avatar texture the manager holds
+        /// except this player's own and those of the players in the session now, players whose
+        /// slot the host keeps while they are away included: the avatars of lobby hosts that search
+        /// found, of players who left, and of any other account. A game that shows a list of
+        /// lobbies calls it when the list closes, also after it joined one of them, since the
+        /// players of that session keep their avatars. This player's own, at most three textures
+        /// that a game usually shows everywhere, goes only with <see cref="ReleaseAvatar"/>.
+        /// </summary>
+        public void ReleaseAvatars();
 
         /// <summary>
         /// In a session, from <see cref="CreateLobby"/> or <see cref="JoinLobby"/> on; outside one
