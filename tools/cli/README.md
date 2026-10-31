@@ -71,6 +71,8 @@ The tests that run `compile-unity.sh` find bash the way the `unity` commands do,
 
 When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks the CLI for this bash and puts it first on the PowerShell session's `PATH`.
 
+Git Bash also rewrites an argument that starts with `/` as a Windows path before it starts a Windows program such as `python`, so `mu3-cli unity test --filter /x`, typed in Git Bash, passes `C:/Program Files/Git/x` on; no test matches it and the target fails with `no test matched --filter`. `test-unity.sh` itself refuses a filter that starts with `/`, and PowerShell passes it unchanged for `mu3-cli` to refuse.
+
 ## Notes
 
 - This package lives under `tools/` so it stays outside Unity package delivery surfaces.
