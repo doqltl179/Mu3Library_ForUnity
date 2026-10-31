@@ -15,7 +15,9 @@ readonly RESULTS_DIR="$REPO_ROOT/log/unity-tests"
 # The Unity Test Framework platform as --platform names it and as Unity does.
 PLATFORM_KEY="editmode"
 TEST_PLATFORM="EditMode"
-# The arguments left for compile-unity.sh's parse_arguments once --platform is out.
+# The pattern --filter passes to Unity's -testFilter; empty runs every test.
+TEST_FILTER=""
+# The arguments left for compile-unity.sh's parse_arguments once this script's own options are out.
 COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
 FAILED_TARGET_COUNT=0
@@ -45,6 +47,11 @@ EOF
 Options:
   --platform <editmode|playmode>
                     Run the EditMode tests (default) or the PlayMode tests.
+  --filter <pattern>
+                    Run only the tests whose full name matches <pattern>,
+                    the regular expression Unity's -testFilter takes, such
+                    as a fixture's full name; separate several with ";".
+                    The [Explicit] tests it matches run too.
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
   --dry-run         Print the selection and where each target would run,
                     without Unity.
@@ -74,8 +81,9 @@ check, and the environment variables work as in compile-unity.sh; see
 EOF
 }
 
-# Takes --platform, which only this script has, out of the arguments and leaves
-# the rest in COMPILE_ARGUMENTS for the options it shares with compile-unity.sh.
+# Takes --platform and --filter, which only this script has, out of the
+# arguments and leaves the rest in COMPILE_ARGUMENTS for the options it shares
+# with compile-unity.sh.
 parse_test_arguments() {
     COMPILE_ARGUMENTS=()
 
@@ -96,6 +104,12 @@ parse_test_arguments() {
                         ;;
                 esac
                 PLATFORM_KEY="$1"
+                ;;
+            --filter)
+                shift
+                [[ "$#" -gt 0 && -n "$1" ]] || fail "--filter requires a test name or pattern"
+                [[ -z "$TEST_FILTER" ]] || fail "--filter can be given once; separate several patterns with ;"
+                TEST_FILTER="$1"
                 ;;
             *)
                 COMPILE_ARGUMENTS+=("$1")
@@ -194,14 +208,18 @@ test_target() {
     local failed
     local skipped
     local counts
+    local unity_arguments=(-runTests -testPlatform "$TEST_PLATFORM")
+
+    if [[ -n "$TEST_FILTER" ]]; then
+        unity_arguments+=(-testFilter "$TEST_FILTER")
+    fi
 
     mkdir -p "$RESULTS_DIR"
     # A result file left by an earlier run must not stand in for this one.
     rm -f -- "$results_file"
 
     run_unity_for_target "$target_key" "Testing" \
-        -runTests \
-        -testPlatform "$TEST_PLATFORM" \
+        "${unity_arguments[@]}" \
         -testResults "$(to_windows_path "$results_file")"
 
     if [[ ! -f "$results_file" ]]; then
@@ -221,6 +239,8 @@ test_target() {
     if [[ "$failed" -gt 0 ]]; then
         record_failure "$target_key" "$counts"
         print_failed_tests "$results_file"
+    elif [[ "$total" -eq 0 && -n "$TEST_FILTER" ]]; then
+        record_failure "$target_key" "no test matched --filter $TEST_FILTER"
     elif [[ "$total" -eq 0 ]]; then
         record_failure "$target_key" "no tests ran although the project lists testables"
     elif [[ "$UNITY_STATUS" -ne 0 ]]; then
@@ -250,6 +270,9 @@ test_main() {
     parse_arguments ${COMPILE_ARGUMENTS[@]+"${COMPILE_ARGUMENTS[@]}"}
     select_requested_targets
     print_selection
+    if [[ -n "$TEST_FILTER" ]]; then
+        printf 'Test filter: %s\n' "$TEST_FILTER"
+    fi
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
         print_run_plan

@@ -33,22 +33,27 @@ PROJECT_PACKAGES = {
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 
-# Stands in for the Unity Editor: names the project and the arguments it ran with, writes
-# the test results it is given to the path after -testResults, and exits with the status
-# it is given.
+# Stands in for the Unity Editor: names the project, the arguments it ran with, and the
+# -testFilter value as one argument, writes the test results it is given to the path after
+# -testResults, and exits with the status it is given.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
 project=""
+filter=""
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -testResults) results="$2"; shift ;;
         -projectPath) project="$2"; shift ;;
+        -testFilter) filter="$2"; shift ;;
     esac
     shift
 done
 printf 'fake unity ran %s\\n' "$project"
 printf 'fake unity arguments: %s\\n' "$arguments"
+if [[ -n "$filter" ]]; then
+    printf 'fake unity test filter: [%s]\\n' "$filter"
+fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
 fi

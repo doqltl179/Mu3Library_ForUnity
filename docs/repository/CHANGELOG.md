@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-01
+
+### Added
+- `test-unity.sh` and `mu3-cli unity test` take `--filter <pattern>`, which they pass to the Unity Test Framework as `-testFilter`, so one test, one fixture, or an `[Explicit]` benchmark such as `MultiplayerPerformanceTests` runs through the script with its lock check and isolated mirror instead of a hand-written Unity command that fails while an Editor has the project open. A target where no test matches the pattern fails. `tools/README.md` and `.ai/project/wiki/unity-verification.md` run the benchmark this way.
+
 ## 2026-10-31 (agentkit 0.6.0)
 
 ### Changed

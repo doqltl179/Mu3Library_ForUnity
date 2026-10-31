@@ -797,6 +797,15 @@ def platform_arguments(platform_name: str) -> list[str]:
     return ["--platform", platform_name]
 
 
+def filter_arguments(test_filter: str | None) -> list[str]:
+    """The --filter option that test-unity.sh passes to Unity's -testFilter, or nothing."""
+    if test_filter is None:
+        return []
+    if not test_filter.strip():
+        raise ValueError("--filter requires a test name or pattern.")
+    return ["--filter", test_filter]
+
+
 def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
     """Run compile-unity.sh or test-unity.sh, which take the same selection options."""
     if not script_path.is_file():
@@ -898,13 +907,18 @@ def unity_test(
     test_platform: str = typer.Option(
         "editmode", "--platform", help="editmode or playmode: the Unity Test Framework platform to run."
     ),
+    test_filter: str | None = typer.Option(
+        None,
+        "--filter",
+        help="Run only the tests whose full name matches this Unity -testFilter pattern, [Explicit] ones included.",
+    ),
 ) -> None:
     """Run the EditMode or PlayMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
     try:
         arguments = entry_point_arguments(
             target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        ) + platform_arguments(test_platform)
+        ) + platform_arguments(test_platform) + filter_arguments(test_filter)
         return_code = run_entry_point(test_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error

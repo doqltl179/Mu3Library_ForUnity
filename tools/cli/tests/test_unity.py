@@ -24,6 +24,7 @@ from mu3_cli.unity import (
     create_directory_link,
     default_editor_path,
     file_is_held_open,
+    filter_arguments,
     find_bash,
     find_windows_bash,
     link_samples,
@@ -104,6 +105,35 @@ class UnityToolingTests(unittest.TestCase):
     def test_platform_rejects_a_name_the_test_script_does_not_take(self) -> None:
         with self.assertRaisesRegex(ValueError, "--platform expects one of: editmode, playmode"):
             platform_arguments("PlayMode")
+
+    def test_filter_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], filter_arguments(None))
+        self.assertEqual(["--filter", "A.Tests;B.Tests"], filter_arguments("A.Tests;B.Tests"))
+
+    def test_filter_rejects_a_blank_pattern(self) -> None:
+        for blank in ("", "  "):
+            with self.subTest(pattern=blank), self.assertRaisesRegex(ValueError, "--filter requires"):
+                filter_arguments(blank)
+
+    def test_test_command_hands_the_filter_to_the_test_script(self) -> None:
+        calls: list[tuple[Path, list[str]]] = []
+
+        def run(script_path: Path, arguments: list[str], root: Path) -> int:
+            calls.append((script_path, arguments))
+            return 0
+
+        with mock.patch("mu3_cli.unity.run_entry_point", run):
+            result = CliRunner().invoke(
+                app, ["unity", "test", "built-in", "--dry-run", "--filter", "Mu3Library.Tests.MultiplayerPerformanceTests"]
+            )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        [(script_path, arguments)] = calls
+        self.assertEqual("test-unity.sh", script_path.name)
+        self.assertEqual(
+            ["built-in", "--dry-run", "--platform", "editmode", "--filter", "Mu3Library.Tests.MultiplayerPerformanceTests"],
+            arguments,
+        )
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())

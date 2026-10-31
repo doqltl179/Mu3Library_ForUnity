@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from test_compile_selection import CAN_CHECK_LOCK_HOLDERS
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
@@ -248,6 +249,68 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn("--platform expects editmode or playmode: PlayMode", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_filter_reaches_unity_as_one_test_filter_argument(self) -> None:
+        pattern = "Fixture.Tests.Benchmark;Fixture.Tests.Case(\"two words\")"
+        completed = self.run_tests("leaf", "--filter", pattern, results=nunit_results(passed=1))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(f"Test filter: {pattern}", completed.stdout.splitlines())
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn(f"-runTests -testPlatform EditMode -testFilter {pattern} -testResults ", arguments)
+        self.assertIn(f"fake unity test filter: [{pattern}]", completed.stdout.splitlines())
+        self.assertIn("EditMode tests passed for leaf: 1 tests, 1 passed, 0 failed, 0 skipped", completed.stdout)
+
+    def test_run_without_filter_passes_no_test_filter(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("-testFilter", completed.stdout)
+        self.assertNotIn("Test filter:", completed.stdout)
+
+    def test_filter_that_matches_no_test_fails_and_names_the_filter(self) -> None:
+        completed = self.run_tests("leaf", "--filter", "Fixture.Tests.Missing", results=nunit_results(passed=0))
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("error: leaf: no test matched --filter Fixture.Tests.Missing", completed.stderr)
+
+    def test_filter_needs_one_pattern_and_stops_before_unity_runs_without_it(self) -> None:
+        for arguments, message in (
+            (("--filter",), "--filter requires a test name or pattern"),
+            (("--filter", ""), "--filter requires a test name or pattern"),
+            (("--filter", "A", "--filter", "B"), "--filter can be given once"),
+        ):
+            with self.subTest(arguments=arguments):
+                completed = self.run_tests("leaf", *arguments, results=nunit_results())
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(message, completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_dry_run_shows_the_filter(self) -> None:
+        completed = self.run_tests("leaf", "--filter", "Fixture.Tests.Benchmark", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Test filter: Fixture.Tests.Benchmark", completed.stdout.splitlines())
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_filtered_run_of_an_open_project_runs_in_the_mirror(self) -> None:
+        lock_file = self.root / "ProjLeaf" / "Temp" / "UnityLockfile"
+        lock_file.parent.mkdir(parents=True)
+        lock_file.write_text("", encoding="utf-8")
+        self.addCleanup(shutil.rmtree, lock_file.parent)
+
+        with lock_file.open("rb"):
+            completed = self.run_tests(
+                "leaf", "--filter", "Fixture.Tests.Benchmark", results=nunit_results(passed=1)
+            )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because ProjLeaf is open in Unity.", completed.stdout)
+        self.assertIn("fake unity test filter: [Fixture.Tests.Benchmark]", completed.stdout.splitlines())
+        self.assertTrue(self.results_file("leaf").is_file())
+        self.assertEqual([], self.mirrors_left())
 
     def test_failed_test_fails_the_run_and_is_named(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)

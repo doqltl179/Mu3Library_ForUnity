@@ -97,9 +97,12 @@ Add future package-to-project mappings to `unity-cli-packages.tsv`; the shell en
 ./test-unity.sh all
 ./test-unity.sh changed --platform playmode
 ./test-unity.sh urp --platform playmode
+./test-unity.sh built-in --filter Mu3Library.Tests.MultiplayerPerformanceTests
 ```
 
 It takes the same targets and options as `compile-unity.sh` and sources it for target selection, the Editor lookup, the lock check, the sample-link check, and the isolated mirror, so a project an Editor has open is tested in a mirror and `--in-place` refuses it. A project runs only the tests of the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the Base and URP tests, and `watermelon` the Base and Watermelon Game tests; a project that lists none is reported as skipped. `urp` is the only project without UniTask, so it is where the Base tests reach the code paths that replace UniTask with coroutines; `--platform playmode` runs the tests that need the player loop, among them a core's coroutine preparation. A failed test or Unity run does not stop the remaining targets, and a summary closes the run; a target that cannot start, such as an open project under `--in-place` or a mirror that cannot be copied, stops the script at once. Each run writes NUnit XML to `log/unity-tests/<target>-<platform>.xml`, such as `urp-playmode.xml`, which is Git-ignored and removed before the run so an old result never stands in for a new one.
+
+`--filter <pattern>` runs only the tests whose full name matches the pattern, which the script passes to the Unity Test Framework as `-testFilter`: a regular expression, such as the full name of a test, a fixture, or a namespace, or several separated by `;`. It also runs the `[Explicit]` tests it matches, which a run without it reports as skipped; the benchmark `Mu3Library.Tests.MultiplayerPerformanceTests` runs this way, as in the last example above. A filtered run takes the same lock check and mirror as a full one and writes the same result file, and a target where no test matches the pattern fails.
 
 ## Lowest Supported Editor
 
