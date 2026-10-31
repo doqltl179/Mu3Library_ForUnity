@@ -147,6 +147,69 @@ namespace Mu3Library.Tests
             Assert.That(DataOf(a, hostId)["c"], Is.EqualTo(participantValue));
             Assert.That(a.Manager.TryGetParticipant(late, out Participant joined) && joined.Name == name, Is.True);
         }
+
+        [Test]
+        public void DeletionsAndPingReports_PastTheirRules_AreMalformedAtAClient_AndChangeNothing()
+        {
+            // NFR-5: the deletions and ping reports a host sends are read as carefully as its other
+            // packets: a key past its limit or one of the library's, a report of more players than
+            // a session holds, or one shorter than its count says. Each kind is logged once.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+
+            fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "map", "forest"), DeliveryMode.Reliable);
+            fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, "c", "knight"), DeliveryMode.Reliable);
+            fakeHost.Send(connection, PingsPacket(1, (a.Id, 50)), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+            Assert.That(a.Manager.TryGetParticipantPing(a.Id, out int first) && first == 50, Is.True);
+
+            string longKey = new string('k', MultiplayerLimits.MaxDataKeyLength * 3 + 1);
+            (PlayerId, ushort)[] tooMany = Enumerable.Range(1, MultiplayerLimits.MaxCapacity + 1)
+                .Select(i => (new PlayerId(hostId.Value + (ulong)i), (ushort)1))
+                .ToArray();
+            using (LogRecorder log = new LogRecorder())
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    fakeHost.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, longKey), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, LobbyDataKeys.State), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, ParticipantDataDeletedPacket(hostId, longKey), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, ParticipantDataDeletedPacket(hostId, "MU3.ready"), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, PingsPacket(tooMany.Length, tooMany), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, PingsPacket(2, (a.Id, 70)), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(a.Manager.LobbyData["map"], Is.EqualTo("forest"));
+                Assert.That(DataOf(a, hostId)["c"], Is.EqualTo("knight"));
+                Assert.That(a.LobbyDataChanges, Is.Empty);
+                Assert.That(a.DataChanges.Count, Is.EqualTo(1));
+                Assert.That(a.Manager.TryGetParticipantPing(a.Id, out int kept) && kept == 50, Is.True, "a malformed report leaves the last one");
+                Assert.That(log.Count("Dropped a malformed packet"), Is.EqualTo(3), "once for each kind: LobbyDataDeleted, ParticipantDataDeleted, ParticipantPings");
+            }
+
+            // A report that names a player outside the session is taken, but tells nothing of that player.
+            PlayerId stranger = new PlayerId(hostId.Value + 1000);
+            fakeHost.Send(connection, PingsPacket(2, (a.Id, 70), (stranger, 5)), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.TryGetParticipantPing(a.Id, out int next) && next == 70, Is.True);
+            Assert.That(a.Manager.TryGetParticipantPing(stranger, out _), Is.False);
+
+            // Within their rules the same packets arrive.
+            fakeHost.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, "map"), DeliveryMode.Reliable);
+            fakeHost.Send(connection, ParticipantDataDeletedPacket(hostId, "c"), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.LobbyData, Is.Empty);
+            Assert.That(DataOf(a, hostId), Is.Empty);
+        }
         #endregion
 
         #region Input Limit Helpers
@@ -193,6 +256,21 @@ namespace Mu3Library.Tests
             writer.WriteInt(2);
             WriteParticipantEntry(writer, host, hostName);
             WriteParticipantEntry(writer, client, "A");
+            return writer.Written.ToArray();
+        }
+
+        /// <summary>A ping report whose count byte says <paramref name="count"/>, whatever entries follow.</summary>
+        private static byte[] PingsPacket(int count, params (PlayerId Player, ushort Ping)[] entries)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantPings);
+            writer.WriteByte((byte)count);
+            foreach ((PlayerId player, ushort ping) in entries)
+            {
+                writer.WriteULong(player.Value);
+                writer.WriteUShort(ping);
+            }
+
             return writer.Written.ToArray();
         }
 
