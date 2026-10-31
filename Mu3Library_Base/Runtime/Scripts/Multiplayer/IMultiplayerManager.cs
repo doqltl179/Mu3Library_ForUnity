@@ -171,7 +171,7 @@ namespace Mu3Library.Multiplayer
         /// and its value no longer count toward <see cref="MultiplayerLimits.MaxLobbyDataSize"/>,
         /// so a long session that keeps changing its keys deletes the old ones to make room. The
         /// key is found in any case, as reading and Steam find it, and the event names it as the
-        /// lobby data spells it: deleting <c>map</c> deletes <c>Map</c>. An empty key, one longer
+        /// lobby data spells it: deleting <c>map</c> deletes <c>Map</c>. A null or empty key, one longer
         /// than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that holds a NUL character or
         /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
         /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
