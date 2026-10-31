@@ -419,7 +419,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, capacity rules, game start, kicks, and game messages relayed by the host over a pluggable backend: `SteamBackend` (Steam lobbies and Steam connections, with Steamworks.NET) and `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer)
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, capacity rules, game start, kicks, and game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, over a pluggable backend: `SteamBackend` (Steam lobbies and Steam connections, with Steamworks.NET) and `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer)
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
