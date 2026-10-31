@@ -178,6 +178,57 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Presence_ARemovalTheBackendRefuses_IsAskedAgainOnTheNextUpdate_ThenOnceASecond()
+        {
+            // FR-28: once the manager is offline, nothing else would remove what the session showed.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = CreatePlatformNode("A");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            Assert.That(a.Manager.SetPresenceStatus("Waiting").IsSuccess, Is.True);
+
+            a.Platform.RefusesPresence = true;
+            LogAssert.Expect(LogType.Warning, new Regex("backend refused to show the presence"));
+            a.Manager.Leave();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            int attempts = a.Platform.PresenceAttempts;
+
+            a.Manager.Update();
+            Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts + 1), "asked again on the next update");
+            a.Manager.Update();
+            _now += 0.5;
+            a.Manager.Update();
+            Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts + 1), "not every frame while the backend keeps refusing");
+
+            _now += 0.6;
+            a.Platform.RefusesPresence = false;
+            a.Manager.Update();
+            Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts + 2), "once a second");
+            Assert.That(a.Platform.Presence, Is.EqualTo(Shown(null, LobbyId.None, 0)));
+
+            _now += 5.0;
+            a.Manager.Update();
+            Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts + 2), "nothing more once the backend took it");
+        }
+
+        [Test]
+        public void Presence_ARefusedChangeThatIsNoRemoval_IsNotAskedAgain()
+        {
+            // A refused status during a session answers BackendError, and the next update shows the
+            // status before it, as SetPresenceStatus_ShowsTheStatusAtOnce_AndRefusesBadText checks;
+            // a refused group change waits for the next change.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            host.Platform.RefusesPresence = true;
+            Node a = CreatePlatformNode("A");
+            LogAssert.Expect(LogType.Warning, new Regex("backend refused to show the presence"));
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            int attempts = host.Platform.PresenceAttempts;
+
+            _now += 5.0;
+            Pump();
+            Assert.That(host.Platform.PresenceAttempts, Is.EqualTo(attempts));
+        }
+
+        [Test]
         public void SetPresence_OnTheLocalBackend_ChangesNothingAndSucceeds()
         {
             // FR-13: the local backend does nothing and does not fail.

@@ -459,6 +459,30 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamAvatar_OnceSteamShutsDown_AnswersBackendError_ToTheRequestWaitingAndToANewOne()
+        {
+            // FR-4: one reason for an avatar once Steam is gone, the one the manager answers itself
+            // then. An account this client is unlikely to know makes Steam download it first.
+            PlayerId stranger = new PlayerId(76561197960265728UL + (ulong)new System.Random().Next(1 << 20, int.MaxValue));
+            List<MultiplayerReason> answers = new List<MultiplayerReason>();
+            _backend.LoadAvatar(stranger, AvatarSize.Large, (reason, avatar) => answers.Add(reason));
+            _backend.Update();
+            if (answers.Count > 0)
+            {
+                Assert.Inconclusive($"Steam answered the avatar of {stranger} at once ({answers[0]}), so no request waited.");
+            }
+
+            // Steam shut down under the backend, as a game may do; TearDown then releases only the
+            // backend's own resources, and the next SetUp starts Steam again.
+            Steamworks.SteamAPI.Shutdown();
+            Assert.That(_backend.IsAvailable, Is.False);
+            _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => answers.Add(reason));
+            _backend.Update();
+
+            Assert.That(answers, Is.EqualTo(new[] { MultiplayerReason.BackendError, MultiplayerReason.BackendError }));
+        }
+
+        [Test]
         public void SteamPresence_ShowsTheStatusAndTheSessionAsAGroup_UntilTheSessionEnds()
         {
             // FR-13 and FR-28 on Steam itself, read back from this account's own rich presence:

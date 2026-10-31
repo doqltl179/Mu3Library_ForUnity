@@ -307,8 +307,9 @@ namespace Mu3Library.Multiplayer.Steam
             }
             else
             {
+                // An avatar answers the reason the manager gives then; see LoadAvatar.
                 FailSearches(MultiplayerReason.SteamNotRunning);
-                FailAvatars(MultiplayerReason.SteamNotRunning);
+                FailAvatars(MultiplayerReason.BackendError);
             }
 
             // What a callback queues while being handed on waits for the next update.

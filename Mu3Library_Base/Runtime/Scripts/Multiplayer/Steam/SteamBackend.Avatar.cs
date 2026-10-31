@@ -35,13 +35,22 @@ namespace Mu3Library.Multiplayer.Steam
         /// it downloads, the backend asks again on every update until Steam has the image or tells
         /// that the player has none. The answer arrives from <see cref="Update"/> in any case:
         /// <see cref="MultiplayerReason.BackendError"/> when Steam knows the player but has no
-        /// image, and <see cref="MultiplayerReason.Timeout"/> when it has none within 10 seconds.
+        /// image, and also once the game shut Steam down, for a request made then and for one
+        /// still waiting, and <see cref="MultiplayerReason.Timeout"/> when it has none within 10
+        /// seconds.
         /// </summary>
+        /// <remarks>
+        /// An avatar answers <see cref="MultiplayerReason.BackendError"/> once Steam is gone, not
+        /// the <see cref="MultiplayerReason.SteamNotRunning"/> a lobby search answers then, so the
+        /// game sees one reason for it: the manager answers <see cref="MultiplayerReason.BackendError"/>
+        /// itself while a backend is not available, since a disposed backend answers nothing, and
+        /// it cannot tell a Steam that shut down from a backend that was disposed.
+        /// </remarks>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted)
         {
             if (!IsAvailable || !player.IsValid || size < AvatarSize.Small || size > AvatarSize.Large)
             {
-                MultiplayerReason failure = UnavailableOr(MultiplayerReason.InvalidArgument);
+                MultiplayerReason failure = IsAvailable ? MultiplayerReason.InvalidArgument : MultiplayerReason.BackendError;
                 EnqueueCallback(() => onCompleted?.Invoke(failure, default));
                 return;
             }

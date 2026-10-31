@@ -1,5 +1,6 @@
 #if MU3LIBRARY_STEAMWORKS_SUPPORT && UNITY_STANDALONE
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -15,8 +16,9 @@ namespace Mu3Library.Tests
 {
     /// <summary>
     /// The parts of <see cref="SteamBackend"/> that need no Steam client: how Steam's answers map
-    /// to the library's reasons, the launch arguments, and the editor fallback (FR-1, FR-5 to
-    /// FR-7, FR-19, FR-39). The rest is checked by hand against Steam (spec section 13).
+    /// to the library's reasons, a Steam that cannot load, the launch arguments, the order of the
+    /// rich presence keys, and the editor fallback (FR-1, FR-5 to FR-7, FR-13, FR-19, FR-39). The
+    /// rest is checked by hand against Steam (spec section 13).
     /// </summary>
     public class MultiplayerSteamTests
     {
@@ -194,6 +196,71 @@ namespace Mu3Library.Tests
 
             Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(backend, Is.Null);
+        }
+
+        [Test]
+        public void Presence_SetsTheTokenOnlyAfterTheStatus_AndDeletesTheStatusOnlyAfterTheToken()
+        {
+            // FR-13: the friends list never shows the line with an empty status, even when Steam
+            // refuses a key; the group keys go in either way.
+            List<string> writes = new List<string>();
+            HashSet<string> refused = new HashSet<string>();
+            SteamBackend.PresenceKeys keys = new SteamBackend.PresenceKeys("#Status", (key, value) =>
+            {
+                if (refused.Contains(key))
+                {
+                    return false;
+                }
+
+                writes.Add(key + "=" + value);
+                return true;
+            });
+
+            refused.Add(SteamBackend.StatusKey);
+            Assert.That(keys.Set("Waiting", new LobbyId(5), 2), Is.False);
+            Assert.That(writes, Is.EqualTo(new[] { "steam_player_group=5", "steam_player_group_size=2" }), "no token without its status");
+
+            refused.Clear();
+            writes.Clear();
+            Assert.That(keys.Set("Waiting", new LobbyId(5), 2), Is.True);
+            Assert.That(writes, Is.EqualTo(new[] { "status=Waiting", "steam_display=#Status" }));
+
+            refused.Add(SteamBackend.DisplayKey);
+            writes.Clear();
+            Assert.That(keys.Set(null, new LobbyId(5), 3), Is.False);
+            Assert.That(writes, Is.EqualTo(new[] { "steam_player_group_size=3" }), "the status stays while the token that shows it does");
+
+            refused.Clear();
+            writes.Clear();
+            Assert.That(keys.Set(null, new LobbyId(5), 3), Is.True);
+            Assert.That(writes, Is.EqualTo(new[] { "steam_display=", "status=" }), "the token comes out first");
+
+            // Disposing the backend deletes in the same order.
+            Assert.That(keys.Set("Again", new LobbyId(5), 3), Is.True);
+            refused.Add(SteamBackend.DisplayKey);
+            writes.Clear();
+            keys.Clear(deleteOnSteam: true);
+            Assert.That(writes, Is.EqualTo(new[] { "steam_player_group=", "steam_player_group_size=" }));
+
+            refused.Clear();
+            writes.Clear();
+            keys.Clear(deleteOnSteam: true);
+            Assert.That(writes, Is.Empty, "a cleared backend forgets what it set, so it deletes nothing twice");
+        }
+
+        [Test]
+        public void Presence_WithoutAToken_NeverTouchesSteamDisplay()
+        {
+            List<string> writes = new List<string>();
+            SteamBackend.PresenceKeys keys = new SteamBackend.PresenceKeys(null, (key, value) =>
+            {
+                writes.Add(key + "=" + value);
+                return true;
+            });
+
+            Assert.That(keys.Set("Waiting", LobbyId.None, 0), Is.True);
+            Assert.That(keys.Set(null, LobbyId.None, 0), Is.True);
+            Assert.That(writes, Is.EqualTo(new[] { "status=Waiting", "status=" }));
         }
 
         /// <summary>A start of Steam that throws what Steamworks.NET throws, before Steam starts.</summary>

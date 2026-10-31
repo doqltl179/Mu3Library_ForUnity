@@ -152,6 +152,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _backend.Update();
+            UpdateAvatarWaiters();
 
             UpdateHandshakeTimeouts();
             UpdateReservations();

@@ -15,6 +15,12 @@ namespace Mu3Library.Multiplayer
         private LobbyId _shownGroup = LobbyId.None;
         private int _shownGroupSize = 0;
 
+        // How often a removal the backend refused is asked again, after the first try on the next update.
+        private const double PresenceRemovalRetrySeconds = 1d;
+
+        // When to ask the backend again to remove what a session showed, after it refused; NaN for no removal to ask again.
+        private double _presenceRemovalRetryAt = double.NaN;
+
 
 
         public MultiplayerResult SetPresenceStatus(string status)
@@ -66,23 +72,44 @@ namespace Mu3Library.Multiplayer
                 && (_state == SessionState.Lobby || _state == SessionState.InGame || _state == SessionState.Reconnecting);
             LobbyId group = isGrouped ? _lobbyId : LobbyId.None;
             int groupSize = isGrouped ? _participants.Count : 0;
+            bool isRetry = false;
             if (string.Equals(_presenceStatus, _shownStatus, StringComparison.Ordinal)
                 && group == _shownGroup
                 && groupSize == _shownGroupSize)
             {
-                return true;
+                // A removal the backend refused is asked again, since a manager that is offline
+                // changes nothing that would ask: on the next update, then once a second.
+                if (double.IsNaN(_presenceRemovalRetryAt) || Now < _presenceRemovalRetryAt)
+                {
+                    return true;
+                }
+
+                isRetry = true;
             }
 
             // Taken as shown even when refused, so a backend that keeps refusing is not asked every frame.
             _shownStatus = _presenceStatus;
             _shownGroup = group;
             _shownGroupSize = groupSize;
+            _presenceRemovalRetryAt = double.NaN;
             if (_backend.SetPresence(_presenceStatus, group, groupSize))
             {
                 return true;
             }
 
-            Debug.LogWarning($"[Multiplayer] The {_backend.Name} backend refused to show the presence (group {group}, {groupSize} players).");
+            // A backend that is gone can remove nothing, so only an available one is asked again;
+            // the Steam backend deletes its keys itself as it is disposed.
+            if (_presenceStatus == null && !group.IsValid && _backend.IsAvailable)
+            {
+                _presenceRemovalRetryAt = isRetry ? Now + PresenceRemovalRetrySeconds : Now;
+            }
+
+            // Once per refusal, not once per retry.
+            if (!isRetry)
+            {
+                Debug.LogWarning($"[Multiplayer] The {_backend.Name} backend refused to show the presence (group {group}, {groupSize} players).");
+            }
+
             return false;
         }
 
