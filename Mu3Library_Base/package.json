@@ -54,6 +54,11 @@
             "displayName": "UtilWindow",
             "description": "Custom Editor Window implementation examples",
             "path": "Samples~/UtilWindow"
+        },
+        {
+            "displayName": "Multiplayer",
+            "description": "A player-hosted session with buttons: create, search, and join a lobby by its lobby ID, invite friends on Steam, get ready, start, exchange a message, and kick. Without Steamworks.NET, or without a running Steam client, it plays on the local backend, where an editor and player builds on the same computer meet. Its buttons are IMGUI, so it responds to input with or without the Input System package and needs no TextMesh Pro resources. Command-line options run the whole flow unattended; the sample's README lists them.",
+            "path": "Samples~/Multiplayer"
         }
     ]
 }
