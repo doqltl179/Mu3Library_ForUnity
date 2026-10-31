@@ -62,7 +62,11 @@ namespace Mu3Library.Multiplayer.Backend
 
         public void LeaveLobby(LobbyId lobby);
 
-        /// <summary>Null when the lobby or the key is unknown to this player.</summary>
+        /// <summary>
+        /// Null when the lobby or the key is unknown to this player. Lobby data keys are told apart
+        /// without regard to case, as Steam tells them apart, so a key is found in any case here, in
+        /// the data a search returns, and by the search filters.
+        /// </summary>
         public string GetLobbyData(LobbyId lobby, string key);
 
         /// <summary>Owner only; false otherwise.</summary>

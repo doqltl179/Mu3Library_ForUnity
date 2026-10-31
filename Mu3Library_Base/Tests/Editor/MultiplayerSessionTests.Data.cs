@@ -147,7 +147,8 @@ namespace Mu3Library.Tests
                 Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("Map", "forest") }), name);
             }
 
-            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.Null, "the lobby holds the key as it is spelled");
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("forest"), "the lobby reads a key in any case, as a Steam lobby does");
+            Assert.That(a.Backend.GetLobbyData(lobby, "MAP"), Is.EqualTo("forest"), "so does a member's");
             LobbyInfo found = Search(CreateNode("Seeker")).Lobbies.Single();
             Assert.That(found.Data, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "forest" }));
             Assert.That(found.Data["MAP"], Is.EqualTo("forest"), "a search result reads a key in any case");
@@ -229,8 +230,6 @@ namespace Mu3Library.Tests
                 Assert.That(host.Manager.DeleteLobbyData(key).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), key);
             }
 
-            LogAssert.Expect(LogType.Warning, new Regex("'map' differs from the key 'Map' only by case"));
-            Assert.That(host.Manager.DeleteLobbyData("map").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), "the key names another key's value on Steam");
             Assert.That(CreateNode("Lonely").Manager.DeleteLobbyData("Map").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
             Pump();
 
@@ -240,11 +239,18 @@ namespace Mu3Library.Tests
             Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
             Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.GameId), Is.EqualTo(GameId));
 
-            // Deleting first is how a key changes its case.
-            Assert.That(host.Manager.DeleteLobbyData("Map").IsSuccess, Is.True);
+            // The key is found in any case, as reading finds it, and every player hears it as it is
+            // spelled; deleting first is how a key changes its case.
+            Assert.That(host.Manager.DeleteLobbyData("MAP").IsSuccess, Is.True);
             Assert.That(host.Manager.SetLobbyData("map", "forest").IsSuccess, Is.True);
             Pump();
-            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map" }));
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("Map", (string)null), ("map", "forest") }), node.Backend.PlayerName);
+                Assert.That(node.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map" }), node.Backend.PlayerName);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("forest"));
         }
 
         [Test]
@@ -595,10 +601,7 @@ namespace Mu3Library.Tests
 
         /// <summary>
         /// Data whose keys and values take exactly <paramref name="size"/> UTF-8 bytes in as many
-        /// entries as distinct keys allow: every one-character key, then two-character keys.
-        /// </summary>
-        /// <summary>
-        /// Data of exactly <paramref name="size"/> UTF-8 bytes in as many entries as fit. With
+        /// entries as distinct keys allow: every one-character key, then two-character keys. With
         /// <paramref name="keysIgnoreCase"/>, as lobby data needs, no two keys differ only by case.
         /// </summary>
         private static Dictionary<string, string> DataOfSize(int size, bool keysIgnoreCase = false)

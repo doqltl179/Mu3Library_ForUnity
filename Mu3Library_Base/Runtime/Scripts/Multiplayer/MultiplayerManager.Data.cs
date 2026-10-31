@@ -82,11 +82,6 @@ namespace Mu3Library.Multiplayer
             MultiplayerReason check = CheckHostRequest(null);
             if (check == MultiplayerReason.None)
             {
-                check = CheckLobbyKeyCase(key, _lobbyData);
-            }
-
-            if (check == MultiplayerReason.None)
-            {
                 check = IsValidDataKey(key) ? MultiplayerReason.None : MultiplayerReason.InvalidArgument;
                 WarnIfInvalid(check, key);
             }
@@ -96,7 +91,10 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(check);
             }
 
-            if (!_lobbyData.ContainsKey(key))
+            // The key is found in any case, as reading and Steam find it, and goes on as it is
+            // spelled in the lobby data, so every player hears of the key it holds.
+            key = FindLobbyKey(key);
+            if (key == null)
             {
                 return MultiplayerResult.Success;
             }
@@ -529,6 +527,20 @@ namespace Mu3Library.Multiplayer
             }
 
             return MultiplayerReason.None;
+        }
+
+        /// <summary>The lobby data key that matches <paramref name="key"/> in any case, as the lobby data spells it; null when there is none.</summary>
+        private string FindLobbyKey(string key)
+        {
+            foreach (string held in _lobbyData.Keys)
+            {
+                if (string.Equals(held, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return held;
+                }
+            }
+
+            return null;
         }
 
         private static void WarnIfInvalid(MultiplayerReason check, string key)

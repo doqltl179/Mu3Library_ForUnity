@@ -347,7 +347,8 @@ namespace Mu3Library.Multiplayer.Steam
             for (int i = 0; i < count; i++)
             {
                 CSteamID lobby = SteamMatchmaking.GetLobbyByIndex(i);
-                Dictionary<string, string> data = new Dictionary<string, string>();
+                // Steam does not tell keys apart by case and may hand one back in another case.
+                Dictionary<string, string> data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 int dataCount = SteamMatchmaking.GetLobbyDataCount(lobby);
                 for (int j = 0; j < dataCount; j++)

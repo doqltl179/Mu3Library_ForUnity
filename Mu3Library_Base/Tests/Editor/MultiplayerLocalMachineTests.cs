@@ -485,13 +485,15 @@ namespace Mu3Library.Tests
             Assert.That(owner.SetLobbyData(lobby, "map", "forest"), Is.True);
             Assert.That(member.SetLobbyData(lobby, "map", "spoofed"), Is.False);
             PumpUntil(() => member.GetLobbyData(lobby, "map") == "forest", "the data");
+            Assert.That(owner.GetLobbyData(lobby, "MAP"), Is.EqualTo("forest"), "a key reads in any case, as on Steam");
+            Assert.That(member.GetLobbyData(lobby, "Map"), Is.EqualTo("forest"));
 
             Assert.That(member.GetLobbyOwner(lobby), Is.EqualTo(owner.LocalPlayerId));
             Assert.That(owner.IsLobbyMember(lobby, member.LocalPlayerId) && member.IsLobbyMember(lobby, owner.LocalPlayerId), Is.True);
             Assert.That(member.GetPlayerName(owner.LocalPlayerId), Is.EqualTo("Owner"));
 
             LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
-            PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 2 && found.Data["map"] == "forest"), "the search to show the change");
+            PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 2 && found.Data["MAP"] == "forest"), "the search to show the change, a key in any case");
 
             member.LeaveLobby(lobby);
             PumpUntil(() => !owner.IsLobbyMember(lobby, member.LocalPlayerId), "the owner to drop the member");

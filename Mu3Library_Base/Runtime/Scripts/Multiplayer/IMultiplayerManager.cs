@@ -169,11 +169,13 @@ namespace Mu3Library.Multiplayer
         /// longer returns it or finds the lobby by it, and reports it to every player through
         /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/> with a null value. The key
         /// and its value no longer count toward <see cref="MultiplayerLimits.MaxLobbyDataSize"/>,
-        /// so a long session that keeps changing its keys deletes the old ones to make room. A key
-        /// that <see cref="SetLobbyData"/> would refuse answers
-        /// <see cref="MultiplayerReason.InvalidArgument"/>, the library's own <c>mu3.</c> keys and a
-        /// key that differs from one the lobby data holds only by case included, and deleting a
-        /// key the lobby data does not hold changes nothing.
+        /// so a long session that keeps changing its keys deletes the old ones to make room. The
+        /// key is found in any case, as reading and Steam find it, and the event names it as the
+        /// lobby data spells it: deleting <c>map</c> deletes <c>Map</c>. An empty key, one longer
+        /// than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that holds a NUL character or
+        /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
+        /// not hold changes nothing.
         /// </summary>
         public MultiplayerResult DeleteLobbyData(string key);
 
@@ -204,8 +206,9 @@ namespace Mu3Library.Multiplayer
         /// An invalid key answers <see cref="MultiplayerReason.InvalidArgument"/>, as for
         /// <see cref="SetParticipantData"/>, the library's own <c>mu3.</c> keys included, and
         /// deleting a key the data does not hold changes nothing. For a client, success means the
-        /// request went to the host, as for <see cref="SetParticipantData"/>, whose later requests
-        /// count the room it frees at once, and the rate limits count it as a participant data
+        /// request went to the host, as for <see cref="SetParticipantData"/>. A client's later
+        /// <see cref="SetParticipantData"/> calls count the room the deletion frees at once, before
+        /// the host reports it back, and the rate limits count the deletion as a participant data
         /// request. While this player is <see cref="SessionState.Reconnecting"/> it answers
         /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </summary>

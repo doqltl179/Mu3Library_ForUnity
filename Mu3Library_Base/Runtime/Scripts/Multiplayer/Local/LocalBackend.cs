@@ -414,7 +414,7 @@ namespace Mu3Library.Multiplayer.Local
                         continue;
                     }
 
-                    results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data)));
+                    results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
                 }
 
                 onCompleted?.Invoke(MultiplayerReason.None, results);
