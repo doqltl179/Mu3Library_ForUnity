@@ -95,6 +95,11 @@ namespace Mu3Library.Multiplayer.Steam
         {
             _ownsSteam = ownsSteam;
             _runCallbacks = options.RunSteamCallbacks;
+
+            // Every native call comes before the first callback registration and the pinned send
+            // buffer, so a native library that throws here, which TryCreate turns into a reason,
+            // leaves nothing behind: no callback is registered and no buffer pinned yet, and
+            // TryCreate shuts down a Steam it started. Keep new native calls above them.
             LocalPlayerId = new PlayerId(SteamUser.GetSteamID().m_SteamID);
 
             InitializeConnections(options);
@@ -116,23 +121,31 @@ namespace Mu3Library.Multiplayer.Steam
         /// </summary>
         /// <returns>
         /// <see cref="MultiplayerReason.SteamNotRunning"/> when the Steam client is not running or
-        /// Steam cannot start, a Steam native library that is missing, older than this
-        /// Steamworks.NET, or built for another architecture included,
-        /// <see cref="MultiplayerReason.InvalidArgument"/> for unusable options, and
+        /// Steam cannot start, a Steam native library that cannot be loaded or lacks a function
+        /// included, <see cref="MultiplayerReason.InvalidArgument"/> for unusable options, and
         /// <see cref="MultiplayerReason.BackendError"/> for other failures that Steam reports.
         /// </returns>
         /// <remarks>
-        /// Steamworks.NET throws when it cannot load the native library or find a function in it:
-        /// <see cref="DllNotFoundException"/>, <see cref="EntryPointNotFoundException"/> for an
-        /// outdated <c>steam_api64</c>, and <see cref="BadImageFormatException"/> for one of
-        /// another architecture, also wrapped in the <see cref="TypeInitializationException"/> of
-        /// a type whose initializer met one. The backend logs the exception's type and message as
-        /// a warning and answers <see cref="MultiplayerReason.SteamNotRunning"/> instead, so no
-        /// such exception reaches the game and <see cref="CreateOrFallback"/> falls back on it.
-        /// It is <see cref="MultiplayerReason.SteamNotRunning"/> rather than
+        /// <para>
+        /// When the runtime cannot load the native library or find a function in it, it throws:
+        /// <see cref="DllNotFoundException"/>, <see cref="EntryPointNotFoundException"/>, or
+        /// <see cref="BadImageFormatException"/>, also wrapped in the
+        /// <see cref="TypeInitializationException"/> of a type whose initializer met one. Which of
+        /// them a missing, outdated, or wrong-architecture <c>steam_api64</c> causes depends on the
+        /// runtime; Unity's Mono and IL2CPP report most libraries that fail to load as
+        /// <see cref="DllNotFoundException"/>. The backend logs the exception's type and message as
+        /// a warning and answers <see cref="MultiplayerReason.SteamNotRunning"/> for any of them,
+        /// so no such exception reaches the game and <see cref="CreateOrFallback"/> falls back on
+        /// it. It is <see cref="MultiplayerReason.SteamNotRunning"/> rather than
         /// <see cref="MultiplayerReason.BackendError"/> because, for the game, nothing of Steam
         /// works in this process, as when the library is missing, which answered it already. Any
         /// other exception is a mistake in the code and reaches the caller.
+        /// </para>
+        /// <para>
+        /// An outdated library that loads, but whose <c>SteamAPI.InitEx</c> answers a version
+        /// mismatch, throws nothing and answers <see cref="MultiplayerReason.BackendError"/>, the
+        /// reason for a failure that Steam reports; the editor falls back on that reason too.
+        /// </para>
         /// </remarks>
         public static MultiplayerResult TryCreate(SteamBackendOptions options, out SteamBackend backend)
         {

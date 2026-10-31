@@ -118,8 +118,8 @@ namespace Mu3Library.Tests
         [TestCase(typeof(InvalidOperationException))]
         public void TryCreate_ASteamThatCannotLoad_AnswersSteamNotRunning_WithoutAnException(Type thrown)
         {
-            // FR-1: a missing steam_api64 throws DllNotFoundException, an outdated one
-            // EntryPointNotFoundException, and one of another architecture BadImageFormatException.
+            // FR-1: what the runtime throws for a steam_api64 it cannot load or that lacks a
+            // function; which one depends on the runtime.
             Exception exception = (Exception)Activator.CreateInstance(thrown, "simulated");
             LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not start \(" + thrown.Name + @"\): simulated"));
 

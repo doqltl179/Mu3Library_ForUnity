@@ -84,6 +84,13 @@ namespace Mu3Library.Multiplayer
                     return true;
                 }
 
+                // A backend that went away since can remove nothing; see below.
+                if (!_backend.IsAvailable)
+                {
+                    _presenceRemovalRetryAt = double.NaN;
+                    return true;
+                }
+
                 isRetry = true;
             }
 

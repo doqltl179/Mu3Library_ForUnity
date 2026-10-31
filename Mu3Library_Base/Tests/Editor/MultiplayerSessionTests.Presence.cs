@@ -208,6 +208,33 @@ namespace Mu3Library.Tests
             _now += 5.0;
             a.Manager.Update();
             Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts + 2), "nothing more once the backend took it");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void Presence_ARefusedRemoval_IsNotAskedAgainOnceTheBackendIsGone()
+        {
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = CreatePlatformNode("A");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            Assert.That(a.Manager.SetPresenceStatus("Waiting").IsSuccess, Is.True);
+
+            a.Platform.RefusesPresence = true;
+            LogAssert.Expect(LogType.Warning, new Regex("backend refused to show the presence"));
+            a.Manager.Leave();
+            a.Manager.Update();
+            int attempts = a.Platform.PresenceAttempts;
+
+            // A disposed backend can remove nothing, so a retry that was due is dropped.
+            a.Backend.Dispose();
+            for (int i = 0; i < 5; i++)
+            {
+                _now += 1.1;
+                a.Manager.Update();
+            }
+
+            Assert.That(a.Platform.PresenceAttempts, Is.EqualTo(attempts));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
