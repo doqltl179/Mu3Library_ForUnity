@@ -299,6 +299,80 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
+        {
+            // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(_backend, new MultiplayerConfig("mu3.test.avatar", 1)).IsSuccess, Is.True);
+                PlayerId self = _backend.LocalPlayerId;
+                Steamworks.CSteamID steamId = new Steamworks.CSteamID(self.Value);
+                List<UnityEngine.Texture2D> textures = new List<UnityEngine.Texture2D>();
+
+                foreach ((AvatarSize size, int side) in new[] { (AvatarSize.Small, 32), (AvatarSize.Medium, 64), (AvatarSize.Large, 184) })
+                {
+                    AvatarResult? result = null;
+                    Stopwatch watch = Stopwatch.StartNew();
+                    manager.LoadAvatar(self, size, r => result = r);
+                    Pump(manager, () => result.HasValue, 15);
+                    TestContext.WriteLine($"Steam answered the {size} avatar with {result?.Reason.ToString() ?? "nothing"} after {watch.Elapsed.TotalSeconds:0.00} s.");
+                    Assert.That(result?.IsSuccess, Is.True, result?.Reason.ToString());
+
+                    UnityEngine.Texture2D texture = result.Value.Texture;
+                    Assert.That(texture != null, Is.True);
+                    Assert.That((texture.width, texture.height), Is.EqualTo((side, side)));
+
+                    // Steam's own copy runs from the top row down, the texture from the bottom row up.
+                    int image = size == AvatarSize.Small ? Steamworks.SteamFriends.GetSmallFriendAvatar(steamId)
+                        : size == AvatarSize.Medium ? Steamworks.SteamFriends.GetMediumFriendAvatar(steamId)
+                        : Steamworks.SteamFriends.GetLargeFriendAvatar(steamId);
+                    byte[] steam = new byte[side * side * 4];
+                    Assert.That(Steamworks.SteamUtils.GetImageRGBA(image, steam, steam.Length), Is.True);
+
+                    UnityEngine.Color32[] pixels = texture.GetPixels32();
+                    int mismatches = 0;
+                    bool readsTheSameUpsideDown = true;
+                    for (int y = 0; y < side; y++)
+                    {
+                        for (int x = 0; x < side; x++)
+                        {
+                            UnityEngine.Color32 pixel = pixels[y * side + x];
+                            int i = ((side - 1 - y) * side + x) * 4;
+                            if (pixel.r != steam[i] || pixel.g != steam[i + 1] || pixel.b != steam[i + 2] || pixel.a != steam[i + 3])
+                            {
+                                mismatches++;
+                            }
+
+                            int mirrored = (y * side + x) * 4;
+                            if (steam[i] != steam[mirrored] || steam[i + 1] != steam[mirrored + 1] || steam[i + 2] != steam[mirrored + 2])
+                            {
+                                readsTheSameUpsideDown = false;
+                            }
+                        }
+                    }
+
+                    TestContext.WriteLine(readsTheSameUpsideDown
+                        ? $"The {size} avatar reads the same upside down, so it cannot show the orientation."
+                        : $"The {size} avatar differs upside down, so the comparison checks the orientation.");
+                    Assert.That(mismatches, Is.Zero, "pixels that differ from Steam's, the top row taken as the texture's top");
+
+                    AvatarResult? again = null;
+                    manager.LoadAvatar(self, size, r => again = r);
+                    Assert.That(again?.Texture, Is.SameAs(texture), "the same texture, at once");
+                    textures.Add(texture);
+                }
+
+                manager.Dispose();
+                Assert.That(textures.TrueForAll(texture => texture == null), Is.True, "disposing the manager destroys its textures");
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
         /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
         private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
         {

@@ -12,8 +12,9 @@ namespace Mu3Library.Multiplayer
     /// </summary>
     /// <remarks>
     /// Everything runs on the main thread. What the backend reports, and the answers to
-    /// <see cref="CreateLobby"/>, <see cref="JoinLobby"/>, and <see cref="SearchLobbies"/>, arrive
-    /// from inside <c>Update</c>. A request that changes the session raises its own events before
+    /// <see cref="CreateLobby"/>, <see cref="JoinLobby"/>, <see cref="SearchLobbies"/>, and
+    /// <see cref="LoadAvatar"/> for an avatar the manager does not hold yet, arrive from inside
+    /// <c>Update</c>. A request that changes the session raises its own events before
     /// it returns: <see cref="CreateLobby"/> and <see cref="JoinLobby"/> their first state change,
     /// <see cref="Leave"/> the change to Offline and the failed answer of a pending create or join,
     /// and the host's requests the events they cause. A handler may call back into the manager.
@@ -199,6 +200,32 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </summary>
         public MultiplayerResult ReportLoaded();
+        #endregion
+
+        #region Platform
+        /// <summary>
+        /// Loads a player's avatar as a texture of the given size: this player's own, another
+        /// player's of the session, or any other account the backend can tell about, such as the
+        /// host of a lobby that search found. It answers at once when the manager already holds
+        /// that avatar or the request fails its own checks, and otherwise from inside <c>Update</c>
+        /// once the backend has the image, which on Steam can take a moment for an avatar it still
+        /// downloads. A failure answers a null texture and the reason:
+        /// <see cref="MultiplayerReason.NotSupported"/> on a backend without avatars, such as the
+        /// local backend, <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or
+        /// size, and <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10
+        /// seconds. Several requests for the same avatar while it loads share one answer, and a
+        /// request that failed is tried again the next time.
+        /// <para>
+        /// The manager owns every texture it hands out: never destroy or change one. Asking again
+        /// for the same player and size answers the same texture. An avatar of another player
+        /// that arrived while that player was in the session lasts until the session ends, and is
+        /// destroyed before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the
+        /// change to Offline, even when the player left earlier; any other avatar, this player's
+        /// own included, lasts until the manager is disposed. A game that still shows an avatar
+        /// after that asks for it again.
+        /// </para>
+        /// </summary>
+        public void LoadAvatar(PlayerId player, AvatarSize size, Action<AvatarResult> callback);
         #endregion
     }
 }

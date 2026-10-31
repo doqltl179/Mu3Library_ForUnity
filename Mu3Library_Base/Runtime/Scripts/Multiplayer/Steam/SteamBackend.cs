@@ -229,9 +229,14 @@ namespace Mu3Library.Multiplayer.Steam
 
             DisposeFinishedCalls();
             CheckSearchTimeout();
-            if (!IsAvailable)
+            if (IsAvailable)
+            {
+                UpdateAvatars();
+            }
+            else
             {
                 FailSearches(MultiplayerReason.SteamNotRunning);
+                FailAvatars(MultiplayerReason.SteamNotRunning);
             }
 
             // What a callback queues while being handed on waits for the next update.
@@ -359,6 +364,7 @@ namespace Mu3Library.Multiplayer.Steam
             _isDisposed = true;
             _listener = null;
             _events.Clear();
+            _pendingAvatars.Clear();
 
             _lobbyJoinRequested?.Dispose();
             _lobbyJoinRequested = null;

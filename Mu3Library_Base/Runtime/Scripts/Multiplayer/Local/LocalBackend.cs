@@ -882,6 +882,23 @@ namespace Mu3Library.Multiplayer.Local
         }
         #endregion
 
+        #region Platform
+        /// <summary>
+        /// The local network has no avatars, so every request answers
+        /// <see cref="MultiplayerReason.NotSupported"/> on the next update.
+        /// </summary>
+        public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted)
+        {
+            if (_machine != null)
+            {
+                _machine.LoadAvatar(onCompleted);
+                return;
+            }
+
+            EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.NotSupported, default));
+        }
+        #endregion
+
         #region Events
         /// <summary>
         /// Tells this member that the lobby passed on. The news comes after the reliable packets

@@ -189,6 +189,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
             Defer(() => DeliverJoinRequest(lobby));
         }
 
+        /// <summary>Answers an avatar request on the next update: the local network has no avatars.</summary>
+        public void LoadAvatar(Action<MultiplayerReason, BackendAvatar> onCompleted)
+        {
+            Defer(() => onCompleted?.Invoke(MultiplayerReason.NotSupported, default));
+        }
+
         /// <summary>
         /// Ends every connection the way a process that crashed does: the sockets reset, nobody
         /// hears why, and the lobby file stays behind until it goes stale.

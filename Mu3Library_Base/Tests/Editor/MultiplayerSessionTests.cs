@@ -23,6 +23,10 @@ namespace Mu3Library.Tests
         private sealed class Node
         {
             public LocalBackend Backend;
+
+            /// <summary>Set for a player whose manager runs on a <see cref="PlatformBackend"/> around <see cref="Backend"/>.</summary>
+            public PlatformBackend Platform;
+
             public MultiplayerManager Manager;
             public readonly List<SessionStateChange> States = new List<SessionStateChange>();
             public readonly List<Participant> Joined = new List<Participant>();
@@ -1018,14 +1022,15 @@ namespace Mu3Library.Tests
             return AttachNode(new LocalBackend(_network, name, id), protocolVersion, gameId, configure);
         }
 
-        private Node AttachNode(LocalBackend backend, int protocolVersion = 1, string gameId = GameId, Action<MultiplayerConfig> configure = null)
+        private Node AttachNode(LocalBackend backend, int protocolVersion = 1, string gameId = GameId, Action<MultiplayerConfig> configure = null,
+            PlatformBackend platform = null)
         {
             MultiplayerManager manager = new MultiplayerManager();
             MultiplayerConfig config = new MultiplayerConfig(gameId, protocolVersion) { Clock = () => _now };
             configure?.Invoke(config);
-            Assert.That(manager.Initialize(backend, config).IsSuccess, Is.True);
+            Assert.That(manager.Initialize(platform ?? (IMultiplayerBackend)backend, config).IsSuccess, Is.True);
 
-            Node node = new Node { Backend = backend, Manager = manager };
+            Node node = new Node { Backend = backend, Platform = platform, Manager = manager };
             manager.OnStateChanged += change => node.States.Add(change);
             manager.OnParticipantJoined += participant => node.Joined.Add(participant);
             manager.OnParticipantLeft += (participant, reason) => node.Left.Add((participant, reason));
