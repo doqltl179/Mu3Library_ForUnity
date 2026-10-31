@@ -78,6 +78,7 @@ namespace Mu3Library.Multiplayer
         public event Action<ReadOnlyMemory<byte>> OnGameStarted;
         public event Action OnReturnedToLobby;
         public event Action<LobbyId> OnJoinRequested;
+        public event Action<Participant> OnRateLimitExceeded;
 
         private double Now => _clock != null ? _clock() : Time.realtimeSinceStartupAsDouble;
 
@@ -179,6 +180,7 @@ namespace Mu3Library.Multiplayer
             OnGameStarted = null;
             OnReturnedToLobby = null;
             OnJoinRequested = null;
+            OnRateLimitExceeded = null;
 
             // Handlers often hold scene objects; a disposed manager must not keep them alive.
             _messages.Clear();
@@ -576,6 +578,9 @@ namespace Mu3Library.Multiplayer
             writer.WriteInt(rules.MinPlayersToStart);
             writer.WriteBool(rules.RequireReady);
             writer.WriteBool(rules.AllowLateJoin);
+            writer.WriteInt(rules.MaxMessagesPerSecond);
+            writer.WriteInt(rules.MaxBytesPerSecond);
+            writer.WriteInt(BitConverter.SingleToInt32Bits(rules.RateLimitKickSeconds));
         }
 
         private static SessionRules ReadRules(ref PacketReader reader)
@@ -584,14 +589,20 @@ namespace Mu3Library.Multiplayer
             int minPlayersToStart = reader.ReadInt();
             bool requireReady = reader.ReadBool();
             bool allowLateJoin = reader.ReadBool();
+            int maxMessagesPerSecond = reader.ReadInt();
+            int maxBytesPerSecond = reader.ReadInt();
+            float rateLimitKickSeconds = BitConverter.Int32BitsToSingle(reader.ReadInt());
 
-            if (capacity < MultiplayerLimits.MinCapacity || capacity > MultiplayerLimits.MaxCapacity
-                || minPlayersToStart < 1 || minPlayersToStart > capacity)
+            SessionRules rules = new SessionRules(capacity, minPlayersToStart, requireReady, allowLateJoin,
+                maxMessagesPerSecond, maxBytesPerSecond, rateLimitKickSeconds);
+
+            // The host checked them the same way, so only a host that skipped the check gets here.
+            if (ValidateRules(rules, 1) != MultiplayerReason.None)
             {
-                throw new FormatException($"Invalid rules: capacity {capacity}, minimum players {minPlayersToStart}.");
+                throw new FormatException($"Invalid rules: {rules}.");
             }
 
-            return new SessionRules(capacity, minPlayersToStart, requireReady, allowLateJoin);
+            return rules;
         }
 
         private static void WriteParticipant(PacketWriter writer, Participant participant)

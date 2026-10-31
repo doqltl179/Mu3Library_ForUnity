@@ -22,6 +22,9 @@ namespace Mu3Library.Multiplayer
             public bool IsWelcomed;
 
             public double HandshakeDeadline;
+
+            /// <summary>What the player sent in the current window of the rate limits.</summary>
+            public readonly RateWindow Rate = new RateWindow();
         }
 
         private readonly Dictionary<ConnectionId, PeerConnection> _peers = new Dictionary<ConnectionId, PeerConnection>();
@@ -166,8 +169,16 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
+            if (rules.MaxMessagesPerSecond < 0 || rules.MaxBytesPerSecond < 0 || !IsValidSeconds(rules.RateLimitKickSeconds))
+            {
+                return MultiplayerReason.InvalidArgument;
+            }
+
             return MultiplayerReason.None;
         }
+
+        /// <summary>A length of time in the rules: finite, and 0 or more.</summary>
+        private static bool IsValidSeconds(float seconds) => seconds >= 0f && !float.IsInfinity(seconds);
         #endregion
 
         #region Host Requests
@@ -237,17 +248,26 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            KickPlayer(player, MultiplayerReason.Kicked);
+            return MultiplayerResult.Success;
+        }
+
+        /// <summary>
+        /// Bans the player for the rest of the session, closes their connection with the reason,
+        /// and tells everyone they left for it.
+        /// </summary>
+        private void KickPlayer(PlayerId player, MultiplayerReason reason)
+        {
             _bannedPlayers.Add(player);
 
             PeerConnection peer = FindWelcomedPeer(player);
             if (peer != null)
             {
                 _peers.Remove(peer.Connection);
-                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.Kicked));
+                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(reason));
             }
 
-            RemoveParticipant(player, MultiplayerReason.Kicked);
-            return MultiplayerResult.Success;
+            RemoveParticipant(player, reason);
         }
 
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default)
@@ -437,6 +457,11 @@ namespace Mu3Library.Multiplayer
                 string gameId = reader.ReadString();
                 int protocolVersion = reader.ReadInt();
                 HandleHello(peer, gameId, protocolVersion, wireVersion);
+                return;
+            }
+
+            if (!TakeWithinRateLimit(peer, kind, data.Length))
+            {
                 return;
             }
 

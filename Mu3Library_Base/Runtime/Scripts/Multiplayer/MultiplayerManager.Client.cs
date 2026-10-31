@@ -151,7 +151,7 @@ namespace Mu3Library.Multiplayer
             else
             {
                 // The host names why it closed this player's connection; anything else means the host is gone.
-                reason = sent == MultiplayerReason.Kicked || sent == MultiplayerReason.ConnectionLost
+                reason = sent == MultiplayerReason.Kicked || sent == MultiplayerReason.RateLimited || sent == MultiplayerReason.ConnectionLost
                     ? sent
                     : MultiplayerReason.HostLeft;
             }

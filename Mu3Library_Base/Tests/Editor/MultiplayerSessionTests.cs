@@ -33,6 +33,7 @@ namespace Mu3Library.Tests
             public readonly List<(Participant Sender, string Text)> Chats = new List<(Participant, string)>();
             public readonly List<byte[]> GameStarts = new List<byte[]>();
             public readonly List<LobbyId> JoinRequests = new List<LobbyId>();
+            public readonly List<Participant> RateLimited = new List<Participant>();
             public int ReturnedToLobbyCount;
 
             public PlayerId Id => Backend.LocalPlayerId;
@@ -1030,6 +1031,7 @@ namespace Mu3Library.Tests
             manager.OnGameStarted += data => node.GameStarts.Add(data.ToArray());
             manager.OnReturnedToLobby += () => node.ReturnedToLobbyCount++;
             manager.OnJoinRequested += lobby => node.JoinRequests.Add(lobby);
+            manager.OnRateLimitExceeded += participant => node.RateLimited.Add(participant);
 
             _nodes.Add(node);
             return node;
