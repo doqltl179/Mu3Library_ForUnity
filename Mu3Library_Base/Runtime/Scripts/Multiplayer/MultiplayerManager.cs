@@ -27,6 +27,7 @@ namespace Mu3Library.Multiplayer
         private string _protocolVersionText;
         private double _joinTimeoutSeconds;
         private double _handshakeTimeoutSeconds;
+        private double _reconnectTimeoutSeconds;
         private Func<double> _clock;
 
         private bool _isInitialized = false;
@@ -85,6 +86,7 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnRateLimitExceeded;
         public event Action<Participant> OnParticipantDisconnected;
         public event Action<Participant> OnParticipantReconnected;
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
         public event Action OnAllPlayersLoaded;
         public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 
@@ -116,6 +118,12 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            if (!(config.ReconnectTimeoutSeconds >= 0f))
+            {
+                Debug.LogWarning("[Multiplayer] The reconnect timeout must be zero or more.");
+                return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
+            }
+
             if (!backend.IsAvailable)
             {
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
@@ -134,6 +142,7 @@ namespace Mu3Library.Multiplayer
             _protocolVersionText = config.ProtocolVersion.ToString(CultureInfo.InvariantCulture);
             _joinTimeoutSeconds = config.JoinTimeoutSeconds;
             _handshakeTimeoutSeconds = config.HandshakeTimeoutSeconds;
+            _reconnectTimeoutSeconds = config.ReconnectTimeoutSeconds;
             _maxMessageSize = config.MaxMessageSize;
             _clock = config.Clock;
             _isInitialized = true;
@@ -156,10 +165,13 @@ namespace Mu3Library.Multiplayer
 
             UpdateHandshakeTimeouts();
             UpdateReservations();
+            UpdateLobbyRejoins();
             UpdateDelayedRequests();
             UpdateLoadWait();
             UpdateJoinTimeout();
+            UpdateHostClose();
             UpdateReconnect();
+            UpdateLobbyRejoin();
             UpdatePingReports();
             ShowPresence();
         }
@@ -201,6 +213,7 @@ namespace Mu3Library.Multiplayer
             OnRateLimitExceeded = null;
             OnParticipantDisconnected = null;
             OnParticipantReconnected = null;
+            OnLobbyRejoinFailed = null;
             OnAllPlayersLoaded = null;
             OnLoadTimedOut = null;
 
@@ -480,6 +493,10 @@ namespace Mu3Library.Multiplayer
             {
                 EndReconnect(MultiplayerReason.HostLeft);
             }
+            else if (_isWelcomed && _hostConnection.IsValid)
+            {
+                AwaitHostClose();
+            }
             else
             {
                 EndSession(MultiplayerReason.HostLeft, raiseEvents: true);
@@ -595,6 +612,7 @@ namespace Mu3Library.Multiplayer
 
             ResetHostState();
             ResetClientState();
+            ResetLobbyRejoinState();
             ResetMessageState();
             ResetDataState();
             ResetLoadState();

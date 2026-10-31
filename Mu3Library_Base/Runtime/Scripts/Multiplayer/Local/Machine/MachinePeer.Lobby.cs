@@ -635,10 +635,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             // Heard in the next update. An owner that leaves sends what its session connection
             // still carries, its close included, before its hand-over on the lobby connection,
-            // and this update may read that session connection only after this one; heard now,
-            // the owner change would end the session first and drop those packets. What the
-            // owner's socket did not take before the hand-over, which its lingering socket sends
-            // later, can still arrive after the session ended.
+            // and this update may read that session connection only after this one. What the
+            // sockets between them still hold, or what the owner's lingering socket sends later,
+            // can still arrive after the news, so a client's manager waits a moment for the
+            // session connection's close before it ends the session.
             LobbyId lobbyId = lobby.Id;
             PlayerId ownerId = owner.Id;
             Defer(() => _listener?.OnLobbyOwnerChanged(lobbyId, ownerId));

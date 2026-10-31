@@ -19,6 +19,14 @@ namespace Mu3Library.Multiplayer
 
         private double _joinDeadline = 0d;
 
+        // How long a client waits for its host's connection to close once the lobby says the host
+        // left, so the host's last messages are not dropped when the lobby's news overtakes them.
+        private const double HostCloseWaitSeconds = 1.0;
+
+        // True while the lobby says the host left and the host's connection is still open, until when.
+        private bool _isAwaitingHostClose = false;
+        private double _hostCloseDeadline = 0d;
+
 
 
         #region Join
@@ -131,13 +139,40 @@ namespace Mu3Library.Multiplayer
 
             if (isReturning)
             {
-                // Tried again after the retry interval, while the reservation lasts.
+                // Tried again after the retry interval, while the time to try lasts.
                 _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
                 _hostConnection = ConnectionId.None;
             }
             else
             {
                 EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
+            }
+        }
+
+        /// <summary>
+        /// The lobby says the host left, while its connection to this player is still open. A
+        /// host that leaves closes its connections before it leaves its lobby, but the lobby's
+        /// news travels apart from them and may arrive before the messages the host sent last: on
+        /// Steam the lobby and the connections are separate services, and on the machine-wide
+        /// local network what the socket did not take at once follows in the background. So the
+        /// session waits up to <see cref="HostCloseWaitSeconds"/> for the close, which ends it
+        /// with <see cref="MultiplayerReason.HostLeft"/> after every message before it, and ends
+        /// the same way without it, well inside the 2 seconds NFR-4 allows.
+        /// </summary>
+        private void AwaitHostClose()
+        {
+            if (!_isAwaitingHostClose)
+            {
+                _isAwaitingHostClose = true;
+                _hostCloseDeadline = Now + HostCloseWaitSeconds;
+            }
+        }
+
+        private void UpdateHostClose()
+        {
+            if (_isAwaitingHostClose && Now >= _hostCloseDeadline)
+            {
+                EndSession(MultiplayerReason.HostLeft, raiseEvents: true);
             }
         }
 
@@ -164,7 +199,7 @@ namespace Mu3Library.Multiplayer
             else if (_state == SessionState.Reconnecting)
             {
                 // An attempt that did not get through, or that timed out before the host answered,
-                // is tried again while the reservation lasts. A host that answered decided: a
+                // is tried again while the time to try lasts. A host that answered decided: a
                 // player whose slot is gone hears ConnectionLost, unless the lobby shows the host
                 // gone, and a host that left or runs no session any more means HostLeft.
                 if (kind != BackendDisconnectKind.ClosedByPeer || sent == MultiplayerReason.None || sent == MultiplayerReason.Timeout)
@@ -497,6 +532,8 @@ namespace Mu3Library.Multiplayer
             _hostConnection = ConnectionId.None;
             _isWelcomed = false;
             _joinDeadline = 0d;
+            _isAwaitingHostClose = false;
+            _hostCloseDeadline = 0d;
         }
         #endregion
     }

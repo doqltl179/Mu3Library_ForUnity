@@ -39,6 +39,10 @@ namespace Mu3Library.Multiplayer
         // Players the host kicked from this session; they cannot come back until it ends.
         private readonly HashSet<PlayerId> _bannedPlayers = new HashSet<PlayerId>();
 
+        // Who may enter the lobby the host created, which decides whether a returning player
+        // needs an invite to enter it again.
+        private LobbyVisibility _lobbyVisibility = LobbyVisibility.Public;
+
 
 
         #region Create
@@ -70,6 +74,7 @@ namespace Mu3Library.Multiplayer
             _isHost = true;
             _hostId = LocalPlayerId;
             _rules = options.Rules;
+            _lobbyVisibility = options.Visibility;
             _pendingCallback = callback;
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
@@ -904,6 +909,7 @@ namespace Mu3Library.Multiplayer
             _peers.Clear();
             _expiredPeers.Clear();
             _bannedPlayers.Clear();
+            _lobbyVisibility = LobbyVisibility.Public;
             _reservations.Clear();
             _expiredReservations.Clear();
             _shortenedReservations.Clear();

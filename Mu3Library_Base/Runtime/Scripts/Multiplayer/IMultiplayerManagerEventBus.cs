@@ -47,6 +47,19 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantReconnected;
 
         /// <summary>
+        /// Raised on a client back in its slot when it could not enter its lobby again, with the
+        /// reason. The lobby dropped the player while its connection was down, as a Steam lobby
+        /// may, or a moment after it came back, and then refused it until
+        /// <see cref="MultiplayerConfig.JoinTimeoutSeconds"/> passed from the return, or banned
+        /// it. Steam answers a lobby it will not let the player into as
+        /// <see cref="MultiplayerReason.LobbyNotFound"/>. The session goes on over the host's
+        /// connection, but outside the lobby the player does not show in the friends list's
+        /// group of the session, and only that connection tells it that the host left. Raised
+        /// at most once for each return.
+        /// </summary>
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
+
+        /// <summary>
         /// Raised when a player's ready flag or loaded flag (<see cref="Participant.IsLoaded"/>)
         /// changes, this player's own included. Returning to the lobby clears every ready,
         /// late-join, and loaded flag at once, which <see cref="OnReturnedToLobby"/> reports
