@@ -24,6 +24,9 @@ namespace Mu3Library.Multiplayer
 
         public IReadOnlyDictionary<string, string> LobbyData => _lobbyDataView ??= new ReadOnlyDictionary<string, string>(_lobbyData);
 
+        // The UTF-8 bytes of the longest key a data request may hold: three for each character.
+        private const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
+
 
 
         #region Requests
@@ -75,6 +78,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
             }
 
+            if (_state == SessionState.Reconnecting)
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
             int index = IndexOfParticipant(LocalPlayerId);
             if ((_state != SessionState.Lobby && _state != SessionState.InGame) || index < 0)
             {
@@ -116,10 +124,25 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         private void HostHandleParticipantData(PeerConnection peer, ref PacketReader reader)
         {
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            ReadDataRequest(ref reader, out string key, out string value);
+            HostTakeParticipantData(peer.Player, key, value);
+        }
 
-            int index = IndexOfParticipant(peer.Player);
+        /// <summary>
+        /// Reads a client's data request. A key or value whose UTF-8 bytes could never fit the
+        /// rules makes the packet malformed before it is decoded, so a request held back for the
+        /// rate limits never holds more than its rules allow.
+        /// </summary>
+        private static void ReadDataRequest(ref PacketReader reader, out string key, out string value)
+        {
+            key = reader.ReadString(MaxDataKeyBytes);
+            value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
+        }
+
+        /// <summary>Checks a client's request for its own participant data and applies it, now or once the rate limits have room.</summary>
+        private void HostTakeParticipantData(PlayerId player, string key, string value)
+        {
+            int index = IndexOfParticipant(player);
             if (index < 0)
             {
                 return;
@@ -132,13 +155,13 @@ namespace Mu3Library.Multiplayer
             {
                 if (IsFirstParticipantDataDrop(check))
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {peer.Player}: {check}. Further refusals for this reason go unlogged until the session ends.");
+                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {player}: {check}. Further refusals for this reason go unlogged until the session ends.");
                 }
 
                 return;
             }
 
-            HostApplyParticipantData(peer.Player, key, value);
+            HostApplyParticipantData(player, key, value);
         }
 
         private void HostApplyParticipantData(PlayerId player, string key, string value)

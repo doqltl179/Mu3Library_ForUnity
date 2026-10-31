@@ -2,7 +2,8 @@ namespace Mu3Library.Multiplayer.Data
 {
     /// <summary>
     /// One session state transition. <see cref="Reason"/> names why a request failed or the
-    /// session ended, and is <see cref="MultiplayerReason.None"/> otherwise.
+    /// session ended, is <see cref="MultiplayerReason.ConnectionLost"/> for a change to
+    /// <see cref="SessionState.Reconnecting"/>, and is <see cref="MultiplayerReason.None"/> otherwise.
     /// </summary>
     public readonly struct SessionStateChange
     {

@@ -57,6 +57,10 @@ namespace Mu3Library.Multiplayer
         private byte[] _startData = Array.Empty<byte>();
         public ReadOnlyMemory<byte> StartData => _startData;
 
+        // Counts the games of the current session, as the host numbered them; 0 before the first.
+        // A returning player compares it to tell the game it left from the one it comes back to.
+        private int _gameNumber = 0;
+
         // Moves on whenever a session ends, so a backend callback that belongs to an earlier
         // session, or code that ran after an event handler ended the session, can tell.
         private int _sessionGeneration = 0;
@@ -78,6 +82,11 @@ namespace Mu3Library.Multiplayer
         public event Action<ReadOnlyMemory<byte>> OnGameStarted;
         public event Action OnReturnedToLobby;
         public event Action<LobbyId> OnJoinRequested;
+        public event Action<Participant> OnRateLimitExceeded;
+        public event Action<Participant> OnParticipantDisconnected;
+        public event Action<Participant> OnParticipantReconnected;
+        public event Action OnAllPlayersLoaded;
+        public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 
         private double Now => _clock != null ? _clock() : Time.realtimeSinceStartupAsDouble;
 
@@ -145,7 +154,11 @@ namespace Mu3Library.Multiplayer
             _backend.Update();
 
             UpdateHandshakeTimeouts();
+            UpdateReservations();
+            UpdateDelayedRequests();
+            UpdateLoadWait();
             UpdateJoinTimeout();
+            UpdateReconnect();
         }
 
         /// <summary>
@@ -179,6 +192,11 @@ namespace Mu3Library.Multiplayer
             OnGameStarted = null;
             OnReturnedToLobby = null;
             OnJoinRequested = null;
+            OnRateLimitExceeded = null;
+            OnParticipantDisconnected = null;
+            OnParticipantReconnected = null;
+            OnAllPlayersLoaded = null;
+            OnLoadTimedOut = null;
 
             // Handlers often hold scene objects; a disposed manager must not keep them alive.
             _messages.Clear();
@@ -430,7 +448,16 @@ namespace Mu3Library.Multiplayer
 
             // A lobby passes to another member when its owner leaves. The session lives on the
             // host's machine, so it ends with the host instead of passing on.
-            if (newOwner != _hostId)
+            if (newOwner == _hostId)
+            {
+                return;
+            }
+
+            if (_state == SessionState.Reconnecting)
+            {
+                EndReconnect(MultiplayerReason.HostLeft);
+            }
+            else
             {
                 EndSession(MultiplayerReason.HostLeft, raiseEvents: true);
             }
@@ -539,6 +566,7 @@ namespace Mu3Library.Multiplayer
             _lobbyId = LobbyId.None;
             _rules = SessionRules.Default;
             _startData = Array.Empty<byte>();
+            _gameNumber = 0;
             _participants.Clear();
             _pendingCallback = null;
 
@@ -546,6 +574,7 @@ namespace Mu3Library.Multiplayer
             ResetClientState();
             ResetMessageState();
             ResetDataState();
+            ResetLoadState();
         }
 
         private int IndexOfParticipant(PlayerId player)
@@ -576,6 +605,11 @@ namespace Mu3Library.Multiplayer
             writer.WriteInt(rules.MinPlayersToStart);
             writer.WriteBool(rules.RequireReady);
             writer.WriteBool(rules.AllowLateJoin);
+            writer.WriteInt(rules.MaxMessagesPerSecond);
+            writer.WriteInt(rules.MaxBytesPerSecond);
+            writer.WriteInt(BitConverter.SingleToInt32Bits(rules.RateLimitKickSeconds));
+            writer.WriteInt(BitConverter.SingleToInt32Bits(rules.ReconnectReservationSeconds));
+            writer.WriteInt(BitConverter.SingleToInt32Bits(rules.LoadTimeoutSeconds));
         }
 
         private static SessionRules ReadRules(ref PacketReader reader)
@@ -584,14 +618,22 @@ namespace Mu3Library.Multiplayer
             int minPlayersToStart = reader.ReadInt();
             bool requireReady = reader.ReadBool();
             bool allowLateJoin = reader.ReadBool();
+            int maxMessagesPerSecond = reader.ReadInt();
+            int maxBytesPerSecond = reader.ReadInt();
+            float rateLimitKickSeconds = BitConverter.Int32BitsToSingle(reader.ReadInt());
+            float reconnectReservationSeconds = BitConverter.Int32BitsToSingle(reader.ReadInt());
+            float loadTimeoutSeconds = BitConverter.Int32BitsToSingle(reader.ReadInt());
 
-            if (capacity < MultiplayerLimits.MinCapacity || capacity > MultiplayerLimits.MaxCapacity
-                || minPlayersToStart < 1 || minPlayersToStart > capacity)
+            SessionRules rules = new SessionRules(capacity, minPlayersToStart, requireReady, allowLateJoin,
+                maxMessagesPerSecond, maxBytesPerSecond, rateLimitKickSeconds, reconnectReservationSeconds, loadTimeoutSeconds);
+
+            // The host checked them the same way, so only a host that skipped the check gets here.
+            if (ValidateRules(rules, 1) != MultiplayerReason.None)
             {
-                throw new FormatException($"Invalid rules: capacity {capacity}, minimum players {minPlayersToStart}.");
+                throw new FormatException($"Invalid rules: {rules}.");
             }
 
-            return new SessionRules(capacity, minPlayersToStart, requireReady, allowLateJoin);
+            return rules;
         }
 
         private static void WriteParticipant(PacketWriter writer, Participant participant)
@@ -600,6 +642,8 @@ namespace Mu3Library.Multiplayer
             writer.WriteString(participant.Name);
             writer.WriteBool(participant.IsReady);
             writer.WriteBool(participant.IsLateJoiner);
+            writer.WriteBool(participant.IsConnected);
+            writer.WriteBool(participant.IsLoaded);
             WriteData(writer, participant.Data);
         }
 
@@ -609,6 +653,8 @@ namespace Mu3Library.Multiplayer
             string name = reader.ReadString();
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
+            bool isConnected = reader.ReadBool();
+            bool isLoaded = reader.ReadBool();
             Dictionary<string, string> data = ReadData(ref reader, MultiplayerLimits.MaxParticipantDataSize);
 
             if (!id.IsValid)
@@ -616,7 +662,7 @@ namespace Mu3Library.Multiplayer
                 throw new FormatException("A participant has no player ID.");
             }
 
-            return new Participant(id, name, id == host, id == LocalPlayerId, isReady, isLateJoiner,
+            return new Participant(id, name, id == host, id == LocalPlayerId, isReady, isLateJoiner, isConnected, isLoaded,
                 data.Count > 0 ? new ReadOnlyDictionary<string, string>(data) : null);
         }
         #endregion

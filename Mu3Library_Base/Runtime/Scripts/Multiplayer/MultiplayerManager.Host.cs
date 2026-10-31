@@ -21,6 +21,13 @@ namespace Mu3Library.Multiplayer
             /// <summary>True once the host accepted the player's hello and added them to the roster.</summary>
             public bool IsWelcomed;
 
+            /// <summary>True when the player's hello says it comes back to the slot the host keeps for it.</summary>
+            public bool IsReturning;
+
+            /// <summary>True while the player's hello waits for room in the rate limits, with its size.</summary>
+            public bool IsHelloDelayed;
+            public int HelloBytes;
+
             public double HandshakeDeadline;
         }
 
@@ -166,8 +173,18 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
+            if (rules.MaxMessagesPerSecond < 0 || rules.MaxBytesPerSecond < 0
+                || !IsValidSeconds(rules.RateLimitKickSeconds) || !IsValidSeconds(rules.ReconnectReservationSeconds)
+                || !IsValidSeconds(rules.LoadTimeoutSeconds))
+            {
+                return MultiplayerReason.InvalidArgument;
+            }
+
             return MultiplayerReason.None;
         }
+
+        /// <summary>A length of time in the rules: finite, and 0 or more.</summary>
+        private static bool IsValidSeconds(float seconds) => seconds >= 0f && !float.IsInfinity(seconds);
         #endregion
 
         #region Host Requests
@@ -214,6 +231,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
             }
 
+            if (rules.ReconnectReservationSeconds < _rules.ReconnectReservationSeconds)
+            {
+                ShortenReservations(rules.ReconnectReservationSeconds);
+            }
+
             _rules = rules;
 
             _writer.Begin(PacketKind.RulesChanged);
@@ -237,17 +259,31 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            _bannedPlayers.Add(player);
+            KickPlayer(player, MultiplayerReason.Kicked);
+            return MultiplayerResult.Success;
+        }
 
+        /// <summary>
+        /// Bans the player for the rest of the session, closes their connection with the reason,
+        /// and tells everyone they left for it.
+        /// </summary>
+        private void KickPlayer(PlayerId player, MultiplayerReason reason)
+        {
+            _bannedPlayers.Add(player);
+            DisconnectPlayer(player, reason);
+        }
+
+        /// <summary>Closes the player's connection with the reason and tells everyone they left for it.</summary>
+        private void DisconnectPlayer(PlayerId player, MultiplayerReason reason)
+        {
             PeerConnection peer = FindWelcomedPeer(player);
             if (peer != null)
             {
                 _peers.Remove(peer.Connection);
-                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.Kicked));
+                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(reason));
             }
 
-            RemoveParticipant(player, MultiplayerReason.Kicked);
-            return MultiplayerResult.Success;
+            RemoveParticipant(player, reason);
         }
 
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default)
@@ -296,7 +332,10 @@ namespace Mu3Library.Multiplayer
                 _backend.SetLobbyJoinable(_lobbyId, false);
             }
 
-            _writer.Begin(PacketKind.GameStarted).WriteBytes(_startData);
+            _gameNumber++;
+            BeginLoadWait();
+            _writer.Begin(PacketKind.GameStarted).WriteInt(_gameNumber);
+            _writer.WriteBytes(_startData);
             BroadcastToWelcomed(ConnectionId.None);
 
             int generation = _sessionGeneration;
@@ -318,6 +357,7 @@ namespace Mu3Library.Multiplayer
             }
 
             ReturnRosterToLobby();
+            EndLoadWait();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateLobby);
             _backend.SetLobbyJoinable(_lobbyId, true);
@@ -369,7 +409,7 @@ namespace Mu3Library.Multiplayer
             _startData = Array.Empty<byte>();
             for (int i = 0; i < _participants.Count; i++)
             {
-                _participants[i] = _participants[i].WithReady(false).WithLateJoiner(false);
+                _participants[i] = _participants[i].WithReady(false).WithLateJoiner(false).WithLoaded(false);
             }
         }
         #endregion
@@ -400,19 +440,32 @@ namespace Mu3Library.Multiplayer
             }
 
             _peers.Remove(connection);
-            if (!peer.IsWelcomed)
-            {
-                return;
-            }
 
             // A client can only leave on its own; any other reason it names would let it show the
             // others something the host never decided, such as a kick.
-            MultiplayerReason reason = kind == BackendDisconnectKind.ClosedByPeer
-                && ReasonCodes.FromWire(reasonCode) == MultiplayerReason.LeftNormally
-                    ? MultiplayerReason.LeftNormally
-                    : MultiplayerReason.ConnectionLost;
+            bool hasLeft = kind == BackendDisconnectKind.ClosedByPeer
+                && ReasonCodes.FromWire(reasonCode) == MultiplayerReason.LeftNormally;
 
-            RemoveParticipant(peer.Player, reason);
+            if (!peer.IsWelcomed)
+            {
+                // A player who leaves on the way back to the slot the host keeps frees it at once,
+                // as leaving always does.
+                if (hasLeft && _reservations.ContainsKey(peer.Player))
+                {
+                    RemoveParticipant(peer.Player, MultiplayerReason.LeftNormally);
+                }
+
+                return;
+            }
+
+            if (hasLeft)
+            {
+                RemoveParticipant(peer.Player, MultiplayerReason.LeftNormally);
+            }
+            else
+            {
+                LosePlayer(peer.Player);
+            }
         }
 
         private void HostHandleReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data)
@@ -436,8 +489,19 @@ namespace Mu3Library.Multiplayer
                 int wireVersion = reader.ReadInt();
                 string gameId = reader.ReadString();
                 int protocolVersion = reader.ReadInt();
-                HandleHello(peer, gameId, protocolVersion, wireVersion);
+                HandleHello(peer, gameId, protocolVersion, wireVersion, data.Length, ref reader);
                 return;
+            }
+
+            switch (CheckRateLimit(peer.Player, kind, data.Length))
+            {
+                case RateDecision.Drop:
+                case RateDecision.Kicked:
+                    return;
+
+                case RateDecision.Delay:
+                    DelayRequest(peer.Player, kind, data.Length, ref reader);
+                    return;
             }
 
             switch (kind)
@@ -458,6 +522,10 @@ namespace Mu3Library.Multiplayer
                     HostHandleChat(peer, ref reader);
                     break;
 
+                case PacketKind.ReportLoaded:
+                    HostHandleLoaded(peer, ref reader);
+                    break;
+
                 default:
                     // Only the host sends the other kinds; a client that sends one is ignored.
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}.");
@@ -465,19 +533,58 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion)
+        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion, int bytes, ref PacketReader reader)
         {
             if (!string.Equals(gameId, _gameId, StringComparison.Ordinal)
                 || protocolVersion != _protocolVersion
                 || wireVersion != WireProtocol.Version)
             {
-                _peers.Remove(peer.Connection);
-                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.VersionMismatch));
+                RefusePeer(peer, MultiplayerReason.VersionMismatch);
                 return;
+            }
+
+            // Read only once the version matches, so a hello of any version is refused.
+            peer.IsReturning = reader.ReadBool();
+
+            // A kicked account gets nowhere, whatever else its hello would wait for.
+            if (_bannedPlayers.Contains(peer.Player))
+            {
+                RefusePeer(peer, MultiplayerReason.Banned);
+                return;
+            }
+
+            // An account the session heard from before counts its hellos as well, so connecting
+            // again starts no fresh window; a hello past a limit waits for room, up to the
+            // handshake timeout.
+            if (_rates.ContainsKey(peer.Player))
+            {
+                RateDecision decision = CheckRateLimit(peer.Player, PacketKind.Hello, bytes);
+                if (decision == RateDecision.Kicked)
+                {
+                    if (_peers.ContainsKey(peer.Connection) && _bannedPlayers.Contains(peer.Player))
+                    {
+                        RefusePeer(peer, MultiplayerReason.Banned);
+                    }
+
+                    return;
+                }
+
+                if (decision != RateDecision.Handle)
+                {
+                    peer.IsHelloDelayed = true;
+                    peer.HelloBytes = bytes;
+                    return;
+                }
             }
 
             peer.HasSaidHello = true;
             TryAdmit(peer);
+        }
+
+        private void RefusePeer(PeerConnection peer, MultiplayerReason reason)
+        {
+            _peers.Remove(peer.Connection);
+            _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(reason));
         }
 
         /// <summary>
@@ -485,10 +592,15 @@ namespace Mu3Library.Multiplayer
         /// the host's account can open a connection, so membership is what keeps an invite-only or
         /// friends-only session to the players the lobby let in. The lobby may list a new member a
         /// moment after the connection opens, so a player who is not listed yet waits, up to the
-        /// handshake timeout.
+        /// handshake timeout. An account whose slot the host keeps goes back to it instead.
         /// </summary>
         private void TryAdmit(PeerConnection peer)
         {
+            if (TryReturnToSlot(peer))
+            {
+                return;
+            }
+
             if (!_backend.IsLobbyMember(_lobbyId, peer.Player))
             {
                 return;
@@ -516,8 +628,7 @@ namespace Mu3Library.Multiplayer
 
             if (reject != MultiplayerReason.None)
             {
-                _peers.Remove(peer.Connection);
-                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(reject));
+                RefusePeer(peer, reject);
                 return;
             }
 
@@ -530,25 +641,11 @@ namespace Mu3Library.Multiplayer
                 isLateJoiner: _state == SessionState.InGame);
             _participants.Add(joined);
 
-            _writer.Begin(PacketKind.Welcome);
-            _writer.WriteByte((byte)_state);
-            _writer.WriteULong(_hostId.Value);
-            WriteRules(_writer, _rules);
-            _writer.WriteInt(_maxMessageSize);
-            _writer.WriteBytes(_startData);
-            WriteData(_writer, _lobbyData);
-            _writer.WriteInt(_participants.Count);
-            for (int i = 0; i < _participants.Count; i++)
-            {
-                WriteParticipant(_writer, _participants[i]);
-            }
-
-            if (!_backend.Send(peer.Connection, _writer.Written, DeliveryMode.Reliable))
+            if (!SendWelcome(peer))
             {
                 // Nobody else heard of this player yet, so taking them back out tells no one.
                 _participants.RemoveAt(_participants.Count - 1);
-                _peers.Remove(peer.Connection);
-                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
+                RefusePeer(peer, MultiplayerReason.ConnectionLost);
                 return;
             }
 
@@ -559,6 +656,26 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(peer.Connection);
 
             Raise(OnParticipantJoined, joined);
+        }
+
+        /// <summary>Sends the player the session as it stands: state, rules, data, and the roster.</summary>
+        private bool SendWelcome(PeerConnection peer)
+        {
+            _writer.Begin(PacketKind.Welcome);
+            _writer.WriteByte((byte)_state);
+            _writer.WriteULong(_hostId.Value);
+            _writer.WriteInt(_gameNumber);
+            WriteRules(_writer, _rules);
+            _writer.WriteInt(_maxMessageSize);
+            _writer.WriteBytes(_startData);
+            WriteData(_writer, _lobbyData);
+            _writer.WriteInt(_participants.Count);
+            for (int i = 0; i < _participants.Count; i++)
+            {
+                WriteParticipant(_writer, _participants[i]);
+            }
+
+            return _backend.Send(peer.Connection, _writer.Written, DeliveryMode.Reliable);
         }
 
         private void HostApplyReady(PlayerId player, bool isReady)
@@ -577,13 +694,19 @@ namespace Mu3Library.Multiplayer
             Participant updated = _participants[index].WithReady(isReady);
             _participants[index] = updated;
 
-            _writer.Begin(PacketKind.ParticipantUpdated);
-            _writer.WriteULong(updated.Id.Value);
-            _writer.WriteBool(updated.IsReady);
-            _writer.WriteBool(updated.IsLateJoiner);
+            WriteParticipantUpdated(updated);
             BroadcastToWelcomed(ConnectionId.None);
 
             Raise(OnParticipantChanged, updated);
+        }
+
+        private void WriteParticipantUpdated(Participant participant)
+        {
+            _writer.Begin(PacketKind.ParticipantUpdated);
+            _writer.WriteULong(participant.Id.Value);
+            _writer.WriteBool(participant.IsReady);
+            _writer.WriteBool(participant.IsLateJoiner);
+            _writer.WriteBool(participant.IsLoaded);
         }
 
         private void RemoveParticipant(PlayerId player, MultiplayerReason reason)
@@ -596,13 +719,22 @@ namespace Mu3Library.Multiplayer
 
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
+            _reservations.Remove(player);
+            DiscardDelayedRequests(player);
 
             _writer.Begin(PacketKind.ParticipantLeft);
             _writer.WriteULong(player.Value);
             _writer.WriteInt((int)reason);
             BroadcastToWelcomed(ConnectionId.None);
 
+            int generation = _sessionGeneration;
             Raise(OnParticipantLeft, removed, reason);
+            if (generation == _sessionGeneration)
+            {
+                // A player who left is no longer one the game started with, even if it joins again late.
+                _loadStartedWith.Remove(player);
+                StopWaitingFor(player);
+            }
         }
 
         /// <summary>
@@ -666,10 +798,11 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            // Players who said hello before the lobby listed them get another look each update.
+            // Players who said hello before the lobby listed them, or whose hello waits for room
+            // in the rate limits, get another look each update.
             foreach (PeerConnection peer in _peers.Values)
             {
-                if (peer.HasSaidHello && !peer.IsWelcomed)
+                if ((peer.HasSaidHello || peer.IsHelloDelayed) && !peer.IsWelcomed)
                 {
                     _waitingPeers.Add(peer);
                 }
@@ -678,9 +811,19 @@ namespace Mu3Library.Multiplayer
             int generation = _sessionGeneration;
             for (int i = 0; i < _waitingPeers.Count && generation == _sessionGeneration; i++)
             {
-                if (_peers.ContainsKey(_waitingPeers[i].Connection))
+                PeerConnection waiting = _waitingPeers[i];
+                if (!_peers.ContainsKey(waiting.Connection))
                 {
-                    TryAdmit(_waitingPeers[i]);
+                    continue;
+                }
+
+                if (waiting.IsHelloDelayed)
+                {
+                    TakeDelayedHello(waiting);
+                }
+                else
+                {
+                    TryAdmit(waiting);
                 }
             }
 
@@ -715,6 +858,10 @@ namespace Mu3Library.Multiplayer
             _peers.Clear();
             _expiredPeers.Clear();
             _bannedPlayers.Clear();
+            _reservations.Clear();
+            _expiredReservations.Clear();
+            _shortenedReservations.Clear();
+            ResetRateState();
         }
         #endregion
     }

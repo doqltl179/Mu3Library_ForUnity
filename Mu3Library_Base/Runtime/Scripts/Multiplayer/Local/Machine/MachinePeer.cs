@@ -87,6 +87,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         public int FailingSends { get; set; }
 
+        // Until when SimulateOutage cuts this peer's session connections off.
+        private double _outageEnd = double.NegativeInfinity;
+        private bool IsCutOff => Now < _outageEnd;
+
         private double Now => _network.Now;
 
         /// <summary>How long a quiet connection or an unanswered request may wait; 0 forever.</summary>
@@ -205,6 +209,18 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             Abort(_acceptor);
             Clear();
+        }
+
+        /// <summary>
+        /// Cuts this peer's session connections off: nothing is sent or read on them, so each side
+        /// times out on its own, and none opens either way. Lobby links go on as before.
+        /// </summary>
+        public void SimulateOutage(float seconds)
+        {
+            if (!_isDisposed)
+            {
+                _outageEnd = Math.Max(_outageEnd, Now + seconds);
+            }
         }
 
         /// <summary>
@@ -358,6 +374,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             if (link.State != MachineLinkState.Open)
             {
+                return;
+            }
+
+            // An outage stops everything on a session connection, pings included, so the other
+            // side's timeout runs as this side's does, and what is queued waits for the end.
+            if (link.Role == MachineLinkRole.Session && IsCutOff)
+            {
+                double silence = TimeoutSeconds;
+                if (silence > 0.0 && now - link.LastReceived > silence)
+                {
+                    EndLink(link, LinkEnd.Lost, 0);
+                }
+
                 return;
             }
 
@@ -701,7 +730,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             bool isOpen = link.State == MachineLinkState.Open && !link.HasFailed;
             link.State = MachineLinkState.Dead;
-            if (!isOpen)
+
+            // Nothing leaves a peer cut off by an outage: the reset tells the other side only
+            // that the connection is gone.
+            if (!isOpen || (link.Role == MachineLinkRole.Session && IsCutOff))
             {
                 DiscardDelayed(link);
                 Abort(link.Socket);

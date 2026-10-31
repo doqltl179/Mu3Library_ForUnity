@@ -22,13 +22,28 @@ namespace Mu3Library.Multiplayer.Data
         public bool IsLateJoiner { get; }
 
         /// <summary>
+        /// False while the player's connection is down and the host keeps their slot for them
+        /// (<see cref="SessionRules.ReconnectReservationSeconds"/>), true otherwise. What the
+        /// other players send meanwhile does not reach them.
+        /// </summary>
+        public bool IsConnected { get; }
+
+        /// <summary>
+        /// True once the player reported with <see cref="IMultiplayerManager.ReportLoaded"/> that
+        /// they are ready to play the current game, for example because its scene loaded; false
+        /// in the lobby and from the start of each game until they report.
+        /// </summary>
+        public bool IsLoaded { get; }
+
+        /// <summary>
         /// The game-defined data this player set for themselves with
         /// <see cref="IMultiplayerManager.SetParticipantData"/>, as the host last reported it. A
         /// later change comes as a new participant; this one keeps the data it was handed out with.
         /// </summary>
         public IReadOnlyDictionary<string, string> Data => _data ?? NoData;
 
-        internal Participant(PlayerId id, string name, bool isHost, bool isLocal, bool isReady, bool isLateJoiner, IReadOnlyDictionary<string, string> data = null)
+        internal Participant(PlayerId id, string name, bool isHost, bool isLocal, bool isReady, bool isLateJoiner,
+            bool isConnected = true, bool isLoaded = false, IReadOnlyDictionary<string, string> data = null)
         {
             Id = id;
             Name = name ?? string.Empty;
@@ -36,12 +51,16 @@ namespace Mu3Library.Multiplayer.Data
             IsLocal = isLocal;
             IsReady = isReady;
             IsLateJoiner = isLateJoiner;
+            IsConnected = isConnected;
+            IsLoaded = isLoaded;
             _data = data;
         }
 
-        internal Participant WithReady(bool isReady) => new Participant(Id, Name, IsHost, IsLocal, isReady, IsLateJoiner, _data);
-        internal Participant WithLateJoiner(bool isLateJoiner) => new Participant(Id, Name, IsHost, IsLocal, IsReady, isLateJoiner, _data);
-        internal Participant WithData(IReadOnlyDictionary<string, string> data) => new Participant(Id, Name, IsHost, IsLocal, IsReady, IsLateJoiner, data);
+        internal Participant WithReady(bool isReady) => new Participant(Id, Name, IsHost, IsLocal, isReady, IsLateJoiner, IsConnected, IsLoaded, _data);
+        internal Participant WithLateJoiner(bool isLateJoiner) => new Participant(Id, Name, IsHost, IsLocal, IsReady, isLateJoiner, IsConnected, IsLoaded, _data);
+        internal Participant WithConnected(bool isConnected) => new Participant(Id, Name, IsHost, IsLocal, IsReady, IsLateJoiner, isConnected, IsLoaded, _data);
+        internal Participant WithLoaded(bool isLoaded) => new Participant(Id, Name, IsHost, IsLocal, IsReady, IsLateJoiner, IsConnected, isLoaded, _data);
+        internal Participant WithData(IReadOnlyDictionary<string, string> data) => new Participant(Id, Name, IsHost, IsLocal, IsReady, IsLateJoiner, IsConnected, IsLoaded, data);
 
         public override string ToString() => $"{Name} ({Id})";
     }

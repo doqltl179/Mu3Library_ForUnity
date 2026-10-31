@@ -33,6 +33,11 @@ namespace Mu3Library.Tests
             public readonly List<(Participant Sender, string Text)> Chats = new List<(Participant, string)>();
             public readonly List<byte[]> GameStarts = new List<byte[]>();
             public readonly List<LobbyId> JoinRequests = new List<LobbyId>();
+            public readonly List<Participant> RateLimited = new List<Participant>();
+            public readonly List<Participant> Disconnected = new List<Participant>();
+            public readonly List<Participant> Reconnected = new List<Participant>();
+            public readonly List<PlayerId[]> LoadTimeouts = new List<PlayerId[]>();
+            public int AllLoadedCount;
             public int ReturnedToLobbyCount;
 
             public PlayerId Id => Backend.LocalPlayerId;
@@ -688,6 +693,7 @@ namespace Mu3Library.Tests
             writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(1);
+            writer.WriteBool(false);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
             Pump();
             Assert.That(host.Manager.Participants.Count, Is.EqualTo(3));
@@ -1030,6 +1036,11 @@ namespace Mu3Library.Tests
             manager.OnGameStarted += data => node.GameStarts.Add(data.ToArray());
             manager.OnReturnedToLobby += () => node.ReturnedToLobbyCount++;
             manager.OnJoinRequested += lobby => node.JoinRequests.Add(lobby);
+            manager.OnRateLimitExceeded += participant => node.RateLimited.Add(participant);
+            manager.OnParticipantDisconnected += participant => node.Disconnected.Add(participant);
+            manager.OnParticipantReconnected += participant => node.Reconnected.Add(participant);
+            manager.OnAllPlayersLoaded += () => node.AllLoadedCount++;
+            manager.OnLoadTimedOut += players => node.LoadTimeouts.Add(players.ToArray());
 
             _nodes.Add(node);
             return node;
@@ -1075,6 +1086,7 @@ namespace Mu3Library.Tests
             writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(1);
+            writer.WriteBool(false);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
             Pump();
 
@@ -1093,6 +1105,7 @@ namespace Mu3Library.Tests
             writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(1);
+            writer.WriteBool(false);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
             Pump();
             return connection;

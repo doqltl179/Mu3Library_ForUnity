@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer
@@ -24,10 +25,33 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant, MultiplayerReason> OnParticipantLeft;
 
         /// <summary>
-        /// Raised when a player's ready flag changes, this player's own included. Returning to the
-        /// lobby clears every ready and late-join flag at once, which
-        /// <see cref="OnReturnedToLobby"/> reports instead, and a change of a player's data raises
-        /// <see cref="OnParticipantDataChanged"/>.
+        /// Raised when another player's connection drops during a game and the host keeps their
+        /// slot for <see cref="SessionRules.ReconnectReservationSeconds"/>, with the player as
+        /// <see cref="Participant.IsConnected"/> false. <see cref="OnParticipantReconnected"/>
+        /// follows when they come back, or <see cref="OnParticipantLeft"/> with
+        /// <see cref="MultiplayerReason.ConnectionLost"/> when the time runs out. The player whose
+        /// own connection dropped sees <see cref="OnStateChanged"/> turn to
+        /// <see cref="SessionState.Reconnecting"/> instead.
+        /// </summary>
+        public event Action<Participant> OnParticipantDisconnected;
+
+        /// <summary>
+        /// Raised on every player, the returning one included, when a player comes back to the
+        /// slot the host kept for them, with the player as <see cref="Participant.IsConnected"/>
+        /// true. The returning player raises it last, after its state change and after
+        /// <see cref="OnReturnedToLobby"/> or <see cref="OnGameStarted"/> when the game it left
+        /// ended or another started meanwhile. It takes the roster, rules, lobby data, and start
+        /// data the host holds then, without events for what changed while it was away, and
+        /// nothing that was sent to it meanwhile reaches it, so a game brings it up to date here.
+        /// </summary>
+        public event Action<Participant> OnParticipantReconnected;
+
+        /// <summary>
+        /// Raised when a player's ready flag or loaded flag (<see cref="Participant.IsLoaded"/>)
+        /// changes, this player's own included. Returning to the lobby clears every ready,
+        /// late-join, and loaded flag at once, which <see cref="OnReturnedToLobby"/> reports
+        /// instead, so does the start of a game for the loaded flags, and a change of a player's
+        /// data raises <see cref="OnParticipantDataChanged"/>.
         /// </summary>
         public event Action<Participant> OnParticipantChanged;
 
@@ -61,11 +85,42 @@ namespace Mu3Library.Multiplayer
         public event Action OnReturnedToLobby;
 
         /// <summary>
+        /// Raised on the host, once a game, when every player the game waits for reported with
+        /// <see cref="IMultiplayerManager.ReportLoaded"/> before
+        /// <see cref="SessionRules.LoadTimeoutSeconds"/> passed; the last one may be a player
+        /// who left instead.
+        /// </summary>
+        public event Action OnAllPlayersLoaded;
+
+        /// <summary>
+        /// Raised on the host, once a game, when <see cref="SessionRules.LoadTimeoutSeconds"/>
+        /// passed since the game started before every player it waits for reported with
+        /// <see cref="IMultiplayerManager.ReportLoaded"/>, with the players who did not, in roster
+        /// order. The wait ends there: later reports still set <see cref="Participant.IsLoaded"/>,
+        /// but neither this event nor <see cref="OnAllPlayersLoaded"/> follows.
+        /// </summary>
+        public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
+
+        /// <summary>
         /// Raised when the player asked, outside the game, to join a lobby. The manager then leaves
         /// any current session and joins it, as <see cref="IMultiplayerManager.JoinLobby"/> does,
         /// unless a handler already ended or started a session itself; then the manager leaves
         /// the decision to that handler.
         /// </summary>
         public event Action<LobbyId> OnJoinRequested;
+
+        /// <summary>
+        /// Raised on the host when a client goes past a rate limit of the rules,
+        /// <see cref="SessionRules.MaxMessagesPerSecond"/> or <see cref="SessionRules.MaxBytesPerSecond"/>,
+        /// at most once a second for each client: for the first of its packets in a one-second
+        /// window that goes past one; an account outside the session, such as one whose hello to
+        /// join again waits for room, raises nothing. The host drops that client's game and chat
+        /// messages past the limit for the rest of the window and holds back its ready changes,
+        /// load reports, and data requests for later windows, and with
+        /// <see cref="SessionRules.RateLimitKickSeconds"/> it kicks a client that keeps going past
+        /// it, which <see cref="OnParticipantLeft"/> reports with
+        /// <see cref="MultiplayerReason.RateLimited"/> instead.
+        /// </summary>
+        public event Action<Participant> OnRateLimitExceeded;
     }
 }

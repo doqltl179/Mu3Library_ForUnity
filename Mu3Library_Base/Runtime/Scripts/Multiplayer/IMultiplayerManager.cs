@@ -29,7 +29,10 @@ namespace Mu3Library.Multiplayer
         public LobbyId CurrentLobbyId { get; }
         public SessionRules Rules { get; }
 
-        /// <summary>The players in the session, the host first. Empty outside a session.</summary>
+        /// <summary>
+        /// The players in the session, the host first, players whose slot the host keeps while
+        /// they are away included (<see cref="Participant.IsConnected"/>). Empty outside a session.
+        /// </summary>
         public IReadOnlyList<Participant> Participants { get; }
 
         /// <summary>The data the host started the current game with. Empty outside a game.</summary>
@@ -69,6 +72,9 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Leaves the session from any state. When the host leaves, the session ends for everyone.
+        /// A player who leaves never keeps a slot. One that leaves while
+        /// <see cref="SessionState.Reconnecting"/> frees its slot at once only when its attempt
+        /// already reached the host; otherwise the host frees it when the reservation runs out.
         /// </summary>
         public void Leave();
         #endregion
@@ -82,12 +88,14 @@ namespace Mu3Library.Multiplayer
         public MultiplayerResult SetReady(bool isReady);
 
         /// <summary>
-        /// Host only, in the lobby. The capacity cannot drop below the current player count.
+        /// Host only, in the lobby. The capacity cannot drop below the current player count,
+        /// which counts the players whose slot the host keeps while they are away.
         /// </summary>
         public MultiplayerResult UpdateRules(SessionRules rules);
 
         /// <summary>
-        /// Host only. The player cannot rejoin this session.
+        /// Host only. The player cannot rejoin this session. A player whose slot the host keeps
+        /// while they are away can be kicked too, which frees the slot.
         /// </summary>
         public MultiplayerResult Kick(PlayerId player);
 
@@ -129,16 +137,21 @@ namespace Mu3Library.Multiplayer
         /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. A client checks each
         /// request against its own earlier ones, as the host will have applied them, so the host
         /// takes every request that succeeds here even while earlier ones are still on their way.
-        /// The data lasts until the player leaves the session.
+        /// The data lasts until the player leaves the session, a time away while the host keeps
+        /// their slot included. While this player is <see cref="SessionState.Reconnecting"/> it
+        /// answers <see cref="MultiplayerReason.ConnectionLost"/>, and a request still on its way
+        /// when the connection dropped is lost: the returning player takes the data the host holds.
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
         #endregion
 
         #region Chat
         /// <summary>
-        /// In the lobby only. Sends a text message to every player of the session, this player
-        /// included, through <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or
-        /// empty text answers <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
+        /// In the lobby only; while this player is <see cref="SessionState.Reconnecting"/> it
+        /// answers <see cref="MultiplayerReason.ConnectionLost"/>, as sending does. Sends a text
+        /// message to every player of the session, this player included, through
+        /// <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or empty text answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
         /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. That limit stands
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
@@ -154,7 +167,8 @@ namespace Mu3Library.Multiplayer
         /// Host only, in the lobby. Starts the game for everyone with the given start data, such
         /// as a map name or a random seed, once the rules' start conditions are met. Start data
         /// larger than <see cref="MultiplayerLimits.MaxStartDataSize"/> answers
-        /// <see cref="MultiplayerReason.MessageTooLarge"/>.
+        /// <see cref="MultiplayerReason.MessageTooLarge"/>. A player whose slot the host keeps
+        /// while they are away counts as a player who is not ready.
         /// </summary>
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default);
 
@@ -162,6 +176,29 @@ namespace Mu3Library.Multiplayer
         /// Host only, in a game. Returns everyone to the lobby and clears every ready flag.
         /// </summary>
         public MultiplayerResult EndGame();
+
+        /// <summary>
+        /// In a game. Reports that this player is ready to play it, for example once its scene
+        /// loaded, which every player reads from <see cref="Participant.IsLoaded"/> and hears
+        /// through <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>. From the start
+        /// of a game, the host waits for every player it started with, the ones whose slot it
+        /// keeps while they are away included, since they may come back and report, and hears
+        /// <see cref="IMultiplayerManagerEventBus.OnAllPlayersLoaded"/> once all of them reported, or
+        /// <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/> when
+        /// <see cref="SessionRules.LoadTimeoutSeconds"/> passes first. A player who leaves, is
+        /// kicked, or does not come back to their slot in time is no longer waited for; a player
+        /// who joins the running game is not waited for, but can report all the same; and the
+        /// return to the lobby ends the wait without either event and clears every flag. A player
+        /// who reported before its connection dropped stays loaded when it comes back to the same
+        /// game, and a report still on its way then goes again by itself; one that joins again
+        /// from another start of the game loads again, so its flag clears, and the host waits for
+        /// it again when the game started with it. For a client, success means the report went to
+        /// the host. Reporting again changes nothing.
+        /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
+        /// player is <see cref="SessionState.Reconnecting"/>,
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// </summary>
+        public MultiplayerResult ReportLoaded();
         #endregion
     }
 }

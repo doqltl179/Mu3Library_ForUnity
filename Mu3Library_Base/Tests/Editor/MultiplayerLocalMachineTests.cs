@@ -657,6 +657,72 @@ namespace Mu3Library.Tests
             PumpUntil(() => host.Manager.Participants.Count == 1, "the host to drop the client");
             Assert.That(host.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, 10)));
         }
+
+        [Test]
+        public void Outage_ShorterThanTheTimeout_KeepsTheConnection_AndDelaysReliableMessages()
+        {
+            // As the in-process backend: what a short outage holds back arrives once it ends. The
+            // outage takes a quarter of the timeout, so a slow update cannot make it a drop.
+            Node host = CreateNode("Host", network => network.ConnectionTimeoutSeconds = 2f);
+            Node client = CreateNode("Client", network => network.ConnectionTimeoutSeconds = 2f);
+            StartSession(host, client);
+
+            client.Backend.SimulateOutage(0.5f);
+            Assert.That(client.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
+            Assert.That(client.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.Host, DeliveryMode.Unreliable).IsSuccess, Is.True);
+            Assert.That(host.Manager.Send(Chat, new byte[] { 3 }, MessageTarget.To(client.Id)).IsSuccess, Is.True);
+            PumpFor(0.25);
+            Assert.That(host.Messages.Concat(client.Messages), Is.Empty);
+
+            PumpUntil(() => host.Messages.Count == 1 && client.Messages.Count == 1, "the reliable messages after the outage", 3.0);
+            Assert.That(host.Messages.Single().Payload, Is.EqualTo(new byte[] { 1 }));
+            Assert.That(client.Messages.Single().Payload, Is.EqualTo(new byte[] { 3 }));
+            Assert.That(client.States.Last().Current, Is.EqualTo(SessionState.Lobby));
+        }
+
+        [Test]
+        public void Outage_LongerThanTheTimeout_DropsTheConnection_AndTheClientComesBackToItsSlot()
+        {
+            // FR-20 across "processes": each side times out on its own, and the client connects
+            // again. The outage lasts well past the timeout and the retries that fail during it.
+            Node host = CreateNode("Host", network => network.ConnectionTimeoutSeconds = 2f);
+            Node client = CreateNode("Client", network => network.ConnectionTimeoutSeconds = 2f);
+            StartSession(host, client);
+            Assert.That(host.Manager.StartGame(new byte[] { 4 }).IsSuccess, Is.True);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the game to start");
+
+            client.Backend.SimulateOutage(5f);
+            PumpUntil(() => client.Manager.State == SessionState.Reconnecting
+                && host.Manager.TryGetParticipant(client.Id, out Participant away) && !away.IsConnected, "both sides to notice the outage", 4.5);
+            PumpUntil(() => client.Manager.State == SessionState.InGame
+                && host.Manager.TryGetParticipant(client.Id, out Participant back) && back.IsConnected, "the client to come back", 6.0);
+
+            Assert.That(client.States.Select(change => change.Current).Skip(3), Is.EqualTo(new[] { SessionState.Reconnecting, SessionState.InGame }));
+            Assert.That(client.GameStarts.Count, Is.EqualTo(1));
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(2));
+
+            Assert.That(client.Manager.Send(Chat, new byte[] { 5 }, MessageTarget.Host).IsSuccess, Is.True);
+            PumpUntil(() => host.Messages.Count == 1, "a message after the return");
+        }
+
+        [Test]
+        public void HostCrash_InAGame_EndsTheClientsSessionWithHostLeft_WithoutWaitingOutTheReservation()
+        {
+            // FR-27, FR-20 across "processes": whichever the client notices first, its session
+            // connection or its lobby link breaking, the lobby passing on ends the session.
+            Node host = CreateNode("Host", network => network.ConnectionTimeoutSeconds = 2f);
+            Node client = CreateNode("Client", network => network.ConnectionTimeoutSeconds = 2f);
+            StartSession(host, client);
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the game to start");
+
+            host.Backend.SimulateCrash();
+            PumpUntil(() => client.Manager.State == SessionState.Offline, "the client to end its session", 6.0);
+
+            Assert.That(client.States.Last().Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            Assert.That(client.States.Skip(3).Select(change => change.Current), Is.EqualTo(new[] { SessionState.Reconnecting, SessionState.Offline })
+                .Or.EqualTo(new[] { SessionState.Offline }));
+        }
         #endregion
 
         #region Helpers
@@ -676,9 +742,9 @@ namespace Mu3Library.Tests
             return backend;
         }
 
-        private Node CreateNode(string name)
+        private Node CreateNode(string name, Action<LocalNetwork> configure = null)
         {
-            LocalNetwork network = CreateNetwork();
+            LocalNetwork network = CreateNetwork(configure);
             LocalBackend backend = new LocalBackend(network, name);
             MultiplayerManager manager = new MultiplayerManager();
             Assert.That(manager.Initialize(backend, new MultiplayerConfig(GameId, 1) { Clock = () => _clock.Elapsed.TotalSeconds }).IsSuccess, Is.True);

@@ -16,7 +16,8 @@ namespace Mu3Library.Multiplayer.Local
     /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use, unless the
     /// network simulates a worse one with <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
     /// <see cref="LocalNetwork.SimulatedJitterMilliseconds"/>, and
-    /// <see cref="LocalNetwork.SimulatedLossPercent"/>.
+    /// <see cref="LocalNetwork.SimulatedLossPercent"/>, or <see cref="SimulateOutage"/> cuts a
+    /// player off for a while.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -72,6 +73,9 @@ namespace Mu3Library.Multiplayer.Local
 
             /// <summary>A probe's round trip so far, in seconds.</summary>
             public double RoundTrip;
+
+            /// <summary>A reliable packet or a close, which waits for the end of an outage instead of getting lost.</summary>
+            public bool IsOrdered;
         }
 
         private readonly LocalNetwork _network;
@@ -109,6 +113,9 @@ namespace Mu3Library.Multiplayer.Local
         internal bool IsListening => _isListening && !_isDisposed;
 
         private int _failingSends;
+
+        // Until when SimulateOutage cuts this backend's session connections off.
+        private double _outageEnd = double.NegativeInfinity;
 
         /// <summary>
         /// Test switch: this many of the next sends report failure while the connection stays
@@ -204,7 +211,11 @@ namespace Mu3Library.Multiplayer.Local
             int count = _events.Count;
             for (int i = 0; i < count && !_isDisposed; i++)
             {
-                Dispatch(_events.Dequeue());
+                PendingEvent pending = _events.Dequeue();
+                if (!HoldsBack(pending, now))
+                {
+                    Dispatch(pending);
+                }
             }
 
             // What the simulated network held back follows once its time has come; what reaches
@@ -214,13 +225,18 @@ namespace Mu3Library.Multiplayer.Local
             {
                 PendingEvent pending = _delayed.Pop();
                 pending.Target.DelayedCount--;
-                Dispatch(pending);
+                if (!HoldsBack(pending, now))
+                {
+                    Dispatch(pending);
+                }
             }
 
             if (_isDisposed)
             {
                 return;
             }
+
+            ReportSilencedConnections(now);
 
             foreach (LocalConnection connection in _connections.Values)
             {
@@ -251,6 +267,55 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             Shutdown();
+        }
+
+        /// <summary>
+        /// Cuts this player off its session connections for <paramref name="seconds"/>, as when
+        /// its network drops for a while, to try how a game handles that without Steam. Meanwhile
+        /// no session connection opens to or from this player, unreliable messages either way are
+        /// lost, and reliable ones, a close included, wait for the outage to end, as their resends
+        /// would. A connection that the outage keeps silent for
+        /// <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> drops on both sides as lost, as a
+        /// real one that stops answering does; one that this player closes meanwhile ends on the
+        /// other side at once as lost, without its reason. Lobbies go on as before. A call during
+        /// an outage makes it last at least <paramref name="seconds"/> from now. On a machine-wide
+        /// network the outage acts on this process's side of its connections, so what the other
+        /// side sent unreliably meanwhile still arrives when a connection lives through it.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">A negative, infinite, or NaN value.</exception>
+        public void SimulateOutage(float seconds)
+        {
+            if (!(seconds >= 0f) || float.IsInfinity(seconds))
+            {
+                throw new ArgumentOutOfRangeException(nameof(seconds), seconds, "An outage lasts a finite time of 0 seconds or more.");
+            }
+
+            if (_machine != null)
+            {
+                _machine.SimulateOutage(seconds);
+                return;
+            }
+
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            double now = _network.Now;
+            _outageEnd = Math.Max(_outageEnd, now + seconds);
+            if (!IsCutOff(now))
+            {
+                return;
+            }
+
+            foreach (LocalConnection connection in _connections.Values)
+            {
+                MarkCut(connection, now);
+                if (connection.Remote != null)
+                {
+                    MarkCut(connection.Remote, now);
+                }
+            }
         }
 
         /// <summary>
@@ -565,7 +630,7 @@ namespace Mu3Library.Multiplayer.Local
             _connections[local.Id] = local;
 
             LocalBackend target = _network.FindListening(host, this);
-            if (target == null)
+            if (target == null || IsCutOff(now) || target.IsCutOff(now))
             {
                 local.IsOpen = false;
                 _events.Enqueue(new PendingEvent
@@ -626,6 +691,13 @@ namespace Mu3Library.Multiplayer.Local
             int resends = 0;
             local.Meter.AddSent(data.Length);
 
+            bool isCut = IsLinkCut(local, now);
+            if (isCut && mode != DeliveryMode.Reliable)
+            {
+                remote.Meter.AddInbound(1, 1);
+                return true;
+            }
+
             if (simulation.IsActive)
             {
                 if (mode == DeliveryMode.Reliable)
@@ -642,6 +714,11 @@ namespace Mu3Library.Multiplayer.Local
                 {
                     due += simulation.PacketDelay();
                 }
+            }
+
+            if (isCut)
+            {
+                due = Math.Max(due, LinkCutEnd(local));
             }
 
             remote.Meter.AddInbound(1 + resends, resends);
@@ -687,6 +764,7 @@ namespace Mu3Library.Multiplayer.Local
         private void Arrive(PendingEvent pending, double due, bool isOrdered, double now)
         {
             LocalConnection target = pending.Target;
+            pending.IsOrdered = isOrdered;
             if (isOrdered)
             {
                 due = Math.Max(due, target.LastOrderedDue);
@@ -717,8 +795,9 @@ namespace Mu3Library.Multiplayer.Local
                 return;
             }
 
+            double now = _network.Now;
             NetworkSimulation simulation = _network.Simulation;
-            if (simulation.IsActive && simulation.DropsProbe())
+            if (IsLinkCut(local, now) || (simulation.IsActive && simulation.DropsProbe()))
             {
                 remote.Meter.AddInbound(1, 1);
                 return;
@@ -726,7 +805,6 @@ namespace Mu3Library.Multiplayer.Local
 
             remote.Meter.AddInbound(1, 0);
             double delay = simulation.IsActive ? simulation.ProbeDelay() : 0.0;
-            double now = _network.Now;
             remote.Owner.Arrive(new PendingEvent
             {
                 Kind = kind,
@@ -766,11 +844,32 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             remote.IsOpen = false;
-
-            // The close travels like any packet, after the reliable ones sent before it.
-            NetworkSimulation simulation = _network.Simulation;
             double now = _network.Now;
+
+            // Nothing leaves a backend that an outage cut off, so the other side only finds the
+            // connection gone, as a reset reports it on a machine-wide network.
+            if (IsCutOff(now))
+            {
+                remote.Owner.Arrive(new PendingEvent
+                {
+                    Kind = EventKind.Disconnected,
+                    Connection = remote.Id,
+                    Player = LocalPlayerId,
+                    DisconnectKind = BackendDisconnectKind.ConnectionLost,
+                    Target = remote,
+                }, now, isOrdered: false, now);
+                return;
+            }
+
+            // The close travels like any packet, after the reliable ones sent before it, and
+            // waits for the end of an outage that cuts the other side off.
+            NetworkSimulation simulation = _network.Simulation;
             double due = simulation.IsActive ? now + simulation.PacketDelay() : now;
+            if (IsLinkCut(local, now))
+            {
+                due = Math.Max(due, LinkCutEnd(local));
+            }
+
             remote.Owner.Arrive(new PendingEvent
             {
                 Kind = EventKind.Disconnected,
@@ -800,10 +899,13 @@ namespace Mu3Library.Multiplayer.Local
 
             PendingEvent pending = new PendingEvent { Kind = EventKind.OwnerChanged, Lobby = lobby, Player = newOwner };
 
+            // A connection an outage cuts delivers nothing meanwhile, so the lobby's news does not
+            // wait for it.
+            double now = _network.Now;
             LocalConnection behind = null;
             foreach (LocalConnection connection in _connections.Values)
             {
-                if (behind == null || connection.LastOrderedDue > behind.LastOrderedDue)
+                if (!IsLinkCut(connection, now) && (behind == null || connection.LastOrderedDue > behind.LastOrderedDue))
                 {
                     behind = connection;
                 }
@@ -816,9 +918,112 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             pending.Target = behind;
-            double now = _network.Now;
             Arrive(pending, now, isOrdered: true, now);
         }
+
+        #region Outage
+        private bool IsCutOff(double now) => now < _outageEnd;
+
+        /// <summary>A connection's link is cut while an outage cuts off either side.</summary>
+        private static bool IsLinkCut(LocalConnection connection, double now)
+        {
+            return connection.Owner.IsCutOff(now) || (connection.Remote != null && connection.Remote.Owner.IsCutOff(now));
+        }
+
+        /// <summary>When the outages that cut a connection's link are over.</summary>
+        private static double LinkCutEnd(LocalConnection connection)
+        {
+            double end = connection.Owner._outageEnd;
+            return connection.Remote != null ? Math.Max(end, connection.Remote.Owner._outageEnd) : end;
+        }
+
+        private static void MarkCut(LocalConnection connection, double now)
+        {
+            if (!connection.IsCut)
+            {
+                connection.IsCut = true;
+                connection.CutSince = now;
+            }
+        }
+
+        /// <summary>
+        /// Holds back what reaches a connection whose link an outage cuts: a reliable packet or a
+        /// close waits for the outage to end, also when the outage grew since it was sent, and an
+        /// unreliable packet or a probe is lost. True when it was not handed on.
+        /// </summary>
+        private bool HoldsBack(PendingEvent pending, double now)
+        {
+            LocalConnection target = pending.Target;
+            if (target == null || !IsLinkCut(target, now))
+            {
+                return false;
+            }
+
+            switch (pending.Kind)
+            {
+                case EventKind.Received:
+                case EventKind.Disconnected:
+                    if (!pending.IsOrdered)
+                    {
+                        if (pending.Kind == EventKind.Disconnected)
+                        {
+                            return false;
+                        }
+
+                        Packets.Return(pending.Data);
+                        return true;
+                    }
+
+                    double end = LinkCutEnd(target);
+                    target.LastOrderedDue = Math.Max(target.LastOrderedDue, end);
+                    target.DelayedCount++;
+                    _delayed.Push(end, pending);
+                    return true;
+
+                case EventKind.Probe:
+                case EventKind.ProbeReply:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Reports a connection lost once an outage kept it silent for the network's connection
+        /// timeout. Each side of a connection notices on its own, as each side's timeout would.
+        /// </summary>
+        private void ReportSilencedConnections(double now)
+        {
+            float timeout = _network.ConnectionTimeoutSeconds;
+            foreach (LocalConnection connection in _connections.Values)
+            {
+                if (!connection.IsCut || connection.IsLossReported)
+                {
+                    continue;
+                }
+
+                if (!IsLinkCut(connection, now))
+                {
+                    connection.IsCut = false;
+                    continue;
+                }
+
+                if (timeout > 0f && now - connection.CutSince >= timeout)
+                {
+                    connection.IsLossReported = true;
+                    connection.IsOpen = false;
+                    _events.Enqueue(new PendingEvent
+                    {
+                        Kind = EventKind.Disconnected,
+                        Connection = connection.Id,
+                        Player = connection.RemotePlayer,
+                        DisconnectKind = BackendDisconnectKind.ConnectionLost,
+                    });
+                }
+            }
+        }
+        #endregion
 
         private void EnqueueCallback(Action callback)
         {

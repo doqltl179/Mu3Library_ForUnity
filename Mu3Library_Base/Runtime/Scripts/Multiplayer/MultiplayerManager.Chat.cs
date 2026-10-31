@@ -15,6 +15,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
             }
 
+            if (_state == SessionState.Reconnecting)
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
             if (_state != SessionState.Lobby)
             {
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidState);
