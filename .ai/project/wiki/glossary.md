@@ -35,6 +35,8 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | snapshot | A saved board, `BoardSnapshot` | 스냅샷 | スナップショット |
 | screen effect | A full-screen render pass of the URP package (Grayscale, GaussianBlur, DepthOutline, Shake) driven through `ScreenEffectManager` | 스크린 이펙트 | スクリーンエフェクト |
 | player build, player | A standalone build of a project and the application it produces, as opposed to the Editor | 플레이어 빌드, 플레이어 | プレイヤービルド、プレイヤー |
+| Managed Stripping Level | The Player Settings option that sets how much unused managed code a build removes: Disabled, Minimal, Low, Medium, High | = | = |
+| Unity linker | The build tool (UnityLinker) that removes unused managed code, and that link.xml files instruct | Unity 링커 | Unity リンカー |
 | Always Included Shaders | The Graphics settings list of shaders every build includes | = | = |
 | Resources folder | A folder named `Resources` whose assets every build includes and `Resources.Load` reads by path | Resources 폴더 | Resources フォルダー |
 | chain operation | An Addressables operation that waits for another operation before it starts the one it wraps, and that Addressables hands back in place of that one | 체인 작업 | チェーン操作 |

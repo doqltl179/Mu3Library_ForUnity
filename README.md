@@ -137,6 +137,8 @@ public class AudioCore : CoreBase
 
 `MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
 
+In a player built with **Managed Stripping Level** set to Medium or High, the Unity linker removes code that nothing calls, and the container reaches constructors and `[Inject]` members only through reflection. For each such build, Base's editor hands the linker a link.xml that keeps the constructors and the `[Inject]` fields and properties of every class the build keeps anyway in the script assemblies that reference `Mu3Library.DI`, so services need no `[Preserve]` attribute or `link.xml` of their own. Code that only your own reflection reaches still needs one, in a `link.xml` under the project's `Assets` folder: Unity does not read one inside a package.
+
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
 

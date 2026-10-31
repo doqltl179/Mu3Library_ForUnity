@@ -24,6 +24,7 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Fixed
 - Base: the `Black`, `Blue`, `Green`, `Magenta`, `Red`, and `White` materials in `Runtime/Materials` use Unity's built-in Standard shader. They pointed at a copy of `Standard.shader` from Unity's built-in shader source that the repository never contained, so a project that installed Base could not find their shader.
+- Base: DI works in a player built with Managed Stripping Level Medium or High. The Unity linker removes code that nothing calls, and the container reaches constructors and `[Inject]` members only through reflection, so the linker removed a constructor with parameters (the container then called the parameterless one and left the dependencies out), every constructor of a class that no code creates and `ContainerScope.Register` registers (the class could not be created), and the setter of an `[Inject]` property that no code sets (the property stayed null, even a required one). For each such build, Base's editor now hands the linker a link.xml that keeps the constructors and the `[Inject]` fields and properties of every class the build keeps anyway in the script assemblies that reference `Mu3Library.DI`; classes and assemblies that nothing uses are still removed. Unity does not read a `link.xml` inside a package, so Base could not ship a fixed one.
 
 ## [base/0.27.0] - 2026-10-31
 

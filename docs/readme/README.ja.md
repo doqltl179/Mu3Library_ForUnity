@@ -137,6 +137,8 @@ public class AudioCore : CoreBase
 
 `MVPManager`も、狭い公開契約である `IObjectInjector` を使って、コンテナ外で生成された presenter に `[Inject]` フィールドとプロパティの注入を適用します。具体的な `ContainerScope` と内部の注入実装は DI アセンブリ内に保持されます。
 
+**Managed Stripping Level** を Medium または High にしてビルドしたプレイヤーでは、Unity リンカーがどこからも呼ばれないコードを取り除きますが、コンテナはコンストラクターと `[Inject]` メンバーにリフレクションでしかアクセスしません。そのため Base のエディターコードは、こうしたビルドのたびにリンカーへ link.xml を渡します。このファイルは、`Mu3Library.DI` を参照するスクリプトアセンブリのうち、ビルドがもともと残すすべてのクラスについてコンストラクターと `[Inject]` フィールドとプロパティを残すので、サービスごとに `[Preserve]` 属性や `link.xml` を用意する必要はありません。自分で書いたリフレクションからしか到達しないコードは、引き続きプロジェクトの `Assets` フォルダー以下の `link.xml` で残す必要があります。Unity はパッケージ内の `link.xml` を読みません。
+
 ### MVP (Model-View-Presenter)
 UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
 
