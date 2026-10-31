@@ -43,6 +43,8 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | lobby data, participant data | The session's key-value data the host sets, and one player's own key-value data (`Participant.Data`) | 로비 데이터, 참가자 데이터 | ロビーデータ、参加者データ |
 | lobby chat | Text messages between the players while the session is in the lobby | 로비 채팅 | ロビーチャット |
 | reliable, unreliable delivery | `DeliveryMode.Reliable` (resent and in order) and `DeliveryMode.Unreliable` (may be lost) | 신뢰 전송, 비신뢰 전송 | 信頼性あり、信頼性なし |
+| ping, packet loss | A connection's round-trip time and the share of packets lost on it, as `ConnectionQuality` reports them | 핑, 패킷 손실 | ping、パケットロス |
+| latency, jitter | The delay a simulated network adds to each packet, and how much that delay varies | 지연 시간, 지터 | レイテンシー、ジッター |
 | TMP Essential Resources | The TextMesh Pro resources a project imports from the Editor: `TMP Settings`, the LiberationSans SDF font asset, the TextMesh Pro shaders, and the default style sheet | = | = |
 | font asset, style sheet | A TextMesh Pro `TMP_FontAsset` and `TMP_StyleSheet` | 폰트 에셋, 스타일 시트 | フォントアセット、スタイルシート |
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |
