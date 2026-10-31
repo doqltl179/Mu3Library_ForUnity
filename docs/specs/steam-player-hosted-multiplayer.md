@@ -29,7 +29,7 @@ Mu3Library로 Steam 멀티플레이 게임을 만들려는 개발자는 세션 �
 | 정원 | 호스트를 포함한 세션 최대 인원. |
 | 백엔드 | 로비와 연결을 실제로 처리하는 구현. Steam 백엔드와 로컬 백엔드가 있다. |
 | 외부 서버 | 게임 개발자가 운영하거나 비용을 내는 서버. Valve가 제공하는 Steam 로비와 릴레이는 외부 서버로 보지 않는다. |
-| 사유 코드 | 실패나 종료의 원인을 나타내는 열거값 (부록 B). |
+| 사유 코드 | 실패나 종료의 원인을 나타내는 열거값 `MultiplayerReason` (부록 B). |
 
 ## 3. 사용자
 
@@ -114,6 +114,8 @@ Offline ─────────────▶ Creating ──────�
    │
    │       참가 요청                     로비 입장 + 호스트 연결 성공
    └─────────────────▶ Joining  ───────────────▶ Lobby (클라이언트)
+                       │   중도 합류 허용, 게임 중
+                       └───────────────────────▶ InGame (클라이언트)
 
 Lobby ──호스트가 시작──▶ InGame ──호스트가 게임 종료──▶ Lobby
 InGame (클라이언트) ──끊김, 예약 시간 안──▶ Reconnecting ──복귀──▶ InGame
@@ -467,29 +469,34 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 | 초대로 게임 실행 | 게임이 꺼져 있으면 `+connect_lobby <로비 ID>` 인자로 실행된다. 실행 중이면 `GameLobbyJoinRequested_t`가 온다. | ISteamMatchmaking::InviteUserToLobby, [ISteamFriends](https://partner.steamgames.com/doc/api/ISteamFriends) |
 | 초대 대화상자 | `ActivateGameOverlayInviteDialog(lobbyId)` | ISteamFriends |
 
-## 부록 B. 사유 코드 초안
+## 부록 B. 사유 코드
 
-이름은 설계 단계에서 확정한다.
+구현의 `MultiplayerReason` (`Mu3Library_Base/Runtime/Scripts/Multiplayer/Data/MultiplayerReason.cs`)과 같은 확정 목록이다 (#206). 값은 연결을 닫는 사유로 참가자 사이를 오가므로 (연결 종료 코드는 1000 + 값, Steam이 앱의 정상 종료에 남겨 둔 1000~1999 범위) 번호를 바꾸거나 다시 쓰지 않는다. 라이브러리는 사용자에게 보일 문구를 만들지 않으며, 게임이 코드를 자기 문구로 바꾼다. 아래 경로는 대표 예이고, 요청마다 어떤 코드를 답하는지는 각 API의 XML 문서가 정한다.
 
-| 코드 | 뜻 |
-|---|---|
-| `SteamNotRunning` | Steam 클라이언트가 없거나 초기화하지 못했다. |
-| `OverlayUnavailable` | Steam 오버레이를 쓸 수 없다. |
-| `InvalidCapacity` | 정원이 허용 범위를 벗어났다. |
-| `InvalidState` | 현재 세션 상태에서는 할 수 없는 요청이다. |
-| `NotHost` | 호스트만 할 수 있는 요청이다. |
-| `LobbyNotFound` | 로비가 없거나 이미 사라졌다. |
-| `SessionFull` | 정원이 찼다. |
-| `GameInProgress` | 중도 합류가 막힌 세션이 게임 중이다. |
-| `VersionMismatch` | 게임 식별자나 프로토콜 버전이 다르다. |
-| `DuplicateAccount` | 같은 계정이 이미 참가 중이다. |
-| `Kicked` | 호스트가 강퇴했다. |
-| `Banned` | 이 세션에서 강퇴된 계정이다. |
-| `StartConditionNotMet` | 최소 인원이나 준비 조건을 채우지 못했다. |
-| `HostLeft` | 호스트가 나갔거나 연결이 끊겼다. |
-| `ConnectionFailed` | 호스트와 연결하지 못했다. |
-| `ConnectionLost` | 연결이 끊기고 복귀하지 못했다. |
-| `Timeout` | 제한 시간 안에 끝나지 않았다. |
-| `MessageTooLarge` | 메시지가 크기 한도를 넘었다. |
-| `RateLimited` | 송신량 제한을 넘었다. |
-| `LeftNormally` | 참가자가 스스로 나갔다. |
+| 코드 | 값 | 뜻 |
+|---|---|---|
+| `None` | 0 | 실패가 아니다. 성공한 요청과, 실패나 종료가 아닌 상태 변경이 싣는다. |
+| `NotInitialized` | 1 | 매니저가 백엔드로 초기화되지 않았거나 이미 해제되었다. Steam 백엔드의 초대 요청 (`OpenInviteDialog`, `InviteFriend`)은 백엔드를 쓸 수 없을 때도 이 코드를 답한다. |
+| `SteamNotRunning` | 2 | Steam을 쓸 수 없다. `SteamBackend.TryCreate`에서 Steam 클라이언트가 없거나 시작하지 못했거나 Steam 네이티브 라이브러리를 읽지 못했을 때 (FR-1, FR-39), 그리고 Steam이 꺼진 뒤의 로비 생성, 참가, 검색과 Steam 연결이 없어 실패한 로비 생성이 이 코드다. |
+| `OverlayUnavailable` | 3 | Steam 오버레이가 꺼져 있어 초대 대화상자를 열 수 없다 (`SteamBackend.OpenInviteDialog`, FR-8). |
+| `BackendError` | 4 | 백엔드가 이름 붙이지 않은 이유로 요청을 거부하거나 실패했다. 쓸 수 없는 백엔드로 한 `Initialize`, Steam이 보고한 그 밖의 실패 (`SteamAPI.InitEx`의 버전 불일치 포함, 에디터는 `SteamNotRunning`처럼 이때도 로컬 백엔드로 대체한다), 플랫폼이 거부한 정원, 로비 데이터, 프레즌스 변경과 초대, 백엔드를 쓸 수 없거나 Steam이 이미지를 주지 못한 아바타 요청이 이 코드다. |
+| `NotSupported` | 5 | 백엔드에 그 기능이 없다. 지금은 아바타가 없는 로컬 백엔드의 `LoadAvatar`만 이 코드를 답한다. |
+| `InvalidState` | 10 | 지금 세션 상태에서는 할 수 없는 요청이다. 예: 세션 중의 로비 생성이나 참가, 로비 밖의 준비, 규칙 변경, 게임 시작, 채팅, 게임 밖의 게임 종료나 로드 완료 보고, 로비나 게임 밖의 메시지 송신, 세션 밖의 프레즌스 설정, 이미 초기화했거나 해제한 매니저의 `Initialize`. |
+| `InvalidArgument` | 11 | 요청 인자가 없거나 범위를 벗어났다. 예: 쓸 수 없는 설정, 옵션, 규칙 값, 잘못된 로비 ID, 플레이어, 아바타 크기, 대소문자만 다른 로비 데이터 키 (FR-11), NUL 문자나 짝 없는 UTF-16 서로게이트가 든 텍스트. |
+| `InvalidCapacity` | 12 | 정원이 `MultiplayerLimits.MinCapacity`부터 `MaxCapacity`까지의 범위를 벗어났거나, 정원 변경에서 지금 인원 (슬롯이 예약된 참가자 포함)보다 적다 (FR-15, FR-17). |
+| `NotHost` | 13 | 호스트만 할 수 있는 요청이다. 클라이언트의 규칙 변경, 강퇴, 게임 시작과 종료, 로비 데이터 설정과 삭제, 그리고 `MessagePolicy.HostOnly` 메시지나 다른 클라이언트에게 가는 `NoClientRelay` 메시지의 송신이 이 코드다. |
+| `StartConditionNotMet` | 14 | 최소 시작 인원이 모자라거나, 준비 확인 (`SessionRules.RequireReady`)을 켰는데 준비하지 않은 참가자가 있다. 뒤의 경우 결과에 그 참가자 목록이 따른다 (FR-18). |
+| `LobbyNotFound` | 20 | 로비가 없거나 더는 세션을 열지 않는다. 호스트 정보가 없거나 소유자가 호스트가 아닌 로비, 세션을 열고 있지 않은 호스트가 닫은 연결, 그리고 Steam이 입장을 거부했는데 로비 데이터로 게임 중임을 알 수 없을 때 (예: 초대 없이 들어가려는 초대 전용 로비)가 이 코드다. |
+| `SessionFull` | 21 | 정원이 찼다. 로비가 거부했거나 (Steam, 로컬 백엔드), 거의 동시에 들어온 계정을 호스트가 정원으로 거부했다 (FR-16). |
+| `GameInProgress` | 22 | 중도 합류를 막은 세션이 게임 중이다. 참가를 막은 로비가 거부했거나 (Steam은 로비 데이터가 게임 중을 보일 때만 이 코드로 구별한다), 호스트가 연결을 거부했다 (FR-19). |
+| `VersionMismatch` | 23 | 게임 식별자, 프로토콜 버전, 라이브러리의 전송 형식 버전 중 하나가 호스트와 다르다. 클라이언트는 연결 전에 로비 데이터로, 호스트는 첫 인사 패킷으로 확인한다 (FR-30). |
+| `DuplicateAccount` | 24 | 같은 계정이 이미 세션에 있다 (호스트 자신의 계정 포함). 슬롯이 예약된 계정의 연결은 중복이 아니라 복귀로 처리한다 (FR-21). |
+| `Banned` | 25 | 호스트가 이 세션에서 강퇴한 계정이다. 다시 참가하거나 슬롯으로 돌아오려 하면 호스트가 이 코드로 거부하고, Steam 로비가 입장을 차단해도 이 코드다. 로비 재입장은 이 코드에서만 바로 멈춘다 (FR-20, FR-22). |
+| `ConnectionFailed` | 26 | 연결을 맺지 못했다. 클라이언트가 호스트에 연결하지 못했거나 첫 인사를 보내지 못했거나 참가 중에 연결이 라이브러리 사유 없이 닫혔을 때, 그리고 호스트가 로비 생성에서 연결 받기를 시작하지 못했을 때가 이 코드다 (FR-29). |
+| `Timeout` | 27 | 제한 시간 안에 끝나지 않았다. 참가 (`MultiplayerConfig.JoinTimeoutSeconds`), 호스트 쪽 핸드셰이크 (`HandshakeTimeoutSeconds`), Steam 로비 검색 (25초)과 아바타 (10초), 응답이 없었던 로비 재입장 (`OnLobbyRejoinFailed`)이 이 코드다. 호스트는 한 계정의 받아들이지 않은 연결이 `MultiplayerLimits.MaxPendingConnectionsPerAccount`를 넘을 때도 이 코드로 닫는다. |
+| `LeftNormally` | 30 | 참가자가 스스로 나갔다. `Leave`, 세션 중의 매니저 해제 (이벤트 없음), 다른 로비의 참가 요청 (Steam 초대 수락 등)으로 지금 세션을 끝낼 때가 이 코드다. |
+| `Kicked` | 31 | 호스트가 강퇴했다 (`Kick`). 강퇴된 클라이언트의 세션이 이 코드로 끝나고, 다른 참가자는 `OnParticipantLeft`로 이 코드를 받는다 (FR-22). |
+| `HostLeft` | 32 | 호스트가 나갔거나 연결을 잃었거나 멈췄다. 호스트가 세션을 끝내며 닫은 연결, 로비가 보여 준 호스트 이탈 (소유자 변경, 호스트가 멤버에서 빠짐), 재접속을 거치지 않고 끊긴 호스트 연결, 예약 시간보다 먼저 끝난 재접속 시도 시간 (7장, 결정 D8)이 이 코드다. |
+| `ConnectionLost` | 33 | 연결이 끊기고 돌아오지 못했다. 예약 시간이 먼저 끝났거나 호스트가 슬롯을 두지 않은 재접속, 호스트 쪽에서 예약 없이 끊기거나 예약 시간이 지난 참가자, 신뢰 메시지가 닿지 않아 호스트가 닫은 연결이 이 코드다. Reconnecting으로 가는 상태 변경, Reconnecting 중에 한 요청, 슬롯이 예약된 채 자리를 비운 참가자에게 보낸 메시지도 이 코드를 싣는다. |
+| `MessageTooLarge` | 40 | 크기 한도를 넘었다. 메시지 (`IMultiplayerMessenger.MaxMessageSize`), 채팅, 로비 데이터, 참가자 데이터, 시작 데이터, 프레즌스 텍스트가 대상이며, 나머지 한도는 `MultiplayerLimits`에 있다 (FR-34). |
+| `RateLimited` | 41 | 클라이언트가 송신량 제한을 넘었다. 호스트가 `SessionRules.RateLimitKickSeconds` 동안 계속 넘은 클라이언트를 강퇴하거나 (세션이 끝날 때까지 돌아오지 못함), 제한으로 기다리는 요청이 `MultiplayerLimits.MaxDelayedRequests`를 넘은 클라이언트의 연결을 끊을 때 (다시 참가할 수 있음) 이 코드로 알린다 (FR-37). |
