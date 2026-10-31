@@ -16,11 +16,25 @@ namespace Mu3Library.Multiplayer
         private readonly List<PlayerId> _expiredReservations = new List<PlayerId>();
         private readonly List<PlayerId> _shortenedReservations = new List<PlayerId>();
 
+        // On the host, the returned players whom the lobby no longer listed, and until when the
+        // host keeps the lobby open for them to enter it again.
+        private readonly Dictionary<PlayerId, double> _lobbyRejoins = new Dictionary<PlayerId, double>();
+        private readonly List<PlayerId> _settledLobbyRejoins = new List<PlayerId>();
+
         // On a client that reconnects, when it gives up and with which reason, and when it tries
         // the next time.
         private double _reconnectDeadline = 0d;
         private MultiplayerReason _reconnectTimeoutReason = MultiplayerReason.ConnectionLost;
         private double _nextReconnectAttempt = 0d;
+
+        // On a client that came back without its lobby membership: whether it enters the lobby
+        // again, until when, when it tries next, whether a try is on its way, and the lobby's
+        // last answer.
+        private bool _isRejoiningLobby = false;
+        private double _lobbyRejoinDeadline = 0d;
+        private double _nextLobbyRejoin = 0d;
+        private bool _isLobbyRejoinPending = false;
+        private MultiplayerReason _lobbyRejoinRefusal = MultiplayerReason.Timeout;
 
 
 
@@ -121,6 +135,11 @@ namespace Mu3Library.Multiplayer
             }
 
             peer.IsWelcomed = true;
+            if (!_backend.IsLobbyMember(_lobbyId, player))
+            {
+                OpenLobbyFor(player);
+            }
+
             int sessionGeneration = _sessionGeneration;
             if (isLoadReset)
             {
@@ -148,6 +167,59 @@ namespace Mu3Library.Multiplayer
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// A returned player is back in its slot but no longer in the lobby, as a Steam lobby may
+        /// drop a member whose network went down, and enters it again by itself. Until the lobby
+        /// lists the player, for the join timeout at most, the host keeps the lobby open, also
+        /// while the game refuses late joiners: the lobby then takes other accounts too for that
+        /// moment, and the host refuses them with <see cref="MultiplayerReason.GameInProgress"/>
+        /// once they connect, as it refuses any late joiner.
+        /// </summary>
+        private void OpenLobbyFor(PlayerId player)
+        {
+            bool wasOpen = _lobbyRejoins.Count > 0;
+            _lobbyRejoins[player] = Now + _joinTimeoutSeconds;
+            if (!wasOpen && IsLobbyClosedForTheGame)
+            {
+                _backend.SetLobbyJoinable(_lobbyId, true);
+            }
+        }
+
+        /// <summary>Whether the lobby refuses joins, as it does during a game without late joiners.</summary>
+        private bool IsLobbyClosedForTheGame => _state == SessionState.InGame && !_rules.AllowLateJoin;
+
+        /// <summary>
+        /// Lets go of the returned players the lobby lists again, or that left the session or ran
+        /// out of time, and closes the lobby again for the game when none is left.
+        /// </summary>
+        private void UpdateLobbyRejoins()
+        {
+            if (!_isHost || _lobbyRejoins.Count == 0)
+            {
+                return;
+            }
+
+            double now = Now;
+            foreach (KeyValuePair<PlayerId, double> pair in _lobbyRejoins)
+            {
+                if (now >= pair.Value || IndexOfParticipant(pair.Key) < 0 || _backend.IsLobbyMember(_lobbyId, pair.Key))
+                {
+                    _settledLobbyRejoins.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0; i < _settledLobbyRejoins.Count; i++)
+            {
+                _lobbyRejoins.Remove(_settledLobbyRejoins[i]);
+            }
+
+            _settledLobbyRejoins.Clear();
+            if (_lobbyRejoins.Count == 0 && IsLobbyClosedForTheGame)
+            {
+                _backend.SetLobbyJoinable(_lobbyId, false);
+            }
         }
 
         /// <summary>
@@ -242,6 +314,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _isWelcomed = false;
+            _isRejoiningLobby = false;
             double now = Now;
             _reconnectDeadline = now + seconds;
             _nextReconnectAttempt = now;
@@ -331,6 +404,10 @@ namespace Mu3Library.Multiplayer
         private void HandleReturned(SessionState state, bool isSameGame)
         {
             int generation = _sessionGeneration;
+            if (!_backend.IsLobbyMember(_lobbyId, LocalPlayerId))
+            {
+                BeginLobbyRejoin();
+            }
 
             // A load report still on its way when the connection dropped is lost; it goes again.
             if (isSameGame && _reportedLoadedGame == _gameNumber
@@ -356,6 +433,103 @@ namespace Mu3Library.Multiplayer
             {
                 Raise(OnParticipantReconnected, self);
             }
+        }
+
+        /// <summary>
+        /// This player came back to its slot, but the lobby no longer lists it, as a Steam lobby
+        /// may drop a member whose network went down. Outside the lobby it would not hear the host
+        /// leave through it, nor show in the friends list's group of the session, so it enters
+        /// the same lobby again, which the host keeps open for it meanwhile. A lobby that refuses
+        /// is tried again once a second, since the host may not have opened it yet or another
+        /// account may take the place for a moment, until the join timeout; one that is gone,
+        /// or bans this player, ends the session at once. The session ends with the lobby's last
+        /// answer, or <see cref="MultiplayerReason.Timeout"/> when none came.
+        /// </summary>
+        private void BeginLobbyRejoin()
+        {
+            double now = Now;
+            _isRejoiningLobby = true;
+            _lobbyRejoinDeadline = now + _joinTimeoutSeconds;
+            _nextLobbyRejoin = now;
+            _lobbyRejoinRefusal = MultiplayerReason.Timeout;
+        }
+
+        /// <summary>Asks the lobby again while this player is back in its slot; nothing while it is away again.</summary>
+        private void UpdateLobbyRejoin()
+        {
+            if (!_isRejoiningLobby || _isHost || (_state != SessionState.InGame && _state != SessionState.Lobby))
+            {
+                return;
+            }
+
+            if (_backend.IsLobbyMember(_lobbyId, LocalPlayerId))
+            {
+                _isRejoiningLobby = false;
+                return;
+            }
+
+            double now = Now;
+            if (now >= _lobbyRejoinDeadline)
+            {
+                EndSession(_lobbyRejoinRefusal, raiseEvents: true);
+                return;
+            }
+
+            if (_isLobbyRejoinPending || now < _nextLobbyRejoin)
+            {
+                return;
+            }
+
+            _isLobbyRejoinPending = true;
+            _nextLobbyRejoin = now + ReconnectRetrySeconds;
+            RequestLobbyRejoin();
+        }
+
+        // Apart from UpdateLobbyRejoin, which runs every frame: the callback's captured values
+        // allocate when the method that holds them starts.
+        private void RequestLobbyRejoin()
+        {
+            int generation = _sessionGeneration;
+            LobbyId lobby = _lobbyId;
+            _backend.JoinLobby(lobby, reason => HandleLobbyRejoined(generation, lobby, reason));
+        }
+
+        private void HandleLobbyRejoined(int generation, LobbyId lobby, MultiplayerReason reason)
+        {
+            if (generation != _sessionGeneration)
+            {
+                // The session ended while the lobby answered; do not stay in a lobby nobody plays
+                // in, unless a newer session of this player is in that same lobby.
+                if (reason == MultiplayerReason.None && !IsInSessionLobby(lobby))
+                {
+                    _backend.LeaveLobby(lobby);
+                }
+
+                return;
+            }
+
+            _isLobbyRejoinPending = false;
+            if (!_isRejoiningLobby || reason == MultiplayerReason.None)
+            {
+                return;
+            }
+
+            _lobbyRejoinRefusal = reason;
+            if (reason == MultiplayerReason.LobbyNotFound || reason == MultiplayerReason.Banned)
+            {
+                EndSession(reason, raiseEvents: true);
+            }
+        }
+
+        private void ResetLobbyRejoinState()
+        {
+            _lobbyRejoins.Clear();
+            _settledLobbyRejoins.Clear();
+            _isRejoiningLobby = false;
+            _lobbyRejoinDeadline = 0d;
+            _nextLobbyRejoin = 0d;
+            _isLobbyRejoinPending = false;
+            _lobbyRejoinRefusal = MultiplayerReason.Timeout;
         }
 
         private void HandleParticipantConnection(ref PacketReader reader, bool isConnected)

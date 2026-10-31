@@ -163,11 +163,13 @@ namespace Mu3Library.Multiplayer
 
             UpdateHandshakeTimeouts();
             UpdateReservations();
+            UpdateLobbyRejoins();
             UpdateDelayedRequests();
             UpdateLoadWait();
             UpdateJoinTimeout();
             UpdateHostClose();
             UpdateReconnect();
+            UpdateLobbyRejoin();
             UpdatePingReports();
             ShowPresence();
         }
@@ -606,6 +608,7 @@ namespace Mu3Library.Multiplayer
 
             ResetHostState();
             ResetClientState();
+            ResetLobbyRejoinState();
             ResetMessageState();
             ResetDataState();
             ResetLoadState();

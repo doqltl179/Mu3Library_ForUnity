@@ -333,7 +333,9 @@ namespace Mu3Library.Multiplayer
             _startData = startData.ToArray();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateInGame);
-            if (!_rules.AllowLateJoin)
+
+            // A returned player still entering the lobby again keeps it open until it is in.
+            if (!_rules.AllowLateJoin && _lobbyRejoins.Count == 0)
             {
                 _backend.SetLobbyJoinable(_lobbyId, false);
             }

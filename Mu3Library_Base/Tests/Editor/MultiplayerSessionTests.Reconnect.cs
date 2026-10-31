@@ -541,6 +541,74 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Reconnect_AReturnThatLostItsLobbyMembership_EntersTheLobbyAgain_EvenWhileItRefusesLateJoiners()
+        {
+            // FR-20, FR-19, FR-27, #201: a Steam lobby may drop a member whose network went down;
+            // here the local lobby drops it by hand while the outage lasts.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+            LobbyId lobbyId = host.Manager.CurrentLobbyId;
+            LocalLobby lobby = _network.FindLobby(lobbyId);
+            Assert.That(lobby.IsJoinable, Is.False, "the game refuses late joiners");
+
+            b.Backend.SimulateOutage(ShortOutageSeconds);
+            Advance(DropSeconds + 0.5);
+            _network.RemoveMember(lobby, b.Backend);
+            Assert.That(b.Backend.IsLobbyMember(lobbyId, b.Id), Is.False);
+
+            AdvanceUntil(() => b.Manager.State == SessionState.InGame, ShortOutageSeconds);
+            Assert.That(b.Manager.CurrentLobbyId, Is.EqualTo(lobbyId));
+            Pump();
+
+            Assert.That(lobby.Members, Has.Member(b.Backend), "back in the same lobby");
+            Assert.That(lobby.IsJoinable, Is.False, "the lobby closes again once the player is in it");
+            Assert.That(host.Reconnected.Select(participant => participant.Id), Is.EqualTo(new[] { b.Id }));
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(Join(CreateNode("Late"), host).Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
+
+            // Back in the lobby, the player hears the host leave through it again.
+            b.Backend.SimulateOutage(30f);
+            Advance(1.0);
+            host.Manager.Leave();
+            Advance(1.5);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(b.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
+
+        [Test]
+        public void Reconnect_AReturnThatCannotEnterTheLobbyAgain_TriesUntilTheJoinTimeout_ThenEndsWithTheLobbysReason()
+        {
+            // FR-20, FR-23, NFR-3, #201: another account took the lobby's place meanwhile.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+            LocalLobby lobby = _network.FindLobby(host.Manager.CurrentLobbyId);
+
+            b.Backend.SimulateOutage(ShortOutageSeconds);
+            Advance(DropSeconds + 0.5);
+            _network.RemoveMember(lobby, b.Backend);
+            lobby.Capacity = lobby.Members.Count;
+
+            AdvanceUntil(() => b.Manager.State == SessionState.InGame, ShortOutageSeconds);
+            Assert.That(lobby.IsJoinable, Is.True, "the host keeps the lobby open for the player");
+
+            Advance(new MultiplayerConfig(GameId, 1).JoinTimeoutSeconds - 1.0);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.InGame), "a full lobby is tried again until the join timeout");
+            Assert.That(lobby.Members, Has.No.Member(b.Backend));
+
+            Advance(1.5);
+            Assert.That(b.LastChange.ToString(), Is.EqualTo("InGame -> Offline (SessionFull)"));
+            Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(lobby.IsJoinable, Is.False, "the host closes the lobby again once its time for the player is over");
+        }
+
+        [Test]
         public void Reconnect_ACloseWithACodeOutsideTheLibrarys_StartsReconnecting_AndATimeoutOrAReasonlessRefusalIsTriedAgain()
         {
             // FR-20: Steam closes with codes of its own, and a host that let the handshake time out
