@@ -375,6 +375,7 @@ When the following packages are installed, their features are automatically enab
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | Local notifications (Android/iOS, separate `Mu3Library.Notifications` assembly) |
+| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | Steam backend for multiplayer sessions (2025.164.1 or later; separate `Mu3Library.Multiplayer.Steam` assembly, compiled while the build target is a standalone platform, in the editor too) |
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
@@ -418,7 +419,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Unity Localization wrapper (optional)
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, capacity rules, game start, kicks, and game messages relayed by the host over a pluggable backend; `LocalBackend` runs several players inside one process for tests
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, capacity rules, game start, kicks, and game messages relayed by the host over a pluggable backend: `SteamBackend` (Steam lobbies and Steam connections, with Steamworks.NET) and `LocalBackend` (several players inside one process)
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
