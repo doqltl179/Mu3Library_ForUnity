@@ -321,11 +321,14 @@ namespace Mu3Library.Tests
             LocalBackend backend = CreateRawBackend(CreateNetwork(), "A");
 
             MultiplayerReason? reason = null;
+            MultiplayerReason? invalid = null;
             backend.LoadAvatar(backend.LocalPlayerId, AvatarSize.Large, (answer, avatar) => reason = answer);
-            Assert.That(reason.HasValue, Is.False);
+            backend.LoadAvatar(PlayerId.None, AvatarSize.Large, (answer, avatar) => invalid = answer);
+            Assert.That(reason.HasValue || invalid.HasValue, Is.False);
 
             backend.Update();
             Assert.That(reason, Is.EqualTo(MultiplayerReason.NotSupported));
+            Assert.That(invalid, Is.EqualTo(MultiplayerReason.InvalidArgument));
         }
 
         [Test]

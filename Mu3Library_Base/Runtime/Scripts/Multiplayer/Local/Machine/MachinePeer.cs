@@ -189,10 +189,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
             Defer(() => DeliverJoinRequest(lobby));
         }
 
-        /// <summary>Answers an avatar request on the next update: the local network has no avatars.</summary>
-        public void LoadAvatar(Action<MultiplayerReason, BackendAvatar> onCompleted)
+        /// <summary>Answers an avatar request on the next update, without an image: the local network has no avatars.</summary>
+        public void AnswerAvatar(MultiplayerReason reason, Action<MultiplayerReason, BackendAvatar> onCompleted)
         {
-            Defer(() => onCompleted?.Invoke(MultiplayerReason.NotSupported, default));
+            Defer(() => onCompleted?.Invoke(reason, default));
         }
 
         /// <summary>

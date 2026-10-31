@@ -57,6 +57,13 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // A backend that is gone never answers, so nothing may wait for it.
+            if (!_backend.IsAvailable)
+            {
+                Invoke(callback, new AvatarResult(MultiplayerReason.BackendError, player, size, null));
+                return;
+            }
+
             if (_avatarWaiters.TryGetValue(key, out List<Action<AvatarResult>> waiters))
             {
                 waiters.Add(callback);
@@ -103,8 +110,22 @@ namespace Mu3Library.Multiplayer
             }
 
             AvatarResult result = new AvatarResult(reason, player, size, texture);
+            int generation = _sessionGeneration;
             for (int i = 0; i < waiters.Count && !_isDisposed; i++)
             {
+                // A handler that ended the session destroyed the texture with the session's other
+                // avatars, so the callbacks after it ask again, as if they came now. A destroyed
+                // texture compares equal to null, so the reason tells that one was made.
+                if (reason == MultiplayerReason.None && generation != _sessionGeneration)
+                {
+                    for (int rest = i; rest < waiters.Count && !_isDisposed; rest++)
+                    {
+                        LoadAvatar(player, size, waiters[rest]);
+                    }
+
+                    return;
+                }
+
                 Invoke(waiters[i], result);
             }
         }

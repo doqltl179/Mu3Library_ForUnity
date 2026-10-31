@@ -212,17 +212,23 @@ namespace Mu3Library.Multiplayer
         /// downloads. A failure answers a null texture and the reason:
         /// <see cref="MultiplayerReason.NotSupported"/> on a backend without avatars, such as the
         /// local backend, <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or
-        /// size, and <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10
-        /// seconds. Several requests for the same avatar while it loads share one answer, and a
-        /// request that failed is tried again the next time.
+        /// size, <see cref="MultiplayerReason.BackendError"/> at once when the backend is no
+        /// longer available, for example once it is disposed, and
+        /// <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10 seconds.
+        /// Several requests for the same avatar while it loads share one answer, and a request that
+        /// failed is tried again the next time.
         /// <para>
         /// The manager owns every texture it hands out: never destroy or change one. Asking again
         /// for the same player and size answers the same texture. An avatar of another player
-        /// that arrived while that player was in the session lasts until the session ends, and is
-        /// destroyed before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the
-        /// change to Offline, even when the player left earlier; any other avatar, this player's
-        /// own included, lasts until the manager is disposed. A game that still shows an avatar
-        /// after that asks for it again.
+        /// that arrived while that player was in the session lasts until the session ends, even
+        /// when the player left earlier: the manager asks Unity to destroy it before
+        /// <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change to Offline,
+        /// and in play mode Unity destroys it at the end of that frame, in edit mode at once. An
+        /// avatar that arrives after its player left, and any other avatar, this player's own
+        /// included, lasts until the manager is disposed. A game that still shows an avatar after
+        /// that asks for it again. When one of several callbacks for the same avatar ends the
+        /// session, the manager asks again for the ones after it, so none gets a texture that is
+        /// being destroyed.
         /// </para>
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<AvatarResult> callback);

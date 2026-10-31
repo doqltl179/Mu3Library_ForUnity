@@ -885,17 +885,21 @@ namespace Mu3Library.Multiplayer.Local
         #region Platform
         /// <summary>
         /// The local network has no avatars, so every request answers
-        /// <see cref="MultiplayerReason.NotSupported"/> on the next update.
+        /// <see cref="MultiplayerReason.NotSupported"/> on the next update, and one for an invalid
+        /// player or size <see cref="MultiplayerReason.InvalidArgument"/>.
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted)
         {
+            MultiplayerReason reason = !player.IsValid || size < AvatarSize.Small || size > AvatarSize.Large
+                ? MultiplayerReason.InvalidArgument
+                : MultiplayerReason.NotSupported;
             if (_machine != null)
             {
-                _machine.LoadAvatar(onCompleted);
+                _machine.AnswerAvatar(reason, onCompleted);
                 return;
             }
 
-            EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.NotSupported, default));
+            EnqueueCallback(() => onCompleted?.Invoke(reason, default));
         }
 
         /// <summary>The local network has no friends to show a presence to: it does nothing and answers true.</summary>

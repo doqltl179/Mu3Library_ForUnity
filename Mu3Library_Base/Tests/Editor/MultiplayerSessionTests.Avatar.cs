@@ -287,6 +287,119 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadAvatar_ATextureTheGameDestroyed_IsMadeAgain()
+        {
+            Node node = CreatePlatformNode("A");
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            Texture2D first = LoadAvatar(node, node.Id, AvatarSize.Small).Texture;
+            UnityEngine.Object.DestroyImmediate(first);
+
+            AvatarResult? again = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => again = r);
+            Assert.That(again.HasValue, Is.False, "a destroyed texture is no texture the manager holds");
+            Pump();
+
+            Assert.That(again?.IsSuccess, Is.True);
+            Assert.That(again.Value.Texture != null, Is.True);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LoadAvatar_ABackendThatIsGone_AnswersBackendErrorAtOnce()
+        {
+            Node node = CreatePlatformNode("A");
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+            bool isFirstAnswered = false;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, _ => isFirstAnswered = true);
+            Pump();
+
+            // A disposed backend drops the answers it still owes, as Steam's does; this one keeps
+            // holding its answer, so the request already waiting stays unanswered.
+            node.Backend.Dispose();
+            AvatarResult? result = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "at once, not behind the request already waiting");
+            Assert.That(result.Value.Texture == null, Is.True);
+
+            result = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Large, r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.BackendError));
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(1));
+            Assert.That(isFirstAnswered, Is.False);
+        }
+
+        [Test]
+        public void LoadAvatar_ACallbackThatEndsTheSession_LeavesTheNextOnesAFreshTexture()
+        {
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = JoinNew("A", host);
+            host.Platform.Avatars[(a.Id, AvatarSize.Medium)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            host.Platform.HoldsAvatars = true;
+
+            Texture2D destroyed = null;
+            List<AvatarResult> later = new List<AvatarResult>();
+            host.Manager.LoadAvatar(a.Id, AvatarSize.Medium, result =>
+            {
+                destroyed = result.Texture;
+                host.Manager.Leave();
+            });
+            host.Manager.LoadAvatar(a.Id, AvatarSize.Medium, later.Add);
+            Pump();
+
+            host.Platform.HoldsAvatars = false;
+            Pump();
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(destroyed == null, Is.True, "the first callback's texture ended with the session");
+            Assert.That(later.Count, Is.EqualTo(1), "the next callback was asked again, and answered once");
+            Assert.That(later[0].IsSuccess, Is.True);
+            Assert.That(later[0].Texture != null, Is.True);
+            Assert.That(host.Platform.AvatarReads, Is.EqualTo(2));
+
+            // Read outside the session, the new texture lasts until the manager is disposed.
+            Texture2D fresh = later[0].Texture;
+            host.Manager.Dispose();
+            Assert.That(fresh == null, Is.True);
+        }
+
+        [Test]
+        public void LoadAvatar_AnAvatarThatArrivesAfterItsPlayerLeft_LastsUntilDispose()
+        {
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = JoinNew("A", host);
+            host.Platform.Avatars[(a.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            host.Platform.HoldsAvatars = true;
+            AvatarResult? result = null;
+            host.Manager.LoadAvatar(a.Id, AvatarSize.Small, r => result = r);
+
+            a.Manager.Leave();
+            Pump();
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out _), Is.False);
+            host.Platform.HoldsAvatars = false;
+            Pump();
+            Texture2D texture = result?.Texture;
+            Assert.That(texture != null, Is.True);
+
+            host.Manager.Leave();
+            Assert.That(texture != null, Is.True, "it did not arrive while the player was in the session");
+            host.Manager.Dispose();
+            Assert.That(texture == null, Is.True);
+        }
+
+        [Test]
+        public void LocalBackend_AnswersAnInvalidAvatarRequestWithInvalidArgument()
+        {
+            LocalBackend backend = CreateRawBackend("A");
+            List<MultiplayerReason> reasons = new List<MultiplayerReason>();
+            backend.LoadAvatar(PlayerId.None, AvatarSize.Small, (reason, avatar) => reasons.Add(reason));
+            backend.LoadAvatar(backend.LocalPlayerId, (AvatarSize)3, (reason, avatar) => reasons.Add(reason));
+            backend.LoadAvatar(backend.LocalPlayerId, AvatarSize.Small, (reason, avatar) => reasons.Add(reason));
+            backend.Update();
+
+            Assert.That(reasons, Is.EqualTo(new[] { MultiplayerReason.InvalidArgument, MultiplayerReason.InvalidArgument, MultiplayerReason.NotSupported }));
+        }
+
+        [Test]
         public void Dispose_DropsTheAvatarAnswersStillOnTheirWay()
         {
             Node node = CreatePlatformNode("A");
