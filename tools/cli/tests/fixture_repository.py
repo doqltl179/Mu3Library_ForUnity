@@ -33,22 +33,47 @@ PROJECT_PACKAGES = {
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 
-# Stands in for the Unity Editor: names the project and the arguments it ran with, writes
-# the test results it is given to the path after -testResults, and exits with the status
-# it is given.
+# Stands in for the Unity Editor: names the project, the arguments it ran with, and the
+# -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
+# it is given, prints a tick each second for as many seconds as it is given, then stays silent
+# as long as it is told, in a child process whose PID it can write to a file, writes the test
+# results it is given to the path after -testResults, and exits with the status it is given.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
 project=""
+filter=""
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -testResults) results="$2"; shift ;;
         -projectPath) project="$2"; shift ;;
+        -testFilter) filter="$2"; shift ;;
     esac
     shift
 done
 printf 'fake unity ran %s\\n' "$project"
 printf 'fake unity arguments: %s\\n' "$arguments"
+if [[ -n "$filter" ]]; then
+    printf 'fake unity test filter: [%s]\\n' "$filter"
+fi
+if [[ -n "${MSYS2_ARG_CONV_EXCL:-}" ]]; then
+    printf 'fake unity path conversion exclusions: [%s]\\n' "$MSYS2_ARG_CONV_EXCL"
+fi
+if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG"
+fi
+for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
+    sleep 1
+    printf 'fake unity tick %s\\n' "$tick"
+done
+if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
+    sleep "$FAKE_UNITY_SLEEP" &
+    sleeper=$!
+    if [[ -n "${FAKE_UNITY_SLEEPER_FILE:-}" ]]; then
+        printf '%s\\n' "$sleeper" > "$FAKE_UNITY_SLEEPER_FILE"
+    fi
+    wait "$sleeper"
+fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
 fi
@@ -153,7 +178,18 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         # The user's and the machine's Git configuration stay out as well, so their hooks,
         # file-system monitors, and ignore rules do not apply to the fixture.
         environment = {key: value for key, value in os.environ.items() if key not in cls.repository_environment}
-        for name in ("UNITY_EDITOR", "UNITY", "UNITY_HUB_EDITOR_ROOT", "FAKE_UNITY_RESULTS", "FAKE_UNITY_STATUS"):
+        for name in (
+            "UNITY_EDITOR",
+            "UNITY",
+            "UNITY_HUB_EDITOR_ROOT",
+            "FAKE_UNITY_RESULTS",
+            "FAKE_UNITY_STATUS",
+            "FAKE_UNITY_LOG",
+            "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_SLEEP",
+            "FAKE_UNITY_SLEEPER_FILE",
+            "MSYS2_ARG_CONV_EXCL",
+        ):
             environment.pop(name, None)
         environment.update(
             {

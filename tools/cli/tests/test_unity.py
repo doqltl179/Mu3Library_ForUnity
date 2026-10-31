@@ -24,6 +24,7 @@ from mu3_cli.unity import (
     create_directory_link,
     default_editor_path,
     file_is_held_open,
+    filter_arguments,
     find_bash,
     find_windows_bash,
     link_samples,
@@ -35,6 +36,7 @@ from mu3_cli.unity import (
     remove_directory_link,
     sample_link_diagnostic,
     sample_link_state,
+    stall_timeout_arguments,
 )
 from shell_harness import run_sourced
 
@@ -104,6 +106,77 @@ class UnityToolingTests(unittest.TestCase):
     def test_platform_rejects_a_name_the_test_script_does_not_take(self) -> None:
         with self.assertRaisesRegex(ValueError, "--platform expects one of: editmode, playmode"):
             platform_arguments("PlayMode")
+
+    def test_filter_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], filter_arguments(None))
+        self.assertEqual(["--filter", "A.Tests;B.Tests"], filter_arguments("A.Tests;B.Tests"))
+
+    def test_filter_rejects_what_the_test_script_rejects(self) -> None:
+        for pattern, message in (
+            ("", "--filter requires a test name or pattern"),
+            ("  ", "--filter requires a test name or pattern"),
+            ("--dry-run", "--filter expects a test name or pattern, not an option: --dry-run"),
+            ("/Mu3/Regex", "--filter cannot start with /, which Git Bash rewrites as a file path"),
+        ):
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(ValueError, message):
+                filter_arguments(pattern)
+
+    def test_test_command_refuses_an_option_as_its_filter(self) -> None:
+        calls: list[list[str]] = []
+
+        with mock.patch("mu3_cli.unity.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+            result = CliRunner().invoke(app, ["unity", "test", "--filter", "--dry-run", "built-in"])
+
+        self.assertEqual(2, result.exit_code, result.output)
+        # The error box wraps the message, so the option it names can land on the next line.
+        self.assertIn("not an option:", result.output)
+        self.assertEqual([], calls)
+
+    def test_stall_timeout_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], stall_timeout_arguments(None))
+        self.assertEqual(["--stall-timeout", "0"], stall_timeout_arguments(0))
+        self.assertEqual(["--stall-timeout", "900"], stall_timeout_arguments(900))
+        with self.assertRaisesRegex(ValueError, "--stall-timeout expects a whole number of seconds"):
+            stall_timeout_arguments(-1)
+
+    def test_test_command_hands_its_options_to_the_test_script(self) -> None:
+        calls: list[tuple[Path, list[str]]] = []
+
+        def run(script_path: Path, arguments: list[str], root: Path) -> int:
+            calls.append((script_path, arguments))
+            return 0
+
+        with mock.patch("mu3_cli.unity.run_entry_point", run):
+            result = CliRunner().invoke(
+                app,
+                [
+                    "unity",
+                    "test",
+                    "built-in",
+                    "--dry-run",
+                    "--filter",
+                    "Mu3Library.Tests.MultiplayerPerformanceTests",
+                    "--stall-timeout",
+                    "120",
+                ],
+            )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        [(script_path, arguments)] = calls
+        self.assertEqual("test-unity.sh", script_path.name)
+        self.assertEqual(
+            [
+                "built-in",
+                "--dry-run",
+                "--platform",
+                "editmode",
+                "--filter",
+                "Mu3Library.Tests.MultiplayerPerformanceTests",
+                "--stall-timeout",
+                "120",
+            ],
+            arguments,
+        )
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
