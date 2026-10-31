@@ -434,7 +434,7 @@ namespace Mu3Library.Tests
             // Builds that share a game protocol but not a library version cannot talk.
             Node host = CreateHost("Host");
             LocalBackend other = CreateRawBackend("OtherLibrary");
-            LobbyId otherLobby = CreateRawLobby(other, GameId, 1, wireVersion: "2");
+            LobbyId otherLobby = CreateRawLobby(other, GameId, 1, wireVersion: (WireProtocol.Version + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
             Node seeker = CreateNode("Seeker");
 
             Assert.That(Search(seeker).Lobbies.Select(lobby => lobby.Id), Is.EqualTo(new[] { host.Manager.CurrentLobbyId }));

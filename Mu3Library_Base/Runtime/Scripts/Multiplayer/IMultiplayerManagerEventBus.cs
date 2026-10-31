@@ -26,9 +26,31 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Raised when a player's ready flag changes, this player's own included. Returning to the
         /// lobby clears every ready and late-join flag at once, which
-        /// <see cref="OnReturnedToLobby"/> reports instead.
+        /// <see cref="OnReturnedToLobby"/> reports instead, and a change of a player's data raises
+        /// <see cref="OnParticipantDataChanged"/>.
         /// </summary>
         public event Action<Participant> OnParticipantChanged;
+
+        /// <summary>
+        /// Raised when a value of a player's participant data changes, this player's own included,
+        /// with the player as the host now reports them and the key that changed. A joining player
+        /// reads the data set before it joined from <see cref="IMultiplayerManager.Participants"/> instead.
+        /// </summary>
+        public event Action<Participant, string> OnParticipantDataChanged;
+
+        /// <summary>
+        /// Raised on every player, the host included, when the host sets a value of the lobby data,
+        /// with the key and the new value. A joining player reads the data set before it joined
+        /// from <see cref="IMultiplayerManager.LobbyData"/> instead.
+        /// </summary>
+        public event Action<string, string> OnLobbyDataChanged;
+
+        /// <summary>
+        /// Raised for every lobby chat message, this player's own included, with its text and its
+        /// sender as the connection proved it: the host names the sender from the connection a
+        /// message arrived on, never from what the message says.
+        /// </summary>
+        public event Action<Participant, string> OnChatReceived;
 
         public event Action<SessionRules> OnRulesChanged;
 

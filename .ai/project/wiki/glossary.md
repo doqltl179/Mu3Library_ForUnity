@@ -38,6 +38,11 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | Always Included Shaders | The Graphics settings list of shaders every build includes | = | = |
 | Resources folder | A folder named `Resources` whose assets every build includes and `Resources.Load` reads by path | Resources 폴더 | Resources フォルダー |
 | chain operation | An Addressables operation that waits for another operation before it starts the one it wraps, and that Addressables hands back in place of that one | 체인 작업 | チェーン操作 |
+| session, host, client | A player-hosted multiplayer session, the player whose machine hosts it, and every other player in it | 세션, 호스트, 클라이언트 | セッション、ホスト、クライアント |
+| roster | The players in a session, `IMultiplayerManager.Participants` | 참가자 목록 | 参加者一覧 |
+| lobby data, participant data | The session's key-value data the host sets, and one player's own key-value data (`Participant.Data`) | 로비 데이터, 참가자 데이터 | ロビーデータ、参加者データ |
+| lobby chat | Text messages between the players while the session is in the lobby | 로비 채팅 | ロビーチャット |
+| reliable, unreliable delivery | `DeliveryMode.Reliable` (resent and in order) and `DeliveryMode.Unreliable` (may be lost) | 신뢰 전송, 비신뢰 전송 | 信頼性あり、信頼性なし |
 | TMP Essential Resources | The TextMesh Pro resources a project imports from the Editor: `TMP Settings`, the LiberationSans SDF font asset, the TextMesh Pro shaders, and the default style sheet | = | = |
 | font asset, style sheet | A TextMesh Pro `TMP_FontAsset` and `TMP_StyleSheet` | 폰트 에셋, 스타일 시트 | フォントアセット、スタイルシート |
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |

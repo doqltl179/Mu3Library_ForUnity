@@ -212,6 +212,18 @@ namespace Mu3Library.Multiplayer
                     ClientHandleMessage(ref reader);
                     break;
 
+                case PacketKind.LobbyDataChanged:
+                    HandleLobbyDataChanged(ref reader);
+                    break;
+
+                case PacketKind.ParticipantDataChanged:
+                    HandleParticipantDataChanged(ref reader);
+                    break;
+
+                case PacketKind.ChatFromHost:
+                    HandleChatFromHost(ref reader);
+                    break;
+
                 default:
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
                     break;
@@ -234,6 +246,7 @@ namespace Mu3Library.Multiplayer
                 throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
             }
             byte[] startData = reader.ReadBytes();
+            Dictionary<string, string> lobbyData = ReadData(ref reader, MultiplayerLimits.MaxLobbyDataSize);
 
             int count = reader.ReadInt();
             if (count < 1 || count > MultiplayerLimits.MaxCapacity)
@@ -258,6 +271,16 @@ namespace Mu3Library.Multiplayer
             _startData = startData;
             _participants.Clear();
             _participants.AddRange(roster);
+            _lobbyData.Clear();
+            foreach (KeyValuePair<string, string> pair in lobbyData)
+            {
+                _lobbyData.Add(pair.Key, pair.Value);
+            }
+
+            if (TryGetParticipant(LocalPlayerId, out Participant self))
+            {
+                TakeRequestedData(self.Data);
+            }
 
             // The callback stays pending through the state event: a handler that ends the session
             // there answers it with the reason, and only a session that survives answers success.

@@ -8,7 +8,7 @@ namespace Mu3Library.Multiplayer.Protocol
     {
         /// <summary>Client to host: wire version, game identifier, and game protocol version.</summary>
         Hello = 1,
-        /// <summary>Host to a new client: session state, rules, message size limit, start data, and the roster.</summary>
+        /// <summary>Host to a new client: session state, rules, message size limit, start data, lobby data, and the roster.</summary>
         Welcome = 2,
         /// <summary>Host to clients: a player joined.</summary>
         ParticipantJoined = 3,
@@ -28,5 +28,15 @@ namespace Mu3Library.Multiplayer.Protocol
         MessageToHost = 10,
         /// <summary>Host to a client: a game message with its delivery mode and its sender.</summary>
         MessageFromHost = 11,
+        /// <summary>Host to clients: one value of the game's lobby data changed.</summary>
+        LobbyDataChanged = 12,
+        /// <summary>Client to host: one value of the sender's own participant data.</summary>
+        SetParticipantData = 13,
+        /// <summary>Host to clients: one value of a player's participant data changed.</summary>
+        ParticipantDataChanged = 14,
+        /// <summary>Client to host: a lobby chat message.</summary>
+        ChatToHost = 15,
+        /// <summary>Host to clients: a lobby chat message with its sender.</summary>
+        ChatFromHost = 16,
     }
 }

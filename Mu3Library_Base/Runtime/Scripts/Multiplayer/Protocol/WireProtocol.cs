@@ -10,7 +10,7 @@ namespace Mu3Library.Multiplayer.Protocol
     /// </summary>
     internal static class WireProtocol
     {
-        public const int Version = 1;
+        public const int Version = 2;
         public static readonly string VersionText = Version.ToString(CultureInfo.InvariantCulture);
     }
 }

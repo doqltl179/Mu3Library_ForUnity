@@ -28,6 +28,9 @@ namespace Mu3Library.Tests
             public readonly List<Participant> Joined = new List<Participant>();
             public readonly List<(Participant Participant, MultiplayerReason Reason)> Left = new List<(Participant, MultiplayerReason)>();
             public readonly List<Participant> Changed = new List<Participant>();
+            public readonly List<(Participant Participant, string Key)> DataChanges = new List<(Participant, string)>();
+            public readonly List<(string Key, string Value)> LobbyDataChanges = new List<(string, string)>();
+            public readonly List<(Participant Sender, string Text)> Chats = new List<(Participant, string)>();
             public readonly List<byte[]> GameStarts = new List<byte[]>();
             public readonly List<LobbyId> JoinRequests = new List<LobbyId>();
             public int ReturnedToLobbyCount;
@@ -1021,6 +1024,9 @@ namespace Mu3Library.Tests
             manager.OnParticipantJoined += participant => node.Joined.Add(participant);
             manager.OnParticipantLeft += (participant, reason) => node.Left.Add((participant, reason));
             manager.OnParticipantChanged += participant => node.Changed.Add(participant);
+            manager.OnParticipantDataChanged += (participant, key) => node.DataChanges.Add((participant, key));
+            manager.OnLobbyDataChanged += (key, value) => node.LobbyDataChanges.Add((key, value));
+            manager.OnChatReceived += (sender, text) => node.Chats.Add((sender, text));
             manager.OnGameStarted += data => node.GameStarts.Add(data.ToArray());
             manager.OnReturnedToLobby += () => node.ReturnedToLobbyCount++;
             manager.OnJoinRequested += lobby => node.JoinRequests.Add(lobby);
