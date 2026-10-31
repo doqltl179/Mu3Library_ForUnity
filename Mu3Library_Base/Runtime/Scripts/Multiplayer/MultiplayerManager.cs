@@ -97,7 +97,7 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            if (config.JoinTimeoutSeconds <= 0f || config.HandshakeTimeoutSeconds <= 0f)
+            if (!(config.JoinTimeoutSeconds > 0f) || !(config.HandshakeTimeoutSeconds > 0f))
             {
                 Debug.LogWarning("[Multiplayer] Timeouts must be greater than zero.");
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);

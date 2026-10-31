@@ -668,6 +668,7 @@ namespace Mu3Library.Tests
             Node a = JoinNew("A", host);
             RecordingListener listener = new RecordingListener();
             LocalBackend raw = CreateRawBackend("Raw", listener);
+            EnterLobby(raw, host);
             ConnectionId connection = raw.Connect(host.Id);
             Pump();
 
@@ -948,6 +949,29 @@ namespace Mu3Library.Tests
         }
         #endregion
 
+        [Test]
+        public void AConnectionFromOutsideTheLobby_WaitsForMembership_AndTimesOutWithout()
+        {
+            // FR-5, NFR-5: knowing the host's account is not enough to enter an invite-only session.
+            Node host = CreateHost("Host", LobbyVisibility.InviteOnly);
+            RecordingListener outsiderListener = new RecordingListener();
+            LocalBackend outsider = CreateRawBackend("Outsider", outsiderListener);
+            LocalBackend latecomer = CreateRawBackend("Latecomer", new RecordingListener());
+
+            ConnectionId outsiderConnection = SayHello(outsider, host);
+            SayHello(latecomer, host);
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(1));
+
+            EnterLobby(latecomer, host);
+            Assert.That(host.Manager.Participants.Select(participant => participant.Id), Is.EqualTo(new[] { host.Id, latecomer.LocalPlayerId }));
+
+            _now = 10d;
+            Pump();
+            Assert.That(outsiderListener.Disconnected.Single().Connection, Is.EqualTo(outsiderConnection));
+            Assert.That(outsiderListener.Disconnected.Single().ReasonCode, Is.EqualTo(ReasonCodes.ToWire(MultiplayerReason.Timeout)));
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(2));
+        }
+
         #region Requests
         [Test]
         public void Requests_BeforeInitialize_ReportNotInitialized()
@@ -1036,6 +1060,7 @@ namespace Mu3Library.Tests
         /// <summary>Connects a raw backend to the host and has it accepted as a player.</summary>
         private ConnectionId ConnectAsPlayer(LocalBackend raw, Node host)
         {
+            EnterLobby(raw, host);
             ConnectionId connection = raw.Connect(host.Id);
             Pump();
 
@@ -1049,6 +1074,31 @@ namespace Mu3Library.Tests
 
             Assert.That(host.Manager.TryGetParticipant(raw.LocalPlayerId, out _), Is.True);
             return connection;
+        }
+
+        /// <summary>Connects a raw backend to the host and says hello, without entering the lobby.</summary>
+        private ConnectionId SayHello(LocalBackend raw, Node host)
+        {
+            ConnectionId connection = raw.Connect(host.Id);
+            Pump();
+
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.Hello);
+            writer.WriteInt(WireProtocol.Version);
+            writer.WriteString(GameId);
+            writer.WriteInt(1);
+            raw.Send(connection, writer.Written, DeliveryMode.Reliable);
+            Pump();
+            return connection;
+        }
+
+        /// <summary>Makes a raw backend a member of the host's lobby.</summary>
+        private void EnterLobby(LocalBackend raw, Node host)
+        {
+            MultiplayerReason? entered = null;
+            raw.JoinLobby(host.Manager.CurrentLobbyId, reason => entered = reason);
+            Pump();
+            Assert.That(entered, Is.EqualTo(MultiplayerReason.None));
         }
 
         private static LobbyCreateOptions PublicOptions(SessionRules rules)

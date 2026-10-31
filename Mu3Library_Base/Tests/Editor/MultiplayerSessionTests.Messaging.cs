@@ -534,6 +534,28 @@ namespace Mu3Library.Tests
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
             Assert.That(inbox.Received, Is.Empty);
         }
+        [Test]
+        public void SendingToAConnectionTheOtherSideClosed_KeepsTheReasonItGave()
+        {
+            // FR-27, FR-22, FR-28: a message sent while the close is on its way does not turn a
+            // host leaving, a kick, or a player leaving into a lost connection.
+            (Node host, Node[] clients) = CreateSession(3);
+            Node a = clients[0], b = clients[1], c = clients[2];
+
+            Assert.That(host.Manager.Kick(a.Id).IsSuccess, Is.True);
+            Assert.That(a.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
+            c.Manager.Leave();
+            Assert.That(host.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.All).IsSuccess, Is.True);
+            Pump();
+
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.Kicked));
+            Assert.That(host.Left.Single(left => left.Participant.Id == c.Id).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+
+            host.Manager.Leave();
+            Assert.That(b.Manager.Send(Chat, new byte[] { 3 }, MessageTarget.Host).IsSuccess, Is.True);
+            Pump();
+            Assert.That(b.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
         #endregion
 
         #region Message Helpers

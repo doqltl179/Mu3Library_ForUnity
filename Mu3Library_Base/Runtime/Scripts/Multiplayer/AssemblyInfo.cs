@@ -4,3 +4,7 @@ using System.Runtime.CompilerServices;
 // and its switch past the lobby capacity check, and the protocol (reserved lobby keys, packets,
 // and close reason codes) to act as a misbehaving player.
 [assembly: InternalsVisibleTo("Mu3Library.Tests.Editor")]
+
+// The Steam backend writes the library's reserved lobby keys and snapshots search queries the
+// same way the local backend does; it ships with this assembly, only behind its own gate.
+[assembly: InternalsVisibleTo("Mu3Library.Multiplayer.Steam")]

@@ -375,6 +375,7 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | ローカル通知 (Android/iOS、独立した `Mu3Library.Notifications` アセンブリ) |
+| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターを含めビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされる) |
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
@@ -418,7 +419,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
-- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、定員ルール、ゲーム開始、キック、ホストが中継するゲームメッセージを扱うプレイヤーホスト型セッション。`LocalBackend` はテスト用に 1 つのプロセス内で複数のプレイヤーを動かします
+- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、定員ルール、ゲーム開始、キック、ホストが中継するゲームメッセージを扱うプレイヤーホスト型セッション。`SteamBackend`（Steamworks.NET が必要、Steam ロビーと Steam 接続）と `LocalBackend`（1 つのプロセス内で複数のプレイヤー）があります
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー

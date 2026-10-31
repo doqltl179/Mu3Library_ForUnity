@@ -75,6 +75,9 @@ namespace Mu3Library.Multiplayer.Backend
         public bool SetLobbyCapacity(LobbyId lobby, int capacity);
 
         public PlayerId GetLobbyOwner(LobbyId lobby);
+
+        /// <summary>Whether the lobby, as this player knows it, lists the player as a member.</summary>
+        public bool IsLobbyMember(LobbyId lobby, PlayerId player);
         #endregion
 
         #region Connection
@@ -92,10 +95,12 @@ namespace Mu3Library.Multiplayer.Backend
         public ConnectionId Connect(PlayerId host);
 
         /// <summary>
-        /// False when the connection is closed or cannot take the data now, for example because
-        /// its send buffer is full. The session treats a reliable send that returns false as a
-        /// lost connection: the host drops that player, and a client ends its session, since
-        /// otherwise one side would go on without data the other side sent.
+        /// False when this side closed the connection, or when the open connection cannot take
+        /// the data now, for example because its send buffer is full. The session treats a
+        /// reliable send that returns false as a lost connection: the host drops that player, and
+        /// a client ends its session, since otherwise one side would go on without data the other
+        /// side sent. A connection that the other side already closed, or that was already lost,
+        /// answers true and drops the data, so the close it is about to report keeps its reason.
         /// </summary>
         public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode);
 

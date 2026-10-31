@@ -56,6 +56,10 @@ namespace Mu3Library.Multiplayer.Local
         // The largest packet, the same as Steam's, so a game that fits here fits there.
         private const int MaxPacketBytes = 512 * 1024;
 
+        // Packets in flight borrow their buffers from a pool of this type's own: the shared pool
+        // may drop its buffers on a garbage collection, which would make sending allocate again.
+        private static readonly ArrayPool<byte> Packets = ArrayPool<byte>.Create(MaxPacketBytes, 64);
+
         public string Name => "Local";
         public int MaxPacketSize => MaxPacketBytes;
         public bool IsAvailable => !_isDisposed;
@@ -285,6 +289,25 @@ namespace Mu3Library.Multiplayer.Local
             return lobby != null ? lobby.Owner.LocalPlayerId : PlayerId.None;
         }
 
+        public bool IsLobbyMember(LobbyId lobbyId, PlayerId player)
+        {
+            LocalLobby lobby = _network.FindLobby(lobbyId);
+            if (lobby == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < lobby.Members.Count; i++)
+            {
+                if (lobby.Members[i].LocalPlayerId == player)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private LocalLobby FindOwnedLobby(LobbyId lobbyId)
         {
             if (_isDisposed)
@@ -407,14 +430,15 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode)
         {
-            if (_isDisposed
-                || !_connections.TryGetValue(connection, out LocalConnection local)
-                || !local.IsOpen
-                || local.Remote == null
-                || local.Remote.Owner._isDisposed
-                || data.Length > MaxPacketBytes)
+            if (_isDisposed || !_connections.TryGetValue(connection, out LocalConnection local) || data.Length > MaxPacketBytes)
             {
                 return false;
+            }
+
+            // The other side closed it; the close is on its way with the reason, and the data goes nowhere.
+            if (!local.IsOpen || local.Remote == null || local.Remote.Owner._isDisposed)
+            {
+                return true;
             }
 
             if (FailingSends > 0)
@@ -423,7 +447,7 @@ namespace Mu3Library.Multiplayer.Local
                 return false;
             }
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(Math.Max(1, data.Length));
+            byte[] buffer = Packets.Rent(Math.Max(1, data.Length));
             data.CopyTo(buffer);
 
             local.Remote.Owner._events.Enqueue(new PendingEvent
@@ -525,7 +549,7 @@ namespace Mu3Library.Multiplayer.Local
                     }
                     finally
                     {
-                        ArrayPool<byte>.Shared.Return(pending.Data);
+                        Packets.Return(pending.Data);
                     }
                     break;
 
@@ -578,7 +602,7 @@ namespace Mu3Library.Multiplayer.Local
                 PendingEvent pending = _events.Dequeue();
                 if (pending.Kind == EventKind.Received)
                 {
-                    ArrayPool<byte>.Shared.Return(pending.Data);
+                    Packets.Return(pending.Data);
                 }
             }
 

@@ -7,8 +7,10 @@
         "Mu3Library.Editor",
         "Mu3Library.Foundation",
         "Mu3Library.Multiplayer",
+        "Mu3Library.Multiplayer.Steam",
         "Mu3Library.Tests.Runtime",
         "UniTask",
+        "com.rlabrecque.steamworks.net",
         "Unity.Addressables",
         "Unity.InputSystem",
         "Unity.Localization",
@@ -50,6 +52,11 @@
             "name": "com.unity.addressables",
             "expression": "",
             "define": "MU3LIBRARY_ADDRESSABLES_SUPPORT"
+        },
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "2025.164.1",
+            "define": "MU3LIBRARY_STEAMWORKS_SUPPORT"
         }
     ],
     "noEngineReferences": false

@@ -21,7 +21,10 @@ namespace Mu3Library.Multiplayer
         /// <summary>How long joining (entering the lobby, connecting, and the host's answer) may take.</summary>
         public float JoinTimeoutSeconds { get; set; } = 15f;
 
-        /// <summary>How long the host waits for a new connection to introduce itself before closing it.</summary>
+        /// <summary>
+        /// How long the host waits for a new connection to introduce itself and for its lobby to
+        /// list the player as a member before closing it.
+        /// </summary>
         public float HandshakeTimeoutSeconds { get; set; } = 10f;
 
         /// <summary>
