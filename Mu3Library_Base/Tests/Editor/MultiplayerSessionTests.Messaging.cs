@@ -347,6 +347,8 @@ namespace Mu3Library.Tests
         public void RelayingMessages_AllocatesNothingOnceWarm()
         {
             // NFR-1: a client's message to everyone, through the host, received by every player.
+            // The network's clock stands still, so no quality probe falls into a measured frame.
+            UseTestNetworkClock();
             (Node host, Node[] clients) = CreateSession(3);
             int handled = 0;
             foreach (Node node in clients.Prepend(host))
