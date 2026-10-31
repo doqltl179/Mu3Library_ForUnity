@@ -95,6 +95,11 @@ namespace Mu3Library.Multiplayer.Steam
         {
             _ownsSteam = ownsSteam;
             _runCallbacks = options.RunSteamCallbacks;
+
+            // Every native call comes before the first callback registration and the pinned send
+            // buffer, so a native library that throws here, which TryCreate turns into a reason,
+            // leaves nothing behind: no callback is registered and no buffer pinned yet, and
+            // TryCreate shuts down a Steam it started. Keep new native calls above them.
             LocalPlayerId = new PlayerId(SteamUser.GetSteamID().m_SteamID);
 
             InitializeConnections(options);
@@ -116,10 +121,45 @@ namespace Mu3Library.Multiplayer.Steam
         /// </summary>
         /// <returns>
         /// <see cref="MultiplayerReason.SteamNotRunning"/> when the Steam client is not running or
-        /// Steam cannot start, <see cref="MultiplayerReason.InvalidArgument"/> for unusable
-        /// options, and <see cref="MultiplayerReason.BackendError"/> for other failures.
+        /// Steam cannot start, a Steam native library that cannot be loaded or lacks a function
+        /// included, <see cref="MultiplayerReason.InvalidArgument"/> for unusable options, and
+        /// <see cref="MultiplayerReason.BackendError"/> for other failures that Steam reports.
         /// </returns>
+        /// <remarks>
+        /// <para>
+        /// When the runtime cannot load the native library or find a function in it, it throws:
+        /// <see cref="DllNotFoundException"/>, <see cref="EntryPointNotFoundException"/>, or
+        /// <see cref="BadImageFormatException"/>, also wrapped in the
+        /// <see cref="TypeInitializationException"/> of a type whose initializer met one. Which of
+        /// them a missing, outdated, or wrong-architecture <c>steam_api64</c> causes depends on the
+        /// runtime; Unity's Mono and IL2CPP report most libraries that fail to load as
+        /// <see cref="DllNotFoundException"/>. The backend logs the exception's type and message as
+        /// a warning and answers <see cref="MultiplayerReason.SteamNotRunning"/> for any of them,
+        /// so no such exception reaches the game and <see cref="CreateOrFallback"/> falls back on
+        /// it. It is <see cref="MultiplayerReason.SteamNotRunning"/> rather than
+        /// <see cref="MultiplayerReason.BackendError"/> because, for the game, nothing of Steam
+        /// works in this process, as when the library is missing, which answered it already. Any
+        /// other exception is a mistake in the code and reaches the caller.
+        /// </para>
+        /// <para>
+        /// An outdated library that loads, but whose <c>SteamAPI.InitEx</c> answers a version
+        /// mismatch, throws nothing and answers <see cref="MultiplayerReason.BackendError"/>, the
+        /// reason for a failure that Steam reports; the editor falls back on that reason too.
+        /// </para>
+        /// </remarks>
         public static MultiplayerResult TryCreate(SteamBackendOptions options, out SteamBackend backend)
+        {
+            return TryCreateWith(options, StartSteam, out backend);
+        }
+
+        /// <summary>
+        /// The native part of <see cref="TryCreate"/>: starts
+        /// Steam when it does not run yet, setting <paramref name="ownsSteam"/> once it did, and
+        /// makes the backend. The tests hand in one that throws what a broken native library throws.
+        /// </summary>
+        internal delegate MultiplayerReason SteamStarter(SteamBackendOptions options, ref bool ownsSteam, out SteamBackend backend);
+
+        internal static MultiplayerResult TryCreateWith(SteamBackendOptions options, SteamStarter start, out SteamBackend backend)
         {
             backend = null;
             options ??= new SteamBackendOptions();
@@ -131,35 +171,13 @@ namespace Mu3Library.Multiplayer.Steam
             bool ownsSteam = false;
             try
             {
-                // The dispatcher, not the native client, tells whether Steamworks.NET runs: after a
-                // domain reload the native Steam stays up while the dispatcher starts over, and
-                // without it no callback would ever arrive. Steam counts its own initializations.
-                if (!CallbackDispatcher.IsInitialized)
-                {
-                    if (options.AppId != 0)
-                    {
-                        // Steam reads these before steam_appid.txt; a launch through Steam sets them itself.
-                        string appId = options.AppId.ToString(CultureInfo.InvariantCulture);
-                        Environment.SetEnvironmentVariable("SteamAppId", appId);
-                        Environment.SetEnvironmentVariable("SteamGameId", appId);
-                    }
-
-                    ESteamAPIInitResult result = SteamAPI.InitEx(out string message);
-                    if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
-                    {
-                        Debug.LogWarning($"[Multiplayer] Steam could not start ({result}): {message}");
-                        return MultiplayerResult.Failure(SteamReasons.FromInitResult(result));
-                    }
-
-                    ownsSteam = true;
-                }
-
-                backend = new SteamBackend(options, ownsSteam);
-                return MultiplayerResult.Success;
+                MultiplayerReason reason = start(options, ref ownsSteam, out backend);
+                return reason == MultiplayerReason.None ? MultiplayerResult.Success : MultiplayerResult.Failure(reason);
             }
-            catch (Exception e) when (e is DllNotFoundException || e is InvalidOperationException)
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
             {
-                Debug.LogWarning($"[Multiplayer] Steam could not start: {e.Message}");
+                backend = null;
+                Debug.LogWarning($"[Multiplayer] Steam could not start ({cause.GetType().Name}): {cause.Message}");
                 if (ownsSteam)
                 {
                     SteamAPI.Shutdown();
@@ -169,15 +187,72 @@ namespace Mu3Library.Multiplayer.Steam
             }
         }
 
+        private static MultiplayerReason StartSteam(SteamBackendOptions options, ref bool ownsSteam, out SteamBackend backend)
+        {
+            backend = null;
+
+            // The dispatcher, not the native client, tells whether Steamworks.NET runs: after a
+            // domain reload the native Steam stays up while the dispatcher starts over, and
+            // without it no callback would ever arrive. Steam counts its own initializations.
+            if (!CallbackDispatcher.IsInitialized)
+            {
+                if (options.AppId != 0)
+                {
+                    // Steam reads these before steam_appid.txt; a launch through Steam sets them itself.
+                    string appId = options.AppId.ToString(CultureInfo.InvariantCulture);
+                    Environment.SetEnvironmentVariable("SteamAppId", appId);
+                    Environment.SetEnvironmentVariable("SteamGameId", appId);
+                }
+
+                ESteamAPIInitResult result = SteamAPI.InitEx(out string message);
+                if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
+                {
+                    Debug.LogWarning($"[Multiplayer] Steam could not start ({result}): {message}");
+                    return SteamReasons.FromInitResult(result);
+                }
+
+                ownsSteam = true;
+            }
+
+            backend = new SteamBackend(options, ownsSteam);
+            return MultiplayerReason.None;
+        }
+
+        /// <summary>
+        /// True for an exception that tells Steam cannot run in this process, with the exception
+        /// that caused it: Steamworks.NET's own checks (<see cref="InvalidOperationException"/>),
+        /// and a native library that is missing, lacks a function, or is built for another
+        /// architecture, also inside a <see cref="TypeInitializationException"/>.
+        /// </summary>
+        internal static bool IsSteamUnavailable(Exception exception, out Exception cause)
+        {
+            cause = exception;
+            while (cause is TypeInitializationException && cause.InnerException != null)
+            {
+                cause = cause.InnerException;
+            }
+
+            return cause is DllNotFoundException
+                || cause is EntryPointNotFoundException
+                || cause is BadImageFormatException
+                || cause is InvalidOperationException;
+        }
+
         /// <summary>
         /// Creates the Steam backend, or in the editor, when Steam cannot start and
         /// <see cref="SteamBackendOptions.EditorFallbackNetwork"/> is set, a
-        /// <see cref="LocalBackend"/> with a warning. A player build never falls back, and
-        /// unusable options never do.
+        /// <see cref="LocalBackend"/> with a warning. A broken Steam native library counts as
+        /// Steam that cannot start, as <see cref="TryCreate"/>
+        /// describes. A player build never falls back, and unusable options never do.
         /// </summary>
         public static MultiplayerResult CreateOrFallback(SteamBackendOptions options, out IMultiplayerBackend backend)
         {
-            MultiplayerResult result = TryCreate(options, out SteamBackend steam);
+            return CreateOrFallbackWith(options, StartSteam, out backend);
+        }
+
+        internal static MultiplayerResult CreateOrFallbackWith(SteamBackendOptions options, SteamStarter start, out IMultiplayerBackend backend)
+        {
+            MultiplayerResult result = TryCreateWith(options, start, out SteamBackend steam);
             if (result.IsSuccess)
             {
                 backend = steam;
@@ -245,8 +320,9 @@ namespace Mu3Library.Multiplayer.Steam
             }
             else
             {
+                // An avatar answers the reason the manager gives then; see LoadAvatar.
                 FailSearches(MultiplayerReason.SteamNotRunning);
-                FailAvatars(MultiplayerReason.SteamNotRunning);
+                FailAvatars(MultiplayerReason.BackendError);
             }
 
             // What a callback queues while being handed on waits for the next update.

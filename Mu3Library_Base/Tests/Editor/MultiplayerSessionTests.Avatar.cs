@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -102,10 +103,14 @@ namespace Mu3Library.Tests
 
             public bool RefusesPresence;
 
+            /// <summary>Every time the manager asked to show a presence, the refused ones included.</summary>
+            public int PresenceAttempts;
+
             public (string Status, LobbyId Group, int GroupSize) Presence => Presences.Count > 0 ? Presences[Presences.Count - 1] : (null, LobbyId.None, 0);
 
             public bool SetPresence(string status, LobbyId group, int groupSize)
             {
+                PresenceAttempts++;
                 if (RefusesPresence)
                 {
                     return false;
@@ -306,28 +311,72 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void LoadAvatar_ABackendThatIsGone_AnswersBackendErrorAtOnce()
+        public void LoadAvatar_ABackendThatIsGone_AnswersBackendErrorAtOnce_AndToTheRequestStillWaiting()
         {
             Node node = CreatePlatformNode("A");
             node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
             node.Platform.HoldsAvatars = true;
-            bool isFirstAnswered = false;
-            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, _ => isFirstAnswered = true);
+            List<AvatarResult> answers = new List<AvatarResult>();
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, answers.Add);
             Pump();
 
             // A disposed backend drops the answers it still owes, as Steam's does; this one keeps
-            // holding its answer, so the request already waiting stays unanswered.
+            // holding its answer, so only the manager can answer the request already waiting.
             node.Backend.Dispose();
             AvatarResult? result = null;
             node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => result = r);
             Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "at once, not behind the request already waiting");
             Assert.That(result.Value.Texture == null, Is.True);
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }), "the request already waiting is answered, not held");
 
             result = null;
             node.Manager.LoadAvatar(node.Id, AvatarSize.Large, r => result = r);
             Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.BackendError));
             Assert.That(node.Platform.AvatarReads, Is.EqualTo(1));
-            Assert.That(isFirstAnswered, Is.False);
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
+
+        [Test]
+        public void Update_AnswersTheAvatarRequestsStillWaiting_OnceTheBackendIsGone()
+        {
+            // A backend that is gone never answers, so the game's callbacks are not held until the
+            // manager is disposed.
+            Node node = CreatePlatformNode("A");
+            PlayerId stranger = new PlayerId(424242);
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.Avatars[(stranger, AvatarSize.Large)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+
+            List<AvatarResult> answers = new List<AvatarResult>();
+            AvatarResult? askedAgain = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, answer =>
+            {
+                answers.Add(answer);
+                node.Manager.LoadAvatar(node.Id, AvatarSize.Small, r => askedAgain = r);
+            });
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, answers.Add);
+            node.Manager.LoadAvatar(stranger, AvatarSize.Large, answers.Add);
+            Pump();
+            Assert.That(answers, Is.Empty);
+
+            node.Backend.Dispose();
+            node.Manager.Update();
+
+            Assert.That(answers.Select(answer => (answer.Reason, answer.Player, answer.Size)), Is.EquivalentTo(new[]
+            {
+                (MultiplayerReason.BackendError, node.Id, AvatarSize.Small),
+                (MultiplayerReason.BackendError, node.Id, AvatarSize.Small),
+                (MultiplayerReason.BackendError, stranger, AvatarSize.Large),
+            }));
+            Assert.That(answers.TrueForAll(answer => answer.Texture == null), Is.True);
+            Assert.That(askedAgain?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "a callback that asks again is answered at once");
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(2));
+
+            // The answers the backend still held find nothing waiting.
+            node.Platform.HoldsAvatars = false;
+            node.Platform.Update();
+            node.Manager.Update();
+            Assert.That(answers.Count, Is.EqualTo(3));
         }
 
         [Test]

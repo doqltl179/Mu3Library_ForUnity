@@ -57,9 +57,11 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            // A backend that is gone never answers, so nothing may wait for it.
+            // A backend that is gone never answers, so nothing may wait for it, and the requests
+            // that already do are answered first.
             if (!_backend.IsAvailable)
             {
+                FailAvatarWaiters();
                 Invoke(callback, new AvatarResult(MultiplayerReason.BackendError, player, size, null));
                 return;
             }
@@ -127,6 +129,45 @@ namespace Mu3Library.Multiplayer
                 }
 
                 Invoke(waiters[i], result);
+            }
+        }
+
+        /// <summary>Answers the avatar requests still waiting once the backend is no longer available.</summary>
+        private void UpdateAvatarWaiters()
+        {
+            if (_avatarWaiters.Count > 0 && !_backend.IsAvailable)
+            {
+                FailAvatarWaiters();
+            }
+        }
+
+        /// <summary>
+        /// Answers every request that waits for the backend with <see cref="MultiplayerReason.BackendError"/>,
+        /// as a backend that is no longer available never answers them, so no game callback stays
+        /// held until the manager is disposed. A backend that answers after all finds nothing waiting.
+        /// </summary>
+        private void FailAvatarWaiters()
+        {
+            if (_avatarWaiters.Count == 0)
+            {
+                return;
+            }
+
+            // Emptied before any callback runs, so a callback that asks again is answered at once
+            // instead of joining a request that is being failed.
+            List<KeyValuePair<(PlayerId Player, AvatarSize Size), List<Action<AvatarResult>>>> failing =
+                new List<KeyValuePair<(PlayerId Player, AvatarSize Size), List<Action<AvatarResult>>>>(_avatarWaiters);
+            _avatarWaiters.Clear();
+
+            for (int i = 0; i < failing.Count && !_isDisposed; i++)
+            {
+                (PlayerId player, AvatarSize size) = failing[i].Key;
+                AvatarResult result = new AvatarResult(MultiplayerReason.BackendError, player, size, null);
+                List<Action<AvatarResult>> waiters = failing[i].Value;
+                for (int w = 0; w < waiters.Count && !_isDisposed; w++)
+                {
+                    Invoke(waiters[w], result);
+                }
             }
         }
 
