@@ -24,6 +24,9 @@ namespace Mu3Library.Multiplayer
 
         public IReadOnlyDictionary<string, string> LobbyData => _lobbyDataView ??= new ReadOnlyDictionary<string, string>(_lobbyData);
 
+        // The UTF-8 bytes of the longest key a data request may hold: three for each character.
+        private const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
+
 
 
         #region Requests
@@ -121,9 +124,19 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         private void HostHandleParticipantData(PeerConnection peer, ref PacketReader reader)
         {
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            ReadDataRequest(ref reader, out string key, out string value);
             HostTakeParticipantData(peer.Player, key, value);
+        }
+
+        /// <summary>
+        /// Reads a client's data request. A key or value whose UTF-8 bytes could never fit the
+        /// rules makes the packet malformed before it is decoded, so a request held back for the
+        /// rate limits never holds more than its rules allow.
+        /// </summary>
+        private static void ReadDataRequest(ref PacketReader reader, out string key, out string value)
+        {
+            key = reader.ReadString(MaxDataKeyBytes);
+            value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
         }
 
         /// <summary>Checks a client's request for its own participant data and applies it, now or once the rate limits have room.</summary>

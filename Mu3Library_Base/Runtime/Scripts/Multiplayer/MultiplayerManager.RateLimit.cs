@@ -50,7 +50,7 @@ namespace Mu3Library.Multiplayer
             Drop,
             /// <summary>A request past a limit, or behind one that waits: it waits for room.</summary>
             Delay,
-            /// <summary>The account was kicked, or the session ended while the host applied what waited.</summary>
+            /// <summary>The account was kicked or disconnected, or the session ended while the host applied what waited.</summary>
             Kicked,
         }
 
@@ -75,7 +75,7 @@ namespace Mu3Library.Multiplayer
         /// what the host does with it. The requests that wait go first, as far as the current
         /// window has room, so a later packet never overtakes them. Past a limit, a game or chat
         /// message is dropped and a ready change, load report, or data request waits, up to
-        /// <see cref="MultiplayerLimits.MaxDelayedRequests"/>; one more kicks the account. The
+        /// <see cref="MultiplayerLimits.MaxDelayedRequests"/>; one more disconnects the account. The
         /// first packet past a limit in a window raises <see cref="OnRateLimitExceeded"/>, and an
         /// account past a limit in every window for the rules' kick time is kicked.
         /// </summary>
@@ -130,8 +130,10 @@ namespace Mu3Library.Multiplayer
 
             if (state.DelayedCount >= MultiplayerLimits.MaxDelayedRequests)
             {
-                Debug.LogWarning($"[Multiplayer] Kicked {player}: more than {MultiplayerLimits.MaxDelayedRequests} of its requests waited for the rate limit ({MultiplayerReason.RateLimited}).");
-                KickPlayer(player, MultiplayerReason.RateLimited);
+                // The client counts on every request it sent, so one more cannot be dropped; it
+                // goes, but may join again, as the rules may kick nobody.
+                Debug.LogWarning($"[Multiplayer] Disconnected {player}: more than {MultiplayerLimits.MaxDelayedRequests} of its requests waited for the rate limit ({MultiplayerReason.RateLimited}).");
+                DisconnectPlayer(player, MultiplayerReason.RateLimited);
                 return RateDecision.Kicked;
             }
 
@@ -149,8 +151,7 @@ namespace Mu3Library.Multiplayer
                     break;
 
                 case PacketKind.SetParticipantData:
-                    request.Key = reader.ReadString();
-                    request.Value = reader.ReadString();
+                    ReadDataRequest(ref reader, out request.Key, out request.Value);
                     break;
 
                 case PacketKind.ReportLoaded:

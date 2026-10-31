@@ -30,15 +30,17 @@ namespace Mu3Library.Multiplayer.Data
         /// <see cref="IMultiplayerMessenger.Send"/> or <see cref="IMultiplayerManager.SendChat"/>
         /// already succeeded. A ready change, a load report, or a participant data request beyond
         /// a limit counts and raises the event too, but waits instead: the host applies such
-        /// requests in the order they came, as later windows have room, before anything the
-        /// client sent after them, since a client checks each data request against all the ones
-        /// it sent before. A hello beyond a limit waits for room as well, up to
-        /// <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/>, and a window that took nothing
-        /// yet takes one request or hello of any size. A client with more than
+        /// requests in the order they came, as later windows have room, since a client checks
+        /// each data request against all the ones it sent before. While any of them waits, the
+        /// host drops the client's game messages, reliable ones included, and chat messages, even
+        /// when the window has room, and counts them as past the limit, so that none of them
+        /// overtakes a request sent before it. A hello beyond a limit waits for room as well, up
+        /// to <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/>, and a window that took
+        /// nothing yet takes one request or hello of any size. A client with more than
         /// <see cref="MultiplayerLimits.MaxDelayedRequests"/> requests waiting is disconnected with
-        /// <see cref="MultiplayerReason.RateLimited"/> and cannot rejoin the session, whatever
-        /// <see cref="RateLimitKickSeconds"/> says; requests that still wait when the client's
-        /// connection drops are lost with it. The host's own sends are never limited.
+        /// <see cref="MultiplayerReason.RateLimited"/>, whatever <see cref="RateLimitKickSeconds"/>
+        /// says, but may join again; requests that still wait when the client's connection drops
+        /// are lost with it. The host's own sends are never limited.
         /// </summary>
         public int MaxMessagesPerSecond { get; }
 
@@ -55,7 +57,10 @@ namespace Mu3Library.Multiplayer.Data
         /// window for this many seconds, with <see cref="MultiplayerReason.RateLimited"/>, and the
         /// account cannot rejoin the session, as after <see cref="IMultiplayerManager.Kick"/>. A
         /// window within both limits, or a second without packets, starts the count again. 0,
-        /// the default, never kicks.
+        /// the default, never kicks. Either way, a client with more than
+        /// <see cref="MultiplayerLimits.MaxDelayedRequests"/> requests waiting is disconnected
+        /// with <see cref="MultiplayerReason.RateLimited"/>, without a ban, since the host can
+        /// neither drop such a request nor hold more.
         /// </summary>
         public float RateLimitKickSeconds { get; }
 

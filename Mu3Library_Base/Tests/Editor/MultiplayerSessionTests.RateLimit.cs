@@ -127,7 +127,7 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void RateLimit_MoreRequestsWaitingThanTheBound_DisconnectsWithRateLimited_AndBansTheAccount()
+        public void RateLimit_MoreRequestsWaitingThanTheBound_DisconnectsWithRateLimited_ButLetsTheAccountJoinAgain()
         {
             // FR-37: a client that keeps sending requests past the limit cannot make the host hold
             // them without bound; up to the bound, every one of them arrives in order.
@@ -156,7 +156,37 @@ namespace Mu3Library.Tests
             Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
             Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.RateLimited));
             Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.RateLimited));
-            Assert.That(Join(a, host).Reason, Is.EqualTo(MultiplayerReason.Banned));
+
+            // No kick time is set, so this is no kick: the account may come back.
+            AdvanceBy(1.5);
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+        }
+
+        [Test]
+        public void RateLimit_ADataRequestLargerThanTheRulesAllow_IsRefusedAsItArrives_AndNeverWaits()
+        {
+            // FR-37, NFR-5: a request that could never apply holds nothing while others wait, and
+            // so cannot fill the bound of waiting requests either.
+            Node host = CreateHost("Host", rules: LimitedRules.WithMaxMessagesPerSecond(1));
+            RecordingListener listener = new RecordingListener();
+            LocalBackend raw = CreateRawBackend("Raw", listener);
+            ConnectionId connection = ConnectAsPlayer(raw, host);
+            byte[] oversized = DataPacket(PacketKind.SetParticipantData, "big", new string('x', MultiplayerLimits.MaxParticipantDataSize + 1));
+
+            raw.Send(connection, oversized, DeliveryMode.Reliable);
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "first", "1"), DeliveryMode.Reliable);
+            for (int i = 0; i <= MultiplayerLimits.MaxDelayedRequests; i++)
+            {
+                raw.Send(connection, oversized, DeliveryMode.Reliable);
+            }
+
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "second", "2"), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(listener.Disconnected, Is.Empty, "none of the oversized requests took a place in the queue");
+            Assert.That(DataOf(host, raw.LocalPlayerId), Is.Empty);
+
+            AdvanceBy(2.5);
+            Assert.That(DataOf(host, raw.LocalPlayerId), Is.EquivalentTo(new Dictionary<string, string> { ["first"] = "1", ["second"] = "2" }));
         }
 
         [Test]

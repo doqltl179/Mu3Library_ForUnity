@@ -270,7 +270,12 @@ namespace Mu3Library.Multiplayer
         private void KickPlayer(PlayerId player, MultiplayerReason reason)
         {
             _bannedPlayers.Add(player);
+            DisconnectPlayer(player, reason);
+        }
 
+        /// <summary>Closes the player's connection with the reason and tells everyone they left for it.</summary>
+        private void DisconnectPlayer(PlayerId player, MultiplayerReason reason)
+        {
             PeerConnection peer = FindWelcomedPeer(player);
             if (peer != null)
             {

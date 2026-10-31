@@ -49,7 +49,10 @@ namespace Mu3Library.Multiplayer.Data
         /// Most ready changes, load reports, and participant data requests of one client that the
         /// host holds back for the rate limits (<see cref="SessionRules.MaxMessagesPerSecond"/>,
         /// <see cref="SessionRules.MaxBytesPerSecond"/>) at a time. One more disconnects the client
-        /// with <see cref="MultiplayerReason.RateLimited"/> for the rest of the session.
+        /// with <see cref="MultiplayerReason.RateLimited"/>, even when
+        /// <see cref="SessionRules.RateLimitKickSeconds"/> is 0, but without a ban, so it may join
+        /// again. Each request holds no more than a data entry may, as the host refuses a larger
+        /// one as it arrives.
         /// </summary>
         public const int MaxDelayedRequests = 64;
     }
