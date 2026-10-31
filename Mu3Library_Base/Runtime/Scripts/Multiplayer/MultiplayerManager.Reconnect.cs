@@ -49,6 +49,7 @@ namespace Mu3Library.Multiplayer
         private double _lobbyRejoinDeadline = 0d;
         private double _nextLobbyRejoin = 0d;
         private bool _isLobbyRejoinPending = false;
+        private int _lobbyRejoinRequest = 0;
         private MultiplayerReason _lobbyRejoinRefusal = MultiplayerReason.Timeout;
 
 
@@ -533,11 +534,13 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.Banned"/> stops at once. A player still outside the lobby
         /// when the time is over goes on playing over the host's connection, and the game hears
         /// <see cref="OnLobbyRejoinFailed"/> with the lobby's last answer, or
-        /// <see cref="MultiplayerReason.Timeout"/> when none came.
+        /// <see cref="MultiplayerReason.Timeout"/> when none came or the last try is still
+        /// unanswered.
         /// </summary>
         private void BeginLobbyRejoin()
         {
             double now = Now;
+            AbandonLobbyRejoinRequest();
             _isRejoiningLobby = true;
             _lobbyRejoinDeadline = now + _joinTimeoutSeconds;
             _nextLobbyRejoin = now;
@@ -547,26 +550,34 @@ namespace Mu3Library.Multiplayer
         /// <summary>Enters the lobby again while this player is back in its slot and outside it; nothing while it is away again.</summary>
         private void UpdateLobbyRejoin()
         {
-            if (!_isRejoiningLobby || _isHost || _isLobbyRejoinPending
-                || (_state != SessionState.InGame && _state != SessionState.Lobby))
+            if (!_isRejoiningLobby || _isHost || (_state != SessionState.InGame && _state != SessionState.Lobby))
             {
                 return;
             }
 
             double now = Now;
-            bool isMember = _backend.IsLobbyMember(_lobbyId, LocalPlayerId);
-            if (now >= _lobbyRejoinDeadline)
+            bool isOver = now >= _lobbyRejoinDeadline;
+            if (!isOver && (_isLobbyRejoinPending || now < _nextLobbyRejoin))
             {
+                return;
+            }
+
+            bool isMember = _backend.IsLobbyMember(_lobbyId, LocalPlayerId);
+            if (isOver)
+            {
+                // A try the lobby has not answered by now counts as unanswered.
+                MultiplayerReason reason = _isLobbyRejoinPending ? MultiplayerReason.Timeout : _lobbyRejoinRefusal;
                 _isRejoiningLobby = false;
+                AbandonLobbyRejoinRequest();
                 if (!isMember)
                 {
-                    ReportLobbyRejoinFailed(_lobbyRejoinRefusal);
+                    ReportLobbyRejoinFailed(reason);
                 }
 
                 return;
             }
 
-            if (isMember || now < _nextLobbyRejoin)
+            if (isMember)
             {
                 return;
             }
@@ -581,11 +592,22 @@ namespace Mu3Library.Multiplayer
         private void RequestLobbyRejoin()
         {
             int generation = _sessionGeneration;
+            int request = ++_lobbyRejoinRequest;
             LobbyId lobby = _lobbyId;
-            _backend.JoinLobby(lobby, reason => HandleLobbyRejoined(generation, lobby, reason));
+            _backend.JoinLobby(lobby, reason => HandleLobbyRejoined(generation, request, lobby, reason));
         }
 
-        private void HandleLobbyRejoined(int generation, LobbyId lobby, MultiplayerReason reason)
+        /// <summary>Stops waiting for the try on its way; its answer, when it comes, decides nothing more.</summary>
+        private void AbandonLobbyRejoinRequest()
+        {
+            if (_isLobbyRejoinPending)
+            {
+                _isLobbyRejoinPending = false;
+                _lobbyRejoinRequest++;
+            }
+        }
+
+        private void HandleLobbyRejoined(int generation, int request, LobbyId lobby, MultiplayerReason reason)
         {
             if (generation != _sessionGeneration)
             {
@@ -599,7 +621,12 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            _isLobbyRejoinPending = false;
+            bool isCurrent = request == _lobbyRejoinRequest;
+            if (isCurrent)
+            {
+                _isLobbyRejoinPending = false;
+            }
+
             if (reason == MultiplayerReason.None)
             {
                 // Outside the lobby this player may have missed it passing on with the host gone.
@@ -609,6 +636,11 @@ namespace Mu3Library.Multiplayer
                     HandleLobbyOwnerChanged(_lobbyId, owner);
                 }
 
+                return;
+            }
+
+            if (!isCurrent)
+            {
                 return;
             }
 

@@ -682,6 +682,35 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Reconnect_ARejoinTheLobbyNeverAnswers_TellsTheGameTimeoutWhenTheTimeIsOver()
+        {
+            // FR-20, FR-23, NFR-3, #201: an unanswered try waits out the join timeout, no longer.
+            UseTestNetworkClock();
+            HashSet<PlayerId> invited = new HashSet<PlayerId>();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = CreateSteamLikeNode("B", invited, out SteamLikeBackend bSteam);
+            Assert.That(Join(b, host).IsSuccess, Is.True);
+            host.Manager.StartGame();
+            Pump();
+            LocalLobby lobby = _network.FindLobby(host.Manager.CurrentLobbyId);
+
+            b.Backend.SimulateOutage(ShortOutageSeconds);
+            Advance(DropSeconds + 0.5);
+            _network.RemoveMember(lobby, b.Backend);
+            bSteam.NeverAnswersJoins = true;
+            int joins = bSteam.JoinRequests;
+
+            AdvanceUntil(() => b.Manager.State == SessionState.InGame, ShortOutageSeconds);
+            Advance(JoinTimeoutSeconds - 1.0);
+            Assert.That(bSteam.JoinRequests - joins, Is.EqualTo(1), "one try, still unanswered");
+            Assert.That(b.LobbyRejoinFailures, Is.Empty);
+
+            Advance(1.5);
+            Assert.That(b.LobbyRejoinFailures, Is.EqualTo(new[] { MultiplayerReason.Timeout }));
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.InGame));
+        }
+
+        [Test]
         public void Reconnect_WhileTheLobbyIsOpenForAReturnedPlayer_AnotherAccountIsRefusedWithGameInProgress()
         {
             // FR-19, FR-20, #201: the lobby takes the other account for the moment; the host does not.
@@ -888,6 +917,9 @@ namespace Mu3Library.Tests
             /// <summary>Answers every join with this reason instead.</summary>
             public MultiplayerReason? JoinAnswer;
 
+            /// <summary>Never answers a join, as a backend that breaks its promise would.</summary>
+            public bool NeverAnswersJoins;
+
             public int JoinRequests;
             public readonly List<(LobbyId Lobby, PlayerId Player)> Invites = new List<(LobbyId Lobby, PlayerId Player)>();
 
@@ -922,6 +954,11 @@ namespace Mu3Library.Tests
             public void JoinLobby(LobbyId lobby, Action<MultiplayerReason> onCompleted)
             {
                 JoinRequests++;
+                if (NeverAnswersJoins)
+                {
+                    return;
+                }
+
                 if (JoinAnswer.HasValue)
                 {
                     MultiplayerReason answer = JoinAnswer.Value;
