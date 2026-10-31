@@ -279,6 +279,10 @@ namespace Mu3Library.Multiplayer
                     HandleParticipantDataDeleted(ref reader);
                     break;
 
+                case PacketKind.ParticipantPings:
+                    HandleParticipantPings(ref reader);
+                    break;
+
                 case PacketKind.ChatFromHost:
                     HandleChatFromHost(ref reader);
                     break;
@@ -354,6 +358,9 @@ namespace Mu3Library.Multiplayer
             {
                 _lobbyData[pair.Key] = pair.Value;
             }
+
+            // A returning player waits for the next report rather than show the pings from before the drop.
+            _reportedPings.Clear();
 
             if (TryGetParticipant(LocalPlayerId, out Participant self))
             {

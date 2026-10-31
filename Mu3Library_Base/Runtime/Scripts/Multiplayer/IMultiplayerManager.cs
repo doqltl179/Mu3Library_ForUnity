@@ -112,6 +112,27 @@ namespace Mu3Library.Multiplayer
         /// it every frame.
         /// </summary>
         public bool TryGetConnectionQuality(PlayerId player, out ConnectionQuality quality);
+
+        /// <summary>
+        /// The round trip between the host and <paramref name="player"/>, in milliseconds, as the
+        /// host measures it, which every player reads for every player of the session, so a game
+        /// can show everyone's ping on a scoreboard. It stands apart from
+        /// <see cref="TryGetConnectionQuality"/>, this player's own measure of its own connections:
+        /// a client that reads itself here gets the host's measure of its connection, and reads
+        /// another client here although it has no connection to it. The host's own entry is 0. The
+        /// host answers from its backend's current measure, and every
+        /// <see cref="MultiplayerLimits.PingReportIntervalSeconds"/> it reports the measures to the
+        /// clients in an unreliable packet whose size that constant states, so a client's value is
+        /// the host's from at most that long ago, plus the time the report travelled, and a report
+        /// the network loses leaves the earlier values until the next one. False for a player outside
+        /// the session or one whose slot the host keeps while they are away; on a client also before
+        /// the first report that names the player, such as right after it joined, and while this
+        /// player is <see cref="SessionState.Reconnecting"/>. A client's read allocates nothing, and
+        /// the host's reads as <see cref="TryGetConnectionQuality"/> does, so a game can show it
+        /// every frame. It works the same on every backend, since the host reads the measure through
+        /// <see cref="IMultiplayerBackend.TryGetConnectionQuality"/>.
+        /// </summary>
+        public bool TryGetParticipantPing(PlayerId player, out int pingMilliseconds);
         #endregion
 
         #region Data

@@ -236,6 +236,11 @@ namespace Mu3Library.Tests
 
                 Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
                 Assert.That(manager.Participants.Single().Data["character"], Is.EqualTo("knight"));
+
+                // FR-36: the host's own entry of the pings every player reads; a client's needs a second account.
+                Assert.That(manager.TryGetParticipantPing(_backend.LocalPlayerId, out int ping), Is.True);
+                Assert.That(ping, Is.Zero);
+                Assert.That(manager.TryGetParticipantPing(new PlayerId(_backend.LocalPlayerId.Value + 1), out _), Is.False);
                 Assert.That(dataChanges.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (_backend.LocalPlayerId, "character") }));
 
                 manager.Leave();

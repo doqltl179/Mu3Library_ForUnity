@@ -53,5 +53,7 @@ namespace Mu3Library.Multiplayer.Protocol
         LobbyDataDeleted = 21,
         /// <summary>Host to clients: one key of a player's participant data was deleted.</summary>
         ParticipantDataDeleted = 22,
+        /// <summary>Host to clients, unreliable: the round trip to each player with a connection, as the host measures it.</summary>
+        ParticipantPings = 23,
     }
 }

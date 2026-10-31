@@ -159,6 +159,7 @@ namespace Mu3Library.Multiplayer
             UpdateLoadWait();
             UpdateJoinTimeout();
             UpdateReconnect();
+            UpdatePingReports();
             ShowPresence();
         }
 
@@ -595,6 +596,7 @@ namespace Mu3Library.Multiplayer
             ResetMessageState();
             ResetDataState();
             ResetLoadState();
+            ResetPingState();
             ReleaseSessionAvatars();
             ResetPresenceState();
         }

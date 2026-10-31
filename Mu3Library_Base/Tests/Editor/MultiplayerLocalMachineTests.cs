@@ -654,6 +654,30 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ParticipantPings_ReachEveryProcess_EachPlayersOwn()
+        {
+            // FR-36, FR-40 between "processes": each process delays what it sends, so A's 100 ms
+            // make a 100 ms round trip to the host and B's none, and every player reads both.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A", network => network.SimulatedLatencyMilliseconds = 100f);
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+            Node[] everyone = { host, a, b };
+
+            PumpUntil(() => everyone.All(node => PingOf(node, a.Id) >= 80 && PingOf(node, b.Id) >= 0), "every player to read both pings");
+            foreach (Node node in everyone)
+            {
+                string name = node.Backend.PlayerName;
+                TestContext.WriteLine($"{name} reads A at {PingOf(node, a.Id)} ms and B at {PingOf(node, b.Id)} ms.");
+                Assert.That(PingOf(node, host.Id), Is.Zero, name);
+                Assert.That(PingOf(node, a.Id), Is.InRange(80, 130), name);
+                Assert.That(PingOf(node, b.Id), Is.InRange(0, 40), name);
+            }
+
+            Assert.That(b.Manager.TryGetConnectionQuality(a.Id, out _), Is.False, "B has no connection of its own to A");
+        }
+
+        [Test]
         public void SimulatedLoss_DropsUnreliableMessages_ButReliableOnesArriveInOrder()
         {
             // FR-40, FR-32 between processes; the seed makes the client lose the same messages on every run.
@@ -962,6 +986,12 @@ namespace Mu3Library.Tests
             }
 
             PumpUntil(() => clients.All(client => client.Manager.Participants.Count == clients.Length + 1), "every roster to list every player");
+        }
+
+        /// <summary>The player's ping as the node reads it, or -1 while it reads none.</summary>
+        private static int PingOf(Node node, PlayerId player)
+        {
+            return node.Manager.TryGetParticipantPing(player, out int ping) ? ping : -1;
         }
 
         private static string CharacterOf(Node node, PlayerId player)
