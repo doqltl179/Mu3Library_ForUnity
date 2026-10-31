@@ -77,7 +77,8 @@ namespace Mu3Library.Multiplayer
             // reaches the host.
             string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
             string protocolVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.ProtocolVersion);
-            if (!IsCompatible(gameId, protocolVersion))
+            string wireVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion);
+            if (!IsCompatible(gameId, protocolVersion, wireVersion))
             {
                 EndSession(MultiplayerReason.VersionMismatch, raiseEvents: true);
                 return;
@@ -118,6 +119,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _writer.Begin(PacketKind.Hello);
+            _writer.WriteInt(WireProtocol.Version);
             _writer.WriteString(_gameId);
             _writer.WriteInt(_protocolVersion);
             if (!_backend.Send(connection, _writer.Written, DeliveryMode.Reliable))
@@ -148,7 +150,10 @@ namespace Mu3Library.Multiplayer
             }
             else
             {
-                reason = sent == MultiplayerReason.Kicked ? MultiplayerReason.Kicked : MultiplayerReason.HostLeft;
+                // The host names why it closed this player's connection; anything else means the host is gone.
+                reason = sent == MultiplayerReason.Kicked || sent == MultiplayerReason.ConnectionLost
+                    ? sent
+                    : MultiplayerReason.HostLeft;
             }
 
             EndSession(reason, raiseEvents: true);
@@ -203,6 +208,10 @@ namespace Mu3Library.Multiplayer
                     HandleReturnedToLobby();
                     break;
 
+                case PacketKind.MessageFromHost:
+                    ClientHandleMessage(ref reader);
+                    break;
+
                 default:
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
                     break;
@@ -219,6 +228,11 @@ namespace Mu3Library.Multiplayer
 
             PlayerId host = new PlayerId(reader.ReadULong());
             SessionRules rules = ReadRules(ref reader);
+            int hostMaxMessageSize = reader.ReadInt();
+            if (hostMaxMessageSize < 1)
+            {
+                throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
+            }
             byte[] startData = reader.ReadBytes();
 
             int count = reader.ReadInt();
@@ -240,6 +254,7 @@ namespace Mu3Library.Multiplayer
 
             _isWelcomed = true;
             _rules = rules;
+            _hostMaxMessageSize = hostMaxMessageSize;
             _startData = startData;
             _participants.Clear();
             _participants.AddRange(roster);

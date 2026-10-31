@@ -53,13 +53,23 @@ namespace Mu3Library.Multiplayer.Local
         // the game initializes; it goes to the next listener.
         private LobbyId _heldJoinRequest = LobbyId.None;
 
+        // The largest packet, the same as Steam's, so a game that fits here fits there.
+        private const int MaxPacketBytes = 512 * 1024;
+
         public string Name => "Local";
+        public int MaxPacketSize => MaxPacketBytes;
         public bool IsAvailable => !_isDisposed;
         public PlayerId LocalPlayerId { get; }
         public string PlayerName { get; }
 
         private bool _isListening = false;
         internal bool IsListening => _isListening && !_isDisposed;
+
+        /// <summary>
+        /// Test switch: this many of the next sends report failure while the connection stays
+        /// open, as a full send buffer on Steam does.
+        /// </summary>
+        internal int FailingSends { get; set; }
 
 
 
@@ -401,8 +411,15 @@ namespace Mu3Library.Multiplayer.Local
                 || !_connections.TryGetValue(connection, out LocalConnection local)
                 || !local.IsOpen
                 || local.Remote == null
-                || local.Remote.Owner._isDisposed)
+                || local.Remote.Owner._isDisposed
+                || data.Length > MaxPacketBytes)
             {
+                return false;
+            }
+
+            if (FailingSends > 0)
+            {
+                FailingSends--;
                 return false;
             }
 

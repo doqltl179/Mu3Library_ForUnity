@@ -44,6 +44,14 @@ namespace Mu3Library.Multiplayer.Protocol
             return value == 1;
         }
 
+        public ushort ReadUShort()
+        {
+            Require(sizeof(ushort));
+            ushort value = BinaryPrimitives.ReadUInt16LittleEndian(_data.Slice(_position, sizeof(ushort)));
+            _position += sizeof(ushort);
+            return value;
+        }
+
         public int ReadInt()
         {
             Require(sizeof(int));
@@ -74,6 +82,14 @@ namespace Mu3Library.Multiplayer.Protocol
             byte[] value = _data.Slice(_position, length).ToArray();
             _position += length;
             return value;
+        }
+
+        /// <summary>The rest of the packet, without copying it.</summary>
+        public ReadOnlySpan<byte> ReadRemaining()
+        {
+            ReadOnlySpan<byte> rest = _data.Slice(_position);
+            _position = _data.Length;
+            return rest;
         }
 
         private int ReadBlockLength()

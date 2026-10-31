@@ -14,7 +14,7 @@ namespace Mu3Library.Multiplayer
     /// players find and enter a session; the host's connections carry the session itself, so the
     /// roster, ready flags, rules, start, and kicks follow the host and never the lobby data.
     /// </summary>
-    public partial class MultiplayerManager : IMultiplayerManager, IMultiplayerManagerEventBus, IUpdatable, IDisposable
+    public partial class MultiplayerManager : IMultiplayerManager, IMultiplayerManagerEventBus, IMultiplayerMessenger, IUpdatable, IDisposable
     {
         private IMultiplayerBackend _backend;
         private BackendListener _listener;
@@ -108,12 +108,20 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
             }
 
+            int largestMessage = backend.MaxPacketSize - MessageHeader.ToHostSize;
+            if (config.MaxMessageSize < 1 || config.MaxMessageSize > largestMessage)
+            {
+                Debug.LogWarning($"[Multiplayer] The message size limit must be 1 to {largestMessage} bytes on the {backend.Name} backend.");
+                return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
+            }
+
             _backend = backend;
             _gameId = config.GameId;
             _protocolVersion = config.ProtocolVersion;
             _protocolVersionText = config.ProtocolVersion.ToString(CultureInfo.InvariantCulture);
             _joinTimeoutSeconds = config.JoinTimeoutSeconds;
             _handshakeTimeoutSeconds = config.HandshakeTimeoutSeconds;
+            _maxMessageSize = config.MaxMessageSize;
             _clock = config.Clock;
             _isInitialized = true;
 
@@ -164,6 +172,9 @@ namespace Mu3Library.Multiplayer
             OnGameStarted = null;
             OnReturnedToLobby = null;
             OnJoinRequested = null;
+
+            // Handlers often hold scene objects; a disposed manager must not keep them alive.
+            _messages.Clear();
         }
 
         public bool TryGetParticipant(PlayerId player, out Participant participant)
@@ -202,6 +213,7 @@ namespace Mu3Library.Multiplayer
             effective.MaxResults = Mathf.Clamp(effective.MaxResults, 1, LobbySearchQuery.MaxResultLimit);
             effective.AddStringFilter(LobbyDataKeys.GameId, _gameId);
             effective.AddNumericFilter(LobbyDataKeys.ProtocolVersion, _protocolVersion);
+            effective.AddNumericFilter(LobbyDataKeys.WireVersion, WireProtocol.Version);
 
             _backend.SearchLobbies(effective, (reason, lobbies) => HandleSearchCompleted(callback, reason, lobbies));
         }
@@ -266,13 +278,19 @@ namespace Mu3Library.Multiplayer
 
             data.TryGetValue(LobbyDataKeys.GameId, out string gameId);
             data.TryGetValue(LobbyDataKeys.ProtocolVersion, out string protocol);
-            return IsCompatible(gameId, protocol);
+            data.TryGetValue(LobbyDataKeys.WireVersion, out string wire);
+            return IsCompatible(gameId, protocol, wire);
         }
 
-        private bool IsCompatible(string gameId, string protocolVersion)
+        /// <summary>
+        /// Whether lobby data names this game, this game's protocol version, and this library's
+        /// wire version. Builds that share a game protocol but not a library version cannot talk.
+        /// </summary>
+        private bool IsCompatible(string gameId, string protocolVersion, string wireVersion)
         {
             return string.Equals(gameId, _gameId, StringComparison.Ordinal)
-                && string.Equals(protocolVersion, _protocolVersionText, StringComparison.Ordinal);
+                && string.Equals(protocolVersion, _protocolVersionText, StringComparison.Ordinal)
+                && string.Equals(wireVersion, WireProtocol.VersionText, StringComparison.Ordinal);
         }
         #endregion
 
@@ -488,6 +506,7 @@ namespace Mu3Library.Multiplayer
 
             ResetHostState();
             ResetClientState();
+            ResetMessageState();
         }
 
         private int IndexOfParticipant(PlayerId player)

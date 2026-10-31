@@ -35,6 +35,13 @@ namespace Mu3Library.Multiplayer.Protocol
 
         public void WriteBool(bool value) => WriteByte(value ? (byte)1 : (byte)0);
 
+        public void WriteUShort(ushort value)
+        {
+            Ensure(sizeof(ushort));
+            BinaryPrimitives.WriteUInt16LittleEndian(new Span<byte>(_buffer, _length, sizeof(ushort)), value);
+            _length += sizeof(ushort);
+        }
+
         public void WriteInt(int value)
         {
             Ensure(sizeof(int));
@@ -62,6 +69,14 @@ namespace Mu3Library.Multiplayer.Protocol
         public void WriteBytes(ReadOnlySpan<byte> value)
         {
             WriteInt(value.Length);
+            Ensure(value.Length);
+            value.CopyTo(new Span<byte>(_buffer, _length, value.Length));
+            _length += value.Length;
+        }
+
+        /// <summary>Writes the bytes without a length; the reader takes them as the rest of the packet.</summary>
+        public void WriteRemaining(ReadOnlySpan<byte> value)
+        {
             Ensure(value.Length);
             value.CopyTo(new Span<byte>(_buffer, _length, value.Length));
             _length += value.Length;

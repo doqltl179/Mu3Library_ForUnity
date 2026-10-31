@@ -33,6 +33,9 @@ namespace Mu3Library.Multiplayer.Backend
         public PlayerId LocalPlayerId { get; }
         public string GetPlayerName(PlayerId player);
 
+        /// <summary>Largest data, in bytes, that one <see cref="Send"/> carries; 512 KiB on Steam.</summary>
+        public int MaxPacketSize { get; }
+
         public void SetListener(IMultiplayerBackendListener listener);
 
         /// <summary>Delivers what arrived since the last call. The manager calls it once per frame.</summary>
@@ -88,7 +91,12 @@ namespace Mu3Library.Multiplayer.Backend
         /// </summary>
         public ConnectionId Connect(PlayerId host);
 
-        /// <summary>False when the connection is closed or the data cannot be sent.</summary>
+        /// <summary>
+        /// False when the connection is closed or cannot take the data now, for example because
+        /// its send buffer is full. The session treats a reliable send that returns false as a
+        /// lost connection: the host drops that player, and a client ends its session, since
+        /// otherwise one side would go on without data the other side sent.
+        /// </summary>
         public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode);
 
         /// <summary>
