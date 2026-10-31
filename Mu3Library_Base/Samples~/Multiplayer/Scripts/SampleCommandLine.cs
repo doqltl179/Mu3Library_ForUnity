@@ -25,14 +25,19 @@ namespace Mu3Library.Sample.Multiplayer
     /// <item><c>-mu3mp-name &lt;name&gt;</c> names this player on the local backend.</item>
     /// <item><c>-mu3mp-timeout &lt;seconds&gt;</c> fails the automatic run after that long (120 by default).</item>
     /// </list>
+    /// A value never starts with <c>-</c>, so an option that lacks its value does not take the
+    /// next option, this sample's or Unity's own such as <c>-logFile</c>, as its value;
+    /// <see cref="Error"/> names the problem instead, and an automatic run fails with it before
+    /// it starts a backend.
     /// </summary>
     public sealed class SampleCommandLine
     {
-        public const string HostOption = "-mu3mp-host";
-        public const string JoinOption = "-mu3mp-join";
-        public const string LocalOption = "-mu3mp-local";
-        public const string NameOption = "-mu3mp-name";
-        public const string TimeoutOption = "-mu3mp-timeout";
+        public const string OptionPrefix = "-mu3mp-";
+        public const string HostOption = OptionPrefix + "host";
+        public const string JoinOption = OptionPrefix + "join";
+        public const string LocalOption = OptionPrefix + "local";
+        public const string NameOption = OptionPrefix + "name";
+        public const string TimeoutOption = OptionPrefix + "timeout";
 
         public const float DefaultTimeoutSeconds = 120f;
 
@@ -44,6 +49,9 @@ namespace Mu3Library.Sample.Multiplayer
         public string PlayerName { get; private set; }
 
         public float TimeoutSeconds { get; private set; } = DefaultTimeoutSeconds;
+
+        /// <summary>The first unusable option, such as one without its value; null when there is none.</summary>
+        public string Error { get; private set; }
 
         public static SampleCommandLine FromEnvironment()
         {
@@ -61,36 +69,73 @@ namespace Mu3Library.Sample.Multiplayer
             for (int i = 0; i < arguments.Count; i++)
             {
                 string argument = arguments[i];
-                bool hasValue = i + 1 < arguments.Count;
 
-                if (string.Equals(argument, HostOption, StringComparison.Ordinal) && hasValue)
+                if (string.Equals(argument, HostOption, StringComparison.Ordinal)
+                    || string.Equals(argument, JoinOption, StringComparison.Ordinal))
                 {
-                    result.AutoRole = SampleAutoRole.Host;
-                    result.LobbyName = arguments[++i];
-                }
-                else if (string.Equals(argument, JoinOption, StringComparison.Ordinal) && hasValue)
-                {
-                    result.AutoRole = SampleAutoRole.Guest;
-                    result.LobbyName = arguments[++i];
+                    result.AutoRole = string.Equals(argument, HostOption, StringComparison.Ordinal)
+                        ? SampleAutoRole.Host
+                        : SampleAutoRole.Guest;
+
+                    if (TryReadValue(arguments, ref i, out string lobbyName) && lobbyName.Trim().Length > 0)
+                    {
+                        result.LobbyName = lobbyName;
+                    }
+                    else
+                    {
+                        result.AddError($"{argument} needs a lobby name");
+                    }
                 }
                 else if (string.Equals(argument, LocalOption, StringComparison.Ordinal))
                 {
                     result.ForceLocal = true;
                 }
-                else if (string.Equals(argument, NameOption, StringComparison.Ordinal) && hasValue)
+                else if (string.Equals(argument, NameOption, StringComparison.Ordinal))
                 {
-                    result.PlayerName = arguments[++i];
+                    if (TryReadValue(arguments, ref i, out string playerName) && playerName.Trim().Length > 0)
+                    {
+                        result.PlayerName = playerName;
+                    }
+                    else
+                    {
+                        result.AddError($"{NameOption} needs a player name");
+                    }
                 }
-                else if (string.Equals(argument, TimeoutOption, StringComparison.Ordinal) && hasValue
-                    && float.TryParse(arguments[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds)
-                    && seconds > 0f)
+                else if (string.Equals(argument, TimeoutOption, StringComparison.Ordinal))
                 {
-                    result.TimeoutSeconds = seconds;
-                    i++;
+                    if (TryReadValue(arguments, ref i, out string text)
+                        && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds)
+                        && seconds > 0f && !float.IsInfinity(seconds))
+                    {
+                        result.TimeoutSeconds = seconds;
+                    }
+                    else
+                    {
+                        result.AddError($"{TimeoutOption} needs a number of seconds above 0");
+                    }
                 }
             }
 
             return result;
+        }
+
+        /// <summary>Takes the argument after <paramref name="index"/> as its value, unless it is missing or another option.</summary>
+        private static bool TryReadValue(IReadOnlyList<string> arguments, ref int index, out string value)
+        {
+            if (index + 1 < arguments.Count && !arguments[index + 1].StartsWith("-", StringComparison.Ordinal))
+            {
+                index++;
+                value = arguments[index];
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
+        private void AddError(string error)
+        {
+            Error ??= error;
         }
     }
 }

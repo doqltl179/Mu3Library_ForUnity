@@ -21,6 +21,7 @@ namespace Mu3Library.Sample.Multiplayer
         private enum AutoStep
         {
             None = 0,
+            StartingBackend,
 
             CreatingLobby,
             WaitingForGuest,
@@ -57,7 +58,11 @@ namespace Mu3Library.Sample.Multiplayer
 
 
 
-        private void StartAutoRun(bool isManagerReady)
+        /// <summary>
+        /// Starts the clock of an automatic run before the backend starts, so that the run ends
+        /// with AUTO FAIL wherever it stops, the start of the backend included.
+        /// </summary>
+        private void BeginAutoRun()
         {
             if (_commandLine.AutoRole == SampleAutoRole.None)
             {
@@ -65,9 +70,18 @@ namespace Mu3Library.Sample.Multiplayer
             }
 
             _autoDeadline = Time.realtimeSinceStartup + _commandLine.TimeoutSeconds;
-            if (!isManagerReady)
+            _autoStep = AutoStep.StartingBackend;
+            if (_commandLine.Error == null)
             {
-                FinishAutoRun(false, "the multiplayer manager did not start");
+                _log.Info($"AUTO {_commandLine.AutoRole}: starting the backend");
+            }
+        }
+
+        /// <summary>Goes on with an automatic run once the manager is ready.</summary>
+        private void ContinueAutoRun()
+        {
+            if (!IsAutoRunning)
+            {
                 return;
             }
 

@@ -15,6 +15,14 @@ namespace Mu3Library.Sample.Multiplayer
     /// shares, so that an editor and a player build, or two builds, meet without Steam. The
     /// manager does not own its backend; the core disposes this after the manager.
     /// </summary>
+    /// <remarks>
+    /// The Steam code compiles only with <c>MULTIPLAYER_STEAMWORKS_SUPPORT</c>, which the sample's
+    /// assembly definition sets for Steamworks.NET 2025.164.1 or later, as
+    /// <c>Mu3Library.Multiplayer.Steam</c> needs, and only while the build target is a standalone
+    /// platform. That assembly leaves out 32-bit Windows players, and no define that Unity 6.6 keeps
+    /// tells them apart (it deprecates <c>UNITY_64</c>), so with Steamworks.NET installed the
+    /// sample builds for the editor and 64-bit standalone players only.
+    /// </remarks>
     public sealed class SampleBackend : IDisposable
     {
         public IMultiplayerBackend Backend { get; }

@@ -1,10 +1,11 @@
 ﻿# Multiplayer Sample
 
-One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted session of `Mu3Library.Multiplayer` with buttons: create a lobby, search for lobbies, join one by its lobby ID, invite friends (Steam only), get ready, start the game, exchange a message, and kick a player. Every event the manager raises is written to the on-screen log and to the Unity log with the prefix `[MultiplayerSample]`.
+One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted session of `Mu3Library.Multiplayer` with buttons: create a lobby, search for lobbies, join one by its lobby ID, invite friends (Steam only), get ready, start the game, exchange a message, and kick a player. The on-screen log and the Unity log, with the prefix `[MultiplayerSample]`, show what the sample takes part in: state changes with their reasons, players joining, leaving, dropping during a game and coming back, ready changes, the start and end of a game, join requests from Steam, and the messages. The manager's other events, such as lobby data, chat, and load reports, are left out.
 
 ## What It Needs
 
-- Base alone. Steamworks.NET is optional: without it the sample compiles without the Steam code and plays on the local backend.
+- Base alone. Steamworks.NET is optional: without it the sample compiles without the Steam code and plays on the local backend on every platform.
+- With Steamworks.NET, installed through the Package Manager, the sample builds for the editor and 64-bit standalone players only. `Mu3Library.Multiplayer.Steam` leaves out 32-bit Windows players, and the sample's Steam code, under `MULTIPLAYER_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, cannot tell them apart, so a 32-bit Windows player does not compile then.
 - Nothing else: the buttons are drawn with IMGUI, which needs no `EventSystem`, no input module, and no TextMesh Pro resources, so the scene responds to input with or without the Input System package.
 
 ## How It Picks The Backend
@@ -15,11 +16,13 @@ One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted
 |---|---|
 | Steamworks.NET 2025.164.1 or later installed, a standalone build target, and the Steam client running | Steam, on the app ID in the core's **Steam App Id** field (Steam's test app 480 by default) |
 | The same, but Steam cannot start | In the editor, `SteamBackend.CreateOrFallback` hands back the local backend through `SteamBackendOptions.EditorFallbackNetwork` with a warning; in a player, the sample falls back to the local backend itself, since a player build never falls back on its own |
-| No Steamworks.NET, another build target, or the `-mu3mp-local` option | The local backend |
+| No Steamworks.NET, another build target, the core's **Use Local Backend** field, or the `-mu3mp-local` option | The local backend |
 
 The local backend runs on `LocalNetwork.CreateMachineWide("mu3library-multiplayer-sample")`, so every editor and player build on this computer that runs the sample meets the others. Nothing outside this computer can see its lobbies or connect to it.
 
 ## Trying It On One Computer
+
+With Steamworks.NET installed and the Steam client running, an editor and a player on one computer both play on Steam with the same account, and the host refuses the join with `DuplicateAccount`, since one account takes one slot. Turn on **Use Local Backend** on the `SampleMultiplayerCore` object before building, or pass `-mu3mp-local` to both: to the player on its command line, and to the editor in the Unity Hub's command-line arguments for the project.
 
 1. Add `Scenes/Sample_Multiplayer.unity` to the build profile's scene list and build a Windows, macOS, or Linux player.
 2. Start the player, and enter play mode in the editor with the same scene open.
@@ -29,7 +32,7 @@ The local backend runs on `LocalNetwork.CreateMachineWide("mu3library-multiplaye
 6. **Send a message to the others** sends a `SampleGreeting`, a text and a number written with `MessageWriter` and read with `MessageReader`, through the host to every other player.
 7. The host's **Kick** next to a player removes them; the kicked player's log shows the session end with `Kicked`, and that player cannot rejoin the session.
 
-The sample sets `Application.runInBackground`, so a window in the background keeps its session going.
+A player of the sample sets `Application.runInBackground`, so its window keeps the session going in the background. In the editor, the project's **Run In Background** player setting decides, and the sample leaves it alone.
 
 ## On Steam
 
@@ -47,7 +50,9 @@ The command line can run the whole flow without anyone pressing a button, for ex
 | `-mu3mp-name <name>` | The player's name on the local backend |
 | `-mu3mp-timeout <seconds>` | Fails the run after that long; 120 by default |
 
-Each step logs a line that starts with `[MultiplayerSample] AUTO`, and the run ends with `AUTO PASS` or `AUTO FAIL`. A player then quits with exit code 0 or 1, and the editor leaves play mode. For example, two Windows players on one computer:
+Each step logs a line that starts with `[MultiplayerSample] AUTO`, and the run ends with `AUTO PASS` or `AUTO FAIL`. A player then quits with exit code 0 or 1, and the editor leaves play mode. The run fails at once, before any backend starts, when an option lacks its value: a value never starts with `-`, so `-mu3mp-host -mu3mp-local` names no lobby instead of a lobby called `-mu3mp-local`, and `-mu3mp-join -logFile guest.log` does not search for a lobby called `-logFile`. It also fails when the backend cannot start, and when it reaches `-mu3mp-timeout`.
+
+On Steam's test app 480, every copy of this sample shares the game ID, so a guest finds anyone's lobby of the same name. Give each run a lobby name of its own, such as one with the date and a random number, or pass `-mu3mp-local` to both sides. For example, two Windows players on one computer:
 
 ```
 Sample.exe -mu3mp-local -mu3mp-host check-1 -mu3mp-name Host -logFile host.log
