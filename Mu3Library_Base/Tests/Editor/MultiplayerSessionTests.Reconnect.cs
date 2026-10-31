@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
@@ -446,6 +448,52 @@ namespace Mu3Library.Tests
             Assert.That(host.Left.Single().Participant.Id, Is.EqualTo(b.Id));
             Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
         }
+        [Test]
+        public void Reconnect_ACloseWithACodeOutsideTheLibrarys_StartsReconnecting_AndATimeoutOrAReasonlessRefusalIsTriedAgain()
+        {
+            // FR-20: Steam closes with codes of its own, and a host that let the handshake time out
+            // has not decided yet; a host that runs no session any more has.
+            (LocalBackend fakeHost, RecordingListener listener, _, Node a) = JoinFakeHostInGame();
+
+            fakeHost.Disconnect(listener.Connected[0], 5000);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+            Assert.That(listener.Connected.Count, Is.EqualTo(2), "the first attempt goes at once");
+
+            fakeHost.Disconnect(listener.Connected[1], ReasonCodes.ToWire(MultiplayerReason.Timeout));
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+            Advance(1.1);
+            Assert.That(listener.Connected.Count, Is.EqualTo(3));
+
+            fakeHost.Disconnect(listener.Connected[2], 0);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+            Advance(1.1);
+            Assert.That(listener.Connected.Count, Is.EqualTo(4));
+
+            fakeHost.Disconnect(listener.Connected[3], ReasonCodes.ToWire(MultiplayerReason.LobbyNotFound));
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
+
+        [Test]
+        public void Reconnect_ARefusalWhileTheLobbyShowsTheHostGone_EndsWithHostLeft()
+        {
+            // FR-27, FR-20: the refusal arrives before the lobby's news, and the lobby already shows it.
+            (LocalBackend fakeHost, RecordingListener listener, LobbyId lobby, Node a) = JoinFakeHostInGame();
+
+            fakeHost.Disconnect(listener.Connected[0], ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+
+            fakeHost.Disconnect(listener.Connected[1], ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
+            fakeHost.LeaveLobby(lobby);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
         #endregion
 
         #region Outage
@@ -494,6 +542,63 @@ namespace Mu3Library.Tests
         #endregion
 
         #region Reconnect Helpers
+        /// <summary>A client in a game that a raw backend hosts, which says what the test tells it to.</summary>
+        private (LocalBackend Host, RecordingListener Events, LobbyId Lobby, Node Client) JoinFakeHostInGame()
+        {
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            Assert.That(listener.Connected.Count, Is.EqualTo(1));
+
+            fakeHost.Send(listener.Connected[0], InGameWelcomePacket(fakeHost.LocalPlayerId, a.Id), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            return (fakeHost, listener, lobby, a);
+        }
+
+        /// <summary>The welcome a host sends into its first game, with the default rules and two players.</summary>
+        private static byte[] InGameWelcomePacket(PlayerId host, PlayerId client)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.Welcome);
+            writer.WriteByte((byte)SessionState.InGame);
+            writer.WriteULong(host.Value);
+            writer.WriteInt(1);
+
+            // The rules: capacity, minimum players, ready check, late join, both rate limits, the
+            // kick time, the reservation time, and the load timeout.
+            writer.WriteInt(4);
+            writer.WriteInt(1);
+            writer.WriteBool(false);
+            writer.WriteBool(false);
+            writer.WriteInt(0);
+            writer.WriteInt(0);
+            writer.WriteInt(BitConverter.SingleToInt32Bits(0f));
+            writer.WriteInt(BitConverter.SingleToInt32Bits(SessionRules.DefaultReconnectReservationSeconds));
+            writer.WriteInt(BitConverter.SingleToInt32Bits(SessionRules.DefaultLoadTimeoutSeconds));
+
+            writer.WriteInt(MultiplayerConfig.DefaultMaxMessageSize);
+            writer.WriteBytes(ReadOnlySpan<byte>.Empty);
+            writer.WriteInt(0);
+            writer.WriteInt(2);
+            foreach ((PlayerId id, string name) in new[] { (host, "FakeHost"), (client, "A") })
+            {
+                writer.WriteULong(id.Value);
+                writer.WriteString(name);
+                writer.WriteBool(false);
+                writer.WriteBool(false);
+                writer.WriteBool(true);
+                writer.WriteBool(false);
+                writer.WriteInt(0);
+            }
+
+            return writer.Written.ToArray();
+        }
+
         private static byte[] HelloPacket(bool isReturning)
         {
             PacketWriter writer = new PacketWriter();

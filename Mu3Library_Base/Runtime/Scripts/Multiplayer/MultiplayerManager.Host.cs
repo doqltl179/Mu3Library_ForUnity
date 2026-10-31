@@ -858,6 +858,7 @@ namespace Mu3Library.Multiplayer
             _bannedPlayers.Clear();
             _reservations.Clear();
             _expiredReservations.Clear();
+            _shortenedReservations.Clear();
             ResetRateState();
         }
         #endregion

@@ -13,6 +13,7 @@ namespace Mu3Library.Multiplayer
         // On the host, the players whose connection dropped during a game, and when their slot frees.
         private readonly Dictionary<PlayerId, double> _reservations = new Dictionary<PlayerId, double>();
         private readonly List<PlayerId> _expiredReservations = new List<PlayerId>();
+        private readonly List<PlayerId> _shortenedReservations = new List<PlayerId>();
 
         // On a client that reconnects, when it gives up, and when it tries the next time.
         private double _reconnectDeadline = 0d;
@@ -162,16 +163,16 @@ namespace Mu3Library.Multiplayer
             {
                 if (pair.Value > latest)
                 {
-                    _expiredReservations.Add(pair.Key);
+                    _shortenedReservations.Add(pair.Key);
                 }
             }
 
-            for (int i = 0; i < _expiredReservations.Count; i++)
+            for (int i = 0; i < _shortenedReservations.Count; i++)
             {
-                _reservations[_expiredReservations[i]] = latest;
+                _reservations[_shortenedReservations[i]] = latest;
             }
 
-            _expiredReservations.Clear();
+            _shortenedReservations.Clear();
         }
 
         /// <summary>Frees the slots whose player did not come back in time.</summary>
