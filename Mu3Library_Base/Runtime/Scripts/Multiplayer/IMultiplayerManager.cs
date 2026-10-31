@@ -98,8 +98,9 @@ namespace Mu3Library.Multiplayer
         /// Sets one value of the lobby data, which lobby search returns and filters on, and reports
         /// it to every player through <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>.
         /// An empty key, one longer than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that
-        /// starts with the library's <c>mu3.</c>, or a null value answers
-        /// <see cref="MultiplayerReason.InvalidArgument"/>, and lobby data that would grow past
+        /// starts with the library's <c>mu3.</c> in any case (Steam does not tell keys apart by
+        /// case), a null value, or a key or value that holds a NUL character or an unpaired UTF-16
+        /// surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>, and lobby data that would grow past
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. Setting the value a key already has
         /// changes nothing.
@@ -112,9 +113,11 @@ namespace Mu3Library.Multiplayer
         /// no player can change another's. Keys and values follow the rules of
         /// <see cref="SetLobbyData"/>, and one player's data stays within
         /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. For a client, success means the
-        /// request went to the host, which checks it again; the value changes when the host reports
-        /// it back through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. The
-        /// data lasts until the player leaves the session.
+        /// request went to the host, and the value changes when the host reports it back through
+        /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. A client checks each
+        /// request against its own earlier ones, as the host will have applied them, so the host
+        /// takes every request that succeeds here even while earlier ones are still on their way.
+        /// The data lasts until the player leaves the session.
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
         #endregion

@@ -438,14 +438,22 @@ namespace Mu3Library.Multiplayer
         /// True the first time a type is dropped for a reason in this session, so the warning
         /// text is built only then and a flood of bad messages costs nothing more.
         /// </summary>
-        private bool IsFirstDrop(ushort messageType, DropReason reason)
+        private bool IsFirstDrop(ushort messageType, DropReason reason) => IsFirstDrop((messageType << 8) | (int)reason);
+
+        /// <summary>
+        /// The same for a client's participant data that the host refused, once per reason. Its
+        /// keys are negative, apart from those of the message drops.
+        /// </summary>
+        private bool IsFirstParticipantDataDrop(MultiplayerReason reason) => IsFirstDrop(-1 - (int)reason);
+
+        private bool IsFirstDrop(int key)
         {
             if (_loggedDrops.Count >= MaxDropWarnings)
             {
                 return false;
             }
 
-            if (!_loggedDrops.Add((messageType << 8) | (int)reason))
+            if (!_loggedDrops.Add(key))
             {
                 return false;
             }

@@ -211,6 +211,35 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamLobby_KeepsTheReservedKeys_WhateverCaseAGameWritesThemIn()
+        {
+            // FR-11: whether Steam tells lobby data keys apart by case decides whether a game key
+            // such as "MU3.state" could reach a reserved one; the reserved keys stay the library's either way.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreateFriendsOnlyLobby(manager, "forest");
+
+                Assert.That(_backend.SetLobbyData(lobby, "Probe.Case", "upper"), Is.True);
+                string lower = _backend.GetLobbyData(lobby, "probe.case");
+                TestContext.WriteLine(lower == "upper"
+                    ? "Steam folds the case of lobby data keys."
+                    : $"Steam keeps the case of lobby data keys (lower-case key reads '{lower ?? "null"}').");
+
+                Assert.That(manager.SetLobbyData("MU3.State", LobbyDataKeys.StateInGame).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                Assert.That(manager.SetLobbyData("MU3.HOST", "0").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.HostId), Is.EqualTo(_backend.LocalPlayerId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
         /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
         private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
         {

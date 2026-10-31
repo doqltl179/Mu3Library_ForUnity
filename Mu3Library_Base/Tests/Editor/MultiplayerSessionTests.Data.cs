@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -68,9 +69,17 @@ namespace Mu3Library.Tests
             Node host = CreateHost("Host");
             LobbyId lobby = host.Manager.CurrentLobbyId;
 
-            foreach (string key in new[] { LobbyDataKeys.State, "mu3.custom", string.Empty, null, new string('k', MultiplayerLimits.MaxDataKeyLength + 1) })
+            // Steam does not tell keys apart by case, so the reserved prefix counts in any case.
+            foreach (string key in new[] { LobbyDataKeys.State, "MU3.STATE", "Mu3.custom", string.Empty, null, new string('k', MultiplayerLimits.MaxDataKeyLength + 1) })
             {
                 Assert.That(host.Manager.SetLobbyData(key, "spoofed").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), key);
+            }
+
+            // Text that would not reach the other players unchanged.
+            foreach (string text in UncleanTexts)
+            {
+                Assert.That(host.Manager.SetLobbyData(text, "value").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(host.Manager.SetLobbyData("map", text).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
             }
 
             Assert.That(host.Manager.SetLobbyData("map", null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
@@ -86,7 +95,8 @@ namespace Mu3Library.Tests
             // A new value takes the place of the old one in the count.
             Assert.That(host.Manager.SetLobbyData(longest, "short").IsSuccess, Is.True);
             Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
-            Assert.That(host.LobbyDataChanges.Select(change => change.Key), Is.EqualTo(new[] { longest, longest, "x" }));
+            Assert.That(host.Manager.SetLobbyData("emoji \U0001F3AE", "\U0001F3AE").IsSuccess, Is.True, "a surrogate pair is fine");
+            Assert.That(host.LobbyDataChanges.Select(change => change.Key), Is.EqualTo(new[] { longest, longest, "x", "emoji \U0001F3AE" }));
         }
 
         [Test]
@@ -99,8 +109,14 @@ namespace Mu3Library.Tests
             LobbyCreateOptions large = PublicOptions(SessionRules.Default);
             large.Data["a"] = new string('v', MultiplayerLimits.MaxLobbyDataSize / 2);
             large.Data["b"] = new string('v', MultiplayerLimits.MaxLobbyDataSize / 2);
+            LobbyCreateOptions reserved = PublicOptions(SessionRules.Default);
+            reserved.Data["MU3.game"] = "spoofed";
+            LobbyCreateOptions unclean = PublicOptions(SessionRules.Default);
+            unclean.Data["map"] = "forest\0desert";
 
             Assert.That(CreateLobby(host, longKey).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateLobby(host, reserved).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateLobby(host, unclean).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(CreateLobby(host, large).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
             Assert.That(_network.Lobbies, Is.Empty);
         }
@@ -172,21 +188,96 @@ namespace Mu3Library.Tests
             Node a = clients[0];
 
             Assert.That(a.Manager.SetParticipantData("mu3.ready", "true").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(a.Manager.SetParticipantData("MU3.Ready", "true").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(a.Manager.SetParticipantData("character", null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            foreach (string text in UncleanTexts)
+            {
+                Assert.That(a.Manager.SetParticipantData(text, "value").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(a.Manager.SetParticipantData("character", text).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+            }
+
             Assert.That(a.Manager.SetParticipantData("character", new string('v', MultiplayerLimits.MaxParticipantDataSize)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
             Assert.That(host.Manager.SetParticipantData(LobbyDataKeys.State, "game").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(CreateNode("Lonely").Manager.SetParticipantData("character", "knight").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
 
             LocalBackend raw = CreateRawBackend("Raw", new RecordingListener());
             ConnectionId connection = ConnectAsPlayer(raw, host);
-            LogAssert.Expect(LogType.Warning, new Regex("Dropped participant data from .*: InvalidArgument"));
-            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "mu3.ready", "true"), DeliveryMode.Reliable);
-            LogAssert.Expect(LogType.Warning, new Regex("Dropped participant data from .*: MessageTooLarge"));
-            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "c", new string('v', MultiplayerLimits.MaxParticipantDataSize)), DeliveryMode.Reliable);
-            Pump();
+            List<string> refusals = new List<string>();
+            void Record(string message, string stackTrace, LogType type)
+            {
+                if (message.Contains("Dropped participant data"))
+                {
+                    refusals.Add(message);
+                }
+            }
 
+            Application.logMessageReceived += Record;
+            try
+            {
+                // A flood of bad requests logs each reason once. A lone surrogate turns into a
+                // replacement character on its way, so only a NUL reaches the host unchanged.
+                for (int i = 0; i < 3; i++)
+                {
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "mu3.ready", "true"), DeliveryMode.Reliable);
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "map", "a\0b"), DeliveryMode.Reliable);
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "c", new string('v', MultiplayerLimits.MaxParticipantDataSize)), DeliveryMode.Reliable);
+                }
+
+                Pump();
+            }
+            finally
+            {
+                Application.logMessageReceived -= Record;
+            }
+
+            Assert.That(refusals.Count, Is.EqualTo(2), string.Join("\n", refusals));
+            Assert.That(refusals[0], Does.Contain(": InvalidArgument."));
+            Assert.That(refusals[1], Does.Contain(": MessageTooLarge."));
             Assert.That(DataOf(host, raw.LocalPlayerId), Is.Empty);
             Assert.That(host.DataChanges.Concat(a.DataChanges), Is.Empty);
+        }
+
+        [Test]
+        public void ParticipantData_FromAClient_IsCheckedAgainstItsOwnRequests_NotTheCopyStillOnItsWay()
+        {
+            // FR-11: what a client is told is what the host does, before any change came back.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            int half = MultiplayerLimits.MaxParticipantDataSize / 2;
+            List<string> refusals = new List<string>();
+            void Record(string message, string stackTrace, LogType type)
+            {
+                if (message.Contains("Dropped participant data"))
+                {
+                    refusals.Add(message);
+                }
+            }
+
+            Application.logMessageReceived += Record;
+            try
+            {
+                Assert.That(a.Manager.SetParticipantData("a", new string('v', half + 100)).IsSuccess, Is.True);
+                Assert.That(a.Manager.SetParticipantData("b", new string('v', half)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge),
+                    "the first request has not come back yet, but the host will hold it");
+
+                Assert.That(a.Manager.SetParticipantData("a", string.Empty).IsSuccess, Is.True);
+                Assert.That(a.Manager.SetParticipantData("b", new string('v', half)).IsSuccess, Is.True,
+                    "the room the second request freed counts before the host reported it");
+                Assert.That(DataOf(a, a.Id), Is.Empty);
+                Pump();
+            }
+            finally
+            {
+                Application.logMessageReceived -= Record;
+            }
+
+            Assert.That(refusals, Is.Empty);
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, a.Id)["a"], Is.Empty);
+                Assert.That(DataOf(node, a.Id)["b"].Length, Is.EqualTo(half));
+                Assert.That(node.DataChanges.Count, Is.EqualTo(3));
+            }
         }
 
         [Test]
@@ -228,6 +319,11 @@ namespace Mu3Library.Tests
         #endregion
 
         #region Data Helpers
+        // A NUL, where Steam ends a string, and surrogates without their pair, which UTF-8 replaces.
+        private static readonly string[] UncleanTexts = { "a\0b", "a\uD800", "\uDC00a", "\uDBFF" };
+
+        private static string Escape(string text) => string.Concat(text.Select(c => c < 0x20 || char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
+
         private static IReadOnlyDictionary<string, string> DataOf(Node node, PlayerId player)
         {
             Assert.That(node.Manager.TryGetParticipant(player, out Participant participant), Is.True, $"{player} at {node.Backend.PlayerName}");

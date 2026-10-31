@@ -509,12 +509,12 @@ namespace Mu3Library.Multiplayer
             _rules = SessionRules.Default;
             _startData = Array.Empty<byte>();
             _participants.Clear();
-            _lobbyData.Clear();
             _pendingCallback = null;
 
             ResetHostState();
             ResetClientState();
             ResetMessageState();
+            ResetDataState();
         }
 
         private int IndexOfParticipant(PlayerId player)

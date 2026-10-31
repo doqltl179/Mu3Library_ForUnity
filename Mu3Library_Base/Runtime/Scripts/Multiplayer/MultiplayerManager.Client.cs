@@ -277,6 +277,11 @@ namespace Mu3Library.Multiplayer
                 _lobbyData.Add(pair.Key, pair.Value);
             }
 
+            if (TryGetParticipant(LocalPlayerId, out Participant self))
+            {
+                TakeRequestedData(self.Data);
+            }
+
             // The callback stays pending through the state event: a handler that ends the session
             // there answers it with the reason, and only a session that survives answers success.
             int generation = _sessionGeneration;

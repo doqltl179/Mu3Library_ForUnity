@@ -16,6 +16,12 @@ namespace Mu3Library.Multiplayer
         private readonly Dictionary<string, string> _lobbyData = new Dictionary<string, string>();
         private ReadOnlyDictionary<string, string> _lobbyDataView = null;
 
+        // On a client, this player's own participant data as the host holds it once it has taken
+        // every request this player sent. Only this player changes its own data, and the host
+        // applies the same rules in the same order, so a request that passes against this copy is
+        // one the host takes, while the copy the host reported back may still lag behind.
+        private readonly Dictionary<string, string> _requestedData = new Dictionary<string, string>();
+
         public IReadOnlyDictionary<string, string> LobbyData => _lobbyDataView ??= new ReadOnlyDictionary<string, string>(_lobbyData);
 
 
@@ -75,7 +81,8 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidState);
             }
 
-            MultiplayerReason check = CheckDataEntry(key, value, _participants[index].Data, MultiplayerLimits.MaxParticipantDataSize);
+            IEnumerable<KeyValuePair<string, string>> current = _isHost ? _participants[index].Data : _requestedData;
+            MultiplayerReason check = CheckDataEntry(key, value, current, MultiplayerLimits.MaxParticipantDataSize);
             WarnIfInvalid(check, key);
             if (check != MultiplayerReason.None)
             {
@@ -92,9 +99,13 @@ namespace Mu3Library.Multiplayer
             _writer.Begin(PacketKind.SetParticipantData);
             _writer.WriteString(key);
             _writer.WriteString(value);
-            return SendToHost(DeliveryMode.Reliable)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            if (!SendToHost(DeliveryMode.Reliable))
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
+            _requestedData[key] = value;
+            return MultiplayerResult.Success;
         }
         #endregion
 
@@ -114,12 +125,16 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            // The client checked the same rules against its own copy, which can lag behind a
-            // change still on its way back from the host.
+            // A client checks the same rules against its own requests before it sends one, so
+            // only a client that skips the check gets here.
             MultiplayerReason check = CheckDataEntry(key, value, _participants[index].Data, MultiplayerLimits.MaxParticipantDataSize);
             if (check != MultiplayerReason.None)
             {
-                Debug.LogWarning($"[Multiplayer] Dropped participant data from {peer.Player}: {check}.");
+                if (IsFirstParticipantDataDrop(check))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {peer.Player}: {check}. Further refusals for this reason go unlogged until the session ends.");
+                }
+
                 return;
             }
 
@@ -191,6 +206,22 @@ namespace Mu3Library.Multiplayer
             _participants[index] = updated;
             Raise(OnParticipantDataChanged, updated, key);
         }
+
+        /// <summary>Takes this player's own data from the welcome, which its later requests build on.</summary>
+        private void TakeRequestedData(IReadOnlyDictionary<string, string> own)
+        {
+            _requestedData.Clear();
+            foreach (KeyValuePair<string, string> pair in own)
+            {
+                _requestedData.Add(pair.Key, pair.Value);
+            }
+        }
+
+        private void ResetDataState()
+        {
+            _lobbyData.Clear();
+            _requestedData.Clear();
+        }
         #endregion
 
         #region Rules And Packets
@@ -198,7 +229,41 @@ namespace Mu3Library.Multiplayer
         {
             return !string.IsNullOrEmpty(key)
                 && key.Length <= MultiplayerLimits.MaxDataKeyLength
+                && IsCleanText(key)
                 && !LobbyDataKeys.IsReserved(key);
+        }
+
+        /// <summary>
+        /// False for text that does not reach the other players unchanged: a NUL character, where
+        /// Steam ends a string, or a surrogate without its pair, which UTF-8 turns into a
+        /// replacement character, so the other players would hold another key or value than the sender.
+        /// </summary>
+        private static bool IsCleanText(string text)
+        {
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (c == '\0')
+                {
+                    return false;
+                }
+
+                if (char.IsHighSurrogate(c))
+                {
+                    if (i + 1 >= text.Length || !char.IsLowSurrogate(text[i + 1]))
+                    {
+                        return false;
+                    }
+
+                    i++;
+                }
+                else if (char.IsLowSurrogate(c))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -207,7 +272,7 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         private static MultiplayerReason CheckDataEntry(string key, string value, IEnumerable<KeyValuePair<string, string>> data, int limit)
         {
-            if (!IsValidDataKey(key) || value == null)
+            if (!IsValidDataKey(key) || value == null || !IsCleanText(value))
             {
                 return MultiplayerReason.InvalidArgument;
             }
@@ -233,7 +298,7 @@ namespace Mu3Library.Multiplayer
         {
             if (check == MultiplayerReason.InvalidArgument)
             {
-                Debug.LogWarning($"[Multiplayer] Data key '{key}' is empty, longer than {MultiplayerLimits.MaxDataKeyLength} characters, has no value, or uses the reserved '{LobbyDataKeys.Prefix}' prefix.");
+                Debug.LogWarning($"[Multiplayer] Data key '{key}' is empty, longer than {MultiplayerLimits.MaxDataKeyLength} characters, or starts with the reserved '{LobbyDataKeys.Prefix}' in any case, or the key or its value is null or holds a NUL character or an unpaired surrogate.");
             }
         }
 
