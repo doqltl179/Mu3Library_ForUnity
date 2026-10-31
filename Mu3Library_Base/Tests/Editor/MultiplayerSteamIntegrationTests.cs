@@ -143,24 +143,29 @@ namespace Mu3Library.Tests
             Assert.That(receiving.BytesReceivedPerSecond, Is.GreaterThan(0f));
             Assert.That(recorder.Received, Is.Not.Empty);
 
-            // The backend asks Steam at most every half second, and answers from that in between.
-            Thread.Sleep(600);
-            Assert.That(() => { _backend.TryGetConnectionQuality(sender, out _); }, Is.AllocatingGCMemory(), "a read that asks Steam");
+            // From here on the backend answers from what Steam last said, which the loop above
+            // asked for, so no read below asks Steam again.
+            _backend.QualityRefreshSeconds = 3600.0;
             Assert.That(() => { _backend.TryGetConnectionQuality(sender, out _); }, Is.Not.AllocatingGCMemory(), "a read between Steam's answers");
+            Assert.That(_backend.TryGetConnectionQuality(receiver, out _), Is.True);
 
             Assert.That(_backend.TryGetConnectionQuality(new ConnectionId(uint.MaxValue), out _), Is.False);
             _backend.Disconnect(sender, 0);
             Assert.That(_backend.TryGetConnectionQuality(sender, out _), Is.False);
 
-            // The other side answers false once Steam reports the close, before the backend hands it on.
+            // The other side answers false right after the callback run that reports the close,
+            // while its last answer from Steam still stands and before the backend hands the close on.
+            bool answers = true;
             Stopwatch closing = Stopwatch.StartNew();
-            while (closing.Elapsed.TotalSeconds < 10.0 && _backend.TryGetConnectionQuality(receiver, out _))
+            while (answers && closing.Elapsed.TotalSeconds < 10.0)
             {
-                Steamworks.SteamAPI.RunCallbacks();
                 Thread.Sleep(20);
+                Steamworks.SteamAPI.RunCallbacks();
+                answers = _backend.TryGetConnectionQuality(receiver, out _);
             }
 
-            Assert.That(_backend.TryGetConnectionQuality(receiver, out _), Is.False);
+            Assert.That(answers, Is.False, "Steam reported the close");
+            Assert.That(recorder.Events, Does.Not.Contain("disconnected " + receiver), "the close is not handed on yet");
         }
 
         [Test]

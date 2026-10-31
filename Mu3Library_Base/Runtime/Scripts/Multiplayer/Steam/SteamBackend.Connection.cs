@@ -41,11 +41,7 @@ namespace Mu3Library.Multiplayer.Steam
         // A receive buffer that grew past this for a burst of large messages shrinks back afterwards.
         private const int RetainedReceiveBufferSize = 1024 * 1024;
 
-        // Steam is asked for a connection's quality at most this often; reads in between answer
-        // what it said last. Each answer allocates, since Steamworks.NET copies arrays of its
-        // status out of native memory.
-        private const double QualityRefreshSeconds = 0.5;
-        private static readonly long QualityRefreshTicks = (long)(QualityRefreshSeconds * Stopwatch.Frequency);
+        private static readonly double TicksPerSecond = Stopwatch.Frequency;
 
         // Where Steam keeps a message's data, length, and connection, read straight from native
         // memory so receiving allocates nothing.
@@ -69,6 +65,13 @@ namespace Mu3Library.Multiplayer.Steam
         private bool _isListening = false;
 
         private Callback<SteamNetConnectionStatusChangedCallback_t> _connectionStatusChanged;
+
+        /// <summary>
+        /// How often Steam is asked for a connection's quality, in seconds; reads in between answer
+        /// what it said last. Each answer allocates, since Steamworks.NET copies arrays of its
+        /// status out of native memory. Tests lengthen it to hold an answer still.
+        /// </summary>
+        internal double QualityRefreshSeconds { get; set; } = 0.5;
 
         // Reused for every quality read; Steam fills them in.
         private SteamNetConnectionRealTimeStatus_t _realTimeStatus;
@@ -214,7 +217,7 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             long now = Stopwatch.GetTimestamp();
-            if (!steam.HasQualityRead || now - steam.QualityReadAt >= QualityRefreshTicks)
+            if (!steam.HasQualityRead || now - steam.QualityReadAt >= QualityRefreshSeconds * TicksPerSecond)
             {
                 steam.HasQualityRead = true;
                 steam.QualityReadAt = now;
