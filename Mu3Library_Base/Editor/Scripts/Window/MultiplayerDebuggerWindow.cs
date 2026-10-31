@@ -110,30 +110,13 @@ namespace Mu3Library.Editor.Window
             _previousViews.Clear();
         }
 
-        /// <summary>The managers that the running cores hold as singletons, with the core that holds each.</summary>
+        /// <summary>
+        /// The managers that the running cores hold as singletons, with the core that holds each,
+        /// through the lookup that the play-mode tests check.
+        /// </summary>
         internal static void FindManagers(List<(string Source, IMultiplayerManager Manager)> results)
         {
-            CoreRoot coreRoot = UnityEngine.Object.FindAnyObjectByType<CoreRoot>();
-            if (coreRoot == null)
-            {
-                return;
-            }
-
-            foreach (CoreBase core in coreRoot.RegisteredCores)
-            {
-                if (core == null)
-                {
-                    continue;
-                }
-
-                foreach (object instance in core.GetActiveSingletonInstances())
-                {
-                    if (instance is IMultiplayerManager manager)
-                    {
-                        results.Add((core.GetType().Name, manager));
-                    }
-                }
-            }
+            MultiplayerManagerLookup.FindInCores(results);
         }
 
         #region GUI
