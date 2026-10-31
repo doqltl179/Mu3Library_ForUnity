@@ -53,8 +53,11 @@ namespace Mu3Library.Tests
             Assert.That(host.Left.Concat(a.Left), Is.Empty);
             Assert.That(b.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
             Assert.That(b.Manager.SetParticipantData("character", "mage").Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+            Assert.That(b.Manager.SendChat("hello").Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+            Assert.That(b.Manager.ReportLoaded().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
             Assert.That(host.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.All).IsSuccess, Is.True);
-            Assert.That(host.Manager.Send(Chat, new byte[] { 3 }, MessageTarget.To(b.Id)).IsSuccess, Is.True, "a message for a player who is away goes nowhere");
+            Assert.That(host.Manager.Send(Chat, new byte[] { 3 }, MessageTarget.To(b.Id)).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost), "the one player it is for is away");
+            Assert.That(a.Manager.Send(Chat, new byte[] { 3 }, MessageTarget.To(b.Id)).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost), "a client sees it as well");
 
             Advance(11.0);
 
@@ -331,6 +334,117 @@ namespace Mu3Library.Tests
 
             Assert.That(strangerEvents.Disconnected.Single(), Is.EqualTo((attempt, BackendDisconnectKind.ClosedByPeer, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost))));
             Assert.That(host.Manager.TryGetParticipant(stranger.LocalPlayerId, out _), Is.False);
+        }
+        [Test]
+        public void Reconnect_AHostThatCrashesInAGame_EndsTheReconnectWithHostLeft_ThroughTheLobby()
+        {
+            // FR-27, FR-20: the lobby passes on, so the clients do not wait out the reservation.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+
+            host.Backend.SimulateCrash();
+            Pump();
+
+            foreach (Node client in new[] { a, b })
+            {
+                Assert.That(client.States.Select(change => change.ToString()), Is.EqualTo(new[]
+                {
+                    "Offline -> Joining (None)",
+                    "Joining -> Lobby (None)",
+                    "Lobby -> InGame (None)",
+                    "InGame -> Reconnecting (ConnectionLost)",
+                    "Reconnecting -> Offline (HostLeft)",
+                }), client.Backend.PlayerName);
+            }
+        }
+
+        [Test]
+        public void Reconnect_TheHostLeavingWhileAPlayerReconnects_EndsItWithHostLeft()
+        {
+            // FR-27, FR-20
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+
+            b.Backend.SimulateOutage(60f);
+            Advance(DropSeconds + 0.5);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+
+            host.Manager.Leave();
+            Advance(0.5);
+
+            Assert.That(b.States.Select(change => change.ToString()).Skip(3), Is.EqualTo(new[]
+            {
+                "InGame -> Reconnecting (ConnectionLost)",
+                "Reconnecting -> Offline (HostLeft)",
+            }));
+        }
+
+        [Test]
+        public void Reconnect_LeavingWhileReconnecting_FreesTheSlotAtOnceOnlyWhenAnAttemptReachedTheHost()
+        {
+            // FR-14, FR-20: a player whose attempt reached the host tells it; one cut off cannot.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = JoinNew("B", host);
+            RecordingListener listener = new RecordingListener();
+            LocalBackend raw = CreateRawBackend("Raw", listener);
+            ConnectAsPlayer(raw, host);
+            host.Manager.StartGame();
+            Pump();
+
+            b.Backend.SimulateOutage(120f);
+            raw.SimulateOutage(20f);
+            Advance(DropSeconds + 0.5);
+            Assert.That(host.Disconnected.Select(participant => participant.Id), Is.EquivalentTo(new[] { b.Id, raw.LocalPlayerId }));
+
+            // B is cut off: leaving ends its own session, and the host keeps the slot until its time.
+            b.Manager.Leave();
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(b.LastChange.Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+
+            // The raw player's attempt reaches the host, which hears it leave before its hello.
+            Advance(10.0);
+            ConnectionId attempt = raw.Connect(host.Id);
+            Pump();
+            raw.Disconnect(attempt, ReasonCodes.ToWire(MultiplayerReason.LeftNormally));
+            Pump();
+            Assert.That(host.Left.Select(left => (left.Participant.Id, left.Reason)), Is.EqualTo(new[] { (raw.LocalPlayerId, MultiplayerReason.LeftNormally) }));
+            Assert.That(host.Manager.TryGetParticipant(b.Id, out Participant away) && !away.IsConnected, Is.True);
+
+            Advance(SessionRules.DefaultReconnectReservationSeconds - 10.0);
+            Assert.That(host.Left.Count, Is.EqualTo(2));
+            Assert.That(host.Left.Last().Participant.Id, Is.EqualTo(b.Id));
+            Assert.That(host.Left.Last().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost), "the slot of a player who could not tell the host frees when its time runs out");
+        }
+
+        [Test]
+        public void Reconnect_ShorterRulesInTheLobby_ShortenTheSlotsKept()
+        {
+            // FR-20, FR-17
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+
+            b.Backend.SimulateOutage(120f);
+            Advance(DropSeconds + 0.5);
+            Assert.That(host.Manager.EndGame().IsSuccess, Is.True);
+            Pump();
+
+            Assert.That(host.Manager.UpdateRules(host.Manager.Rules.WithReconnectReservationSeconds(5f)).IsSuccess, Is.True);
+            Advance(4.5);
+            Assert.That(host.Left, Is.Empty);
+
+            Advance(1.0);
+            Assert.That(host.Left.Single().Participant.Id, Is.EqualTo(b.Id));
+            Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
         }
         #endregion
 

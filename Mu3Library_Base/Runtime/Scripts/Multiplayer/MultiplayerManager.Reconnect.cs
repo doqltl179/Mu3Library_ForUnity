@@ -127,6 +127,34 @@ namespace Mu3Library.Multiplayer
             return true;
         }
 
+        /// <summary>
+        /// Shortens the slots kept now to at most the reservation time that new rules set, from
+        /// now on; a longer time leaves them as they are.
+        /// </summary>
+        private void ShortenReservations(float seconds)
+        {
+            if (_reservations.Count == 0)
+            {
+                return;
+            }
+
+            double latest = Now + seconds;
+            foreach (KeyValuePair<PlayerId, double> pair in _reservations)
+            {
+                if (pair.Value > latest)
+                {
+                    _expiredReservations.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0; i < _expiredReservations.Count; i++)
+            {
+                _reservations[_expiredReservations[i]] = latest;
+            }
+
+            _expiredReservations.Clear();
+        }
+
         /// <summary>Frees the slots whose player did not come back in time.</summary>
         private void UpdateReservations()
         {
@@ -204,10 +232,16 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            if (IsHostGoneFromLobby())
+            {
+                EndReconnect(MultiplayerReason.HostLeft);
+                return;
+            }
+
             double now = Now;
             if (now >= _reconnectDeadline)
             {
-                EndSession(MultiplayerReason.ConnectionLost, raiseEvents: true);
+                EndReconnect(MultiplayerReason.ConnectionLost);
                 return;
             }
 
@@ -218,6 +252,37 @@ namespace Mu3Library.Multiplayer
 
             _nextReconnectAttempt = now + ReconnectRetrySeconds;
             _hostConnection = _backend.Connect(_hostId);
+        }
+
+        /// <summary>
+        /// Whether the lobby, as this player sees it now, says that the host is gone: it passed
+        /// to another member, or it no longer lists the host. A lobby that no longer lists this
+        /// player tells nothing, as a Steam lobby may drop a member whose own network went down.
+        /// </summary>
+        private bool IsHostGoneFromLobby()
+        {
+            if (!_lobbyId.IsValid || !_hostId.IsValid || !_backend.IsLobbyMember(_lobbyId, LocalPlayerId))
+            {
+                return false;
+            }
+
+            PlayerId owner = _backend.GetLobbyOwner(_lobbyId);
+            return (owner.IsValid && owner != _hostId) || !_backend.IsLobbyMember(_lobbyId, _hostId);
+        }
+
+        /// <summary>
+        /// Gives up coming back. An attempt still on its way closes as lost, so the host keeps
+        /// the slot until its own time rather than taking it for a player who left.
+        /// </summary>
+        private void EndReconnect(MultiplayerReason reason)
+        {
+            if (_hostConnection.IsValid)
+            {
+                _backend.Disconnect(_hostConnection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
+                _hostConnection = ConnectionId.None;
+            }
+
+            EndSession(reason, raiseEvents: true);
         }
 
         /// <summary>

@@ -66,13 +66,18 @@ namespace Mu3Library.Multiplayer.Data
         /// it; a player who leaves, or whom the host kicks, never keeps a slot. Meanwhile the
         /// player stays in <see cref="IMultiplayerManager.Participants"/> with
         /// <see cref="Participant.IsConnected"/> false and still counts toward
-        /// <see cref="Capacity"/>, and only the same account can take the slot. The library on
-        /// that player's side does so by itself while its game runs: its state turns to
+        /// <see cref="Capacity"/> and <see cref="MinPlayersToStart"/>, and only the same account
+        /// can take the slot: by connecting again from the game that kept running, or by joining
+        /// again from another start of the game, which the lobby admits only in the lobby phase
+        /// or with <see cref="AllowLateJoin"/>. The library on that player's side connects again
+        /// by itself while its game runs: its state turns to
         /// <see cref="SessionState.Reconnecting"/>, and it connects to the host again until it is
         /// back or this time is over, counted from when it noticed the drop. The slot outlasts
         /// the end of the game, so a player may come back to the lobby or to the next game. A
         /// player who does not come back in time leaves with
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>; <see cref="SessionState.Reconnecting"/>
+        /// tells what else ends the attempt. New rules with a shorter time cut the slots kept
+        /// then to at most that time from then on; a longer one leaves them as they are.
         /// </summary>
         public float ReconnectReservationSeconds { get; }
 

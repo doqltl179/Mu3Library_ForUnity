@@ -163,22 +163,35 @@ namespace Mu3Library.Multiplayer
             }
             else if (_state == SessionState.Reconnecting)
             {
-                // An attempt that did not get through is tried again; a host that answered
-                // decided. It refuses a player whose slot is gone with ConnectionLost.
-                if (kind != BackendDisconnectKind.ClosedByPeer)
+                // An attempt that did not get through, or that timed out before the host answered,
+                // is tried again while the reservation lasts. A host that answered decided: a
+                // player whose slot is gone hears ConnectionLost, unless the lobby shows the host
+                // gone, and a host that left or runs no session any more means HostLeft.
+                if (kind != BackendDisconnectKind.ClosedByPeer || sent == MultiplayerReason.None || sent == MultiplayerReason.Timeout)
                 {
                     return;
                 }
 
-                reason = sent == MultiplayerReason.Banned || sent == MultiplayerReason.Kicked || sent == MultiplayerReason.HostLeft
-                    ? sent
-                    : MultiplayerReason.ConnectionLost;
+                if (sent == MultiplayerReason.Banned || sent == MultiplayerReason.Kicked || sent == MultiplayerReason.RateLimited)
+                {
+                    reason = sent;
+                }
+                else if (sent == MultiplayerReason.HostLeft || sent == MultiplayerReason.LobbyNotFound || IsHostGoneFromLobby())
+                {
+                    reason = MultiplayerReason.HostLeft;
+                }
+                else
+                {
+                    reason = MultiplayerReason.ConnectionLost;
+                }
             }
-            else if (kind == BackendDisconnectKind.ConnectionLost || sent == MultiplayerReason.ConnectionLost)
+            else if (kind == BackendDisconnectKind.ConnectionLost || sent == MultiplayerReason.ConnectionLost
+                || (kind == BackendDisconnectKind.ClosedByPeer && sent == MultiplayerReason.None))
             {
-                // The connection broke, or the host closed it because its messages could not
-                // reach this player; in a game the host keeps the slot for a while. Outside a
-                // game, a connection that broke means the host is gone.
+                // The connection broke, the host closed it because its messages could not reach
+                // this player, or it closed with a code that is not the library's, as Steam's own
+                // are; in a game the host keeps the slot for a while. Outside a game, it means the
+                // host is gone.
                 LoseHost(sent == MultiplayerReason.ConnectionLost ? MultiplayerReason.ConnectionLost : MultiplayerReason.HostLeft);
                 return;
             }

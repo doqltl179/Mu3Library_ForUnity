@@ -448,7 +448,16 @@ namespace Mu3Library.Multiplayer
 
             // A lobby passes to another member when its owner leaves. The session lives on the
             // host's machine, so it ends with the host instead of passing on.
-            if (newOwner != _hostId)
+            if (newOwner == _hostId)
+            {
+                return;
+            }
+
+            if (_state == SessionState.Reconnecting)
+            {
+                EndReconnect(MultiplayerReason.HostLeft);
+            }
+            else
             {
                 EndSession(MultiplayerReason.HostLeft, raiseEvents: true);
             }

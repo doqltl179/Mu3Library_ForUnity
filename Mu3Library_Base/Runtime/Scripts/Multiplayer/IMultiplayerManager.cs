@@ -147,9 +147,11 @@ namespace Mu3Library.Multiplayer
 
         #region Chat
         /// <summary>
-        /// In the lobby only. Sends a text message to every player of the session, this player
-        /// included, through <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or
-        /// empty text answers <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
+        /// In the lobby only; while this player is <see cref="SessionState.Reconnecting"/> it
+        /// answers <see cref="MultiplayerReason.ConnectionLost"/>, as sending does. Sends a text
+        /// message to every player of the session, this player included, through
+        /// <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or empty text answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
         /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. That limit stands
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.

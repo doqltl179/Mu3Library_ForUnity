@@ -95,6 +95,13 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            // The one player it is for is away while the host keeps their slot, so nothing reaches them.
+            if (target.Kind == MessageTargetKind.Player && target.Player != LocalPlayerId
+                && TryGetParticipant(target.Player, out Participant recipient) && !recipient.IsConnected)
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
             MultiplayerResult result = _isHost
                 ? HostSendMessage(messageType, payload, target, deliveryMode)
                 : ClientSendMessage(messageType, payload, target, deliveryMode);

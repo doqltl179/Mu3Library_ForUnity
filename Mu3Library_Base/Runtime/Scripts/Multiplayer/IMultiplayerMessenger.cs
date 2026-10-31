@@ -52,9 +52,10 @@ namespace Mu3Library.Multiplayer
         /// unknown delivery mode, or <see cref="MessageTarget.To"/> a player outside the session
         /// (<see cref="MessageTarget.AllExcept"/> such a player reaches everyone);
         /// <see cref="MultiplayerReason.ConnectionLost"/> when the message cannot leave, while
-        /// this player is <see cref="SessionState.Reconnecting"/>, or when the one player it is
-        /// for is dropped because a reliable message cannot reach them (a message for a player
-        /// who is away while the host keeps their slot succeeds and reaches nobody);
+        /// this player is <see cref="SessionState.Reconnecting"/>, when the one player it is for
+        /// is away while the host keeps their slot (<see cref="Participant.IsConnected"/> false),
+        /// or when that player is dropped because a reliable message cannot reach them; a message
+        /// for several players does not reach the ones who are away and succeeds all the same;
         /// <see cref="MultiplayerReason.InvalidState"/> outside a session; and
         /// <see cref="MultiplayerReason.NotInitialized"/> before initialization.
         /// </returns>

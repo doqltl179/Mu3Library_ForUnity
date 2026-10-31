@@ -231,6 +231,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
             }
 
+            if (rules.ReconnectReservationSeconds < _rules.ReconnectReservationSeconds)
+            {
+                ShortenReservations(rules.ReconnectReservationSeconds);
+            }
+
             _rules = rules;
 
             _writer.Begin(PacketKind.RulesChanged);
