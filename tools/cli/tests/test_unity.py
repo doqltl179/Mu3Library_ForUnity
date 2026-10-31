@@ -111,10 +111,26 @@ class UnityToolingTests(unittest.TestCase):
         self.assertEqual([], filter_arguments(None))
         self.assertEqual(["--filter", "A.Tests;B.Tests"], filter_arguments("A.Tests;B.Tests"))
 
-    def test_filter_rejects_a_blank_pattern(self) -> None:
-        for blank in ("", "  "):
-            with self.subTest(pattern=blank), self.assertRaisesRegex(ValueError, "--filter requires"):
-                filter_arguments(blank)
+    def test_filter_rejects_what_the_test_script_rejects(self) -> None:
+        for pattern, message in (
+            ("", "--filter requires a test name or pattern"),
+            ("  ", "--filter requires a test name or pattern"),
+            ("--dry-run", "--filter expects a test name or pattern, not an option: --dry-run"),
+            ("/Mu3/Regex", "--filter cannot start with /, which Git Bash rewrites as a file path"),
+        ):
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(ValueError, message):
+                filter_arguments(pattern)
+
+    def test_test_command_refuses_an_option_as_its_filter(self) -> None:
+        calls: list[list[str]] = []
+
+        with mock.patch("mu3_cli.unity.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+            result = CliRunner().invoke(app, ["unity", "test", "--filter", "--dry-run", "built-in"])
+
+        self.assertEqual(2, result.exit_code, result.output)
+        # The error box wraps the message, so the option it names can land on the next line.
+        self.assertIn("not an option:", result.output)
+        self.assertEqual([], calls)
 
     def test_stall_timeout_reaches_the_test_script_only_when_given(self) -> None:
         self.assertEqual([], stall_timeout_arguments(None))

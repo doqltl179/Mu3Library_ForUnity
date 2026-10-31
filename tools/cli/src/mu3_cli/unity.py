@@ -803,6 +803,10 @@ def filter_arguments(test_filter: str | None) -> list[str]:
         return []
     if not test_filter.strip():
         raise ValueError("--filter requires a test name or pattern.")
+    if test_filter.startswith("-"):
+        raise ValueError(f"--filter expects a test name or pattern, not an option: {test_filter}")
+    if test_filter.startswith("/"):
+        raise ValueError(f"--filter cannot start with /, which Git Bash rewrites as a file path: {test_filter}")
     return ["--filter", test_filter]
 
 

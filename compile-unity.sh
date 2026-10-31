@@ -1104,27 +1104,34 @@ prepare_isolated_project() {
     RUN_PROJECT_PATH="$staging_project"
 }
 
-# Prints the processes that descend from a process, one PID a line.
+# Prints the processes that descend from a process and share its process
+# group, one PID a line. Git Bash lists the processes of every session, and a
+# process whose parent ended keeps that parent's PID, which a new process can
+# take; the group keeps another session's processes out.
 process_descendants() {
     local root="$1"
-    local pairs
+    local processes
 
     if [[ -r "/proc/$$/winpid" ]]; then
-        # Git Bash's ps prints PID and PPID first, after a status letter on some
-        # lines; a Windows program it started is listed under the PID it gave it.
-        pairs="$(ps -e | awk 'NR > 1 { if ($1 ~ /^[0-9]+$/) print $1, $2; else print $2, $3 }')"
+        # Git Bash's ps prints PID, PPID, and PGID first, after a status letter
+        # on some lines; a Windows program it started is listed under the PID
+        # it gave it.
+        processes="$(ps -e | awk 'NR > 1 { if ($1 ~ /^[0-9]+$/) print $1, $2, $3; else print $2, $3, $4 }')"
     else
-        pairs="$(ps -A -o pid= -o ppid=)"
+        processes="$(ps -A -o pid= -o ppid= -o pgid=)"
     fi
 
     awk -v root="$root" '
-        { parent[$1] = $2 }
+        { parent[$1] = $2; group[$1] = $3 }
         END {
+            if (!(root in group)) {
+                exit
+            }
             found[root] = 1
             do {
                 added = 0
                 for (pid in parent) {
-                    if (!(pid in found) && (parent[pid] in found)) {
+                    if (!(pid in found) && group[pid] == group[root] && (parent[pid] in found)) {
                         found[pid] = 1
                         added = 1
                     }
@@ -1135,7 +1142,7 @@ process_descendants() {
                     print pid
                 }
             }
-        }' <<<"$pairs"
+        }' <<<"$processes"
 }
 
 # Stops a process that this script started and every process descending from

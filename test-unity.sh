@@ -54,7 +54,8 @@ Options:
                     Run only the tests whose full name matches <pattern>,
                     the regular expression Unity's -testFilter takes, such
                     as a fixture's full name; separate several with ";".
-                    The [Explicit] tests it matches run too.
+                    The [Explicit] tests it matches run too. It may not
+                    start with - or /.
   --stall-timeout <seconds>
                     Stop Unity and fail the target once its log has not
                     grown for this long, naming the test that was running
@@ -115,7 +116,9 @@ parse_test_arguments() {
                 ;;
             --filter)
                 shift
-                [[ "$#" -gt 0 && -n "$1" ]] || fail "--filter requires a test name or pattern"
+                [[ "$#" -gt 0 && "$1" =~ [^[:space:]] ]] || fail "--filter requires a test name or pattern"
+                [[ "$1" != -* ]] || fail "--filter expects a test name or pattern, not an option: $1"
+                [[ "$1" != /* ]] || fail "--filter cannot start with /, which Git Bash rewrites as a file path: $1"
                 [[ -z "$TEST_FILTER" ]] || fail "--filter can be given once; separate several patterns with ;"
                 TEST_FILTER="$1"
                 ;;
@@ -209,11 +212,13 @@ print_failed_tests() {
 unfinished_test() {
     local log_file="$1"
     local status_line
-    local pattern='"name":"([^"]*)"'
+    # A JSON string, whose escaped quotes, as in a test case's string argument,
+    # do not end it.
+    local pattern='"name":"((\\.|[^"\\])*)"'
 
     status_line="$(grep -o '##utp:{"type":"TestStatus".*' "$log_file" 2>/dev/null | tail -n 1 || true)"
     if [[ "$status_line" == *'"phase":"Begin"'* && "$status_line" =~ $pattern ]]; then
-        printf '%s\n' "${BASH_REMATCH[1]}"
+        printf '%s\n' "${BASH_REMATCH[1]}" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
     fi
 }
 
@@ -249,7 +254,11 @@ test_target() {
 
     # -automated makes the Unity Test Framework log a line as each test begins
     # and ends, which names the test that a stalled or crashed run was in.
-    run_unity_for_target "$target_key" "Testing" \
+    # Git Bash rewrites an argument that looks like a file path, such as one
+    # holding "=/", before a Windows program sees it; MSYS2_ARG_CONV_EXCL
+    # names the filter by its first ";" part, so Unity gets it unchanged.
+    MSYS2_ARG_CONV_EXCL="${MSYS2_ARG_CONV_EXCL:+$MSYS2_ARG_CONV_EXCL;}${TEST_FILTER%%;*}" \
+        run_unity_for_target "$target_key" "Testing" \
         "${unity_arguments[@]}" \
         -testResults "$(to_windows_path "$results_file")" \
         -automated
