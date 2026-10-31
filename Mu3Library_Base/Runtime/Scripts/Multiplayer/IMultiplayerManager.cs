@@ -174,6 +174,26 @@ namespace Mu3Library.Multiplayer
         /// Host only, in a game. Returns everyone to the lobby and clears every ready flag.
         /// </summary>
         public MultiplayerResult EndGame();
+
+        /// <summary>
+        /// In a game. Reports that this player is ready to play it, for example once its scene
+        /// loaded, which every player reads from <see cref="Participant.IsLoaded"/> and hears
+        /// through <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>. From the start
+        /// of a game, the host waits for every player it started with, the ones whose slot it
+        /// keeps while they are away included, since they may come back and report, and hears
+        /// <see cref="IMultiplayerManagerEventBus.OnAllPlayersLoaded"/> once all of them reported, or
+        /// <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/> when
+        /// <see cref="SessionRules.LoadTimeoutSeconds"/> passes first. A player who leaves, is
+        /// kicked, or does not come back to their slot in time is no longer waited for; a player
+        /// who joins the running game is not waited for, but can report all the same; and the
+        /// return to the lobby ends the wait without either event and clears every flag. A player
+        /// who reported before its connection dropped stays loaded when it comes back. For a
+        /// client, success means the report went to the host. Reporting again changes nothing.
+        /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
+        /// player is <see cref="SessionState.Reconnecting"/>,
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// </summary>
+        public MultiplayerResult ReportLoaded();
         #endregion
     }
 }

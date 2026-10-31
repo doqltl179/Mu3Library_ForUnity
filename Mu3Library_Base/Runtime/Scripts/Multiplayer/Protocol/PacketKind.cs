@@ -17,7 +17,7 @@ namespace Mu3Library.Multiplayer.Protocol
         ParticipantJoined = 3,
         /// <summary>Host to clients: a player left, with the reason.</summary>
         ParticipantLeft = 4,
-        /// <summary>Host to clients: a player's ready or late-join flag changed.</summary>
+        /// <summary>Host to clients: a player's ready, late-join, or loaded flag changed.</summary>
         ParticipantUpdated = 5,
         /// <summary>Client to host: the sender's ready flag.</summary>
         SetReady = 6,
@@ -45,5 +45,7 @@ namespace Mu3Library.Multiplayer.Protocol
         ParticipantDisconnected = 17,
         /// <summary>Host to clients: a player whose slot the host kept came back to it.</summary>
         ParticipantReconnected = 18,
+        /// <summary>Client to host: the sender is ready to play the game of this number.</summary>
+        ReportLoaded = 19,
     }
 }

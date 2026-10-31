@@ -28,8 +28,9 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Counts a packet a client sent after its welcome against the rules' rate limits, and
         /// answers whether the host goes on to handle it. A game or chat message past a limit is
-        /// dropped. A ready change or a participant data request is taken all the same, since the
-        /// client goes on from every request it sent, but it counts and is reported like any other.
+        /// dropped. A ready change, a load report, or a participant data request is taken all the
+        /// same, since the client goes on from every request it sent, but it counts and is
+        /// reported like any other.
         /// False too when the packet's sender was kicked, here or by a handler of the report.
         /// </summary>
         private bool TakeWithinRateLimit(PeerConnection peer, PacketKind kind, int bytes)
@@ -61,7 +62,7 @@ namespace Mu3Library.Multiplayer
 
             bool isWithin = (maxPackets <= 0 || window.Packets < maxPackets)
                 && (maxBytes <= 0 || window.Bytes + bytes <= maxBytes);
-            bool mayDrop = kind != PacketKind.SetReady && kind != PacketKind.SetParticipantData;
+            bool mayDrop = kind != PacketKind.SetReady && kind != PacketKind.SetParticipantData && kind != PacketKind.ReportLoaded;
             if (isWithin || !mayDrop)
             {
                 window.Packets++;

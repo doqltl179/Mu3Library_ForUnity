@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer
@@ -46,10 +47,11 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantReconnected;
 
         /// <summary>
-        /// Raised when a player's ready flag changes, this player's own included. Returning to the
-        /// lobby clears every ready and late-join flag at once, which
-        /// <see cref="OnReturnedToLobby"/> reports instead, and a change of a player's data raises
-        /// <see cref="OnParticipantDataChanged"/>.
+        /// Raised when a player's ready flag or loaded flag (<see cref="Participant.IsLoaded"/>)
+        /// changes, this player's own included. Returning to the lobby clears every ready,
+        /// late-join, and loaded flag at once, which <see cref="OnReturnedToLobby"/> reports
+        /// instead, so does the start of a game for the loaded flags, and a change of a player's
+        /// data raises <see cref="OnParticipantDataChanged"/>.
         /// </summary>
         public event Action<Participant> OnParticipantChanged;
 
@@ -81,6 +83,23 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>Raised after a game ends and the state is back to <see cref="SessionState.Lobby"/>.</summary>
         public event Action OnReturnedToLobby;
+
+        /// <summary>
+        /// Raised on the host, once a game, when every player the game waits for reported with
+        /// <see cref="IMultiplayerManager.ReportLoaded"/> before
+        /// <see cref="SessionRules.LoadTimeoutSeconds"/> passed; the last one may be a player
+        /// who left instead.
+        /// </summary>
+        public event Action OnAllPlayersLoaded;
+
+        /// <summary>
+        /// Raised on the host, once a game, when <see cref="SessionRules.LoadTimeoutSeconds"/>
+        /// passed since the game started before every player it waits for reported with
+        /// <see cref="IMultiplayerManager.ReportLoaded"/>, with the players who did not, in roster
+        /// order. The wait ends there: later reports still set <see cref="Participant.IsLoaded"/>,
+        /// but neither this event nor <see cref="OnAllPlayersLoaded"/> follows.
+        /// </summary>
+        public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 
         /// <summary>
         /// Raised when the player asked, outside the game, to join a lobby. The manager then leaves

@@ -394,6 +394,7 @@ namespace Mu3Library.Multiplayer
             PlayerId player = new PlayerId(reader.ReadULong());
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
+            bool isLoaded = reader.ReadBool();
 
             int index = IndexOfParticipant(player);
             if (index < 0)
@@ -401,7 +402,7 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner);
+            Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner).WithLoaded(isLoaded);
             _participants[index] = updated;
             Raise(OnParticipantChanged, updated);
         }
@@ -417,6 +418,12 @@ namespace Mu3Library.Multiplayer
 
             _gameNumber = gameNumber;
             _startData = startData;
+
+            // The host cleared every loaded flag as the game started.
+            for (int i = 0; i < _participants.Count; i++)
+            {
+                _participants[i] = _participants[i].WithLoaded(false);
+            }
 
             int generation = _sessionGeneration;
             SetState(SessionState.InGame, MultiplayerReason.None);

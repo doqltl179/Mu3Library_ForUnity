@@ -173,7 +173,8 @@ namespace Mu3Library.Multiplayer
             }
 
             if (rules.MaxMessagesPerSecond < 0 || rules.MaxBytesPerSecond < 0
-                || !IsValidSeconds(rules.RateLimitKickSeconds) || !IsValidSeconds(rules.ReconnectReservationSeconds))
+                || !IsValidSeconds(rules.RateLimitKickSeconds) || !IsValidSeconds(rules.ReconnectReservationSeconds)
+                || !IsValidSeconds(rules.LoadTimeoutSeconds))
             {
                 return MultiplayerReason.InvalidArgument;
             }
@@ -321,6 +322,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _gameNumber++;
+            BeginLoadWait();
             _writer.Begin(PacketKind.GameStarted).WriteInt(_gameNumber);
             _writer.WriteBytes(_startData);
             BroadcastToWelcomed(ConnectionId.None);
@@ -344,6 +346,7 @@ namespace Mu3Library.Multiplayer
             }
 
             ReturnRosterToLobby();
+            EndLoadWait();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateLobby);
             _backend.SetLobbyJoinable(_lobbyId, true);
@@ -395,7 +398,7 @@ namespace Mu3Library.Multiplayer
             _startData = Array.Empty<byte>();
             for (int i = 0; i < _participants.Count; i++)
             {
-                _participants[i] = _participants[i].WithReady(false).WithLateJoiner(false);
+                _participants[i] = _participants[i].WithReady(false).WithLateJoiner(false).WithLoaded(false);
             }
         }
         #endregion
@@ -500,6 +503,10 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.ChatToHost:
                     HostHandleChat(peer, ref reader);
+                    break;
+
+                case PacketKind.ReportLoaded:
+                    HostHandleLoaded(peer, ref reader);
                     break;
 
                 default:
@@ -638,13 +645,19 @@ namespace Mu3Library.Multiplayer
             Participant updated = _participants[index].WithReady(isReady);
             _participants[index] = updated;
 
-            _writer.Begin(PacketKind.ParticipantUpdated);
-            _writer.WriteULong(updated.Id.Value);
-            _writer.WriteBool(updated.IsReady);
-            _writer.WriteBool(updated.IsLateJoiner);
+            WriteParticipantUpdated(updated);
             BroadcastToWelcomed(ConnectionId.None);
 
             Raise(OnParticipantChanged, updated);
+        }
+
+        private void WriteParticipantUpdated(Participant participant)
+        {
+            _writer.Begin(PacketKind.ParticipantUpdated);
+            _writer.WriteULong(participant.Id.Value);
+            _writer.WriteBool(participant.IsReady);
+            _writer.WriteBool(participant.IsLateJoiner);
+            _writer.WriteBool(participant.IsLoaded);
         }
 
         private void RemoveParticipant(PlayerId player, MultiplayerReason reason)
@@ -664,7 +677,12 @@ namespace Mu3Library.Multiplayer
             _writer.WriteInt((int)reason);
             BroadcastToWelcomed(ConnectionId.None);
 
+            int generation = _sessionGeneration;
             Raise(OnParticipantLeft, removed, reason);
+            if (generation == _sessionGeneration)
+            {
+                StopWaitingFor(player);
+            }
         }
 
         /// <summary>

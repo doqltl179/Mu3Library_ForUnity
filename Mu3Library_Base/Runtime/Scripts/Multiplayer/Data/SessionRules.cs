@@ -19,17 +19,17 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Most packets the host takes from one client in a second: 0, the default, sets no limit.
         /// Everything a client sends the host counts: its game messages, chat messages, ready
-        /// changes, and participant data requests. The host counts in windows of one second; the
-        /// first starts with the client's first packet, each next one where the last ended, and
-        /// after a second without packets, the next packet starts a new one. Within a window, the
-        /// host drops a game or chat message beyond a limit before it handles or passes it on,
-        /// and raises <see cref="IMultiplayerManagerEventBus.OnRateLimitExceeded"/>; the client's
-        /// own <see cref="IMultiplayerMessenger.Send"/> or <see cref="IMultiplayerManager.SendChat"/>
-        /// already succeeded. A ready change or a participant data request beyond a limit still
-        /// counts and still raises the event, but the host takes it, since a client checks each
-        /// data request against all the ones it sent before, which a dropped one would leave the
-        /// client and the host disagreeing on for the rest of the session. The host's own sends
-        /// are never limited.
+        /// changes, load reports, and participant data requests. The host counts in windows of
+        /// one second; the first starts with the client's first packet, each next one where the
+        /// last ended, and after a second without packets, the next packet starts a new one.
+        /// Within a window, the host drops a game or chat message beyond a limit before it handles
+        /// or passes it on, and raises <see cref="IMultiplayerManagerEventBus.OnRateLimitExceeded"/>;
+        /// the client's own <see cref="IMultiplayerMessenger.Send"/> or
+        /// <see cref="IMultiplayerManager.SendChat"/> already succeeded. A ready change, a load
+        /// report, or a participant data request beyond a limit still counts and still raises the
+        /// event, but the host takes it, since a client checks each data request against all the
+        /// ones it sent before, which a dropped one would leave the client and the host
+        /// disagreeing on for the rest of the session. The host's own sends are never limited.
         /// </summary>
         public int MaxMessagesPerSecond { get; }
 
@@ -69,6 +69,17 @@ namespace Mu3Library.Multiplayer.Data
 
         public const float DefaultReconnectReservationSeconds = 60f;
 
+        /// <summary>
+        /// How long the host waits from the start of a game for every player to report with
+        /// <see cref="IMultiplayerManager.ReportLoaded"/> that they are ready to play, in seconds:
+        /// <see cref="DefaultLoadTimeoutSeconds"/> by default, 0 to wait without a limit. When the
+        /// time passes first, the host hears <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/>
+        /// with the players who did not report.
+        /// </summary>
+        public float LoadTimeoutSeconds { get; }
+
+        public const float DefaultLoadTimeoutSeconds = 60f;
+
         public static SessionRules Default => new SessionRules(MultiplayerLimits.DefaultCapacity);
 
         public SessionRules(
@@ -79,7 +90,8 @@ namespace Mu3Library.Multiplayer.Data
             int maxMessagesPerSecond = 0,
             int maxBytesPerSecond = 0,
             float rateLimitKickSeconds = 0f,
-            float reconnectReservationSeconds = DefaultReconnectReservationSeconds)
+            float reconnectReservationSeconds = DefaultReconnectReservationSeconds,
+            float loadTimeoutSeconds = DefaultLoadTimeoutSeconds)
         {
             Capacity = capacity;
             MinPlayersToStart = minPlayersToStart;
@@ -89,28 +101,32 @@ namespace Mu3Library.Multiplayer.Data
             MaxBytesPerSecond = maxBytesPerSecond;
             RateLimitKickSeconds = rateLimitKickSeconds;
             ReconnectReservationSeconds = reconnectReservationSeconds;
+            LoadTimeoutSeconds = loadTimeoutSeconds;
         }
 
         public SessionRules WithCapacity(int capacity) =>
-            new SessionRules(capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithMinPlayersToStart(int minPlayersToStart) =>
-            new SessionRules(Capacity, minPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, minPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithRequireReady(bool requireReady) =>
-            new SessionRules(Capacity, MinPlayersToStart, requireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, requireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithAllowLateJoin(bool allowLateJoin) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, allowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, allowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithMaxMessagesPerSecond(int maxMessagesPerSecond) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, maxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, maxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithMaxBytesPerSecond(int maxBytesPerSecond) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, maxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, maxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithRateLimitKickSeconds(float rateLimitKickSeconds) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, rateLimitKickSeconds, ReconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, rateLimitKickSeconds, ReconnectReservationSeconds, LoadTimeoutSeconds);
         public SessionRules WithReconnectReservationSeconds(float reconnectReservationSeconds) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, reconnectReservationSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, reconnectReservationSeconds, LoadTimeoutSeconds);
+        public SessionRules WithLoadTimeoutSeconds(float loadTimeoutSeconds) =>
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds, loadTimeoutSeconds);
 
         public override string ToString() =>
             $"Capacity: {Capacity}, MinPlayersToStart: {MinPlayersToStart}, RequireReady: {RequireReady}, AllowLateJoin: {AllowLateJoin}, "
             + $"MaxMessagesPerSecond: {MaxMessagesPerSecond}, MaxBytesPerSecond: {MaxBytesPerSecond}, RateLimitKickSeconds: {RateLimitKickSeconds.ToString(CultureInfo.InvariantCulture)}, "
-            + $"ReconnectReservationSeconds: {ReconnectReservationSeconds.ToString(CultureInfo.InvariantCulture)}";
+            + $"ReconnectReservationSeconds: {ReconnectReservationSeconds.ToString(CultureInfo.InvariantCulture)}, "
+            + $"LoadTimeoutSeconds: {LoadTimeoutSeconds.ToString(CultureInfo.InvariantCulture)}";
     }
 }

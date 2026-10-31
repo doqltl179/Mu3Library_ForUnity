@@ -36,6 +36,8 @@ namespace Mu3Library.Tests
             public readonly List<Participant> RateLimited = new List<Participant>();
             public readonly List<Participant> Disconnected = new List<Participant>();
             public readonly List<Participant> Reconnected = new List<Participant>();
+            public readonly List<PlayerId[]> LoadTimeouts = new List<PlayerId[]>();
+            public int AllLoadedCount;
             public int ReturnedToLobbyCount;
 
             public PlayerId Id => Backend.LocalPlayerId;
@@ -1037,6 +1039,8 @@ namespace Mu3Library.Tests
             manager.OnRateLimitExceeded += participant => node.RateLimited.Add(participant);
             manager.OnParticipantDisconnected += participant => node.Disconnected.Add(participant);
             manager.OnParticipantReconnected += participant => node.Reconnected.Add(participant);
+            manager.OnAllPlayersLoaded += () => node.AllLoadedCount++;
+            manager.OnLoadTimedOut += players => node.LoadTimeouts.Add(players.ToArray());
 
             _nodes.Add(node);
             return node;
