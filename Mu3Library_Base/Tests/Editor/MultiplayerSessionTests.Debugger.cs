@@ -137,6 +137,44 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Debugger_ShowsWhoIsAwayOrLoaded_AndAClientThatReconnects()
+        {
+            // FR-42, FR-9, FR-20, FR-25
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+            a.Manager.ReportLoaded();
+            b.Backend.SimulateOutage(60f);
+            Advance(DropSeconds + 0.5);
+
+            MultiplayerDebuggerWindow window = ScriptableObject.CreateInstance<MultiplayerDebuggerWindow>();
+            try
+            {
+                window.Refresh(new List<(string, IMultiplayerManager)> { ("Host", host.Manager), ("B", b.Manager) }, 1.0);
+
+                MultiplayerSessionView hostView = window.Views[0];
+                Assert.That(hostView.Players.Select(row => MultiplayerDebuggerWindow.Describe(row.Participant)), Is.EqualTo(new[]
+                {
+                    $"Host ({host.Id}) [host, you]",
+                    $"A ({a.Id}) [loaded]",
+                    $"B ({b.Id}) [away]",
+                }));
+                Assert.That(hostView.Players[2].HasQuality, Is.False, "nothing to measure while the player is away");
+
+                MultiplayerSessionView clientView = window.Views[1];
+                Assert.That(clientView.State, Is.EqualTo(SessionState.Reconnecting));
+                Assert.That(MultiplayerDebuggerWindow.Describe(clientView.Players[2].Participant), Is.EqualTo($"B ({b.Id}) [you, away]"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
         public void Debugger_ShowsAnOfflineManagerWithoutPlayers()
         {
             Node offline = CreateNode("Offline");

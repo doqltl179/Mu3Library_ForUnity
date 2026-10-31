@@ -214,10 +214,13 @@ namespace Mu3Library.Editor.Window
             }
         }
 
-        /// <summary>The player's name and ID, then what the session says of them: host, this player, ready, late.</summary>
+        /// <summary>
+        /// The player's name and ID, then what the session says of them: host, this player,
+        /// ready, late, away while the host keeps their slot, and loaded for the current game.
+        /// </summary>
         internal static string Describe(Participant participant)
         {
-            List<string> flags = new List<string>(4);
+            List<string> flags = new List<string>(6);
             if (participant.IsHost)
             {
                 flags.Add("host");
@@ -236,6 +239,16 @@ namespace Mu3Library.Editor.Window
             if (participant.IsLateJoiner)
             {
                 flags.Add("late");
+            }
+
+            if (!participant.IsConnected)
+            {
+                flags.Add("away");
+            }
+
+            if (participant.IsLoaded)
+            {
+                flags.Add("loaded");
             }
 
             string name = $"{participant.Name} ({participant.Id})";
