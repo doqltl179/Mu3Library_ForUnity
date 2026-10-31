@@ -920,6 +920,31 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Outage_ThatTheLobbyDropsTheClientIn_EndsWithTheClientBackInTheSameLobby()
+        {
+            // FR-20, FR-19, #201 across "processes": the client leaves the lobby behind its
+            // manager's back, as a Steam lobby may drop a member whose network went down, and
+            // enters it again once it is back, though the game refuses late joiners.
+            Node host = CreateNode("Host", network => network.ConnectionTimeoutSeconds = 2f);
+            Node client = CreateNode("Client", network => network.ConnectionTimeoutSeconds = 2f);
+            StartSession(host, client);
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the game to start");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            client.Backend.LeaveLobby(lobby);
+            PumpUntil(() => !host.Backend.IsLobbyMember(lobby, client.Id), "the host to see the client leave the lobby");
+            client.Backend.SimulateOutage(5f);
+            PumpUntil(() => client.Manager.State == SessionState.Reconnecting, "the client to notice the outage", 4.5);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the client to come back", 6.0);
+            PumpUntil(() => client.Backend.IsLobbyMember(lobby, client.Id) && host.Backend.IsLobbyMember(lobby, client.Id),
+                "the client to be in the lobby again", 5.0);
+
+            Assert.That(client.Manager.CurrentLobbyId, Is.EqualTo(lobby));
+            Assert.That(client.Manager.State, Is.EqualTo(SessionState.InGame));
+        }
+
+        [Test]
         public void HostCrash_InAGame_EndsTheClientsSessionWithHostLeft_WithoutWaitingOutTheReservation()
         {
             // FR-27, FR-20 across "processes": whichever the client notices first, its session

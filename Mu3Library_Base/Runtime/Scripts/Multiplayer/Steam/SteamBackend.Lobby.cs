@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Mu3Library.Multiplayer.Steam
 {
-    public sealed partial class SteamBackend
+    public sealed partial class SteamBackend : ILobbyInviteBackend
     {
         private sealed class PendingSearch
         {
@@ -206,6 +206,11 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             return false;
+        }
+
+        bool ILobbyInviteBackend.InviteToLobby(LobbyId lobby, PlayerId player)
+        {
+            return InviteFriend(lobby, player).IsSuccess;
         }
 
         #region Search

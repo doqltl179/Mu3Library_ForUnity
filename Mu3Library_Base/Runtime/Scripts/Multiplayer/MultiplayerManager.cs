@@ -86,6 +86,7 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnRateLimitExceeded;
         public event Action<Participant> OnParticipantDisconnected;
         public event Action<Participant> OnParticipantReconnected;
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
         public event Action OnAllPlayersLoaded;
         public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 
@@ -211,6 +212,7 @@ namespace Mu3Library.Multiplayer
             OnRateLimitExceeded = null;
             OnParticipantDisconnected = null;
             OnParticipantReconnected = null;
+            OnLobbyRejoinFailed = null;
             OnAllPlayersLoaded = null;
             OnLoadTimedOut = null;
 

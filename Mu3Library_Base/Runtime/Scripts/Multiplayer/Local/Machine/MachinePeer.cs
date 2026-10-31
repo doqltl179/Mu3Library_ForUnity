@@ -70,6 +70,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private readonly Dictionary<ConnectionId, MachineLink> _sessions = new Dictionary<ConnectionId, MachineLink>();
         private readonly Queue<Action> _deferred = new Queue<Action>();
 
+        // Where this player last found each player in a lobby, for FindPort.
+        private readonly Dictionary<PlayerId, int> _knownPorts = new Dictionary<PlayerId, int>();
+
         private IMultiplayerBackendListener _listener;
         private bool _isDisposed = false;
         private bool _isListening = false;
@@ -299,6 +302,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _links.Clear();
             _sessions.Clear();
             _lobbies.Clear();
+            _knownPorts.Clear();
             _joins.Clear();
             _deferred.Clear();
             _listener = null;
