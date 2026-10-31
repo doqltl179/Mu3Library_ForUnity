@@ -20,15 +20,19 @@ namespace Mu3Library.Multiplayer.Steam
     /// from <see cref="Update"/>, as the backend contract asks.
     /// </para>
     /// <para>
-    /// The assembly compiles only with Steamworks.NET 2025.164.1 or later while the build target
-    /// is a standalone platform. Game code that uses this type needs the same gate: an assembly
-    /// that references <c>Mu3Library.Multiplayer.Steam</c> with matching constraints, or a
-    /// <c>versionDefines</c> entry for <c>com.rlabrecque.steamworks.net</c> in the game's assembly
-    /// definition and <c>#if</c> on that symbol and <c>UNITY_STANDALONE</c>, as the Multiplayer
-    /// sample does. Avoid <c>STEAMWORKS_NET</c>: the Steamworks.NET installer writes it into the
-    /// project's scripting defines, where it stays after the package is removed. Dispose the
-    /// manager before this backend, so the other players learn the reason the session ended
-    /// before Steam shuts down.
+    /// The assembly compiles only with Steamworks.NET 2025.164.1 or later, installed through the
+    /// Package Manager, in the editor and in 64-bit standalone players: its <c>includePlatforms</c>
+    /// leave out 32-bit Windows. Game code that uses this type needs the same gate in an assembly
+    /// definition of its own, since code without one (<c>Assembly-CSharp</c>) cannot read
+    /// <c>versionDefines</c>: an assembly that references <c>Mu3Library.Multiplayer.Steam</c> with
+    /// the same <c>includePlatforms</c> and <c>defineConstraints</c>, or a <c>versionDefines</c>
+    /// entry for <c>com.rlabrecque.steamworks.net</c> at <c>2025.164.1</c> or later and <c>#if</c>
+    /// on that symbol and <c>UNITY_STANDALONE</c>, which also holds in a 32-bit Windows player and
+    /// so suits a game that builds none, as the Multiplayer sample does. <c>versionDefines</c> sees
+    /// only a package that the Package Manager installed, not a <c>.unitypackage</c> import. Avoid
+    /// <c>STEAMWORKS_NET</c>: the Steamworks.NET installer writes it into the project's scripting
+    /// defines, where it stays after the package is removed. Dispose the manager before this
+    /// backend, so the other players learn the reason the session ended before Steam shuts down.
     /// </para>
     /// <para>
     /// Steam publishes lobby data a moment after it is set, so a new lobby can take a few seconds
