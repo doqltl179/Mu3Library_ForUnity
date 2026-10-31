@@ -50,6 +50,25 @@ namespace Mu3Library.Multiplayer.Data
         /// </summary>
         public float RateLimitKickSeconds { get; }
 
+        /// <summary>
+        /// How long the host keeps the slot of a client whose connection drops during a game, in
+        /// seconds: <see cref="DefaultReconnectReservationSeconds"/> by default, 0 to free it at
+        /// once. A connection drops when it stops answering or a reliable message cannot reach
+        /// it; a player who leaves, or whom the host kicks, never keeps a slot. Meanwhile the
+        /// player stays in <see cref="IMultiplayerManager.Participants"/> with
+        /// <see cref="Participant.IsConnected"/> false and still counts toward
+        /// <see cref="Capacity"/>, and only the same account can take the slot. The library on
+        /// that player's side does so by itself while its game runs: its state turns to
+        /// <see cref="SessionState.Reconnecting"/>, and it connects to the host again until it is
+        /// back or this time is over, counted from when it noticed the drop. The slot outlasts
+        /// the end of the game, so a player may come back to the lobby or to the next game. A
+        /// player who does not come back in time leaves with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// </summary>
+        public float ReconnectReservationSeconds { get; }
+
+        public const float DefaultReconnectReservationSeconds = 60f;
+
         public static SessionRules Default => new SessionRules(MultiplayerLimits.DefaultCapacity);
 
         public SessionRules(
@@ -59,7 +78,8 @@ namespace Mu3Library.Multiplayer.Data
             bool allowLateJoin = false,
             int maxMessagesPerSecond = 0,
             int maxBytesPerSecond = 0,
-            float rateLimitKickSeconds = 0f)
+            float rateLimitKickSeconds = 0f,
+            float reconnectReservationSeconds = DefaultReconnectReservationSeconds)
         {
             Capacity = capacity;
             MinPlayersToStart = minPlayersToStart;
@@ -68,25 +88,29 @@ namespace Mu3Library.Multiplayer.Data
             MaxMessagesPerSecond = maxMessagesPerSecond;
             MaxBytesPerSecond = maxBytesPerSecond;
             RateLimitKickSeconds = rateLimitKickSeconds;
+            ReconnectReservationSeconds = reconnectReservationSeconds;
         }
 
         public SessionRules WithCapacity(int capacity) =>
-            new SessionRules(capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithMinPlayersToStart(int minPlayersToStart) =>
-            new SessionRules(Capacity, minPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(Capacity, minPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithRequireReady(bool requireReady) =>
-            new SessionRules(Capacity, MinPlayersToStart, requireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, requireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithAllowLateJoin(bool allowLateJoin) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, allowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, allowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithMaxMessagesPerSecond(int maxMessagesPerSecond) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, maxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, maxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithMaxBytesPerSecond(int maxBytesPerSecond) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, maxBytesPerSecond, RateLimitKickSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, maxBytesPerSecond, RateLimitKickSeconds, ReconnectReservationSeconds);
         public SessionRules WithRateLimitKickSeconds(float rateLimitKickSeconds) =>
-            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, rateLimitKickSeconds);
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, rateLimitKickSeconds, ReconnectReservationSeconds);
+        public SessionRules WithReconnectReservationSeconds(float reconnectReservationSeconds) =>
+            new SessionRules(Capacity, MinPlayersToStart, RequireReady, AllowLateJoin, MaxMessagesPerSecond, MaxBytesPerSecond, RateLimitKickSeconds, reconnectReservationSeconds);
 
         public override string ToString() =>
             $"Capacity: {Capacity}, MinPlayersToStart: {MinPlayersToStart}, RequireReady: {RequireReady}, AllowLateJoin: {AllowLateJoin}, "
-            + $"MaxMessagesPerSecond: {MaxMessagesPerSecond}, MaxBytesPerSecond: {MaxBytesPerSecond}, RateLimitKickSeconds: {RateLimitKickSeconds.ToString(CultureInfo.InvariantCulture)}";
+            + $"MaxMessagesPerSecond: {MaxMessagesPerSecond}, MaxBytesPerSecond: {MaxBytesPerSecond}, RateLimitKickSeconds: {RateLimitKickSeconds.ToString(CultureInfo.InvariantCulture)}, "
+            + $"ReconnectReservationSeconds: {ReconnectReservationSeconds.ToString(CultureInfo.InvariantCulture)}";
     }
 }

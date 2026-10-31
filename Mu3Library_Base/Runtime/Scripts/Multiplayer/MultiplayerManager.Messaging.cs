@@ -75,6 +75,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
             }
 
+            if (_state == SessionState.Reconnecting)
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
             if (_state != SessionState.Lobby && _state != SessionState.InGame)
             {
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidState);
@@ -306,7 +311,7 @@ namespace Mu3Library.Multiplayer
                 if (_peers.Remove(peer.Connection))
                 {
                     _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
-                    RemoveParticipant(peer.Player, MultiplayerReason.ConnectionLost);
+                    LosePlayer(peer.Player);
                 }
             }
         }
@@ -361,9 +366,10 @@ namespace Mu3Library.Multiplayer
         }
 
         /// <summary>
-        /// Sends what the writer holds to the host. A reliable packet that does not go out ends
-        /// the session with <see cref="MultiplayerReason.ConnectionLost"/>, since the host would
-        /// go on without it; an unreliable one is only reported.
+        /// Sends what the writer holds to the host. A reliable packet that does not go out loses
+        /// the connection, since the host would go on without it: in a game this player starts
+        /// coming back to its slot, and otherwise the session ends with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>. An unreliable one is only reported.
         /// </summary>
         private bool SendToHost(DeliveryMode deliveryMode)
         {
@@ -374,7 +380,7 @@ namespace Mu3Library.Multiplayer
 
             if (deliveryMode == DeliveryMode.Reliable)
             {
-                EndSession(MultiplayerReason.ConnectionLost, raiseEvents: true);
+                LoseHost(MultiplayerReason.ConnectionLost);
             }
 
             return false;

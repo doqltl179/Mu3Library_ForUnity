@@ -24,6 +24,28 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant, MultiplayerReason> OnParticipantLeft;
 
         /// <summary>
+        /// Raised when another player's connection drops during a game and the host keeps their
+        /// slot for <see cref="SessionRules.ReconnectReservationSeconds"/>, with the player as
+        /// <see cref="Participant.IsConnected"/> false. <see cref="OnParticipantReconnected"/>
+        /// follows when they come back, or <see cref="OnParticipantLeft"/> with
+        /// <see cref="MultiplayerReason.ConnectionLost"/> when the time runs out. The player whose
+        /// own connection dropped sees <see cref="OnStateChanged"/> turn to
+        /// <see cref="SessionState.Reconnecting"/> instead.
+        /// </summary>
+        public event Action<Participant> OnParticipantDisconnected;
+
+        /// <summary>
+        /// Raised on every player, the returning one included, when a player comes back to the
+        /// slot the host kept for them, with the player as <see cref="Participant.IsConnected"/>
+        /// true. The returning player raises it last, after its state change and after
+        /// <see cref="OnReturnedToLobby"/> or <see cref="OnGameStarted"/> when the game it left
+        /// ended or another started meanwhile. It takes the roster, rules, lobby data, and start
+        /// data the host holds then, without events for what changed while it was away, and
+        /// nothing that was sent to it meanwhile reaches it, so a game brings it up to date here.
+        /// </summary>
+        public event Action<Participant> OnParticipantReconnected;
+
+        /// <summary>
         /// Raised when a player's ready flag changes, this player's own included. Returning to the
         /// lobby clears every ready and late-join flag at once, which
         /// <see cref="OnReturnedToLobby"/> reports instead, and a change of a player's data raises

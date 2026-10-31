@@ -75,6 +75,11 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
             }
 
+            if (_state == SessionState.Reconnecting)
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
             int index = IndexOfParticipant(LocalPlayerId);
             if ((_state != SessionState.Lobby && _state != SessionState.InGame) || index < 0)
             {

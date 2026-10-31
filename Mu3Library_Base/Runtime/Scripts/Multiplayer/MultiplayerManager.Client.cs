@@ -113,7 +113,8 @@ namespace Mu3Library.Multiplayer
         #region Client Connection
         private void ClientHandleConnected(ConnectionId connection)
         {
-            if (_isHost || connection != _hostConnection || _state != SessionState.Joining)
+            bool isReturning = _state == SessionState.Reconnecting;
+            if (_isHost || connection != _hostConnection || (_state != SessionState.Joining && !isReturning))
             {
                 return;
             }
@@ -122,7 +123,19 @@ namespace Mu3Library.Multiplayer
             _writer.WriteInt(WireProtocol.Version);
             _writer.WriteString(_gameId);
             _writer.WriteInt(_protocolVersion);
-            if (!_backend.Send(connection, _writer.Written, DeliveryMode.Reliable))
+            _writer.WriteBool(isReturning);
+            if (_backend.Send(connection, _writer.Written, DeliveryMode.Reliable))
+            {
+                return;
+            }
+
+            if (isReturning)
+            {
+                // Tried again after the retry interval, while the reservation lasts.
+                _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
+                _hostConnection = ConnectionId.None;
+            }
+            else
             {
                 EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
             }
@@ -148,10 +161,31 @@ namespace Mu3Library.Multiplayer
                 // A refusal names its reason: full, banned, in progress, version, or duplicate.
                 reason = sent != MultiplayerReason.None ? sent : MultiplayerReason.ConnectionFailed;
             }
+            else if (_state == SessionState.Reconnecting)
+            {
+                // An attempt that did not get through is tried again; a host that answered
+                // decided. It refuses a player whose slot is gone with ConnectionLost.
+                if (kind != BackendDisconnectKind.ClosedByPeer)
+                {
+                    return;
+                }
+
+                reason = sent == MultiplayerReason.Banned || sent == MultiplayerReason.Kicked || sent == MultiplayerReason.HostLeft
+                    ? sent
+                    : MultiplayerReason.ConnectionLost;
+            }
+            else if (kind == BackendDisconnectKind.ConnectionLost || sent == MultiplayerReason.ConnectionLost)
+            {
+                // The connection broke, or the host closed it because its messages could not
+                // reach this player; in a game the host keeps the slot for a while. Outside a
+                // game, a connection that broke means the host is gone.
+                LoseHost(sent == MultiplayerReason.ConnectionLost ? MultiplayerReason.ConnectionLost : MultiplayerReason.HostLeft);
+                return;
+            }
             else
             {
                 // The host names why it closed this player's connection; anything else means the host is gone.
-                reason = sent == MultiplayerReason.Kicked || sent == MultiplayerReason.RateLimited || sent == MultiplayerReason.ConnectionLost
+                reason = sent == MultiplayerReason.Kicked || sent == MultiplayerReason.RateLimited
                     ? sent
                     : MultiplayerReason.HostLeft;
             }
@@ -224,6 +258,14 @@ namespace Mu3Library.Multiplayer
                     HandleChatFromHost(ref reader);
                     break;
 
+                case PacketKind.ParticipantDisconnected:
+                    HandleParticipantConnection(ref reader, isConnected: false);
+                    break;
+
+                case PacketKind.ParticipantReconnected:
+                    HandleParticipantConnection(ref reader, isConnected: true);
+                    break;
+
                 default:
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
                     break;
@@ -239,6 +281,7 @@ namespace Mu3Library.Multiplayer
             }
 
             PlayerId host = new PlayerId(reader.ReadULong());
+            int gameNumber = reader.ReadInt();
             SessionRules rules = ReadRules(ref reader);
             int hostMaxMessageSize = reader.ReadInt();
             if (hostMaxMessageSize < 1)
@@ -265,7 +308,13 @@ namespace Mu3Library.Multiplayer
                 throw new FormatException($"The welcome names host {host}, but the lobby names {_hostId}.");
             }
 
+            // A returning player that missed the end of its game, or that game and the start of
+            // another, hears of it as it comes back.
+            bool isReturning = _state == SessionState.Reconnecting;
+            bool isSameGame = state == SessionState.InGame && gameNumber == _gameNumber;
+
             _isWelcomed = true;
+            _gameNumber = gameNumber;
             _rules = rules;
             _hostMaxMessageSize = hostMaxMessageSize;
             _startData = startData;
@@ -288,6 +337,12 @@ namespace Mu3Library.Multiplayer
             SetState(state, MultiplayerReason.None);
             if (generation != _sessionGeneration)
             {
+                return;
+            }
+
+            if (isReturning)
+            {
+                HandleReturned(state, isSameGame);
                 return;
             }
 
@@ -353,12 +408,14 @@ namespace Mu3Library.Multiplayer
 
         private void HandleGameStarted(ref PacketReader reader)
         {
+            int gameNumber = reader.ReadInt();
             byte[] startData = reader.ReadBytes();
             if (_state != SessionState.Lobby)
             {
                 return;
             }
 
+            _gameNumber = gameNumber;
             _startData = startData;
 
             int generation = _sessionGeneration;

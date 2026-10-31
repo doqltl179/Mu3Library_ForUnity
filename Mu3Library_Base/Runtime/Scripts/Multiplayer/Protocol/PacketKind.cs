@@ -6,9 +6,12 @@ namespace Mu3Library.Multiplayer.Protocol
     /// </summary>
     internal enum PacketKind : byte
     {
-        /// <summary>Client to host: wire version, game identifier, and game protocol version.</summary>
+        /// <summary>
+        /// Client to host: wire version, game identifier, game protocol version, and whether the
+        /// client comes back to the slot the host keeps for it.
+        /// </summary>
         Hello = 1,
-        /// <summary>Host to a new client: session state, rules, message size limit, start data, lobby data, and the roster.</summary>
+        /// <summary>Host to a new or returning client: session state, game number, rules, message size limit, start data, lobby data, and the roster.</summary>
         Welcome = 2,
         /// <summary>Host to clients: a player joined.</summary>
         ParticipantJoined = 3,
@@ -20,7 +23,7 @@ namespace Mu3Library.Multiplayer.Protocol
         SetReady = 6,
         /// <summary>Host to clients: the session rules changed.</summary>
         RulesChanged = 7,
-        /// <summary>Host to clients: the game started, with the start data.</summary>
+        /// <summary>Host to clients: the game started, with its number and the start data.</summary>
         GameStarted = 8,
         /// <summary>Host to clients: the game ended and the session is back in the lobby.</summary>
         ReturnedToLobby = 9,
@@ -38,5 +41,9 @@ namespace Mu3Library.Multiplayer.Protocol
         ChatToHost = 15,
         /// <summary>Host to clients: a lobby chat message with its sender.</summary>
         ChatFromHost = 16,
+        /// <summary>Host to clients: a player's connection dropped, and the host keeps their slot.</summary>
+        ParticipantDisconnected = 17,
+        /// <summary>Host to clients: a player whose slot the host kept came back to it.</summary>
+        ParticipantReconnected = 18,
     }
 }

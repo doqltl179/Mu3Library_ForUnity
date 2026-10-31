@@ -37,10 +37,12 @@ namespace Mu3Library.Multiplayer.Local
         public bool IsMachineWide => MachineWideName != null;
 
         /// <summary>
-        /// Machine-wide networks only: how long a connection may receive nothing before it counts
-        /// as lost, and how long a join may wait for the lobby's owner, in seconds. 10 by default;
-        /// 0 waits forever, for example while a debugger holds the other process. Give every
-        /// process of the network the same value: each pings often enough for its own.
+        /// How long a connection may receive nothing before it counts as lost, in seconds: 10 by
+        /// default; 0 waits forever, for example while a debugger holds the other process. On a
+        /// network inside one process, only an outage that <see cref="LocalBackend.SimulateOutage"/>
+        /// starts keeps a connection silent. On a machine-wide network it is also how long a join
+        /// may wait for the lobby's owner; give every process of the network the same value: each
+        /// pings often enough for its own.
         /// </summary>
         public float ConnectionTimeoutSeconds { get; set; } = 10f;
 

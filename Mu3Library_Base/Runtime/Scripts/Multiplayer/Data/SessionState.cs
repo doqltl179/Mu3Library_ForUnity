@@ -12,5 +12,10 @@ namespace Mu3Library.Multiplayer.Data
         Lobby = 3,
         /// <summary>The host started the game.</summary>
         InGame = 4,
+        /// <summary>
+        /// A client's connection to the host dropped during a game, and it connects again to the
+        /// slot the host keeps for it (<see cref="SessionRules.ReconnectReservationSeconds"/>).
+        /// </summary>
+        Reconnecting = 5,
     }
 }

@@ -31,7 +31,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             ConnectionId id = new ConnectionId(_nextConnectionId++);
-            int port = FindPort(host);
+            int port = IsCutOff ? 0 : FindPort(host);
             MachineLink link;
             if (port > 0)
             {
@@ -46,7 +46,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
             else
             {
-                // No lobby this player is in lists that player, so there is no port to reach.
+                // No lobby this player is in lists that player, so there is no port to reach, or
+                // an outage cuts this player off.
                 link = new MachineLink { Role = MachineLinkRole.Session, State = MachineLinkState.Dead };
                 Defer(() =>
                 {
@@ -90,6 +91,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             bool isReliable = mode == DeliveryMode.Reliable;
             link.Meter?.AddSent(data.Length);
+            if (!isReliable && IsCutOff)
+            {
+                link.PacketsOut++;
+                link.PacketsLostOut++;
+                return true;
+            }
+
             if (Simulate(link, isReliable, isProbe: false, out double delay))
             {
                 Transmit(link, MachineFrameKind.Data, data, isReliable, delay);
@@ -165,7 +173,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             if (due <= now && (link.Delayed == null || link.Delayed.Count == 0))
             {
                 QueueFrame(link, kind, payload, force: true);
-                if (link.State == MachineLinkState.Open)
+                if (link.State == MachineLinkState.Open && !IsCutOff)
                 {
                     Flush(link);
                 }
@@ -346,6 +354,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
             catch (FormatException)
             {
                 EndLink(link, LinkEnd.Lost, 0);
+                return;
+            }
+
+            // An outage lets no session through; the other side sees its attempt fail.
+            if (IsCutOff)
+            {
+                CloseLink(link, sendClose: false, 0);
                 return;
             }
 
