@@ -120,11 +120,7 @@ namespace Mu3Library.Multiplayer
             int sessionGeneration = _sessionGeneration;
             if (isLoadReset)
             {
-                if (_isLoadWaitRunning && !_loadWaiting.Contains(player))
-                {
-                    _loadWaiting.Add(player);
-                }
-
+                WaitAgainFor(player);
                 WriteParticipantUpdated(returned);
                 BroadcastToWelcomed(peer.Connection);
                 if (sessionGeneration != _sessionGeneration)

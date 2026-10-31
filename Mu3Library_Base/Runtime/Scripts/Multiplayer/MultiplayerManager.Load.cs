@@ -7,7 +7,9 @@ namespace Mu3Library.Multiplayer
 {
     public partial class MultiplayerManager
     {
-        // On the host, the players the current game still waits for, while the wait runs.
+        // On the host, the players the current game started with, and those of them it still
+        // waits for, while the wait runs.
+        private readonly List<PlayerId> _loadStartedWith = new List<PlayerId>();
         private readonly List<PlayerId> _loadWaiting = new List<PlayerId>();
         private bool _isLoadWaitRunning = false;
         private double _loadDeadline = 0d;
@@ -60,10 +62,12 @@ namespace Mu3Library.Multiplayer
         private void BeginLoadWait()
         {
             _loadWaiting.Clear();
+            _loadStartedWith.Clear();
             for (int i = 0; i < _participants.Count; i++)
             {
                 _participants[i] = _participants[i].WithLoaded(false);
                 _loadWaiting.Add(_participants[i].Id);
+                _loadStartedWith.Add(_participants[i].Id);
             }
 
             float seconds = _rules.LoadTimeoutSeconds;
@@ -76,6 +80,19 @@ namespace Mu3Library.Multiplayer
         {
             _isLoadWaitRunning = false;
             _loadWaiting.Clear();
+            _loadStartedWith.Clear();
+        }
+
+        /// <summary>
+        /// Waits again for a player who has to load again, as another start of their game does,
+        /// when the game started with them; a late joiner was never waited for.
+        /// </summary>
+        private void WaitAgainFor(PlayerId player)
+        {
+            if (_isLoadWaitRunning && _loadStartedWith.Contains(player) && !_loadWaiting.Contains(player))
+            {
+                _loadWaiting.Add(player);
+            }
         }
 
         private void HostHandleLoaded(PeerConnection peer, ref PacketReader reader)

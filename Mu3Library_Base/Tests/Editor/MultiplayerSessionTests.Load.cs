@@ -222,6 +222,34 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadSync_ALateJoinerThatStartsItsGameAgain_IsStillNotWaitedFor()
+        {
+            // FR-25, FR-19, FR-21: only the players the game started with are waited for again.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true).WithLoadTimeoutSeconds(100f));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+            Node late = JoinNew("Late", host);
+            Assert.That(late.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+
+            late.Backend.SimulateOutage(120f);
+            Advance(DropSeconds + 0.5);
+            Node again = CreateNode("Late", id: late.Id);
+            Assert.That(Join(again, host).IsSuccess, Is.True);
+            Assert.That(host.Manager.TryGetParticipant(late.Id, out Participant restarted) && restarted.IsLoaded, Is.False);
+
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+
+            Advance(100.0);
+            Assert.That(host.LoadTimeouts, Is.Empty);
+        }
+
+        [Test]
         public void LoadSync_APlayerWhoseSlotFrees_IsNoLongerWaitedFor()
         {
             // FR-25, FR-20
