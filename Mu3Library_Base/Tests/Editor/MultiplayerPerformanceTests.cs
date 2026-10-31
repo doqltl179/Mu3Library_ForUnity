@@ -70,6 +70,9 @@ namespace Mu3Library.Tests
         private const int HostPayloadBytes = 1024;
         private const double TargetMilliseconds = 0.5;
 
+        // The report counts the host frames that took longer than this, such as one that waited for a file.
+        private const double LongFrameMilliseconds = 2.0;
+
         private const int WarmupFrames = 4 * FramesPerSecond;
         private const int InProcessFrames = 60 * FramesPerSecond;
         private const int MachineWideFrames = 30 * FramesPerSecond;
@@ -98,7 +101,6 @@ namespace Mu3Library.Tests
             public readonly int[] SendAllocations;
             public readonly long[] UpdateBytes;
             public readonly long[] SendBytes;
-            public readonly bool[] IsDirectoryFrame;
             public int Count;
 
             public Samples(int frames)
@@ -109,7 +111,6 @@ namespace Mu3Library.Tests
                 SendAllocations = new int[frames];
                 UpdateBytes = new long[frames];
                 SendBytes = new long[frames];
-                IsDirectoryFrame = new bool[frames];
             }
         }
 
@@ -228,10 +229,8 @@ namespace Mu3Library.Tests
                 Assert.That(player.LateMessages, Is.Zero, $"NFR-2: {player.LateMessages} messages reached player {i} more than {AllowedLateFrames} frames after the frame they were sent in.");
             }
 
-            Assert.That(SumOf(samples.UpdateAllocations, samples, includeDirectoryFrames: false), Is.Zero,
-                "NFR-1: the host's update allocated in the steady state, outside the frames that rewrote its lobby file.");
-            Assert.That(SumOf(samples.SendAllocations, samples, includeDirectoryFrames: true), Is.Zero,
-                "NFR-1: the host's sends allocated in the steady state.");
+            Assert.That(SumOf(samples.UpdateAllocations, samples), Is.Zero, "NFR-1: the host's update allocated in the steady state.");
+            Assert.That(SumOf(samples.SendAllocations, samples), Is.Zero, "NFR-1: the host's sends allocated in the steady state.");
         }
 
         /// <summary>
@@ -245,8 +244,6 @@ namespace Mu3Library.Tests
             {
                 _now += FrameSeconds;
             }
-
-            DateTime directoryBefore = samples != null && _isRealTime ? LobbyFileTime() : default;
 
             long allocatedBefore = AllocatedBytes();
             _allocations.FilterToCurrentThread();
@@ -280,7 +277,6 @@ namespace Mu3Library.Tests
                 samples.SendAllocations[i] = sendAllocations;
                 samples.UpdateBytes[i] = allocatedAfterUpdate - allocatedBefore;
                 samples.SendBytes[i] = allocatedAfterSend - allocatedAfterUpdate;
-                samples.IsDirectoryFrame[i] = _isRealTime && LobbyFileTime() != directoryBefore;
             }
 
             MessageTarget clientTarget = _route == ClientRoute.ToHost ? MessageTarget.Host : MessageTarget.Others;
@@ -479,12 +475,6 @@ namespace Mu3Library.Tests
                 }
             }
         }
-
-        private DateTime LobbyFileTime()
-        {
-            string file = Path.Combine(_folder, "peer-" + _host.Backend.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
-            return File.GetLastWriteTimeUtc(file);
-        }
         #endregion
 
         #region Allocations
@@ -511,15 +501,12 @@ namespace Mu3Library.Tests
 
         private long AllocatedBytes() => _hasAllocatedBytes ? GC.GetAllocatedBytesForCurrentThread() : 0L;
 
-        private static long SumOf(int[] values, Samples samples, bool includeDirectoryFrames)
+        private static long SumOf(int[] values, Samples samples)
         {
             long sum = 0;
             for (int i = 0; i < samples.Count; i++)
             {
-                if (includeDirectoryFrames || !samples.IsDirectoryFrame[i])
-                {
-                    sum += values[i];
-                }
+                sum += values[i];
             }
 
             return sum;
@@ -531,38 +518,24 @@ namespace Mu3Library.Tests
         {
             int count = samples.Count;
             double[] total = new double[count];
-            int directoryFrames = 0;
-            long allocationsOutsideDirectory = 0;
-            long allocationsInDirectory = 0;
-            long bytesOutsideDirectory = 0;
-            long bytesInDirectory = 0;
+            long allocationCount = 0;
+            long allocatedBytes = 0;
             int allocatingFrames = 0;
-            double directoryMilliseconds = 0.0;
-            double directoryMax = 0.0;
-            double otherMax = 0.0;
+            int longFrames = 0;
             for (int i = 0; i < count; i++)
             {
                 total[i] = samples.UpdateMilliseconds[i] + samples.SendMilliseconds[i];
                 int allocations = samples.UpdateAllocations[i] + samples.SendAllocations[i];
-                long bytes = samples.UpdateBytes[i] + samples.SendBytes[i];
+                allocationCount += allocations;
+                allocatedBytes += samples.UpdateBytes[i] + samples.SendBytes[i];
                 if (allocations > 0)
                 {
                     allocatingFrames++;
                 }
 
-                if (samples.IsDirectoryFrame[i])
+                if (total[i] > LongFrameMilliseconds)
                 {
-                    directoryFrames++;
-                    allocationsInDirectory += allocations;
-                    bytesInDirectory += bytes;
-                    directoryMilliseconds += total[i];
-                    directoryMax = Math.Max(directoryMax, total[i]);
-                }
-                else
-                {
-                    allocationsOutsideDirectory += allocations;
-                    bytesOutsideDirectory += bytes;
-                    otherMax = Math.Max(otherMax, total[i]);
+                    longFrames++;
                 }
             }
 
@@ -600,15 +573,10 @@ namespace Mu3Library.Tests
                 .Append(" sends avg=").Append(Format(Average(samples.SendMilliseconds, count)))
                 .Append(") target ").Append(Format(TargetMilliseconds)).Append(" ms ")
                 .Append(Average(total) <= TargetMilliseconds ? "met" : "MISSED")
-                .Append(" | lobby-file frames=").Append(directoryFrames)
-                .Append(" avg=").Append(Format(directoryFrames > 0 ? directoryMilliseconds / directoryFrames : 0.0))
-                .Append(" max=").Append(Format(directoryMax))
-                .Append("; other frames max=").Append(Format(otherMax))
+                .Append(" | frames over ").Append(Format(LongFrameMilliseconds)).Append(" ms=").Append(longFrames)
                 .Append(" | allocating frames=").Append(allocatingFrames)
-                .Append(", allocations outside lobby-file frames=").Append(allocationsOutsideDirectory)
-                .Append(" (").Append(_hasAllocatedBytes ? bytesOutsideDirectory.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
-                .Append(", in lobby-file frames=").Append(allocationsInDirectory)
-                .Append(" (").Append(_hasAllocatedBytes ? bytesInDirectory.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
+                .Append(", allocations=").Append(allocationCount)
+                .Append(" (").Append(_hasAllocatedBytes ? allocatedBytes.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
                 .Append(" | messages sent: clients=").Append(clientsSent)
                 .Append(" host=").Append(_host.Sent)
                 .Append(" handled=").Append(received)

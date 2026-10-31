@@ -786,6 +786,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         private void PublishDirectory(double now)
         {
+            // The last listing could not be written, for example while another program held the file.
+            if (_directory.TakeFailedWrite())
+            {
+                _isDirectoryDirty = true;
+                _nextPublishAttempt = now + PublishRetrySeconds;
+            }
+
             _lobbyScratch.Clear();
             foreach (MachineLobby lobby in _lobbies.Values)
             {
@@ -801,16 +808,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
-            if (_directory.Publish(LocalPlayerId, Port, _lobbyScratch))
-            {
-                _isDirectoryDirty = false;
-                _nextPublish = now + PublishIntervalSeconds;
-                _nextPublishAttempt = now + PublishMinIntervalSeconds;
-            }
-            else
-            {
-                _nextPublishAttempt = now + PublishRetrySeconds;
-            }
+            // Past the first listing, the file is written in the background, so this frame does not wait for it.
+            _directory.Publish(LocalPlayerId, Port, _lobbyScratch);
+            _isDirectoryDirty = false;
+            _nextPublish = now + PublishIntervalSeconds;
+            _nextPublishAttempt = now + PublishMinIntervalSeconds;
         }
         #endregion
     }
