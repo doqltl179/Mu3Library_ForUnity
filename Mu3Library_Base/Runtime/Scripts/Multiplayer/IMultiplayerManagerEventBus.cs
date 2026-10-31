@@ -113,10 +113,13 @@ namespace Mu3Library.Multiplayer
         /// Raised on the host when a client goes past a rate limit of the rules,
         /// <see cref="SessionRules.MaxMessagesPerSecond"/> or <see cref="SessionRules.MaxBytesPerSecond"/>,
         /// at most once a second for each client: for the first of its packets in a one-second
-        /// window that goes past one. The host drops that client's game and chat messages past the
-        /// limit for the rest of the window, and with <see cref="SessionRules.RateLimitKickSeconds"/>
-        /// it kicks a client that keeps going past it, which <see cref="OnParticipantLeft"/>
-        /// reports with <see cref="MultiplayerReason.RateLimited"/> instead.
+        /// window that goes past one; an account outside the session, such as one whose hello to
+        /// join again waits for room, raises nothing. The host drops that client's game and chat
+        /// messages past the limit for the rest of the window and holds back its ready changes,
+        /// load reports, and data requests for later windows, and with
+        /// <see cref="SessionRules.RateLimitKickSeconds"/> it kicks a client that keeps going past
+        /// it, which <see cref="OnParticipantLeft"/> reports with
+        /// <see cref="MultiplayerReason.RateLimited"/> instead.
         /// </summary>
         public event Action<Participant> OnRateLimitExceeded;
     }

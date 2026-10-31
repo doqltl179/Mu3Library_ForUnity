@@ -72,10 +72,15 @@ namespace Mu3Library.Multiplayer
 
         private void HostHandleLoaded(PeerConnection peer, ref PacketReader reader)
         {
+            HostTakeLoaded(peer.Player, reader.ReadInt());
+        }
+
+        private void HostTakeLoaded(PlayerId player, int gameNumber)
+        {
             // A report from the game before, which crossed the start of this one, counts for nothing.
-            if (reader.ReadInt() == _gameNumber)
+            if (gameNumber == _gameNumber)
             {
-                HostApplyLoaded(peer.Player);
+                HostApplyLoaded(player);
             }
         }
 

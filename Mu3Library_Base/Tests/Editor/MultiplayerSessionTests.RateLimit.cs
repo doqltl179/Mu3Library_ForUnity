@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 
 namespace Mu3Library.Tests
@@ -75,10 +78,11 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void RateLimit_CountsChatReadyAndDataRequests_ButDropsOnlyGameAndChatMessages()
+        public void RateLimit_CountsChatReadyAndDataRequests_DropsGameAndChatMessages_AndDelaysTheRequestsInOrder()
         {
-            // FR-37, FR-10, FR-11, FR-12: a data request past the limit is taken, so the client's
-            // own check, which builds on every request it sent, keeps agreeing with the host.
+            // FR-37, FR-10, FR-11, FR-12: a data request past the limit waits rather than being
+            // dropped, so the client's own check, which builds on every request it sent, keeps
+            // agreeing with the host, and nothing it sent later overtakes it.
             (Node host, Node[] clients) = CreateLimitedSession(LimitedRules.WithMaxMessagesPerSecond(2), 2);
             Node a = clients[0], b = clients[1];
             Node[] everyone = { host, a, b };
@@ -98,16 +102,143 @@ namespace Mu3Library.Tests
             Assert.That(a.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
             Pump();
 
-            Dictionary<string, string> expected = new Dictionary<string, string> { ["first"] = string.Empty, ["second"] = large };
             foreach (Node node in everyone)
             {
                 Assert.That(node.Chats.Select(chat => chat.Text), Is.EqualTo(new[] { "one", "two" }), node.Backend.PlayerName);
+                Assert.That(DataOf(node, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["first"] = large }), $"the requests wait at {node.Backend.PlayerName}");
+            }
+
+            // Two a window, in the order they came: the data requests, then the ready change.
+            AdvanceBy(1.0);
+            Assert.That(DataOf(host, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["first"] = string.Empty, ["second"] = large }));
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant waiting) && waiting.IsReady, Is.False);
+
+            AdvanceBy(1.0);
+            Dictionary<string, string> expected = new Dictionary<string, string> { ["first"] = string.Empty, ["second"] = large };
+            foreach (Node node in everyone)
+            {
                 Assert.That(DataOf(node, a.Id), Is.EquivalentTo(expected), node.Backend.PlayerName);
                 Assert.That(node.Manager.TryGetParticipant(a.Id, out Participant player) && player.IsReady, Is.True, node.Backend.PlayerName);
+                Assert.That(node.DataChanges.Where(change => change.Participant.Id == a.Id).Select(change => change.Key), Is.EqualTo(new[] { "first", "first", "second" }), node.Backend.PlayerName);
             }
 
             Assert.That(atHost.Received, Is.Empty);
             Assert.That(host.RateLimited.Select(participant => participant.Id), Is.EqualTo(new[] { a.Id }), "once in the window");
+        }
+
+        [Test]
+        public void RateLimit_MoreRequestsWaitingThanTheBound_DisconnectsWithRateLimited_AndBansTheAccount()
+        {
+            // FR-37: a client that keeps sending requests past the limit cannot make the host hold
+            // them without bound; up to the bound, every one of them arrives in order.
+            (Node host, Node[] clients) = CreateLimitedSession(LimitedRules.WithMaxMessagesPerSecond(1), 1);
+            Node a = clients[0];
+
+            for (int i = 0; i <= MultiplayerLimits.MaxDelayedRequests; i++)
+            {
+                Assert.That(a.Manager.SetParticipantData("n", i.ToString(System.Globalization.CultureInfo.InvariantCulture)).IsSuccess, Is.True);
+            }
+
+            Pump();
+            Assert.That(DataOf(host, a.Id)["n"], Is.EqualTo("0"), "one fits the window, the rest wait");
+            AdvanceBy(MultiplayerLimits.MaxDelayedRequests + 0.5);
+
+            IEnumerable<string> expected = Enumerable.Range(0, MultiplayerLimits.MaxDelayedRequests + 1).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Assert.That(host.DataChanges.Where(change => change.Participant.Id == a.Id).Select(change => change.Participant.Data["n"]), Is.EqualTo(expected));
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+
+            for (int i = 0; i <= MultiplayerLimits.MaxDelayedRequests + 1; i++)
+            {
+                a.Manager.SetParticipantData("n", "again " + i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.RateLimited));
+            Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.RateLimited));
+            Assert.That(Join(a, host).Reason, Is.EqualTo(MultiplayerReason.Banned));
+        }
+
+        [Test]
+        public void RateLimit_KickTimeIsUnchanged_ByConnectingAgainWhileOverTheLimit()
+        {
+            // FR-37, FR-20: a client that comes back on a new connection, as one whose old
+            // connection broke does, keeps its window and its count toward the kick.
+            Node host = CreateHost("Host", rules: LimitedRules.WithMaxMessagesPerSecond(10).WithRateLimitKickSeconds(3f));
+            Listen(host, Chat);
+            RecordingListener listener = new RecordingListener();
+            LocalBackend raw = CreateRawBackend("Raw", listener);
+            ConnectionId current = ConnectAsPlayer(raw, host);
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Pump();
+
+            List<double> exceeded = new List<double>();
+            double kickedAt = double.NaN;
+            host.Manager.OnRateLimitExceeded += participant => exceeded.Add(_now);
+            host.Manager.OnParticipantLeft += (participant, reason) => kickedAt = _now;
+            byte[] message = MessageToHostPacket(Chat, MessageTargetKind.Host, PlayerId.None, new byte[] { 1 });
+
+            double start = _now;
+            for (int phase = 0; phase < 6 && double.IsNaN(kickedAt); phase++)
+            {
+                if (phase > 0)
+                {
+                    // Right after the window turns, 0.06 s into each second, so the hello fits
+                    // and the host takes the new connection over from the old one.
+                    _now = start + phase + 0.065;
+                    ConnectionId next = raw.Connect(host.Id);
+                    Pump();
+                    raw.Send(next, HelloPacket(isReturning: true), DeliveryMode.Reliable);
+                    Pump();
+                    Assert.That(listener.Disconnected.Any(closed => closed.Connection == current), Is.True, $"phase {phase}: the new connection took over");
+                    current = next;
+                }
+
+                // About 33 messages a second, three times the limit.
+                for (int step = phase == 0 ? 3 : 5; step <= 66 && double.IsNaN(kickedAt); step++)
+                {
+                    _now = start + phase + step * RateStepSeconds;
+                    if (step % 2 == 0)
+                    {
+                        raw.Send(current, message, DeliveryMode.Reliable);
+                    }
+
+                    Pump(1);
+                }
+            }
+
+            Pump();
+            Assert.That(kickedAt - exceeded[0], Is.InRange(3.0, 3.1));
+            Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.RateLimited));
+            Assert.That(listener.Disconnected.Last(), Is.EqualTo((current, BackendDisconnectKind.ClosedByPeer, ReasonCodes.ToWire(MultiplayerReason.RateLimited))));
+        }
+
+        [Test]
+        public void RateLimit_LeavingAndJoiningAgain_StartsNoFreshWindow()
+        {
+            // FR-37: the hello of an account the session heard from counts, and past a limit it
+            // waits for the next window instead of opening one.
+            (Node host, Node[] clients) = CreateLimitedSession(LimitedRules.WithMaxMessagesPerSecond(3), 1);
+            Node a = clients[0];
+            Listen(host, Chat);
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.That(a.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
+            }
+
+            Pump();
+            a.Manager.Leave();
+            Pump();
+
+            MultiplayerResult? joined = null;
+            a.Manager.JoinLobby(host.Manager.CurrentLobbyId, result => joined = result);
+            Pump();
+            Assert.That(joined.HasValue, Is.False, "the hello waits for the next window");
+            Assert.That(host.RateLimited, Is.Empty, "an account outside the session has no participant to name");
+
+            AdvanceBy(1.2);
+            Assert.That(joined?.IsSuccess, Is.True);
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(2));
         }
 
         [Test]

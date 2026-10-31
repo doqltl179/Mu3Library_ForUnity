@@ -19,17 +19,26 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Most packets the host takes from one client in a second: 0, the default, sets no limit.
         /// Everything a client sends the host counts: its game messages, chat messages, ready
-        /// changes, load reports, and participant data requests. The host counts in windows of
-        /// one second; the first starts with the client's first packet, each next one where the
-        /// last ended, and after a second without packets, the next packet starts a new one.
-        /// Within a window, the host drops a game or chat message beyond a limit before it handles
-        /// or passes it on, and raises <see cref="IMultiplayerManagerEventBus.OnRateLimitExceeded"/>;
-        /// the client's own <see cref="IMultiplayerMessenger.Send"/> or
-        /// <see cref="IMultiplayerManager.SendChat"/> already succeeded. A ready change, a load
-        /// report, or a participant data request beyond a limit still counts and still raises the
-        /// event, but the host takes it, since a client checks each data request against all the
-        /// ones it sent before, which a dropped one would leave the client and the host
-        /// disagreeing on for the rest of the session. The host's own sends are never limited.
+        /// changes, load reports, participant data requests, and each hello after its first, with
+        /// which it connects again or joins again. The host counts in windows of one second, by
+        /// account and for the whole session, so neither connecting again nor leaving and joining
+        /// again starts a fresh window: the first starts with the account's first packet, each
+        /// next one where the last ended, and after a second without packets, the next packet
+        /// starts a new one. Within a window, the host drops a game or chat message beyond a limit
+        /// before it handles or passes it on, and raises
+        /// <see cref="IMultiplayerManagerEventBus.OnRateLimitExceeded"/>; the client's own
+        /// <see cref="IMultiplayerMessenger.Send"/> or <see cref="IMultiplayerManager.SendChat"/>
+        /// already succeeded. A ready change, a load report, or a participant data request beyond
+        /// a limit counts and raises the event too, but waits instead: the host applies such
+        /// requests in the order they came, as later windows have room, before anything the
+        /// client sent after them, since a client checks each data request against all the ones
+        /// it sent before. A hello beyond a limit waits for room as well, up to
+        /// <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/>, and a window that took nothing
+        /// yet takes one request or hello of any size. A client with more than
+        /// <see cref="MultiplayerLimits.MaxDelayedRequests"/> requests waiting is disconnected with
+        /// <see cref="MultiplayerReason.RateLimited"/> and cannot rejoin the session, whatever
+        /// <see cref="RateLimitKickSeconds"/> says; requests that still wait when the client's
+        /// connection drops are lost with it. The host's own sends are never limited.
         /// </summary>
         public int MaxMessagesPerSecond { get; }
 

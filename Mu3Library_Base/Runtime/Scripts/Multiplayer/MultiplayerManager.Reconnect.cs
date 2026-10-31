@@ -41,6 +41,7 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            DiscardDelayedRequests(player);
             _reservations[player] = Now + seconds;
             Participant away = _participants[index].WithConnected(false);
             _participants[index] = away;

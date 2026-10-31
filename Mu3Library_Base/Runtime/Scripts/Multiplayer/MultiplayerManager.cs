@@ -155,6 +155,7 @@ namespace Mu3Library.Multiplayer
 
             UpdateHandshakeTimeouts();
             UpdateReservations();
+            UpdateDelayedRequests();
             UpdateLoadWait();
             UpdateJoinTimeout();
             UpdateReconnect();

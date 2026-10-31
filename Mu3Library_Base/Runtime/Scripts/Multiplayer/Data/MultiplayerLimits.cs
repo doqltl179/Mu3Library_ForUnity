@@ -44,5 +44,13 @@ namespace Mu3Library.Multiplayer.Data
         /// <see cref="MultiplayerConfig.MaxMessageSize"/> is, which caps game messages only.
         /// </summary>
         public const int MaxChatMessageSize = 4 * 1024;
+
+        /// <summary>
+        /// Most ready changes, load reports, and participant data requests of one client that the
+        /// host holds back for the rate limits (<see cref="SessionRules.MaxMessagesPerSecond"/>,
+        /// <see cref="SessionRules.MaxBytesPerSecond"/>) at a time. One more disconnects the client
+        /// with <see cref="MultiplayerReason.RateLimited"/> for the rest of the session.
+        /// </summary>
+        public const int MaxDelayedRequests = 64;
     }
 }

@@ -123,8 +123,13 @@ namespace Mu3Library.Multiplayer
         {
             string key = reader.ReadString();
             string value = reader.ReadString();
+            HostTakeParticipantData(peer.Player, key, value);
+        }
 
-            int index = IndexOfParticipant(peer.Player);
+        /// <summary>Checks a client's request for its own participant data and applies it, now or once the rate limits have room.</summary>
+        private void HostTakeParticipantData(PlayerId player, string key, string value)
+        {
+            int index = IndexOfParticipant(player);
             if (index < 0)
             {
                 return;
@@ -137,13 +142,13 @@ namespace Mu3Library.Multiplayer
             {
                 if (IsFirstParticipantDataDrop(check))
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {peer.Player}: {check}. Further refusals for this reason go unlogged until the session ends.");
+                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {player}: {check}. Further refusals for this reason go unlogged until the session ends.");
                 }
 
                 return;
             }
 
-            HostApplyParticipantData(peer.Player, key, value);
+            HostApplyParticipantData(player, key, value);
         }
 
         private void HostApplyParticipantData(PlayerId player, string key, string value)

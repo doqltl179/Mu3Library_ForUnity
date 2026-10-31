@@ -24,10 +24,11 @@ namespace Mu3Library.Multiplayer
             /// <summary>True when the player's hello says it comes back to the slot the host keeps for it.</summary>
             public bool IsReturning;
 
-            public double HandshakeDeadline;
+            /// <summary>True while the player's hello waits for room in the rate limits, with its size.</summary>
+            public bool IsHelloDelayed;
+            public int HelloBytes;
 
-            /// <summary>What the player sent in the current window of the rate limits.</summary>
-            public readonly RateWindow Rate = new RateWindow();
+            public double HandshakeDeadline;
         }
 
         private readonly Dictionary<ConnectionId, PeerConnection> _peers = new Dictionary<ConnectionId, PeerConnection>();
@@ -478,13 +479,19 @@ namespace Mu3Library.Multiplayer
                 int wireVersion = reader.ReadInt();
                 string gameId = reader.ReadString();
                 int protocolVersion = reader.ReadInt();
-                HandleHello(peer, gameId, protocolVersion, wireVersion, ref reader);
+                HandleHello(peer, gameId, protocolVersion, wireVersion, data.Length, ref reader);
                 return;
             }
 
-            if (!TakeWithinRateLimit(peer, kind, data.Length))
+            switch (CheckRateLimit(peer.Player, kind, data.Length))
             {
-                return;
+                case RateDecision.Drop:
+                case RateDecision.Kicked:
+                    return;
+
+                case RateDecision.Delay:
+                    DelayRequest(peer.Player, kind, data.Length, ref reader);
+                    return;
             }
 
             switch (kind)
@@ -516,7 +523,7 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion, ref PacketReader reader)
+        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion, int bytes, ref PacketReader reader)
         {
             if (!string.Equals(gameId, _gameId, StringComparison.Ordinal)
                 || protocolVersion != _protocolVersion
@@ -528,6 +535,38 @@ namespace Mu3Library.Multiplayer
 
             // Read only once the version matches, so a hello of any version is refused.
             peer.IsReturning = reader.ReadBool();
+
+            // A kicked account gets nowhere, whatever else its hello would wait for.
+            if (_bannedPlayers.Contains(peer.Player))
+            {
+                RefusePeer(peer, MultiplayerReason.Banned);
+                return;
+            }
+
+            // An account the session heard from before counts its hellos as well, so connecting
+            // again starts no fresh window; a hello past a limit waits for room, up to the
+            // handshake timeout.
+            if (_rates.ContainsKey(peer.Player))
+            {
+                RateDecision decision = CheckRateLimit(peer.Player, PacketKind.Hello, bytes);
+                if (decision == RateDecision.Kicked)
+                {
+                    if (_peers.ContainsKey(peer.Connection) && _bannedPlayers.Contains(peer.Player))
+                    {
+                        RefusePeer(peer, MultiplayerReason.Banned);
+                    }
+
+                    return;
+                }
+
+                if (decision != RateDecision.Handle)
+                {
+                    peer.IsHelloDelayed = true;
+                    peer.HelloBytes = bytes;
+                    return;
+                }
+            }
+
             peer.HasSaidHello = true;
             TryAdmit(peer);
         }
@@ -671,6 +710,7 @@ namespace Mu3Library.Multiplayer
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
             _reservations.Remove(player);
+            DiscardDelayedRequests(player);
 
             _writer.Begin(PacketKind.ParticipantLeft);
             _writer.WriteULong(player.Value);
@@ -746,10 +786,11 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            // Players who said hello before the lobby listed them get another look each update.
+            // Players who said hello before the lobby listed them, or whose hello waits for room
+            // in the rate limits, get another look each update.
             foreach (PeerConnection peer in _peers.Values)
             {
-                if (peer.HasSaidHello && !peer.IsWelcomed)
+                if ((peer.HasSaidHello || peer.IsHelloDelayed) && !peer.IsWelcomed)
                 {
                     _waitingPeers.Add(peer);
                 }
@@ -758,9 +799,19 @@ namespace Mu3Library.Multiplayer
             int generation = _sessionGeneration;
             for (int i = 0; i < _waitingPeers.Count && generation == _sessionGeneration; i++)
             {
-                if (_peers.ContainsKey(_waitingPeers[i].Connection))
+                PeerConnection waiting = _waitingPeers[i];
+                if (!_peers.ContainsKey(waiting.Connection))
                 {
-                    TryAdmit(_waitingPeers[i]);
+                    continue;
+                }
+
+                if (waiting.IsHelloDelayed)
+                {
+                    TakeDelayedHello(waiting);
+                }
+                else
+                {
+                    TryAdmit(waiting);
                 }
             }
 
@@ -797,6 +848,7 @@ namespace Mu3Library.Multiplayer
             _bannedPlayers.Clear();
             _reservations.Clear();
             _expiredReservations.Clear();
+            ResetRateState();
         }
         #endregion
     }

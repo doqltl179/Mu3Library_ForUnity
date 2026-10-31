@@ -184,7 +184,7 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void LoadSync_RefusedOutsideAGame_IgnoresAReportForAnotherGame_AndPassesTheRateLimit()
+        public void LoadSync_RefusedOutsideAGame_IgnoresAReportForAnotherGame_AndWaitsForTheRateLimit()
         {
             // FR-25, FR-37, NFR-5
             Assert.That(new MultiplayerManager().ReportLoaded().Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
@@ -200,20 +200,27 @@ namespace Mu3Library.Tests
             Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
             Pump();
 
+            // One packet a second: the first report fits, and the others wait their turn.
             raw.Send(connection, ReportLoadedPacket(0), DeliveryMode.Reliable);
             raw.Send(connection, ReportLoadedPacket(2), DeliveryMode.Reliable);
+            raw.Send(connection, ReportLoadedPacket(1), DeliveryMode.Reliable);
             Pump();
             Assert.That(host.Manager.TryGetParticipant(raw.LocalPlayerId, out Participant stale) && stale.IsLoaded, Is.False);
 
-            raw.Send(connection, ReportLoadedPacket(1), DeliveryMode.Reliable);
-            Pump();
+            AdvanceBy(1.5);
+            Assert.That(host.Manager.TryGetParticipant(raw.LocalPlayerId, out Participant other) && other.IsLoaded, Is.False, "a report for another game counts for nothing");
+
+            AdvanceBy(1.0);
             Assert.That(host.Manager.TryGetParticipant(raw.LocalPlayerId, out Participant current) && current.IsLoaded, Is.True);
 
-            // Past the limit of one packet a second, a report counts but still gets through.
+            // Past the limit, a report counts and waits, but is never dropped.
             Listen(host, Chat);
             Assert.That(a.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
             Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
             Pump();
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant waiting) && waiting.IsLoaded, Is.False);
+
+            AdvanceBy(1.5);
             Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant limited) && limited.IsLoaded, Is.True);
             Assert.That(host.RateLimited.Select(participant => participant.Id), Is.EqualTo(new[] { raw.LocalPlayerId, a.Id }));
         }
