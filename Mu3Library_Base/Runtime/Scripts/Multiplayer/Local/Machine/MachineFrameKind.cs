@@ -5,7 +5,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// </summary>
     internal enum MachineFrameKind : byte
     {
-        /// <summary>Nothing; it keeps a quiet connection from looking stalled.</summary>
+        /// <summary>
+        /// It keeps a quiet connection from looking stalled. Empty, or on a session connection a
+        /// quality probe (<see cref="MachineProtocol.ProbeRequest"/>), which a version that does
+        /// not measure ignores.
+        /// </summary>
         Ping = 1,
         /// <summary>The sender closes the connection, with the reason code it passed.</summary>
         Close = 2,

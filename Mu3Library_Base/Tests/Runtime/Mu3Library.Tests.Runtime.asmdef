@@ -4,6 +4,7 @@
     "references": [
         "Mu3Library",
         "Mu3Library.DI",
+        "Mu3Library.Multiplayer",
         "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

@@ -1,7 +1,7 @@
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -25,7 +25,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// Everything runs on the main thread inside <see cref="Update"/>, on non-blocking sockets;
     /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>).
     /// Every packet travels over TCP, so none is lost or reordered, whichever
-    /// <see cref="DeliveryMode"/> it uses.
+    /// <see cref="DeliveryMode"/> it uses, unless the network simulates a worse one: then this
+    /// side drops or holds back the session packets it sends before they reach the socket, and its
+    /// quality probes ride on ping frames, which an older version of this protocol ignores.
     /// </remarks>
     internal sealed partial class MachinePeer
     {
@@ -46,8 +48,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const int InitialBufferBytes = 16 * 1024;
         private const int MinReceiveSpace = 4 * 1024;
 
-        private static readonly double SecondsPerTick = 1.0 / Stopwatch.Frequency;
         private static readonly Predicate<MachineLink> IsDead = link => link.State == MachineLinkState.Dead;
+
+        // Frames the simulated network holds back borrow their buffers from a pool of this type's
+        // own, as the in-process backend's packets do.
+        private static readonly ArrayPool<byte> DelayedFrames = ArrayPool<byte>.Create(MaxPacketBytes, 64);
 
         private readonly LocalNetwork _network;
         private readonly Socket _acceptor;
@@ -82,7 +87,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         public int FailingSends { get; set; }
 
-        private double Now => _network.Clock != null ? _network.Clock() : Stopwatch.GetTimestamp() * SecondsPerTick;
+        private double Now => _network.Now;
 
         /// <summary>How long a quiet connection or an unanswered request may wait; 0 forever.</summary>
         private double TimeoutSeconds => _network.ConnectionTimeoutSeconds > 0f ? _network.ConnectionTimeoutSeconds : 0.0;
@@ -356,6 +361,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            ReleaseDelayed(link, now);
             Flush(link);
             if (link.HasFailed)
             {
@@ -390,6 +396,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
                 EndLink(link, LinkEnd.Lost, 0);
                 return;
+            }
+
+            if (link.Role == MachineLinkRole.Session && link.IsReported)
+            {
+                link.Meter.Update(now);
+                if (link.Meter.TakeProbe(now))
+                {
+                    SendProbe(link, MachineProtocol.ProbeRequest, 0.0);
+                }
             }
 
             if (now - link.LastSent >= PingIntervalSeconds)
@@ -626,6 +641,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             if (kind == MachineFrameKind.Ping)
             {
+                if (!payload.IsEmpty && link.Role == MachineLinkRole.Session && link.IsReported)
+                {
+                    HandleProbe(link, payload);
+                }
+
                 return;
             }
 
@@ -683,11 +703,17 @@ namespace Mu3Library.Multiplayer.Local.Machine
             link.State = MachineLinkState.Dead;
             if (!isOpen)
             {
+                DiscardDelayed(link);
                 Abort(link.Socket);
                 link.Socket = null;
                 return;
             }
 
+            // What the simulated network still holds back goes out now, ahead of the close and
+            // without the rest of its delay, since the close follows the data already sent. A
+            // backend disposed without a close sends it too, as a process that ends delivers
+            // what it already put on the wire, and the in-process backend does the same.
+            ReleaseDelayed(link, double.PositiveInfinity);
             if (sendClose)
             {
                 _writer.Clear().WriteInt(reasonCode);
@@ -728,6 +754,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             Close(link.Socket);
             link.Socket = null;
             link.PendingCount = 0;
+            DiscardDelayed(link);
 
             switch (link.Role)
             {

@@ -10,6 +10,9 @@ using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 using Mu3Library.Multiplayer.Steam;
 using NUnit.Framework;
+using UnityEngine.TestTools.Constraints;
+// Unity's Is extends NUnit's with AllocatingGCMemory.
+using Is = UnityEngine.TestTools.Constraints.Is;
 
 namespace Mu3Library.Tests
 {
@@ -107,6 +110,62 @@ namespace Mu3Library.Tests
             Assert.That(recorder.DisconnectKind, Is.EqualTo(BackendDisconnectKind.ClosedByPeer));
             Assert.That(recorder.DisconnectCode, Is.EqualTo(kicked));
             Assert.That(_backend.Send(sender, new byte[] { 1 }, DeliveryMode.Reliable), Is.False, "a connection this side closed refuses data");
+        }
+
+        [Test]
+        public void SteamConnection_ReportsItsQuality_UntilItCloses()
+        {
+            // FR-36 on Steam's own measure of a connection, which needs packets on the network.
+            Recorder recorder = new Recorder();
+            _backend.SetListener(recorder);
+            Assert.That(_backend.CreateLoopbackPair(out ConnectionId sender, out ConnectionId receiver, throughNetwork: true), Is.True);
+
+            // Steam reports the data rates once it has measured a few seconds of traffic.
+            byte[] payload = new byte[1024];
+            ConnectionQuality sending = default;
+            ConnectionQuality receiving = default;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < 15.0 && !(sending.BytesSentPerSecond > 0f && receiving.BytesReceivedPerSecond > 0f))
+            {
+                Assert.That(_backend.Send(sender, payload, DeliveryMode.Unreliable), Is.True);
+                _backend.Update();
+                Thread.Sleep(20);
+                Assert.That(_backend.TryGetConnectionQuality(sender, out sending), Is.True);
+                Assert.That(_backend.TryGetConnectionQuality(receiver, out receiving), Is.True);
+            }
+
+            TestContext.WriteLine($"Steam measured the data rates after {watch.Elapsed.TotalSeconds:0.0} s.");
+            TestContext.WriteLine($"Steam measured the sender as {sending} and the receiver as {receiving}.");
+            Assert.That(sending.PingMilliseconds, Is.InRange(0, 1000));
+            Assert.That(sending.PacketLoss, Is.InRange(0f, 1f));
+            Assert.That(receiving.PacketLoss, Is.InRange(0f, 1f));
+            Assert.That(sending.BytesSentPerSecond, Is.GreaterThan(0f));
+            Assert.That(receiving.BytesReceivedPerSecond, Is.GreaterThan(0f));
+            Assert.That(recorder.Received, Is.Not.Empty);
+
+            // From here on the backend answers from what Steam last said, which the loop above
+            // asked for, so no read below asks Steam again.
+            _backend.QualityRefreshSeconds = 3600.0;
+            Assert.That(() => { _backend.TryGetConnectionQuality(sender, out _); }, Is.Not.AllocatingGCMemory(), "a read between Steam's answers");
+            Assert.That(_backend.TryGetConnectionQuality(receiver, out _), Is.True);
+
+            Assert.That(_backend.TryGetConnectionQuality(new ConnectionId(uint.MaxValue), out _), Is.False);
+            _backend.Disconnect(sender, 0);
+            Assert.That(_backend.TryGetConnectionQuality(sender, out _), Is.False);
+
+            // The other side answers false right after the callback run that reports the close,
+            // while its last answer from Steam still stands and before the backend hands the close on.
+            bool answers = true;
+            Stopwatch closing = Stopwatch.StartNew();
+            while (answers && closing.Elapsed.TotalSeconds < 10.0)
+            {
+                Thread.Sleep(20);
+                Steamworks.SteamAPI.RunCallbacks();
+                answers = _backend.TryGetConnectionQuality(receiver, out _);
+            }
+
+            Assert.That(answers, Is.False, "Steam reported the close");
+            Assert.That(recorder.Events, Does.Not.Contain("disconnected " + receiver), "the close is not handed on yet");
         }
 
         [Test]

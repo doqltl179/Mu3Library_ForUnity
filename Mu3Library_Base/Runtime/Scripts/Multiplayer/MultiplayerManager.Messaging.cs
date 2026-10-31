@@ -12,6 +12,10 @@ namespace Mu3Library.Multiplayer
         {
             public MessageHandler Handler;
             public MessagePolicy Policy;
+
+            // What GetMessageCounts reports, since the type was registered.
+            public long Sent;
+            public long Received;
         }
 
         private enum DropReason : byte
@@ -86,9 +90,30 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            return _isHost
+            MultiplayerResult result = _isHost
                 ? HostSendMessage(messageType, payload, target, deliveryMode)
                 : ClientSendMessage(messageType, payload, target, deliveryMode);
+
+            if (result.IsSuccess && _messages.TryGetValue(messageType, out MessageRegistration registration))
+            {
+                registration.Sent++;
+            }
+
+            return result;
+        }
+
+        public void GetMessageCounts(List<MessageCounts> results)
+        {
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            results.Clear();
+            foreach (KeyValuePair<ushort, MessageRegistration> pair in _messages)
+            {
+                results.Add(new MessageCounts(pair.Key, pair.Value.Sent, pair.Value.Received));
+            }
         }
 
         /// <summary>
@@ -406,6 +431,11 @@ namespace Mu3Library.Multiplayer
                 }
 
                 return;
+            }
+
+            if (sender != LocalPlayerId)
+            {
+                registration.Received++;
             }
 
             if (registration.Handler == null)

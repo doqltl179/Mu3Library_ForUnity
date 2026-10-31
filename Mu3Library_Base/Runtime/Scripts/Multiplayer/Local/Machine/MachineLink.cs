@@ -42,6 +42,25 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>The listener heard <see cref="IMultiplayerBackendListener.OnConnected"/> for it.</summary>
         public bool IsReported;
 
+        // Quality and simulation, on a session connection
+        /// <summary>Set once the connection is reported.</summary>
+        public ConnectionMeter Meter;
+
+        /// <summary>Frames the simulated network holds back before they go out; null until one is.</summary>
+        public DelayQueue<MachineDelayedFrame> Delayed;
+        public int DelayedBytes;
+
+        /// <summary>When the last reliable frame held back goes out; the next one goes no earlier.</summary>
+        public double LastOrderedDue;
+
+        /// <summary>Packets this side sent on the connection, and how many of them the simulated network lost.</summary>
+        public long PacketsOut;
+        public long PacketsLostOut;
+
+        /// <summary>The other side's counts as its newest probe told them.</summary>
+        public long PacketsIn;
+        public long PacketsLostIn;
+
         // Lobby
         public LobbyId Lobby;
         public bool IsRejoin;

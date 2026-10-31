@@ -82,18 +82,185 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
-            if (!QueueFrame(link, MachineFrameKind.Data, data, force: false))
+            // What the simulated network holds back counts as unread, as Steam's send buffer does.
+            if (link.PendingCount + link.DelayedBytes + MachineProtocol.HeaderBytes + 1 + data.Length > MaxPendingBytes)
             {
                 return false;
             }
 
-            if (link.State == MachineLinkState.Open)
+            bool isReliable = mode == DeliveryMode.Reliable;
+            link.Meter?.AddSent(data.Length);
+            if (Simulate(link, isReliable, isProbe: false, out double delay))
             {
-                Flush(link);
+                Transmit(link, MachineFrameKind.Data, data, isReliable, delay);
             }
 
             return true;
         }
+
+        public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality)
+        {
+            if (!_isDisposed && _sessions.TryGetValue(connection, out MachineLink link)
+                && link.State == MachineLinkState.Open && !link.HasFailed && link.IsReported)
+            {
+                quality = link.Meter.Quality;
+                return true;
+            }
+
+            quality = default;
+            return false;
+        }
+
+        #region Simulation
+        /// <summary>
+        /// Decides what the simulated network does to the next frame of a session connection:
+        /// false when it loses an unreliable one, otherwise the delay before the frame reaches the
+        /// socket. A reliable frame that the loss takes goes out one round trip later, as its
+        /// resend would.
+        /// </summary>
+        private bool Simulate(MachineLink link, bool isReliable, bool isProbe, out double delay)
+        {
+            NetworkSimulation simulation = _network.Simulation;
+            delay = 0.0;
+            link.PacketsOut++;
+            if (!simulation.IsActive)
+            {
+                return true;
+            }
+
+            if (isReliable)
+            {
+                int resends = simulation.ReliableResends();
+                link.PacketsOut += resends;
+                link.PacketsLostOut += resends;
+                delay = simulation.PacketDelay() + resends * simulation.ResendSeconds;
+                return true;
+            }
+
+            if (isProbe ? simulation.DropsProbe() : simulation.DropsPacket())
+            {
+                link.PacketsLostOut++;
+                return false;
+            }
+
+            delay = isProbe ? simulation.ProbeDelay() : simulation.PacketDelay();
+            return true;
+        }
+
+        /// <summary>
+        /// Sends a frame after its simulated delay. Reliable frames keep their order, so one that
+        /// a resend holds back holds back the reliable ones after it.
+        /// </summary>
+        private void Transmit(MachineLink link, MachineFrameKind kind, ReadOnlySpan<byte> payload, bool isReliable, double delay)
+        {
+            double now = Now;
+            double due = now + delay;
+            if (isReliable)
+            {
+                due = Math.Max(due, link.LastOrderedDue);
+                link.LastOrderedDue = due;
+            }
+
+            // Without a delay, and with nothing held back that it must not overtake, it goes out at once.
+            if (due <= now && (link.Delayed == null || link.Delayed.Count == 0))
+            {
+                QueueFrame(link, kind, payload, force: true);
+                if (link.State == MachineLinkState.Open)
+                {
+                    Flush(link);
+                }
+
+                return;
+            }
+
+            byte[] buffer = DelayedFrames.Rent(Math.Max(1, payload.Length));
+            payload.CopyTo(buffer);
+            link.Delayed ??= new DelayQueue<MachineDelayedFrame>();
+            link.Delayed.Push(due, new MachineDelayedFrame { Kind = kind, Buffer = buffer, Length = payload.Length });
+            link.DelayedBytes += MachineProtocol.HeaderBytes + 1 + payload.Length;
+        }
+
+        /// <summary>Queues the frames held back whose time has come, in the order they fall due.</summary>
+        private void ReleaseDelayed(MachineLink link, double now)
+        {
+            DelayQueue<MachineDelayedFrame> delayed = link.Delayed;
+            while (delayed != null && delayed.TryPeek(out double due, out _) && due <= now)
+            {
+                MachineDelayedFrame frame = delayed.Pop();
+                link.DelayedBytes -= MachineProtocol.HeaderBytes + 1 + frame.Length;
+                QueueFrame(link, frame.Kind, new ReadOnlySpan<byte>(frame.Buffer, 0, frame.Length), force: true);
+                DelayedFrames.Return(frame.Buffer);
+            }
+        }
+
+        private static void DiscardDelayed(MachineLink link)
+        {
+            DelayQueue<MachineDelayedFrame> delayed = link.Delayed;
+            while (delayed != null && delayed.Count > 0)
+            {
+                DelayedFrames.Return(delayed.Pop().Buffer);
+            }
+
+            link.DelayedBytes = 0;
+        }
+
+        /// <summary>
+        /// Sends a probe, or the answer to one, in a ping frame. It carries its round trip so far
+        /// and how many packets this side sent and lost, so the other side learns its loss.
+        /// </summary>
+        private void SendProbe(MachineLink link, byte probe, double roundTrip)
+        {
+            if (!Simulate(link, isReliable: false, isProbe: true, out double delay))
+            {
+                return;
+            }
+
+            _writer.Clear();
+            _writer.WriteByte(probe);
+            _writer.WriteULong((ulong)Math.Round((roundTrip + delay) * 1_000_000.0));
+            _writer.WriteULong((ulong)link.PacketsOut);
+            _writer.WriteULong((ulong)link.PacketsLostOut);
+            Transmit(link, MachineFrameKind.Ping, _writer.Written, isReliable: false, delay);
+        }
+
+        private void HandleProbe(MachineLink link, ReadOnlySpan<byte> payload)
+        {
+            byte probe;
+            double roundTrip;
+            long sent;
+            long lost;
+            try
+            {
+                PacketReader reader = new PacketReader(payload);
+                probe = reader.ReadByte();
+                roundTrip = reader.ReadULong() / 1_000_000.0;
+                sent = (long)reader.ReadULong();
+                lost = (long)reader.ReadULong();
+            }
+            catch (FormatException)
+            {
+                // A probe of another version; the ping kept the connection alive all the same.
+                return;
+            }
+
+            // A probe that a newer one overtook tells nothing new.
+            if (sent >= link.PacketsIn && lost >= link.PacketsLostIn && lost - link.PacketsLostIn <= sent - link.PacketsIn)
+            {
+                link.Meter.AddInbound(sent - link.PacketsIn, lost - link.PacketsLostIn);
+                link.PacketsIn = sent;
+                link.PacketsLostIn = lost;
+            }
+
+            if (probe == MachineProtocol.ProbeRequest)
+            {
+                SendProbe(link, MachineProtocol.ProbeReply, roundTrip);
+            }
+            else if (probe == MachineProtocol.ProbeReply)
+            {
+                link.Meter.AddRoundTrip(roundTrip);
+            }
+        }
+        #endregion
 
         public void Disconnect(ConnectionId connection, int reasonCode)
         {
@@ -198,6 +365,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             link.IsIncoming = true;
             link.IsReported = true;
             link.Deadline = 0.0;
+            link.Meter = new ConnectionMeter(Now);
             _sessions[id] = link;
 
             _writer.Clear();
@@ -216,6 +384,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 case MachineFrameKind.Data:
                     if (link.IsReported)
                     {
+                        link.Meter.AddReceived(payload.Length);
                         _listener?.OnReceived(link.Connection, link.Remote, payload);
                     }
                     break;
@@ -280,6 +449,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             link.RemoteName = name;
             link.IsReported = true;
             link.Deadline = 0.0;
+            link.Meter = new ConnectionMeter(Now);
             _listener?.OnConnected(link.Connection, link.Remote, false);
         }
 

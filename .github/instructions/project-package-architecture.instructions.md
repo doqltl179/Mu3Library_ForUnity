@@ -31,7 +31,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## Assemblies And Optional Integrations
 
-- Dependency direction: URP → Base, Watermelon Game → Base and URP; inside Base, `Mu3Library` → `Mu3Library.DI` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.DI` (for `IUpdatable`) and nothing else in Base, `Mu3Library.Multiplayer.Steam` → `Mu3Library.Multiplayer` and nothing else in Base, and `Mu3Library.Notifications` references none of them. Never reverse it, and add no other hard dependency between assemblies. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
+- Dependency direction: URP → Base, Watermelon Game → Base and URP; inside Base, `Mu3Library` → `Mu3Library.DI` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.DI` (for `IUpdatable` and the `CoreRoot` lookup the Multiplayer Debugger window uses) and nothing else in Base, `Mu3Library.Multiplayer.Steam` → `Mu3Library.Multiplayer` and nothing else in Base, `Mu3Library.Notifications` references none of them, and the editor assembly `Mu3Library.Editor` → `Mu3Library`, `Mu3Library.DI`, and `Mu3Library.Multiplayer` (for the Multiplayer Debugger window). Never reverse it, and add no other hard dependency between assemblies. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
 - Optional packages are gated by these `versionDefines` symbols, declared in the `.asmdef` of each assembly that uses the package:
 
 | Package | Define symbol |
