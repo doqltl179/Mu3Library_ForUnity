@@ -49,7 +49,7 @@ Entering it:
 - creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode;
 - activates that virtual environment, so its `python` and `mu3-cli` come first on `PATH`;
 - sets every variable that `.env.local` at the repository root lists, such as those in [Environment](#environment), and `MU3_DEV_ROOT` to the repository root;
-- in PowerShell on Windows, puts the bash of Git for Windows first on `PATH`, so `bash ./test-unity.sh` runs the bash the scripts are written for.
+- in PowerShell on Windows, makes `bash` run the bash that `mu3-cli` uses, normally that of Git for Windows, putting its folder first on `PATH` when `bash` does not already find it, so `bash ./test-unity.sh` runs the bash the scripts are written for.
 
 `deactivate` restores every variable and `PATH` as they were before. Entering it while another virtual environment is active leaves that one first. The `.envrc` does not create `.venv`; run one of the scripts once first. The PowerShell script needs an execution policy that runs local scripts, such as `RemoteSigned`.
 

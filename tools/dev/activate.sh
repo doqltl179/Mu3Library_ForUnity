@@ -52,10 +52,18 @@ _mu3_dev_enter() {
         }
     fi
 
+    # Activating over another virtual environment would leave half of it behind after deactivate.
+    if [[ -n "${VIRTUAL_ENV:-}" ]] && declare -F deactivate >/dev/null; then
+        printf '[mu3] Leaving the active virtual environment %s\n' "$VIRTUAL_ENV"
+        deactivate
+    fi
+
     # --- What deactivate restores ---------------------------------------------------------
-    _MU3_DEV_SAVED_NAMES=(MU3_DEV_ROOT)
-    _MU3_DEV_SAVED_VALUES=("${MU3_DEV_ROOT-}")
-    _MU3_DEV_SAVED_SET=("${MU3_DEV_ROOT+1}")
+    # VIRTUAL_ENV and VIRTUAL_ENV_PROMPT can come from a parent process, such as an editor's
+    # terminal, with no deactivate to call; the virtual environment's activation removes them.
+    _MU3_DEV_SAVED_NAMES=(MU3_DEV_ROOT VIRTUAL_ENV VIRTUAL_ENV_PROMPT)
+    _MU3_DEV_SAVED_VALUES=("${MU3_DEV_ROOT-}" "${VIRTUAL_ENV-}" "${VIRTUAL_ENV_PROMPT-}")
+    _MU3_DEV_SAVED_SET=("${MU3_DEV_ROOT+1}" "${VIRTUAL_ENV+1}" "${VIRTUAL_ENV_PROMPT+1}")
 
     # --- .env.local -----------------------------------------------------------------------
     # Loaded before the virtual environment, so a variable that changes how it activates, such

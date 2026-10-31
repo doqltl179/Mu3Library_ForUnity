@@ -71,8 +71,13 @@
     }
 
     # --- What deactivate restores ----------------------------------------------------------
+    # VIRTUAL_ENV and VIRTUAL_ENV_PROMPT can come from a parent process, such as an editor's
+    # terminal, with no deactivate to call; the virtual environment's activation removes them.
     $savedPath = $env:PATH
-    $saved = @{ 'MU3_DEV_ROOT' = $env:MU3_DEV_ROOT }
+    $saved = @{}
+    foreach ($name in 'MU3_DEV_ROOT', 'VIRTUAL_ENV', 'VIRTUAL_ENV_PROMPT') {
+        $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    }
 
     # --- .env.local ------------------------------------------------------------------------
     # Loaded before the virtual environment, so a variable that changes how it activates, such
@@ -117,15 +122,23 @@
     # --- Git Bash --------------------------------------------------------------------------
     # PowerShell on Windows has no bash on PATH, or finds WSL's, which cannot run the
     # repository's scripts. mu3-cli's own lookup (tools/cli/README.md, "Bash on Windows")
-    # chooses the bash, so both run the same one.
+    # chooses the bash, so both run the same one. Exit code 3 means mu3-cli is missing.
     $bash = $null
     if ($onWindows) {
-        $bash = & python -c "import contextlib, mu3_cli.unity as u`nwith contextlib.suppress(Exception): print(u.find_windows_bash())"
-        if ($bash) {
-            $env:PATH = (Split-Path -Path $bash -Parent) + [IO.Path]::PathSeparator + $env:PATH
+        $bash = & python -I -c "import contextlib, sys`ntry: import mu3_cli.unity as u`nexcept ImportError: sys.exit(3)`nwith contextlib.suppress(Exception): print(u.find_windows_bash())"
+        if ($LASTEXITCODE -eq 3) {
+            Write-Warning "[mu3] mu3-cli is not installed in $venv, so Git Bash was not looked up; delete the folder and enter again."
+        }
+        elseif (-not $bash) {
+            Write-Warning '[mu3] Git Bash was not found; install Git for Windows to run the .sh scripts.'
         }
         else {
-            Write-Warning '[mu3] Git Bash was not found; install Git for Windows to run the .sh scripts.'
+            # A bash that PATH already finds stays where it is: moving its folder, such as
+            # Git\usr\bin, to the front would put Git's Unix tools ahead of Windows' own.
+            $bashCommand = Get-Command -Name bash -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $bashCommand -or $bashCommand.Source -ne $bash) {
+                $env:PATH = (Split-Path -Path $bash -Parent) + [IO.Path]::PathSeparator + $env:PATH
+            }
         }
     }
     else {
