@@ -4,6 +4,7 @@
 # trailing CR as part of the value and breaks on a CRLF checkout.
 *.sh text eol=lf
 *.tsv text eol=lf
+.envrc text eol=lf
 
 # The Unity Editor writes the YAML of its scenes, assets, and .meta files with LF line
 # endings on every platform, including the settings it saves again on each batch run.

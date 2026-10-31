@@ -5,6 +5,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 | Path | Owns |
 |---|---|
 | [cli/](cli/README.md) | Python CLI (`mu3-cli`) with the `repo` command group for repository checks and the `unity` group for Unity automation |
+| [dev/](dev/) | The scripts that enter the [development environment](#development-environment), which the root `.envrc` mirrors for direnv, and `env.local.example`, the template for personal variables |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
 | [../test-unity.sh](../test-unity.sh) | EditMode and PlayMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
 
@@ -17,7 +18,7 @@ Run `mu3-cli repo check` before sharing repository-level documentation or agent-
 A new clone or worktree holds only tracked files. Set it up in this order before the first Unity run:
 
 1. Install the Unity Editor version that each `UnityProject_*/ProjectSettings/ProjectVersion.txt` names through Unity Hub, and on Windows Git for Windows, whose bash runs the shell entrypoint.
-2. Install Python 3.10 or later and the CLI's one dependency, `typer`: `python -m pip install -e tools/cli` installs both, or follow the virtual-environment flow in [cli/README.md](cli/README.md#environment-bootstrap). Every command below also runs without installing the CLI, from the repository root with `PYTHONPATH=tools/cli/src python -m mu3_cli` in place of `mu3-cli`.
+2. Install Python 3.10 or later, then enter the [development environment](#development-environment), which installs the CLI and its one dependency, `typer`, into `.venv` at the repository root on first use. `python -m pip install -e tools/cli` installs both without it. Every command below also runs without installing the CLI, from the repository root with `PYTHONPATH=tools/cli/src python -m mu3_cli` in place of `mu3-cli`.
 3. Link the package samples into the development projects. This is the project's `commands.worktree_setup`:
 
    ```bash
@@ -32,6 +33,27 @@ A new clone or worktree holds only tracked files. Set it up in this order before
    ```
 
 5. Compile and test: `./compile-unity.sh all`, then `./test-unity.sh all` and `./test-unity.sh all --platform playmode`, restoring the settings file the PlayMode run re-saves (see [Unity Test Entrypoint](#unity-test-entrypoint)). The first run of each project imports it from scratch and takes minutes. On Windows, run Unity from a short path: a deep checkout, such as one under `.claude/worktrees/`, pushes Unity's `Library/PackageCache` past the 260-character limit, so map it to a drive letter with `subst` first and run the commands from that drive. The shell entrypoints and `mu3-cli` both open the project on the drive they run from.
+
+## Development Environment
+
+One command enters the repository's development environment in a terminal, from any folder of the checkout:
+
+| Shell | Enter | Leave |
+|---|---|---|
+| PowerShell | `. .\tools\dev\activate.ps1` | `deactivate` |
+| bash, including Git Bash | `source tools/dev/activate.sh` | `deactivate` |
+| direnv | `direnv allow` once, then enter the repository folder | leave the folder |
+
+Entering it:
+
+- creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode;
+- activates that virtual environment, so its `python` and `mu3-cli` come first on `PATH`;
+- sets every variable that `.env.local` at the repository root lists, such as those in [Environment](#environment), and `MU3_DEV_ROOT` to the repository root;
+- in PowerShell on Windows, puts the bash of Git for Windows first on `PATH`, so `bash ./test-unity.sh` runs the bash the scripts are written for.
+
+`deactivate` restores every variable and `PATH` as they were before. The `.envrc` does not create `.venv`; run one of the scripts once first. Dot-sourcing the PowerShell script needs an execution policy that runs local scripts, such as `RemoteSigned`.
+
+`.env.local` is personal and Git-ignored; copy [dev/env.local.example](dev/env.local.example) to start one. It holds one `KEY=VALUE` per line, a line starting with `#` is a comment, and quotes around a value are optional. Keep comments on their own lines and `$` out of values: direnv reads both differently from the scripts. PowerShell has no `NAME=value command` form, so a variable that a bash example sets for one command belongs in `.env.local`, or in `$env:NAME = 'value'` for the current session.
 
 ## Unity Compile Entrypoint
 
@@ -98,7 +120,7 @@ The check therefore compiles against the Unity packages a project on that Editor
 
 ## Environment
 
-The shell entrypoints and `mu3-cli unity doctor` read the same variables, so the Editor the doctor accepts is the one the script runs.
+The shell entrypoints and `mu3-cli unity doctor` read the same variables, so the Editor the doctor accepts is the one the script runs. Listed in `.env.local`, they are set in every terminal that enters the [development environment](#development-environment).
 
 | Variable | Effect |
 |---|---|
