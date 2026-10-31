@@ -125,6 +125,15 @@ namespace Mu3Library.Multiplayer.Backend
         /// and <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or size.
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted);
+
+        /// <summary>
+        /// Shows this player's friends a status text and the session this player is in, as a
+        /// group of <paramref name="groupSize"/> players. A null status removes the status, and
+        /// <see cref="LobbyId.None"/> removes the group; the manager calls it only when something
+        /// changed, and with neither to remove both. A backend without such a feature does nothing
+        /// and answers true. False when the platform refused it.
+        /// </summary>
+        public bool SetPresence(string status, LobbyId group, int groupSize);
         #endregion
     }
 }

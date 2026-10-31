@@ -329,6 +329,16 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SetPresence_ChangesNothingAndSucceeds()
+        {
+            // FR-13: the machine-wide network has no friends list either.
+            LocalBackend backend = CreateRawBackend(CreateNetwork(), "A");
+
+            Assert.That(backend.SetPresence("Status", new LobbyId(1), 2), Is.True);
+            Assert.That(backend.SetPresence(null, LobbyId.None, 0), Is.True);
+        }
+
+        [Test]
         public void Crash_IsReportedAsALostConnection()
         {
             (LocalBackend host, _, _, RecordingListener clientEvents) = ConnectPair();

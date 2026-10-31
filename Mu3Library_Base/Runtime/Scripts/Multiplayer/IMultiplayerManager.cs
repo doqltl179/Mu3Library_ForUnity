@@ -226,6 +226,25 @@ namespace Mu3Library.Multiplayer
         /// </para>
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<AvatarResult> callback);
+
+        /// <summary>
+        /// In a session, from <see cref="CreateLobby"/> or <see cref="JoinLobby"/> on; outside one
+        /// it answers <see cref="MultiplayerReason.InvalidState"/>. Sets the status text the
+        /// platform shows this player's friends, and null or empty removes it. Without a call, the
+        /// manager still tells the platform which session this player is in and how many players
+        /// it has, the ones whose slot the host keeps while they are away included, so the
+        /// players of one session show as one group: from the lobby or the game on, for a late
+        /// joiner too, and through <see cref="SessionState.Reconnecting"/>. When the session ends
+        /// for any reason, or the manager is disposed, the manager removes the status and the
+        /// group before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change
+        /// to Offline, so every session starts without a status. Text that holds a NUL character
+        /// or an unpaired UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>,
+        /// text longer than <see cref="MultiplayerLimits.MaxPresenceStatusSize"/> UTF-8 bytes
+        /// <see cref="MultiplayerReason.MessageTooLarge"/>, and a platform that refuses it
+        /// <see cref="MultiplayerReason.BackendError"/>. The local backend shows nothing and
+        /// succeeds. What Steam shows of it is in the remarks of <c>SteamBackend.SetPresence</c>.
+        /// </summary>
+        public MultiplayerResult SetPresenceStatus(string status);
         #endregion
     }
 }

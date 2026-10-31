@@ -371,6 +371,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             ShutdownConnections(steamRuns);
             ShutdownLobbies(steamRuns);
+            ShutdownPresence(steamRuns);
 
             if (_ownsSteam && steamRuns)
             {

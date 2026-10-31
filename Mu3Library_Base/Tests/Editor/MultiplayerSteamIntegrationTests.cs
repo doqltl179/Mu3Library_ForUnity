@@ -373,6 +373,98 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamPresence_ShowsTheStatusAndTheSessionAsAGroup_UntilTheSessionEnds()
+        {
+            // FR-13 and FR-28 on Steam itself, read back from this account's own rich presence:
+            // how another account's friends list shows them is a manual check.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreateFriendsOnlyLobby(manager, "forest");
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo(lobby.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.EqualTo("1"));
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+
+                Assert.That(manager.SetPresenceStatus("Mu3 test: 숲").IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test: 숲"));
+
+                // The longest status the manager takes reads back whole; Steam itself refuses one byte more.
+                string longest = new string('x', MultiplayerLimits.MaxPresenceStatusSize);
+                Assert.That(manager.SetPresenceStatus(longest).IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo(longest));
+                bool takesOneMore = Steamworks.SteamFriends.SetRichPresence(SteamBackend.StatusKey, longest + "x");
+                TestContext.WriteLine($"Steam {(takesOneMore ? "took" : "refused")} a status of {longest.Length + 1} bytes; it reads back {OwnPresence(SteamBackend.StatusKey).Length} bytes.");
+                Assert.That(takesOneMore, Is.False, "Steam refuses a status one byte longer");
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo(longest));
+
+                manager.Leave();
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamPresence_IsRemovedWhenTheManagerIsDisposed_AndLeavesTheGamesOwnKeys()
+        {
+            // FR-28 on Steam itself; a key the game set through Steamworks stays the game's.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                CreateFriendsOnlyLobby(manager, "forest");
+                Assert.That(Steamworks.SteamFriends.SetRichPresence("mu3_test", "kept"), Is.True);
+                Assert.That(manager.SetPresenceStatus("Mu3 test").IsSuccess, Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+
+                manager.Dispose();
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+                Assert.That(OwnPresence("mu3_test"), Is.EqualTo("kept"));
+            }
+            finally
+            {
+                manager.Dispose();
+                Steamworks.SteamFriends.SetRichPresence("mu3_test", string.Empty);
+            }
+        }
+
+        [Test]
+        public void SteamPresence_IsRemovedWhenTheBackendIsDisposed()
+        {
+            // FR-28 for a game that disposes the backend without the manager. A second backend
+            // finds Steam running, so disposing it leaves Steam up to read the keys back.
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480 }, out SteamBackend second);
+            Assert.That(created.IsSuccess, Is.True, created.ToString());
+            try
+            {
+                Assert.That(second.OwnsSteam, Is.False);
+                Assert.That(second.SetPresence("Mu3 test", new LobbyId(123), 2), Is.True);
+                Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test"));
+                Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("123"));
+                Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.EqualTo("2"));
+            }
+            finally
+            {
+                second.Dispose();
+            }
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        /// <summary>A value of this account's own rich presence; empty when the key is not set.</summary>
+        private string OwnPresence(string key)
+        {
+            return Steamworks.SteamFriends.GetFriendRichPresence(new Steamworks.CSteamID(_backend.LocalPlayerId.Value), key);
+        }
+
         /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
         private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
         {

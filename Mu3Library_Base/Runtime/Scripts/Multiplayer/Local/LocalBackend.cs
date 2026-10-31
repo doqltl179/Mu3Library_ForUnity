@@ -897,6 +897,12 @@ namespace Mu3Library.Multiplayer.Local
 
             EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.NotSupported, default));
         }
+
+        /// <summary>The local network has no friends to show a presence to: it does nothing and answers true.</summary>
+        public bool SetPresence(string status, LobbyId group, int groupSize)
+        {
+            return true;
+        }
         #endregion
 
         #region Events

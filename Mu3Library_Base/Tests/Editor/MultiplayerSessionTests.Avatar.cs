@@ -19,7 +19,8 @@ namespace Mu3Library.Tests
     {
         /// <summary>
         /// A <see cref="LocalBackend"/> with what the local network lacks: the avatars a test hands
-        /// it, answered on its next update as a backend must.
+        /// it, answered on its next update as a backend must, and a record of every presence the
+        /// manager asked it to show.
         /// </summary>
         private sealed class PlatformBackend : IMultiplayerBackend
         {
@@ -93,6 +94,24 @@ namespace Mu3Library.Tests
                 }
 
                 _avatarAnswers.Enqueue(() => onCompleted?.Invoke(reason, avatar));
+            }
+
+            /// <summary>Every presence the manager asked to show, in order, the refused ones left out.</summary>
+            public readonly List<(string Status, LobbyId Group, int GroupSize)> Presences = new List<(string Status, LobbyId Group, int GroupSize)>();
+
+            public bool RefusesPresence;
+
+            public (string Status, LobbyId Group, int GroupSize) Presence => Presences.Count > 0 ? Presences[Presences.Count - 1] : (null, LobbyId.None, 0);
+
+            public bool SetPresence(string status, LobbyId group, int groupSize)
+            {
+                if (RefusesPresence)
+                {
+                    return false;
+                }
+
+                Presences.Add((status, group, groupSize));
+                return _inner.SetPresence(status, group, groupSize);
             }
 
             public void Dispose() => _inner.Dispose();
