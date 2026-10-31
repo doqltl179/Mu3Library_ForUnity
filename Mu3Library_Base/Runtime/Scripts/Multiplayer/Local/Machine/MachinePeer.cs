@@ -246,6 +246,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             if (!_isDisposed)
             {
+                // What a callback of this update sent before the outage started is on the wire
+                // already, as it is when the game sends between updates.
+                FlushQueued();
                 _outageEnd = Math.Max(_outageEnd, Now + seconds);
             }
         }
@@ -261,6 +264,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            // Disposed from a callback of this update, it sends what the update queued first: a
+            // member expects an owner's session packets before its hand-over (OwnerGone).
+            FlushQueued();
             HandOverOwnedLobbies();
             _isDisposed = true;
 

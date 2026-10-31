@@ -57,6 +57,19 @@ namespace Mu3Library.Tests
             public void OnLobbyJoinRequested(LobbyId lobby) { }
         }
 
+        /// <summary>Records connections and hands each packet it receives, inside the update, to <see cref="Received"/>.</summary>
+        private sealed class CallbackListener : IMultiplayerBackendListener
+        {
+            public readonly List<ConnectionId> Connected = new List<ConnectionId>();
+            public Action<ConnectionId, byte[]> Received;
+
+            public void OnConnected(ConnectionId connection, PlayerId remote, bool isIncoming) => Connected.Add(connection);
+            public void OnDisconnected(ConnectionId connection, PlayerId remote, BackendDisconnectKind kind, int reasonCode) { }
+            public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => Received?.Invoke(connection, data.ToArray());
+            public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
+            public void OnLobbyJoinRequested(LobbyId lobby) { }
+        }
+
         /// <summary>A raw backend with what its listener heard.</summary>
         private sealed class Peer
         {
@@ -741,6 +754,36 @@ namespace Mu3Library.Tests
             Assert.That(host.Messages.Single().Payload, Is.EqualTo(new byte[] { 1 }));
             Assert.That(client.Messages.Single().Payload, Is.EqualTo(new byte[] { 3 }));
             Assert.That(client.States.Last().Current, Is.EqualTo(SessionState.Lobby));
+        }
+
+        [Test]
+        public void Outage_StartedInsideAnUpdate_LetsWhatTheUpdateSentBeforeItLeave()
+        {
+            // An answer sent from a callback of the update is on the wire before an outage the same
+            // callback starts, as a packet sent between updates is, and not held back until it ends.
+            CallbackListener hostEvents = new CallbackListener();
+            RecordingListener clientEvents = new RecordingListener();
+            LocalBackend host = CreateRawBackend(CreateNetwork(), "Host", hostEvents);
+            LocalBackend client = CreateRawBackend(CreateNetwork(), "Client", clientEvents);
+            LobbyId lobby = CreateLobby(host, LobbyVisibility.Public, 2);
+            Assert.That(host.StartListening(), Is.True);
+            Assert.That(Join(client, lobby), Is.EqualTo(MultiplayerReason.None));
+            ConnectionId toHost = client.Connect(host.LocalPlayerId);
+            PumpUntil(() => clientEvents.Connected.Count == 1 && hostEvents.Connected.Count == 1, "the connection");
+
+            bool? answered = null;
+            hostEvents.Received = (connection, data) =>
+            {
+                hostEvents.Received = null;
+                answered = host.Send(connection, new byte[] { 7 }, DeliveryMode.Unreliable);
+                host.SimulateOutage(5f);
+            };
+            Assert.That(client.Send(toHost, new byte[] { 1 }, DeliveryMode.Reliable), Is.True);
+
+            PumpUntil(() => answered.HasValue, "the host to answer");
+            Assert.That(answered, Is.True);
+            PumpUntil(() => clientEvents.Received.Count == 1, "the answer sent just before the outage", 2.0);
+            Assert.That(clientEvents.Received.Single(), Is.EqualTo(new byte[] { 7 }));
         }
 
         [Test]
