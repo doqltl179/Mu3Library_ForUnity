@@ -132,14 +132,15 @@ namespace Mu3Library.Tests
         [Test]
         public void Reader_RefusesAShortOrMalformedPayload()
         {
-            // NFR-5
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[3]).ReadInt());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[7]).ReadVector2());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[] { 2 }).ReadBool());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[] { 0xFE, 0xFF, 0xFF, 0xFF }).ReadString());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }).ReadBytes());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[] { 0x05, 0x00, 0x00, 0x00, 0x41 }).ReadString());
-            Assert.Throws<FormatException>(() => new MessageReader(new byte[] { 0xFF, 0xFF, 0xFF, 0x7F, 0x41 }).ReadBytesSpan());
+            // NFR-5. The reader throws its own kind of FormatException, which the manager logs
+            // without a stack trace.
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[3]).ReadInt());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[7]).ReadVector2());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[] { 2 }).ReadBool());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[] { 0xFE, 0xFF, 0xFF, 0xFF }).ReadString());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }).ReadBytes());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[] { 0x05, 0x00, 0x00, 0x00, 0x41 }).ReadString());
+            Assert.Catch<FormatException>(() => new MessageReader(new byte[] { 0xFF, 0xFF, 0xFF, 0x7F, 0x41 }).ReadBytesSpan());
         }
 
         [Test]

@@ -152,8 +152,12 @@ namespace Mu3Library.Multiplayer
         /// answers <see cref="MultiplayerReason.ConnectionLost"/>, as sending does. Sends a text
         /// message to every player of the session, this player included, through
         /// <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or empty text answers
-        /// <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
-        /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and so does text with a UTF-16
+        /// surrogate without its pair, as a text field that cuts an emoji in half leaves: UTF-8
+        /// would carry it as a replacement character, so the other players would hear other text
+        /// than this player's own handlers. The call refuses such text rather than mending it, so
+        /// every player hears the same text and the game learns that its text would not arrive
+        /// as written. Text longer than <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. That limit stands
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
         /// The host's own message is handled before the call returns, and a client's, its own copy

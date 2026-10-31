@@ -31,6 +31,11 @@ namespace Mu3Library.Multiplayer
     /// to the largest message, writing numbers, <see cref="bool"/>, strings, byte blocks, and the
     /// Unity types allocates nothing. One writer serves one thread at a time.
     /// </para>
+    /// <para>
+    /// A number, a string, or a byte block that would grow the message past the largest byte
+    /// array the runtime creates throws <see cref="InvalidOperationException"/> before it writes
+    /// anything, so <see cref="Length"/> stays as it was and the message can go on.
+    /// </para>
     /// </remarks>
     public sealed class MessageWriter
     {
@@ -115,6 +120,10 @@ namespace Mu3Library.Multiplayer
 
         #region Text And Bytes
         /// <summary>Writes the UTF-8 byte count, or -1 for null, then the UTF-8 bytes.</summary>
+        /// <exception cref="InvalidOperationException">
+        /// The message would grow past the largest byte array the runtime creates. Nothing is
+        /// written, and <see cref="Length"/> stays as it was.
+        /// </exception>
         public void WriteString(string value)
         {
             if (value == null)
@@ -123,16 +132,23 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // Room for the length and the bytes first, so a write that cannot fit leaves no
+            // length behind it.
             int byteCount = Encoding.UTF8.GetByteCount(value);
+            Ensure((long)sizeof(int) + byteCount);
             WriteInt(byteCount);
-            Ensure(byteCount);
             Encoding.UTF8.GetBytes(value, 0, value.Length, _buffer, _length);
             _length += byteCount;
         }
 
         /// <summary>Writes the length, then the bytes. A null array writes as an empty block.</summary>
+        /// <exception cref="InvalidOperationException">
+        /// The message would grow past the largest byte array the runtime creates. Nothing is
+        /// written, and <see cref="Length"/> stays as it was.
+        /// </exception>
         public void WriteBytes(ReadOnlySpan<byte> value)
         {
+            Ensure((long)sizeof(int) + value.Length);
             WriteInt(value.Length);
             value.CopyTo(Reserve(value.Length));
         }
@@ -180,9 +196,10 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Grows the buffer to hold <paramref name="additional"/> more bytes, doubling it until it
-        /// would pass the largest byte array the runtime creates.
+        /// would pass the largest byte array the runtime creates, and throws before it changes
+        /// anything when even that is too small.
         /// </summary>
-        private void Ensure(int additional)
+        private void Ensure(long additional)
         {
             long required = (long)_length + additional;
             if (required <= _buffer.Length)

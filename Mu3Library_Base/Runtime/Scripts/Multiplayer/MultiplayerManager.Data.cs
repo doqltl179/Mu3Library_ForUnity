@@ -198,8 +198,8 @@ namespace Mu3Library.Multiplayer
         #region Client
         private void HandleLobbyDataChanged(ref PacketReader reader)
         {
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxLobbyDataSize);
             if (!IsValidDataKey(key))
             {
                 throw new FormatException("The host changed lobby data under an invalid key.");
@@ -212,8 +212,8 @@ namespace Mu3Library.Multiplayer
         private void HandleParticipantDataChanged(ref PacketReader reader)
         {
             PlayerId player = new PlayerId(reader.ReadULong());
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
             if (!IsValidDataKey(key))
             {
                 throw new FormatException("The host changed participant data under an invalid key.");
@@ -258,35 +258,37 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// False for text that does not reach the other players unchanged: a NUL character, where
-        /// Steam ends a string, or a surrogate without its pair, which UTF-8 turns into a
-        /// replacement character, so the other players would hold another key or value than the sender.
+        /// Steam ends a string, or a surrogate without its pair, so the other players would hold
+        /// another key or value than the sender.
         /// </summary>
-        private static bool IsCleanText(string text)
+        private static bool IsCleanText(string text) => text.IndexOf('\0') < 0 && !HasUnpairedSurrogate(text);
+
+        /// <summary>
+        /// True for text with a UTF-16 surrogate without its pair, as a text field that cuts an
+        /// emoji in half leaves. UTF-8 turns it into a replacement character, so the other players
+        /// would read other text than the sender.
+        /// </summary>
+        private static bool HasUnpairedSurrogate(string text)
         {
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
-                if (c == '\0')
-                {
-                    return false;
-                }
-
                 if (char.IsHighSurrogate(c))
                 {
                     if (i + 1 >= text.Length || !char.IsLowSurrogate(text[i + 1]))
                     {
-                        return false;
+                        return true;
                     }
 
                     i++;
                 }
                 else if (char.IsLowSurrogate(c))
                 {
-                    return false;
+                    return true;
                 }
             }
 
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -348,7 +350,10 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        /// <summary>Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of <paramref name="limit"/>.</summary>
+        /// <summary>
+        /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
+        /// <paramref name="limit"/>, and no value more than all of it.
+        /// </summary>
         private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
         {
             int count = reader.ReadInt();
@@ -360,8 +365,8 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> data = new Dictionary<string, string>(count);
             for (int i = 0; i < count; i++)
             {
-                string key = reader.ReadString();
-                string value = reader.ReadString();
+                string key = reader.ReadString(MaxDataKeyBytes);
+                string value = reader.ReadString(limit);
                 if (!IsValidDataKey(key))
                 {
                     throw new FormatException("Data under an invalid key.");
