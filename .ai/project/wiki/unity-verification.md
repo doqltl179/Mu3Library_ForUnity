@@ -1,7 +1,7 @@
 ---
 owns: "How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states"
 volatility: evolving
-reviewed: 2026-10-24
+reviewed: 2026-10-31
 ---
 
 # Unity Verification
@@ -50,6 +50,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 - EditMode tests live in `Mu3Library_Base/Tests/Editor` (`Mu3Library.Tests.Editor.asmdef`), `Mu3Library_URP/Tests/Editor` (`Mu3Library.URP.Tests.Editor.asmdef`), and `Mu3Library_Game_WatermelonGame/Tests/Editor`. Add new ones next to the nearest existing pattern.
 - PlayMode tests live in `Mu3Library_Base/Tests/Runtime` (`Mu3Library.Tests.Runtime.asmdef`) and cover what only the player loop shows: a core's preparation when its component or object is turned off or destroyed, and the `CoreRoot` accessor once the application quits. A test belongs there only when edit mode cannot observe the behavior. The assembly also holds the components that EditMode tests save into a prefab, such as `ObservablePrefabTestComponent`, since a prefab keeps a component only through its own script and `AddComponent` refuses a script from an editor assembly; `Mu3Library.Tests.Editor` references it for them.
+- `MultiplayerSteamIntegrationTests` run the Steam backend against the Steam client on the machine, on Steam's test app 480, only when the environment variable `MU3LIBRARY_STEAM_TESTS=1` reaches Unity (for example `MU3LIBRARY_STEAM_TESTS=1 bash ./test-unity.sh built-in`) and a signed-in Steam client runs; otherwise they report as ignored. Two players on two accounts remain a manual check (section 13 of `docs/specs/steam-player-hosted-multiplayer.md`).
 - `commands.test` runs the EditMode tests through the Unity Test Framework CLI for the projects that consume a changed package, selected as `commands.build` selects them, and `commands.test_playmode` runs the PlayMode tests for the same selection. Explicit targets: `bash ./test-unity.sh built-in|urp|watermelon|all`, with the compile script's options and `--platform editmode|playmode`; `mu3-cli unity test` wraps it.
 - A project runs only the packages its `Packages/manifest.json` lists under `testables`: `built-in` runs the Base tests, `urp` the Base and URP tests, and `watermelon` the Base and Watermelon Game tests. Base tests therefore run under three define sets, and `urp` is the only one without UniTask, so only its runs reach the coroutine paths that stand in for UniTask, such as `CoreBase`'s preparation.
 - The command exits non-zero when a test fails, Unity fails, or a run writes no result. Such a failure does not stop the remaining targets; a target that cannot start, such as an open project under `--in-place`, stops the command at once. NUnit XML lands in `log/unity-tests/<target>-<platform>.xml`. A project open in an Editor is tested in an isolated mirror, as in compile.

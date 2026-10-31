@@ -24,7 +24,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 | Package | Surface | Rules |
 |---|---|---|
-| Base | Runtime `Runtime/Scripts`: `Mu3Library.asmdef`, with four folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references), `DI/` (`Mu3Library.DI.asmdef`), `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface), and `Notifications/` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
+| Base | Runtime `Runtime/Scripts`: `Mu3Library.asmdef`, with four folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references), `DI/` (`Mu3Library.DI.asmdef`), `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface, with `Multiplayer/Steam/` in `Mu3Library.Multiplayer.Steam.asmdef`, the Steam backend, standalone players and the editor only), and `Notifications/` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
 | Base | Editor `Editor/Scripts` (`Mu3Library.Editor.asmdef`) | Match nearby drawer, window, and utility patterns. Generated-script helpers live in `Editor/Scripts/FileUtil`: identifier rules in `ScriptIdentifier`, output in `FileCreator`, asset path checks in `FileFinder` |
 | URP | Runtime `Runtime/Scripts` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
 | URP | Shaders `Runtime/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
@@ -33,7 +33,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## Assemblies And Optional Integrations
 
-- Dependency direction: URP → Base, Watermelon Game → Base and URP; inside Base, `Mu3Library` → `Mu3Library.DI` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.DI` (for `IUpdatable`) and nothing else in Base, and `Mu3Library.Notifications` references none of them. Never reverse it, and add no other hard dependency between assemblies. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
+- Dependency direction: URP → Base, Watermelon Game → Base and URP; inside Base, `Mu3Library` → `Mu3Library.DI` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.DI` (for `IUpdatable`) and nothing else in Base, `Mu3Library.Multiplayer.Steam` → `Mu3Library.Multiplayer` and nothing else in Base, and `Mu3Library.Notifications` references none of them. Never reverse it, and add no other hard dependency between assemblies. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
 - Optional packages are gated by these `versionDefines` symbols, declared in the `.asmdef` of each assembly that uses the package:
 
 | Package | Define symbol |
@@ -43,9 +43,10 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 | `com.unity.localization` | `MU3LIBRARY_LOCALIZATION_SUPPORT` |
 | `com.unity.inputsystem` | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` |
 | `com.unity.mobile.notifications` | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` |
+| `com.rlabrecque.steamworks.net` | `MU3LIBRARY_STEAMWORKS_SUPPORT` |
 
-- Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in that integration's folder (`Addressable/`, `Localization/`, `IS/`, `Notifications/`).
-- `Notifications/` is its own assembly, `Mu3Library.Notifications`, which lists `MU3LIBRARY_NOTIFICATIONS_SUPPORT` in `defineConstraints`: without the package Unity skips the whole assembly, so its files need no `#if` for that symbol.
+- Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in that integration's folder (`Addressable/`, `Localization/`, `IS/`, `Notifications/`, `Multiplayer/Steam/`).
+- `Notifications/` is its own assembly, `Mu3Library.Notifications`, which lists `MU3LIBRARY_NOTIFICATIONS_SUPPORT` in `defineConstraints`: without the package Unity skips the whole assembly, so its files need no `#if` for that symbol. `Mu3Library.Multiplayer.Steam` does the same with `MU3LIBRARY_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, since Steamworks.NET hides its types on other build targets; `UnityProject_BuiltIn` installs Steamworks.NET so the assembly compiles there, and the other projects prove Base compiles without it.
 - `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui` or `com.unity.render-pipelines.universal` is declared at the version the `unity` floor bundles (`2.0.0` and `17.3.0` for `6000.3`); a higher version raises the floor in effect. The development projects enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit.
 - A module that only a sample under `Samples~` uses is not declared, such as the 3D physics of Base's Template sample, and an optional integration from the table above never is: it stays behind its define gate.
 
