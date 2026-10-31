@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer
@@ -56,5 +57,15 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.NotInitialized"/> before initialization.
         /// </returns>
         public MultiplayerResult Send(ushort messageType, ReadOnlySpan<byte> payload, MessageTarget target, DeliveryMode deliveryMode = DeliveryMode.Reliable);
+
+        /// <summary>
+        /// Fills <paramref name="results"/>, which it clears first, with one entry per registered
+        /// message type: how many messages of the type this player sent, and how many from other
+        /// players reached it, since the type was registered. The counts outlive sessions, and
+        /// unregistering a type drops them. With room in the list it allocates nothing, so a game
+        /// can show the counts every frame, as the editor's Multiplayer Debugger window shows them.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="results"/> is null.</exception>
+        public void GetMessageCounts(List<MessageCounts> results);
     }
 }
