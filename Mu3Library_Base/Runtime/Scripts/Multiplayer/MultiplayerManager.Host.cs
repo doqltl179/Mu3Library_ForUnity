@@ -64,6 +64,10 @@ namespace Mu3Library.Multiplayer
             _hostId = LocalPlayerId;
             _rules = options.Rules;
             _pendingCallback = callback;
+            foreach (KeyValuePair<string, string> pair in options.Data)
+            {
+                _lobbyData[pair.Key] = pair.Value;
+            }
 
             Dictionary<string, string> data = BuildLobbyData(options);
             int generation = _sessionGeneration;
@@ -131,13 +135,18 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
+            // Checked entry by entry, as SetLobbyData later checks each change.
+            Dictionary<string, string> accepted = new Dictionary<string, string>(options.Data.Count);
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                if (string.IsNullOrEmpty(pair.Key) || pair.Value == null || LobbyDataKeys.IsReserved(pair.Key))
+                MultiplayerReason check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
+                WarnIfInvalid(check, pair.Key);
+                if (check != MultiplayerReason.None)
                 {
-                    Debug.LogWarning($"[Multiplayer] Lobby data key '{pair.Key}' is empty, has no value, or uses the reserved '{LobbyDataKeys.Prefix}' prefix.");
-                    return MultiplayerReason.InvalidArgument;
+                    return check;
                 }
+
+                accepted.Add(pair.Key, pair.Value);
             }
 
             return MultiplayerReason.None;
@@ -441,6 +450,10 @@ namespace Mu3Library.Multiplayer
                     HostHandleMessage(peer, ref reader);
                     break;
 
+                case PacketKind.SetParticipantData:
+                    HostHandleParticipantData(peer, ref reader);
+                    break;
+
                 default:
                     // Only the host sends the other kinds; a client that sends one is ignored.
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}.");
@@ -519,6 +532,7 @@ namespace Mu3Library.Multiplayer
             WriteRules(_writer, _rules);
             _writer.WriteInt(_maxMessageSize);
             _writer.WriteBytes(_startData);
+            WriteData(_writer, _lobbyData);
             _writer.WriteInt(_participants.Count);
             for (int i = 0; i < _participants.Count; i++)
             {

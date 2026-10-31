@@ -20,5 +20,22 @@ namespace Mu3Library.Multiplayer.Data
 
         /// <summary>Longest player name, in characters, that the roster carries; longer names are cut.</summary>
         public const int MaxPlayerNameLength = 64;
+
+        /// <summary>Longest key of lobby data or participant data, in characters.</summary>
+        public const int MaxDataKeyLength = 64;
+
+        /// <summary>
+        /// Largest game-defined lobby data, counted as the UTF-8 bytes of all its keys and values.
+        /// It stays well inside the 8 KB Steam takes for one lobby data value, and a joining player
+        /// receives all of it with the roster in one packet.
+        /// </summary>
+        public const int MaxLobbyDataSize = 4 * 1024;
+
+        /// <summary>
+        /// Largest participant data of one player, counted as the UTF-8 bytes of all its keys and
+        /// values. A joining player receives every player's with the roster in one packet, which
+        /// has to stay inside one send even for <see cref="MaxCapacity"/> players.
+        /// </summary>
+        public const int MaxParticipantDataSize = 2 * 1024;
     }
 }

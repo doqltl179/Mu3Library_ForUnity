@@ -36,6 +36,12 @@ namespace Mu3Library.Multiplayer
         public ReadOnlyMemory<byte> StartData { get; }
 
         /// <summary>
+        /// The game-defined lobby data of the current session, as the host last reported it,
+        /// without the library's own <c>mu3.</c> keys. Empty outside a session.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> LobbyData { get; }
+
+        /// <summary>
         /// Attaches the backend. The manager does not own the backend: dispose it after the manager.
         /// </summary>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
@@ -84,6 +90,33 @@ namespace Mu3Library.Multiplayer
         /// Host only. The player cannot rejoin this session.
         /// </summary>
         public MultiplayerResult Kick(PlayerId player);
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Host only, in the lobby or in a game; a client answers <see cref="MultiplayerReason.NotHost"/>.
+        /// Sets one value of the lobby data, which lobby search returns and filters on, and reports
+        /// it to every player through <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>.
+        /// An empty key, one longer than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that
+        /// starts with the library's <c>mu3.</c>, or a null value answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and lobby data that would grow past
+        /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/> answers
+        /// <see cref="MultiplayerReason.MessageTooLarge"/>. Setting the value a key already has
+        /// changes nothing.
+        /// </summary>
+        public MultiplayerResult SetLobbyData(string key, string value);
+
+        /// <summary>
+        /// In the lobby or in a game. Sets one value of this player's own participant data, such as
+        /// the character they chose, which every player reads from <see cref="Participant.Data"/>;
+        /// no player can change another's. Keys and values follow the rules of
+        /// <see cref="SetLobbyData"/>, and one player's data stays within
+        /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. For a client, success means the
+        /// request went to the host, which checks it again; the value changes when the host reports
+        /// it back through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. The
+        /// data lasts until the player leaves the session.
+        /// </summary>
+        public MultiplayerResult SetParticipantData(string key, string value);
         #endregion
 
         #region Game

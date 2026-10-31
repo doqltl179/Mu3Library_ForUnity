@@ -220,6 +220,43 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbyAndParticipantData_ReachEveryProcess_AndLobbySearch()
+        {
+            // FR-11 between "processes": the host's lobby data and each player's own participant data.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+
+            Assert.That(a.Manager.SetLobbyData("map", "desert").Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            Assert.That(host.Manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Assert.That(b.Manager.SetParticipantData("character", "archer").IsSuccess, Is.True);
+
+            Node[] everyone = { host, a, b };
+            PumpUntil(() => everyone.All(node => node.Manager.LobbyData.TryGetValue("map", out string map) && map == "desert"
+                && CharacterOf(node, a.Id) == "knight" && CharacterOf(node, b.Id) == "archer"), "every player to see the data");
+            Assert.That(everyone.Select(node => CharacterOf(node, host.Id)), Is.All.Null);
+
+            // Another process's search reads the lobby file, which catches up a moment later.
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            string seen = null;
+            Stopwatch waited = Stopwatch.StartNew();
+            while (seen != "desert" && waited.Elapsed.TotalSeconds < WaitSeconds)
+            {
+                foreach (BackendLobby lobby in Search(seeker))
+                {
+                    if (lobby.Id == host.Manager.CurrentLobbyId)
+                    {
+                        lobby.Data.TryGetValue("map", out seen);
+                    }
+                }
+            }
+
+            Assert.That(seen, Is.EqualTo("desert"));
+        }
+
+        [Test]
         public void Disconnect_ArrivesAfterTheDataSentBeforeIt_WithItsReason()
         {
             (_, RecordingListener hostEvents, LocalBackend client, RecordingListener clientEvents) = ConnectPair();
@@ -522,6 +559,32 @@ namespace Mu3Library.Tests
             backend.SearchLobbies(new LobbySearchQuery(), (r, found) => lobbies = found);
             PumpUntil(() => lobbies != null, "the search");
             return lobbies.ToList();
+        }
+
+        /// <summary>The host creates a public lobby, and every client joins it.</summary>
+        private void StartSession(Node host, params Node[] clients)
+        {
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4, requireReady: false) }, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+
+            foreach (Node client in clients)
+            {
+                MultiplayerResult? joined = null;
+                client.Manager.JoinLobby(host.Manager.CurrentLobbyId, r => joined = r);
+                PumpUntil(() => joined.HasValue, $"{client.Backend.PlayerName} to join");
+                Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+            }
+
+            PumpUntil(() => clients.All(client => client.Manager.Participants.Count == clients.Length + 1), "every roster to list every player");
+        }
+
+        private static string CharacterOf(Node node, PlayerId player)
+        {
+            return node.Manager.TryGetParticipant(player, out Participant participant) && participant.Data.TryGetValue("character", out string character)
+                ? character
+                : null;
         }
 
         /// <summary>A host listening in a lobby and a member connected to it, each in a "process" of its own.</summary>

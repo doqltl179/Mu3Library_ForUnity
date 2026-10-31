@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using Mu3Library.DI;
 using Mu3Library.Multiplayer.Backend;
@@ -70,6 +71,8 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantJoined;
         public event Action<Participant, MultiplayerReason> OnParticipantLeft;
         public event Action<Participant> OnParticipantChanged;
+        public event Action<Participant, string> OnParticipantDataChanged;
+        public event Action<string, string> OnLobbyDataChanged;
         public event Action<SessionRules> OnRulesChanged;
         public event Action<ReadOnlyMemory<byte>> OnGameStarted;
         public event Action OnReturnedToLobby;
@@ -168,6 +171,8 @@ namespace Mu3Library.Multiplayer
             OnParticipantJoined = null;
             OnParticipantLeft = null;
             OnParticipantChanged = null;
+            OnParticipantDataChanged = null;
+            OnLobbyDataChanged = null;
             OnRulesChanged = null;
             OnGameStarted = null;
             OnReturnedToLobby = null;
@@ -502,6 +507,7 @@ namespace Mu3Library.Multiplayer
             _rules = SessionRules.Default;
             _startData = Array.Empty<byte>();
             _participants.Clear();
+            _lobbyData.Clear();
             _pendingCallback = null;
 
             ResetHostState();
@@ -561,6 +567,7 @@ namespace Mu3Library.Multiplayer
             writer.WriteString(participant.Name);
             writer.WriteBool(participant.IsReady);
             writer.WriteBool(participant.IsLateJoiner);
+            WriteData(writer, participant.Data);
         }
 
         private Participant ReadParticipant(ref PacketReader reader, PlayerId host)
@@ -569,13 +576,15 @@ namespace Mu3Library.Multiplayer
             string name = reader.ReadString();
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
+            Dictionary<string, string> data = ReadData(ref reader, MultiplayerLimits.MaxParticipantDataSize);
 
             if (!id.IsValid)
             {
                 throw new FormatException("A participant has no player ID.");
             }
 
-            return new Participant(id, name, id == host, id == LocalPlayerId, isReady, isLateJoiner);
+            return new Participant(id, name, id == host, id == LocalPlayerId, isReady, isLateJoiner,
+                data.Count > 0 ? new ReadOnlyDictionary<string, string>(data) : null);
         }
         #endregion
 

@@ -13,7 +13,8 @@ namespace Mu3Library.Multiplayer.Data
 
         /// <summary>
         /// Game-defined lobby data that lobby search returns and filters on. Keys starting with
-        /// <c>mu3.</c> belong to the library and are refused.
+        /// <c>mu3.</c> belong to the library and are refused; keys and values follow the rules of
+        /// <see cref="IMultiplayerManager.SetLobbyData"/>, which changes them during the session.
         /// </summary>
         public Dictionary<string, string> Data { get; } = new Dictionary<string, string>();
 

@@ -155,6 +155,57 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void SteamLobby_TakesTheHostsLobbyAndParticipantData_DuringTheSession()
+        {
+            // FR-11 on Steam itself, with one account: the host's side of both kinds of data.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                List<(string Key, string Value)> lobbyChanges = new List<(string, string)>();
+                List<(Participant Participant, string Key)> dataChanges = new List<(Participant, string)>();
+                manager.OnLobbyDataChanged += (key, value) => lobbyChanges.Add((key, value));
+                manager.OnParticipantDataChanged += (participant, key) => dataChanges.Add((participant, key));
+                LobbyId lobby = CreateFriendsOnlyLobby(manager, "forest");
+
+                Assert.That(manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"));
+                Assert.That(manager.LobbyData["map"], Is.EqualTo("desert"));
+                Assert.That(lobbyChanges, Is.EqualTo(new[] { ("map", "desert") }));
+                Assert.That(manager.SetLobbyData(LobbyDataKeys.State, LobbyDataKeys.StateInGame).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
+
+                Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+                Assert.That(manager.Participants.Single().Data["character"], Is.EqualTo("knight"));
+                Assert.That(dataChanges.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (_backend.LocalPlayerId, "character") }));
+
+                manager.Leave();
+                Assert.That(manager.LobbyData, Is.Empty);
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        /// <summary>Creates a lobby nobody finds in search, with one game-defined value.</summary>
+        private LobbyId CreateFriendsOnlyLobby(MultiplayerManager manager, string map)
+        {
+            string gameId = "mu3.test." + Guid.NewGuid().ToString("N").Substring(0, 12);
+            Assert.That(manager.Initialize(_backend, new MultiplayerConfig(gameId, 1)).IsSuccess, Is.True);
+
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.FriendsOnly, Name = "Mu3 test" };
+            options.Data["map"] = map;
+            MultiplayerResult? created = null;
+            manager.CreateLobby(options, result => created = result);
+            Pump(manager, () => created.HasValue, 20);
+            Assert.That(created?.IsSuccess, Is.True);
+
+            LobbyId lobby = manager.CurrentLobbyId;
+            Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo(map));
+            return lobby;
+        }
+
         private void Pump(Func<bool> done, int seconds)
         {
             Stopwatch watch = Stopwatch.StartNew();
