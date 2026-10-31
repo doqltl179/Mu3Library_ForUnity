@@ -532,10 +532,20 @@ namespace Mu3Library.Tests
                 Assert.That(result.HasValue, Is.True, "every request answers, at the latest when its 10 seconds run out");
                 if (!result.Value.IsSuccess)
                 {
-                    string name = Steamworks.SteamFriends.GetFriendPersonaName(steamId);
-                    if (!Steamworks.SteamUser.BLoggedOn() || string.IsNullOrEmpty(name) || name == "[unknown]")
+                    if (!Steamworks.SteamUser.BLoggedOn())
                     {
-                        Assert.Ignore($"Steam never learned {account} ({result.Value.Reason}); it is offline, or the account is gone.");
+                        Assert.Ignore($"Steam went offline while it fetched {account} ({result.Value.Reason}).");
+                    }
+
+                    // A name that never arrived excuses the failure only once the backend asked
+                    // Steam for it: a backend that stopped asking leaves the name unknown too.
+                    string name = Steamworks.SteamFriends.GetFriendPersonaName(steamId);
+                    bool isNameUnknown = string.IsNullOrEmpty(name) || name == "[unknown]";
+                    Assert.That(!isNameUnknown || _backend.UserInformationRequestCount > 0, Is.True,
+                        $"Steam never learned {account} ({result.Value.Reason}), and the backend never asked it to");
+                    if (isNameUnknown)
+                    {
+                        Assert.Ignore($"Steam never learned {account} ({result.Value.Reason}) although the backend asked; the account may be gone.");
                     }
                 }
 
