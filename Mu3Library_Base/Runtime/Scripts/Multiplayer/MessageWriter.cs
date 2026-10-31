@@ -13,11 +13,18 @@ namespace Mu3Library.Multiplayer
     /// <remarks>
     /// <para>
     /// Every player writes and reads the same bytes on every platform: numbers are little-endian,
-    /// and a <see cref="float"/> or <see cref="double"/> keeps every bit it is handed, so negative
-    /// zero, NaN, and subnormal values arrive as they left. Only a signaling NaN can turn quiet
-    /// before it is written: the editor's Mono runtime holds a signaling <see cref="float"/> NaN as
-    /// a quiet one. A string is its UTF-8 byte count followed by the bytes, with -1 for null, and a
-    /// byte block is its length followed by the bytes.
+    /// and a <see cref="float"/> or <see cref="double"/> travels as its bits, so negative zero, NaN
+    /// payloads, and subnormal values arrive as they left. A string is its UTF-8 byte count
+    /// followed by the bytes, with -1 for null, and a byte block is its length followed by the bytes.
+    /// </para>
+    /// <para>
+    /// A signaling <see cref="float"/> NaN is the exception. The Mono runtime, which the editor
+    /// uses, may turn it into a quiet NaN wherever it holds the value as a <see cref="float"/>:
+    /// before the value reaches <see cref="WriteFloat"/>, and again in
+    /// <see cref="MessageReader.ReadFloat"/>, so players on different runtimes can read different
+    /// bits for it. To carry such bits exactly, write them with <see cref="WriteInt"/> or
+    /// <see cref="WriteUInt"/> (from <see cref="BitConverter.SingleToInt32Bits"/>) and read them
+    /// with <see cref="MessageReader.ReadInt"/> or <see cref="MessageReader.ReadUInt"/>.
     /// </para>
     /// <para>
     /// Keep one writer and <see cref="Clear"/> it before each message: once the buffer has grown
@@ -27,6 +34,9 @@ namespace Mu3Library.Multiplayer
     /// </remarks>
     public sealed class MessageWriter
     {
+        // The largest byte array the runtime creates (Array.MaxLength on newer .NET).
+        private const int MaxBufferLength = 0x7FFFFFC7;
+
         private byte[] _buffer;
         private int _length;
 
@@ -168,21 +178,25 @@ namespace Mu3Library.Multiplayer
             return span;
         }
 
+        /// <summary>
+        /// Grows the buffer to hold <paramref name="additional"/> more bytes, doubling it until it
+        /// would pass the largest byte array the runtime creates.
+        /// </summary>
         private void Ensure(int additional)
         {
-            int required = _length + additional;
+            long required = (long)_length + additional;
             if (required <= _buffer.Length)
             {
                 return;
             }
 
-            int capacity = _buffer.Length * 2;
-            while (capacity < required)
+            if (required > MaxBufferLength)
             {
-                capacity *= 2;
+                throw new InvalidOperationException($"A message cannot grow past {MaxBufferLength} bytes; it needs {required}.");
             }
 
-            Array.Resize(ref _buffer, capacity);
+            long capacity = Math.Min(Math.Max((long)_buffer.Length * 2, required), MaxBufferLength);
+            Array.Resize(ref _buffer, (int)capacity);
         }
     }
 }

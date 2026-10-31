@@ -23,6 +23,13 @@ namespace Mu3Library.Multiplayer
     /// allocates nothing; <see cref="ReadString"/> and <see cref="ReadBytes"/> allocate the value
     /// they return.
     /// </para>
+    /// <para>
+    /// <see cref="ReadFloat"/> turns the bits back into a <see cref="float"/> with
+    /// <see cref="BitConverter.Int32BitsToSingle"/>, where the Mono runtime, which the editor uses,
+    /// may turn a signaling NaN into a quiet one; the Unity types read their components the same
+    /// way. Read bits that must arrive exactly with <see cref="ReadInt"/> or <see cref="ReadUInt"/>,
+    /// as <see cref="MessageWriter"/> describes.
+    /// </para>
     /// </remarks>
     public ref struct MessageReader
     {
