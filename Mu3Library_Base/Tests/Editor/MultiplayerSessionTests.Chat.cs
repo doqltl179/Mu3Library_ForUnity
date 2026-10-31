@@ -67,6 +67,24 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Chat_TakesItsOwnLimit_ApartFromTheGameMessageLimit()
+        {
+            // FR-12: a session whose game messages hold 16 bytes still carries a full chat message.
+            Node host = CreateHost(
+                CreateNode("Host", configure: config => config.MaxMessageSize = 16),
+                PublicOptions(new SessionRules(4, requireReady: false)));
+            Node a = JoinNew("A", host);
+            string largest = new string('x', MultiplayerLimits.MaxChatMessageSize);
+
+            Assert.That(a.Manager.MaxMessageSize, Is.EqualTo(16));
+            Assert.That(a.Manager.SendChat(largest).IsSuccess, Is.True);
+            Pump();
+
+            Assert.That(host.Chats.Single().Text, Is.EqualTo(largest));
+            Assert.That(a.Chats.Single().Text, Is.EqualTo(largest));
+        }
+
+        [Test]
         public void Chat_OutsideTheLobby_OrWithoutText_IsRefused()
         {
             // FR-12: chat belongs to the lobby, not to the game.

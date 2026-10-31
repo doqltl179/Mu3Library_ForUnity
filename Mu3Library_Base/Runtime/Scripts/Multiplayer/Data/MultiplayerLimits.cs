@@ -40,7 +40,8 @@ namespace Mu3Library.Multiplayer.Data
 
         /// <summary>
         /// Longest lobby chat message, in UTF-8 bytes: the 4 KB Steam allows for one lobby chat
-        /// message, so a game that fits here fits there.
+        /// message, so a game that fits here fits there. It holds whatever
+        /// <see cref="MultiplayerConfig.MaxMessageSize"/> is, which caps game messages only.
         /// </summary>
         public const int MaxChatMessageSize = 4 * 1024;
     }

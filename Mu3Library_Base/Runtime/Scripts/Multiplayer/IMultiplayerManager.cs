@@ -128,10 +128,11 @@ namespace Mu3Library.Multiplayer
         /// included, through <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or
         /// empty text answers <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
         /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
-        /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. The host's own
-        /// message is handled before the call returns, and a client's, its own copy included, once
-        /// the host passed it on, so every player hears the messages in the same order. The host
-        /// drops a client's message that arrives after the game started.
+        /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. That limit stands
+        /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
+        /// The host's own message is handled before the call returns, and a client's, its own copy
+        /// included, once the host passed it on, so every player hears the messages in the same
+        /// order. The host drops a client's message that arrives after the game started.
         /// </summary>
         public MultiplayerResult SendChat(string text);
         #endregion
