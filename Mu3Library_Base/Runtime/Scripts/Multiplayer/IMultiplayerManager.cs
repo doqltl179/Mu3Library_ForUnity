@@ -189,8 +189,11 @@ namespace Mu3Library.Multiplayer
         /// kicked, or does not come back to their slot in time is no longer waited for; a player
         /// who joins the running game is not waited for, but can report all the same; and the
         /// return to the lobby ends the wait without either event and clears every flag. A player
-        /// who reported before its connection dropped stays loaded when it comes back. For a
-        /// client, success means the report went to the host. Reporting again changes nothing.
+        /// who reported before its connection dropped stays loaded when it comes back to the same
+        /// game, and a report still on its way then goes again by itself; one that joins again
+        /// from another start of the game loads again, so its flag clears and the host waits for
+        /// it again. For a client, success means the report went to the host. Reporting again
+        /// changes nothing.
         /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
         /// player is <see cref="SessionState.Reconnecting"/>,
         /// <see cref="MultiplayerReason.ConnectionLost"/>.

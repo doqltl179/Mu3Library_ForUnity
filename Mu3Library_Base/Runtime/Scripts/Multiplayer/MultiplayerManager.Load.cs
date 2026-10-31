@@ -12,6 +12,10 @@ namespace Mu3Library.Multiplayer
         private bool _isLoadWaitRunning = false;
         private double _loadDeadline = 0d;
 
+        // On a client, the game this player last reported loaded for, so a report that a dropped
+        // connection lost can go again; 0 before any.
+        private int _reportedLoadedGame = 0;
+
 
 
         public MultiplayerResult ReportLoaded()
@@ -39,9 +43,13 @@ namespace Mu3Library.Multiplayer
 
             // The host decides; this player's own flag changes when the host reports it back.
             _writer.Begin(PacketKind.ReportLoaded).WriteInt(_gameNumber);
-            return SendToHost(DeliveryMode.Reliable)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            if (!SendToHost(DeliveryMode.Reliable))
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            }
+
+            _reportedLoadedGame = _gameNumber;
+            return MultiplayerResult.Success;
         }
 
         #region Host
@@ -157,6 +165,7 @@ namespace Mu3Library.Multiplayer
         {
             EndLoadWait();
             _loadDeadline = 0d;
+            _reportedLoadedGame = 0;
         }
     }
 }

@@ -99,25 +99,48 @@ namespace Mu3Library.Multiplayer
             }
 
             int index = IndexOfParticipant(player);
+            Participant kept = _participants[index];
             _reservations.Remove(player);
-            Participant returned = _participants[index].WithConnected(true);
+
+            // A new start of the game, rather than one that kept running, loads its game again.
+            bool isLoadReset = !peer.IsReturning && kept.IsLoaded;
+            Participant returned = kept.WithConnected(true).WithLoaded(kept.IsLoaded && !isLoadReset);
             _participants[index] = returned;
 
             if (!SendWelcome(peer))
             {
                 // As if this attempt never arrived: the slot stays kept until its time.
-                _participants[index] = returned.WithConnected(false);
+                _participants[index] = kept;
                 _reservations[player] = deadline;
                 RefusePeer(peer, MultiplayerReason.ConnectionLost);
                 return true;
             }
 
             peer.IsWelcomed = true;
+            int sessionGeneration = _sessionGeneration;
+            if (isLoadReset)
+            {
+                if (_isLoadWaitRunning && !_loadWaiting.Contains(player))
+                {
+                    _loadWaiting.Add(player);
+                }
+
+                WriteParticipantUpdated(returned);
+                BroadcastToWelcomed(peer.Connection);
+                if (sessionGeneration != _sessionGeneration)
+                {
+                    return true;
+                }
+
+                Raise(OnParticipantChanged, returned);
+                if (sessionGeneration != _sessionGeneration)
+                {
+                    return true;
+                }
+            }
 
             _writer.Begin(PacketKind.ParticipantReconnected);
             _writer.WriteULong(player.Value);
-
-            int sessionGeneration = _sessionGeneration;
             BroadcastToWelcomed(peer.Connection);
             if (sessionGeneration == _sessionGeneration)
             {
@@ -292,6 +315,18 @@ namespace Mu3Library.Multiplayer
         private void HandleReturned(SessionState state, bool isSameGame)
         {
             int generation = _sessionGeneration;
+
+            // A load report still on its way when the connection dropped is lost; it goes again.
+            if (isSameGame && _reportedLoadedGame == _gameNumber
+                && TryGetParticipant(LocalPlayerId, out Participant returning) && !returning.IsLoaded)
+            {
+                _writer.Begin(PacketKind.ReportLoaded).WriteInt(_gameNumber);
+                if (!SendToHost(DeliveryMode.Reliable) || generation != _sessionGeneration || _state != state)
+                {
+                    return;
+                }
+            }
+
             if (state == SessionState.InGame && !isSameGame)
             {
                 Raise(OnGameStarted, new System.ReadOnlyMemory<byte>(_startData));

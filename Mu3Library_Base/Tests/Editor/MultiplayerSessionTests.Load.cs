@@ -161,6 +161,67 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadSync_AReportTheDropLost_GoesAgainOnTheReturn()
+        {
+            // FR-25, FR-20: the report was on its way while the link was down, and the drop lost it.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false).WithLoadTimeoutSeconds(100f));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+
+            a.Backend.SimulateOutage(20f);
+            Advance(1.0);
+            Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
+            Advance(DropSeconds);
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant lost) && lost.IsLoaded, Is.False);
+
+            Advance(11.0);
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant back) && back.IsLoaded, Is.True);
+
+            host.Manager.ReportLoaded();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void LoadSync_AnotherStartOfTheGameTakingTheSlotBack_LoadsAgain()
+        {
+            // FR-25, FR-21: a new start of the game has its scene to load again.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true).WithLoadTimeoutSeconds(100f));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+            Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+
+            a.Backend.SimulateOutage(120f);
+            Advance(DropSeconds + 0.5);
+            Node again = CreateNode("A", id: a.Id);
+            Assert.That(Join(again, host).IsSuccess, Is.True);
+
+            foreach (Node node in new[] { host, b, again })
+            {
+                Assert.That(node.Manager.TryGetParticipant(a.Id, out Participant restarted) && restarted.IsLoaded, Is.False, node.Backend.PlayerName);
+            }
+
+            Assert.That(host.Changed.Last().Id, Is.EqualTo(a.Id));
+            Assert.That(b.Changed.Last().Id, Is.EqualTo(a.Id));
+
+            host.Manager.ReportLoaded();
+            b.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.Zero, "the host waits for the new start again");
+
+            Assert.That(again.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void LoadSync_APlayerWhoseSlotFrees_IsNoLongerWaitedFor()
         {
             // FR-25, FR-20
