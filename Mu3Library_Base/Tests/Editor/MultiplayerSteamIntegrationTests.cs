@@ -463,23 +463,26 @@ namespace Mu3Library.Tests
         {
             // FR-4: one reason for an avatar once Steam is gone, the one the manager answers itself
             // then. An account this client is unlikely to know makes Steam download it first.
+            // No update runs before Steam shuts down, since Steam can download an avatar within one.
             PlayerId stranger = new PlayerId(76561197960265728UL + (ulong)new System.Random().Next(1 << 20, int.MaxValue));
-            List<MultiplayerReason> answers = new List<MultiplayerReason>();
-            _backend.LoadAvatar(stranger, AvatarSize.Large, (reason, avatar) => answers.Add(reason));
-            _backend.Update();
-            if (answers.Count > 0)
+            MultiplayerReason? waiting = null;
+            _backend.LoadAvatar(stranger, AvatarSize.Large, (reason, avatar) => waiting = reason);
+            if (_backend.PendingAvatarCount == 0)
             {
-                Assert.Inconclusive($"Steam answered the avatar of {stranger} at once ({answers[0]}), so no request waited.");
+                Assert.Ignore($"Steam held the avatar of {stranger} already, so no request waited.");
             }
 
             // Steam shut down under the backend, as a game may do; TearDown then releases only the
             // backend's own resources, and the next SetUp starts Steam again.
             Steamworks.SteamAPI.Shutdown();
             Assert.That(_backend.IsAvailable, Is.False);
-            _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => answers.Add(reason));
+            MultiplayerReason? later = null;
+            _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => later = reason);
             _backend.Update();
 
-            Assert.That(answers, Is.EqualTo(new[] { MultiplayerReason.BackendError, MultiplayerReason.BackendError }));
+            Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
+            Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
+            Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 
         [Test]

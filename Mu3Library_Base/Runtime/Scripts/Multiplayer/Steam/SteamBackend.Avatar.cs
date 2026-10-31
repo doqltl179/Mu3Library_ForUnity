@@ -27,6 +27,9 @@ namespace Mu3Library.Multiplayer.Steam
         // Requests that wait for Steam to download what it needs, asked again on every update.
         private readonly List<PendingAvatar> _pendingAvatars = new List<PendingAvatar>();
 
+        /// <summary>How many requests wait for Steam to download an avatar, for the integration tests.</summary>
+        internal int PendingAvatarCount => _pendingAvatars.Count;
+
 
 
         /// <summary>
