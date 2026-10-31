@@ -419,7 +419,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
-- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 정원 규칙, 게임 시작, 강퇴, 호스트가 중계하는 게임 메시지를 다루는 플레이어 호스트 세션. `SteamBackend`(Steamworks.NET 필요, Steam 로비와 Steam 연결)와 `LocalBackend`(한 프로세스 안에서 여러 플레이어)가 있습니다
+- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 정원 규칙, 게임 시작, 강퇴, 호스트가 중계하는 게임 메시지를 다루는 플레이어 호스트 세션. `SteamBackend`(Steamworks.NET 필요, Steam 로비와 Steam 연결)와 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드)가 있습니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼

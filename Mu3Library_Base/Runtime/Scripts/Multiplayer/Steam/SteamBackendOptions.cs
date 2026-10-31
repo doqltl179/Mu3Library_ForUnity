@@ -31,8 +31,10 @@ namespace Mu3Library.Multiplayer.Steam
 
         /// <summary>
         /// In the editor, when Steam cannot start, <see cref="SteamBackend.CreateOrFallback"/>
-        /// returns a <see cref="LocalBackend"/> on this network instead. Null turns the fallback
-        /// off; a player build never falls back.
+        /// returns a <see cref="LocalBackend"/> on this network instead. A network from
+        /// <see cref="LocalNetwork.CreateMachineWide"/> lets that editor play with other editors and
+        /// builds on the same computer. Null turns the fallback off; a player build never falls
+        /// back.
         /// </summary>
         public LocalNetwork EditorFallbackNetwork { get; set; }
 
