@@ -344,7 +344,7 @@ namespace Mu3Library.Multiplayer
             _lobbyData.Clear();
             foreach (KeyValuePair<string, string> pair in lobbyData)
             {
-                _lobbyData.Add(pair.Key, pair.Value);
+                _lobbyData[pair.Key] = pair.Value;
             }
 
             if (TryGetParticipant(LocalPlayerId, out Participant self))

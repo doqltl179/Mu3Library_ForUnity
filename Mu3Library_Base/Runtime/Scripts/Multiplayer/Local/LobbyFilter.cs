@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Mu3Library.Multiplayer.Data;
@@ -5,7 +6,9 @@ using Mu3Library.Multiplayer.Data;
 namespace Mu3Library.Multiplayer.Local
 {
     /// <summary>
-    /// The search filters as Steam applies them, for the lobbies of a local network.
+    /// The search filters as Steam applies them, for the lobbies of a local network. A filter
+    /// finds its key in any case, since Steam does not tell lobby data keys apart by case; the
+    /// manager keeps a lobby from holding two keys that differ only by case.
     /// </summary>
     internal static class LobbyFilter
     {
@@ -14,7 +17,7 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.StringFilters.Count; i++)
             {
                 LobbyStringFilter filter = query.StringFilters[i];
-                data.TryGetValue(filter.Key ?? string.Empty, out string value);
+                TryGetValue(data, filter.Key, out string value);
                 int compared = string.CompareOrdinal(value ?? string.Empty, filter.Value ?? string.Empty);
                 if (!Satisfies(compared, filter.Comparison))
                 {
@@ -25,7 +28,7 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.NumericFilters.Count; i++)
             {
                 LobbyNumericFilter filter = query.NumericFilters[i];
-                if (!data.TryGetValue(filter.Key ?? string.Empty, out string text)
+                if (!TryGetValue(data, filter.Key, out string text)
                     || !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
                     || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
                 {
@@ -34,6 +37,28 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             return true;
+        }
+
+        /// <summary>The value under the key in any case, as Steam finds it.</summary>
+        private static bool TryGetValue(IReadOnlyDictionary<string, string> data, string key, out string value)
+        {
+            key ??= string.Empty;
+            if (data.TryGetValue(key, out value))
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = pair.Value;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
         }
 
         /// <summary>

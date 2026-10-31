@@ -120,6 +120,70 @@ namespace Mu3Library.Tests
             Assert.That(CreateLobby(host, large).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
             Assert.That(_network.Lobbies, Is.Empty);
         }
+
+        [Test]
+        public void LobbyData_AKeyThatDiffersOnlyByCase_IsRefused_SoEveryCopyKeepsTheSameKeys()
+        {
+            // FR-11, FR-38: Steam keeps one value for both keys, so every backend refuses the second one.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            LogAssert.Expect(LogType.Warning, new Regex("'map' differs from the key 'Map' only by case"));
+            Assert.That(host.Manager.SetLobbyData("map", "forest").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            LogAssert.Expect(LogType.Warning, new Regex("'MAP' differs from the key 'Map' only by case"));
+            Assert.That(host.Manager.SetLobbyData("MAP", new string('v', MultiplayerLimits.MaxLobbyDataSize)).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument),
+                "the key is refused before its size counts");
+            Assert.That(host.Manager.SetLobbyData("Map", "forest").IsSuccess, Is.True, "the key as it is spelled");
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "forest" }), name);
+                Assert.That(node.Manager.LobbyData["map"], Is.EqualTo("forest"), $"{name} reads a key in any case, as Steam does");
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("Map", "forest") }), name);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.Null, "the lobby holds the key as it is spelled");
+            LobbyInfo found = Search(CreateNode("Seeker")).Lobbies.Single();
+            Assert.That(found.Data, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "forest" }));
+            Assert.That(found.Data["MAP"], Is.EqualTo("forest"), "a search result reads a key in any case");
+        }
+
+        [Test]
+        public void CreateLobby_KeysThatDifferOnlyByCase_AreRefused()
+        {
+            // FR-11: the data a lobby starts with follows the same rule.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+            options.Data["Map"] = "desert";
+            options.Data["map"] = "forest";
+
+            LogAssert.Expect(LogType.Warning, new Regex("differs from the key '(Map|map)' only by case"));
+            Assert.That(CreateLobby(host, options).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(_network.Lobbies, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_FindsTheKeyOfAFilterInAnyCase_AsSteamDoes()
+        {
+            // FR-6, FR-38: the local backends match filter keys the way Steam does.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            options.Data["Level"] = "3";
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("MAP", "desert")).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddNumericFilter("level", 3)).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies, Is.Empty);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "desert", LobbyComparison.NotEqual)).Lobbies, Is.Empty);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddNumericFilter("LEVEL", 3, LobbyComparison.GreaterThan)).Lobbies, Is.Empty);
+        }
         #endregion
 
         #region Participant Data
@@ -286,7 +350,7 @@ namespace Mu3Library.Tests
             // FR-11, FR-24: the welcome carries the start data, the lobby data, and every
             // player's data at once, so it has to fit in one send at every limit together. The
             // data uses the shortest keys there are, whose length fields cost the most.
-            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize);
+            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize, keysIgnoreCase: true);
             LobbyCreateOptions options = PublicOptions(new SessionRules(MultiplayerLimits.MaxCapacity, requireReady: false, allowLateJoin: true));
             foreach (KeyValuePair<string, string> pair in lobbyData)
             {
@@ -377,22 +441,34 @@ namespace Mu3Library.Tests
         /// Data whose keys and values take exactly <paramref name="size"/> UTF-8 bytes in as many
         /// entries as distinct keys allow: every one-character key, then two-character keys.
         /// </summary>
-        private static Dictionary<string, string> DataOfSize(int size)
+        /// <summary>
+        /// Data of exactly <paramref name="size"/> UTF-8 bytes in as many entries as fit. With
+        /// <paramref name="keysIgnoreCase"/>, as lobby data needs, no two keys differ only by case.
+        /// </summary>
+        private static Dictionary<string, string> DataOfSize(int size, bool keysIgnoreCase = false)
         {
             Dictionary<string, string> data = new Dictionary<string, string>();
+            HashSet<string> taken = new HashSet<string>(keysIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             int left = size;
             for (char c = '!'; c <= '~' && left > 0; c++)
             {
-                data.Add(c.ToString(), string.Empty);
-                left--;
+                if (taken.Add(c.ToString()))
+                {
+                    data.Add(c.ToString(), string.Empty);
+                    left--;
+                }
             }
 
             for (char first = '!'; first <= '~' && left >= 2; first++)
             {
                 for (char second = '!'; second <= '~' && left >= 2; second++)
                 {
-                    data.Add(new string(new[] { first, second }), string.Empty);
-                    left -= 2;
+                    string key = new string(new[] { first, second });
+                    if (taken.Add(key))
+                    {
+                        data.Add(key, string.Empty);
+                        left -= 2;
+                    }
                 }
             }
 

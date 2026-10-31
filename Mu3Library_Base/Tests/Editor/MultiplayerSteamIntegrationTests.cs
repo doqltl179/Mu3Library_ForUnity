@@ -300,6 +300,44 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_RefusesAKeyThatDiffersOnlyByCase_AndSearchFindsAFilterKeyInAnyCase()
+        {
+            // FR-11, FR-38: Steam keeps one value for keys that differ only by case, so the manager
+            // refuses the second key on every backend, and the local backends match filter keys
+            // in any case because Steam does.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+
+                Assert.That(manager.SetLobbyData("map", "forest").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "desert" }));
+                Assert.That(manager.LobbyData["map"], Is.EqualTo("desert"));
+                Assert.That(_backend.GetLobbyData(lobby, "Map"), Is.EqualTo("desert"));
+                Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"), "Steam reads a key in any case");
+
+                LobbyInfo found = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby);
+                Assert.That(found, Is.Not.Null, "the lobby never showed up in a search filtered by its key as spelled");
+                // Steam's search may spell a key otherwise than the host wrote it, so a result finds it in any case.
+                TestContext.WriteLine($"Steam search hands the key back as '{string.Join("', '", found.Data.Keys)}'.");
+                Assert.That(found.Data.Count, Is.EqualTo(1));
+                Assert.That(found.Data["Map"], Is.EqualTo("desert"));
+                Assert.That(found.Data["map"], Is.EqualTo("desert"));
+
+                bool byOtherCase = SearchUntil(manager, () => Worldwide().AddStringFilter("MAP", "desert"), lobby, seconds: 10) != null;
+                bool byOtherValueCase = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "DESERT"), lobby, seconds: 10) != null;
+                TestContext.WriteLine($"Steam finds the lobby by the key in another case: {byOtherCase}; by the value in another case: {byOtherValueCase}.");
+                Assert.That(byOtherCase, Is.True, "Steam matches a filter key in any case, as the local backends do");
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
         {
             // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
@@ -539,6 +577,55 @@ namespace Mu3Library.Tests
             LobbyId lobby = manager.CurrentLobbyId;
             Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo(map));
             return lobby;
+        }
+
+        /// <summary>Creates a lobby that search finds, with one game-defined value.</summary>
+        private LobbyId CreatePublicLobby(MultiplayerManager manager, string key, string value)
+        {
+            string gameId = "mu3.test." + Guid.NewGuid().ToString("N").Substring(0, 12);
+            Assert.That(manager.Initialize(_backend, new MultiplayerConfig(gameId, 1)).IsSuccess, Is.True);
+
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" };
+            options.Data[key] = value;
+            MultiplayerResult? created = null;
+            manager.CreateLobby(options, result => created = result);
+            Pump(manager, () => created.HasValue, 20);
+            Assert.That(created?.IsSuccess, Is.True);
+            return manager.CurrentLobbyId;
+        }
+
+        private static LobbySearchQuery Worldwide() => new LobbySearchQuery { Distance = LobbyDistance.Worldwide };
+
+        /// <summary>
+        /// Searches again and again until the results hold the lobby, since Steam publishes lobby
+        /// data a moment after it is set; null when they never do within the time.
+        /// </summary>
+        private static LobbyInfo SearchUntil(MultiplayerManager manager, Func<LobbySearchQuery> query, LobbyId lobby, int seconds = 30)
+        {
+            return SearchUntil(manager, query, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby), found => found != null, seconds);
+        }
+
+        /// <summary>Searches again and again until <paramref name="done"/> holds for what <paramref name="pick"/> takes from the results.</summary>
+        private static T SearchUntil<T>(MultiplayerManager manager, Func<LobbySearchQuery> query, Func<LobbySearchResult, T> pick, Func<T, bool> done, int seconds)
+        {
+            T picked = default;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < seconds)
+            {
+                LobbySearchResult? search = null;
+                manager.SearchLobbies(query(), result => search = result);
+                Pump(manager, () => search.HasValue, 25);
+                Assert.That(search?.IsSuccess, Is.True);
+                picked = pick(search.Value);
+                if (done(picked))
+                {
+                    return picked;
+                }
+
+                Pump(manager, () => false, 2);
+            }
+
+            return picked;
         }
 
         private void Pump(Func<bool> done, int seconds)

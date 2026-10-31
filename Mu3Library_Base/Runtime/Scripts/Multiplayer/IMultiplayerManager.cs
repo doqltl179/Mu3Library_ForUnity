@@ -41,7 +41,8 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// The game-defined lobby data of the current session, as the host last reported it,
-        /// without the library's own <c>mu3.</c> keys. Empty outside a session.
+        /// without the library's own <c>mu3.</c> keys. Empty outside a session. It finds a key in
+        /// any case, as Steam does (see <see cref="SetLobbyData"/>).
         /// </summary>
         public IReadOnlyDictionary<string, string> LobbyData { get; }
 
@@ -125,6 +126,18 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. Setting the value a key already has
         /// changes nothing.
+        /// <para>
+        /// Steam does not tell lobby data keys apart by case, and every backend follows it. A key
+        /// that differs from one the lobby data already holds only by case, such as <c>map</c>
+        /// beside <c>Map</c>, answers <see cref="MultiplayerReason.InvalidArgument"/>: Steam would
+        /// keep one value for both, so the lobby that search reads would hold other data than
+        /// <see cref="LobbyData"/> on every player and than the local backends. The library refuses
+        /// the second key rather than fold it into the first, so the game learns of the clash and
+        /// every copy holds the same keys. Reading finds a key in any case: <see cref="LobbyData"/>,
+        /// <see cref="LobbyInfo.Data"/> of a search result, and lobby search filters, on every
+        /// backend. A key keeps the spelling it was set with, except that Steam's search may hand
+        /// it back in another case, so a game looks keys up rather than compare them.
+        /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);
 
@@ -132,7 +145,9 @@ namespace Mu3Library.Multiplayer
         /// In the lobby or in a game. Sets one value of this player's own participant data, such as
         /// the character they chose, which every player reads from <see cref="Participant.Data"/>;
         /// no player can change another's. Keys and values follow the rules of
-        /// <see cref="SetLobbyData"/>, and one player's data stays within
+        /// <see cref="SetLobbyData"/>, except that keys which differ only by case are two keys
+        /// here, since participant data travels over the host's connections and never reaches
+        /// Steam's lobby, and one player's data stays within
         /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. For a client, success means the
         /// request went to the host, and the value changes when the host reports it back through
         /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. A client checks each

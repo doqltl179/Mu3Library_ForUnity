@@ -12,8 +12,9 @@ namespace Mu3Library.Multiplayer
     public partial class MultiplayerManager
     {
         // The game's own lobby data, without the library's reserved keys: on the host, what it
-        // also wrote to the lobby; on a client, what the host reported from the welcome on.
-        private readonly Dictionary<string, string> _lobbyData = new Dictionary<string, string>();
+        // also wrote to the lobby; on a client, what the host reported from the welcome on. It
+        // finds a key in any case, as Steam does, and never holds two keys that differ only by case.
+        private readonly Dictionary<string, string> _lobbyData = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private ReadOnlyDictionary<string, string> _lobbyDataView = null;
 
         // On a client, this player's own participant data as the host holds it once it has taken
@@ -33,6 +34,11 @@ namespace Mu3Library.Multiplayer
         public MultiplayerResult SetLobbyData(string key, string value)
         {
             MultiplayerReason check = CheckHostRequest(null);
+            if (check == MultiplayerReason.None)
+            {
+                check = CheckLobbyKeyCase(key, _lobbyData);
+            }
+
             if (check == MultiplayerReason.None)
             {
                 check = CheckDataEntry(key, value, _lobbyData, MultiplayerLimits.MaxLobbyDataSize);
@@ -317,6 +323,33 @@ namespace Mu3Library.Multiplayer
             }
 
             return size > limit ? MultiplayerReason.MessageTooLarge : MultiplayerReason.None;
+        }
+
+        /// <summary>
+        /// Refuses a lobby data key that differs from a key <paramref name="data"/> holds only by
+        /// case, such as <c>map</c> beside <c>Map</c>. Steam keeps one value for both, so the lobby
+        /// there would hold one key while every player's copy and the local backends held two.
+        /// Refusing the second key keeps the same keys, spelled the same way, on every backend,
+        /// whichever spelling Steam would keep or hand back from search.
+        /// </summary>
+        private static MultiplayerReason CheckLobbyKeyCase(string key, Dictionary<string, string> data)
+        {
+            if (key == null)
+            {
+                return MultiplayerReason.None;
+            }
+
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                if (!string.Equals(pair.Key, key, StringComparison.Ordinal)
+                    && string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.LogWarning($"[Multiplayer] Lobby data key '{key}' differs from the key '{pair.Key}' only by case, and Steam does not tell lobby data keys apart by case.");
+                    return MultiplayerReason.InvalidArgument;
+                }
+            }
+
+            return MultiplayerReason.None;
         }
 
         private static void WarnIfInvalid(MultiplayerReason check, string key)
