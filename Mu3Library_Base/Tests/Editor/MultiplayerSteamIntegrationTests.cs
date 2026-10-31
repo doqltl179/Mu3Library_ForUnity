@@ -10,6 +10,9 @@ using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 using Mu3Library.Multiplayer.Steam;
 using NUnit.Framework;
+using UnityEngine.TestTools.Constraints;
+// Unity's Is extends NUnit's with AllocatingGCMemory.
+using Is = UnityEngine.TestTools.Constraints.Is;
 
 namespace Mu3Library.Tests
 {
@@ -140,9 +143,24 @@ namespace Mu3Library.Tests
             Assert.That(receiving.BytesReceivedPerSecond, Is.GreaterThan(0f));
             Assert.That(recorder.Received, Is.Not.Empty);
 
+            // The backend asks Steam at most every half second, and answers from that in between.
+            Thread.Sleep(600);
+            Assert.That(() => { _backend.TryGetConnectionQuality(sender, out _); }, Is.AllocatingGCMemory(), "a read that asks Steam");
+            Assert.That(() => { _backend.TryGetConnectionQuality(sender, out _); }, Is.Not.AllocatingGCMemory(), "a read between Steam's answers");
+
             Assert.That(_backend.TryGetConnectionQuality(new ConnectionId(uint.MaxValue), out _), Is.False);
             _backend.Disconnect(sender, 0);
             Assert.That(_backend.TryGetConnectionQuality(sender, out _), Is.False);
+
+            // The other side answers false once Steam reports the close, before the backend hands it on.
+            Stopwatch closing = Stopwatch.StartNew();
+            while (closing.Elapsed.TotalSeconds < 10.0 && _backend.TryGetConnectionQuality(receiver, out _))
+            {
+                Steamworks.SteamAPI.RunCallbacks();
+                Thread.Sleep(20);
+            }
+
+            Assert.That(_backend.TryGetConnectionQuality(receiver, out _), Is.False);
         }
 
         [Test]

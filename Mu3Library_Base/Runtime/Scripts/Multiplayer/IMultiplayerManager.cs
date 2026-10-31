@@ -97,8 +97,9 @@ namespace Mu3Library.Multiplayer
         /// way per second. The host has a connection to every client, and a client has one to the
         /// host only, since everything it sends travels through the host; so a client asking about
         /// another client, a player asking about themselves, and a player outside the session
-        /// answer false. Reading allocates nothing on the local backend, so a game can show it
-        /// every frame.
+        /// answer false. Reading allocates nothing on the local backend, and on Steam only when
+        /// the backend asks Steam again, at most twice a second per connection, so a game can show
+        /// it every frame.
         /// </summary>
         public bool TryGetConnectionQuality(PlayerId player, out ConnectionQuality quality);
         #endregion

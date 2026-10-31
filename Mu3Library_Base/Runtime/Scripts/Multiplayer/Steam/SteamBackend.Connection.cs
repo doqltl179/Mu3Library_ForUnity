@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
@@ -16,6 +17,15 @@ namespace Mu3Library.Multiplayer.Steam
 
             /// <summary>True once the listener heard <see cref="IMultiplayerBackendListener.OnConnected"/> for it.</summary>
             public bool IsReported;
+
+            /// <summary>True once Steam reported the connection closed or lost, before the close is handed on.</summary>
+            public bool IsClosed;
+
+            // What Steam last said of the connection's quality, and when, in Stopwatch ticks.
+            public bool HasQualityRead;
+            public long QualityReadAt;
+            public bool IsQualityKnown;
+            public ConnectionQuality Quality;
         }
 
         private struct ReceivedMessage
@@ -30,6 +40,12 @@ namespace Mu3Library.Multiplayer.Steam
 
         // A receive buffer that grew past this for a burst of large messages shrinks back afterwards.
         private const int RetainedReceiveBufferSize = 1024 * 1024;
+
+        // Steam is asked for a connection's quality at most this often; reads in between answer
+        // what it said last. Each answer allocates, since Steamworks.NET copies arrays of its
+        // status out of native memory.
+        private const double QualityRefreshSeconds = 0.5;
+        private static readonly long QualityRefreshTicks = (long)(QualityRefreshSeconds * Stopwatch.Frequency);
 
         // Where Steam keeps a message's data, length, and connection, read straight from native
         // memory so receiving allocates nothing.
@@ -184,16 +200,37 @@ namespace Mu3Library.Multiplayer.Steam
         /// Steam's own measure of the connection: its ping, the share of packets from the other
         /// side that did not arrive in order, and its data rates from recent history. Steam reports
         /// the share and the rates once it has measured a few seconds of traffic, and 0 before.
+        /// The backend asks Steam at most every half second per connection and answers from that
+        /// in between: a read that asks Steam allocates, since Steamworks.NET copies Steam's status
+        /// into new arrays, and the reads in between allocate nothing. A connection that Steam
+        /// reports closed answers false at once, even before the close is handed on.
         /// </remarks>
         public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality)
         {
             quality = default;
-            if (!IsAvailable || !_connections.TryGetValue(connection.Value, out SteamConnection steam) || !steam.IsReported)
+            if (!IsAvailable || !_connections.TryGetValue(connection.Value, out SteamConnection steam) || !steam.IsReported || steam.IsClosed)
             {
                 return false;
             }
 
-            if (SteamNetworkingSockets.GetConnectionRealTimeStatus(new HSteamNetConnection(connection.Value), ref _realTimeStatus, 0, ref _laneStatus) != EResult.k_EResultOK)
+            long now = Stopwatch.GetTimestamp();
+            if (!steam.HasQualityRead || now - steam.QualityReadAt >= QualityRefreshTicks)
+            {
+                steam.HasQualityRead = true;
+                steam.QualityReadAt = now;
+                steam.IsQualityKnown = ReadQuality(connection.Value, out steam.Quality);
+            }
+
+            quality = steam.Quality;
+            return steam.IsQualityKnown;
+        }
+
+        /// <summary>Asks Steam how the connection performs; false unless Steam holds it connected.</summary>
+        private bool ReadQuality(uint connection, out ConnectionQuality quality)
+        {
+            quality = default;
+            if (SteamNetworkingSockets.GetConnectionRealTimeStatus(new HSteamNetConnection(connection), ref _realTimeStatus, 0, ref _laneStatus) != EResult.k_EResultOK
+                || _realTimeStatus.m_eState != ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected)
             {
                 return false;
             }
@@ -278,10 +315,12 @@ namespace Mu3Library.Multiplayer.Steam
 
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ClosedByPeer:
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
-                    if (!_connections.ContainsKey(id))
+                    if (!_connections.TryGetValue(id, out SteamConnection closing))
                     {
                         break;
                     }
+
+                    closing.IsClosed = true;
 
                     bool closedByPeer = status.m_info.m_eState == ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ClosedByPeer;
                     bool wasConnected = status.m_eOldState == ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected;
