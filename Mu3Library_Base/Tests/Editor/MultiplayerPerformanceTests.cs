@@ -26,24 +26,25 @@ namespace Mu3Library.Tests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A benchmark, so <see cref="ExplicitAttribute"/> keeps it out of a normal run, where a slow
-    /// or busy machine would make its timing meaningless. Run by name it asserts what does not
-    /// depend on the machine, no allocation in the steady state and no message later than the next
-    /// frame, and only logs the timing against the 0.5 ms target, in a line that starts with
-    /// <c>[NFR-1]</c>, in the Unity log and in the test's output in the results file, for
-    /// example from <c>Unity -batchmode -projectPath UnityProject_BuiltIn -runTests -testPlatform
-    /// EditMode -testFilter Mu3Library.Tests.MultiplayerPerformanceTests -testResults
-    /// results.xml -logFile run.log</c>.
+    /// It asserts what does not depend on the machine, no allocation in the steady state and no
+    /// message handled later than the frame after the one it was sent in (one frame more on a
+    /// machine-wide network, for the loopback), and only logs the timing against the 0.5 ms
+    /// target, in a line that starts with <c>[NFR-1]</c>, in the Unity log and in the test's
+    /// output in the results file.
     /// </para>
     /// <para>
     /// On a network inside this process the players run frame by frame on a test clock as fast
-    /// as they can. On a machine-wide network every player has a network object of its own, as a
-    /// separate process would, the frames keep to 60 a second in real time, and the timing
-    /// includes the loopback sockets. The players share this thread, so a garbage collection that
-    /// another player's allocation starts can land in a host frame.
+    /// as they can, about a second for each case, so these cases run with every other test. On a
+    /// machine-wide network every player has a network object of its own, as a separate process
+    /// would, the frames keep to 60 a second in real time, and the timing includes the loopback
+    /// sockets; those cases take about 40 seconds each, so <see cref="ExplicitAttribute"/> keeps
+    /// them out of a normal run. Run them by name, for example with <c>Unity -batchmode
+    /// -projectPath UnityProject_BuiltIn -runTests -testPlatform EditMode -testFilter
+    /// Mu3Library.Tests.MultiplayerPerformanceTests -testResults results.xml -logFile
+    /// run.log</c>. The players share this thread, so a garbage collection that another player's
+    /// allocation starts can land in a host frame.
     /// </para>
     /// </remarks>
-    [Explicit("A benchmark of about two minutes; run it by name.")]
     [Category("Performance")]
     public class MultiplayerPerformanceTests
     {
@@ -137,7 +138,9 @@ namespace Mu3Library.Tests
             _folder = Path.Combine(Path.GetTempPath(), "Mu3LibraryTests", Guid.NewGuid().ToString("N"));
             _clientPayload = new byte[ClientPayloadBytes];
             _hostPayload = new byte[HostPayloadBytes];
+            // NUnit runs every case on one instance of the fixture.
             _realClock.Restart();
+            _nextFrameAt = 0.0;
             _now = 0.0;
             _frame = 0;
             _allocations = Recorder.Get("GC.Alloc");
@@ -157,6 +160,7 @@ namespace Mu3Library.Tests
             _players.Clear();
             _host = null;
             _allocations.enabled = false;
+            _allocations.CollectFromAllThreads();
 
             try
             {
@@ -177,6 +181,7 @@ namespace Mu3Library.Tests
             Run("InProcess", route, InProcessFrames);
         }
 
+        [Explicit("Runs about 40 seconds of real time for each case; run it by name.")]
         [TestCase(ClientRoute.ToHost)]
         [TestCase(ClientRoute.ToOthers)]
         public void MachineWideNetwork_UnderTheNfr1Load(ClientRoute route)
@@ -220,7 +225,7 @@ namespace Mu3Library.Tests
             for (int i = 0; i < _players.Count; i++)
             {
                 Player player = _players[i];
-                Assert.That(player.LateMessages, Is.Zero, $"NFR-2: {player.LateMessages} messages reached player {i} later than the frame after they were sent.");
+                Assert.That(player.LateMessages, Is.Zero, $"NFR-2: {player.LateMessages} messages reached player {i} more than {AllowedLateFrames} frames after the frame they were sent in.");
             }
 
             Assert.That(SumOf(samples.UpdateAllocations, samples, includeDirectoryFrames: false), Is.Zero,
@@ -320,7 +325,7 @@ namespace Mu3Library.Tests
                 receiver.MaxLateFrames = late;
             }
 
-            if (late > 1)
+            if (late > AllowedLateFrames)
             {
                 receiver.LateMessages++;
             }
@@ -441,6 +446,16 @@ namespace Mu3Library.Tests
 
         #region Clock
         private double Now => _isRealTime ? _realClock.Elapsed.TotalSeconds : _now;
+
+        /// <summary>
+        /// How many frames after the one it was sent in a message may reach its handler. A client
+        /// sends after the host's update, so the host handles it in the next frame, and so does
+        /// every client the host relays it to. Lateness counts from the frame of the send rather
+        /// than from the arrival NFR-2 counts from, so on a machine-wide network one more frame is
+        /// allowed for a packet the loopback has not delivered yet when the receiver reads; the
+        /// report shows the largest lateness either way.
+        /// </summary>
+        private int AllowedLateFrames => _isRealTime ? 2 : 1;
 
         /// <summary>Keeps a machine-wide run at 60 frames a second; a run inside this process goes on at once.</summary>
         private void WaitForTheNextFrame()
