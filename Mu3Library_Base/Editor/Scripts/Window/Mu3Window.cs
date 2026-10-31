@@ -1,14 +1,24 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window.Drawer;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEngine;
+
+using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Mu3Library.Editor.Window
 {
     public abstract class Mu3Window : EditorWindow
     {
         protected const string MenuRoot = "Mu3Library/Windows";
+
+        /// <summary>
+        /// The project folder that keeps the drawer lists of windows whose scripts sit in packages, one asset per window type.
+        /// </summary>
+        internal const string ProjectDrawerListFolder = "Assets/Mu3Library/Editor/DrawerLists";
 
         #region Window Properties
 
@@ -23,6 +33,7 @@ namespace Mu3Library.Editor.Window
         [SerializeField] private bool _foldout_debug;
 
         [SerializeField] private DrawerListDrawer _drawerListDrawer = null;
+        internal DrawerListDrawer DrawerList => _drawerListDrawer;
 
 
 
@@ -109,28 +120,110 @@ namespace Mu3Library.Editor.Window
         private void LoadDrawerListDrawer()
         {
             string scriptAssetPath = FileFinder.GetAssetPathFromScriptableObject(this);
-            if (string.IsNullOrEmpty(scriptAssetPath))
+            _drawerListDrawer = LoadDrawerList(GetType(), scriptAssetPath);
+        }
+
+        /// <summary>
+        /// Finds the drawer list of a window, or creates it.
+        /// <br/> A window whose script sits under <c>Assets</c> keeps its list next to the script.
+        /// <br/> A window whose script sits in a package reads the list next to the script while the package can be
+        /// changed (embedded, or a local folder referenced with <c>file:</c>). Otherwise the list lives in
+        /// <see cref="ProjectDrawerListFolder"/>, named after the window type, since a package installed from a Git URL,
+        /// a registry, or a tarball is read-only; a list that such a package ships next to the script is copied there
+        /// the first time. Only the list is copied: the drawers it names stay in the package, so their own settings
+        /// are not saved in the project.
+        /// </summary>
+        /// <param name="windowType"> The window type, which names the list kept in the project </param>
+        /// <param name="scriptAssetPath"> The asset path of the window script </param>
+        /// <returns> The drawer list, or null when the path is not a script </returns>
+        internal static DrawerListDrawer LoadDrawerList(Type windowType, string scriptAssetPath)
+        {
+            if (windowType == null || string.IsNullOrEmpty(scriptAssetPath))
             {
-                return;
+                return null;
             }
 
-            string directory = "";
-            string extension = "";
-            FilePathConvertor.SplitPath(scriptAssetPath, out directory, out _, out extension);
+            FilePathConvertor.SplitPath(scriptAssetPath, out string directory, out _, out string extension);
             if (string.IsNullOrEmpty(directory) || extension != "cs")
             {
+                return null;
+            }
+
+            // The search covers the folders below the script too. It leaves out the lists the project keeps for
+            // windows in packages, which belong to other windows, and prefers a list in the script's own folder.
+            List<DrawerListDrawer> scriptFolderLists = FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(directory)
+                .Where(list => !AssetDatabase.GetAssetPath(list).StartsWith(ProjectDrawerListFolder + "/"))
+                .ToList();
+            DrawerListDrawer listNextToScript = scriptFolderLists
+                .FirstOrDefault(list => GetFolder(AssetDatabase.GetAssetPath(list)) == directory);
+            DrawerListDrawer scriptFolderList = listNextToScript != null ?
+                listNextToScript :
+                scriptFolderLists.FirstOrDefault();
+
+            if (FilePathConvertor.IsAssetPath(directory))
+            {
+                return scriptFolderList != null ?
+                    scriptFolderList :
+                    FileCreator.CreateScriptableObject<DrawerListDrawer>(directory, DrawerListDrawer.FileName);
+            }
+
+            if (scriptFolderList != null && IsInWritablePackage(directory))
+            {
+                return scriptFolderList;
+            }
+
+            string projectListPath = GetProjectDrawerListPath(windowType);
+            DrawerListDrawer projectList = AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(projectListPath);
+            if (projectList != null)
+            {
+                return projectList;
+            }
+
+            CreateFolders(ProjectDrawerListFolder);
+
+            if (listNextToScript != null &&
+                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(listNextToScript), projectListPath))
+            {
+                return AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(projectListPath);
+            }
+
+            return FileCreator.CreateScriptableObject<DrawerListDrawer>(ProjectDrawerListFolder, windowType.FullName);
+        }
+
+        /// <summary>
+        /// The asset path of the drawer list that the project keeps for a window whose script sits in a package.
+        /// </summary>
+        internal static string GetProjectDrawerListPath(Type windowType)
+        {
+            return $"{ProjectDrawerListFolder}/{windowType.FullName}.asset";
+        }
+
+        private static string GetFolder(string assetPath)
+        {
+            int lastSlash = assetPath.LastIndexOf('/');
+
+            return lastSlash > 0 ? assetPath.Substring(0, lastSlash) : "";
+        }
+
+        private static bool IsInWritablePackage(string assetPath)
+        {
+            PackageInfo package = PackageInfo.FindForAssetPath(assetPath);
+
+            return package != null &&
+                (package.source == PackageSource.Embedded || package.source == PackageSource.Local);
+        }
+
+        private static void CreateFolders(string folderPath)
+        {
+            if (AssetDatabase.IsValidFolder(folderPath))
+            {
                 return;
             }
 
-            List<DrawerListDrawer> ds = FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(directory);
-            _drawerListDrawer = ds.Count > 0 ?
-                ds[0] :
-                CreateWindowDrawerObject<DrawerListDrawer>(directory, DrawerListDrawer.FileName);
-        }
-        
-        private T CreateWindowDrawerObject<T>(string directory, string fileName) where T : Mu3WindowDrawer
-        {
-            return FileCreator.CreateScriptableObject<T>(directory, fileName);
+            int lastSlash = folderPath.LastIndexOf('/');
+            string parentFolder = folderPath.Substring(0, lastSlash);
+            CreateFolders(parentFolder);
+            AssetDatabase.CreateFolder(parentFolder, folderPath.Substring(lastSlash + 1));
         }
     }
 }
