@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Security;
 using System.Text;
 using Mu3Library.DI;
@@ -11,6 +10,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.Compilation;
 using UnityEditor.UnityLinker;
+using UnityEngine;
 using Assembly = System.Reflection.Assembly;
 
 namespace Mu3Library.Editor.DI
@@ -20,21 +20,35 @@ namespace Mu3Library.Editor.DI
     /// reflection: the constructors it chooses from and the [Inject] fields and properties it fills.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// With Managed Stripping Level Medium or High the linker removes members that no code calls.
     /// For the container those are a constructor with parameters, every constructor of a class
     /// registered through <c>ContainerScope.Register</c>, which has no <c>new()</c> constraint,
     /// and the setter of an [Inject] property. Unity does not read a link.xml inside a package,
     /// so this writes one for each build.
-    /// It lists the classes of the player's script assemblies that reference Mu3Library.DI, since
-    /// only they can register a service or declare an [Inject] member. Every entry is conditional
-    /// (<c>required="0"</c>, <c>ignoreIfUnreferenced="1"</c>): a class or assembly the build drops
-    /// because nothing uses it stays dropped, and a class something else keeps also keeps its
-    /// constructors and [Inject] members.
+    /// </para>
+    /// <para>
+    /// Constructors are kept in every assembly that can hold a registered class: the player script
+    /// assemblies and loaded precompiled assemblies that reference Mu3Library.DI, and every player
+    /// script or precompiled assembly they reference, directly or not, since a registration can name
+    /// a class of an assembly that knows nothing of the container. A wildcard entry lets the linker
+    /// match them against the assemblies it actually links, so a class that only the player
+    /// compiles is covered as well.
+    /// </para>
+    /// <para>
+    /// [Inject] members are listed by name, read from the assemblies the editor has loaded that
+    /// reference Mu3Library.DI. A member that only the player compiles, inside
+    /// <c>#if !UNITY_EDITOR</c> for example, or one in an assembly the editor does not load, is
+    /// not listed. An entry for a member the player lacks is ignored.
+    /// </para>
+    /// <para>
+    /// Every entry is conditional (<c>required="0"</c>, <c>ignoreIfUnreferenced="1"</c>): a class
+    /// or assembly the build drops because nothing uses it stays dropped, and a class something
+    /// else keeps also keeps its constructors and [Inject] members.
+    /// </para>
     /// </remarks>
     internal sealed class DILinkerProcessor : IUnityLinkerProcessor
     {
-        private const string OutputPath = "Library/Mu3Library/DI.link.xml";
-
         private const BindingFlags DeclaredMemberFlags =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
@@ -44,77 +58,144 @@ namespace Mu3Library.Editor.DI
 
         public string GenerateAdditionalLinkXmlFile(BuildReport report, UnityLinkerBuildPipelineData data)
         {
-            // The editor holds the same script assemblies the player build compiles; listing only
-            // those leaves out editor assemblies that reference Mu3Library.DI.
-            HashSet<string> playerAssemblies = new HashSet<string>(
-                CompilationPipeline.GetAssemblies(AssembliesType.Player).Select(assembly => assembly.name),
-                StringComparer.Ordinal);
-#if UNITY_6000_5_OR_NEWER
-            IEnumerable<Assembly> loadedAssemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
-#else
-            IEnumerable<Assembly> loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-#endif
-            IEnumerable<Assembly> assemblies = loadedAssemblies
-                .Where(assembly => playerAssemblies.Contains(assembly.GetName().Name));
+            string diAssemblyName = typeof(InjectAttribute).Assembly.GetName().Name;
 
-            string path = Path.GetFullPath(OutputPath);
+#if UNITY_6000_5_OR_NEWER
+            IEnumerable<Assembly> loaded = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
+#else
+            IEnumerable<Assembly> loaded = AppDomain.CurrentDomain.GetAssemblies();
+#endif
+            Dictionary<string, Assembly> loadedByName = new(StringComparer.Ordinal);
+            foreach (Assembly assembly in loaded)
+            {
+                if (!assembly.IsDynamic)
+                {
+                    loadedByName[assembly.GetName().Name] = assembly;
+                }
+            }
+
+            // The references of the script assemblies come from their player compilation, so an
+            // assembly the editor does not compile still counts. A precompiled assembly's own
+            // references are known only once the editor has loaded it.
+            HashSet<string> precompiled = new(
+                CompilationPipeline.GetPrecompiledAssemblyPaths(CompilationPipeline.PrecompiledAssemblySources.UserAssembly)
+                    .Select(Path.GetFileNameWithoutExtension),
+                StringComparer.Ordinal);
+            Dictionary<string, IReadOnlyCollection<string>> references = new(StringComparer.Ordinal);
+            foreach (string name in precompiled)
+            {
+                references[name] = loadedByName.TryGetValue(name, out Assembly assembly)
+                    ? GetReferencedNames(assembly)
+                    : Array.Empty<string>();
+            }
+            foreach (UnityEditor.Compilation.Assembly script in CompilationPipeline.GetAssemblies(AssembliesType.Player))
+            {
+                references[script.name] = script.assemblyReferences.Select(reference => reference.name)
+                    .Concat(script.compiledAssemblyReferences.Select(Path.GetFileNameWithoutExtension).Where(precompiled.Contains))
+                    .ToArray();
+            }
+
+            IReadOnlyCollection<string> constructorAssemblies = SelectAssemblies(references, diAssemblyName);
+            IEnumerable<Assembly> injectAssemblies = constructorAssemblies
+                .Where(name => references[name].Contains(diAssemblyName) && loadedByName.ContainsKey(name))
+                .Select(name => loadedByName[name]);
+
+            string path = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Library", "Mu3Library", "DI.link.xml");
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllText(path, BuildLinkXml(assemblies));
+            File.WriteAllText(path, BuildLinkXml(constructorAssemblies, injectAssemblies));
             return path;
         }
 
         /// <summary>
-        /// The link.xml for the given assemblies; only those that reference Mu3Library.DI add entries.
+        /// The assemblies that reference <paramref name="diAssemblyName"/> directly and every
+        /// assembly of <paramref name="references"/> they reach through their references, in name order.
         /// </summary>
-        internal static string BuildLinkXml(IEnumerable<Assembly> assemblies)
+        internal static IReadOnlyCollection<string> SelectAssemblies(
+            IReadOnlyDictionary<string, IReadOnlyCollection<string>> references, string diAssemblyName)
         {
-            string diAssemblyName = typeof(InjectAttribute).Assembly.GetName().Name;
+            SortedSet<string> selected = new(StringComparer.Ordinal);
+            Queue<string> pending = new(references
+                .Where(pair => pair.Value.Contains(diAssemblyName))
+                .Select(pair => pair.Key));
 
-            StringBuilder xml = new StringBuilder();
-            xml.AppendLine("<linker>");
-
-            foreach (Assembly assembly in assemblies
-                .Where(assembly => !assembly.IsDynamic && ReferencesAssembly(assembly, diAssemblyName))
-                .OrderBy(assembly => assembly.GetName().Name, StringComparer.Ordinal))
+            while (pending.Count > 0)
             {
-                List<string> types = new();
-                foreach (Type type in GetTypes(assembly).OrderBy(type => type.FullName, StringComparer.Ordinal))
-                {
-                    string entry = BuildTypeEntry(type);
-                    if (entry != null)
-                    {
-                        types.Add(entry);
-                    }
-                }
-
-                if (types.Count == 0)
+                string name = pending.Dequeue();
+                if (!selected.Add(name))
                 {
                     continue;
                 }
 
-                xml.AppendLine($"  <assembly fullname=\"{SecurityElement.Escape(assembly.GetName().Name)}\" ignoreIfMissing=\"1\" ignoreIfUnreferenced=\"1\">");
-                foreach (string entry in types)
+                foreach (string reference in references[name])
                 {
-                    xml.Append(entry);
+                    if (references.ContainsKey(reference))
+                    {
+                        pending.Enqueue(reference);
+                    }
                 }
-                xml.AppendLine("  </assembly>");
             }
 
+            return selected;
+        }
+
+        /// <summary>
+        /// The link.xml that keeps the constructors of every class in
+        /// <paramref name="constructorAssemblies"/> and the [Inject] members declared in
+        /// <paramref name="injectAssemblies"/>.
+        /// </summary>
+        internal static string BuildLinkXml(IEnumerable<string> constructorAssemblies, IEnumerable<Assembly> injectAssemblies)
+        {
+            SortedDictionary<string, StringBuilder> entries = new(StringComparer.Ordinal);
+            foreach (string name in constructorAssemblies)
+            {
+                Entries(entries, name)
+                    .AppendLine("    <type fullname=\"*\" preserve=\"nothing\" required=\"0\">")
+                    .AppendLine("      <method name=\".ctor\" />")
+                    .AppendLine("    </type>");
+            }
+
+            foreach (Assembly assembly in injectAssemblies)
+            {
+                foreach (Type type in GetTypes(assembly).OrderBy(type => type.FullName, StringComparer.Ordinal))
+                {
+                    string entry = BuildInjectEntry(type);
+                    if (entry != null)
+                    {
+                        Entries(entries, assembly.GetName().Name).Append(entry);
+                    }
+                }
+            }
+
+            StringBuilder xml = new StringBuilder();
+            xml.AppendLine("<linker>");
+            foreach (KeyValuePair<string, StringBuilder> pair in entries)
+            {
+                xml.AppendLine($"  <assembly fullname=\"{SecurityElement.Escape(pair.Key)}\" ignoreIfMissing=\"1\" ignoreIfUnreferenced=\"1\">");
+                xml.Append(pair.Value);
+                xml.AppendLine("  </assembly>");
+            }
             xml.AppendLine("</linker>");
             return xml.ToString();
         }
 
-        private static string BuildTypeEntry(Type type)
+        private static StringBuilder Entries(SortedDictionary<string, StringBuilder> entries, string assemblyName)
         {
-            if (type == null || !type.IsClass || type.FullName == null ||
-                type.IsDefined(typeof(CompilerGeneratedAttribute), false) ||
-                typeof(Delegate).IsAssignableFrom(type) ||
-                typeof(UnityEngine.Object).IsAssignableFrom(type))
+            if (!entries.TryGetValue(assemblyName, out StringBuilder builder))
+            {
+                builder = new StringBuilder();
+                entries.Add(assemblyName, builder);
+            }
+
+            return builder;
+        }
+
+        private static string BuildInjectEntry(Type type)
+        {
+            if (type == null || type.FullName == null)
             {
                 return null;
             }
 
-            bool keepsConstructors = !type.IsAbstract && type.GetConstructors().Length > 0;
             List<string> fields = type.GetFields(DeclaredMemberFlags)
                 .Where(field => field.IsDefined(typeof(InjectAttribute), false))
                 .Select(field => field.Name)
@@ -124,17 +205,13 @@ namespace Mu3Library.Editor.DI
                 .Select(property => property.Name)
                 .ToList();
 
-            if (!keepsConstructors && fields.Count == 0 && properties.Count == 0)
+            if (fields.Count == 0 && properties.Count == 0)
             {
                 return null;
             }
 
             StringBuilder entry = new StringBuilder();
             entry.AppendLine($"    <type fullname=\"{SecurityElement.Escape(type.FullName.Replace('+', '/'))}\" preserve=\"nothing\" required=\"0\">");
-            if (keepsConstructors)
-            {
-                entry.AppendLine("      <method name=\".ctor\" />");
-            }
             foreach (string field in fields)
             {
                 entry.AppendLine($"      <field name=\"{SecurityElement.Escape(field)}\" />");
@@ -147,15 +224,15 @@ namespace Mu3Library.Editor.DI
             return entry.ToString();
         }
 
-        private static bool ReferencesAssembly(Assembly assembly, string name)
+        private static IReadOnlyCollection<string> GetReferencedNames(Assembly assembly)
         {
             try
             {
-                return assembly.GetReferencedAssemblies().Any(reference => reference.Name == name);
+                return assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
             }
             catch (Exception)
             {
-                return false;
+                return Array.Empty<string>();
             }
         }
 
