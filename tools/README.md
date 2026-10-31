@@ -36,7 +36,7 @@ A new clone or worktree holds only tracked files. Set it up in this order before
 
 ## Development Environment
 
-One command enters the repository's development environment in a terminal, from any folder of the checkout:
+One command, run from the repository root, enters the repository's development environment in a terminal:
 
 | Shell | Enter | Leave |
 |---|---|---|
@@ -51,9 +51,9 @@ Entering it:
 - sets every variable that `.env.local` at the repository root lists, such as those in [Environment](#environment), and `MU3_DEV_ROOT` to the repository root;
 - in PowerShell on Windows, puts the bash of Git for Windows first on `PATH`, so `bash ./test-unity.sh` runs the bash the scripts are written for.
 
-`deactivate` restores every variable and `PATH` as they were before. The `.envrc` does not create `.venv`; run one of the scripts once first. Dot-sourcing the PowerShell script needs an execution policy that runs local scripts, such as `RemoteSigned`.
+`deactivate` restores every variable and `PATH` as they were before. Entering it while another virtual environment is active leaves that one first. The `.envrc` does not create `.venv`; run one of the scripts once first. The PowerShell script needs an execution policy that runs local scripts, such as `RemoteSigned`.
 
-`.env.local` is personal and Git-ignored; copy [dev/env.local.example](dev/env.local.example) to start one. It holds one `KEY=VALUE` per line, a line starting with `#` is a comment, and quotes around a value are optional. Keep comments on their own lines and `$` out of values: direnv reads both differently from the scripts. PowerShell has no `NAME=value command` form, so a variable that a bash example sets for one command belongs in `.env.local`, or in `$env:NAME = 'value'` for the current session.
+`.env.local` is personal and Git-ignored; copy [dev/env.local.example](dev/env.local.example) to start one. It holds one `KEY=VALUE` per line. The three ways of entering parse it separately, so keep to the subset all of them read alike, which the example file lists. PowerShell has no `NAME=value command` form, so a variable that a bash example sets for one command belongs in `.env.local`, or in `$env:NAME = 'value'` for the current session.
 
 ## Unity Compile Entrypoint
 

@@ -69,7 +69,7 @@ The tests that run `compile-unity.sh` find bash the way the `unity` commands do,
 2. `bin\bash.exe` of the Git installation whose `git` is on `PATH`.
 3. `Git\bin\bash.exe` under `Program Files`, `Program Files (x86)`, and `%LOCALAPPDATA%\Programs`.
 
-When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` looks in the same places and puts the bash it finds first on the PowerShell session's `PATH`.
+When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks the CLI for this bash and puts it first on the PowerShell session's `PATH`.
 
 ## Notes
 
