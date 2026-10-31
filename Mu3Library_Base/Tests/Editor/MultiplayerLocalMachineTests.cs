@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -595,6 +596,176 @@ namespace Mu3Library.Tests
 
             Assert.That(Directory.GetFiles(_folder, "*.lobbies"), Is.Empty);
         }
+
+        [Test]
+        public void Dispose_WhileTheLobbyFileIsBeingRewritten_LeavesNoFile()
+        {
+            // A rewrite runs on a thread of its own and takes milliseconds; the dispose waits for
+            // it, so the write cannot bring the file back after the dispose deleted it.
+            for (int round = 0; round < 5; round++)
+            {
+                LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+                LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+                // A change is listed a quarter second after the last listing at the soonest.
+                Thread.Sleep(300);
+                Assert.That(owner.SetLobbyData(lobby, "round", round.ToString(CultureInfo.InvariantCulture)), Is.True);
+                owner.Update();
+                owner.Dispose();
+
+                Assert.That(Directory.GetFiles(_folder), Is.Empty, $"Round {round} left a file behind.");
+            }
+        }
+
+        [Test]
+        public void Crash_WhileTheLobbyFileIsBeingRewritten_LeavesTheFileAsItWas()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            // The change goes to the writer thread; the crash waits for that write if it began
+            // and drops it if not, so nothing writes the file afterwards.
+            Thread.Sleep(300);
+            Assert.That(owner.SetLobbyData(lobby, "map", "forest"), Is.True);
+            owner.Update();
+            owner.SimulateCrash();
+
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+            byte[] contents = File.ReadAllBytes(file);
+            DateTime written = File.GetLastWriteTimeUtc(file);
+
+            // Longer than a rewrite takes, and past the next one a running owner would make.
+            Thread.Sleep(500);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(contents));
+            Assert.That(File.GetLastWriteTimeUtc(file), Is.EqualTo(written));
+            Assert.That(Directory.GetFiles(_folder, "*.tmp"), Is.Empty);
+        }
+
+        [Test]
+        public void SecondLobby_IsInTheFolder_ByTheEndOfTheUpdateThatCreatedIt()
+        {
+            // A lobby that a listing adds is written at once, past the shortest interval and
+            // ahead of the writer thread, so a join by its ID right after finds it.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId first = CreateLobby(owner, LobbyVisibility.Public, 4);
+            LobbyId second = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(new[] { first, second }));
+            Assert.That(Join(CreateRawBackend(CreateNetwork(), "Joiner"), second), Is.EqualTo(MultiplayerReason.None));
+        }
+
+        [Test]
+        public void Owner_LeavingItsLastLobby_DeletesTheLobbyFile()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            owner.LeaveLobby(lobby);
+
+            PumpUntil(() => Directory.GetFiles(_folder).Length == 0, "the lobby file to be deleted");
+        }
+
+        [Test]
+        public void Directory_ReadFromAnotherThread_WhileTheOwnerRewritesIt_ListsTheLobbyWhole()
+        {
+            const int Rounds = 5;
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            PumpFor(0.3);
+            Assert.That(owner.SetLobbyData(lobby, "round", "0"), Is.True);
+            PumpUntil(() => ListedData(lobby, "round") == "0", "the first round to reach the file");
+
+            // Another thread reads the folder over and over, as a search in another process does,
+            // while the owner rewrites the file.
+            PlayerId ownerId = owner.LocalPlayerId;
+            int ownerPort = owner.Port;
+            int reads = 0;
+            int listed = 0;
+            List<string> broken = new List<string>();
+            Exception failure = null;
+            ManualResetEventSlim isDone = new ManualResetEventSlim();
+            Thread reader = new Thread(() =>
+            {
+                try
+                {
+                    while (!isDone.IsSet)
+                    {
+                        reads++;
+                        foreach (MachineDirectoryEntry entry in MachineDirectory.Read(_folder))
+                        {
+                            listed++;
+                            bool isWhole = entry.Lobby == lobby
+                                && entry.Owner == ownerId
+                                && entry.Port == ownerPort
+                                && entry.Capacity == 4
+                                && entry.Data.TryGetValue("round", out string listedRound)
+                                && int.TryParse(listedRound, NumberStyles.None, CultureInfo.InvariantCulture, out int value)
+                                && value <= Rounds;
+                            if (!isWhole)
+                            {
+                                broken.Add($"{entry.Lobby} on {entry.Port}, capacity {entry.Capacity}: {string.Join(", ", entry.Data.Select(pair => pair.Key + "=" + pair.Value))}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    failure = e;
+                }
+            });
+
+            reader.Start();
+            try
+            {
+                for (int round = 1; round <= Rounds; round++)
+                {
+                    PumpFor(0.3);
+                    Assert.That(owner.SetLobbyData(lobby, "round", round.ToString(CultureInfo.InvariantCulture)), Is.True);
+                }
+
+                PumpFor(0.3);
+            }
+            finally
+            {
+                isDone.Set();
+                reader.Join();
+                isDone.Dispose();
+            }
+
+            TestContext.Out.WriteLine($"{reads} reads, {listed} of which listed the lobby.");
+            Assert.That(failure, Is.Null, failure?.ToString());
+            Assert.That(broken, Is.Empty);
+            Assert.That(listed, Is.GreaterThan(0));
+
+            // A rewrite that the reader got in the way of is tried again.
+            PumpUntil(() => ListedData(lobby, "round") == Rounds.ToString(CultureInfo.InvariantCulture), "the last round to reach the file");
+        }
+
+        [Test]
+        public void Directory_RewriteThatFails_IsTriedAgain_BeforeTheNextRefresh()
+        {
+            // Only Windows refuses to replace a file another handle opened with FileShare.None;
+            // elsewhere the first rewrite would succeed and the test prove nothing.
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Assert.Ignore("Needs Windows file sharing to make the rewrite fail.");
+            }
+
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+
+            // Another program holds the file, so the owner cannot replace it.
+            using (new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                PumpFor(0.3);
+                Assert.That(owner.SetLobbyData(lobby, "map", "forest"), Is.True);
+                PumpFor(0.6);
+            }
+
+            // The owner refreshes its file every two seconds, and tries a failed write again in half a second.
+            PumpUntil(() => ListedData(lobby, "map") == "forest", "the change to reach the file", 1.0);
+        }
         #endregion
 
         #region Simulation
@@ -887,6 +1058,20 @@ namespace Mu3Library.Tests
             backend.JoinLobby(lobby, r => reason = r);
             PumpUntil(() => reason.HasValue, "the join");
             return reason.Value;
+        }
+
+        /// <summary>The value the folder lists for the key of the lobby, null when it lists neither.</summary>
+        private string ListedData(LobbyId lobby, string key)
+        {
+            foreach (MachineDirectoryEntry entry in MachineDirectory.Read(_folder))
+            {
+                if (entry.Lobby == lobby && entry.Data.TryGetValue(key, out string value))
+                {
+                    return value;
+                }
+            }
+
+            return null;
         }
 
         private List<BackendLobby> Search(LocalBackend backend)

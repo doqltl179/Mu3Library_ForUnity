@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from shell_harness import bash_or_skip
+from test_compile_selection import CAN_CHECK_LOCK_HOLDERS
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
@@ -196,20 +200,39 @@ def nunit_results(passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 
     )
 
 
+# The lines the Unity Test Framework logs, with -automated, as a test begins and ends.
+UTP_BEGIN = (
+    '##utp:{"type":"TestStatus","time":1,"version":2,"phase":"Begin","processId":1,'
+    '"name":"Fixture.Tests.Hangs","state":0}'
+)
+UTP_END = (
+    '##utp:{"type":"TestStatus","time":2,"version":2,"phase":"End","processId":1,'
+    '"name":"Fixture.Tests.Hangs","state":4,"message":"","duration":1}'
+)
+
+
 class TestEntryPointTests(FixtureRepositoryTestCase):
     """Runs the real test-unity.sh with a fake Unity that writes the results it is given."""
 
     TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
 
-    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0):
+    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0, **fake: str):
+        """Run test-unity.sh; fake sets FAKE_UNITY_<NAME> variables, such as log, ticks, and sleep."""
         return self.run_entry_point(
             "test-unity.sh",
             *arguments,
-            environment=self.unity_environment(FAKE_UNITY_RESULTS=results, FAKE_UNITY_STATUS=str(unity_status)),
+            environment=self.unity_environment(
+                FAKE_UNITY_RESULTS=results,
+                FAKE_UNITY_STATUS=str(unity_status),
+                **{f"FAKE_UNITY_{name.upper()}": value for name, value in fake.items()},
+            ),
         )
 
     def results_file(self, target: str, platform: str = "editmode") -> Path:
         return self.root / "log" / "unity-tests" / f"{target}-{platform}.xml"
+
+    def log_file(self, target: str, platform: str = "editmode") -> Path:
+        return self.results_file(target, platform).with_suffix(".log")
 
     def tearDown(self) -> None:
         shutil.rmtree(self.root / "log", ignore_errors=True)
@@ -248,6 +271,156 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn("--platform expects editmode or playmode: PlayMode", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_filter_reaches_unity_as_one_test_filter_argument(self) -> None:
+        pattern = "Fixture.Tests.Benchmark;Fixture.Tests.Case(\"two words\")"
+        completed = self.run_tests("leaf", "--filter", pattern, results=nunit_results(passed=1))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(f"Test filter: {pattern}", completed.stdout.splitlines())
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn(f"-runTests -testPlatform EditMode -testFilter {pattern} -testResults ", arguments)
+        self.assertIn(f"fake unity test filter: [{pattern}]", completed.stdout.splitlines())
+        self.assertIn("EditMode tests passed for leaf: 1 tests, 1 passed, 0 failed, 0 skipped", completed.stdout)
+
+    def test_filter_is_left_out_of_git_bash_path_conversion_by_its_first_part(self) -> None:
+        pattern = "Fixture.Tests.Case(a=/b);Fixture.Tests.Other"
+        completed = self.run_tests("leaf", "--filter", pattern, results=nunit_results(passed=1))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(
+            "fake unity path conversion exclusions: [Fixture.Tests.Case(a=/b)]", completed.stdout.splitlines()
+        )
+        self.assertIn(f"fake unity test filter: [{pattern}]", completed.stdout.splitlines())
+
+    def test_run_without_filter_passes_no_test_filter(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("-testFilter", completed.stdout)
+        self.assertNotIn("Test filter:", completed.stdout)
+
+    def test_filter_that_matches_no_test_fails_and_names_the_filter(self) -> None:
+        completed = self.run_tests("leaf", "--filter", "Fixture.Tests.Missing", results=nunit_results(passed=0))
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("error: leaf: no test matched --filter Fixture.Tests.Missing", completed.stderr)
+
+    def test_filter_needs_one_pattern_and_stops_before_unity_runs_without_it(self) -> None:
+        for arguments, message in (
+            (("--filter",), "--filter requires a test name or pattern"),
+            (("--filter", ""), "--filter requires a test name or pattern"),
+            (("--filter", "  "), "--filter requires a test name or pattern"),
+            (("--filter", "--dry-run"), "--filter expects a test name or pattern, not an option: --dry-run"),
+            (("--filter", "/Mu3/Regex"), "--filter cannot start with /, which Git Bash rewrites as a file path"),
+            (("--filter", "A", "--filter", "B"), "--filter can be given once"),
+        ):
+            with self.subTest(arguments=arguments):
+                completed = self.run_tests("leaf", *arguments, results=nunit_results())
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(message, completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_dry_run_shows_the_filter(self) -> None:
+        completed = self.run_tests("leaf", "--filter", "Fixture.Tests.Benchmark", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Test filter: Fixture.Tests.Benchmark", completed.stdout.splitlines())
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_filtered_run_of_an_open_project_runs_in_the_mirror(self) -> None:
+        lock_file = self.root / "ProjLeaf" / "Temp" / "UnityLockfile"
+        lock_file.parent.mkdir(parents=True)
+        lock_file.write_text("", encoding="utf-8")
+        self.addCleanup(shutil.rmtree, lock_file.parent)
+
+        with lock_file.open("rb"):
+            completed = self.run_tests(
+                "leaf", "--filter", "Fixture.Tests.Benchmark", results=nunit_results(passed=1)
+            )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because ProjLeaf is open in Unity.", completed.stdout)
+        self.assertIn("fake unity test filter: [Fixture.Tests.Benchmark]", completed.stdout.splitlines())
+        self.assertTrue(self.results_file("leaf").is_file())
+        self.assertEqual([], self.mirrors_left())
+
+    def test_unity_logs_each_test_into_a_log_kept_beside_the_results(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(), log=UTP_BEGIN)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn(" -automated ", arguments)
+        # The script still prints the log, and keeps it after the run.
+        self.assertIn(UTP_BEGIN, completed.stdout.splitlines())
+        log = self.log_file("leaf").read_text(encoding="utf-8").splitlines()
+        self.assertIn(UTP_BEGIN, log)
+        self.assertIn(arguments, log)
+
+    def test_silent_unity_is_stopped_and_the_run_names_the_test_it_was_in(self) -> None:
+        for log, phrase in (
+            (UTP_BEGIN, "while running Fixture.Tests.Hangs"),
+            (f"{UTP_BEGIN}\n{UTP_END}", "while no test was running"),
+        ):
+            with self.subTest(phrase=phrase):
+                sleeper_directory = tempfile.TemporaryDirectory()
+                self.addCleanup(sleeper_directory.cleanup)
+                sleeper_file = Path(sleeper_directory.name) / "sleeper.pid"
+                started = time.monotonic()
+                completed = self.run_tests(
+                    "leaf",
+                    "--stall-timeout",
+                    "2",
+                    results=nunit_results(),
+                    log=log,
+                    sleep="120",
+                    sleeper_file=str(sleeper_file),
+                )
+
+                self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(
+                    f"error: leaf: Unity wrote nothing to its log for 2 s {phrase}, so the script stopped it; "
+                    "see log/unity-tests/leaf-editmode.log",
+                    completed.stderr,
+                )
+                self.assertFalse(self.results_file("leaf").exists())
+                # The fake's own child, which taskkill /T does not reach on Git Bash, is gone too.
+                sleeper = sleeper_file.read_text(encoding="utf-8").strip()
+                alive = subprocess.run([str(bash_or_skip()), "-c", f"kill -0 {sleeper}"], capture_output=True, check=False)
+                self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
+
+    def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
+        completed = self.run_tests("leaf", "--stall-timeout", "3", results=nunit_results(), ticks="5")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("fake unity tick 5", completed.stdout.splitlines())
+
+    def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="3")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
+
+    def test_stall_timeout_needs_whole_seconds(self) -> None:
+        for value in ("", "1.5", "-1", "soon"):
+            with self.subTest(value=value):
+                completed = self.run_tests("leaf", "--stall-timeout", value, results=nunit_results())
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn("--stall-timeout expects a whole number of seconds", completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_run_without_results_names_the_test_it_was_in(self) -> None:
+        completed = self.run_tests("leaf", unity_status=1, log=UTP_BEGIN)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(
+            "Unity exited with 1 and wrote no test results while running Fixture.Tests.Hangs; see its log above",
+            completed.stderr,
+        )
 
     def test_failed_test_fails_the_run_and_is_named(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)
@@ -316,6 +489,73 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertIn("  - shared: in place", lines)
         self.assertIn("  - layered: skipped, ProjLayered/Packages/manifest.json lists no testables", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
+
+
+class UnfinishedTestTests(FixtureRepositoryTestCase):
+    """unfinished_test reads the test a run was in from the lines -automated adds to the log."""
+
+    def unfinished(self, *lines: str) -> str:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        log = Path(directory.name) / "unity.log"
+        log.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+        completed = self.run_functions("test-unity.sh", 'unfinished_test "$1"', str(log))
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout
+
+    def test_names_the_test_that_began_last_and_did_not_end(self) -> None:
+        self.assertEqual("Fixture.Tests.Hangs\n", self.unfinished("Loading", UTP_BEGIN, "[NFR-1] timing"))
+
+    def test_keeps_the_escaped_quotes_of_a_string_argument(self) -> None:
+        begin = UTP_BEGIN.replace("Fixture.Tests.Hangs", 'Fixture.Tests.Case(\\"two \\\\ words\\")')
+
+        self.assertEqual('Fixture.Tests.Case("two \\ words")\n', self.unfinished(begin))
+
+    def test_names_nothing_once_the_last_test_ended_or_when_none_began(self) -> None:
+        self.assertEqual("", self.unfinished(UTP_BEGIN, UTP_END))
+        self.assertEqual("", self.unfinished("Loading"))
+
+
+class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
+    def stall_seconds(self, *arguments: str) -> str:
+        completed = self.run_functions(
+            "test-unity.sh", 'parse_test_arguments "$@"\nprintf %s "$UNITY_STALL_SECONDS"', *arguments
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout
+
+    def test_a_run_waits_600_seconds_unless_told_otherwise(self) -> None:
+        self.assertEqual("600", self.stall_seconds("leaf"))
+        self.assertEqual("0", self.stall_seconds("leaf", "--stall-timeout", "0"))
+        self.assertEqual("90", self.stall_seconds("leaf", "--stall-timeout", "090"))
+
+
+class ProcessTreeTests(FixtureRepositoryTestCase):
+    """The watchdog stops only the processes of its own run."""
+
+    def test_descendants_stay_inside_the_process_group(self) -> None:
+        # 200 still names 100 as its parent after 100's real child ended and the PID came back,
+        # but it belongs to another session's group; 103 carries a Git Bash status letter.
+        fake_ps = r"""ps() {
+    if [[ "$1" == -e ]]; then
+        printf '      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND\n'
+        printf '      100      10      50       1100  ?         197610 00:00:00 /unity\n'
+        printf '      101     100      50       1101  ?         197610 00:00:00 /child\n'
+        printf '      102     101      50       1102  ?         197610 00:00:00 /grandchild\n'
+        printf 'I     103     100      50       1103  ?         197610 00:00:00 /waiting\n'
+        printf '      200     100     300       1200  ?         197610 00:00:00 /stranger\n'
+        printf '      201     200     300       1201  ?         197610 00:00:00 /stranger-child\n'
+        printf '       60      10      50       1060  ?         197610 00:00:00 /sibling\n'
+    else
+        printf '%s\n' '  100    10    50' '  101   100    50' '  102   101    50' '  103   100    50' \
+            '  200   100   300' '  201   200   300' '   60    10    50'
+    fi
+}
+"""
+        completed = self.run_functions("compile-unity.sh", fake_ps + "process_descendants 100 | sort")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(["101", "102", "103"], completed.stdout.split())
 
 
 # What an older Editor bundles, laid out as an Editor keeps it beside its executable: the

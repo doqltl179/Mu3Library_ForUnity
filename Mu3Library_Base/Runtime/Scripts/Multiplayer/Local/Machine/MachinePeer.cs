@@ -23,7 +23,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// </summary>
     /// <remarks>
     /// Everything runs on the main thread inside <see cref="Update"/>, on non-blocking sockets;
-    /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>).
+    /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>), and
+    /// the lobby file is rewritten on a thread of its own (<see cref="MachineDirectory"/>).
     /// What the session sends during an update, such as the messages a host relays, waits in its
     /// connection's queue until the update ends, so each connection takes one socket call for all
     /// of them instead of one for each; what the game sends between updates leaves at once.
@@ -235,6 +236,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             Abort(_acceptor);
+            _directory.Abandon();
             Clear();
         }
 
