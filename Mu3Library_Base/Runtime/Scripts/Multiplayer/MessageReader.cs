@@ -17,9 +17,11 @@ namespace Mu3Library.Multiplayer
     /// <see cref="FormatException"/> when the payload ends early or holds an invalid length or
     /// <see cref="bool"/>. The manager catches an exception that a handler throws and goes on with
     /// the next message, so a malformed message costs only itself, and logs it only the first
-    /// time the handler of that message type throws that exception type in a session. A
-    /// <see cref="FormatException"/> becomes a warning without a stack trace, since the sender
-    /// wrote another payload than the handler reads and the message names the problem.
+    /// time the handler of that message type throws that exception type in a session. The
+    /// <see cref="FormatException"/> this reader throws becomes a warning without a stack trace,
+    /// since the sender wrote another payload than the handler reads and the message names the
+    /// problem; any other exception, a <see cref="FormatException"/> of the game's own code
+    /// included, keeps its stack trace.
     /// </para>
     /// <para>
     /// Reading numbers, <see cref="bool"/>, the Unity types, and <see cref="ReadBytesSpan"/>
@@ -60,7 +62,7 @@ namespace Mu3Library.Multiplayer
             byte value = ReadByte();
             if (value > 1)
             {
-                throw new FormatException($"Invalid bool value {value}.");
+                throw new PayloadFormatException($"Invalid bool value {value}.");
             }
 
             return value == 1;
@@ -153,7 +155,7 @@ namespace Mu3Library.Multiplayer
         {
             if (length < 0)
             {
-                throw new FormatException($"Invalid block length {length}.");
+                throw new PayloadFormatException($"Invalid block length {length}.");
             }
 
             return Take(length);
@@ -171,8 +173,20 @@ namespace Mu3Library.Multiplayer
         {
             if (count > Remaining)
             {
-                throw new FormatException($"Payload ended early: {count} bytes needed, {Remaining} left.");
+                throw new PayloadFormatException($"Payload ended early: {count} bytes needed, {Remaining} left.");
             }
+        }
+    }
+
+    /// <summary>
+    /// The <see cref="FormatException"/> that <see cref="MessageReader"/> throws for a payload that
+    /// ends early or holds an invalid value. Its own type lets the manager tell a payload the
+    /// sender wrote otherwise from a <see cref="FormatException"/> of the game's own code.
+    /// </summary>
+    internal sealed class PayloadFormatException : FormatException
+    {
+        public PayloadFormatException(string message) : base(message)
+        {
         }
     }
 }

@@ -497,7 +497,7 @@ namespace Mu3Library.Multiplayer
                 {
                     if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
                     {
-                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from {remote} before its hello. Further {kind} packets before a hello go unlogged until the session ends.");
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from {remote} before its hello. Further {PacketsOf(kind)} before a hello go unlogged until the session ends.");
                     }
 
                     return;
@@ -547,7 +547,7 @@ namespace Mu3Library.Multiplayer
                     // Only the host sends the other kinds; a client that sends one is ignored.
                     if (IsFirstPacketDrop(kind, PacketDrop.WrongDirection))
                     {
-                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}. Further {kind} packets from clients go unlogged until the session ends.");
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}. Further {PacketsOf(kind)} from clients go unlogged until the session ends.");
                     }
 
                     break;

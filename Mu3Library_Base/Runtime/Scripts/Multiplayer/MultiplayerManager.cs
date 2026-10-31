@@ -432,7 +432,7 @@ namespace Mu3Library.Multiplayer
                 PacketKind kind = (PacketKind)data[0];
                 if (IsFirstPacketDrop(kind, PacketDrop.Malformed))
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message} Further malformed {kind} packets go unlogged until the session ends.");
+                    Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message} Further malformed {PacketsOf(kind)} go unlogged until the session ends.");
                 }
             }
         }
