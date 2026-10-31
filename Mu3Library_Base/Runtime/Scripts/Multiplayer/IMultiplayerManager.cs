@@ -41,7 +41,8 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// The game-defined lobby data of the current session, as the host last reported it,
-        /// without the library's own <c>mu3.</c> keys. Empty outside a session.
+        /// without the library's own <c>mu3.</c> keys. Empty outside a session. It finds a key in
+        /// any case, as Steam does (see <see cref="SetLobbyData"/>).
         /// </summary>
         public IReadOnlyDictionary<string, string> LobbyData { get; }
 
@@ -111,6 +112,27 @@ namespace Mu3Library.Multiplayer
         /// it every frame.
         /// </summary>
         public bool TryGetConnectionQuality(PlayerId player, out ConnectionQuality quality);
+
+        /// <summary>
+        /// The round trip between the host and <paramref name="player"/>, in milliseconds, as the
+        /// host measures it, which every player reads for every player of the session, so a game
+        /// can show everyone's ping on a scoreboard. It stands apart from
+        /// <see cref="TryGetConnectionQuality"/>, this player's own measure of its own connections:
+        /// a client that reads itself here gets the host's measure of its connection, and reads
+        /// another client here although it has no connection to it. The host's own entry is 0. The
+        /// host answers from its backend's current measure, and every
+        /// <see cref="MultiplayerLimits.PingReportIntervalSeconds"/> it reports the measures to the
+        /// clients in an unreliable packet whose size that constant states, so a client's value is
+        /// the host's from at most that long ago, plus the time the report travelled, and a report
+        /// the network loses leaves the earlier values until the next one. False for a player outside
+        /// the session or one whose slot the host keeps while they are away; on a client also before
+        /// the first report that names the player, such as right after it joined, and while this
+        /// player is <see cref="SessionState.Reconnecting"/>. A client's read allocates nothing, and
+        /// the host's reads as <see cref="TryGetConnectionQuality"/> does, so a game can show it
+        /// every frame. It works the same on every backend, since the host reads the measure through
+        /// <see cref="IMultiplayerBackend.TryGetConnectionQuality"/>.
+        /// </summary>
+        public bool TryGetParticipantPing(PlayerId player, out int pingMilliseconds);
         #endregion
 
         #region Data
@@ -125,14 +147,45 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. Setting the value a key already has
         /// changes nothing.
+        /// <para>
+        /// Steam does not tell lobby data keys apart by case, and every backend follows it. A key
+        /// that differs from one the lobby data already holds only by case, such as <c>map</c>
+        /// beside <c>Map</c>, answers <see cref="MultiplayerReason.InvalidArgument"/>: Steam would
+        /// keep one value for both, so the lobby that search reads would hold other data than
+        /// <see cref="LobbyData"/> on every player and than the local backends. The library refuses
+        /// the second key rather than fold it into the first, so the game learns of the clash and
+        /// every copy holds the same keys. Reading finds a key in any case: <see cref="LobbyData"/>,
+        /// <see cref="LobbyInfo.Data"/> of a search result, and lobby search filters, on every
+        /// backend. A key keeps the spelling it was set with, except that Steam's search may hand
+        /// it back in another case, so a game looks keys up rather than compare them. To change
+        /// the case of a key, delete it with <see cref="DeleteLobbyData"/> first.
+        /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);
+
+        /// <summary>
+        /// Host only, in the lobby or in a game; a client answers <see cref="MultiplayerReason.NotHost"/>.
+        /// Deletes one key of the lobby data, from the lobby that search reads too, so search no
+        /// longer returns it or finds the lobby by it, and reports it to every player through
+        /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/> with a null value. The key
+        /// and its value no longer count toward <see cref="MultiplayerLimits.MaxLobbyDataSize"/>,
+        /// so a long session that keeps changing its keys deletes the old ones to make room. The
+        /// key is found in any case, as reading and Steam find it, and the event names it as the
+        /// lobby data spells it: deleting <c>map</c> deletes <c>Map</c>. A null or empty key, one longer
+        /// than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that holds a NUL character or
+        /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
+        /// not hold changes nothing.
+        /// </summary>
+        public MultiplayerResult DeleteLobbyData(string key);
 
         /// <summary>
         /// In the lobby or in a game. Sets one value of this player's own participant data, such as
         /// the character they chose, which every player reads from <see cref="Participant.Data"/>;
         /// no player can change another's. Keys and values follow the rules of
-        /// <see cref="SetLobbyData"/>, and one player's data stays within
+        /// <see cref="SetLobbyData"/>, except that keys which differ only by case are two keys
+        /// here, since participant data travels over the host's connections and never reaches
+        /// Steam's lobby, and one player's data stays within
         /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. For a client, success means the
         /// request went to the host, and the value changes when the host reports it back through
         /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>. A client checks each
@@ -144,6 +197,22 @@ namespace Mu3Library.Multiplayer
         /// when the connection dropped is lost: the returning player takes the data the host holds.
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
+
+        /// <summary>
+        /// In the lobby or in a game. Deletes one key of this player's own participant data, which
+        /// every player hears through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>
+        /// with the player as they are without it, and the key and its value no longer count toward
+        /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. No player can delete another's.
+        /// An invalid key answers <see cref="MultiplayerReason.InvalidArgument"/>, as for
+        /// <see cref="SetParticipantData"/>, the library's own <c>mu3.</c> keys included, and
+        /// deleting a key the data does not hold changes nothing. For a client, success means the
+        /// request went to the host, as for <see cref="SetParticipantData"/>. A client's later
+        /// <see cref="SetParticipantData"/> calls count the room the deletion frees at once, before
+        /// the host reports it back, and the rate limits count the deletion as a participant data
+        /// request. While this player is <see cref="SessionState.Reconnecting"/> it answers
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// </summary>
+        public MultiplayerResult DeleteParticipantData(string key);
         #endregion
 
         #region Chat
@@ -152,8 +221,12 @@ namespace Mu3Library.Multiplayer
         /// answers <see cref="MultiplayerReason.ConnectionLost"/>, as sending does. Sends a text
         /// message to every player of the session, this player included, through
         /// <see cref="IMultiplayerManagerEventBus.OnChatReceived"/>. Null or empty text answers
-        /// <see cref="MultiplayerReason.InvalidArgument"/>, and text longer than
-        /// <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, and so does text with a UTF-16
+        /// surrogate without its pair, as a text field that cuts an emoji in half leaves: UTF-8
+        /// would carry it as a replacement character, so the other players would hear other text
+        /// than this player's own handlers. The call refuses such text rather than mending it, so
+        /// every player hears the same text and the game learns that its text would not arrive
+        /// as written. Text longer than <see cref="MultiplayerLimits.MaxChatMessageSize"/> in UTF-8 bytes answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/> and reaches nobody. That limit stands
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
         /// The host's own message is handled before the call returns, and a client's, its own copy

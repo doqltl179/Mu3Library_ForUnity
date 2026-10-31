@@ -25,7 +25,10 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidState);
             }
 
-            if (string.IsNullOrEmpty(text))
+            // Text with an unpaired surrogate is refused rather than mended: UTF-8 would carry it
+            // as a replacement character, so the clients would hear other text than the host's
+            // own handlers, and the game learns that its text would not arrive as written.
+            if (string.IsNullOrEmpty(text) || HasUnpairedSurrogate(text))
             {
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }

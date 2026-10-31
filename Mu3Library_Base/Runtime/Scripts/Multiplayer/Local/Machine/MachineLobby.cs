@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mu3Library.Multiplayer.Data;
 
@@ -17,7 +18,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public int Capacity;
         public bool IsJoinable = true;
         public readonly List<MachineMember> Members = new List<MachineMember>();
-        public readonly Dictionary<string, string> Data = new Dictionary<string, string>();
+        // Keys are found in any case, as Steam finds lobby data keys.
+        public readonly Dictionary<string, string> Data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Owner: the members have not heard the latest change yet.</summary>
         public bool IsDirty;

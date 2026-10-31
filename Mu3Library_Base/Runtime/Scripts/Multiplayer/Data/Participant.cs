@@ -37,7 +37,8 @@ namespace Mu3Library.Multiplayer.Data
 
         /// <summary>
         /// The game-defined data this player set for themselves with
-        /// <see cref="IMultiplayerManager.SetParticipantData"/>, as the host last reported it. A
+        /// <see cref="IMultiplayerManager.SetParticipantData"/> and did not delete with
+        /// <see cref="IMultiplayerManager.DeleteParticipantData"/>, as the host last reported it. A
         /// later change comes as a new participant; this one keeps the data it was handed out with.
         /// </summary>
         public IReadOnlyDictionary<string, string> Data => _data ?? NoData;

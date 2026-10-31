@@ -220,7 +220,11 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Welcome)
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome. Further {PacketsOf(kind)} before the welcome go unlogged until the session ends.");
+                    }
+
                     return;
                 }
 
@@ -267,6 +271,18 @@ namespace Mu3Library.Multiplayer
                     HandleParticipantDataChanged(ref reader);
                     break;
 
+                case PacketKind.LobbyDataDeleted:
+                    HandleLobbyDataDeleted(ref reader);
+                    break;
+
+                case PacketKind.ParticipantDataDeleted:
+                    HandleParticipantDataDeleted(ref reader);
+                    break;
+
+                case PacketKind.ParticipantPings:
+                    HandleParticipantPings(ref reader);
+                    break;
+
                 case PacketKind.ChatFromHost:
                     HandleChatFromHost(ref reader);
                     break;
@@ -280,7 +296,11 @@ namespace Mu3Library.Multiplayer
                     break;
 
                 default:
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.WrongDirection))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}. Further {PacketsOf(kind)} from the host go unlogged until the session ends.");
+                    }
+
                     break;
             }
         }
@@ -336,8 +356,11 @@ namespace Mu3Library.Multiplayer
             _lobbyData.Clear();
             foreach (KeyValuePair<string, string> pair in lobbyData)
             {
-                _lobbyData.Add(pair.Key, pair.Value);
+                _lobbyData[pair.Key] = pair.Value;
             }
+
+            // A returning player waits for the next report rather than show the pings from before the drop.
+            _reportedPings.Clear();
 
             if (TryGetParticipant(LocalPlayerId, out Participant self))
             {

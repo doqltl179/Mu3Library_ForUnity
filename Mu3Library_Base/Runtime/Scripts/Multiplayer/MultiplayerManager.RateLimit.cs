@@ -65,7 +65,8 @@ namespace Mu3Library.Multiplayer
 
         private static bool IsDelayable(PacketKind kind)
         {
-            return kind == PacketKind.SetReady || kind == PacketKind.SetParticipantData || kind == PacketKind.ReportLoaded;
+            return kind == PacketKind.SetReady || kind == PacketKind.SetParticipantData || kind == PacketKind.DeleteParticipantData
+                || kind == PacketKind.ReportLoaded;
         }
 
         private bool IsRateLimited => _rules.MaxMessagesPerSecond > 0 || _rules.MaxBytesPerSecond > 0;
@@ -152,6 +153,10 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.SetParticipantData:
                     ReadDataRequest(ref reader, out request.Key, out request.Value);
+                    break;
+
+                case PacketKind.DeleteParticipantData:
+                    request.Key = reader.ReadString(MaxDataKeyBytes);
                     break;
 
                 case PacketKind.ReportLoaded:
@@ -250,6 +255,10 @@ namespace Mu3Library.Multiplayer
 
                     case PacketKind.SetParticipantData:
                         HostTakeParticipantData(player, request.Key, request.Value);
+                        break;
+
+                    case PacketKind.DeleteParticipantData:
+                        HostTakeParticipantDataDeletion(player, request.Key);
                         break;
 
                     case PacketKind.ReportLoaded:

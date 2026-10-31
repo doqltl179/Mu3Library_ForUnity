@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
+using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 using UnityEngine.TestTools.Constraints;
 // Unity's Is extends NUnit's with AllocatingGCMemory.
@@ -234,7 +236,9 @@ namespace Mu3Library.Tests
             Assert.That(sending.BytesSentPerSecond, Is.InRange(SentPerSecond * 0.9f, SentPerSecond * 1.1f));
             Assert.That(receiving.BytesReceivedPerSecond, Is.InRange(SentPerSecond * 0.7f, SentPerSecond * 1.1f));
             Assert.That(receiving.PacketLoss, Is.InRange(0.02f, 0.2f));
-            Assert.That(sending.BytesReceivedPerSecond, Is.EqualTo(0f), "the host sent the client nothing");
+            // A window of half a second holds at most one ping report: 2 bytes and 10 for the one client.
+            const float PingReportBytes = 2f + 10f;
+            Assert.That(sending.BytesReceivedPerSecond, Is.InRange(0f, PingReportBytes / 0.5f * 1.1f), "the host sent the client only its ping report");
         }
 
         [Test]
@@ -305,7 +309,120 @@ namespace Mu3Library.Tests
         }
         #endregion
 
+        #region Participant Pings
+        [Test]
+        public void ParticipantPing_OfEveryPlayer_ReachesEveryClient_ApartFromItsOwnMeasure()
+        {
+            // FR-36: a client has a connection to the host only, so the host tells every client
+            // the round trip it measures to each player.
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(2);
+            Node a = clients[0], b = clients[1];
+            _network.SimulatedLatencyMilliseconds = 100f;
+
+            Advance(3.5);
+
+            Assert.That(a.Manager.TryGetConnectionQuality(b.Id, out _), Is.False, "A has no connection of its own to B");
+            foreach (Node node in new[] { host, a, b })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.Manager.TryGetParticipantPing(host.Id, out int hostPing), Is.True, name);
+                Assert.That(hostPing, Is.Zero, $"{name} reads the host's own entry");
+                foreach (Node client in clients)
+                {
+                    Assert.That(node.Manager.TryGetParticipantPing(client.Id, out int ping), Is.True, $"{name} reads {client.Backend.PlayerName}");
+                    TestContext.WriteLine($"At 100 ms one way, {name} reads {client.Backend.PlayerName}'s ping as {ping} ms.");
+                    Assert.That(ping, Is.InRange(180, 220), $"{name} reads {client.Backend.PlayerName}");
+                }
+            }
+
+            // A's own entry is the host's measure of A's connection, apart from A's own measure of it.
+            Assert.That(a.Manager.TryGetConnectionQuality(host.Id, out ConnectionQuality own), Is.True);
+            Assert.That(own.PingMilliseconds, Is.InRange(180, 220));
+
+            Assert.That(a.Manager.TryGetParticipantPing(new PlayerId(424242), out _), Is.False, "a player outside the session");
+            Assert.That(a.Manager.TryGetParticipantPing(PlayerId.None, out _), Is.False);
+            Assert.That(CreateNode("Lonely").Manager.TryGetParticipantPing(host.Id, out _), Is.False, "a player outside any session");
+
+            void ReadPings()
+            {
+                a.Manager.TryGetParticipantPing(b.Id, out _);
+                host.Manager.TryGetParticipantPing(b.Id, out _);
+            }
+
+            Assert.That(ReadPings, Is.Not.AllocatingGCMemory());
+        }
+
+        [Test]
+        public void ParticipantPings_GoOutOnceASecond_InOnePacketOfTwoBytesAndTenForEachClient()
+        {
+            // FR-36: the period and the traffic the documentation states.
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(2);
+            PacketRecorder recorder = new PacketRecorder(() => _now);
+            LocalBackend raw = CreateRawBackend("Raw", recorder);
+            ConnectAsPlayer(raw, host);
+
+            Advance(5.5);
+
+            List<(double Time, byte[] Data)> reports = recorder.Packets.Where(packet => packet.Data[0] == (byte)PacketKind.ParticipantPings).ToList();
+            Assert.That(reports.Count, Is.EqualTo(5), "one a second");
+            for (int i = 1; i < reports.Count; i++)
+            {
+                Assert.That(reports[i].Time - reports[i - 1].Time, Is.EqualTo(MultiplayerLimits.PingReportIntervalSeconds).Within(1.5 * FrameSeconds), $"report {i}");
+            }
+
+            // Two clients and the raw player: the kind, the count, and ten bytes for each.
+            Assert.That(reports.All(report => report.Data.Length == 2 + 10 * 3 && report.Data[1] == 3), Is.True);
+            Assert.That(host.Manager.TryGetParticipantPing(raw.LocalPlayerId, out _), Is.True);
+            Assert.That(clients[0].Manager.TryGetParticipantPing(raw.LocalPlayerId, out int ping) && ping == 0, Is.True, "no latency, no ping");
+        }
+
+        [Test]
+        public void ParticipantPing_FollowsTheHostsMeasure_AndEndsWithThePlayersPlaceInTheSession()
+        {
+            // FR-36, FR-40
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(2);
+            Node a = clients[0], b = clients[1];
+
+            Assert.That(a.Manager.TryGetParticipantPing(b.Id, out _), Is.False, "nothing reported before the first report");
+            Advance(2.5);
+            Assert.That(a.Manager.TryGetParticipantPing(b.Id, out int before), Is.True);
+            Assert.That(before, Is.Zero);
+
+            _network.SimulatedLatencyMilliseconds = 100f;
+            Advance(3.5);
+            Assert.That(a.Manager.TryGetParticipantPing(b.Id, out int after), Is.True);
+            Assert.That(after, Is.InRange(180, 220));
+
+            b.Manager.Leave();
+            Assert.That(b.Manager.TryGetParticipantPing(host.Id, out _), Is.False, "outside the session");
+            AdvanceUntil(() => !a.Manager.TryGetParticipant(b.Id, out _), 2.0);
+            Assert.That(a.Manager.TryGetParticipantPing(b.Id, out _), Is.False);
+            Assert.That(host.Manager.TryGetParticipantPing(b.Id, out _), Is.False);
+        }
+        #endregion
+
         #region Simulation Helpers
+        /// <summary>Records every packet a raw backend receives, with the test time it arrived at.</summary>
+        private sealed class PacketRecorder : IMultiplayerBackendListener
+        {
+            private readonly Func<double> _clock;
+            public readonly List<(double Time, byte[] Data)> Packets = new List<(double Time, byte[] Data)>();
+
+            public PacketRecorder(Func<double> clock)
+            {
+                _clock = clock;
+            }
+
+            public void OnConnected(ConnectionId connection, PlayerId remote, bool isIncoming) { }
+            public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => Packets.Add((_clock(), data.ToArray()));
+            public void OnDisconnected(ConnectionId connection, PlayerId remote, BackendDisconnectKind kind, int reasonCode) { }
+            public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
+            public void OnLobbyJoinRequested(LobbyId lobby) { }
+        }
+
         /// <summary>Hands the network the test's clock and a fixed seed; the managers already use that clock.</summary>
         private void UseTestNetworkClock()
         {
