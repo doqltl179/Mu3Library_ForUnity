@@ -34,15 +34,14 @@ mu3-cli unity compile
 
 ## Environment Bootstrap
 
-Preferred flow with `uv`:
+Enter the repository's development environment from PowerShell. The first run creates `.venv` at the repository root, with `uv` when it is installed and the standard `venv` module otherwise, and installs the CLI into it in editable mode:
 
 ```powershell
-cd tools/cli
-uv venv .venv
-.\.venv\Scripts\Activate.ps1
-uv pip install -e .
+. .\tools\dev\activate.ps1
 mu3-cli --help
 ```
+
+From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it.
 
 ## Verification
 
@@ -70,18 +69,7 @@ The tests that run `compile-unity.sh` find bash the way the `unity` commands do,
 2. `bin\bash.exe` of the Git installation whose `git` is on `PATH`.
 3. `Git\bin\bash.exe` under `Program Files`, `Program Files (x86)`, and `%LOCALAPPDATA%\Programs`.
 
-When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check.
-
-Portable fallback with standard `venv`:
-
-```powershell
-cd tools/cli
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e .
-mu3-cli --help
-```
+When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks the CLI for this bash and puts it first on the PowerShell session's `PATH`.
 
 ## Notes
 

@@ -15,6 +15,9 @@ Package release notes remain in:
 
 ## 2026-10-31
 
+### Added
+- One command enters the repository's development environment: `. .\tools\dev\activate.ps1` in PowerShell, `source tools/dev/activate.sh` in bash, or the root `.envrc` under direnv. The scripts create `.venv` at the repository root on first use and install `mu3-cli` into it, and all three activate it and set the variables listed in `.env.local`, a new personal and Git-ignored file that `tools/dev/env.local.example` documents. In PowerShell on Windows the script also makes `bash` run the bash that `mu3-cli` uses, normally that of Git for Windows. A variable that a bash example sets for one command, such as `NAME=value bash ./test-unity.sh`, a form PowerShell rejects, now goes in `.env.local` once and holds in either shell; `deactivate` restores everything. `tools/README.md` describes it, and `tools/cli/README.md` now sets up the CLI through it instead of a `.venv` inside `tools/cli`. `.gitattributes` checks `.envrc` out with LF, as it does the `.sh` scripts, since direnv runs it in bash.
+
 ### Changed
 - `.gitignore` ignores `.claude/worktrees/`, where Claude Code creates its session worktrees. Only a checkout's own `.git/info/exclude` held it before, so a new clone listed those worktrees as untracked. The commented-out `# **/[Ss]amples~/` line, which ignored nothing, is gone.
 - `.gitignore` no longer ignores `Assets/builtin_shaders`, the Unity built-in shader source that a checkout could keep in a development project. Base's materials were the only assets that referred to it, and they now use the built-in Standard shader (see `CHANGELOG.md`), so a copy placed there again shows up in `git status`.

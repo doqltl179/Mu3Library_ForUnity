@@ -108,3 +108,6 @@ tools/**/*.egg-info/
 
 # Claude Code session worktrees
 .claude/worktrees/
+
+# Personal development environment variables (see tools/dev/env.local.example)
+.env.local
