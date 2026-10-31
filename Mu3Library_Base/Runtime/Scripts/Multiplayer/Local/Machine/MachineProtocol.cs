@@ -28,6 +28,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         public const int NotYet = -1;
 
+        /// <summary>
+        /// The first byte of a <see cref="MachineFrameKind.Ping"/> on a session connection that
+        /// measures it. After it come the round trip so far in microseconds, then how many packets
+        /// the sender sent on the connection and how many of them the simulated network lost, each
+        /// an unsigned 64-bit number. The other side answers a request with a reply that adds its
+        /// own delay to the round trip.
+        /// </summary>
+        public const byte ProbeRequest = 1;
+        public const byte ProbeReply = 2;
+
         // A lobby holds at most a few dozen members and keys; more means a corrupt frame.
         private const int MaxListLength = 4096;
 

@@ -109,6 +109,12 @@ namespace Mu3Library.Multiplayer.Backend
         /// <paramref name="reasonCode"/>; this side receives no disconnect callback for it.
         /// </summary>
         public void Disconnect(ConnectionId connection, int reasonCode);
+
+        /// <summary>
+        /// How a connection performs now, as this backend measures it. False for a connection
+        /// this backend does not hold open, such as one either side closed.
+        /// </summary>
+        public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality);
         #endregion
     }
 }

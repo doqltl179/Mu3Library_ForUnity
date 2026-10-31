@@ -54,6 +54,10 @@ namespace Mu3Library.Multiplayer.Steam
 
         private Callback<SteamNetConnectionStatusChangedCallback_t> _connectionStatusChanged;
 
+        // Reused for every quality read; Steam fills them in.
+        private SteamNetConnectionRealTimeStatus_t _realTimeStatus;
+        private SteamNetConnectionRealTimeLaneStatus_t _laneStatus;
+
 
 
         private void InitializeConnections(SteamBackendOptions options)
@@ -176,11 +180,43 @@ namespace Mu3Library.Multiplayer.Steam
             SteamNetworkingSockets.CloseConnection(new HSteamNetConnection(connection.Value), reasonCode, null, true);
         }
 
+        /// <remarks>
+        /// Steam's own measure of the connection: its ping, the share of packets from the other
+        /// side that did not arrive in order, and its data rates from recent history. Steam reports
+        /// the share and the rates once it has measured a few seconds of traffic, and 0 before.
+        /// </remarks>
+        public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality)
+        {
+            quality = default;
+            if (!IsAvailable || !_connections.TryGetValue(connection.Value, out SteamConnection steam) || !steam.IsReported)
+            {
+                return false;
+            }
+
+            if (SteamNetworkingSockets.GetConnectionRealTimeStatus(new HSteamNetConnection(connection.Value), ref _realTimeStatus, 0, ref _laneStatus) != EResult.k_EResultOK)
+            {
+                return false;
+            }
+
+            // Below zero, Steam has not measured the share yet.
+            float delivered = _realTimeStatus.m_flConnectionQualityLocal;
+            float loss = delivered >= 0f ? Math.Min(1f, Math.Max(0f, 1f - delivered)) : 0f;
+            quality = new ConnectionQuality(
+                Math.Max(0, _realTimeStatus.m_nPing),
+                loss,
+                _realTimeStatus.m_flOutBytesPerSec,
+                _realTimeStatus.m_flInBytesPerSec);
+            return true;
+        }
+
         /// <summary>
         /// Test hook: two connected connections inside this process, through Steam's own
         /// networking, as if two players had connected. Both report to this backend's listener.
+        /// <paramref name="throughNetwork"/> sends the packets over the loopback address, where
+        /// Steam measures the connection both ways; otherwise they skip the network, and Steam
+        /// measures only what is sent.
         /// </summary>
-        internal bool CreateLoopbackPair(out ConnectionId first, out ConnectionId second)
+        internal bool CreateLoopbackPair(out ConnectionId first, out ConnectionId second, bool throughNetwork = false)
         {
             first = ConnectionId.None;
             second = ConnectionId.None;
@@ -193,7 +229,7 @@ namespace Mu3Library.Multiplayer.Steam
             SteamNetworkingIdentity identity2 = new SteamNetworkingIdentity();
             identity1.SetSteamID(new CSteamID(LocalPlayerId.Value));
             identity2.SetSteamID(new CSteamID(LocalPlayerId.Value));
-            if (!SteamNetworkingSockets.CreateSocketPair(out HSteamNetConnection one, out HSteamNetConnection two, false, ref identity1, ref identity2))
+            if (!SteamNetworkingSockets.CreateSocketPair(out HSteamNetConnection one, out HSteamNetConnection two, throughNetwork, ref identity1, ref identity2))
             {
                 return false;
             }

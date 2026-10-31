@@ -30,6 +30,7 @@ namespace Mu3Library.Tests
 
         private sealed class Node
         {
+            public LocalNetwork Network;
             public LocalBackend Backend;
             public MultiplayerManager Manager;
             public readonly List<SessionStateChange> States = new List<SessionStateChange>();
@@ -520,6 +521,72 @@ namespace Mu3Library.Tests
         }
         #endregion
 
+        #region Simulation
+        [Test]
+        public void SimulatedLatency_OnBothProcesses_ReportsTheRoundTripAsPing()
+        {
+            // FR-36, FR-40: each process delays what it sends, so 100 ms one way on each is a 200 ms round trip.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            host.Network.SimulatedLatencyMilliseconds = 100f;
+            client.Network.SimulatedLatencyMilliseconds = 100f;
+
+            // Probes measured before the latency count until a window without them goes by.
+            PumpFor(1.5);
+            ConnectionQuality fromHost = default;
+            ConnectionQuality fromClient = default;
+            PumpUntil(() => host.Manager.TryGetConnectionQuality(client.Id, out fromHost) && fromHost.PingMilliseconds > 0
+                && client.Manager.TryGetConnectionQuality(host.Id, out fromClient) && fromClient.PingMilliseconds > 0, "both pings");
+
+            TestContext.WriteLine($"Ping at 100 ms one way between processes: host {fromHost.PingMilliseconds} ms, client {fromClient.PingMilliseconds} ms.");
+            Assert.That(fromHost.PingMilliseconds, Is.InRange(180, 220));
+            Assert.That(fromClient.PingMilliseconds, Is.InRange(180, 220));
+
+            // Messages wait for the latency too.
+            Stopwatch sent = Stopwatch.StartNew();
+            Assert.That(client.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
+            PumpUntil(() => host.Messages.Count == 1, "the delayed message");
+            Assert.That(sent.Elapsed.TotalMilliseconds, Is.GreaterThanOrEqualTo(100.0));
+        }
+
+        [Test]
+        public void SimulatedLoss_DropsUnreliableMessages_ButReliableOnesArriveInOrder()
+        {
+            // FR-40, FR-32 between processes; the seed makes the client lose the same messages on every run.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            client.Network.SeedSimulation(40);
+            client.Network.SimulatedLossPercent = 10f;
+
+            for (int i = 0; i < 1000; i++)
+            {
+                Assert.That(client.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Host, DeliveryMode.Unreliable).IsSuccess, Is.True);
+            }
+
+            // The connection's own probes keep arriving, so the host can tell when the burst is in.
+            ConnectionQuality quality = default;
+            PumpUntil(() => host.Manager.TryGetConnectionQuality(client.Id, out quality) && quality.PacketLoss > 0f, "the host to measure the loss");
+            int unreliable = host.Messages.Count;
+            TestContext.WriteLine($"{unreliable} of 1000 unreliable messages arrived between processes at 10% loss; the host measured {quality}.");
+            Assert.That(unreliable, Is.InRange(850, 950));
+            Assert.That(quality.PacketLoss, Is.InRange(0.05f, 0.15f));
+
+            host.Messages.Clear();
+            client.Network.SimulatedLatencyMilliseconds = 10f;
+            client.Network.SimulatedLossPercent = 20f;
+            for (int i = 0; i < 1000; i++)
+            {
+                Assert.That(client.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Host).IsSuccess, Is.True);
+            }
+
+            PumpUntil(() => host.Messages.Count >= 1000, "every reliable message");
+            PumpFor(0.2);
+            Assert.That(host.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, 1000)));
+        }
+        #endregion
+
         #region Helpers
         private LocalNetwork CreateNetwork(Action<LocalNetwork> configure = null)
         {
@@ -539,11 +606,12 @@ namespace Mu3Library.Tests
 
         private Node CreateNode(string name)
         {
-            LocalBackend backend = new LocalBackend(CreateNetwork(), name);
+            LocalNetwork network = CreateNetwork();
+            LocalBackend backend = new LocalBackend(network, name);
             MultiplayerManager manager = new MultiplayerManager();
             Assert.That(manager.Initialize(backend, new MultiplayerConfig(GameId, 1) { Clock = () => _clock.Elapsed.TotalSeconds }).IsSuccess, Is.True);
 
-            Node node = new Node { Backend = backend, Manager = manager };
+            Node node = new Node { Network = network, Backend = backend, Manager = manager };
             manager.OnStateChanged += change => node.States.Add(change);
             manager.OnGameStarted += data => node.GameStarts.Add(data.ToArray());
             manager.OnChatReceived += (sender, text) => node.Chats.Add((sender.Id, text));

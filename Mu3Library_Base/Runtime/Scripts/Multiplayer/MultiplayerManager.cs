@@ -191,6 +191,37 @@ namespace Mu3Library.Multiplayer
             return index >= 0;
         }
 
+        public bool TryGetConnectionQuality(PlayerId player, out ConnectionQuality quality)
+        {
+            quality = default;
+            if (!_isInitialized || _isDisposed || !player.IsValid || player == LocalPlayerId)
+            {
+                return false;
+            }
+
+            ConnectionId connection;
+            if (_isHost)
+            {
+                PeerConnection peer = FindWelcomedPeer(player);
+                if (peer == null)
+                {
+                    return false;
+                }
+
+                connection = peer.Connection;
+            }
+            else if (_isWelcomed && player == _hostId && _hostConnection.IsValid)
+            {
+                connection = _hostConnection;
+            }
+            else
+            {
+                return false;
+            }
+
+            return _backend.TryGetConnectionQuality(connection, out quality);
+        }
+
         public void Leave()
         {
             if (!_isInitialized || _isDisposed)

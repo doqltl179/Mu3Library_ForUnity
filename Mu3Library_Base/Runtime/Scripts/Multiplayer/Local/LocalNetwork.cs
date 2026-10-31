@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
@@ -43,6 +44,70 @@ namespace Mu3Library.Multiplayer.Local
         /// </summary>
         public float ConnectionTimeoutSeconds { get; set; } = 10f;
 
+        private float _simulatedLatencyMilliseconds;
+        private float _simulatedJitterMilliseconds;
+        private float _simulatedLossPercent;
+
+        /// <summary>
+        /// How long each packet that a backend of this network sends on a session connection takes
+        /// to arrive, in milliseconds: 0 by default. A round trip takes twice as long, and the ping
+        /// that <see cref="IMultiplayerManager.TryGetConnectionQuality"/> reports says so.
+        /// </summary>
+        /// <remarks>
+        /// With <see cref="SimulatedJitterMilliseconds"/> and <see cref="SimulatedLossPercent"/>, it
+        /// makes the network as bad as a real one can be, to try a game on it without Steam. They
+        /// act on the connections between players, not on lobbies, and can change at any time. On
+        /// a machine-wide network each process applies its own values to what it sends, so give
+        /// every process the same ones.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">A negative, infinite, or NaN value.</exception>
+        public float SimulatedLatencyMilliseconds
+        {
+            get => _simulatedLatencyMilliseconds;
+            set
+            {
+                _simulatedLatencyMilliseconds = CheckSimulated(value, float.MaxValue, nameof(SimulatedLatencyMilliseconds));
+                Simulation.LatencySeconds = value / 1000.0;
+            }
+        }
+
+        /// <summary>
+        /// How far each packet's delay strays from <see cref="SimulatedLatencyMilliseconds"/>, at
+        /// random up to this much either way and never below zero, in milliseconds: 0 by default.
+        /// Unreliable packets can overtake each other then; reliable ones keep their order.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">A negative, infinite, or NaN value.</exception>
+        public float SimulatedJitterMilliseconds
+        {
+            get => _simulatedJitterMilliseconds;
+            set
+            {
+                _simulatedJitterMilliseconds = CheckSimulated(value, float.MaxValue, nameof(SimulatedJitterMilliseconds));
+                Simulation.JitterSeconds = value / 1000.0;
+            }
+        }
+
+        /// <summary>
+        /// Share of packets the network loses, in percent from 0 to 100: 0 by default. An
+        /// unreliable packet it takes never arrives. A reliable one is sent again one round trip of
+        /// <see cref="SimulatedLatencyMilliseconds"/> later, as often as the loss takes it, up to
+        /// ten times, and the reliable packets after it wait for it, so they all still arrive, in
+        /// the order they were sent.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">A value outside 0 to 100, or NaN.</exception>
+        public float SimulatedLossPercent
+        {
+            get => _simulatedLossPercent;
+            set
+            {
+                _simulatedLossPercent = CheckSimulated(value, 100f, nameof(SimulatedLossPercent));
+                Simulation.LossRate = value / 100.0;
+            }
+        }
+
+        /// <summary>What the simulated latency, jitter, and loss do to each packet.</summary>
+        internal NetworkSimulation Simulation { get; } = new NetworkSimulation();
+
         /// <summary>
         /// Machine-wide networks only: where the processes list their lobbies, a folder of this
         /// user's temporary folder by default. Tests point it elsewhere.
@@ -51,6 +116,10 @@ namespace Mu3Library.Multiplayer.Local
 
         /// <summary>Seconds since an arbitrary start; null uses a monotonic clock. Tests hand in their own.</summary>
         internal Func<double> Clock { get; set; }
+
+        internal double Now => Clock != null ? Clock() : Stopwatch.GetTimestamp() * SecondsPerTick;
+
+        private static readonly double SecondsPerTick = 1.0 / Stopwatch.Frequency;
 
         /// <summary>
         /// When true, entering a lobby skips its capacity check, the way two players who enter at
@@ -88,6 +157,23 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             return new LocalNetwork(name);
+        }
+
+        /// <summary>
+        /// Makes the simulated loss and jitter draw the same numbers on every run, so a test that
+        /// sends the same packets loses the same ones.
+        /// </summary>
+        internal void SeedSimulation(int seed) => Simulation.Seed(seed);
+
+        private static float CheckSimulated(float value, float max, string name)
+        {
+            if (!(value >= 0f && value <= max) || float.IsInfinity(value))
+            {
+                string range = max < float.MaxValue ? $"from 0 to {max:0}" : "finite and not negative";
+                throw new ArgumentOutOfRangeException(name, value, $"{name} must be {range}.");
+            }
+
+            return value;
         }
 
         private static bool IsValidName(string name)

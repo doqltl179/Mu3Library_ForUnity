@@ -13,9 +13,20 @@ namespace Mu3Library.Multiplayer.Local
     /// process, or with <see cref="LocalNetwork.CreateMachineWide"/>, across the processes of this
     /// computer. Like a real network, nothing arrives during the call that sent it: every answer
     /// and every packet waits until this backend's next <see cref="Update"/>, in the order it was
-    /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use.
+    /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use, unless the
+    /// network simulates a worse one with <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
+    /// <see cref="LocalNetwork.SimulatedJitterMilliseconds"/>, and
+    /// <see cref="LocalNetwork.SimulatedLossPercent"/>.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Each connection sends a small probe four times a second, which the backend's own
+    /// <see cref="Update"/> answers, to measure what <see cref="TryGetConnectionQuality"/> reports.
+    /// The ping is the round trip the simulated latency and jitter gave those probes; the time a
+    /// packet waits for the next <see cref="Update"/> is left out, as Steam's ping leaves it out, so
+    /// without simulated latency the ping is 0. The bytes count the packets the session sent and
+    /// received, without resends.
+    /// </para>
     /// <para>
     /// Lobby search returns public lobbies only, as Steam does; joining by lobby ID works for every
     /// visibility, since the local network has no friends or invites.
@@ -39,6 +50,8 @@ namespace Mu3Library.Multiplayer.Local
             Received,
             OwnerChanged,
             JoinRequested,
+            Probe,
+            ProbeReply,
         }
 
         private struct PendingEvent
@@ -53,6 +66,12 @@ namespace Mu3Library.Multiplayer.Local
             public int Length;
             public LobbyId Lobby;
             public Action Callback;
+
+            /// <summary>The connection a packet crossed the network to, which counts what it still waits for.</summary>
+            public LocalConnection Target;
+
+            /// <summary>A probe's round trip so far, in seconds.</summary>
+            public double RoundTrip;
         }
 
         private readonly LocalNetwork _network;
@@ -62,6 +81,9 @@ namespace Mu3Library.Multiplayer.Local
         private readonly MachinePeer _machine;
 
         private readonly Queue<PendingEvent> _events = new Queue<PendingEvent>();
+
+        // Packets, closes, and probes that the simulated network holds back until their time comes.
+        private readonly DelayQueue<PendingEvent> _delayed = new DelayQueue<PendingEvent>();
         private readonly Dictionary<ConnectionId, LocalConnection> _connections = new Dictionary<ConnectionId, LocalConnection>();
         private IMultiplayerBackendListener _listener;
         private bool _isDisposed = false;
@@ -178,10 +200,40 @@ namespace Mu3Library.Multiplayer.Local
 
             // Whatever a callback queues waits for the next Update, as an answer from a real
             // network would.
+            double now = _network.Now;
             int count = _events.Count;
             for (int i = 0; i < count && !_isDisposed; i++)
             {
                 Dispatch(_events.Dequeue());
+            }
+
+            // What the simulated network held back follows once its time has come; what reaches
+            // it during this update waits for the next one.
+            long sequence = _delayed.NextSequence;
+            while (!_isDisposed && _delayed.TryPeek(out double due, out long next) && due <= now && next < sequence)
+            {
+                PendingEvent pending = _delayed.Pop();
+                pending.Target.DelayedCount--;
+                Dispatch(pending);
+            }
+
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            foreach (LocalConnection connection in _connections.Values)
+            {
+                if (!connection.IsOpen)
+                {
+                    continue;
+                }
+
+                connection.Meter.Update(now);
+                if (connection.Meter.TakeProbe(now))
+                {
+                    SendProbe(connection, EventKind.Probe, 0.0);
+                }
             }
         }
 
@@ -501,12 +553,14 @@ namespace Mu3Library.Multiplayer.Local
                 return ConnectionId.None;
             }
 
+            double now = _network.Now;
             LocalConnection local = new LocalConnection
             {
                 Id = _network.AllocateConnectionId(),
                 Owner = this,
                 RemotePlayer = host,
                 IsOpen = true,
+                Meter = new ConnectionMeter(now),
             };
             _connections[local.Id] = local;
 
@@ -531,6 +585,7 @@ namespace Mu3Library.Multiplayer.Local
                 RemotePlayer = LocalPlayerId,
                 IsOpen = true,
                 Remote = local,
+                Meter = new ConnectionMeter(now),
             };
             local.Remote = remote;
             target._connections[remote.Id] = remote;
@@ -564,18 +619,122 @@ namespace Mu3Library.Multiplayer.Local
                 return false;
             }
 
+            LocalConnection remote = local.Remote;
+            NetworkSimulation simulation = _network.Simulation;
+            double now = _network.Now;
+            double due = now;
+            int resends = 0;
+            local.Meter.AddSent(data.Length);
+
+            if (simulation.IsActive)
+            {
+                if (mode == DeliveryMode.Reliable)
+                {
+                    resends = simulation.ReliableResends();
+                    due += simulation.PacketDelay() + resends * simulation.ResendSeconds;
+                }
+                else if (simulation.DropsPacket())
+                {
+                    remote.Meter.AddInbound(1, 1);
+                    return true;
+                }
+                else
+                {
+                    due += simulation.PacketDelay();
+                }
+            }
+
+            remote.Meter.AddInbound(1 + resends, resends);
+
             byte[] buffer = Packets.Rent(Math.Max(1, data.Length));
             data.CopyTo(buffer);
 
-            local.Remote.Owner._events.Enqueue(new PendingEvent
+            remote.Owner.Arrive(new PendingEvent
             {
                 Kind = EventKind.Received,
-                Connection = local.Remote.Id,
+                Connection = remote.Id,
                 Player = LocalPlayerId,
                 Data = buffer,
                 Length = data.Length,
-            });
+                Target = remote,
+            }, due, isOrdered: mode == DeliveryMode.Reliable, now);
             return true;
+        }
+
+        public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality)
+        {
+            if (_machine != null)
+            {
+                return _machine.TryGetConnectionQuality(connection, out quality);
+            }
+
+            if (!_isDisposed && _connections.TryGetValue(connection, out LocalConnection local) && local.IsOpen)
+            {
+                quality = local.Meter.Quality;
+                return true;
+            }
+
+            quality = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Takes what crossed the network to one of this backend's connections, to hand on in the
+        /// next update once its simulated delay is over. Reliable packets and the close keep their
+        /// order, so one that a resend holds back holds back the ones after it; nothing waits
+        /// behind an unreliable packet.
+        /// </summary>
+        private void Arrive(PendingEvent pending, double due, bool isOrdered, double now)
+        {
+            LocalConnection target = pending.Target;
+            if (isOrdered)
+            {
+                due = Math.Max(due, target.LastOrderedDue);
+                target.LastOrderedDue = due;
+            }
+
+            // Without a delay, and with nothing held back that it must not overtake, it takes the
+            // way every other event takes.
+            if (due <= now && target.DelayedCount == 0)
+            {
+                _events.Enqueue(pending);
+                return;
+            }
+
+            target.DelayedCount++;
+            _delayed.Push(due, pending);
+        }
+
+        /// <summary>
+        /// Sends a probe, or the answer to one, across the simulated network, which can lose or
+        /// delay it as it does an unreliable packet.
+        /// </summary>
+        private void SendProbe(LocalConnection local, EventKind kind, double roundTrip)
+        {
+            LocalConnection remote = local.Remote;
+            if (remote == null || !remote.IsOpen || remote.Owner._isDisposed)
+            {
+                return;
+            }
+
+            NetworkSimulation simulation = _network.Simulation;
+            if (simulation.IsActive && simulation.DropsProbe())
+            {
+                remote.Meter.AddInbound(1, 1);
+                return;
+            }
+
+            remote.Meter.AddInbound(1, 0);
+            double delay = simulation.IsActive ? simulation.ProbeDelay() : 0.0;
+            double now = _network.Now;
+            remote.Owner.Arrive(new PendingEvent
+            {
+                Kind = kind,
+                Connection = remote.Id,
+                Player = LocalPlayerId,
+                Target = remote,
+                RoundTrip = roundTrip + delay,
+            }, now + delay, isOrdered: false, now);
         }
 
         public void Disconnect(ConnectionId connection, int reasonCode)
@@ -607,14 +766,20 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             remote.IsOpen = false;
-            remote.Owner._events.Enqueue(new PendingEvent
+
+            // The close travels like any packet, after the reliable ones sent before it.
+            NetworkSimulation simulation = _network.Simulation;
+            double now = _network.Now;
+            double due = simulation.IsActive ? now + simulation.PacketDelay() : now;
+            remote.Owner.Arrive(new PendingEvent
             {
                 Kind = EventKind.Disconnected,
                 Connection = remote.Id,
                 Player = LocalPlayerId,
                 DisconnectKind = kind,
                 ReasonCode = reasonCode,
-            });
+                Target = remote,
+            }, due, isOrdered: true, now);
         }
         #endregion
 
@@ -665,14 +830,29 @@ namespace Mu3Library.Multiplayer.Local
                 case EventKind.Received:
                     try
                     {
-                        if (_connections.ContainsKey(pending.Connection))
+                        if (_connections.TryGetValue(pending.Connection, out LocalConnection receiving))
                         {
+                            receiving.Meter.AddReceived(pending.Length);
                             _listener?.OnReceived(pending.Connection, pending.Player, new ReadOnlySpan<byte>(pending.Data, 0, pending.Length));
                         }
                     }
                     finally
                     {
                         Packets.Return(pending.Data);
+                    }
+                    break;
+
+                case EventKind.Probe:
+                    if (_connections.TryGetValue(pending.Connection, out LocalConnection probed) && probed.IsOpen)
+                    {
+                        SendProbe(probed, EventKind.ProbeReply, pending.RoundTrip);
+                    }
+                    break;
+
+                case EventKind.ProbeReply:
+                    if (_connections.TryGetValue(pending.Connection, out LocalConnection answered))
+                    {
+                        answered.Meter.AddRoundTrip(pending.RoundTrip);
                     }
                     break;
 
@@ -723,6 +903,15 @@ namespace Mu3Library.Multiplayer.Local
             while (_events.Count > 0)
             {
                 PendingEvent pending = _events.Dequeue();
+                if (pending.Kind == EventKind.Received)
+                {
+                    Packets.Return(pending.Data);
+                }
+            }
+
+            while (_delayed.Count > 0)
+            {
+                PendingEvent pending = _delayed.Pop();
                 if (pending.Kind == EventKind.Received)
                 {
                     Packets.Return(pending.Data);

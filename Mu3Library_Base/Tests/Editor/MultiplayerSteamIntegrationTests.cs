@@ -110,6 +110,42 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamConnection_ReportsItsQuality_UntilItCloses()
+        {
+            // FR-36 on Steam's own measure of a connection, which needs packets on the network.
+            Recorder recorder = new Recorder();
+            _backend.SetListener(recorder);
+            Assert.That(_backend.CreateLoopbackPair(out ConnectionId sender, out ConnectionId receiver, throughNetwork: true), Is.True);
+
+            // Steam reports the data rates once it has measured a few seconds of traffic.
+            byte[] payload = new byte[1024];
+            ConnectionQuality sending = default;
+            ConnectionQuality receiving = default;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < 15.0 && !(sending.BytesSentPerSecond > 0f && receiving.BytesReceivedPerSecond > 0f))
+            {
+                Assert.That(_backend.Send(sender, payload, DeliveryMode.Unreliable), Is.True);
+                _backend.Update();
+                Thread.Sleep(20);
+                Assert.That(_backend.TryGetConnectionQuality(sender, out sending), Is.True);
+                Assert.That(_backend.TryGetConnectionQuality(receiver, out receiving), Is.True);
+            }
+
+            TestContext.WriteLine($"Steam measured the data rates after {watch.Elapsed.TotalSeconds:0.0} s.");
+            TestContext.WriteLine($"Steam measured the sender as {sending} and the receiver as {receiving}.");
+            Assert.That(sending.PingMilliseconds, Is.InRange(0, 1000));
+            Assert.That(sending.PacketLoss, Is.InRange(0f, 1f));
+            Assert.That(receiving.PacketLoss, Is.InRange(0f, 1f));
+            Assert.That(sending.BytesSentPerSecond, Is.GreaterThan(0f));
+            Assert.That(receiving.BytesReceivedPerSecond, Is.GreaterThan(0f));
+            Assert.That(recorder.Received, Is.Not.Empty);
+
+            Assert.That(_backend.TryGetConnectionQuality(new ConnectionId(uint.MaxValue), out _), Is.False);
+            _backend.Disconnect(sender, 0);
+            Assert.That(_backend.TryGetConnectionQuality(sender, out _), Is.False);
+        }
+
+        [Test]
         public void SteamLobby_IsCreatedListedAndFound_ThenLeft()
         {
             // FR-5, FR-6 on Steam itself: Steam publishes lobby data a moment after it is set.

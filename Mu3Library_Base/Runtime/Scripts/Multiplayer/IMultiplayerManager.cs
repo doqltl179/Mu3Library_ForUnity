@@ -90,6 +90,17 @@ namespace Mu3Library.Multiplayer
         /// Host only. The player cannot rejoin this session.
         /// </summary>
         public MultiplayerResult Kick(PlayerId player);
+
+        /// <summary>
+        /// How this player's connection to <paramref name="player"/> performs, as the backend
+        /// measures it: the ping, the share of packets lost on their way here, and the bytes each
+        /// way per second. The host has a connection to every client, and a client has one to the
+        /// host only, since everything it sends travels through the host; so a client asking about
+        /// another client, a player asking about themselves, and a player outside the session
+        /// answer false. Reading allocates nothing on the local backend, so a game can show it
+        /// every frame.
+        /// </summary>
+        public bool TryGetConnectionQuality(PlayerId player, out ConnectionQuality quality);
         #endregion
 
         #region Data
