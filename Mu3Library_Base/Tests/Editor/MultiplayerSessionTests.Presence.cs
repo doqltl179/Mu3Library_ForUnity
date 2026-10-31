@@ -102,7 +102,7 @@ namespace Mu3Library.Tests
             Assert.That(a.Manager.SetPresenceStatus("Playing").IsSuccess, Is.True);
             Pump();
             int calls = a.Platform.Presences.Count;
-            a.Backend.SimulateOutage(20f);
+            a.Backend.SimulateOutage(ShortOutageSeconds);
             Advance(DropSeconds + 0.5);
             Assert.That(a.Manager.State, Is.EqualTo(SessionState.Reconnecting));
             Advance(11.0);

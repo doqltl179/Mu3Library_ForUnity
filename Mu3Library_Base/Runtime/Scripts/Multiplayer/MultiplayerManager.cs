@@ -27,6 +27,7 @@ namespace Mu3Library.Multiplayer
         private string _protocolVersionText;
         private double _joinTimeoutSeconds;
         private double _handshakeTimeoutSeconds;
+        private double _reconnectTimeoutSeconds;
         private Func<double> _clock;
 
         private bool _isInitialized = false;
@@ -116,6 +117,12 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            if (!(config.ReconnectTimeoutSeconds >= 0f))
+            {
+                Debug.LogWarning("[Multiplayer] The reconnect timeout must be zero or more.");
+                return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
+            }
+
             if (!backend.IsAvailable)
             {
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
@@ -134,6 +141,7 @@ namespace Mu3Library.Multiplayer
             _protocolVersionText = config.ProtocolVersion.ToString(CultureInfo.InvariantCulture);
             _joinTimeoutSeconds = config.JoinTimeoutSeconds;
             _handshakeTimeoutSeconds = config.HandshakeTimeoutSeconds;
+            _reconnectTimeoutSeconds = config.ReconnectTimeoutSeconds;
             _maxMessageSize = config.MaxMessageSize;
             _clock = config.Clock;
             _isInitialized = true;

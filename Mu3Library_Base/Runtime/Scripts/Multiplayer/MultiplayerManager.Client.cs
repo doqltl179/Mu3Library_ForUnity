@@ -139,7 +139,7 @@ namespace Mu3Library.Multiplayer
 
             if (isReturning)
             {
-                // Tried again after the retry interval, while the reservation lasts.
+                // Tried again after the retry interval, while the time to try lasts.
                 _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
                 _hostConnection = ConnectionId.None;
             }
@@ -199,7 +199,7 @@ namespace Mu3Library.Multiplayer
             else if (_state == SessionState.Reconnecting)
             {
                 // An attempt that did not get through, or that timed out before the host answered,
-                // is tried again while the reservation lasts. A host that answered decided: a
+                // is tried again while the time to try lasts. A host that answered decided: a
                 // player whose slot is gone hears ConnectionLost, unless the lobby shows the host
                 // gone, and a host that left or runs no session any more means HostLeft.
                 if (kind != BackendDisconnectKind.ClosedByPeer || sent == MultiplayerReason.None || sent == MultiplayerReason.Timeout)

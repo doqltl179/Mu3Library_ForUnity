@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
@@ -15,8 +16,10 @@ namespace Mu3Library.Multiplayer
         private readonly List<PlayerId> _expiredReservations = new List<PlayerId>();
         private readonly List<PlayerId> _shortenedReservations = new List<PlayerId>();
 
-        // On a client that reconnects, when it gives up, and when it tries the next time.
+        // On a client that reconnects, when it gives up and with which reason, and when it tries
+        // the next time.
         private double _reconnectDeadline = 0d;
+        private MultiplayerReason _reconnectTimeoutReason = MultiplayerReason.ConnectionLost;
         private double _nextReconnectAttempt = 0d;
 
 
@@ -209,9 +212,11 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// This player's connection to the host broke, or a reliable packet could not leave on it.
         /// During a game with a reservation time in the rules, this player starts coming back to
-        /// its slot; otherwise the session ends with <paramref name="reason"/>. A connection that
-        /// breaks after the lobby said the host left ends the session with
-        /// <see cref="MultiplayerReason.HostLeft"/>, as there is no host to come back to.
+        /// its slot, for <see cref="MultiplayerConfig.ReconnectTimeoutSeconds"/> or the
+        /// reservation time, whichever is shorter; otherwise the session ends with
+        /// <paramref name="reason"/>. A connection that breaks after the lobby said the host
+        /// left ends the session with <see cref="MultiplayerReason.HostLeft"/>, as there is no
+        /// host to come back to.
         /// </summary>
         private void LoseHost(MultiplayerReason reason)
         {
@@ -221,8 +226,9 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            float seconds = _rules.ReconnectReservationSeconds;
-            if (_state != SessionState.InGame || !(seconds > 0f))
+            float reservation = _rules.ReconnectReservationSeconds;
+            double seconds = Math.Min(reservation, _reconnectTimeoutSeconds);
+            if (_state != SessionState.InGame || !(seconds > 0d))
             {
                 EndSession(reason, raiseEvents: true);
                 return;
@@ -240,6 +246,11 @@ namespace Mu3Library.Multiplayer
             _reconnectDeadline = now + seconds;
             _nextReconnectAttempt = now;
 
+            // Past a reservation that ran out the slot is gone; past this player's own time, the
+            // host did not answer as long as a host that is still there would, and a host that
+            // stops answering ends the session.
+            _reconnectTimeoutReason = _reconnectTimeoutSeconds < reservation ? MultiplayerReason.HostLeft : MultiplayerReason.ConnectionLost;
+
             int index = IndexOfParticipant(LocalPlayerId);
             if (index >= 0)
             {
@@ -251,7 +262,7 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Connects to the host again, at most once every <see cref="ReconnectRetrySeconds"/>,
-        /// until the host takes this player back or the reservation time is over.
+        /// until the host takes this player back or the time to try is over.
         /// </summary>
         private void UpdateReconnect()
         {
@@ -269,7 +280,7 @@ namespace Mu3Library.Multiplayer
             double now = Now;
             if (now >= _reconnectDeadline)
             {
-                EndReconnect(MultiplayerReason.ConnectionLost);
+                EndReconnect(_reconnectTimeoutReason);
                 return;
             }
 

@@ -20,9 +20,16 @@ namespace Mu3Library.Tests
         // LocalNetwork.ConnectionTimeoutSeconds by default: how long an outage takes to drop a connection.
         private const double DropSeconds = 10.0;
 
+        // MultiplayerConfig.ReconnectTimeoutSeconds by default: how long a client tries to come back.
+        private const double TrySeconds = 10.0;
+
+        // An outage the default times bring a client back from: the drop and the first retries
+        // fall inside it, and it ends before the client stops trying.
+        private const float ShortOutageSeconds = 15f;
+
         #region Reconnect
         [Test]
-        public void Reconnect_After20SecondsAway_TheSameSlotComesBack_AndEveryPlayerHearsOfIt()
+        public void Reconnect_After15SecondsAway_TheSameSlotComesBack_AndEveryPlayerHearsOfIt()
         {
             // FR-20, FR-9
             UseTestNetworkClock();
@@ -39,7 +46,7 @@ namespace Mu3Library.Tests
             Assert.That(b.Manager.Send(Chat, new byte[] { 9 }, MessageTarget.Host).IsSuccess, Is.True);
             Pump();
 
-            b.Backend.SimulateOutage(20f);
+            b.Backend.SimulateOutage(ShortOutageSeconds);
             Advance(DropSeconds + 0.5);
 
             Assert.That(b.Manager.State, Is.EqualTo(SessionState.Reconnecting));
@@ -94,9 +101,9 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void Reconnect_NotBackWithinTheReservation_FreesTheSlotWithConnectionLost()
+        public void Reconnect_NotBackWithinItsOwnTime_EndsWithHostLeft_WhileTheHostKeepsTheSlotForTheWholeReservation()
         {
-            // FR-20
+            // FR-20, FR-27, NFR-3, #200: the client stops after its own time; the host's timing stays.
             UseTestNetworkClock();
             Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
             Node a = JoinNew("A", host);
@@ -108,13 +115,23 @@ namespace Mu3Library.Tests
             Advance(DropSeconds + 0.5);
             Assert.That(host.Disconnected.Select(participant => participant.Id), Is.EqualTo(new[] { b.Id }));
 
-            Advance(SessionRules.DefaultReconnectReservationSeconds - 1.0);
-            Assert.That(host.Manager.Participants.Count, Is.EqualTo(3), "the slot is kept for 60 seconds");
+            Advance(TrySeconds - 1.0);
             Assert.That(b.Manager.State, Is.EqualTo(SessionState.Reconnecting));
 
             Advance(1.0);
             Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
-            Assert.That(b.LastChange.Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+            Assert.That(b.States.Select(change => change.ToString()).Skip(3), Is.EqualTo(new[]
+            {
+                "InGame -> Reconnecting (ConnectionLost)",
+                "Reconnecting -> Offline (HostLeft)",
+            }));
+
+            // The host could not hear that the player stopped trying, and keeps the slot for 60 seconds.
+            Advance(SessionRules.DefaultReconnectReservationSeconds - TrySeconds - 1.0);
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(3), "the slot is kept for 60 seconds");
+            Assert.That(host.Left.Concat(a.Left), Is.Empty);
+
+            Advance(1.0);
             foreach (Node remaining in new[] { host, a })
             {
                 Assert.That(remaining.Left.Single().Participant.Id, Is.EqualTo(b.Id), remaining.Backend.PlayerName);
@@ -122,6 +139,75 @@ namespace Mu3Library.Tests
                 Assert.That(remaining.Manager.Participants.Select(participant => participant.Id), Is.EqualTo(new[] { host.Id, a.Id }), remaining.Backend.PlayerName);
                 Assert.That(remaining.Reconnected, Is.Empty, remaining.Backend.PlayerName);
             }
+        }
+
+        [Test]
+        public void Reconnect_AReservationShorterThanItsOwnTime_EndsWithConnectionLostAsTheSlotFrees()
+        {
+            // FR-20, #200: the reservation runs out first, so the slot is gone either way.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false).WithReconnectReservationSeconds(5f));
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+
+            b.Backend.SimulateOutage(120f);
+            Advance(DropSeconds + 0.5);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+
+            Advance(4.0);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Reconnecting));
+            Advance(1.0);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(b.LastChange.Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+            Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+        }
+
+        [TestCase(0f)]
+        [TestCase(30f)]
+        public void Reconnect_ItsOwnTime_IsEachClientsSetting(float seconds)
+        {
+            // FR-20, NFR-3, #200: 0 never tries; a longer time outlasts a 25-second outage.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node b = CreateNode("B", configure: config => config.ReconnectTimeoutSeconds = seconds);
+            Assert.That(Join(b, host).IsSuccess, Is.True);
+            host.Manager.StartGame();
+            Pump();
+
+            b.Backend.SimulateOutage(25f);
+            Advance(DropSeconds + 0.5);
+            Assert.That(host.Disconnected.Select(participant => participant.Id), Is.EqualTo(new[] { b.Id }), "the host keeps the slot either way");
+
+            if (seconds == 0f)
+            {
+                Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
+                Assert.That(b.LastChange.ToString(), Is.EqualTo("InGame -> Offline (HostLeft)"));
+                return;
+            }
+
+            Advance(16.0);
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(host.Reconnected.Select(participant => participant.Id), Is.EqualTo(new[] { b.Id }));
+        }
+
+        [Test]
+        public void Reconnect_ANegativeOrNaNTimeToTry_IsRefusedAtInitialize()
+        {
+            // NFR-3
+            LocalBackend backend = CreateRawBackend("Backend");
+            foreach (float seconds in new[] { -1f, float.NaN })
+            {
+                MultiplayerManager manager = new MultiplayerManager();
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig(GameId, 1) { ReconnectTimeoutSeconds = seconds }).Reason,
+                    Is.EqualTo(MultiplayerReason.InvalidArgument), seconds.ToString());
+                manager.Dispose();
+            }
+
+            MultiplayerManager unlimited = new MultiplayerManager();
+            Assert.That(unlimited.Initialize(backend, new MultiplayerConfig(GameId, 1) { ReconnectTimeoutSeconds = float.PositiveInfinity }).IsSuccess, Is.True,
+                "the reservation time still limits it");
+            unlimited.Dispose();
         }
 
         [Test]
@@ -214,7 +300,7 @@ namespace Mu3Library.Tests
             Assert.That(host.Disconnected, Is.Empty);
             Assert.That(b.Manager.State, Is.EqualTo(SessionState.Offline));
 
-            c.Backend.SimulateOutage(20f);
+            c.Backend.SimulateOutage(ShortOutageSeconds);
             Advance(DropSeconds + 0.5);
             Assert.That(host.Disconnected.Select(participant => participant.Id), Is.EqualTo(new[] { c.Id }));
             Assert.That(host.Manager.Kick(c.Id).IsSuccess, Is.True);
@@ -237,7 +323,7 @@ namespace Mu3Library.Tests
             host.Manager.StartGame(new byte[] { 1 });
             Pump();
 
-            b.Backend.SimulateOutage(20f);
+            b.Backend.SimulateOutage(ShortOutageSeconds);
             Advance(DropSeconds + 0.5);
             Assert.That(host.Manager.EndGame().IsSuccess, Is.True);
             if (startAnother)
@@ -394,7 +480,8 @@ namespace Mu3Library.Tests
         [Test]
         public void Reconnect_LeavingWhileReconnecting_FreesTheSlotAtOnceOnlyWhenAnAttemptReachedTheHost()
         {
-            // FR-14, FR-20: a player whose attempt reached the host tells it; one cut off cannot.
+            // FR-14, FR-20, #200: a player whose attempt reached the host tells it; one cut off
+            // cannot, and its slot frees when the reservation runs out.
             UseTestNetworkClock();
             Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
             Node b = JoinNew("B", host);

@@ -28,6 +28,19 @@ namespace Mu3Library.Multiplayer
         public float HandshakeTimeoutSeconds { get; set; } = 10f;
 
         /// <summary>
+        /// How long a client whose connection to its host broke during a game tries to come back
+        /// to its slot, counted from when it noticed: 10 seconds by default, the time a backend
+        /// takes to count a connection that stopped answering as lost. A client cannot tell its
+        /// own network going down from the host's, so when this runs out before the host takes it
+        /// back, the session ends with <see cref="Data.MultiplayerReason.HostLeft"/>, as for a
+        /// host that stopped answering, rather than after the whole reservation time of the
+        /// session's rules (<see cref="Data.SessionRules.ReconnectReservationSeconds"/>). The host
+        /// keeps the slot for its reservation time all the same, and a client never tries longer
+        /// than that. 0 ends the session as soon as the connection breaks.
+        /// </summary>
+        public float ReconnectTimeoutSeconds { get; set; } = 10f;
+
+        /// <summary>
         /// Largest payload one game message carries, in bytes. It cannot exceed what one send of
         /// the backend carries after the message header, which is about 512 KiB on Steam.
         /// </summary>
