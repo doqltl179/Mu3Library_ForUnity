@@ -127,6 +127,34 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void RateLimit_DelaysADeletionOfParticipantData_InOrderWithTheOtherDataRequests()
+        {
+            // FR-37, FR-11: a deletion is a data request, so it waits with the others, and the
+            // request after it, which fits only in the room it frees, still finds that room.
+            (Node host, Node[] clients) = CreateLimitedSession(LimitedRules.WithMaxMessagesPerSecond(2), 1);
+            Node a = clients[0];
+            string large = new string('x', MultiplayerLimits.MaxParticipantDataSize / 2 + 100);
+
+            Assert.That(a.Manager.SetParticipantData("first", large).IsSuccess, Is.True);
+            Pump();
+            AdvanceBy(1.5);
+
+            Assert.That(a.Manager.SendChat("one").IsSuccess, Is.True);
+            Assert.That(a.Manager.SendChat("two").IsSuccess, Is.True);
+            Assert.That(a.Manager.DeleteParticipantData("first").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("second", large).IsSuccess, Is.True, "fits only after the deletion before it");
+            Pump();
+            Assert.That(DataOf(host, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["first"] = large }), "the requests wait");
+
+            AdvanceBy(1.0);
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["second"] = large }), node.Backend.PlayerName);
+                Assert.That(node.DataChanges.Where(change => change.Participant.Id == a.Id).Select(change => change.Key), Is.EqualTo(new[] { "first", "first", "second" }), node.Backend.PlayerName);
+            }
+        }
+
+        [Test]
         public void RateLimit_MoreRequestsWaitingThanTheBound_DisconnectsWithRateLimited_ButLetsTheAccountJoinAgain()
         {
             // FR-37: a client that keeps sending requests past the limit cannot make the host hold

@@ -169,6 +169,85 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbyData_DeletedByTheHost_LeavesEveryCopyAndLobbySearch_AndFreesItsRoom()
+        {
+            // FR-11: a long session that keeps changing its keys deletes the old ones.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["map"] = "forest";
+            options.Data["mode"] = "coop";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Node seeker = CreateNode("Seeker");
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies.Count, Is.EqualTo(1));
+
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True);
+            Assert.That(host.LobbyDataChanges, Is.EqualTo(new[] { ("map", (string)null) }), "the host's own event arrives before the call returns");
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True, "deleting a key that is gone changes nothing");
+            Assert.That(host.Manager.DeleteLobbyData("never").IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in new[] { host, a, b })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("map", (string)null) }), name);
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["mode"] = "coop" }), name);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.Null);
+            Assert.That(Search(seeker).Lobbies.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["mode"] = "coop" }));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies, Is.Empty, "search no longer finds the lobby by the key");
+
+            // The key and value it held leave the count.
+            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "fill".Length - "mode".Length - "coop".Length);
+            Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.DeleteLobbyData("mode").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
+            Pump();
+
+            // A player who joins later never hears of the deleted keys.
+            Node late = JoinNew("Late", host);
+            Assert.That(late.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill", "x" }));
+            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill", "x" }));
+        }
+
+        [Test]
+        public void LobbyData_DeletionFromAClient_IsRefusedWithNotHost_AndTheLibrarysKeysStay()
+        {
+            // FR-11: deleting follows the rules of setting.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            Assert.That(a.Manager.DeleteLobbyData("Map").Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            foreach (string key in new[] { LobbyDataKeys.State, LobbyDataKeys.GameId, "MU3.HOST", string.Empty, null, new string('k', MultiplayerLimits.MaxDataKeyLength + 1) })
+            {
+                Assert.That(host.Manager.DeleteLobbyData(key).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), key);
+            }
+
+            LogAssert.Expect(LogType.Warning, new Regex("'map' differs from the key 'Map' only by case"));
+            Assert.That(host.Manager.DeleteLobbyData("map").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), "the key names another key's value on Steam");
+            Assert.That(CreateNode("Lonely").Manager.DeleteLobbyData("Map").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+            Pump();
+
+            Assert.That(host.LobbyDataChanges.Concat(a.LobbyDataChanges), Is.Empty);
+            Assert.That(a.Manager.LobbyData["Map"], Is.EqualTo("desert"));
+            Assert.That(host.Backend.GetLobbyData(lobby, "Map"), Is.EqualTo("desert"));
+            Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
+            Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.GameId), Is.EqualTo(GameId));
+
+            // Deleting first is how a key changes its case.
+            Assert.That(host.Manager.DeleteLobbyData("Map").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("map", "forest").IsSuccess, Is.True);
+            Pump();
+            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map" }));
+        }
+
+        [Test]
         public void LobbySearch_FindsTheKeyOfAFilterInAnyCase_AsSteamDoes()
         {
             // FR-6, FR-38: the local backends match filter keys the way Steam does.
@@ -217,6 +296,83 @@ namespace Mu3Library.Tests
             Assert.That(b.DataChanges[2].Participant.Data["character"], Is.EqualTo("archer"));
             Assert.That(DataOf(b, a.Id)["character"], Is.EqualTo("archer"));
             Assert.That(b.Changed, Is.Empty, "data changes have an event of their own");
+        }
+
+        [Test]
+        public void ParticipantData_DeletedByItsPlayer_ReachesEveryPlayer_AndFreesItsRoom()
+        {
+            // FR-9, FR-11
+            (Node host, Node[] clients) = CreateSession(2);
+            Node a = clients[0], b = clients[1];
+            Node[] everyone = { host, a, b };
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("team", "red").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetParticipantData("character", "wizard").IsSuccess, Is.True);
+            Pump();
+            Dictionary<Node, int> earlier = everyone.ToDictionary(node => node, node => node.DataChanges.Count);
+
+            Assert.That(a.Manager.DeleteParticipantData("team").IsSuccess, Is.True);
+            Assert.That(DataOf(a, a.Id).ContainsKey("team"), Is.True, "the host decides, and reports A's own deletion back");
+            Assert.That(host.Manager.DeleteParticipantData("character").IsSuccess, Is.True);
+            Assert.That(host.DataChanges.Count, Is.EqualTo(earlier[host] + 1), "the host's own event arrives before the call returns");
+            Assert.That(a.Manager.DeleteParticipantData("never").IsSuccess, Is.True, "deleting a key that is not there changes nothing");
+            Assert.That(host.Manager.DeleteParticipantData("never").IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in everyone)
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(DataOf(node, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["character"] = "knight" }), name);
+                Assert.That(DataOf(node, host.Id), Is.Empty, name);
+                List<(Participant Participant, string Key)> deletions = node.DataChanges.Skip(earlier[node]).ToList();
+                Assert.That(deletions.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (host.Id, "character"), (a.Id, "team") }), name);
+                Assert.That(deletions.All(change => !change.Participant.Data.ContainsKey(change.Key)), Is.True, $"{name} hears the player without the key");
+            }
+
+            // The room a deletion frees counts on the client at once, before the host reported it.
+            int half = MultiplayerLimits.MaxParticipantDataSize / 2;
+            Assert.That(b.Manager.SetParticipantData("a", new string('v', half + 100)).IsSuccess, Is.True);
+            Assert.That(b.Manager.SetParticipantData("b", new string('v', half)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(b.Manager.DeleteParticipantData("a").IsSuccess, Is.True);
+            Assert.That(b.Manager.SetParticipantData("b", new string('v', half)).IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in everyone)
+            {
+                Assert.That(DataOf(node, b.Id).Keys, Is.EquivalentTo(new[] { "b" }), node.Backend.PlayerName);
+            }
+
+            Assert.That(a.Manager.DeleteParticipantData("mu3.ready").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(a.Manager.DeleteParticipantData(null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateNode("Lonely").Manager.DeleteParticipantData("character").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+        }
+
+        [Test]
+        public void ParticipantData_DeletionFromAClient_DeletesOnlyItsOwn()
+        {
+            // FR-11, NFR-5: the request names no player, and the host's own deletions from a client are dropped.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            Assert.That(a.Manager.SetParticipantData("team", "blue").IsSuccess, Is.True);
+            LocalBackend raw = CreateRawBackend("Raw", new RecordingListener());
+            ConnectionId connection = ConnectAsPlayer(raw, host);
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "team", "red"), DeliveryMode.Reliable);
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "role", "scout"), DeliveryMode.Reliable);
+            Pump();
+
+            raw.Send(connection, KeyPacket(PacketKind.DeleteParticipantData, "team"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped a participant data deletion from .*: InvalidArgument"));
+            raw.Send(connection, KeyPacket(PacketKind.DeleteParticipantData, "mu3.ready"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped ParticipantDataDeleted from client"));
+            raw.Send(connection, ParticipantDataDeletedPacket(a.Id, "team"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped LobbyDataDeleted from client"));
+            raw.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, "map"), DeliveryMode.Reliable);
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, raw.LocalPlayerId), Is.EquivalentTo(new Dictionary<string, string> { ["role"] = "scout" }), node.Backend.PlayerName);
+                Assert.That(DataOf(node, a.Id)["team"], Is.EqualTo("blue"), node.Backend.PlayerName);
+            }
         }
 
         [Test]
@@ -502,6 +658,23 @@ namespace Mu3Library.Tests
             writer.WriteULong(player.Value);
             writer.WriteString(key);
             writer.WriteString(value);
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] KeyPacket(PacketKind kind, string key)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(kind);
+            writer.WriteString(key);
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] ParticipantDataDeletedPacket(PlayerId player, string key)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantDataDeleted);
+            writer.WriteULong(player.Value);
+            writer.WriteString(key);
             return writer.Written.ToArray();
         }
         #endregion

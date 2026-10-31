@@ -272,6 +272,33 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void DataDeletions_ReachEveryProcess_AndLeaveLobbySearch()
+        {
+            // FR-11 between "processes": a deletion travels as a change does, and another
+            // process's search reads the lobby file without the key once the file caught up.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            StartSession(host, a);
+            Assert.That(host.Manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Node[] everyone = { host, a };
+            PumpUntil(() => everyone.All(node => node.Manager.LobbyData.ContainsKey("map") && CharacterOf(node, a.Id) == "knight"), "every player to see the data");
+
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Assert.That(SearchedData(seeker, lobby, data => data.ContainsKey("map")), Is.Not.Null, "the lobby file never listed the key");
+
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True);
+            Assert.That(a.Manager.DeleteParticipantData("character").IsSuccess, Is.True);
+            PumpUntil(() => everyone.All(node => !node.Manager.LobbyData.ContainsKey("map") && CharacterOf(node, a.Id) == null), "every player to see the deletions");
+
+            IReadOnlyDictionary<string, string> seen = SearchedData(seeker, lobby, data => !data.ContainsKey("map"));
+            Assert.That(seen, Is.Not.Null, "the lobby file never dropped the key");
+            Assert.That(seen["mode"], Is.EqualTo("coop"));
+        }
+
+        [Test]
         public void Chat_ReachesEveryProcess_InTheSameOrder()
         {
             // FR-12 between "processes".
@@ -895,6 +922,27 @@ namespace Mu3Library.Tests
             backend.SearchLobbies(new LobbySearchQuery(), (r, found) => lobbies = found);
             PumpUntil(() => lobbies != null, "the search");
             return lobbies.ToList();
+        }
+
+        /// <summary>
+        /// Searches from another process until it shows the lobby with data that passes
+        /// <paramref name="check"/>, and returns that data; null when it never does in time.
+        /// </summary>
+        private IReadOnlyDictionary<string, string> SearchedData(LocalBackend seeker, LobbyId lobby, Func<IReadOnlyDictionary<string, string>, bool> check)
+        {
+            Stopwatch waited = Stopwatch.StartNew();
+            while (waited.Elapsed.TotalSeconds < WaitSeconds)
+            {
+                foreach (BackendLobby found in Search(seeker))
+                {
+                    if (found.Id == lobby && check(found.Data))
+                    {
+                        return found.Data;
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>The host creates a public lobby, and every client joins it.</summary>

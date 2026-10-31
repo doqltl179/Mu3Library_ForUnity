@@ -500,6 +500,23 @@ namespace Mu3Library.Multiplayer.Local
             return true;
         }
 
+        public bool DeleteLobbyData(LobbyId lobbyId, string key)
+        {
+            if (_machine != null)
+            {
+                return _machine.DeleteLobbyData(lobbyId, key);
+            }
+
+            LocalLobby lobby = FindOwnedLobby(lobbyId);
+            if (lobby == null || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            lobby.Data.Remove(key);
+            return true;
+        }
+
         public bool SetLobbyJoinable(LobbyId lobbyId, bool joinable)
         {
             if (_machine != null)

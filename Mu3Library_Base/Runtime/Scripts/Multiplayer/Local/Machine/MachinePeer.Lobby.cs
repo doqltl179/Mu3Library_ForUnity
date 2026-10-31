@@ -150,6 +150,23 @@ namespace Mu3Library.Multiplayer.Local.Machine
             return true;
         }
 
+        public bool DeleteLobbyData(LobbyId lobbyId, string key)
+        {
+            MachineLobby lobby = FindOwnedLobby(lobbyId);
+            if (lobby == null || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            // The members and the lobby file take the whole data again, so the key leaves both.
+            if (lobby.Data.Remove(key))
+            {
+                lobby.IsDirty = true;
+            }
+
+            return true;
+        }
+
         public bool SetLobbyJoinable(LobbyId lobbyId, bool joinable)
         {
             MachineLobby lobby = FindOwnedLobby(lobbyId);

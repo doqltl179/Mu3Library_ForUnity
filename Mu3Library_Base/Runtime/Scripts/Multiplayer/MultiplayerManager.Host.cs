@@ -541,6 +541,10 @@ namespace Mu3Library.Multiplayer
                     HostHandleParticipantData(peer, ref reader);
                     break;
 
+                case PacketKind.DeleteParticipantData:
+                    HostHandleParticipantDataDeletion(peer, ref reader);
+                    break;
+
                 case PacketKind.ChatToHost:
                     HostHandleChat(peer, ref reader);
                     break;

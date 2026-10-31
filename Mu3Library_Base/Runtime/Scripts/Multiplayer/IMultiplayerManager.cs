@@ -136,10 +136,25 @@ namespace Mu3Library.Multiplayer
         /// every copy holds the same keys. Reading finds a key in any case: <see cref="LobbyData"/>,
         /// <see cref="LobbyInfo.Data"/> of a search result, and lobby search filters, on every
         /// backend. A key keeps the spelling it was set with, except that Steam's search may hand
-        /// it back in another case, so a game looks keys up rather than compare them.
+        /// it back in another case, so a game looks keys up rather than compare them. To change
+        /// the case of a key, delete it with <see cref="DeleteLobbyData"/> first.
         /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);
+
+        /// <summary>
+        /// Host only, in the lobby or in a game; a client answers <see cref="MultiplayerReason.NotHost"/>.
+        /// Deletes one key of the lobby data, from the lobby that search reads too, so search no
+        /// longer returns it or finds the lobby by it, and reports it to every player through
+        /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/> with a null value. The key
+        /// and its value no longer count toward <see cref="MultiplayerLimits.MaxLobbyDataSize"/>,
+        /// so a long session that keeps changing its keys deletes the old ones to make room. A key
+        /// that <see cref="SetLobbyData"/> would refuse answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, the library's own <c>mu3.</c> keys and a
+        /// key that differs from one the lobby data holds only by case included, and deleting a
+        /// key the lobby data does not hold changes nothing.
+        /// </summary>
+        public MultiplayerResult DeleteLobbyData(string key);
 
         /// <summary>
         /// In the lobby or in a game. Sets one value of this player's own participant data, such as
@@ -159,6 +174,21 @@ namespace Mu3Library.Multiplayer
         /// when the connection dropped is lost: the returning player takes the data the host holds.
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
+
+        /// <summary>
+        /// In the lobby or in a game. Deletes one key of this player's own participant data, which
+        /// every player hears through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>
+        /// with the player as they are without it, and the key and its value no longer count toward
+        /// <see cref="MultiplayerLimits.MaxParticipantDataSize"/>. No player can delete another's.
+        /// An invalid key answers <see cref="MultiplayerReason.InvalidArgument"/>, as for
+        /// <see cref="SetParticipantData"/>, the library's own <c>mu3.</c> keys included, and
+        /// deleting a key the data does not hold changes nothing. For a client, success means the
+        /// request went to the host, as for <see cref="SetParticipantData"/>, whose later requests
+        /// count the room it frees at once, and the rate limits count it as a participant data
+        /// request. While this player is <see cref="SessionState.Reconnecting"/> it answers
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// </summary>
+        public MultiplayerResult DeleteParticipantData(string key);
         #endregion
 
         #region Chat

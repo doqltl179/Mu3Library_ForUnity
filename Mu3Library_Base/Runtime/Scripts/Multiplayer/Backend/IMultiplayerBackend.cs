@@ -68,6 +68,12 @@ namespace Mu3Library.Multiplayer.Backend
         /// <summary>Owner only; false otherwise.</summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 
+        /// <summary>
+        /// Owner only; false otherwise. Removes the key from the lobby, so lobby search no longer
+        /// returns it or finds the lobby by it. The manager asks only for a key the lobby holds.
+        /// </summary>
+        public bool DeleteLobbyData(LobbyId lobby, string key);
+
         /// <summary>Owner only. A lobby that is not joinable leaves search and refuses every join.</summary>
         public bool SetLobbyJoinable(LobbyId lobby, bool joinable);
 

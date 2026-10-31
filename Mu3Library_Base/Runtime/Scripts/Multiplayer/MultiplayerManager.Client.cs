@@ -271,6 +271,14 @@ namespace Mu3Library.Multiplayer
                     HandleParticipantDataChanged(ref reader);
                     break;
 
+                case PacketKind.LobbyDataDeleted:
+                    HandleLobbyDataDeleted(ref reader);
+                    break;
+
+                case PacketKind.ParticipantDataDeleted:
+                    HandleParticipantDataDeleted(ref reader);
+                    break;
+
                 case PacketKind.ChatFromHost:
                     HandleChatFromHost(ref reader);
                     break;

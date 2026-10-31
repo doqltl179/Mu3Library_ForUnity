@@ -338,6 +338,48 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_DeletesALobbyDataKey_FromTheLobbyAndFromSearch()
+        {
+            // FR-11 on Steam itself: a deleted key leaves the lobby, what search returns, and what
+            // it filters on; the host's own participant data loses a key the same way.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                List<(string Key, string Value)> lobbyChanges = new List<(string, string)>();
+                List<(Participant Participant, string Key)> dataChanges = new List<(Participant, string)>();
+                manager.OnLobbyDataChanged += (key, value) => lobbyChanges.Add((key, value));
+                manager.OnParticipantDataChanged += (participant, key) => dataChanges.Add((participant, key));
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(manager.SetLobbyData("Mode", "coop").IsSuccess, Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key");
+
+                Assert.That(manager.DeleteLobbyData("Map").IsSuccess, Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, "Map"), Is.Null);
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Mode"] = "coop" }));
+                Assert.That(lobbyChanges.Last(), Is.EqualTo(("Map", (string)null)));
+
+                LobbyInfo after = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && !info.Data.ContainsKey("Map"), 30);
+                Assert.That(after, Is.Not.Null, "search never dropped the deleted key");
+                Assert.That(after.Data["Mode"], Is.EqualTo("coop"));
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby, seconds: 5), Is.Null,
+                    "search no longer finds the lobby by the deleted key");
+
+                Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+                Assert.That(manager.DeleteParticipantData("character").IsSuccess, Is.True);
+                Assert.That(manager.Participants.Single().Data, Is.Empty);
+                Assert.That(dataChanges.Select(change => change.Key), Is.EqualTo(new[] { "character", "character" }));
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
         {
             // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
