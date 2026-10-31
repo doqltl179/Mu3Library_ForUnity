@@ -285,7 +285,8 @@ namespace Mu3Library.Tests
         [Test]
         public void Reconnect_TheHostLeavingWhileAPlayerIsCutOff_ReachesItThroughTheLobby()
         {
-            // FR-27: the lobby goes on through an outage of the session connections.
+            // FR-27, NFR-4: the lobby goes on through an outage of the session connections; the
+            // player cut off waits a moment for the host's close, which the outage holds back.
             UseTestNetworkClock();
             Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
             Node a = JoinNew("A", host);
@@ -297,6 +298,9 @@ namespace Mu3Library.Tests
             Advance(1.0);
             host.Manager.Leave();
             Advance(0.5);
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline), "the close reaches a player who is not cut off at once");
+            Assert.That(b.Manager.State, Is.EqualTo(SessionState.InGame), "waiting for the host's close");
+            Advance(1.0);
 
             foreach (Node client in new[] { a, b })
             {

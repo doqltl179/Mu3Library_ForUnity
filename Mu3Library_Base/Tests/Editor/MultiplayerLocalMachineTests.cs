@@ -769,6 +769,61 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void HostLeaving_RightAfterMoreThanItsSocketsTakeAtOnce_DeliversItsLastReliableMessagesFirst()
+        {
+            // FR-27, FR-32, NFR-4, #198: what the host sent last is still on its way on the session
+            // connection when the hand-over on the lobby connection reaches the client, and the
+            // client's session must not end before those messages and the close. The host runs on
+            // a thread of its own, as it would in a process of its own: Unity's runtime holds a
+            // send that the socket cannot take at once until the other side reads, which the
+            // client on this thread does meanwhile. The client reads little in each update, so
+            // what the sockets hold when the host leaves takes several updates to arrive.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            _paused.Add(host.Backend);
+            client.Backend.ReceiveBytesPerUpdate = 16 * 1024;
+
+            const int count = 32;
+            Exception failure = null;
+            double leftAt = double.NaN;
+            Thread hostThread = new Thread(() =>
+            {
+                try
+                {
+                    byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
+                    for (int i = 0; i < count; i++)
+                    {
+                        BitConverter.GetBytes(i).CopyTo(payload, 0);
+                        MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
+                        if (!sent.IsSuccess)
+                        {
+                            throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
+                        }
+                    }
+
+                    host.Manager.Leave();
+                    Volatile.Write(ref leftAt, _clock.Elapsed.TotalSeconds);
+                }
+                catch (Exception e)
+                {
+                    failure = e;
+                }
+            });
+
+            hostThread.Start();
+            PumpUntil(() => hostThread.Join(0), "the host to send and leave");
+            Assert.That(failure, Is.Null, failure?.ToString());
+            PumpUntil(() => client.Manager.State == SessionState.Offline, "the client to end its session", 2.0);
+            double offlineAt = _clock.Elapsed.TotalSeconds;
+
+            Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(client.Messages.Select(message => message.Payload.Length), Is.All.EqualTo(MultiplayerConfig.DefaultMaxMessageSize));
+            Assert.That(client.States.Last().Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            Assert.That(offlineAt - Volatile.Read(ref leftAt), Is.LessThan(2.0), "NFR-4");
+        }
+
+        [Test]
         public void SimulatedLatency_ABackendDisposedWithoutClosing_StillSendsWhatItHeldBack()
         {
             // As the in-process backend: what a backend already sent arrives even when it goes away.

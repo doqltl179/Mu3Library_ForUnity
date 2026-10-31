@@ -98,6 +98,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         public int FailingSends { get; set; }
 
+        /// <summary>
+        /// Test switch: how much one update reads from one connection at most, so that what a
+        /// connection carries can take several updates to arrive, as from a slower network.
+        /// </summary>
+        public int ReceiveBytesPerUpdate { get; set; } = MaxReceiveBytesPerUpdate;
+
         // Until when SimulateOutage cuts this peer's session connections off.
         private double _outageEnd = double.NegativeInfinity;
         private bool IsCutOff => Now < _outageEnd;
@@ -627,7 +633,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             int total = 0;
-            while (link.State == MachineLinkState.Open && !_isDisposed && total < MaxReceiveBytesPerUpdate)
+            while (link.State == MachineLinkState.Open && !_isDisposed && total < ReceiveBytesPerUpdate)
             {
                 EnsureReceiveSpace(link);
                 int received = link.Socket.Receive(link.Received, link.ReceivedCount, link.Received.Length - link.ReceivedCount, SocketFlags.None, out SocketError error);

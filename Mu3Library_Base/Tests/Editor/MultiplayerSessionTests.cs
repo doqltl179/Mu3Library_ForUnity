@@ -914,18 +914,53 @@ namespace Mu3Library.Tests
         [Test]
         public void LobbyPassingToAnotherMember_EndsTheSession_EvenWhileTheHostConnectionLives()
         {
-            // FR-27
+            // FR-27, NFR-4: the clients wait a moment for the host's close, then end without it.
             Node host = CreateHost("Host");
             Node a = JoinNew("A", host);
             Node b = JoinNew("B", host);
 
             host.Backend.LeaveLobby(host.Manager.CurrentLobbyId);
             Pump();
+            Assert.That(new[] { a, b }.Select(client => client.Manager.State), Is.All.EqualTo(SessionState.Lobby), "waiting for the host's close");
+
+            Advance(1.0);
 
             foreach (Node client in new[] { a, b })
             {
                 Assert.That(client.Manager.State, Is.EqualTo(SessionState.Offline));
                 Assert.That(client.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void LobbyNewsAheadOfTheHostsClose_LetsTheHostsLastMessagesThrough(bool inGame)
+        {
+            // FR-27, FR-32, NFR-4: what the host sent before it closed reaches the handlers first,
+            // and its close ends the session at once, without waiting the rest of the moment.
+            (Node host, Node[] clients) = CreateSession(2);
+            if (inGame)
+            {
+                Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+                Pump();
+            }
+
+            Dictionary<Node, Inbox> inboxes = ListenAll(Chat, clients);
+            host.Backend.LeaveLobby(host.Manager.CurrentLobbyId);
+            Pump();
+
+            Assert.That(host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Others).IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.Others).IsSuccess, Is.True);
+            host.Manager.Leave();
+            Pump();
+
+            foreach (Node client in clients)
+            {
+                Assert.That(inboxes[client].Received.Select(message => message.Payload[0]), Is.EqualTo(new byte[] { 1, 2 }), client.Backend.PlayerName);
+                Assert.That(client.Manager.State, Is.EqualTo(SessionState.Offline), client.Backend.PlayerName);
+                Assert.That(client.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft), client.Backend.PlayerName);
+                Assert.That(client.States.Any(change => change.Current == SessionState.Reconnecting), Is.False, client.Backend.PlayerName);
             }
         }
 

@@ -158,6 +158,7 @@ namespace Mu3Library.Multiplayer
             UpdateDelayedRequests();
             UpdateLoadWait();
             UpdateJoinTimeout();
+            UpdateHostClose();
             UpdateReconnect();
             UpdatePingReports();
             ShowPresence();
@@ -477,6 +478,10 @@ namespace Mu3Library.Multiplayer
             if (_state == SessionState.Reconnecting)
             {
                 EndReconnect(MultiplayerReason.HostLeft);
+            }
+            else if (_isWelcomed && _hostConnection.IsValid)
+            {
+                AwaitHostClose();
             }
             else
             {

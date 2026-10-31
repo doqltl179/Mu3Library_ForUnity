@@ -209,10 +209,18 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// This player's connection to the host broke, or a reliable packet could not leave on it.
         /// During a game with a reservation time in the rules, this player starts coming back to
-        /// its slot; otherwise the session ends with <paramref name="reason"/>.
+        /// its slot; otherwise the session ends with <paramref name="reason"/>. A connection that
+        /// breaks after the lobby said the host left ends the session with
+        /// <see cref="MultiplayerReason.HostLeft"/>, as there is no host to come back to.
         /// </summary>
         private void LoseHost(MultiplayerReason reason)
         {
+            if (_isAwaitingHostClose)
+            {
+                EndSession(MultiplayerReason.HostLeft, raiseEvents: true);
+                return;
+            }
+
             float seconds = _rules.ReconnectReservationSeconds;
             if (_state != SessionState.InGame || !(seconds > 0f))
             {
