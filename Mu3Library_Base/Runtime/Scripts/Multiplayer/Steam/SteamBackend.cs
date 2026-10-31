@@ -21,18 +21,16 @@ namespace Mu3Library.Multiplayer.Steam
     /// </para>
     /// <para>
     /// The assembly compiles only with Steamworks.NET 2025.164.1 or later, installed through the
-    /// Package Manager, in the editor and in 64-bit standalone players: its <c>includePlatforms</c>
-    /// leave out 32-bit Windows. Game code that uses this type needs the same gate in an assembly
-    /// definition of its own, since code without one (<c>Assembly-CSharp</c>) cannot read
-    /// <c>versionDefines</c>: an assembly that references <c>Mu3Library.Multiplayer.Steam</c> with
-    /// the same <c>includePlatforms</c> and <c>defineConstraints</c>, or a <c>versionDefines</c>
-    /// entry for <c>com.rlabrecque.steamworks.net</c> at <c>2025.164.1</c> or later and <c>#if</c>
-    /// on that symbol and <c>UNITY_STANDALONE</c>, which is also true in a 32-bit Windows player,
-    /// where this assembly is missing, so it suits only a game that builds no 32-bit Windows
-    /// player, as the Multiplayer sample does. <c>versionDefines</c> sees
-    /// only a package that the Package Manager installed, not a <c>.unitypackage</c> import. Avoid
-    /// <c>STEAMWORKS_NET</c>: the Steamworks.NET installer writes it into the project's scripting
-    /// defines, where it stays after the package is removed. Dispose the manager before this
+    /// Package Manager, and only in the editor and in 64-bit standalone players (Windows x64,
+    /// macOS, Linux x64): its <c>includePlatforms</c> leave out 32-bit Windows players. Game code
+    /// that uses this type needs the same gate, preferably an assembly definition of its own that
+    /// references <c>Mu3Library.Multiplayer.Steam</c> with the same <c>includePlatforms</c>,
+    /// <c>defineConstraints</c>, and <c>versionDefines</c> entry, since a <c>versionDefines</c>
+    /// symbol is defined only in the assembly that declares it. <c>#if</c> on such a symbol and
+    /// <c>UNITY_STANDALONE</c> also holds in a 32-bit Windows player, where this assembly is
+    /// missing, and Unity 6.6 deprecates <c>UNITY_64</c>, so that gate suits only a game that
+    /// builds no 32-bit Windows player, as the Multiplayer sample does. The Optional Packages
+    /// section of the repository README describes the gate. Dispose the manager before this
     /// backend, so the other players learn the reason the session ended before Steam shuts down.
     /// </para>
     /// <para>
