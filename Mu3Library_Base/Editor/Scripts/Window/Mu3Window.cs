@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window.Drawer;
 using UnityEditor;
@@ -128,7 +129,9 @@ namespace Mu3Library.Editor.Window
         /// <br/> A window whose script sits in a package reads the list next to the script while the package can be
         /// changed (embedded, or a local folder referenced with <c>file:</c>). Otherwise the list lives in
         /// <see cref="ProjectDrawerListFolder"/>, named after the window type, since a package installed from a Git URL,
-        /// a registry, or a tarball is read-only; a list that such a package ships is copied there the first time.
+        /// a registry, or a tarball is read-only; a list that such a package ships next to the script is copied there
+        /// the first time. Only the list is copied: the drawers it names stay in the package, so their own settings
+        /// are not saved in the project.
         /// </summary>
         /// <param name="windowType"> The window type, which names the list kept in the project </param>
         /// <param name="scriptAssetPath"> The asset path of the window script </param>
@@ -146,10 +149,18 @@ namespace Mu3Library.Editor.Window
                 return null;
             }
 
-            List<DrawerListDrawer> scriptFolderLists = FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(directory);
-            DrawerListDrawer scriptFolderList = scriptFolderLists.Count > 0 ? scriptFolderLists[0] : null;
+            // The search covers the folders below the script too. It leaves out the lists the project keeps for
+            // windows in packages, which belong to other windows, and prefers a list in the script's own folder.
+            List<DrawerListDrawer> scriptFolderLists = FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(directory)
+                .Where(list => !AssetDatabase.GetAssetPath(list).StartsWith(ProjectDrawerListFolder + "/"))
+                .ToList();
+            DrawerListDrawer listNextToScript = scriptFolderLists
+                .FirstOrDefault(list => GetFolder(AssetDatabase.GetAssetPath(list)) == directory);
+            DrawerListDrawer scriptFolderList = listNextToScript != null ?
+                listNextToScript :
+                scriptFolderLists.FirstOrDefault();
 
-            if (IsInAssetsFolder(directory))
+            if (FilePathConvertor.IsAssetPath(directory))
             {
                 return scriptFolderList != null ?
                     scriptFolderList :
@@ -170,8 +181,8 @@ namespace Mu3Library.Editor.Window
 
             CreateFolders(ProjectDrawerListFolder);
 
-            if (scriptFolderList != null &&
-                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(scriptFolderList), projectListPath))
+            if (listNextToScript != null &&
+                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(listNextToScript), projectListPath))
             {
                 return AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(projectListPath);
             }
@@ -187,9 +198,11 @@ namespace Mu3Library.Editor.Window
             return $"{ProjectDrawerListFolder}/{windowType.FullName}.asset";
         }
 
-        private static bool IsInAssetsFolder(string assetPath)
+        private static string GetFolder(string assetPath)
         {
-            return assetPath == "Assets" || assetPath.StartsWith("Assets/");
+            int lastSlash = assetPath.LastIndexOf('/');
+
+            return lastSlash > 0 ? assetPath.Substring(0, lastSlash) : "";
         }
 
         private static bool IsInWritablePackage(string assetPath)

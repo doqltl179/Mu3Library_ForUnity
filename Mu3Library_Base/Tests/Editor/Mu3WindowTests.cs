@@ -18,12 +18,27 @@ namespace Mu3Library.Tests
     /// Where a <see cref="Mu3Window"/> finds its drawer list. A window under <c>Assets</c> and a window in a package
     /// that can be changed read the list next to their script; a window in a read-only package, such as one installed
     /// from a Git URL, keeps it under <see cref="Mu3Window.ProjectDrawerListFolder"/>. The tests that need Base to be a
-    /// local or embedded package are inconclusive where it is installed read-only. Each test deletes the assets and
-    /// folders it created.
+    /// local or embedded package are ignored where it is installed read-only. Each test deletes the assets and folders
+    /// it created; its temporary folders carry <see cref="TempFolderPrefix"/> and a unique suffix, the next run deletes
+    /// any that an interrupted run left, and Git ignores those inside the Base package.
     /// </summary>
     public class Mu3WindowTests
     {
+        private const string TempFolderPrefix = nameof(Mu3WindowTests) + "_";
+
         private readonly List<string> _createdPaths = new();
+
+        [SetUp]
+        public void SetUp()
+        {
+            DeleteTempFolders("Assets");
+
+            PackageInfo basePackage = PackageInfo.FindForAssembly(typeof(Mu3Window).Assembly);
+            if (IsWritable(basePackage))
+            {
+                DeleteTempFolders(basePackage.assetPath);
+            }
+        }
 
         [TearDown]
         public void TearDown()
@@ -39,7 +54,7 @@ namespace Mu3Library.Tests
         [Test]
         public void LoadDrawerList_ScriptUnderAssetsWithAList_ReadsTheListNextToTheScript()
         {
-            string folder = CreateFolder("Assets", nameof(Mu3WindowTests));
+            string folder = CreateTempFolder("Assets");
             DrawerListDrawer list = CreateList($"{folder}/Existing.asset");
 
             DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), $"{folder}/Window.cs");
@@ -51,7 +66,7 @@ namespace Mu3Library.Tests
         [Test]
         public void LoadDrawerList_ScriptUnderAssetsWithoutAList_CreatesTheListNextToTheScript()
         {
-            string folder = CreateFolder("Assets", nameof(Mu3WindowTests));
+            string folder = CreateTempFolder("Assets");
 
             DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), $"{folder}/Window.cs");
 
@@ -60,11 +75,31 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadDrawerList_ScriptAboveTheProjectListFolder_LeavesOutTheListsKeptForPackageWindows()
+        {
+            string readOnlyScriptPath = GetReadOnlyPackageScriptPath();
+            TrackProjectList(typeof(Mu3WindowTests));
+            DrawerListDrawer packageWindowList = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), readOnlyScriptPath);
+            string scriptFolder = Mu3Window.ProjectDrawerListFolder.Substring(
+                0, Mu3Window.ProjectDrawerListFolder.LastIndexOf('/'));
+            string expectedPath = $"{scriptFolder}/{DrawerListDrawer.FileName}.asset";
+            if (AssetDatabase.LoadMainAssetAtPath(expectedPath) != null)
+            {
+                Assert.Ignore($"{expectedPath} already exists in this project.");
+            }
+
+            _createdPaths.Add(expectedPath);
+
+            DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTestWindow), $"{scriptFolder}/Window.cs");
+
+            Assert.AreNotSame(packageWindowList, loaded);
+            Assert.AreEqual(expectedPath, AssetDatabase.GetAssetPath(loaded));
+        }
+
+        [Test]
         public void LoadDrawerList_ScriptInAWritablePackageWithAList_ReadsTheListNextToTheScript()
         {
-            PackageInfo package = PackageInfo.FindForAssembly(typeof(Mu3Window).Assembly);
-            Assume.That(IsWritable(package), Is.True, "Base is installed read-only in this project.");
-            string folder = CreateFolder(package.assetPath, nameof(Mu3WindowTests));
+            string folder = CreateTempFolder(GetWritableBasePackagePath());
             DrawerListDrawer list = CreateList($"{folder}/Existing.asset");
 
             DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), $"{folder}/Window.cs");
@@ -76,9 +111,7 @@ namespace Mu3Library.Tests
         [Test]
         public void LoadDrawerList_ScriptInAWritablePackageWithoutAList_KeepsTheListInTheProject()
         {
-            PackageInfo package = PackageInfo.FindForAssembly(typeof(Mu3Window).Assembly);
-            Assume.That(IsWritable(package), Is.True, "Base is installed read-only in this project.");
-            string folder = CreateFolder(package.assetPath, nameof(Mu3WindowTests));
+            string folder = CreateTempFolder(GetWritableBasePackagePath());
             TrackProjectList(typeof(Mu3WindowTests));
 
             DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), $"{folder}/Window.cs");
@@ -90,10 +123,7 @@ namespace Mu3Library.Tests
         [Test]
         public void LoadDrawerList_ScriptInAReadOnlyPackage_KeepsTheListInTheProjectAndReadsItAgain()
         {
-            PackageInfo package = PackageInfo.FindForAssembly(typeof(LogAssert).Assembly);
-            Assume.That(package, Is.Not.Null, "The Test Framework is not a package in this project.");
-            Assume.That(IsWritable(package), Is.False, "The Test Framework can be changed in this project.");
-            string scriptPath = $"{package.assetPath}/Window.cs";
+            string scriptPath = GetReadOnlyPackageScriptPath();
             TrackProjectList(typeof(Mu3WindowTests));
 
             DrawerListDrawer created = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
@@ -101,7 +131,8 @@ namespace Mu3Library.Tests
 
             Assert.AreEqual(Mu3Window.GetProjectDrawerListPath(typeof(Mu3WindowTests)), AssetDatabase.GetAssetPath(created));
             Assert.AreSame(created, reopened);
-            CollectionAssert.IsEmpty(FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(package.assetPath));
+            CollectionAssert.IsEmpty(
+                FileFinder.LoadAllAssetsAtPath<DrawerListDrawer>(scriptPath.Substring(0, scriptPath.LastIndexOf('/'))));
         }
 
         [Test]
@@ -134,6 +165,28 @@ namespace Mu3Library.Tests
                 (package.source == PackageSource.Embedded || package.source == PackageSource.Local);
         }
 
+        private static string GetWritableBasePackagePath()
+        {
+            PackageInfo package = PackageInfo.FindForAssembly(typeof(Mu3Window).Assembly);
+            if (!IsWritable(package))
+            {
+                Assert.Ignore("Base is installed read-only in this project.");
+            }
+
+            return package.assetPath;
+        }
+
+        private static string GetReadOnlyPackageScriptPath()
+        {
+            PackageInfo package = PackageInfo.FindForAssembly(typeof(LogAssert).Assembly);
+            if (package == null || IsWritable(package))
+            {
+                Assert.Ignore("The Test Framework is not a read-only package in this project.");
+            }
+
+            return $"{package.assetPath}/Window.cs";
+        }
+
         private static DrawerListDrawer CreateList(string assetPath)
         {
             DrawerListDrawer list = ScriptableObject.CreateInstance<DrawerListDrawer>();
@@ -147,12 +200,22 @@ namespace Mu3Library.Tests
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(Mu3Window.GetProjectDrawerListPath(windowType)));
         }
 
-        private string CreateFolder(string parentFolder, string name)
+        private static void DeleteTempFolders(string parentFolder)
         {
-            Assert.IsFalse(
-                AssetDatabase.IsValidFolder($"{parentFolder}/{name}"),
-                $"{parentFolder}/{name} is left over from an earlier run.");
+            foreach (string folder in AssetDatabase.GetSubFolders(parentFolder))
+            {
+                if (folder.Substring(folder.LastIndexOf('/') + 1).StartsWith(TempFolderPrefix))
+                {
+                    AssetDatabase.DeleteAsset(folder);
+                }
+            }
+        }
+
+        private string CreateTempFolder(string parentFolder)
+        {
+            string name = TempFolderPrefix + Guid.NewGuid().ToString("N").Substring(0, 8);
             string folder = AssetDatabase.GUIDToAssetPath(AssetDatabase.CreateFolder(parentFolder, name));
+            Assert.AreEqual($"{parentFolder}/{name}", folder);
             _createdPaths.Add(folder);
 
             return folder;
