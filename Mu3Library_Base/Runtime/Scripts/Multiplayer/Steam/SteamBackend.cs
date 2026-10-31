@@ -27,8 +27,9 @@ namespace Mu3Library.Multiplayer.Steam
     /// <c>versionDefines</c>: an assembly that references <c>Mu3Library.Multiplayer.Steam</c> with
     /// the same <c>includePlatforms</c> and <c>defineConstraints</c>, or a <c>versionDefines</c>
     /// entry for <c>com.rlabrecque.steamworks.net</c> at <c>2025.164.1</c> or later and <c>#if</c>
-    /// on that symbol and <c>UNITY_STANDALONE</c>, which also holds in a 32-bit Windows player and
-    /// so suits a game that builds none, as the Multiplayer sample does. <c>versionDefines</c> sees
+    /// on that symbol and <c>UNITY_STANDALONE</c>, which is also true in a 32-bit Windows player,
+    /// where this assembly is missing, so it suits only a game that builds no 32-bit Windows
+    /// player, as the Multiplayer sample does. <c>versionDefines</c> sees
     /// only a package that the Package Manager installed, not a <c>.unitypackage</c> import. Avoid
     /// <c>STEAMWORKS_NET</c>: the Steamworks.NET installer writes it into the project's scripting
     /// defines, where it stays after the package is removed. Dispose the manager before this
