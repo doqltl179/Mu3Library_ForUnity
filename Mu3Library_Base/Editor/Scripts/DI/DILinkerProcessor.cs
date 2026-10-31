@@ -33,7 +33,9 @@ namespace Mu3Library.Editor.DI
     /// script or precompiled assembly they reference, directly or not, since a registration can name
     /// a class of an assembly that knows nothing of the container. A wildcard entry lets the linker
     /// match them against the assemblies it actually links, so a class that only the player
-    /// compiles is covered as well.
+    /// compiles is covered as well. Precompiled assemblies are matched by file name: a DLL whose
+    /// file name differs from its assembly name is skipped without a warning, and one the editor
+    /// does not load is covered only when one of those assemblies references it.
     /// </para>
     /// <para>
     /// [Inject] members are listed by name, read from the assemblies the editor has loaded that
