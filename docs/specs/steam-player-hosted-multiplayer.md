@@ -381,7 +381,7 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 | NFR-4 | 호스트 종료 통지 | 호스트가 정상적으로 나가면 클라이언트는 2초 안에 `HostLeft`를 받아야 한다. |
 | NFR-5 | 보안 | 발신자는 전송 계층이 확인한 계정 ID로만 판단한다. 잘못된 길이나 형식의 메시지는 버리고, 그 예외가 라이브러리 밖으로 전파되지 않는다. 클라이언트가 보낸 메시지가 다른 클라이언트의 연결이나 세션 상태를 직접 바꾸지 못한다. |
 | NFR-6 | 개인정보 | Steam 백엔드는 기본 설정에서 Valve 릴레이를 거쳐 연결해, 참가자의 IP 주소가 다른 참가자에게 드러나지 않아야 한다. 직접 연결 허용은 게임이 명시적으로 켜야 한다. |
-| NFR-7 | 호환성 | Unity 6000.3 이상, Windows x64, macOS, Linux x64 (Steam Deck 포함) 스탠드얼론과 에디터, Mono와 IL2CPP를 지원한다. Steamworks.NET이 없는 프로젝트에서도 Base가 컴파일 오류 없이 빌드된다. UniTask는 선택이며, 있으면 비동기 API를 함께 제공한다. 기존 Base 공개 API는 바꾸지 않는다. |
+| NFR-7 | 호환성 | Unity 6000.3 이상, Windows x64, macOS, Linux x64 (Steam Deck 포함) 스탠드얼론과 에디터, Mono와 IL2CPP를 지원한다. 32비트 Windows 플레이어는 지원 대상이 아니며, `Mu3Library.Multiplayer.Steam`의 `includePlatforms`가 그 플레이어를 뺀다 ([#210](https://github.com/doqltl179/Mu3Library_ForUnity/issues/210)). Steamworks.NET이 없는 프로젝트에서도 Base가 컴파일 오류 없이 빌드된다. UniTask는 선택이며, 있으면 비동기 API를 함께 제공한다. 기존 Base 공개 API는 바꾸지 않는다. |
 | NFR-8 | 지역화 | 라이브러리는 플레이어에게 보일 문장을 만들지 않고 사유 코드만 제공한다. 번역은 게임이 맡는다. 문서는 `README.md`와 그 `ko`, `ja` 사본, `CHANGELOG.md`와 그 사본을 함께 갱신한다. |
 | NFR-9 | 관측성 | 상태 전환과 실패는 사유 코드와 함께 로그로 남긴다. 메시지 단위 로그는 기본으로 꺼져 있고, 켜면 종류와 크기만 남긴다 (내용은 남기지 않는다). |
 | NFR-10 | 테스트 가능성 | 정원, 시작 조건, 강퇴, 재접속 예약 만료, 버전 불일치, 크기 제한, 송신량 제한 규칙은 Steam 없이 EditMode 테스트로 검증할 수 있어야 한다 (`commands.test`). |

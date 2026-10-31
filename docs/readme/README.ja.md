@@ -375,9 +375,11 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | ローカル通知 (Android/iOS、独立した `Mu3Library.Notifications` アセンブリ) |
-| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターを含めビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされる) |
+| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターではビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされ、プレイヤーには 64 ビットのスタンドアロンである Windows x64、macOS、Linux x64 にだけ含まれ、32 ビット Windows には含まれない) |
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
+
+Steam のサポート対象は、エディターと 64 ビットのスタンドアロンプレイヤーだけです。`Mu3Library.Multiplayer.Steam` の `includePlatforms` が 32 ビット Windows を除外しているため、32 ビット Windows プレイヤーはこのアセンブリなしでビルドされます。このアセンブリの型を使うゲームコードは独自のアセンブリ定義に置き、そのアセンブリ定義で `Mu3Library.Multiplayer.Steam` を参照し、`Mu3Library.Multiplayer.Steam.asmdef` の `includePlatforms`、`defineConstraints`、`versionDefines` エントリをそのまま写してください。`versionDefines` のシンボルはそれを宣言したアセンブリの中にだけ存在するため、このエントリも必要です。こうすると、そのコードは Steam アセンブリがコンパイルされる場所でだけコンパイルされます。`versionDefines` のシンボルと `UNITY_STANDALONE` に `#if` を掛ける方法では、32 ビット Windows プレイヤーを除外できません。そのプレイヤーでも両方のシンボルが定義され、Unity 6.6 で `UNITY_64` が非推奨になったため、このシンボルを加える方法にも頼れません。そのため、この方法は Multiplayer サンプルのように 32 ビット Windows プレイヤーをビルドしないゲームにだけ向いています。アセンブリ定義のないコード（`Assembly-CSharp`）は `versionDefines` を読めません。また、`versionDefines` は Package Manager がインストールしたパッケージしか見ず、`.unitypackage` のインポートは見えません。`STEAMWORKS_NET` で囲まないでください。Steamworks.NET のインストーラーがこのシンボルをプロジェクトのスクリプティング Define に書き込み、パッケージを削除した後も残るためです。
 
 `EventSystem` がまだない場合は `MVPManager` が作成します。その入力モジュールは Input System パッケージがインストールされているかどうかだけでなく、Player Settings の **Active Input Handling** が有効にしている入力バックエンドに従います。Input System バックエンドが無効のとき、`InputSystemUIInputModule` は入力を何も読まないためです。
 
