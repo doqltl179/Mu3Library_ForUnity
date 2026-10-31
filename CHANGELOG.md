@@ -24,6 +24,7 @@ This changelog tracks package release changes only. Repository development workf
 
 ### Fixed
 - Base: the `Black`, `Blue`, `Green`, `Magenta`, `Red`, and `White` materials in `Runtime/Materials` use Unity's built-in Standard shader. They pointed at a copy of `Standard.shader` from Unity's built-in shader source that the repository never contained, so a project that installed Base could not find their shader.
+- Base: a `Mu3Window` whose script sits in a package no longer tries to create its drawer list next to the script. It looked for the list in the script's folder and created one there when it found none, which failed in a package: the window logged an error and an exception each time it became visible and drew nothing, and a package installed from a Git URL, a registry, or a tarball cannot be changed in `Library/PackageCache` anyway. Such a window now keeps its list in the project, at `Assets/Mu3Library/Editor/DrawerLists/<full name of the window type>.asset`, which it creates the first time it opens, starting from a copy when a read-only package ships a list next to the script. A window in an embedded or local (`file:`) package that has a list next to its script still reads that list, and a window whose script sits under `Assets`, such as the imported UtilWindow sample's, still keeps its list next to the script.
 
 ## [base/0.27.0] - 2026-10-31
 
