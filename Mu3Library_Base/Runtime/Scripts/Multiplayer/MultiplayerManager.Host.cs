@@ -15,6 +15,9 @@ namespace Mu3Library.Multiplayer
             public ConnectionId Connection;
             public PlayerId Player;
 
+            /// <summary>True once the player's hello passed the version check; the player may still wait for lobby membership.</summary>
+            public bool HasSaidHello;
+
             /// <summary>True once the host accepted the player's hello and added them to the roster.</summary>
             public bool IsWelcomed;
 
@@ -23,6 +26,7 @@ namespace Mu3Library.Multiplayer
 
         private readonly Dictionary<ConnectionId, PeerConnection> _peers = new Dictionary<ConnectionId, PeerConnection>();
         private readonly List<PeerConnection> _expiredPeers = new List<PeerConnection>();
+        private readonly List<PeerConnection> _waitingPeers = new List<PeerConnection>();
         private readonly List<PlayerId> _notReadyScratch = new List<PlayerId>();
 
         // Players the host kicked from this session; they cannot come back until it ends.
@@ -446,14 +450,35 @@ namespace Mu3Library.Multiplayer
 
         private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion)
         {
-            MultiplayerReason reject = MultiplayerReason.None;
             if (!string.Equals(gameId, _gameId, StringComparison.Ordinal)
                 || protocolVersion != _protocolVersion
                 || wireVersion != WireProtocol.Version)
             {
-                reject = MultiplayerReason.VersionMismatch;
+                _peers.Remove(peer.Connection);
+                _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.VersionMismatch));
+                return;
             }
-            else if (_bannedPlayers.Contains(peer.Player))
+
+            peer.HasSaidHello = true;
+            TryAdmit(peer);
+        }
+
+        /// <summary>
+        /// Admits a player who said hello, once the lobby lists them as a member. Anyone who knows
+        /// the host's account can open a connection, so membership is what keeps an invite-only or
+        /// friends-only session to the players the lobby let in. The lobby may list a new member a
+        /// moment after the connection opens, so a player who is not listed yet waits, up to the
+        /// handshake timeout.
+        /// </summary>
+        private void TryAdmit(PeerConnection peer)
+        {
+            if (!_backend.IsLobbyMember(_lobbyId, peer.Player))
+            {
+                return;
+            }
+
+            MultiplayerReason reject = MultiplayerReason.None;
+            if (_bannedPlayers.Contains(peer.Player))
             {
                 reject = MultiplayerReason.Banned;
             }
@@ -623,6 +648,30 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // Players who said hello before the lobby listed them get another look each update.
+            foreach (PeerConnection peer in _peers.Values)
+            {
+                if (peer.HasSaidHello && !peer.IsWelcomed)
+                {
+                    _waitingPeers.Add(peer);
+                }
+            }
+
+            int generation = _sessionGeneration;
+            for (int i = 0; i < _waitingPeers.Count && generation == _sessionGeneration; i++)
+            {
+                if (_peers.ContainsKey(_waitingPeers[i].Connection))
+                {
+                    TryAdmit(_waitingPeers[i]);
+                }
+            }
+
+            _waitingPeers.Clear();
+            if (generation != _sessionGeneration)
+            {
+                return;
+            }
+
             double now = Now;
             foreach (PeerConnection peer in _peers.Values)
             {
@@ -644,6 +693,7 @@ namespace Mu3Library.Multiplayer
 
         private void ResetHostState()
         {
+            _waitingPeers.Clear();
             _peers.Clear();
             _expiredPeers.Clear();
             _bannedPlayers.Clear();
