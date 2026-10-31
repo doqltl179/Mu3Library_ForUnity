@@ -22,6 +22,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 수정됨
 - Base: `Runtime/Materials`의 `Black`, `Blue`, `Green`, `Magenta`, `Red`, `White` 머티리얼이 Unity 내장 Standard 셰이더를 씁니다. 이전에는 저장소에 들어 있지 않은, Unity 내장 셰이더 소스의 `Standard.shader` 사본을 가리켜서 Base를 설치한 프로젝트에서 셰이더를 찾지 못했습니다.
+- Base: Managed Stripping Level을 Medium이나 High로 설정해 빌드한 플레이어에서 DI가 동작합니다. Unity 링커는 어디서도 호출되지 않는 코드를 제거하는데, 컨테이너는 생성자와 `[Inject]` 멤버에 리플렉션으로만 접근합니다. 그래서 링커가 매개변수가 있는 생성자(컨테이너가 대신 매개변수 없는 생성자를 호출해 의존성이 빠졌습니다), 어떤 코드도 생성하지 않고 `ContainerScope.Register`로 등록한 클래스의 모든 생성자(클래스를 만들 수 없었습니다), 어떤 코드도 값을 넣지 않는 `[Inject]` 프로퍼티의 setter(필수 프로퍼티까지 null로 남았습니다)를 제거했습니다. 이제 Base의 에디터 코드가 이런 빌드마다 링커에 link.xml을 넘겨, `Mu3Library.DI`를 참조하는 어셈블리와 그 어셈블리가 직접 또는 간접으로 참조하는 모든 스크립트 어셈블리와 사전 컴파일된 어셈블리에서 빌드가 어차피 남기는 모든 클래스의 생성자와, 그 클래스들이 선언한 `[Inject]` 필드와 프로퍼티를 지킵니다. 아무것도 쓰지 않는 클래스와 어셈블리는 여전히 제거됩니다. `[Inject]` 멤버는 에디터가 불러온 어셈블리에서 읽으므로, `#if !UNITY_EDITOR` 안처럼 플레이어에서만 컴파일되는 멤버에는 여전히 `[Preserve]`가 필요합니다. Unity는 패키지 안의 `link.xml`을 읽지 않으므로 Base가 고정된 link.xml을 담아 배포할 수는 없었습니다.
 
 ## [base/0.27.0] - 2026-10-31
 
