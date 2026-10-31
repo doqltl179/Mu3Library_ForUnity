@@ -4,18 +4,30 @@ using System.Collections.Generic;
 using System.Globalization;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local.Machine;
 
 namespace Mu3Library.Multiplayer.Local
 {
     /// <summary>
-    /// A backend whose lobbies and connections live in a <see cref="LocalNetwork"/> inside this
-    /// process. Like a real network, nothing arrives during the call that sent it: every answer
-    /// and every packet waits in a queue until this backend's next <see cref="Update"/>, in the
-    /// order it was sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use.
+    /// A backend whose lobbies and connections live on a <see cref="LocalNetwork"/>: inside this
+    /// process, or with <see cref="LocalNetwork.CreateMachineWide"/>, across the processes of this
+    /// computer. Like a real network, nothing arrives during the call that sent it: every answer
+    /// and every packet waits until this backend's next <see cref="Update"/>, in the order it was
+    /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Lobby search returns public lobbies only, as Steam does; joining by lobby ID works for every
     /// visibility, since the local network has no friends or invites.
+    /// </para>
+    /// <para>
+    /// On a machine-wide network each backend listens on a port of the loopback address, and the
+    /// process that owns a lobby answers the joins to it. A lobby takes a moment to show up in
+    /// another process's search, and a connection that receives nothing for
+    /// <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> counts as lost. The other side states
+    /// its player ID itself, so the identity is only as trustworthy as the processes on this
+    /// computer.
+    /// </para>
     /// </remarks>
     public sealed class LocalBackend : IMultiplayerBackend
     {
@@ -44,6 +56,11 @@ namespace Mu3Library.Multiplayer.Local
         }
 
         private readonly LocalNetwork _network;
+
+        // Set on a machine-wide network, where it runs every call; the members below serve a
+        // network inside this process.
+        private readonly MachinePeer _machine;
+
         private readonly Queue<PendingEvent> _events = new Queue<PendingEvent>();
         private readonly Dictionary<ConnectionId, LocalConnection> _connections = new Dictionary<ConnectionId, LocalConnection>();
         private IMultiplayerBackendListener _listener;
@@ -62,18 +79,37 @@ namespace Mu3Library.Multiplayer.Local
 
         public string Name => "Local";
         public int MaxPacketSize => MaxPacketBytes;
-        public bool IsAvailable => !_isDisposed;
+        public bool IsAvailable => _machine != null ? _machine.IsAvailable : !_isDisposed;
         public PlayerId LocalPlayerId { get; }
         public string PlayerName { get; }
 
         private bool _isListening = false;
         internal bool IsListening => _isListening && !_isDisposed;
 
+        private int _failingSends;
+
         /// <summary>
         /// Test switch: this many of the next sends report failure while the connection stays
         /// open, as a full send buffer on Steam does.
         /// </summary>
-        internal int FailingSends { get; set; }
+        internal int FailingSends
+        {
+            get => _machine != null ? _machine.FailingSends : _failingSends;
+            set
+            {
+                if (_machine != null)
+                {
+                    _machine.FailingSends = value;
+                }
+                else
+                {
+                    _failingSends = value;
+                }
+            }
+        }
+
+        /// <summary>The loopback port this backend listens on; 0 on a network inside one process.</summary>
+        internal int Port => _machine != null ? _machine.Port : 0;
 
 
 
@@ -84,11 +120,20 @@ namespace Mu3Library.Multiplayer.Local
 
         /// <summary>
         /// Creates a backend for a given account. Two backends with the same ID stand for one
-        /// account signed in on two machines.
+        /// account signed in on two machines. Without an ID, a network inside one process numbers
+        /// its players from 1, and a machine-wide network picks a random one.
         /// </summary>
         public LocalBackend(LocalNetwork network, string playerName, PlayerId playerId)
         {
             _network = network ?? throw new ArgumentNullException(nameof(network));
+            if (network.IsMachineWide)
+            {
+                _machine = new MachinePeer(network, playerName, playerId);
+                LocalPlayerId = _machine.LocalPlayerId;
+                PlayerName = _machine.PlayerName;
+                return;
+            }
+
             LocalPlayerId = playerId.IsValid ? playerId : network.AllocatePlayerId();
             PlayerName = string.IsNullOrEmpty(playerName)
                 ? $"Player {LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture)}"
@@ -98,11 +143,22 @@ namespace Mu3Library.Multiplayer.Local
 
         public string GetPlayerName(PlayerId player)
         {
+            if (_machine != null)
+            {
+                return _machine.GetPlayerName(player);
+            }
+
             return _network.GetPlayerName(player) ?? player.ToString();
         }
 
         public void SetListener(IMultiplayerBackendListener listener)
         {
+            if (_machine != null)
+            {
+                _machine.SetListener(listener);
+                return;
+            }
+
             _listener = listener;
 
             if (listener != null && _heldJoinRequest.IsValid && !_isDisposed)
@@ -114,6 +170,12 @@ namespace Mu3Library.Multiplayer.Local
 
         public void Update()
         {
+            if (_machine != null)
+            {
+                _machine.Update();
+                return;
+            }
+
             // Whatever a callback queues waits for the next Update, as an answer from a real
             // network would.
             int count = _events.Count;
@@ -125,9 +187,19 @@ namespace Mu3Library.Multiplayer.Local
 
         /// <summary>
         /// Stops as a crashed process would: the other players see their connections drop and
-        /// the lobbies this player was in pass on, but nothing tells them the player left.
+        /// the lobbies this player was in pass on, but nothing tells them the player left. On a
+        /// machine-wide network the lobby file stays behind too, until it goes stale.
         /// </summary>
-        public void SimulateCrash() => Shutdown();
+        public void SimulateCrash()
+        {
+            if (_machine != null)
+            {
+                _machine.SimulateCrash();
+                return;
+            }
+
+            Shutdown();
+        }
 
         /// <summary>
         /// Reports a join request from outside the game, as accepting an invite or joining from
@@ -135,6 +207,12 @@ namespace Mu3Library.Multiplayer.Local
         /// </summary>
         public void RequestJoin(LobbyId lobby)
         {
+            if (_machine != null)
+            {
+                _machine.RequestJoin(lobby);
+                return;
+            }
+
             if (_isDisposed)
             {
                 return;
@@ -143,11 +221,26 @@ namespace Mu3Library.Multiplayer.Local
             _events.Enqueue(new PendingEvent { Kind = EventKind.JoinRequested, Lobby = lobby });
         }
 
-        public void Dispose() => Shutdown();
+        public void Dispose()
+        {
+            if (_machine != null)
+            {
+                _machine.Dispose();
+                return;
+            }
+
+            Shutdown();
+        }
 
         #region Lobby
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted)
         {
+            if (_machine != null)
+            {
+                _machine.CreateLobby(visibility, capacity, data, onCompleted);
+                return;
+            }
+
             Dictionary<string, string> snapshot = new Dictionary<string, string>();
             if (data != null)
             {
@@ -179,6 +272,12 @@ namespace Mu3Library.Multiplayer.Local
 
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted)
         {
+            if (_machine != null)
+            {
+                _machine.SearchLobbies(query, onCompleted);
+                return;
+            }
+
             LobbySearchQuery snapshot = query != null ? query.Clone() : new LobbySearchQuery();
 
             EnqueueCallback(() =>
@@ -190,7 +289,7 @@ namespace Mu3Library.Multiplayer.Local
                     if (lobby.Visibility != LobbyVisibility.Public
                         || !lobby.IsJoinable
                         || lobby.Members.Count >= lobby.Capacity
-                        || !Matches(lobby, snapshot))
+                        || !LobbyFilter.Matches(lobby.Data, snapshot))
                     {
                         continue;
                     }
@@ -204,6 +303,12 @@ namespace Mu3Library.Multiplayer.Local
 
         public void JoinLobby(LobbyId lobbyId, Action<MultiplayerReason> onCompleted)
         {
+            if (_machine != null)
+            {
+                _machine.JoinLobby(lobbyId, onCompleted);
+                return;
+            }
+
             EnqueueCallback(() =>
             {
                 LocalLobby lobby = _network.FindLobby(lobbyId);
@@ -234,6 +339,12 @@ namespace Mu3Library.Multiplayer.Local
 
         public void LeaveLobby(LobbyId lobbyId)
         {
+            if (_machine != null)
+            {
+                _machine.LeaveLobby(lobbyId);
+                return;
+            }
+
             LocalLobby lobby = _network.FindLobby(lobbyId);
             if (lobby != null)
             {
@@ -243,12 +354,22 @@ namespace Mu3Library.Multiplayer.Local
 
         public string GetLobbyData(LobbyId lobbyId, string key)
         {
+            if (_machine != null)
+            {
+                return _machine.GetLobbyData(lobbyId, key);
+            }
+
             LocalLobby lobby = _network.FindLobby(lobbyId);
             return lobby != null && key != null && lobby.Data.TryGetValue(key, out string value) ? value : null;
         }
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
         {
+            if (_machine != null)
+            {
+                return _machine.SetLobbyData(lobbyId, key, value);
+            }
+
             LocalLobby lobby = FindOwnedLobby(lobbyId);
             if (lobby == null || string.IsNullOrEmpty(key))
             {
@@ -261,6 +382,11 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool SetLobbyJoinable(LobbyId lobbyId, bool joinable)
         {
+            if (_machine != null)
+            {
+                return _machine.SetLobbyJoinable(lobbyId, joinable);
+            }
+
             LocalLobby lobby = FindOwnedLobby(lobbyId);
             if (lobby == null)
             {
@@ -273,6 +399,11 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool SetLobbyCapacity(LobbyId lobbyId, int capacity)
         {
+            if (_machine != null)
+            {
+                return _machine.SetLobbyCapacity(lobbyId, capacity);
+            }
+
             LocalLobby lobby = FindOwnedLobby(lobbyId);
             if (lobby == null || capacity < 1)
             {
@@ -285,12 +416,22 @@ namespace Mu3Library.Multiplayer.Local
 
         public PlayerId GetLobbyOwner(LobbyId lobbyId)
         {
+            if (_machine != null)
+            {
+                return _machine.GetLobbyOwner(lobbyId);
+            }
+
             LocalLobby lobby = _network.FindLobby(lobbyId);
             return lobby != null ? lobby.Owner.LocalPlayerId : PlayerId.None;
         }
 
         public bool IsLobbyMember(LobbyId lobbyId, PlayerId player)
         {
+            if (_machine != null)
+            {
+                return _machine.IsLobbyMember(lobbyId, player);
+            }
+
             LocalLobby lobby = _network.FindLobby(lobbyId);
             if (lobby == null)
             {
@@ -318,56 +459,16 @@ namespace Mu3Library.Multiplayer.Local
             LocalLobby lobby = _network.FindLobby(lobbyId);
             return lobby != null && lobby.Owner == this ? lobby : null;
         }
-
-        private static bool Matches(LocalLobby lobby, LobbySearchQuery query)
-        {
-            for (int i = 0; i < query.StringFilters.Count; i++)
-            {
-                LobbyStringFilter filter = query.StringFilters[i];
-                lobby.Data.TryGetValue(filter.Key ?? string.Empty, out string value);
-                int compared = string.CompareOrdinal(value ?? string.Empty, filter.Value ?? string.Empty);
-                if (!Satisfies(compared, filter.Comparison))
-                {
-                    return false;
-                }
-            }
-
-            for (int i = 0; i < query.NumericFilters.Count; i++)
-            {
-                LobbyNumericFilter filter = query.NumericFilters[i];
-                if (!lobby.Data.TryGetValue(filter.Key ?? string.Empty, out string text)
-                    || !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-                    || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Whether the lobby's value, compared with the filter's value, gives <paramref name="compared"/>
-        /// the comparison asks for.
-        /// </summary>
-        private static bool Satisfies(int compared, LobbyComparison comparison)
-        {
-            switch (comparison)
-            {
-                case LobbyComparison.EqualOrLessThan: return compared <= 0;
-                case LobbyComparison.LessThan: return compared < 0;
-                case LobbyComparison.Equal: return compared == 0;
-                case LobbyComparison.GreaterThan: return compared > 0;
-                case LobbyComparison.EqualOrGreaterThan: return compared >= 0;
-                case LobbyComparison.NotEqual: return compared != 0;
-                default: return false;
-            }
-        }
         #endregion
 
         #region Connection
         public bool StartListening()
         {
+            if (_machine != null)
+            {
+                return _machine.StartListening();
+            }
+
             if (_isDisposed)
             {
                 return false;
@@ -379,11 +480,22 @@ namespace Mu3Library.Multiplayer.Local
 
         public void StopListening()
         {
+            if (_machine != null)
+            {
+                _machine.StopListening();
+                return;
+            }
+
             _isListening = false;
         }
 
         public ConnectionId Connect(PlayerId host)
         {
+            if (_machine != null)
+            {
+                return _machine.Connect(host);
+            }
+
             if (_isDisposed || !host.IsValid)
             {
                 return ConnectionId.None;
@@ -430,6 +542,11 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode)
         {
+            if (_machine != null)
+            {
+                return _machine.Send(connection, data, mode);
+            }
+
             if (_isDisposed || !_connections.TryGetValue(connection, out LocalConnection local) || data.Length > MaxPacketBytes)
             {
                 return false;
@@ -441,9 +558,9 @@ namespace Mu3Library.Multiplayer.Local
                 return true;
             }
 
-            if (FailingSends > 0)
+            if (_failingSends > 0)
             {
-                FailingSends--;
+                _failingSends--;
                 return false;
             }
 
@@ -463,6 +580,12 @@ namespace Mu3Library.Multiplayer.Local
 
         public void Disconnect(ConnectionId connection, int reasonCode)
         {
+            if (_machine != null)
+            {
+                _machine.Disconnect(connection, reasonCode);
+                return;
+            }
+
             if (!_connections.TryGetValue(connection, out LocalConnection local))
             {
                 return;

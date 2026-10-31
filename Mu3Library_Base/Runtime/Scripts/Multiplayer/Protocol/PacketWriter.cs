@@ -27,6 +27,13 @@ namespace Mu3Library.Multiplayer.Protocol
             return this;
         }
 
+        /// <summary>Starts an empty buffer, for a caller that frames what it writes itself.</summary>
+        public PacketWriter Clear()
+        {
+            _length = 0;
+            return this;
+        }
+
         public void WriteByte(byte value)
         {
             Ensure(1);
