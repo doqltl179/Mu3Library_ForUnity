@@ -618,6 +618,43 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Crash_WhileTheLobbyFileIsBeingRewritten_LeavesTheFileAsItWas()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            // The change goes to the writer thread; the crash waits for that write if it began
+            // and drops it if not, so nothing writes the file afterwards.
+            Thread.Sleep(300);
+            Assert.That(owner.SetLobbyData(lobby, "map", "forest"), Is.True);
+            owner.Update();
+            owner.SimulateCrash();
+
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+            byte[] contents = File.ReadAllBytes(file);
+            DateTime written = File.GetLastWriteTimeUtc(file);
+
+            // Longer than a rewrite takes, and past the next one a running owner would make.
+            Thread.Sleep(500);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(contents));
+            Assert.That(File.GetLastWriteTimeUtc(file), Is.EqualTo(written));
+            Assert.That(Directory.GetFiles(_folder, "*.tmp"), Is.Empty);
+        }
+
+        [Test]
+        public void SecondLobby_IsInTheFolder_ByTheEndOfTheUpdateThatCreatedIt()
+        {
+            // A lobby that a listing adds is written at once, past the shortest interval and
+            // ahead of the writer thread, so a join by its ID right after finds it.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId first = CreateLobby(owner, LobbyVisibility.Public, 4);
+            LobbyId second = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(new[] { first, second }));
+            Assert.That(Join(CreateRawBackend(CreateNetwork(), "Joiner"), second), Is.EqualTo(MultiplayerReason.None));
+        }
+
+        [Test]
         public void Owner_LeavingItsLastLobby_DeletesTheLobbyFile()
         {
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
@@ -629,7 +666,7 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void Directory_ReadByAnotherProcess_WhileTheOwnerRewritesIt_ListsTheLobbyWhole()
+        public void Directory_ReadFromAnotherThread_WhileTheOwnerRewritesIt_ListsTheLobbyWhole()
         {
             const int Rounds = 5;
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
@@ -638,7 +675,8 @@ namespace Mu3Library.Tests
             Assert.That(owner.SetLobbyData(lobby, "round", "0"), Is.True);
             PumpUntil(() => ListedData(lobby, "round") == "0", "the first round to reach the file");
 
-            // Another process searches over and over while the owner rewrites the file.
+            // Another thread reads the folder over and over, as a search in another process does,
+            // while the owner rewrites the file.
             PlayerId ownerId = owner.LocalPlayerId;
             int ownerPort = owner.Port;
             int reads = 0;
@@ -706,6 +744,13 @@ namespace Mu3Library.Tests
         [Test]
         public void Directory_RewriteThatFails_IsTriedAgain_BeforeTheNextRefresh()
         {
+            // Only Windows refuses to replace a file another handle opened with FileShare.None;
+            // elsewhere the first rewrite would succeed and the test prove nothing.
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Assert.Ignore("Needs Windows file sharing to make the rewrite fail.");
+            }
+
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
             LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
             string file = Directory.GetFiles(_folder, "*.lobbies").Single();

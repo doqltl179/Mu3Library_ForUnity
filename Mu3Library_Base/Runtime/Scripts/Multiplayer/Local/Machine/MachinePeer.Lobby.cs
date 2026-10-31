@@ -802,13 +802,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 }
             }
 
-            bool isDue = _isDirectoryDirty || (_lobbyScratch.Count > 0 && now >= _nextPublish);
-            if (!isDue || now < _nextPublishAttempt)
+            // A lobby created or taken over is listed at once, so a process that learns its ID can
+            // join it; any other change waits out the shortest interval.
+            bool addsLobby = _directory.AddsLobby(_lobbyScratch);
+            bool isDue = addsLobby || _isDirectoryDirty || (_lobbyScratch.Count > 0 && now >= _nextPublish);
+            if (!isDue || (now < _nextPublishAttempt && !addsLobby))
             {
                 return;
             }
 
-            // Past the first listing, the file is written in the background, so this frame does not wait for it.
+            // Unless it adds a lobby, the file is written in the background, so this frame does not wait for it.
             _directory.Publish(LocalPlayerId, Port, _lobbyScratch);
             _isDirectoryDirty = false;
             _nextPublish = now + PublishIntervalSeconds;

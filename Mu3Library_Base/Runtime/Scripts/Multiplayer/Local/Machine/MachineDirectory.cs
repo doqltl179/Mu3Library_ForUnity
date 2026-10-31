@@ -16,12 +16,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// <see cref="StaleSeconds"/> belongs to a process that ended without deleting it.
     /// </summary>
     /// <remarks>
-    /// The owner lists its lobbies on the main thread, into a buffer it keeps, and from the
-    /// second listing on a thread of this directory writes the file from a copy: replacing a file
-    /// takes milliseconds (about 7 ms on Windows) that a frame cannot spare, and the owner
-    /// rewrites the file every few seconds even when nothing changed, since readers judge it by
-    /// the time written inside. The thread starts with the first listing and ends when the file
-    /// is deleted or abandoned; both wait for a write in progress first, so no write lands after
+    /// The owner lists its lobbies on the main thread, into a buffer it keeps. A listing that adds
+    /// a lobby is written there and then, so the lobby is in the folder by the end of the update
+    /// that created or took it over; every other listing goes to a thread of this directory,
+    /// which writes the file from a copy: replacing a file takes milliseconds (about 7 ms on
+    /// Windows) that a frame cannot spare, and the owner rewrites the file every few seconds even
+    /// when nothing changed, since readers judge it by the time written inside. The thread starts
+    /// with the first listing and ends when the file is deleted or abandoned, or when scripts
+    /// reload; deleting and abandoning wait for a write in progress first, so no write lands after
     /// them.
     /// </remarks>
     internal sealed class MachineDirectory
@@ -32,14 +34,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const int FileVersion = 1;
         private const string Extension = ".lobbies";
 
+        // The writer thread only writes small files; the default stack would be a megabyte.
+        private const int WriterStackBytes = 128 * 1024;
+
         private readonly string _folder;
         private readonly string _path;
         private readonly string _temporaryPath;
 
-        // Main thread only: the latest listing, written into the same buffer each time.
+        // Main thread only: the latest listing, written into the same buffer each time, and the
+        // lobbies it listed.
         private readonly MemoryStream _listing = new MemoryStream();
         private readonly BinaryWriter _listingWriter;
+        private readonly List<LobbyId> _listed = new List<LobbyId>();
         private Thread _writer = null;
+        private EventHandler _onDomainUnload = null;
         private bool _hasFile = false;
 
         // Shared with the writer thread under _gate: the listing it writes next.
@@ -55,6 +63,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // Writer thread only.
         private byte[] _writing = Array.Empty<byte>();
 
+        // Whichever thread writes the file: the main thread only while no writer thread runs.
+        private bool _hasFolder = false;
+
         public MachineDirectory(string folder, int port)
         {
             _folder = folder;
@@ -63,11 +74,25 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _listingWriter = new BinaryWriter(_listing, Encoding.UTF8, leaveOpen: true);
         }
 
+        /// <summary>True when the lobbies include one that the last listing did not.</summary>
+        public bool AddsLobby(List<MachineLobby> lobbies)
+        {
+            for (int i = 0; i < lobbies.Count; i++)
+            {
+                if (!IsListed(lobbies[i].Id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>
-        /// Lists the lobbies this process owns, or deletes its file when it owns none. Past the
-        /// first listing the file is written in the background; when a write fails, for example
-        /// while another program holds the file, <see cref="TakeFailedWrite"/> says so, and the
-        /// caller lists them again later.
+        /// Lists the lobbies this process owns, or deletes its file when it owns none. A listing
+        /// that adds a lobby is written at once, the others in the background; when a write fails,
+        /// for example while another program holds the file, <see cref="TakeFailedWrite"/> says
+        /// so, and the caller lists them again later.
         /// </summary>
         public void Publish(PlayerId owner, int port, List<MachineLobby> lobbies)
         {
@@ -77,6 +102,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            bool addsLobby = AddsLobby(lobbies);
+            _listed.Clear();
             _listing.SetLength(0);
             BinaryWriter writer = _listingWriter;
             writer.Write(FileMagic);
@@ -88,6 +115,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             for (int i = 0; i < lobbies.Count; i++)
             {
                 MachineLobby lobby = lobbies[i];
+                _listed.Add(lobby.Id);
                 writer.Write(lobby.Id.Value);
                 writer.Write((byte)lobby.Visibility);
                 writer.Write(lobby.Capacity);
@@ -107,23 +135,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
             // Set before the first write, so Remove also deletes a temporary file a failed write left.
             _hasFile = true;
 
-            if (_writer == null)
+            if (addsLobby || _writer == null)
             {
-                // The first listing creates the file here and now, which takes a fraction of a
-                // replacement, so a lobby is in the folder by the end of the update that created
-                // it, and a process that learns its ID at once can join it.
+                // A process that learns the new lobby's ID at once can join it. The first listing
+                // creates the file, a fraction of a replacement; a later one that adds a lobby,
+                // which a process owning several lobbies makes, replaces it here, after the write
+                // in progress if there is one.
+                StopWriting();
                 if (!TryWrite(_listing.GetBuffer(), length))
                 {
                     Interlocked.Exchange(ref _hasFailed, 1);
                 }
 
-                _isStopping = false;
-                _writer = new Thread(WriteListings)
-                {
-                    IsBackground = true,
-                    Name = "Mu3Library.Multiplayer lobby file",
-                };
-                _writer.Start();
+                StartWriting();
                 return;
             }
 
@@ -152,6 +176,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public void Remove()
         {
             StopWriting();
+            _listed.Clear();
             if (!_hasFile)
             {
                 return;
@@ -169,7 +194,40 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public void Abandon()
         {
             StopWriting();
+            _listed.Clear();
             _hasFile = false;
+        }
+
+        private bool IsListed(LobbyId lobby)
+        {
+            for (int i = 0; i < _listed.Count; i++)
+            {
+                if (_listed[i] == lobby)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void StartWriting()
+        {
+            // A backend dropped without Dispose would leave the thread waiting until the process
+            // ends, and Unity reloads scripts without ending the process.
+            if (_onDomainUnload == null)
+            {
+                _onDomainUnload = (sender, args) => AskToStop();
+            }
+
+            AppDomain.CurrentDomain.DomainUnload += _onDomainUnload;
+            _isStopping = false;
+            _writer = new Thread(WriteListings, WriterStackBytes)
+            {
+                IsBackground = true,
+                Name = "Mu3Library.Multiplayer lobby file",
+            };
+            _writer.Start();
         }
 
         /// <summary>
@@ -183,16 +241,21 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            AskToStop();
+            _writer.Join();
+            _writer = null;
+            AppDomain.CurrentDomain.DomainUnload -= _onDomainUnload;
+            Interlocked.Exchange(ref _hasFailed, 0);
+        }
+
+        private void AskToStop()
+        {
             lock (_gate)
             {
                 _isStopping = true;
                 _hasPending = false;
                 Monitor.Pulse(_gate);
             }
-
-            _writer.Join();
-            _writer = null;
-            Interlocked.Exchange(ref _hasFailed, 0);
         }
 
         /// <summary>The writer thread: writes the latest listing whenever there is one, until it stops.</summary>
@@ -234,20 +297,21 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             try
             {
-                Directory.CreateDirectory(_folder);
-                using (FileStream file = new FileStream(_temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                if (!_hasFolder)
                 {
-                    file.Write(listing, 0, length);
+                    Directory.CreateDirectory(_folder);
+                    _hasFolder = true;
                 }
 
-                // A reader sees the old file or the new one, never half of one.
-                if (File.Exists(_path))
+                try
                 {
-                    File.Replace(_temporaryPath, _path, null);
+                    WriteFile(listing, length);
                 }
-                else
+                catch (DirectoryNotFoundException)
                 {
-                    File.Move(_temporaryPath, _path);
+                    // Something deleted the folder since.
+                    Directory.CreateDirectory(_folder);
+                    WriteFile(listing, length);
                 }
 
                 return true;
@@ -261,6 +325,25 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 // Logged rather than thrown, since on the writer thread it would end the thread.
                 Debug.LogException(e);
                 return false;
+            }
+        }
+
+        private void WriteFile(byte[] listing, int length)
+        {
+            // Written in one call, so the stream needs no buffer of its own.
+            using (FileStream file = new FileStream(_temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 1))
+            {
+                file.Write(listing, 0, length);
+            }
+
+            // A reader sees the old file or the new one, never half of one.
+            if (File.Exists(_path))
+            {
+                File.Replace(_temporaryPath, _path, null);
+            }
+            else
+            {
+                File.Move(_temporaryPath, _path);
             }
         }
 
