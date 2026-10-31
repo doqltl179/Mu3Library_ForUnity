@@ -57,6 +57,19 @@ namespace Mu3Library.Tests
             public void OnLobbyJoinRequested(LobbyId lobby) { }
         }
 
+        /// <summary>Records connections and hands each packet it receives, inside the update, to <see cref="Received"/>.</summary>
+        private sealed class CallbackListener : IMultiplayerBackendListener
+        {
+            public readonly List<ConnectionId> Connected = new List<ConnectionId>();
+            public Action<ConnectionId, byte[]> Received;
+
+            public void OnConnected(ConnectionId connection, PlayerId remote, bool isIncoming) => Connected.Add(connection);
+            public void OnDisconnected(ConnectionId connection, PlayerId remote, BackendDisconnectKind kind, int reasonCode) { }
+            public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => Received?.Invoke(connection, data.ToArray());
+            public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
+            public void OnLobbyJoinRequested(LobbyId lobby) { }
+        }
+
         /// <summary>A raw backend with what its listener heard.</summary>
         private sealed class Peer
         {
@@ -278,6 +291,42 @@ namespace Mu3Library.Tests
             // The host's own message left first; A's passed through the host after it.
             (PlayerId, string)[] expected = { (host.Id, "from the host"), (a.Id, "from A") };
             Assert.That(everyone.Select(node => node.Chats), Is.All.EqualTo(expected));
+        }
+
+        [Test]
+        public void RelayedBurst_LeavesInOneSocketCallPerConnection_AndArrivesWithoutAnotherHostUpdate()
+        {
+            // NFR-1, NFR-2: a host relaying a burst it read in one update makes one socket call for
+            // each connection instead of one for each message, and makes it before the update ends.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+
+            // B joined last, so the host reads B's connection after A's: what it relays to A from
+            // there leaves only at the end of the update.
+            const int burst = 50;
+            for (int i = 0; i < burst; i++)
+            {
+                Assert.That(b.Manager.Send(Chat, BitConverter.GetBytes(i), MessageTarget.Others, DeliveryMode.Unreliable).IsSuccess, Is.True);
+            }
+
+            // B sends between updates, so the burst is on the loopback already; let it cross.
+            Thread.Sleep(100);
+            long before = host.Backend.SocketSends;
+            host.Manager.Update();
+            long sends = host.Backend.SocketSends - before;
+
+            Assert.That(host.Messages.Count, Is.EqualTo(burst), "The host read the whole burst in one update.");
+            // The host has four connections, a session and a lobby one to each client: at most one
+            // call each, pings and probes included, at the end of the update.
+            Assert.That(sends, Is.LessThanOrEqualTo(4));
+
+            _paused.Add(host.Backend);
+            _paused.Add(b.Backend);
+            PumpUntil(() => a.Messages.Count == burst, "the relayed burst to reach A while the host waits");
+            Assert.That(a.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, burst)));
+            Assert.That(a.Messages.All(message => message.Sender == b.Id), Is.True);
         }
 
         [Test]
@@ -705,6 +754,36 @@ namespace Mu3Library.Tests
             Assert.That(host.Messages.Single().Payload, Is.EqualTo(new byte[] { 1 }));
             Assert.That(client.Messages.Single().Payload, Is.EqualTo(new byte[] { 3 }));
             Assert.That(client.States.Last().Current, Is.EqualTo(SessionState.Lobby));
+        }
+
+        [Test]
+        public void Outage_StartedInsideAnUpdate_LetsWhatTheUpdateSentBeforeItLeave()
+        {
+            // An answer sent from a callback of the update is on the wire before an outage the same
+            // callback starts, as a packet sent between updates is, and not held back until it ends.
+            CallbackListener hostEvents = new CallbackListener();
+            RecordingListener clientEvents = new RecordingListener();
+            LocalBackend host = CreateRawBackend(CreateNetwork(), "Host", hostEvents);
+            LocalBackend client = CreateRawBackend(CreateNetwork(), "Client", clientEvents);
+            LobbyId lobby = CreateLobby(host, LobbyVisibility.Public, 2);
+            Assert.That(host.StartListening(), Is.True);
+            Assert.That(Join(client, lobby), Is.EqualTo(MultiplayerReason.None));
+            ConnectionId toHost = client.Connect(host.LocalPlayerId);
+            PumpUntil(() => clientEvents.Connected.Count == 1 && hostEvents.Connected.Count == 1, "the connection");
+
+            bool? answered = null;
+            hostEvents.Received = (connection, data) =>
+            {
+                hostEvents.Received = null;
+                answered = host.Send(connection, new byte[] { 7 }, DeliveryMode.Unreliable);
+                host.SimulateOutage(5f);
+            };
+            Assert.That(client.Send(toHost, new byte[] { 1 }, DeliveryMode.Reliable), Is.True);
+
+            PumpUntil(() => answered.HasValue, "the host to answer");
+            Assert.That(answered, Is.True);
+            PumpUntil(() => clientEvents.Received.Count == 1, "the answer sent just before the outage", 2.0);
+            Assert.That(clientEvents.Received.Single(), Is.EqualTo(new byte[] { 7 }));
         }
 
         [Test]
