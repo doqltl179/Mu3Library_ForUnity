@@ -448,6 +448,7 @@ namespace Mu3Library.Tests
             Assert.That(host.Left.Single().Participant.Id, Is.EqualTo(b.Id));
             Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
         }
+
         [Test]
         public void Reconnect_ACloseWithACodeOutsideTheLibrarys_StartsReconnecting_AndATimeoutOrAReasonlessRefusalIsTriedAgain()
         {

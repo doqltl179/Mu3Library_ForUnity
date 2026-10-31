@@ -731,6 +731,8 @@ namespace Mu3Library.Multiplayer
             Raise(OnParticipantLeft, removed, reason);
             if (generation == _sessionGeneration)
             {
+                // A player who left is no longer one the game started with, even if it joins again late.
+                _loadStartedWith.Remove(player);
                 StopWaitingFor(player);
             }
         }

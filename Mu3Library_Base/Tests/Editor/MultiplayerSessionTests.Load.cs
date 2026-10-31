@@ -250,6 +250,38 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadSync_APlayerWhoLeftAndJoinedAgainLate_IsNotWaitedForAfterStartingItsGameAgain()
+        {
+            // FR-25, FR-19, FR-21: a player who left is no longer one the game started with.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true).WithLoadTimeoutSeconds(100f));
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            host.Manager.StartGame();
+            Pump();
+            b.Manager.Leave();
+            Pump();
+
+            Node late = CreateNode("B", id: b.Id);
+            Assert.That(Join(late, host).IsSuccess, Is.True);
+            Assert.That(late.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+
+            late.Backend.SimulateOutage(120f);
+            Advance(DropSeconds + 0.5);
+            Node again = CreateNode("B", id: b.Id);
+            Assert.That(Join(again, host).IsSuccess, Is.True);
+
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+
+            Advance(100.0);
+            Assert.That(host.LoadTimeouts, Is.Empty);
+        }
+
+        [Test]
         public void LoadSync_APlayerWhoseSlotFrees_IsNoLongerWaitedFor()
         {
             // FR-25, FR-20
