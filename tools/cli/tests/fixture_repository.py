@@ -34,8 +34,10 @@ PROJECT_PACKAGES = {
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
-# -testFilter value as one argument, writes the test results it is given to the path after
-# -testResults, and exits with the status it is given.
+# -testFilter value as one argument, prints the log line it is given, prints a tick each
+# second for as many seconds as it is given, then stays silent as long as it is told, writes
+# the test results it is given to the path after -testResults, and exits with the status it
+# is given.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
@@ -53,6 +55,16 @@ printf 'fake unity ran %s\\n' "$project"
 printf 'fake unity arguments: %s\\n' "$arguments"
 if [[ -n "$filter" ]]; then
     printf 'fake unity test filter: [%s]\\n' "$filter"
+fi
+if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG"
+fi
+for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
+    sleep 1
+    printf 'fake unity tick %s\\n' "$tick"
+done
+if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
+    sleep "$FAKE_UNITY_SLEEP"
 fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
@@ -158,7 +170,16 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         # The user's and the machine's Git configuration stay out as well, so their hooks,
         # file-system monitors, and ignore rules do not apply to the fixture.
         environment = {key: value for key, value in os.environ.items() if key not in cls.repository_environment}
-        for name in ("UNITY_EDITOR", "UNITY", "UNITY_HUB_EDITOR_ROOT", "FAKE_UNITY_RESULTS", "FAKE_UNITY_STATUS"):
+        for name in (
+            "UNITY_EDITOR",
+            "UNITY",
+            "UNITY_HUB_EDITOR_ROOT",
+            "FAKE_UNITY_RESULTS",
+            "FAKE_UNITY_STATUS",
+            "FAKE_UNITY_LOG",
+            "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_SLEEP",
+        ):
             environment.pop(name, None)
         environment.update(
             {

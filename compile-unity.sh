@@ -25,6 +25,12 @@ RUN_PROJECT_PATH=""
 RUN_LOCATION=""
 RUN_NOTE=""
 UNITY_STATUS=0
+# While UNITY_LOG_FILE names a file, run_unity_for_target also keeps Unity's log
+# there and stops Unity once that log has not grown for UNITY_STALL_SECONDS
+# (0 never stops it), setting UNITY_STALLED. test-unity.sh sets both.
+UNITY_LOG_FILE=""
+UNITY_STALL_SECONDS=0
+UNITY_STALLED=0
 
 SKIP_SAMPLES=0
 readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -1098,6 +1104,99 @@ prepare_isolated_project() {
     RUN_PROJECT_PATH="$staging_project"
 }
 
+# Prints the processes that descend from a process, one PID a line.
+process_descendants() {
+    local root="$1"
+    local pairs
+
+    if [[ -r "/proc/$$/winpid" ]]; then
+        # Git Bash's ps prints PID and PPID first, after a status letter on some
+        # lines; a Windows program it started is listed under the PID it gave it.
+        pairs="$(ps -e | awk 'NR > 1 { if ($1 ~ /^[0-9]+$/) print $1, $2; else print $2, $3 }')"
+    else
+        pairs="$(ps -A -o pid= -o ppid=)"
+    fi
+
+    awk -v root="$root" '
+        { parent[$1] = $2 }
+        END {
+            found[root] = 1
+            do {
+                added = 0
+                for (pid in parent) {
+                    if (!(pid in found) && (parent[pid] in found)) {
+                        found[pid] = 1
+                        added = 1
+                    }
+                }
+            } while (added)
+            for (pid in found) {
+                if (pid != root) {
+                    print pid
+                }
+            }
+        }' <<<"$pairs"
+}
+
+# Stops a process that this script started and every process descending from
+# it, which it lists first, since a process whose parent ended loses its place
+# in the tree.
+stop_process_tree() {
+    local root="$1"
+    local pid
+    local processes
+
+    read -r -d '' -a processes < <(process_descendants "$root" || true) || true
+    for pid in "$root" ${processes[@]+"${processes[@]}"}; do
+        # A Windows program ends through taskkill, which needs its Windows PID;
+        # /T also ends the child processes it started itself, which Git Bash
+        # does not list.
+        if [[ -r "/proc/$pid/winpid" ]] && command -v taskkill >/dev/null 2>&1 \
+            && taskkill //F //T //PID "$(cat "/proc/$pid/winpid")" >/dev/null 2>&1; then
+            continue
+        fi
+        kill -KILL "$pid" 2>/dev/null || true
+    done
+}
+
+# Runs a Unity command with its standard output in UNITY_LOG_FILE, prints the
+# log as it grows, and returns Unity's exit status. A log that has not grown for
+# UNITY_STALL_SECONDS stops Unity and sets UNITY_STALLED, so a test that never
+# returns fails its target instead of holding the script forever.
+run_unity_logged() {
+    local unity_pid
+    local status
+    local size
+    local shown=0
+    local last_growth="$SECONDS"
+
+    "$@" >"$UNITY_LOG_FILE" &
+    unity_pid=$!
+    # Unity runs in the background now, so an interrupt must stop it as well.
+    # shellcheck disable=SC2064
+    trap "stop_process_tree $unity_pid; exit 130" INT TERM
+
+    while kill -0 "$unity_pid" 2>/dev/null; do
+        sleep 1
+        size=$(($(wc -c <"$UNITY_LOG_FILE")))
+        if [[ "$size" -gt "$shown" ]]; then
+            tail -c "+$((shown + 1))" "$UNITY_LOG_FILE" | head -c "$((size - shown))"
+            shown="$size"
+            last_growth="$SECONDS"
+        elif [[ "$UNITY_STALL_SECONDS" -gt 0 && $((SECONDS - last_growth)) -ge "$UNITY_STALL_SECONDS" ]]; then
+            UNITY_STALLED=1
+            stop_process_tree "$unity_pid"
+            break
+        fi
+    done
+
+    wait "$unity_pid"
+    status=$?
+    trap - INT TERM
+    tail -c "+$((shown + 1))" "$UNITY_LOG_FILE"
+    return "$status"
+}
+
 # Runs Unity in batch mode for one target, in place or in an isolated mirror,
 # with the arguments that follow the verb, and leaves its exit code in
 # UNITY_STATUS. The mirror is removed before this returns.
@@ -1107,6 +1206,7 @@ run_unity_for_target() {
     local unity_path
     local project_path
     local run_project_path
+    local unity_command
 
     shift 2
     project_path="$(project_path_for_target "$target_key")" || return 1
@@ -1131,12 +1231,14 @@ run_unity_for_target() {
     printf 'Unity: %s\n' "$unity_path"
     printf 'Project: %s\n' "$run_project_path"
 
+    unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
+    UNITY_STALLED=0
     set +e
-    "$unity_path" \
-        -batchmode \
-        -projectPath "$run_project_path" \
-        "$@" \
-        -logFile -
+    if [[ -n "$UNITY_LOG_FILE" ]]; then
+        run_unity_logged "${unity_command[@]}"
+    else
+        "${unity_command[@]}"
+    fi
     UNITY_STATUS=$?
     set -e
 

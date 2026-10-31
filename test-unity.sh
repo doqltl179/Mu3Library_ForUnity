@@ -17,6 +17,9 @@ PLATFORM_KEY="editmode"
 TEST_PLATFORM="EditMode"
 # The pattern --filter passes to Unity's -testFilter; empty runs every test.
 TEST_FILTER=""
+# How long a target's Unity log may stay the same before compile-unity.sh's
+# run_unity_for_target stops Unity as stalled; --stall-timeout sets it.
+UNITY_STALL_SECONDS=600
 # The arguments left for compile-unity.sh's parse_arguments once this script's own options are out.
 COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
@@ -52,6 +55,10 @@ Options:
                     the regular expression Unity's -testFilter takes, such
                     as a fixture's full name; separate several with ";".
                     The [Explicit] tests it matches run too.
+  --stall-timeout <seconds>
+                    Stop Unity and fail the target once its log has not
+                    grown for this long, naming the test that was running
+                    (default 600; 0 waits as long as Unity runs).
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
   --dry-run         Print the selection and where each target would run,
                     without Unity.
@@ -69,10 +76,11 @@ Options:
 A project runs the tests of the packages its Packages/manifest.json lists under
 "testables"; a selected project that lists none is skipped. Each run writes
 NUnit XML results to log/unity-tests/<target>-<platform>.xml, such as
-log/unity-tests/urp-playmode.xml. A failed test or
-Unity run does not stop the remaining targets, and a summary closes the run;
-a target that cannot start, such as an open project under --in-place or a
-mirror that cannot be copied, stops the script at once.
+log/unity-tests/urp-playmode.xml, and Unity's log, with a line as each test
+begins and ends, beside it as <target>-<platform>.log. A failed test or a
+stalled or failed Unity run does not stop the remaining targets, and a summary
+closes the run; a target that cannot start, such as an open project under
+--in-place or a mirror that cannot be copied, stops the script at once.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), how --editor-version retargets the mirror, the sample-link
@@ -81,9 +89,9 @@ check, and the environment variables work as in compile-unity.sh; see
 EOF
 }
 
-# Takes --platform and --filter, which only this script has, out of the
-# arguments and leaves the rest in COMPILE_ARGUMENTS for the options it shares
-# with compile-unity.sh.
+# Takes --platform, --filter, and --stall-timeout, which only this script has,
+# out of the arguments and leaves the rest in COMPILE_ARGUMENTS for the options
+# it shares with compile-unity.sh.
 parse_test_arguments() {
     COMPILE_ARGUMENTS=()
 
@@ -110,6 +118,11 @@ parse_test_arguments() {
                 [[ "$#" -gt 0 && -n "$1" ]] || fail "--filter requires a test name or pattern"
                 [[ -z "$TEST_FILTER" ]] || fail "--filter can be given once; separate several patterns with ;"
                 TEST_FILTER="$1"
+                ;;
+            --stall-timeout)
+                shift
+                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ ]] || fail "--stall-timeout expects a whole number of seconds"
+                UNITY_STALL_SECONDS="$((10#$1))"
                 ;;
             *)
                 COMPILE_ARGUMENTS+=("$1")
@@ -191,6 +204,19 @@ print_failed_tests() {
     done < <(grep -o '<test-case [^>]*result="Failed"[^>]*>' "$results_file" || true)
 }
 
+# Prints the full name of the test that Unity began last and did not end, from
+# the lines that -automated adds to its log, or nothing.
+unfinished_test() {
+    local log_file="$1"
+    local status_line
+    local pattern='"name":"([^"]*)"'
+
+    status_line="$(grep -o '##utp:{"type":"TestStatus".*' "$log_file" 2>/dev/null | tail -n 1 || true)"
+    if [[ "$status_line" == *'"phase":"Begin"'* && "$status_line" =~ $pattern ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    fi
+}
+
 record_failure() {
     local target_key="$1"
     local reason="$2"
@@ -208,6 +234,8 @@ test_target() {
     local failed
     local skipped
     local counts
+    local unfinished
+    local stall_phrase
     local unity_arguments=(-runTests -testPlatform "$TEST_PLATFORM")
 
     if [[ -n "$TEST_FILTER" ]]; then
@@ -217,13 +245,28 @@ test_target() {
     mkdir -p "$RESULTS_DIR"
     # A result file left by an earlier run must not stand in for this one.
     rm -f -- "$results_file"
+    UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY.log"
 
+    # -automated makes the Unity Test Framework log a line as each test begins
+    # and ends, which names the test that a stalled or crashed run was in.
     run_unity_for_target "$target_key" "Testing" \
         "${unity_arguments[@]}" \
-        -testResults "$(to_windows_path "$results_file")"
+        -testResults "$(to_windows_path "$results_file")" \
+        -automated
+    unfinished="$(unfinished_test "$UNITY_LOG_FILE")"
+
+    if [[ "$UNITY_STALLED" -eq 1 ]]; then
+        if [[ -n "$unfinished" ]]; then
+            stall_phrase="while running $unfinished"
+        else
+            stall_phrase="while no test was running"
+        fi
+        record_failure "$target_key" "Unity wrote nothing to its log for $UNITY_STALL_SECONDS s $stall_phrase, so the script stopped it; see ${UNITY_LOG_FILE#"$REPO_ROOT"/}"
+        return 0
+    fi
 
     if [[ ! -f "$results_file" ]]; then
-        record_failure "$target_key" "Unity exited with $UNITY_STATUS and wrote no test results; see its log above"
+        record_failure "$target_key" "Unity exited with $UNITY_STATUS and wrote no test results${unfinished:+ while running $unfinished}; see its log above"
         return 0
     fi
 
@@ -301,7 +344,7 @@ test_main() {
     done
 
     print_summary
-    printf 'Results: log/unity-tests/<target>-%s.xml\n' "$PLATFORM_KEY"
+    printf 'Results: log/unity-tests/<target>-%s.xml, with Unity logs as <target>-%s.log\n' "$PLATFORM_KEY" "$PLATFORM_KEY"
 
     if [[ "$FAILED_TARGET_COUNT" -gt 0 ]]; then
         fail "$TEST_PLATFORM tests failed for $FAILED_TARGET_COUNT target(s)"

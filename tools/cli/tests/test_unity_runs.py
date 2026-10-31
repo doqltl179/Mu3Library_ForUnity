@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -197,20 +198,39 @@ def nunit_results(passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 
     )
 
 
+# The lines the Unity Test Framework logs, with -automated, as a test begins and ends.
+UTP_BEGIN = (
+    '##utp:{"type":"TestStatus","time":1,"version":2,"phase":"Begin","processId":1,'
+    '"name":"Fixture.Tests.Hangs","state":0}'
+)
+UTP_END = (
+    '##utp:{"type":"TestStatus","time":2,"version":2,"phase":"End","processId":1,'
+    '"name":"Fixture.Tests.Hangs","state":4,"message":"","duration":1}'
+)
+
+
 class TestEntryPointTests(FixtureRepositoryTestCase):
     """Runs the real test-unity.sh with a fake Unity that writes the results it is given."""
 
     TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
 
-    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0):
+    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0, **fake: str):
+        """Run test-unity.sh; fake sets FAKE_UNITY_<NAME> variables, such as log, ticks, and sleep."""
         return self.run_entry_point(
             "test-unity.sh",
             *arguments,
-            environment=self.unity_environment(FAKE_UNITY_RESULTS=results, FAKE_UNITY_STATUS=str(unity_status)),
+            environment=self.unity_environment(
+                FAKE_UNITY_RESULTS=results,
+                FAKE_UNITY_STATUS=str(unity_status),
+                **{f"FAKE_UNITY_{name.upper()}": value for name, value in fake.items()},
+            ),
         )
 
     def results_file(self, target: str, platform: str = "editmode") -> Path:
         return self.root / "log" / "unity-tests" / f"{target}-{platform}.xml"
+
+    def log_file(self, target: str, platform: str = "editmode") -> Path:
+        return self.results_file(target, platform).with_suffix(".log")
 
     def tearDown(self) -> None:
         shutil.rmtree(self.root / "log", ignore_errors=True)
@@ -311,6 +331,68 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertIn("fake unity test filter: [Fixture.Tests.Benchmark]", completed.stdout.splitlines())
         self.assertTrue(self.results_file("leaf").is_file())
         self.assertEqual([], self.mirrors_left())
+
+    def test_unity_logs_each_test_into_a_log_kept_beside_the_results(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(), log=UTP_BEGIN)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn(" -automated ", arguments)
+        # The script still prints the log, and keeps it after the run.
+        self.assertIn(UTP_BEGIN, completed.stdout.splitlines())
+        log = self.log_file("leaf").read_text(encoding="utf-8").splitlines()
+        self.assertIn(UTP_BEGIN, log)
+        self.assertIn(arguments, log)
+
+    def test_silent_unity_is_stopped_and_the_run_names_the_test_it_was_in(self) -> None:
+        for log, phrase in (
+            (UTP_BEGIN, "while running Fixture.Tests.Hangs"),
+            (f"{UTP_BEGIN}\n{UTP_END}", "while no test was running"),
+        ):
+            with self.subTest(phrase=phrase):
+                started = time.monotonic()
+                completed = self.run_tests(
+                    "leaf", "--stall-timeout", "2", results=nunit_results(), log=log, sleep="120"
+                )
+
+                self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(
+                    f"error: leaf: Unity wrote nothing to its log for 2 s {phrase}, so the script stopped it; "
+                    "see log/unity-tests/leaf-editmode.log",
+                    completed.stderr,
+                )
+                self.assertFalse(self.results_file("leaf").exists())
+
+    def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
+        completed = self.run_tests("leaf", "--stall-timeout", "3", results=nunit_results(), ticks="5")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("fake unity tick 5", completed.stdout.splitlines())
+
+    def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="3")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
+
+    def test_stall_timeout_needs_whole_seconds(self) -> None:
+        for value in ("", "1.5", "-1", "soon"):
+            with self.subTest(value=value):
+                completed = self.run_tests("leaf", "--stall-timeout", value, results=nunit_results())
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn("--stall-timeout expects a whole number of seconds", completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_run_without_results_names_the_test_it_was_in(self) -> None:
+        completed = self.run_tests("leaf", unity_status=1, log=UTP_BEGIN)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(
+            "Unity exited with 1 and wrote no test results while running Fixture.Tests.Hangs; see its log above",
+            completed.stderr,
+        )
 
     def test_failed_test_fails_the_run_and_is_named(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)

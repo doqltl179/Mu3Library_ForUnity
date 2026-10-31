@@ -36,6 +36,7 @@ from mu3_cli.unity import (
     remove_directory_link,
     sample_link_diagnostic,
     sample_link_state,
+    stall_timeout_arguments,
 )
 from shell_harness import run_sourced
 
@@ -115,7 +116,14 @@ class UnityToolingTests(unittest.TestCase):
             with self.subTest(pattern=blank), self.assertRaisesRegex(ValueError, "--filter requires"):
                 filter_arguments(blank)
 
-    def test_test_command_hands_the_filter_to_the_test_script(self) -> None:
+    def test_stall_timeout_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], stall_timeout_arguments(None))
+        self.assertEqual(["--stall-timeout", "0"], stall_timeout_arguments(0))
+        self.assertEqual(["--stall-timeout", "900"], stall_timeout_arguments(900))
+        with self.assertRaisesRegex(ValueError, "--stall-timeout expects a whole number of seconds"):
+            stall_timeout_arguments(-1)
+
+    def test_test_command_hands_its_options_to_the_test_script(self) -> None:
         calls: list[tuple[Path, list[str]]] = []
 
         def run(script_path: Path, arguments: list[str], root: Path) -> int:
@@ -124,14 +132,33 @@ class UnityToolingTests(unittest.TestCase):
 
         with mock.patch("mu3_cli.unity.run_entry_point", run):
             result = CliRunner().invoke(
-                app, ["unity", "test", "built-in", "--dry-run", "--filter", "Mu3Library.Tests.MultiplayerPerformanceTests"]
+                app,
+                [
+                    "unity",
+                    "test",
+                    "built-in",
+                    "--dry-run",
+                    "--filter",
+                    "Mu3Library.Tests.MultiplayerPerformanceTests",
+                    "--stall-timeout",
+                    "120",
+                ],
             )
 
         self.assertEqual(0, result.exit_code, result.output)
         [(script_path, arguments)] = calls
         self.assertEqual("test-unity.sh", script_path.name)
         self.assertEqual(
-            ["built-in", "--dry-run", "--platform", "editmode", "--filter", "Mu3Library.Tests.MultiplayerPerformanceTests"],
+            [
+                "built-in",
+                "--dry-run",
+                "--platform",
+                "editmode",
+                "--filter",
+                "Mu3Library.Tests.MultiplayerPerformanceTests",
+                "--stall-timeout",
+                "120",
+            ],
             arguments,
         )
 
