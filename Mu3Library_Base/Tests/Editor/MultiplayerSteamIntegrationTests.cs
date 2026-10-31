@@ -495,10 +495,16 @@ namespace Mu3Library.Tests
             // FR-4 through the path that downloads an avatar first: an account this one is no
             // friend of and shares no lobby with, so Steam knows little of it. Robin Walker's
             // account at Valve has had a public profile with a picture of its own since 2003, which
-            // makes it about as stable as a public account gets; a deleted or hidden account, or
-            // no network, leaves the test ignored rather than failed.
+            // makes it about as stable as a public account gets. Only a Steam that is offline, or
+            // that never learned the account's name, as for a deleted account, leaves the test
+            // ignored; any other failure to bring the avatar fails it.
             PlayerId account = new PlayerId(PublicAccountId);
             Steamworks.CSteamID steamId = new Steamworks.CSteamID(account.Value);
+            if (!Steamworks.SteamUser.BLoggedOn())
+            {
+                Assert.Ignore("Steam is not logged on to its servers, so it downloads nothing.");
+            }
+
             if (Steamworks.SteamFriends.HasFriend(steamId, Steamworks.EFriendFlags.k_EFriendFlagImmediate))
             {
                 Assert.Ignore($"{account} is a friend of this account, so Steam does not download the avatar.");
@@ -520,29 +526,30 @@ namespace Mu3Library.Tests
                 bool knewNothing = _backend.UserInformationRequestCount > 0;
                 Pump(manager, () => result.HasValue, 15);
                 TestContext.WriteLine($"Steam answered the large avatar of {account} with {result?.Reason.ToString() ?? "nothing"} after {watch.Elapsed.TotalSeconds:0.00} s; "
-                    + (downloads ? (knewNothing ? "it knew nothing of the account at first" : "it was still loading the image") : "it held the image already")
+                    + (downloads ? (knewNothing ? "it knew nothing of the account at first" : "it was still loading the image") : "it handed out an image at once")
                     + $", and the backend asked Steam about the account {_backend.UserInformationRequestCount} time(s).");
 
                 Assert.That(result.HasValue, Is.True, "every request answers, at the latest when its 10 seconds run out");
-                if (result.Value.Reason == MultiplayerReason.Timeout || result.Value.Reason == MultiplayerReason.BackendError)
+                if (!result.Value.IsSuccess)
                 {
-                    Assert.Ignore($"Steam had no avatar of {account} ({result.Value.Reason}); the network or the account may be unavailable.");
+                    string name = Steamworks.SteamFriends.GetFriendPersonaName(steamId);
+                    if (!Steamworks.SteamUser.BLoggedOn() || string.IsNullOrEmpty(name) || name == "[unknown]")
+                    {
+                        Assert.Ignore($"Steam never learned {account} ({result.Value.Reason}); it is offline, or the account is gone.");
+                    }
                 }
 
                 Assert.That(result.Value.IsSuccess, Is.True, result.Value.Reason.ToString());
-                Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(1), "asked once, not on every update while Steam downloads");
+                Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
                 UnityEngine.Texture2D texture = result.Value.Texture;
                 Assert.That((texture.width, texture.height), Is.EqualTo((184, 184)));
 
                 // For an account it did not know, Steam hands out its default image at once and the
                 // account's own picture once it downloaded it, which replaces the first image in
-                // the same texture; the test waits for that notice rather than a fixed time.
+                // the same texture; the test waits for that notice, on every path, since Steam may
+                // hand out the default image without a wait first.
                 byte[] first = texture.GetRawTextureData();
-                if (downloads)
-                {
-                    Pump(manager, () => changes.Count > 0, 10);
-                }
-
+                Pump(manager, () => changes.Count > 0, 10);
                 Pump(manager, () => false, 1);
                 bool isReplaced = !texture.GetRawTextureData().SequenceEqual(first);
                 int mismatches = CountMismatches(texture, Steamworks.SteamFriends.GetLargeFriendAvatar(steamId));
@@ -553,7 +560,7 @@ namespace Mu3Library.Tests
                 Assert.That(mismatches, Is.Zero, "the texture shows the image Steam holds now");
                 Assert.That(changes.TrueForAll(change => ReferenceEquals(change.Texture, texture)), Is.True, "the same texture, redrawn");
                 Assert.That(changes.Count, Is.EqualTo(isReplaced ? 1 : 0), "raised once for a replaced image, although Steam sends two notices for it");
-                if (!downloads)
+                if (!downloads && !isReplaced)
                 {
                     Assert.Ignore($"Steam held the avatar of {account} already, so the download path did not run; it runs again once the Steam client restarts.");
                 }
@@ -568,9 +575,9 @@ namespace Mu3Library.Tests
         public void SteamAvatar_OfAnAccountSteamCannotFind_AnswersOnce_AfterAskingSteamOnce()
         {
             // An account number far past the ones Steam has handed out: Steam knows nothing of it,
-            // so the backend asks about it, once and not on every update, and the request answers
-            // once, whatever Steam makes of it (its default image in the runs so far, or nothing
-            // until the 10 seconds run out).
+            // so the backend asks about it, not on every update, and the request answers once,
+            // whatever Steam makes of it (its default image in the runs so far, or nothing until
+            // the 10 seconds run out).
             PlayerId missing = new PlayerId(76561197960265728UL + 0xFFFFFF00UL + (ulong)new System.Random().Next(0, 0xF0));
             List<MultiplayerReason> answers = new List<MultiplayerReason>();
             Stopwatch watch = Stopwatch.StartNew();
@@ -581,7 +588,7 @@ namespace Mu3Library.Tests
                 + $"asked about the account {_backend.UserInformationRequestCount} time(s).");
 
             Assert.That(answers.Count, Is.EqualTo(1), "answered once");
-            Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(1), "asked once, not on every update");
+            Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 

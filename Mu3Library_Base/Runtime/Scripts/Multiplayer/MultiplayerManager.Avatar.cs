@@ -306,20 +306,7 @@ namespace Mu3Library.Multiplayer
         private static bool HasPixels(Texture2D texture, byte[] pixels)
         {
             NativeArray<byte> current = texture.GetPixelData<byte>(0);
-            if (current.Length != pixels.Length)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                if (current[i] != pixels[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return current.AsReadOnlySpan().SequenceEqual(pixels);
         }
 
         private static bool IsUsableAvatar(PlayerId player, AvatarSize size, BackendAvatar avatar)

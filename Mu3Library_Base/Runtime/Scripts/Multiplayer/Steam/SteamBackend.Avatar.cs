@@ -18,6 +18,12 @@ namespace Mu3Library.Multiplayer.Steam
 
             /// <summary>True once the backend asked Steam for what it knows of the player, which it does once a request.</summary>
             public bool HasRequestedInformation;
+
+            /// <summary>True once Steam told what it knows of the player (<c>PersonaStateChange_t</c>) while the request waited.</summary>
+            public bool HasHeardOfPlayer;
+
+            /// <summary>True once the backend asked Steam again after it told what it knows, which it does once a request.</summary>
+            public bool HasAskedAgain;
         }
 
         // Steam has an avatar it downloads within a second or two; past this the request answers
@@ -45,7 +51,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// Reads the avatar Steam holds for the player. Steam knows the avatars of friends and of
         /// the players it shares a lobby with; for anyone else it downloads them first: the
         /// backend asks Steam once (<c>RequestUserInformation</c>) to download what it knows of
-        /// the player, then only checks on every update whether Steam has the image. The answer
+        /// the player, then only checks on every update whether Steam has the image, and asks
+        /// once more after Steam told what it knows of the player (<c>PersonaStateChange_t</c>)
+        /// while it still hands out no image, which tells whether the player has none. The answer
         /// arrives from <see cref="Update"/> in any case:
         /// <see cref="MultiplayerReason.BackendError"/> when Steam knows the player but has no
         /// image, and also once the game shut Steam down, for a request made then and for one
@@ -60,7 +68,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// (<c>PersonaStateChange_t</c> with <c>k_EPersonaChangeAvatar</c>) or that it loaded an
         /// avatar image (<c>AvatarImageLoaded_t</c>), this player's own included, the backend
         /// tells the listener through <see cref="IMultiplayerBackendListener.OnAvatarChanged"/>
-        /// on the next <see cref="Update"/>, and the manager reads again the avatars it holds of
+        /// from inside <see cref="Update"/>: the same one when the backend runs Steam's callbacks
+        /// itself (<see cref="SteamBackendOptions.RunSteamCallbacks"/>), otherwise the first one
+        /// after the game ran them. The manager then reads again the avatars it holds of
         /// that player, so the default image is replaced in the texture the game shows, as a new
         /// picture a player picks later is. Steam sends both notices for one download; the manager
         /// raises its event once for it, as only its latest read counts and a read that finds the
@@ -114,6 +124,14 @@ namespace Mu3Library.Multiplayer.Steam
 
         private void HandlePersonaStateChange(PersonaStateChange_t change)
         {
+            for (int i = 0; i < _pendingAvatars.Count; i++)
+            {
+                if (_pendingAvatars[i].Player.Value == change.m_ulSteamID)
+                {
+                    _pendingAvatars[i].HasHeardOfPlayer = true;
+                }
+            }
+
             if ((change.m_nChangeFlags & EPersonaChange.k_EPersonaChangeAvatar) != 0)
             {
                 ReportAvatarChanged(change.m_ulSteamID);
@@ -183,16 +201,20 @@ namespace Mu3Library.Multiplayer.Steam
 
             if (image == 0)
             {
-                // Steam does not know the player well enough yet. Asked once, it starts to
-                // download what it knows of them, or answers that it knows everything already and
-                // the player has no image. Asking again while it downloads would only start the
-                // same download again, so the request then waits for the image or the timeout.
-                if (pending.HasRequestedInformation)
+                // Steam does not know the player well enough yet. Asked, it starts to download
+                // what it knows of them, or answers that it knows everything already and the
+                // player has no image. Asking again while it downloads would only start the same
+                // download again, so the request waits for the image, and asks once more after
+                // Steam told what it knows of the player and still hands out no image, so a player
+                // without one answers then instead of at the timeout.
+                bool asksAgain = pending.HasRequestedInformation && pending.HasHeardOfPlayer && !pending.HasAskedAgain;
+                if (pending.HasRequestedInformation && !asksAgain)
                 {
                     return false;
                 }
 
                 pending.HasRequestedInformation = true;
+                pending.HasAskedAgain |= asksAgain;
                 UserInformationRequestCount++;
                 if (SteamFriends.RequestUserInformation(player, false))
                 {
