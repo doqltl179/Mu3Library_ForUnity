@@ -258,35 +258,37 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// False for text that does not reach the other players unchanged: a NUL character, where
-        /// Steam ends a string, or a surrogate without its pair, which UTF-8 turns into a
-        /// replacement character, so the other players would hold another key or value than the sender.
+        /// Steam ends a string, or a surrogate without its pair, so the other players would hold
+        /// another key or value than the sender.
         /// </summary>
-        private static bool IsCleanText(string text)
+        private static bool IsCleanText(string text) => text.IndexOf('\0') < 0 && !HasUnpairedSurrogate(text);
+
+        /// <summary>
+        /// True for text with a UTF-16 surrogate without its pair, as a text field that cuts an
+        /// emoji in half leaves. UTF-8 turns it into a replacement character, so the other players
+        /// would read other text than the sender.
+        /// </summary>
+        private static bool HasUnpairedSurrogate(string text)
         {
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
-                if (c == '\0')
-                {
-                    return false;
-                }
-
                 if (char.IsHighSurrogate(c))
                 {
                     if (i + 1 >= text.Length || !char.IsLowSurrogate(text[i + 1]))
                     {
-                        return false;
+                        return true;
                     }
 
                     i++;
                 }
                 else if (char.IsLowSurrogate(c))
                 {
-                    return false;
+                    return true;
                 }
             }
 
-            return true;
+            return false;
         }
 
         /// <summary>
