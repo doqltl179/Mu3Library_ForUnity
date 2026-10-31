@@ -35,6 +35,11 @@ namespace Mu3Library.Multiplayer
             BeforeHandshake,
             /// <summary>A kind that only the other side sends.</summary>
             WrongDirection,
+            /// <summary>
+            /// Not a packet: a connection past <see cref="MultiplayerLimits.MaxPendingConnectionsPerAccount"/>,
+            /// which the host closed. Its code names no packet kind.
+            /// </summary>
+            ExtraConnection,
         }
 
         private const MessagePolicy KnownPolicies = MessagePolicy.HostOnly | MessagePolicy.NoClientRelay;

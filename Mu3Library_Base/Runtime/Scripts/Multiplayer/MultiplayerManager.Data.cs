@@ -198,8 +198,8 @@ namespace Mu3Library.Multiplayer
         #region Client
         private void HandleLobbyDataChanged(ref PacketReader reader)
         {
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxLobbyDataSize);
             if (!IsValidDataKey(key))
             {
                 throw new FormatException("The host changed lobby data under an invalid key.");
@@ -212,8 +212,8 @@ namespace Mu3Library.Multiplayer
         private void HandleParticipantDataChanged(ref PacketReader reader)
         {
             PlayerId player = new PlayerId(reader.ReadULong());
-            string key = reader.ReadString();
-            string value = reader.ReadString();
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
             if (!IsValidDataKey(key))
             {
                 throw new FormatException("The host changed participant data under an invalid key.");
@@ -348,7 +348,10 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        /// <summary>Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of <paramref name="limit"/>.</summary>
+        /// <summary>
+        /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
+        /// <paramref name="limit"/>, and no value more than all of it.
+        /// </summary>
         private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
         {
             int count = reader.ReadInt();
@@ -360,8 +363,8 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> data = new Dictionary<string, string>(count);
             for (int i = 0; i < count; i++)
             {
-                string key = reader.ReadString();
-                string value = reader.ReadString();
+                string key = reader.ReadString(MaxDataKeyBytes);
+                string value = reader.ReadString(limit);
                 if (!IsValidDataKey(key))
                 {
                     throw new FormatException("Data under an invalid key.");

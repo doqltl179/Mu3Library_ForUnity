@@ -423,6 +423,19 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // Each waits for the handshake timeout, so an account that keeps opening connections
+            // without saying hello could otherwise fill the host's list.
+            if (CountPendingConnections(remote) >= MultiplayerLimits.MaxPendingConnectionsPerAccount)
+            {
+                if (IsFirstPacketDrop(default, PacketDrop.ExtraConnection))
+                {
+                    Debug.LogWarning($"[Multiplayer] Closed a connection from {remote}: {MultiplayerLimits.MaxPendingConnectionsPerAccount} of its connections already wait for the welcome. Further such connections close unlogged until the session ends.");
+                }
+
+                _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.Timeout));
+                return;
+            }
+
             _peers[connection] = new PeerConnection
             {
                 Connection = connection,
@@ -491,7 +504,7 @@ namespace Mu3Library.Multiplayer
                 }
 
                 int wireVersion = reader.ReadInt();
-                string gameId = reader.ReadString();
+                string gameId = reader.ReadString(MaxGameIdBytes);
                 int protocolVersion = reader.ReadInt();
                 HandleHello(peer, gameId, protocolVersion, wireVersion, data.Length, ref reader);
                 return;
@@ -773,6 +786,21 @@ namespace Mu3Library.Multiplayer
             return name.Length <= MultiplayerLimits.MaxPlayerNameLength
                 ? name
                 : name.Substring(0, MultiplayerLimits.MaxPlayerNameLength);
+        }
+
+        /// <summary>The connections of the account that the host has not welcomed yet.</summary>
+        private int CountPendingConnections(PlayerId player)
+        {
+            int count = 0;
+            foreach (PeerConnection peer in _peers.Values)
+            {
+                if (!peer.IsWelcomed && peer.Player == player)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private PeerConnection FindWelcomedPeer(PlayerId player)
