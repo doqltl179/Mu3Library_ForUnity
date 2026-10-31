@@ -11,6 +11,7 @@ namespace Mu3Library.Multiplayer.Protocol
 
         public const string GameId = "mu3.game";
         public const string ProtocolVersion = "mu3.protocol";
+        public const string WireVersion = "mu3.wire";
         public const string HostId = "mu3.host";
         public const string Name = "mu3.name";
         public const string State = "mu3.state";

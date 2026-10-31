@@ -112,6 +112,7 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> data = new Dictionary<string, string>(options.Data);
             data[LobbyDataKeys.GameId] = _gameId;
             data[LobbyDataKeys.ProtocolVersion] = _protocolVersionText;
+            data[LobbyDataKeys.WireVersion] = WireProtocol.VersionText;
             data[LobbyDataKeys.HostId] = LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture);
             data[LobbyDataKeys.Name] = options.Name ?? string.Empty;
             data[LobbyDataKeys.State] = LobbyDataKeys.StateLobby;
@@ -177,7 +178,7 @@ namespace Mu3Library.Multiplayer
 
             // The host decides; this player's own flag changes when the host reports it back.
             _writer.Begin(PacketKind.SetReady).WriteBool(isReady);
-            return _backend.Send(_hostConnection, _writer.Written, DeliveryMode.Reliable)
+            return SendToHost(DeliveryMode.Reliable)
                 ? MultiplayerResult.Success
                 : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
         }
@@ -419,9 +420,10 @@ namespace Mu3Library.Multiplayer
                     return;
                 }
 
+                int wireVersion = reader.ReadInt();
                 string gameId = reader.ReadString();
                 int protocolVersion = reader.ReadInt();
-                HandleHello(peer, gameId, protocolVersion);
+                HandleHello(peer, gameId, protocolVersion, wireVersion);
                 return;
             }
 
@@ -431,6 +433,10 @@ namespace Mu3Library.Multiplayer
                     HostApplyReady(peer.Player, reader.ReadBool());
                     break;
 
+                case PacketKind.MessageToHost:
+                    HostHandleMessage(peer, ref reader);
+                    break;
+
                 default:
                     // Only the host sends the other kinds; a client that sends one is ignored.
                     Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}.");
@@ -438,10 +444,12 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion)
+        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion)
         {
             MultiplayerReason reject = MultiplayerReason.None;
-            if (!string.Equals(gameId, _gameId, StringComparison.Ordinal) || protocolVersion != _protocolVersion)
+            if (!string.Equals(gameId, _gameId, StringComparison.Ordinal)
+                || protocolVersion != _protocolVersion
+                || wireVersion != WireProtocol.Version)
             {
                 reject = MultiplayerReason.VersionMismatch;
             }
@@ -484,6 +492,7 @@ namespace Mu3Library.Multiplayer
             _writer.WriteByte((byte)_state);
             _writer.WriteULong(_hostId.Value);
             WriteRules(_writer, _rules);
+            _writer.WriteInt(_maxMessageSize);
             _writer.WriteBytes(_startData);
             _writer.WriteInt(_participants.Count);
             for (int i = 0; i < _participants.Count; i++)
@@ -560,32 +569,15 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         private void BroadcastToWelcomed(ConnectionId except)
         {
-            List<PeerConnection> unreachable = null;
-
-            ReadOnlySpan<byte> packet = _writer.Written;
             foreach (PeerConnection peer in _peers.Values)
             {
-                if (peer.IsWelcomed && peer.Connection != except && !_backend.Send(peer.Connection, packet, DeliveryMode.Reliable))
+                if (peer.IsWelcomed && peer.Connection != except)
                 {
-                    unreachable ??= new List<PeerConnection>();
-                    unreachable.Add(peer);
+                    SendToPeer(peer, DeliveryMode.Reliable);
                 }
             }
 
-            if (unreachable == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < unreachable.Count; i++)
-            {
-                PeerConnection peer = unreachable[i];
-                if (_peers.Remove(peer.Connection))
-                {
-                    _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
-                    RemoveParticipant(peer.Player, MultiplayerReason.ConnectionLost);
-                }
-            }
+            DropUnreachablePeers();
         }
 
         /// <summary>

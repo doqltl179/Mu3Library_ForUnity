@@ -17,6 +17,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - Base: 新しいアセンブリ `Mu3Library.Multiplayer` を追加しました。プレイヤー 1 人の PC がホストになり、ほかのプレイヤーがロビーから参加するマルチプレイセッションを、自前のサーバーなしで作れます。`MultiplayerManager`（`IMultiplayerManager`、`IMultiplayerManagerEventBus`）はロビーの作成、検索、参加、退出を扱い、参加者一覧と準備状態を管理します。セッションルール（`SessionRules`: ホストを含む定員 1～16 人、最少開始人数、準備確認、ゲーム中の参加を許可するか）を守らせ、開始データとともにゲームを開始・終了します。キックしたプレイヤーはそのセッションが終わるまで再参加できず、ホストが抜けると全員のセッションが終わります。ロビーと接続は `IMultiplayerBackend` が提供し、今回は 1 つのプロセス内で複数のプレイヤーを動かすテスト用の `LocalBackend` と `LocalNetwork` を同梱しています。すべての失敗とセッション終了には `MultiplayerReason` が付きます。要件は `docs/specs/steam-player-hosted-multiplayer.md` にあります。
+- Base: `MultiplayerManager` が実装する `IMultiplayerMessenger` で、セッションの参加者同士がゲームメッセージをやり取りします。ホスト、特定のプレイヤー、全員、送信者を除く全員、特定のプレイヤーを除く全員に、信頼性ありまたは信頼性なしで送れます。すべてのメッセージはホストを経由します。ホストはメッセージが届いた接続から送信者を決め、メッセージの種類ごとの `MessagePolicy`（`HostOnly`、`NoClientRelay`）を守らせます。送信したプレイヤー自身宛てのコピーは `Send` が戻る前に処理されます。`MultiplayerConfig.MaxMessageSize` が内容のサイズを制限し（既定 64 KiB）、それより大きいメッセージは `MultiplayerReason.MessageTooLarge` で拒否されます。ホストの上限のほうが小さい場合、クライアントはホストの上限に従います。送信バッファーがいっぱいになるなどの理由で信頼性ありのメッセージが届かないプレイヤーは、メッセージを取りこぼしたまま残るのではなく、`MultiplayerReason.ConnectionLost` でセッションから外れます。ゲームのプロトコルバージョンが同じでも、ライブラリがやり取りするパケットの形式が異なるプレイヤー同士は `MultiplayerReason.VersionMismatch` で互いを拒否します。
 
 ### 修正
 - Base: `Runtime/Materials` の `Black`、`Blue`、`Green`、`Magenta`、`Red`、`White` マテリアルが Unity の組み込み Standard シェーダーを使うようになりました。以前はリポジトリに含まれていない、Unity 組み込みシェーダーソースの `Standard.shader` のコピーを参照していたため、Base をインストールしたプロジェクトではシェーダーが見つかりませんでした。

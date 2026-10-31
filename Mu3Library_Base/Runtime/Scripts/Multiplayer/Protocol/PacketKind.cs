@@ -6,9 +6,9 @@ namespace Mu3Library.Multiplayer.Protocol
     /// </summary>
     internal enum PacketKind : byte
     {
-        /// <summary>Client to host: game identifier and protocol version.</summary>
+        /// <summary>Client to host: wire version, game identifier, and game protocol version.</summary>
         Hello = 1,
-        /// <summary>Host to a new client: session state, rules, start data, and the roster.</summary>
+        /// <summary>Host to a new client: session state, rules, message size limit, start data, and the roster.</summary>
         Welcome = 2,
         /// <summary>Host to clients: a player joined.</summary>
         ParticipantJoined = 3,
@@ -24,5 +24,9 @@ namespace Mu3Library.Multiplayer.Protocol
         GameStarted = 8,
         /// <summary>Host to clients: the game ended and the session is back in the lobby.</summary>
         ReturnedToLobby = 9,
+        /// <summary>Client to host: a game message with its delivery mode and target.</summary>
+        MessageToHost = 10,
+        /// <summary>Host to a client: a game message with its delivery mode and its sender.</summary>
+        MessageFromHost = 11,
     }
 }

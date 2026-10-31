@@ -16,7 +16,7 @@ namespace Mu3Library.Tests
     /// <see cref="LocalNetwork"/> in this process. Each test names the requirement of
     /// docs/specs/steam-player-hosted-multiplayer.md it checks.
     /// </summary>
-    public class MultiplayerSessionTests
+    public partial class MultiplayerSessionTests
     {
         private const string GameId = "tests.multiplayer";
 
@@ -649,6 +649,7 @@ namespace Mu3Library.Tests
 
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.Hello);
+            writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(99);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
@@ -680,6 +681,7 @@ namespace Mu3Library.Tests
 
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.Hello);
+            writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(1);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
@@ -978,15 +980,16 @@ namespace Mu3Library.Tests
         #endregion
 
         #region Helpers
-        private Node CreateNode(string name, int protocolVersion = 1, string gameId = GameId, PlayerId id = default)
+        private Node CreateNode(string name, int protocolVersion = 1, string gameId = GameId, PlayerId id = default, Action<MultiplayerConfig> configure = null)
         {
-            return AttachNode(new LocalBackend(_network, name, id), protocolVersion, gameId);
+            return AttachNode(new LocalBackend(_network, name, id), protocolVersion, gameId, configure);
         }
 
-        private Node AttachNode(LocalBackend backend, int protocolVersion = 1, string gameId = GameId)
+        private Node AttachNode(LocalBackend backend, int protocolVersion = 1, string gameId = GameId, Action<MultiplayerConfig> configure = null)
         {
             MultiplayerManager manager = new MultiplayerManager();
             MultiplayerConfig config = new MultiplayerConfig(gameId, protocolVersion) { Clock = () => _now };
+            configure?.Invoke(config);
             Assert.That(manager.Initialize(backend, config).IsSuccess, Is.True);
 
             Node node = new Node { Backend = backend, Manager = manager };
@@ -1011,12 +1014,13 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>A lobby that looks like a session of this game but has no manager behind it.</summary>
-        private LobbyId CreateRawLobby(LocalBackend owner, string gameId, int protocolVersion)
+        private LobbyId CreateRawLobby(LocalBackend owner, string gameId, int protocolVersion, string wireVersion = null)
         {
             Dictionary<string, string> data = new Dictionary<string, string>
             {
                 [LobbyDataKeys.GameId] = gameId,
                 [LobbyDataKeys.ProtocolVersion] = protocolVersion.ToString(CultureInfo.InvariantCulture),
+                [LobbyDataKeys.WireVersion] = wireVersion ?? WireProtocol.VersionText,
                 [LobbyDataKeys.HostId] = owner.LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture),
                 [LobbyDataKeys.Name] = "Raw",
                 [LobbyDataKeys.State] = LobbyDataKeys.StateLobby,
@@ -1037,6 +1041,7 @@ namespace Mu3Library.Tests
 
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.Hello);
+            writer.WriteInt(WireProtocol.Version);
             writer.WriteString(GameId);
             writer.WriteInt(1);
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
