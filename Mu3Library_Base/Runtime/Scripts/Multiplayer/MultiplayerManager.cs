@@ -429,7 +429,11 @@ namespace Mu3Library.Multiplayer
             }
             catch (FormatException e)
             {
-                Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message}");
+                PacketKind kind = (PacketKind)data[0];
+                if (IsFirstPacketDrop(kind, PacketDrop.Malformed))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message} Further malformed {kind} packets go unlogged until the session ends.");
+                }
             }
         }
 

@@ -34,6 +34,15 @@ namespace Mu3Library.Multiplayer
         /// as a host that only passes the type on between clients does. A type registers once;
         /// unregister it before registering it again.
         /// </summary>
+        /// <remarks>
+        /// The manager catches an exception the handler throws and goes on with the next message.
+        /// It logs the exception only the first time the handler throws that exception type in a
+        /// session, so a player flooding malformed messages cannot flood the log: a
+        /// <see cref="FormatException"/>, which <see cref="MessageReader"/> throws for a payload
+        /// that does not hold what the handler reads, as a warning without a stack trace, and any
+        /// other exception with <c>Debug.LogException</c> and a warning that later ones go unlogged.
+        /// Catch an exception in the handler to log each one yourself.
+        /// </remarks>
         public MultiplayerResult RegisterMessage(ushort messageType, MessageHandler handler, MessagePolicy policy = MessagePolicy.Default);
 
         /// <summary>False when the type was not registered.</summary>

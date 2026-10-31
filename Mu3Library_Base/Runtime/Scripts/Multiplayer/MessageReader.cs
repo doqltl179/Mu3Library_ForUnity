@@ -15,8 +15,11 @@ namespace Mu3Library.Multiplayer
     /// <para>
     /// Another player's payload is untrusted, so every read checks its bounds and throws
     /// <see cref="FormatException"/> when the payload ends early or holds an invalid length or
-    /// <see cref="bool"/>. The manager logs an exception that a handler throws and goes on with
-    /// the next message, so a malformed message costs only itself.
+    /// <see cref="bool"/>. The manager catches an exception that a handler throws and goes on with
+    /// the next message, so a malformed message costs only itself, and logs it only the first
+    /// time the handler of that message type throws that exception type in a session. A
+    /// <see cref="FormatException"/> becomes a warning without a stack trace, since the sender
+    /// wrote another payload than the handler reads and the message names the problem.
     /// </para>
     /// <para>
     /// Reading numbers, <see cref="bool"/>, the Unity types, and <see cref="ReadBytesSpan"/>

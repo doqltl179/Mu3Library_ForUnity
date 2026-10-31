@@ -137,8 +137,8 @@ namespace Mu3Library.Tests
             raw.Send(connection, ChatFromHostPacket(a.Id, "spoofed"), DeliveryMode.Reliable);
             LogAssert.Expect(LogType.Warning, new Regex("Dropped a malformed packet .*exceeds the 4096-byte limit"));
             raw.Send(connection, ChatToHostPacket(new string('x', MultiplayerLimits.MaxChatMessageSize + 1)), DeliveryMode.Reliable);
-            // Invalid UTF-8 grows when decoded; the host counts the decoded text.
-            LogAssert.Expect(LogType.Warning, new Regex("Dropped a malformed packet .*empty or exceeds the size limit"));
+            // Invalid UTF-8 grows when decoded; the host counts the decoded text. It logs only the
+            // first malformed chat packet of the session.
             raw.Send(connection, RawChatToHostPacket(Enumerable.Repeat((byte)0xFF, MultiplayerLimits.MaxChatMessageSize).ToArray()), DeliveryMode.Reliable);
             Pump();
 
