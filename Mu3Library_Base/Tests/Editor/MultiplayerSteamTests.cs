@@ -1,4 +1,5 @@
 #if MU3LIBRARY_STEAMWORKS_SUPPORT && UNITY_STANDALONE
+using System;
 using System.Text.RegularExpressions;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -109,6 +110,67 @@ namespace Mu3Library.Tests
             Assert.That(SteamBackend.ChooseFallback(MultiplayerReason.SteamNotRunning, isEditor: true, new SteamBackendOptions()), Is.Null);
         }
 
+        [TestCase(typeof(DllNotFoundException))]
+        [TestCase(typeof(EntryPointNotFoundException))]
+        [TestCase(typeof(BadImageFormatException))]
+        [TestCase(typeof(InvalidOperationException))]
+        public void TryCreate_ASteamThatCannotLoad_AnswersSteamNotRunning_WithoutAnException(Type thrown)
+        {
+            // FR-1: a missing steam_api64 throws DllNotFoundException, an outdated one
+            // EntryPointNotFoundException, and one of another architecture BadImageFormatException.
+            Exception exception = (Exception)Activator.CreateInstance(thrown, "simulated");
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not start \(" + thrown.Name + @"\): simulated"));
+
+            MultiplayerResult result = SteamBackend.TryCreateWith(new SteamBackendOptions(), Throwing(exception), out SteamBackend backend);
+
+            Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            Assert.That(backend, Is.Null);
+        }
+
+        [Test]
+        public void TryCreate_ATypeInitializerThatMetABrokenLibrary_AnswersSteamNotRunning()
+        {
+            Exception wrapped = new TypeInitializationException("Steamworks.Simulated",
+                new TypeInitializationException("Steamworks.Inner", new EntryPointNotFoundException("simulated")));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not start \(EntryPointNotFoundException\): simulated"));
+
+            MultiplayerResult result = SteamBackend.TryCreateWith(new SteamBackendOptions(), Throwing(wrapped), out SteamBackend backend);
+
+            Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            Assert.That(backend, Is.Null);
+        }
+
+        [Test]
+        public void TryCreate_AnyOtherException_ReachesTheCaller()
+        {
+            // A mistake in the code is not hidden behind a reason.
+            Assert.Throws<NullReferenceException>(() =>
+                SteamBackend.TryCreateWith(new SteamBackendOptions(), Throwing(new NullReferenceException()), out _));
+            Assert.Throws<TypeInitializationException>(() =>
+                SteamBackend.TryCreateWith(new SteamBackendOptions(), Throwing(new TypeInitializationException("Steamworks.Simulated", new NullReferenceException())), out _));
+        }
+
+        [Test]
+        public void CreateOrFallback_ASteamThatCannotLoad_FallsBackInTheEditor_WhenAsked()
+        {
+            // FR-39: a broken native library is a Steam that cannot start, so the editor falls back.
+            SteamBackendOptions withFallback = new SteamBackendOptions { EditorFallbackNetwork = new LocalNetwork(), EditorFallbackPlayerName = "Editor" };
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not start \(BadImageFormatException\)"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam is unavailable \(SteamNotRunning\)"));
+
+            MultiplayerResult result = SteamBackend.CreateOrFallbackWith(withFallback, Throwing(new BadImageFormatException("simulated")), out IMultiplayerBackend fallback);
+            using (fallback)
+            {
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(fallback, Is.InstanceOf<LocalBackend>());
+            }
+
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not start \(EntryPointNotFoundException\)"));
+            result = SteamBackend.CreateOrFallbackWith(new SteamBackendOptions(), Throwing(new EntryPointNotFoundException("simulated")), out IMultiplayerBackend none);
+            Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "without the fallback the reason reaches the game");
+            Assert.That(none, Is.Null);
+        }
+
         [Test]
         public void TryCreate_RefusesADisplayTokenThatIsNoToken()
         {
@@ -132,6 +194,12 @@ namespace Mu3Library.Tests
 
             Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(backend, Is.Null);
+        }
+
+        /// <summary>A start of Steam that throws what Steamworks.NET throws, before Steam starts.</summary>
+        private static SteamBackend.SteamStarter Throwing(Exception exception)
+        {
+            return (SteamBackendOptions options, ref bool ownsSteam, out SteamBackend backend) => throw exception;
         }
     }
 }
