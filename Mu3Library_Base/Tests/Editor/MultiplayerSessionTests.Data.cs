@@ -281,6 +281,55 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void AFullSession_AtEveryDataLimit_StillAdmitsAPlayerWhoJoinsLate()
+        {
+            // FR-11, FR-24: the welcome carries the start data, the lobby data, and every
+            // player's data at once, so it has to fit in one send at every limit together. The
+            // data uses the shortest keys there are, whose length fields cost the most.
+            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize);
+            LobbyCreateOptions options = PublicOptions(new SessionRules(MultiplayerLimits.MaxCapacity, requireReady: false, allowLateJoin: true));
+            foreach (KeyValuePair<string, string> pair in lobbyData)
+            {
+                options.Data.Add(pair.Key, pair.Value);
+            }
+
+            Node host = CreateHost(CreateNode("Host"), options);
+            Dictionary<string, string> playerData = DataOfSize(MultiplayerLimits.MaxParticipantDataSize);
+            List<LocalBackend> players = new List<LocalBackend>();
+            for (int i = 0; i < MultiplayerLimits.MaxCapacity - 2; i++)
+            {
+                LocalBackend raw = CreateRawBackend($"Player {i:D2} {new string('n', MultiplayerLimits.MaxPlayerNameLength)}", new RecordingListener());
+                ConnectionId connection = ConnectAsPlayer(raw, host);
+                foreach (KeyValuePair<string, string> pair in playerData)
+                {
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, pair.Key, pair.Value), DeliveryMode.Reliable);
+                }
+
+                players.Add(raw);
+            }
+
+            foreach (KeyValuePair<string, string> pair in playerData)
+            {
+                Assert.That(host.Manager.SetParticipantData(pair.Key, pair.Value).IsSuccess, Is.True);
+            }
+
+            Pump();
+            Assert.That(players.All(raw => DataOf(host, raw.LocalPlayerId).Count == playerData.Count), Is.True);
+            Assert.That(host.Manager.StartGame(new byte[MultiplayerLimits.MaxStartDataSize]).IsSuccess, Is.True);
+            Pump();
+
+            Node late = CreateNode("Late");
+            Assert.That(Join(late, host).IsSuccess, Is.True);
+
+            Assert.That(late.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(late.Manager.Participants.Count, Is.EqualTo(MultiplayerLimits.MaxCapacity));
+            Assert.That(late.Manager.StartData.Length, Is.EqualTo(MultiplayerLimits.MaxStartDataSize));
+            Assert.That(late.Manager.LobbyData, Is.EquivalentTo(lobbyData));
+            Assert.That(DataOf(late, host.Id), Is.EquivalentTo(playerData));
+            Assert.That(players.All(raw => DataOf(late, raw.LocalPlayerId).Count == playerData.Count), Is.True);
+        }
+
+        [Test]
         public void Data_ReachesALateJoiner_AndOutlivesTheGame_ButNotTheSession()
         {
             // FR-11
@@ -323,6 +372,37 @@ namespace Mu3Library.Tests
         private static readonly string[] UncleanTexts = { "a\0b", "a\uD800", "\uDC00a", "\uDBFF" };
 
         private static string Escape(string text) => string.Concat(text.Select(c => c < 0x20 || char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
+
+        /// <summary>
+        /// Data whose keys and values take exactly <paramref name="size"/> UTF-8 bytes in as many
+        /// entries as distinct keys allow: every one-character key, then two-character keys.
+        /// </summary>
+        private static Dictionary<string, string> DataOfSize(int size)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            int left = size;
+            for (char c = '!'; c <= '~' && left > 0; c++)
+            {
+                data.Add(c.ToString(), string.Empty);
+                left--;
+            }
+
+            for (char first = '!'; first <= '~' && left >= 2; first++)
+            {
+                for (char second = '!'; second <= '~' && left >= 2; second++)
+                {
+                    data.Add(new string(new[] { first, second }), string.Empty);
+                    left -= 2;
+                }
+            }
+
+            if (left > 0)
+            {
+                data["!"] = new string('v', left);
+            }
+
+            return data;
+        }
 
         private static IReadOnlyDictionary<string, string> DataOf(Node node, PlayerId player)
         {
