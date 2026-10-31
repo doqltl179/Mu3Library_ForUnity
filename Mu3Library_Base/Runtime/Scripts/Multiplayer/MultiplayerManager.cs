@@ -387,6 +387,7 @@ namespace Mu3Library.Multiplayer
             public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => _manager.HandleBackendReceived(connection, remote, data);
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) => _manager.HandleLobbyOwnerChanged(lobby, newOwner);
             public void OnLobbyJoinRequested(LobbyId lobby) => _manager.HandleLobbyJoinRequested(lobby);
+            public void OnAvatarChanged(PlayerId player) => _manager.HandleAvatarChanged(player);
         }
 
         private void HandleBackendConnected(ConnectionId connection, PlayerId remote, bool isIncoming)

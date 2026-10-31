@@ -296,7 +296,13 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, since the
         /// manager cannot tell a Steam that shut down from a backend that was disposed.
         /// Several requests for the same avatar while it loads share one answer, and a request that
-        /// failed is tried again the next time.
+        /// failed is tried again the next time. When the backend tells that a player's avatar
+        /// changed, as Steam does when the player picks a new picture, the manager reads again
+        /// every size it holds of that player and draws the new image into the same texture, so a
+        /// texture the game shows changes with it, then raises
+        /// <see cref="IMultiplayerManagerEventBus.OnAvatarChanged"/>. The same notice corrects the
+        /// default image Steam hands out at first for an account it did not know, until it has
+        /// downloaded the account's own picture.
         /// <para>
         /// The manager owns every texture it hands out: never destroy or change one. Asking again
         /// for the same player and size answers the same texture. An avatar of another player

@@ -125,5 +125,20 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.RateLimited"/> instead.
         /// </summary>
         public event Action<Participant> OnRateLimitExceeded;
+
+        /// <summary>
+        /// Raised when a texture that <see cref="IMultiplayerManager.LoadAvatar"/> handed out shows
+        /// a new image, with the player, the size, and that same texture. The backend told that
+        /// the player's avatar changed, as Steam does when a player picks a new picture and when
+        /// it downloaded the picture of an account it did not know, which replaces the default
+        /// image Steam handed out first; the manager read again every size it holds of that
+        /// player and drew the new image into the texture in place. A game that
+        /// shows the texture needs to do nothing, as it shows the new image already; one that
+        /// copied its pixels copies them again. A texture keeps its size on Steam, whose sizes
+        /// are fixed, and takes the new image's size on a backend that changes it. Nothing is
+        /// raised for an avatar the manager does not hold, an image that did not change, or one
+        /// that could not be read, which leaves the earlier image.
+        /// </summary>
+        public event Action<AvatarResult> OnAvatarChanged;
     }
 }

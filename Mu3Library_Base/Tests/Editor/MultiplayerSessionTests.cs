@@ -59,6 +59,7 @@ namespace Mu3Library.Tests
             public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) { }
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         private LocalNetwork _network;

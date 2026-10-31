@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
+using Unity.Collections;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -26,6 +27,14 @@ namespace Mu3Library.Multiplayer
             new Dictionary<(PlayerId Player, AvatarSize Size), List<Action<AvatarResult>>>();
 
         private readonly List<(PlayerId Player, AvatarSize Size)> _endingAvatars = new List<(PlayerId Player, AvatarSize Size)>();
+
+        // The reads that redraw a held avatar after the backend told it changed: the latest one
+        // for each player and size, so an earlier read that answers after it changes nothing.
+        private readonly Dictionary<(PlayerId Player, AvatarSize Size), int> _avatarRefreshes =
+            new Dictionary<(PlayerId Player, AvatarSize Size), int>();
+        private int _lastAvatarRefresh = 0;
+
+        public event Action<AvatarResult> OnAvatarChanged;
 
 
 
@@ -171,16 +180,86 @@ namespace Mu3Library.Multiplayer
             }
         }
 
+        /// <summary>
+        /// Reads again every avatar the manager holds of the player, once the backend told that
+        /// it changed, and draws each new image into the texture the game already has (see
+        /// <see cref="HandleAvatarRefreshed"/>). A request still waiting for the backend needs
+        /// nothing: the backend reads the image when it answers.
+        /// </summary>
+        private void HandleAvatarChanged(PlayerId player)
+        {
+            if (_isDisposed || !player.IsValid || !_backend.IsAvailable)
+            {
+                return;
+            }
+
+            // Gathered first, so a backend that answers inside the request, against its contract,
+            // and a handler that releases avatars then cannot change what is being looked through.
+            List<AvatarSize> sizes = null;
+            foreach (KeyValuePair<(PlayerId Player, AvatarSize Size), OwnedAvatar> pair in _avatars)
+            {
+                if (pair.Key.Player == player && pair.Value.Texture != null)
+                {
+                    sizes ??= new List<AvatarSize>(3);
+                    sizes.Add(pair.Key.Size);
+                }
+            }
+
+            for (int i = 0; sizes != null && i < sizes.Count && !_isDisposed; i++)
+            {
+                AvatarSize size = sizes[i];
+                int refresh = ++_lastAvatarRefresh;
+                _avatarRefreshes[(player, size)] = refresh;
+                _backend.LoadAvatar(player, size, (reason, avatar) => HandleAvatarRefreshed(player, size, refresh, reason, avatar));
+            }
+        }
+
+        /// <summary>
+        /// Draws the image a read after a change brought into the texture the manager holds, so a
+        /// texture the game shows changes with it and stays the same object, and raises
+        /// <see cref="OnAvatarChanged"/> when the image is a new one. Only the latest read for a
+        /// player and size counts; one the game released meanwhile, or that ended with its
+        /// session, stays released, and a read that failed keeps the earlier image.
+        /// </summary>
+        private void HandleAvatarRefreshed(PlayerId player, AvatarSize size, int refresh, MultiplayerReason reason, BackendAvatar avatar)
+        {
+            (PlayerId, AvatarSize) key = (player, size);
+            if (_isDisposed || !_avatarRefreshes.TryGetValue(key, out int latest) || latest != refresh)
+            {
+                return;
+            }
+
+            _avatarRefreshes.Remove(key);
+            if (!_avatars.TryGetValue(key, out OwnedAvatar owned) || owned.Texture == null)
+            {
+                return;
+            }
+
+            if (reason != MultiplayerReason.None)
+            {
+                if (reason != MultiplayerReason.NotSupported)
+                {
+                    Debug.LogWarning($"[Multiplayer] The {size} avatar of {player} changed but could not be read again ({reason}); its texture keeps the earlier image.");
+                }
+
+                return;
+            }
+
+            if (RedrawAvatarTexture(owned.Texture, player, size, avatar))
+            {
+                Raise(OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
+            }
+        }
+
         private static Texture2D CreateAvatarTexture(PlayerId player, AvatarSize size, BackendAvatar avatar)
         {
-            byte[] pixels = avatar.Pixels;
-            if (avatar.Width <= 0 || avatar.Height <= 0 || pixels == null || pixels.Length != (long)avatar.Width * avatar.Height * 4)
+            if (!IsUsableAvatar(player, size, avatar))
             {
-                Debug.LogWarning($"[Multiplayer] The backend gave the {size} avatar of {player} as {avatar.Width}x{avatar.Height} pixels in {pixels?.Length ?? 0} bytes.");
                 return null;
             }
 
             // The backend hands the rows over from the top down, and a texture starts at the bottom.
+            byte[] pixels = avatar.Pixels;
             FlipRows(pixels, avatar.Width * 4, avatar.Height);
 
             Texture2D texture = new Texture2D(avatar.Width, avatar.Height, TextureFormat.RGBA32, false)
@@ -191,6 +270,68 @@ namespace Mu3Library.Multiplayer
             texture.SetPixelData(pixels, 0);
             texture.Apply(false);
             return texture;
+        }
+
+        /// <summary>
+        /// Draws the backend's image into a texture the manager made, resized to it when it has
+        /// another size. False, with the texture left as it was, for no usable image and for the
+        /// image the texture already shows.
+        /// </summary>
+        private static bool RedrawAvatarTexture(Texture2D texture, PlayerId player, AvatarSize size, BackendAvatar avatar)
+        {
+            if (!IsUsableAvatar(player, size, avatar))
+            {
+                return false;
+            }
+
+            byte[] pixels = avatar.Pixels;
+            FlipRows(pixels, avatar.Width * 4, avatar.Height);
+
+            bool isSameSize = texture.width == avatar.Width && texture.height == avatar.Height;
+            if (isSameSize && HasPixels(texture, pixels))
+            {
+                return false;
+            }
+
+            if (!isSameSize)
+            {
+                texture.Reinitialize(avatar.Width, avatar.Height, TextureFormat.RGBA32, false);
+            }
+
+            texture.SetPixelData(pixels, 0);
+            texture.Apply(false);
+            return true;
+        }
+
+        private static bool HasPixels(Texture2D texture, byte[] pixels)
+        {
+            NativeArray<byte> current = texture.GetPixelData<byte>(0);
+            if (current.Length != pixels.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                if (current[i] != pixels[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsUsableAvatar(PlayerId player, AvatarSize size, BackendAvatar avatar)
+        {
+            byte[] pixels = avatar.Pixels;
+            if (avatar.Width <= 0 || avatar.Height <= 0 || pixels == null || pixels.Length != (long)avatar.Width * avatar.Height * 4)
+            {
+                Debug.LogWarning($"[Multiplayer] The backend gave the {size} avatar of {player} as {avatar.Width}x{avatar.Height} pixels in {pixels?.Length ?? 0} bytes.");
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>Turns an image upside down in place, one row of <paramref name="rowBytes"/> at a time.</summary>
@@ -279,7 +420,10 @@ namespace Mu3Library.Multiplayer
             _endingAvatars.Clear();
         }
 
-        /// <summary>Destroys every avatar and drops the requests still waiting, as the manager is disposed.</summary>
+        /// <summary>
+        /// Destroys every avatar, drops the requests and reads still waiting, and lets go of the
+        /// <see cref="OnAvatarChanged"/> handlers, as the manager is disposed.
+        /// </summary>
         private void DisposeAvatars()
         {
             foreach (OwnedAvatar owned in _avatars.Values)
@@ -289,6 +433,8 @@ namespace Mu3Library.Multiplayer
 
             _avatars.Clear();
             _avatarWaiters.Clear();
+            _avatarRefreshes.Clear();
+            OnAvatarChanged = null;
         }
 
         private static void DestroyTexture(Texture2D texture)
