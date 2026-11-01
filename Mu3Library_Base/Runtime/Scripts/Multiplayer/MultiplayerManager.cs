@@ -27,6 +27,7 @@ namespace Mu3Library.Multiplayer
         private string _protocolVersionText;
         private double _joinTimeoutSeconds;
         private double _handshakeTimeoutSeconds;
+        private double _reconnectTimeoutSeconds;
         private Func<double> _clock;
 
         private bool _isInitialized = false;
@@ -85,6 +86,7 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnRateLimitExceeded;
         public event Action<Participant> OnParticipantDisconnected;
         public event Action<Participant> OnParticipantReconnected;
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
         public event Action OnAllPlayersLoaded;
         public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 
@@ -116,6 +118,12 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            if (!(config.ReconnectTimeoutSeconds >= 0f))
+            {
+                Debug.LogWarning("[Multiplayer] The reconnect timeout must be zero or more.");
+                return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
+            }
+
             if (!backend.IsAvailable)
             {
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
@@ -134,6 +142,7 @@ namespace Mu3Library.Multiplayer
             _protocolVersionText = config.ProtocolVersion.ToString(CultureInfo.InvariantCulture);
             _joinTimeoutSeconds = config.JoinTimeoutSeconds;
             _handshakeTimeoutSeconds = config.HandshakeTimeoutSeconds;
+            _reconnectTimeoutSeconds = config.ReconnectTimeoutSeconds;
             _maxMessageSize = config.MaxMessageSize;
             _clock = config.Clock;
             _isInitialized = true;
@@ -152,13 +161,18 @@ namespace Mu3Library.Multiplayer
             }
 
             _backend.Update();
+            UpdateAvatarWaiters();
 
             UpdateHandshakeTimeouts();
             UpdateReservations();
+            UpdateLobbyRejoins();
             UpdateDelayedRequests();
             UpdateLoadWait();
             UpdateJoinTimeout();
+            UpdateHostClose();
             UpdateReconnect();
+            UpdateLobbyRejoin();
+            UpdatePingReports();
             ShowPresence();
         }
 
@@ -182,7 +196,7 @@ namespace Mu3Library.Multiplayer
                 _listener = null;
             }
 
-            ReleaseAvatars();
+            DisposeAvatars();
             _isDisposed = true;
 
             OnStateChanged = null;
@@ -199,6 +213,7 @@ namespace Mu3Library.Multiplayer
             OnRateLimitExceeded = null;
             OnParticipantDisconnected = null;
             OnParticipantReconnected = null;
+            OnLobbyRejoinFailed = null;
             OnAllPlayersLoaded = null;
             OnLoadTimedOut = null;
 
@@ -295,16 +310,28 @@ namespace Mu3Library.Multiplayer
             for (int i = 0; i < lobbies.Count; i++)
             {
                 BackendLobby lobby = lobbies[i];
-
-                // The backend filters already; checking again keeps a backend that cannot filter
-                // from offering another game's or another version's lobbies.
-                if (!IsCompatibleLobby(lobby.Data))
+                if (lobby.Data == null)
                 {
                     continue;
                 }
 
-                Dictionary<string, string> data = new Dictionary<string, string>();
+                // Steam's search can hand a key back in another case than it was written in, as
+                // "MAP" for "Map", so every key is found in any case, the library's own included.
+                Dictionary<string, string> all = new Dictionary<string, string>(lobby.Data.Count, StringComparer.OrdinalIgnoreCase);
                 foreach (KeyValuePair<string, string> pair in lobby.Data)
+                {
+                    all[pair.Key] = pair.Value;
+                }
+
+                // The backend filters already; checking again keeps a backend that cannot filter
+                // from offering another game's or another version's lobbies.
+                if (!IsCompatibleLobby(all))
+                {
+                    continue;
+                }
+
+                Dictionary<string, string> data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, string> pair in all)
                 {
                     if (!LobbyDataKeys.IsReserved(pair.Key))
                     {
@@ -312,9 +339,9 @@ namespace Mu3Library.Multiplayer
                     }
                 }
 
-                lobby.Data.TryGetValue(LobbyDataKeys.Name, out string name);
-                lobby.Data.TryGetValue(LobbyDataKeys.HostId, out string host);
-                lobby.Data.TryGetValue(LobbyDataKeys.State, out string state);
+                all.TryGetValue(LobbyDataKeys.Name, out string name);
+                all.TryGetValue(LobbyDataKeys.HostId, out string host);
+                all.TryGetValue(LobbyDataKeys.State, out string state);
 
                 results.Add(new LobbyInfo(
                     lobby.Id,
@@ -373,6 +400,7 @@ namespace Mu3Library.Multiplayer
             public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => _manager.HandleBackendReceived(connection, remote, data);
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) => _manager.HandleLobbyOwnerChanged(lobby, newOwner);
             public void OnLobbyJoinRequested(LobbyId lobby) => _manager.HandleLobbyJoinRequested(lobby);
+            public void OnAvatarChanged(PlayerId player) => _manager.HandleAvatarChanged(player);
         }
 
         private void HandleBackendConnected(ConnectionId connection, PlayerId remote, bool isIncoming)
@@ -429,7 +457,11 @@ namespace Mu3Library.Multiplayer
             }
             catch (FormatException e)
             {
-                Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message}");
+                PacketKind kind = (PacketKind)data[0];
+                if (IsFirstPacketDrop(kind, PacketDrop.Malformed))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message} Further malformed {PacketsOf(kind)} go unlogged until the session ends.");
+                }
             }
         }
 
@@ -460,6 +492,10 @@ namespace Mu3Library.Multiplayer
             if (_state == SessionState.Reconnecting)
             {
                 EndReconnect(MultiplayerReason.HostLeft);
+            }
+            else if (_isWelcomed && _hostConnection.IsValid)
+            {
+                AwaitHostClose();
             }
             else
             {
@@ -576,9 +612,11 @@ namespace Mu3Library.Multiplayer
 
             ResetHostState();
             ResetClientState();
+            ResetLobbyRejoinState();
             ResetMessageState();
             ResetDataState();
             ResetLoadState();
+            ResetPingState();
             ReleaseSessionAvatars();
             ResetPresenceState();
         }
@@ -605,6 +643,13 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Packets
+        // The UTF-8 bytes of the longest game ID and player name a packet carries: three for
+        // each UTF-16 character, which also covers a surrogate pair and a lone surrogate. Each
+        // packet reads a string with the limit of what it carries, so a longer one is malformed
+        // before it is decoded.
+        private const int MaxGameIdBytes = MultiplayerConfig.MaxGameIdLength * 3;
+        private const int MaxPlayerNameBytes = MultiplayerLimits.MaxPlayerNameLength * 3;
+
         private static void WriteRules(PacketWriter writer, SessionRules rules)
         {
             writer.WriteInt(rules.Capacity);
@@ -656,7 +701,7 @@ namespace Mu3Library.Multiplayer
         private Participant ReadParticipant(ref PacketReader reader, PlayerId host)
         {
             PlayerId id = new PlayerId(reader.ReadULong());
-            string name = reader.ReadString();
+            string name = reader.ReadString(MaxPlayerNameBytes);
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
             bool isConnected = reader.ReadBool();

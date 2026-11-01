@@ -21,12 +21,23 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>Most lobbies to return, from 1 to <see cref="MaxResultLimit"/>.</summary>
         public int MaxResults { get; set; } = MaxResultLimit;
 
+        /// <summary>
+        /// Keeps the lobbies whose value under <paramref name="key"/>, compared with
+        /// <paramref name="value"/>, gives <paramref name="comparison"/>. The key matches in any
+        /// case on every backend, as Steam matches it, since lobby data never holds two keys that
+        /// differ only by case.
+        /// </summary>
         public LobbySearchQuery AddStringFilter(string key, string value, LobbyComparison comparison = LobbyComparison.Equal)
         {
             _stringFilters.Add(new LobbyStringFilter(key, value, comparison));
             return this;
         }
 
+        /// <summary>
+        /// Keeps the lobbies whose value under <paramref name="key"/> reads as a whole number that,
+        /// compared with <paramref name="value"/>, gives <paramref name="comparison"/>. The key
+        /// matches in any case, as for <see cref="AddStringFilter"/>.
+        /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)
         {
             _numericFilters.Add(new LobbyNumericFilter(key, value, comparison));

@@ -5,7 +5,9 @@ using Mu3Library.Multiplayer.Data;
 namespace Mu3Library.Multiplayer.Local
 {
     /// <summary>
-    /// The search filters as Steam applies them, for the lobbies of a local network.
+    /// The search filters as Steam applies them, for the lobbies of a local network. A filter
+    /// finds its key in any case, as Steam does, since the local backends keep lobby data in
+    /// dictionaries that ignore case.
     /// </summary>
     internal static class LobbyFilter
     {

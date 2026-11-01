@@ -47,6 +47,19 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantReconnected;
 
         /// <summary>
+        /// Raised on a client back in its slot when it could not enter its lobby again, with the
+        /// reason. The lobby dropped the player while its connection was down, as a Steam lobby
+        /// may, or a moment after it came back, and then refused it until
+        /// <see cref="MultiplayerConfig.JoinTimeoutSeconds"/> passed from the return, or banned
+        /// it. Steam answers a lobby it will not let the player into as
+        /// <see cref="MultiplayerReason.LobbyNotFound"/>. The session goes on over the host's
+        /// connection, but outside the lobby the player does not show in the friends list's
+        /// group of the session, and only that connection tells it that the host left. Raised
+        /// at most once for each return.
+        /// </summary>
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
+
+        /// <summary>
         /// Raised when a player's ready flag or loaded flag (<see cref="Participant.IsLoaded"/>)
         /// changes, this player's own included. Returning to the lobby clears every ready,
         /// late-join, and loaded flag at once, which <see cref="OnReturnedToLobby"/> reports
@@ -57,14 +70,17 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Raised when a value of a player's participant data changes, this player's own included,
-        /// with the player as the host now reports them and the key that changed. A joining player
-        /// reads the data set before it joined from <see cref="IMultiplayerManager.Participants"/> instead.
+        /// with the player as the host now reports them and the key that changed. When the player
+        /// deleted the key (<see cref="IMultiplayerManager.DeleteParticipantData"/>), the
+        /// participant's <see cref="Participant.Data"/> no longer holds it. A joining player reads
+        /// the data set before it joined from <see cref="IMultiplayerManager.Participants"/> instead.
         /// </summary>
         public event Action<Participant, string> OnParticipantDataChanged;
 
         /// <summary>
         /// Raised on every player, the host included, when the host sets a value of the lobby data,
-        /// with the key and the new value. A joining player reads the data set before it joined
+        /// with the key and the new value, or deletes a key (<see cref="IMultiplayerManager.DeleteLobbyData"/>),
+        /// with the key and a null value. A joining player reads the data set before it joined
         /// from <see cref="IMultiplayerManager.LobbyData"/> instead.
         /// </summary>
         public event Action<string, string> OnLobbyDataChanged;
@@ -122,5 +138,20 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.RateLimited"/> instead.
         /// </summary>
         public event Action<Participant> OnRateLimitExceeded;
+
+        /// <summary>
+        /// Raised when a texture that <see cref="IMultiplayerManager.LoadAvatar"/> handed out shows
+        /// a new image, with the player, the size, and that same texture. The backend told that
+        /// the player's avatar changed, as Steam does when a player picks a new picture and when
+        /// it downloaded the picture of an account it did not know, which replaces the default
+        /// image Steam handed out first; the manager read again every size it holds of that
+        /// player and drew the new image into the texture in place. A game that
+        /// shows the texture needs to do nothing, as it shows the new image already; one that
+        /// copied its pixels copies them again. A texture keeps its size on Steam, whose sizes
+        /// are fixed, and takes the new image's size on a backend that changes it. Nothing is
+        /// raised for an avatar the manager does not hold, an image that did not change, or one
+        /// that could not be read, which leaves the earlier image.
+        /// </summary>
+        public event Action<AvatarResult> OnAvatarChanged;
     }
 }
