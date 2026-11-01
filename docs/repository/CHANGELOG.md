@@ -7,6 +7,12 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-01
+
+### Added
+- `test-unity.sh` and `mu3-cli unity test` take `--filter <pattern>`, which they pass to the Unity Test Framework as `-testFilter`, so one test, one fixture, or an `[Explicit]` benchmark such as `MultiplayerPerformanceTests` runs through the script with its lock check and isolated mirror instead of a hand-written Unity command that fails while an Editor has the project open. A target where no test matches the pattern fails, and a pattern that starts with `-` or `/` is refused. `tools/README.md` and `.ai/project/wiki/unity-verification.md` run the benchmark this way.
+- `test-unity.sh` stops Unity and fails the target when Unity's log has not grown for `--stall-timeout <seconds>`, 600 by default, which `mu3-cli unity test` also takes, so a test that never returns no longer holds the run and the automation behind it. One `urp` run had stopped writing after `InputSystemManagerTests` and spun on a CPU core for about 20 minutes until it was killed by hand. The script starts Unity with `-automated`, so the Unity Test Framework logs a line as each test begins and ends, and keeps Unity's log beside the results as `log/unity-tests/<target>-<platform>.log`; a stalled run, or one that ends without results, names the test that began and did not end.
+
 ## 2026-10-31 (agentkit 0.6.0)
 
 ### Changed

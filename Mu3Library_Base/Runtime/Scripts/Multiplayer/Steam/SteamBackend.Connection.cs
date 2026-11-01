@@ -97,9 +97,11 @@ namespace Mu3Library.Multiplayer.Steam
                     (int)Math.Min(options.ConnectionTimeoutSeconds * 1000d, int.MaxValue)),
             };
 
-            EnsureSendBuffer(InitialBufferSize);
+            // The native calls come before the pinned buffer and the callback, as the constructor
+            // keeps them; see there.
             SteamNetworkingUtils.InitRelayNetworkAccess();
             _pollGroup = SteamNetworkingSockets.CreatePollGroup();
+            EnsureSendBuffer(InitialBufferSize);
             _connectionStatusChanged = Callback<SteamNetConnectionStatusChangedCallback_t>.Create(HandleConnectionStatusChanged);
         }
 

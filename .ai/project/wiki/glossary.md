@@ -35,6 +35,9 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | snapshot | A saved board, `BoardSnapshot` | 스냅샷 | スナップショット |
 | screen effect | A full-screen render pass of the URP package (Grayscale, GaussianBlur, DepthOutline, Shake) driven through `ScreenEffectManager` | 스크린 이펙트 | スクリーンエフェクト |
 | player build, player | A standalone build of a project and the application it produces, as opposed to the Editor | 플레이어 빌드, 플레이어 | プレイヤービルド、プレイヤー |
+| Managed Stripping Level | The Player Settings option that sets how much unused managed code a build removes: Disabled, Minimal, Low, Medium, High | = | = |
+| Unity linker | The build tool (UnityLinker) that removes unused managed code, and that link.xml files instruct | Unity 링커 | Unity リンカー |
+| script assembly, precompiled assembly | An assembly Unity compiles from scripts (an assembly definition or `Assembly-CSharp`), and a managed DLL added to a project as a plug-in | 스크립트 어셈블리, 사전 컴파일된 어셈블리 | スクリプトアセンブリ、プリコンパイル済みアセンブリ |
 | Always Included Shaders | The Graphics settings list of shaders every build includes | = | = |
 | Resources folder | A folder named `Resources` whose assets every build includes and `Resources.Load` reads by path | Resources 폴더 | Resources フォルダー |
 | chain operation | An Addressables operation that waits for another operation before it starts the one it wraps, and that Addressables hands back in place of that one | 체인 작업 | チェーン操作 |
@@ -50,10 +53,14 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | reconnect, reservation | A dropped client connecting back to its session, and the time the host keeps its slot for it (`ReconnectReservationSeconds`) | 재접속, 예약 | 再接続、予約 |
 | outage | A simulated temporary loss of a local backend's connections (`LocalBackend.SimulateOutage`) | 네트워크 끊김 | 通信断 |
 | avatar | A player's Steam profile picture, loaded as a texture (`LoadAvatar`) | 아바타 | アバター |
+| release (an avatar) | The game letting the multiplayer manager destroy avatar textures it no longer shows (`ReleaseAvatar`, `ReleaseAvatars`) | 놓아주다 | 解放する |
+| Multiplayer Play Mode, virtual player, main Editor | Unity's `com.unity.multiplayer.playmode` package, the extra Editor instances it runs as players, and the Editor that starts them | Multiplayer Play Mode, 가상 플레이어, 메인 에디터 | Multiplayer Play Mode、仮想プレイヤー、メインエディター |
 | rich presence, friends list | Steam's per-player key-value status that friends see, and the Steam friends list that shows it | 리치 프레즌스, 친구 목록 | リッチプレゼンス、フレンドリスト |
 | TMP Essential Resources | The TextMesh Pro resources a project imports from the Editor: `TMP Settings`, the LiberationSans SDF font asset, the TextMesh Pro shaders, and the default style sheet | = | = |
 | font asset, style sheet | A TextMesh Pro `TMP_FontAsset` and `TMP_StyleSheet` | 폰트 에셋, 스타일 시트 | フォントアセット、スタイルシート |
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |
+| drawer, drawer list | A section of a `Mu3Window` editor window (`Mu3WindowDrawer`), and the `DrawerListDrawer` asset that lists the drawers a window shows | 드로어, 드로어 목록 | ドロワー、ドロワーリスト |
+| embedded package, local package | A package in the project's `Packages/` folder, and one a manifest references as a folder with `file:`; both can be changed, unlike a Git, registry, or tarball install | 임베디드 패키지, 로컬 패키지 | 埋め込みパッケージ、ローカルパッケージ |
 
 ## Style Notes
 

@@ -39,5 +39,14 @@ namespace Mu3Library.Multiplayer.Backend
         /// the friends list, or a launch from either.
         /// </summary>
         void OnLobbyJoinRequested(LobbyId lobby);
+
+        /// <summary>
+        /// The platform told that the player's avatar changed, this player's own included: Steam
+        /// does when a player picks a new picture, and when it downloaded the picture of an
+        /// account it did not know, for which it handed out its default image first. The manager reads again, through
+        /// <see cref="IMultiplayerBackend.LoadAvatar"/>, the avatars it holds of that player. A
+        /// backend without avatars never calls it.
+        /// </summary>
+        void OnAvatarChanged(PlayerId player);
     }
 }

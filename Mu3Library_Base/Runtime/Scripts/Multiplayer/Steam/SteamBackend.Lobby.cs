@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Mu3Library.Multiplayer.Steam
 {
-    public sealed partial class SteamBackend
+    public sealed partial class SteamBackend : ILobbyInviteBackend
     {
         private sealed class PendingSearch
         {
@@ -164,6 +164,13 @@ namespace Mu3Library.Multiplayer.Steam
                 && SteamMatchmaking.SetLobbyData(new CSteamID(lobby.Value), key, value ?? string.Empty);
         }
 
+        public bool DeleteLobbyData(LobbyId lobby, string key)
+        {
+            return IsAvailable
+                && !string.IsNullOrEmpty(key)
+                && SteamMatchmaking.DeleteLobbyData(new CSteamID(lobby.Value), key);
+        }
+
         public bool SetLobbyJoinable(LobbyId lobby, bool joinable)
         {
             return IsAvailable && SteamMatchmaking.SetLobbyJoinable(new CSteamID(lobby.Value), joinable);
@@ -199,6 +206,11 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             return false;
+        }
+
+        bool ILobbyInviteBackend.InviteToLobby(LobbyId lobby, PlayerId player)
+        {
+            return InviteFriend(lobby, player).IsSuccess;
         }
 
         #region Search
@@ -340,7 +352,8 @@ namespace Mu3Library.Multiplayer.Steam
             for (int i = 0; i < count; i++)
             {
                 CSteamID lobby = SteamMatchmaking.GetLobbyByIndex(i);
-                Dictionary<string, string> data = new Dictionary<string, string>();
+                // Steam does not tell keys apart by case and may hand one back in another case.
+                Dictionary<string, string> data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 int dataCount = SteamMatchmaking.GetLobbyDataCount(lobby);
                 for (int j = 0; j < dataCount; j++)

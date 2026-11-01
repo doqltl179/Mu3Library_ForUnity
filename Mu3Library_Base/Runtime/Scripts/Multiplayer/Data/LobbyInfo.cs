@@ -14,7 +14,11 @@ namespace Mu3Library.Multiplayer.Data
         public int Capacity { get; }
         public bool IsInGame { get; }
 
-        /// <summary>The game-defined lobby data. The library's own <c>mu3.</c> keys are left out.</summary>
+        /// <summary>
+        /// The game-defined lobby data. The library's own <c>mu3.</c> keys are left out. It finds
+        /// a key in any case on every backend, since Steam's search can hand a key back in another
+        /// case than the host wrote it in, as <c>MAP</c> for <c>Map</c>.
+        /// </summary>
         public IReadOnlyDictionary<string, string> Data { get; }
 
         public LobbyInfo(LobbyId id, string name, PlayerId hostId, int memberCount, int capacity, bool isInGame, IReadOnlyDictionary<string, string> data)

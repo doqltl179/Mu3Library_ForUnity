@@ -81,7 +81,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         && IsSearchable(lobby.Visibility, lobby.IsJoinable, lobby.Members.Count, lobby.Capacity)
                         && LobbyFilter.Matches(lobby.Data, snapshot))
                     {
-                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data)));
+                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
                     }
                 }
 
@@ -147,6 +147,23 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             lobby.Data[key] = value ?? string.Empty;
             lobby.IsDirty = true;
+            return true;
+        }
+
+        public bool DeleteLobbyData(LobbyId lobbyId, string key)
+        {
+            MachineLobby lobby = FindOwnedLobby(lobbyId);
+            if (lobby == null || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            // The members and the lobby file take the whole data again, so the key leaves both.
+            if (lobby.Data.Remove(key))
+            {
+                lobby.IsDirty = true;
+            }
+
             return true;
         }
 
@@ -618,10 +635,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             // Heard in the next update. An owner that leaves sends what its session connection
             // still carries, its close included, before its hand-over on the lobby connection,
-            // and this update may read that session connection only after this one; heard now,
-            // the owner change would end the session first and drop those packets. What the
-            // owner's socket did not take before the hand-over, which its lingering socket sends
-            // later, can still arrive after the session ended.
+            // and this update may read that session connection only after this one. What the
+            // sockets between them still hold, or what the owner's lingering socket sends later,
+            // can still arrive after the news, so a client's manager waits a moment for the
+            // session connection's close before it ends the session.
             LobbyId lobbyId = lobby.Id;
             PlayerId ownerId = owner.Id;
             Defer(() => _listener?.OnLobbyOwnerChanged(lobbyId, ownerId));
@@ -786,6 +803,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         private void PublishDirectory(double now)
         {
+            // The last listing could not be written, for example while another program held the file.
+            if (_directory.TakeFailedWrite())
+            {
+                _isDirectoryDirty = true;
+                _nextPublishAttempt = now + PublishRetrySeconds;
+            }
+
             _lobbyScratch.Clear();
             foreach (MachineLobby lobby in _lobbies.Values)
             {
@@ -795,22 +819,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 }
             }
 
-            bool isDue = _isDirectoryDirty || (_lobbyScratch.Count > 0 && now >= _nextPublish);
-            if (!isDue || now < _nextPublishAttempt)
+            // A lobby created or taken over is listed at once, so a process that learns its ID can
+            // join it; any other change waits out the shortest interval.
+            bool addsLobby = _directory.AddsLobby(_lobbyScratch);
+            bool isDue = addsLobby || _isDirectoryDirty || (_lobbyScratch.Count > 0 && now >= _nextPublish);
+            if (!isDue || (now < _nextPublishAttempt && !addsLobby))
             {
                 return;
             }
 
-            if (_directory.Publish(LocalPlayerId, Port, _lobbyScratch))
-            {
-                _isDirectoryDirty = false;
-                _nextPublish = now + PublishIntervalSeconds;
-                _nextPublishAttempt = now + PublishMinIntervalSeconds;
-            }
-            else
-            {
-                _nextPublishAttempt = now + PublishRetrySeconds;
-            }
+            // Unless it adds a lobby, the file is written in the background, so this frame does not wait for it.
+            _directory.Publish(LocalPlayerId, Port, _lobbyScratch);
+            _isDirectoryDirty = false;
+            _nextPublish = now + PublishIntervalSeconds;
+            _nextPublishAttempt = now + PublishMinIntervalSeconds;
         }
         #endregion
     }
