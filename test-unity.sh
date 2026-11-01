@@ -90,9 +90,9 @@ check, and the environment variables work as in compile-unity.sh; see
 EOF
 }
 
-# Takes --platform, --filter, and --stall-timeout, which only this script has,
-# out of the arguments and leaves the rest in COMPILE_ARGUMENTS for the options
-# it shares with compile-unity.sh.
+# Takes --platform and --filter, which only this script has, out of the
+# arguments and leaves the rest in COMPILE_ARGUMENTS for the options it shares
+# with compile-unity.sh.
 parse_test_arguments() {
     COMPILE_ARGUMENTS=()
 
@@ -121,11 +121,6 @@ parse_test_arguments() {
                 [[ "$1" != /* ]] || fail "--filter cannot start with /, which Git Bash rewrites as a file path: $1"
                 [[ -z "$TEST_FILTER" ]] || fail "--filter can be given once; separate several patterns with ;"
                 TEST_FILTER="$1"
-                ;;
-            --stall-timeout)
-                shift
-                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ ]] || fail "--stall-timeout expects a whole number of seconds"
-                UNITY_STALL_SECONDS="$((10#$1))"
                 ;;
             *)
                 COMPILE_ARGUMENTS+=("$1")

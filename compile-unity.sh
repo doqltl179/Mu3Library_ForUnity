@@ -25,11 +25,15 @@ RUN_PROJECT_PATH=""
 RUN_LOCATION=""
 RUN_NOTE=""
 UNITY_STATUS=0
-# While UNITY_LOG_FILE names a file, run_unity_for_target also keeps Unity's log
-# there and stops Unity once that log has not grown for UNITY_STALL_SECONDS
-# (0 never stops it), setting UNITY_STALLED. test-unity.sh sets both.
+readonly COMPILE_LOG_DIR="$REPO_ROOT/log/unity-compile"
+# run_unity_for_target keeps Unity's log in UNITY_LOG_FILE, which each entry
+# point names for its target, and stops Unity once that log has not grown for
+# UNITY_STALL_SECONDS (0 never stops it), setting UNITY_STALLED. --stall-timeout
+# sets the seconds; test-unity.sh sets its own default. A compile's default is
+# about 12 times the longest silence measured in a first import, where script
+# compilation logged nothing for up to 25 s (tools/README.md).
 UNITY_LOG_FILE=""
-UNITY_STALL_SECONDS=0
+UNITY_STALL_SECONDS=300
 UNITY_STALLED=0
 
 SKIP_SAMPLES=0
@@ -200,6 +204,10 @@ Options:
                     Run with the Unity Hub Editor of that exact version, such
                     as 6000.3.17f1, instead of the one ProjectVersion.txt
                     names, always in an isolated mirror retargeted to it.
+  --stall-timeout <seconds>
+                    Stop Unity and fail the target once its log has not
+                    grown for this long (default 300; 0 waits as long as
+                    Unity runs).
   -h, --help        Show this help.
 
 Environment:
@@ -240,6 +248,11 @@ repository project. The mirror's ProjectVersion.txt names the requested
 version, its packages-lock.json is removed, and each Unity package version in
 its manifest becomes the one that Editor bundles; a built-in module the Editor
 does not ship is dropped, and a package it does not bundle stays as it is.
+
+The script prints Unity's log as Unity writes it and keeps it in
+log/unity-compile/<target>.log. A compile that stops writing, such as one
+waiting on a dialog that batch mode cannot show, is stopped with its child
+processes after --stall-timeout seconds and fails its target.
 EOF
 }
 
@@ -1168,8 +1181,8 @@ stop_process_tree() {
 
 # Runs a Unity command with its standard output in UNITY_LOG_FILE, prints the
 # log as it grows, and returns Unity's exit status. A log that has not grown for
-# UNITY_STALL_SECONDS stops Unity and sets UNITY_STALLED, so a test that never
-# returns fails its target instead of holding the script forever.
+# UNITY_STALL_SECONDS stops Unity and sets UNITY_STALLED, so a compile or a test
+# that never ends fails its target instead of holding the script forever.
 run_unity_logged() {
     local unity_pid
     local status
@@ -1205,8 +1218,8 @@ run_unity_logged() {
 }
 
 # Runs Unity in batch mode for one target, in place or in an isolated mirror,
-# with the arguments that follow the verb, and leaves its exit code in
-# UNITY_STATUS. The mirror is removed before this returns.
+# with the arguments that follow the verb and its log in UNITY_LOG_FILE, and
+# leaves its exit code in UNITY_STATUS. The mirror is removed before this returns.
 run_unity_for_target() {
     local target_key="$1"
     local verb="$2"
@@ -1241,11 +1254,7 @@ run_unity_for_target() {
     unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
     UNITY_STALLED=0
     set +e
-    if [[ -n "$UNITY_LOG_FILE" ]]; then
-        run_unity_logged "${unity_command[@]}"
-    else
-        "${unity_command[@]}"
-    fi
+    run_unity_logged "${unity_command[@]}"
     UNITY_STATUS=$?
     set -e
 
@@ -1255,7 +1264,15 @@ run_unity_for_target() {
 compile_target() {
     local target_key="$1"
 
+    mkdir -p "$COMPILE_LOG_DIR"
+    UNITY_LOG_FILE="$COMPILE_LOG_DIR/$target_key.log"
     run_unity_for_target "$target_key" "Compiling" -quit
+
+    if [[ "$UNITY_STALLED" -eq 1 ]]; then
+        printf 'error: Unity compilation failed for %s: Unity wrote nothing to its log for %s s, so the script stopped it; see %s\n' \
+            "$target_key" "$UNITY_STALL_SECONDS" "${UNITY_LOG_FILE#"$REPO_ROOT"/}" >&2
+        return 1
+    fi
 
     if [[ "$UNITY_STATUS" -ne 0 ]]; then
         printf 'error: Unity compilation failed for %s (exit %d)\n' "$target_key" "$UNITY_STATUS" >&2
@@ -1295,6 +1312,11 @@ parse_arguments() {
                 [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?$ ]] \
                     || fail "--editor-version expects a full Unity version such as 6000.3.17f1: $1"
                 EDITOR_VERSION="$1"
+                ;;
+            --stall-timeout)
+                shift
+                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ ]] || fail "--stall-timeout expects a whole number of seconds"
+                UNITY_STALL_SECONDS="$((10#$1))"
                 ;;
             -h|--help)
                 usage

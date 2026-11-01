@@ -218,7 +218,11 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             raise RuntimeError(f"git {' '.join(arguments)} failed in the fixture: {completed.stderr.strip()}")
 
     def unity_environment(self, **variables: str) -> dict[str, str]:
-        """The fixture environment with the fake Unity and a mirror directory of this test's own."""
+        """The fixture environment with the fake Unity and a mirror directory of this test's own.
+
+        The logs and results that a run with it writes under log/ go when the test ends.
+        """
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
         mirror_directory = tempfile.TemporaryDirectory()
         self.addCleanup(mirror_directory.cleanup)
         self.mirror_directory = Path(mirror_directory.name)

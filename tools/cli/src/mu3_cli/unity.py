@@ -811,7 +811,7 @@ def filter_arguments(test_filter: str | None) -> list[str]:
 
 
 def stall_timeout_arguments(stall_timeout: int | None) -> list[str]:
-    """The --stall-timeout option of test-unity.sh, or nothing for its default."""
+    """The --stall-timeout option of compile-unity.sh and test-unity.sh, or nothing for the script's default."""
     if stall_timeout is None:
         return []
     if stall_timeout < 0:
@@ -885,13 +885,18 @@ def unity_compile(
         "--editor-version",
         help="Compile with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
     ),
+    stall_timeout: int | None = typer.Option(
+        None,
+        "--stall-timeout",
+        help="Stop Unity and fail the target once its log has not grown for this many seconds (default 300; 0 never).",
+    ),
 ) -> None:
     """Run the repository's change-aware Unity batchmode compiler."""
     root = repo_root()
     try:
         arguments = entry_point_arguments(
             target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        )
+        ) + stall_timeout_arguments(stall_timeout)
         return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
