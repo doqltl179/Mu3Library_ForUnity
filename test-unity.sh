@@ -7,8 +7,17 @@
 
 set -euo pipefail
 
+# compile-unity.sh lies beside this file, whose folder is cut from its path as
+# compile-unity.sh cuts its own.
+case "${OSTYPE:-}" in
+    msys*|cygwin*) COMPILE_SCRIPT_DIR="${BASH_SOURCE[0]%[/\\]*}" ;;
+    *) COMPILE_SCRIPT_DIR="${BASH_SOURCE[0]%/*}" ;;
+esac
+if [[ "$COMPILE_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]]; then
+    COMPILE_SCRIPT_DIR="."
+fi
 # shellcheck source=compile-unity.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compile-unity.sh"
+source "$COMPILE_SCRIPT_DIR/compile-unity.sh"
 
 SELECTION_LABEL="test"
 readonly RESULTS_DIR="$REPO_ROOT/log/unity-tests"
@@ -24,6 +33,9 @@ UNITY_STALL_SECONDS=600
 COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
 FAILED_TARGET_COUNT=0
+# Set by project_has_testables and find_unfinished_test.
+NO_TESTABLES_REASON=""
+UNFINISHED_TEST=""
 
 usage() {
     local i
@@ -131,24 +143,33 @@ parse_test_arguments() {
 }
 
 # Unity runs package tests only for the packages a project's manifest lists
-# under "testables", so a project without that list has nothing to run.
+# under "testables", so a project without that list has nothing to run; this
+# returns 1 for it, with the reason in NO_TESTABLES_REASON.
 project_has_testables() {
     local target_key="$1"
-    local project_path
+    local manifest_path
+    local line
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
-    grep -q '"testables"' "$REPO_ROOT/$project_path/Packages/manifest.json" 2>/dev/null
-}
+    NO_TESTABLES_REASON=""
+    find_target "$target_key" || return 1
+    manifest_path="${PROJECT_PATHS[$TARGET_INDEX]}/Packages/manifest.json"
+    NO_TESTABLES_REASON="$manifest_path lists no testables"
 
-no_testables_reason() {
-    printf '%s/Packages/manifest.json lists no testables' "$(project_path_for_target "$1")"
+    [[ -f "$REPO_ROOT/$manifest_path" && -r "$REPO_ROOT/$manifest_path" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == *'"testables"'* ]]; then
+            return 0
+        fi
+    done < "$REPO_ROOT/$manifest_path"
+
+    return 1
 }
 
 run_plan_entry() {
     local target_key="$1"
 
     if ! project_has_testables "$target_key"; then
-        printf 'skipped, %s\n' "$(no_testables_reason "$target_key")"
+        printf 'skipped, %s\n' "$NO_TESTABLES_REASON"
         return 0
     fi
 
@@ -167,7 +188,7 @@ keep_testable_targets() {
         if project_has_testables "$target_key"; then
             testable_targets+=("$target_key")
         else
-            SUMMARY_LINES+=("$target_key: skipped, $(no_testables_reason "$target_key")")
+            SUMMARY_LINES+=("$target_key: skipped, $NO_TESTABLES_REASON")
         fi
     done
 
@@ -177,17 +198,29 @@ keep_testable_targets() {
     fi
 }
 
-# Prints a numeric attribute of the <test-run> element that opens an NUnit 3
-# result file.
-test_run_attribute() {
+# Reads the counts of the <test-run> element that opens an NUnit 3 result file
+# into the variables total, passed, failed, and skipped, which test_target
+# declares, or returns 1 when the element or one of the counts is missing.
+read_test_run_counts() {
     local results_file="$1"
-    local name="$2"
-    local header
-    local pattern="[[:space:]]$name=\"([0-9]+)\""
+    local line
+    local header=""
+    local count_name
+    local element_pattern='<test-run [^>]*>'
+    local count_pattern
 
-    header="$(grep -m 1 -o '<test-run [^>]*>' "$results_file")" || return 1
-    [[ "$header" =~ $pattern ]] || return 1
-    printf '%s\n' "${BASH_REMATCH[1]}"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ $element_pattern ]]; then
+            header="${BASH_REMATCH[0]}"
+            break
+        fi
+    done < "$results_file"
+
+    for count_name in total passed failed skipped; do
+        count_pattern="[[:space:]]$count_name=\"([0-9]+)\""
+        [[ "$header" =~ $count_pattern ]] || return 1
+        printf -v "$count_name" '%s' "${BASH_REMATCH[1]}"
+    done
 }
 
 print_failed_tests() {
@@ -202,18 +235,27 @@ print_failed_tests() {
     done < <(grep -o '<test-case [^>]*result="Failed"[^>]*>' "$results_file" || true)
 }
 
-# Prints the full name of the test that Unity began last and did not end, from
-# the lines that -automated adds to its log, or nothing.
-unfinished_test() {
+# Sets UNFINISHED_TEST to the full name of the test that Unity began last and
+# did not end, from the lines that -automated adds to its log, or to nothing.
+find_unfinished_test() {
     local log_file="$1"
     local status_line
     # A JSON string, whose escaped quotes, as in a test case's string argument,
     # do not end it.
     local pattern='"name":"((\\.|[^"\\])*)"'
 
+    UNFINISHED_TEST=""
     status_line="$(grep -o '##utp:{"type":"TestStatus".*' "$log_file" 2>/dev/null | tail -n 1 || true)"
     if [[ "$status_line" == *'"phase":"Begin"'* && "$status_line" =~ $pattern ]]; then
-        printf '%s\n' "${BASH_REMATCH[1]}" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
+        UNFINISHED_TEST="$(printf '%s\n' "${BASH_REMATCH[1]}" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g')"
+    fi
+}
+
+# Prints the test that find_unfinished_test finds, or nothing.
+unfinished_test() {
+    find_unfinished_test "$1"
+    if [[ -n "$UNFINISHED_TEST" ]]; then
+        printf '%s\n' "$UNFINISHED_TEST"
     fi
 }
 
@@ -244,7 +286,9 @@ test_target() {
 
     mkdir -p "$RESULTS_DIR"
     # A result file left by an earlier run must not stand in for this one.
-    rm -f -- "$results_file"
+    if [[ -e "$results_file" || -L "$results_file" ]]; then
+        rm -f -- "$results_file"
+    fi
     UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY.log"
 
     # -automated makes the Unity Test Framework log a line as each test begins
@@ -257,7 +301,8 @@ test_target() {
         "${unity_arguments[@]}" \
         -testResults "$(to_windows_path "$results_file")" \
         -automated
-    unfinished="$(unfinished_test "$UNITY_LOG_FILE")"
+    find_unfinished_test "$UNITY_LOG_FILE"
+    unfinished="$UNFINISHED_TEST"
 
     if [[ "$UNITY_STALLED" -eq 1 ]]; then
         if [[ -n "$unfinished" ]]; then
@@ -274,10 +319,7 @@ test_target() {
         return 0
     fi
 
-    if ! total="$(test_run_attribute "$results_file" total)" \
-        || ! passed="$(test_run_attribute "$results_file" passed)" \
-        || ! failed="$(test_run_attribute "$results_file" failed)" \
-        || ! skipped="$(test_run_attribute "$results_file" skipped)"; then
+    if ! read_test_run_counts "$results_file"; then
         record_failure "$target_key" "could not read the test counts in ${results_file#"$REPO_ROOT"/}"
         return 0
     fi

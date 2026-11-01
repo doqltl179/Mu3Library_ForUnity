@@ -6,7 +6,23 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Every command substitution, pipeline, and external command costs Git Bash a
+# process, about 10 to 20 ms, which adds up over a run and over the tool tests;
+# so the paths every run takes find targets, read files, and pass results back
+# in this shell where that is no harder, and keep processes for real work.
+
+# The folder of this file, cut from its path as dirname cuts it: the dirname of
+# Git Bash and Cygwin also takes \ as a separator, which a Windows path that
+# bash was given holds.
+case "${OSTYPE:-}" in
+    msys*|cygwin*) SCRIPT_DIR="${BASH_SOURCE[0]%[/\\]*}" ;;
+    *) SCRIPT_DIR="${BASH_SOURCE[0]%/*}" ;;
+esac
+if [[ "$SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="."
+fi
+SCRIPT_DIR="$(cd "${SCRIPT_DIR:-/}" && pwd)"
+readonly SCRIPT_DIR
 readonly REPO_ROOT="$SCRIPT_DIR"
 readonly PACKAGE_CONFIG="$REPO_ROOT/unity-cli-packages.tsv"
 
@@ -58,6 +74,15 @@ CHANGED_FILES=()
 RELEVANT_CHANGES=()
 IGNORED_CHANGES=()
 SELECTED_TARGETS=()
+# Results that functions leave in these variables instead of printing them, so
+# that their callers need no command substitution.
+HOST_PLATFORM=""
+TARGET_INDEX=0
+PROJECT_EDITOR_VERSION=""
+FOUND_UNITY_PATH=""
+HUB_EDITOR_SUFFIX=""
+PROJECT_LOCK_STATE=""
+SAMPLE_LINK_PROBLEM=""
 
 fail() {
     printf 'error: %s\n' "$*" >&2
@@ -78,6 +103,14 @@ host_platform() {
     esac
 }
 
+# Sets HOST_PLATFORM to what host_platform prints, asking it only once in a
+# shell.
+detect_host_platform() {
+    if [[ -z "$HOST_PLATFORM" ]]; then
+        HOST_PLATFORM="$(host_platform)"
+    fi
+}
+
 to_windows_path() {
     local path="$1"
 
@@ -89,13 +122,15 @@ to_windows_path() {
     printf '%s\n' "$path"
 }
 
-target_index() {
+# Sets TARGET_INDEX to the index of a configured target in the mapping arrays,
+# or returns 1.
+find_target() {
     local requested_target="$1"
     local i
 
     for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
         if [[ "${TARGET_KEYS[$i]}" == "$requested_target" ]]; then
-            printf '%d\n' "$i"
+            TARGET_INDEX="$i"
             return 0
         fi
     done
@@ -134,7 +169,7 @@ load_package_config() {
         if [[ "$samples_link" == /* || "/$samples_link/" == *"/../"* ]]; then
             fail "the samples link must be a path inside the project at $PACKAGE_CONFIG:$line_number"
         fi
-        if target_index "$target_key" >/dev/null; then
+        if find_target "$target_key"; then
             fail "duplicate target '$target_key' at $PACKAGE_CONFIG:$line_number"
         fi
         [[ -d "$REPO_ROOT/$package_path" ]] || fail "package directory not found: $REPO_ROOT/$package_path"
@@ -154,9 +189,16 @@ project_references_package() {
     local project_path="$1"
     local package_path="$2"
     local manifest_file="$REPO_ROOT/$project_path/Packages/manifest.json"
+    local line
 
-    [[ -f "$manifest_file" ]] || return 1
-    grep -Fq "\"file:../../$package_path\"" "$manifest_file"
+    [[ -f "$manifest_file" && -r "$manifest_file" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == *"\"file:../../$package_path\""* ]]; then
+            return 0
+        fi
+    done < "$manifest_file"
+
+    return 1
 }
 
 # A package compiles in every development project whose manifest references it, and
@@ -308,7 +350,7 @@ cleanup_staging() {
         return 0
     fi
 
-    case "$(basename "$staging_root")" in
+    case "${staging_root##*/}" in
         mu3library-unity-compile.*)
             if ! removal_error="$(remove_staging_root "$staging_root")"; then
                 printf 'warning: could not remove the isolated project; delete it by hand: %s\n' "$staging_root" >&2
@@ -375,7 +417,7 @@ select_target() {
     local requested_target="$1"
     local selected_target
 
-    target_index "$requested_target" >/dev/null \
+    find_target "$requested_target" \
         || fail "unknown $SELECTION_LABEL target: $requested_target"
 
     if [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]]; then
@@ -485,48 +527,34 @@ select_changed_targets() {
     done
 }
 
-project_path_for_target() {
-    local requested_target="$1"
-    local index
-
-    index="$(target_index "$requested_target")" || return 1
-    printf '%s\n' "${PROJECT_PATHS[$index]}"
-}
-
-package_path_for_target() {
-    local requested_target="$1"
-    local index
-
-    index="$(target_index "$requested_target")" || return 1
-    printf '%s\n' "${PACKAGE_PATHS[$index]}"
-}
-
 # Unity skips folders whose name ends in ~, so a development project compiles a
 # package's samples only through a link from its Assets folder to Samples~.
-# Prints why the target's link is unusable and returns 1, or returns 0 when the
-# link works or the target configures none.
+# Sets SAMPLE_LINK_PROBLEM to why the target's link is unusable and returns 1,
+# or returns 0 when the link works or the target configures none.
 sample_link_problem() {
     local target_key="$1"
     local index
     local link_path
     local samples_path
 
-    index="$(target_index "$target_key")" || return 0
+    SAMPLE_LINK_PROBLEM=""
+    find_target "$target_key" || return 0
+    index="$TARGET_INDEX"
     [[ -n "${SAMPLE_LINKS[$index]}" ]] || return 0
 
     link_path="${PROJECT_PATHS[$index]}/${SAMPLE_LINKS[$index]}"
     samples_path="${PACKAGE_PATHS[$index]}/Samples~"
 
     if [[ ! -d "$REPO_ROOT/$samples_path" ]]; then
-        printf '%s does not exist' "$samples_path"
+        SAMPLE_LINK_PROBLEM="$samples_path does not exist"
         return 1
     fi
     if [[ ! -e "$REPO_ROOT/$link_path" ]]; then
-        printf '%s is missing' "$link_path"
+        SAMPLE_LINK_PROBLEM="$link_path is missing"
         return 1
     fi
     if [[ ! "$REPO_ROOT/$link_path" -ef "$REPO_ROOT/$samples_path" ]]; then
-        printf '%s does not link to %s' "$link_path" "$samples_path"
+        SAMPLE_LINK_PROBLEM="$link_path does not link to $samples_path"
         return 1
     fi
 }
@@ -537,23 +565,22 @@ sample_link_problem() {
 check_sample_links() {
     local severity="$1"
     local target_key
-    local problem
     local check_status=0
 
     # bash before 4.4 treats an empty array as unset under set -u.
     [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]] || return 0
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        if problem="$(sample_link_problem "$target_key")"; then
+        if sample_link_problem "$target_key"; then
             continue
         fi
 
         if [[ "$SKIP_SAMPLES" -eq 1 ]]; then
             printf 'warning: %s: %s, so its samples are left out as --without-samples asks.\n' \
-                "$target_key" "$problem" >&2
+                "$target_key" "$SAMPLE_LINK_PROBLEM" >&2
         else
             printf '%s: %s: %s, so its samples would not compile. Run "%s" to link them, or pass --without-samples.\n' \
-                "$severity" "$target_key" "$problem" "$LINK_SAMPLES_COMMAND" >&2
+                "$severity" "$target_key" "$SAMPLE_LINK_PROBLEM" "$LINK_SAMPLES_COMMAND" >&2
             check_status=1
         fi
     done
@@ -600,23 +627,30 @@ print_selection() {
 
     printf 'Selected %s targets:\n' "$SELECTION_LABEL"
     for selected_target in "${SELECTED_TARGETS[@]}"; do
+        find_target "$selected_target"
         printf '  - %s: %s -> %s\n' \
-            "$selected_target" \
-            "$(package_path_for_target "$selected_target")" \
-            "$(project_path_for_target "$selected_target")"
+            "$selected_target" "${PACKAGE_PATHS[$TARGET_INDEX]}" "${PROJECT_PATHS[$TARGET_INDEX]}"
     done
 }
 
+# Sets PROJECT_EDITOR_VERSION to the Editor version that a project's
+# ProjectSettings/ProjectVersion.txt names on its m_EditorVersion line, up to
+# any further ": ", or to nothing when no line names one. Returns 1 when the
+# file is missing.
 project_editor_version() {
-    local target_key="$1"
-    local project_path
-    local version_file
+    local project_path="$1"
+    local version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
+    local line
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
-    version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
-
+    PROJECT_EDITOR_VERSION=""
     [[ -f "$version_file" ]] || return 1
-    awk -F': ' '/^m_EditorVersion: / { print $2; exit }' "$version_file"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == "m_EditorVersion: "* ]]; then
+            line="${line#m_EditorVersion: }"
+            PROJECT_EDITOR_VERSION="${line%%: *}"
+            return 0
+        fi
+    done < "$version_file"
 }
 
 # Unity Hub's install location, which holds one folder per Editor version.
@@ -630,14 +664,16 @@ hub_editor_root() {
         if [[ "$editor_root" == "~" || "$editor_root" == "~/"* ]]; then
             editor_root="$HOME${editor_root:1}"
         fi
-        if [[ "$(host_platform)" == "windows" ]] && command -v cygpath >/dev/null 2>&1; then
+        detect_host_platform
+        if [[ "$HOST_PLATFORM" == "windows" ]] && command -v cygpath >/dev/null 2>&1; then
             editor_root="$(cygpath -u "$editor_root")"
         fi
         printf '%s\n' "${editor_root%/}"
         return
     fi
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
             printf '/Applications/Unity/Hub/Editor\n'
             ;;
@@ -660,7 +696,8 @@ hub_editor_executable() {
     local editor_root
 
     editor_root="$(hub_editor_root)"
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
             printf '%s/%s/Unity.app/Contents/MacOS/Unity\n' "$editor_root" "$required_version"
             ;;
@@ -673,24 +710,28 @@ hub_editor_executable() {
     esac
 }
 
-# Trailing part of a Hub installation path, used to tell whether an explicit
-# override still points at the Editor version the project asks for.
+# Sets HUB_EDITOR_SUFFIX to the trailing part of a Hub installation path, used
+# to tell whether an explicit override still points at the Editor version the
+# project asks for.
 hub_editor_suffix() {
     local required_version="$1"
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
-            printf '/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Unity.app/Contents/MacOS/Unity"
             ;;
         windows)
-            printf '/Editor/%s/Editor/Unity.exe\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Editor/Unity.exe"
             ;;
         *)
-            printf '/Editor/%s/Editor/Unity\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Editor/Unity"
             ;;
     esac
 }
 
+# Sets FOUND_UNITY_PATH to the Unity executable for a target, or prints why
+# there is none and returns 1.
 unity_executable() {
     local target_key="$1"
     local project_path
@@ -700,16 +741,19 @@ unity_executable() {
     # Who asks for the version, as the messages below name it.
     local requester
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    FOUND_UNITY_PATH=""
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     requester="$project_path"
     if [[ -n "$EDITOR_VERSION" ]]; then
         required_version="$EDITOR_VERSION"
         requester="--editor-version"
     else
-        required_version="$(project_editor_version "$target_key")" || {
+        project_editor_version "$project_path" || {
             printf 'error: Unity version file not found for %s\n' "$project_path" >&2
             return 1
         }
+        required_version="$PROJECT_EDITOR_VERSION"
     fi
 
     if [[ -n "$override_path" ]]; then
@@ -723,7 +767,8 @@ unity_executable() {
             return 1
         fi
 
-        if [[ "$candidate" != *"$(hub_editor_suffix "$required_version")" ]]; then
+        hub_editor_suffix "$required_version"
+        if [[ "$candidate" != *"$HUB_EDITOR_SUFFIX" ]]; then
             printf 'warning: %s requires Unity %s but the explicit override will be used: %s\n' \
                 "$requester" "$required_version" "$candidate" >&2
         fi
@@ -736,7 +781,7 @@ unity_executable() {
         fi
     fi
 
-    printf '%s\n' "$candidate"
+    FOUND_UNITY_PATH="$candidate"
 }
 
 # Prints held when some process has the file open, free when none does, gone
@@ -747,7 +792,8 @@ file_holder_state() {
     local holders
     local probe_status=0
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         windows)
             if ! command -v powershell.exe >/dev/null 2>&1; then
                 printf 'unknown\n'
@@ -795,27 +841,24 @@ file_holder_state() {
     esac
 }
 
-# Prints absent, open, stale, or unknown for the project's Temp/UnityLockfile.
-# A running Editor keeps the file open, so a lock file that no process holds
-# was left behind by an Editor that crashed or was killed.
+# Sets PROJECT_LOCK_STATE to absent, open, stale, or unknown for the
+# Temp/UnityLockfile of a project, given by its repository path. A running
+# Editor keeps the file open, so a lock file that no process holds was left
+# behind by an Editor that crashed or was killed.
 project_lock_state() {
-    local target_key="$1"
-    local project_path
-    local lock_file
-
-    project_path="$(project_path_for_target "$target_key")" || return 1
-    lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
+    local project_path="$1"
+    local lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
 
     if [[ ! -e "$lock_file" ]]; then
-        printf 'absent\n'
+        PROJECT_LOCK_STATE="absent"
         return 0
     fi
 
     case "$(file_holder_state "$lock_file")" in
-        held) printf 'open\n' ;;
-        free) printf 'stale\n' ;;
-        gone) printf 'absent\n' ;;
-        *) printf 'unknown\n' ;;
+        held) PROJECT_LOCK_STATE="open" ;;
+        free) PROJECT_LOCK_STATE="stale" ;;
+        gone) PROJECT_LOCK_STATE="absent" ;;
+        *) PROJECT_LOCK_STATE="unknown" ;;
     esac
 }
 
@@ -828,7 +871,8 @@ decide_run_location() {
     local held_reason=""
     local held_remedy="close it"
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     RUN_LOCATION="in-place"
     RUN_NOTE=""
 
@@ -839,14 +883,16 @@ decide_run_location() {
         return 0
     fi
 
-    case "$(project_lock_state "$target_key")" in
+    project_lock_state "$project_path"
+    case "$PROJECT_LOCK_STATE" in
         open)
             held_reason="$project_path is open in Unity"
             ;;
         unknown)
             # Closing an Editor does not help here: the lock may be stale, and only
             # deleting it, or a way to check its holder, lets the run go in place.
-            if [[ "$(host_platform)" == "windows" ]]; then
+            detect_host_platform
+            if [[ "$HOST_PLATFORM" == "windows" ]]; then
                 held_reason="$project_path/Temp/UnityLockfile exists and PowerShell could not open it to check whether an Editor holds it"
                 held_remedy="delete the file if no Editor has the project open"
             else
@@ -907,7 +953,9 @@ print_run_plan() {
 
     printf 'Run plan:\n'
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        printf '  - %s: %s\n' "$target_key" "$(run_plan_entry "$target_key")"
+        # run_plan_entry prints the rest of the line.
+        printf '  - %s: ' "$target_key"
+        run_plan_entry "$target_key" || true
     done
 }
 
@@ -934,7 +982,8 @@ warn_long_staging_path() {
     local windows_path
     local path_length
 
-    [[ "$(host_platform)" == "windows" ]] || return 0
+    detect_host_platform
+    [[ "$HOST_PLATFORM" == "windows" ]] || return 0
 
     windows_path="$(to_windows_path "$staging_project")"
     path_length="${#windows_path}"
@@ -1092,7 +1141,8 @@ prepare_isolated_project() {
     local package_path
     local i
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     source_project="$REPO_ROOT/$project_path"
     manifest_file="$source_project/Packages/manifest.json"
 
@@ -1274,9 +1324,11 @@ run_unity_for_target() {
     local unity_command
 
     shift 2
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     run_project_path="$REPO_ROOT/$project_path"
-    unity_path="$(unity_executable "$target_key")"
+    unity_executable "$target_key"
+    unity_path="$FOUND_UNITY_PATH"
 
     if ! decide_run_location "$target_key"; then
         fail "$RUN_NOTE"
@@ -1405,7 +1457,7 @@ preflight_selected_targets() {
     local preflight_failed=0
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        if ! unity_executable "$target_key" >/dev/null; then
+        if ! unity_executable "$target_key"; then
             preflight_failed=1
         fi
     done
