@@ -244,6 +244,10 @@ namespace Mu3Library.Tests
                 Pump();
                 Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
 
+                // The runtime counts no bytes per thread, so the growth of the managed heap stands
+                // in: a collection may run meanwhile and hide part of what was reserved, which only
+                // makes the bound easier to meet. Room reserved for the entries of even 5 of the
+                // packets would pass it.
                 long before = GC.GetTotalMemory(forceFullCollection: true);
                 for (int i = 0; i < Floods; i++)
                 {
@@ -253,7 +257,7 @@ namespace Mu3Library.Tests
                 Pump();
                 long allocated = GC.GetTotalMemory(forceFullCollection: false) - before;
                 TestContext.WriteLine($"{Floods} ParticipantJoined packets of {shortJoin.Length} bytes that claim {MultiplayerLimits.MaxParticipantDataSize} data entries each took {allocated} bytes of the managed heap.");
-                Assert.That(allocated, Is.LessThan(Floods * 16 * 1024), "no packet reserves room for the entries it claims");
+                Assert.That(allocated, Is.LessThan(Floods * 4 * 1024), "no packet reserves room for the entries it claims");
 
                 Assert.That(a.Manager.TryGetParticipant(late, out _), Is.False);
                 Assert.That(log.Count($"Invalid data entry count {MultiplayerLimits.MaxLobbyDataSize} with"), Is.EqualTo(1), "the welcome");
