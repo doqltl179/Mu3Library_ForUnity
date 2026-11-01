@@ -24,8 +24,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         private static bool _isHooked = false;
 
-        /// <summary>Takes the socket over, with the bytes still to send on it.</summary>
-        public static void Close(Socket socket, byte[] pending, int offset, int count)
+        /// <summary>
+        /// Takes the socket over, with the bytes still to send on it: <paramref name="firstCount"/>
+        /// bytes of <paramref name="first"/> from <paramref name="firstOffset"/>, then the first
+        /// <paramref name="secondCount"/> of <paramref name="second"/>.
+        /// </summary>
+        public static void Close(Socket socket, byte[] first, int firstOffset, int firstCount, byte[] second, int secondCount)
         {
             if (socket == null)
             {
@@ -33,10 +37,18 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             byte[] rest = null;
-            if (count > 0)
+            if (firstCount + secondCount > 0)
             {
-                rest = new byte[count];
-                Buffer.BlockCopy(pending, offset, rest, 0, count);
+                rest = new byte[firstCount + secondCount];
+                if (firstCount > 0)
+                {
+                    Buffer.BlockCopy(first, firstOffset, rest, 0, firstCount);
+                }
+
+                if (secondCount > 0)
+                {
+                    Buffer.BlockCopy(second, 0, rest, firstCount, secondCount);
+                }
             }
 
             lock (Gate)
