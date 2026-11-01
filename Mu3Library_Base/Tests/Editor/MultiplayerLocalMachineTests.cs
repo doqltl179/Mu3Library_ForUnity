@@ -709,11 +709,13 @@ namespace Mu3Library.Tests
             PumpUntil(() => ListedData(lobby, "round") == "0", "the first round to reach the file");
 
             // Another thread reads the folder over and over, as a search in another process does,
-            // while the owner rewrites the file.
+            // while the owner rewrites the file. On Windows the file is missing or held for a
+            // moment in each replacement, which a read waits out.
             PlayerId ownerId = owner.LocalPlayerId;
             int ownerPort = owner.Port;
             int reads = 0;
             int listed = 0;
+            int missed = 0;
             List<string> broken = new List<string>();
             Exception failure = null;
             ManualResetEventSlim isDone = new ManualResetEventSlim();
@@ -724,9 +726,11 @@ namespace Mu3Library.Tests
                     while (!isDone.IsSet)
                     {
                         reads++;
+                        bool isListed = false;
                         foreach (MachineDirectoryEntry entry in MachineDirectory.Read(_folder))
                         {
                             listed++;
+                            isListed |= entry.Lobby == lobby;
                             bool isWhole = entry.Lobby == lobby
                                 && entry.Owner == ownerId
                                 && entry.Port == ownerPort
@@ -738,6 +742,11 @@ namespace Mu3Library.Tests
                             {
                                 broken.Add($"{entry.Lobby} on {entry.Port}, capacity {entry.Capacity}: {string.Join(", ", entry.Data.Select(pair => pair.Key + "=" + pair.Value))}");
                             }
+                        }
+
+                        if (!isListed)
+                        {
+                            missed++;
                         }
                     }
                 }
@@ -765,13 +774,47 @@ namespace Mu3Library.Tests
                 isDone.Dispose();
             }
 
-            TestContext.Out.WriteLine($"{reads} reads, {listed} of which listed the lobby.");
+            TestContext.Out.WriteLine($"{reads} reads, {listed} of which listed the lobby, {missed} missed it.");
             Assert.That(failure, Is.Null, failure?.ToString());
             Assert.That(broken, Is.Empty);
             Assert.That(listed, Is.GreaterThan(0));
+            Assert.That(missed, Is.Zero, $"{missed} of {reads} reads missed the lobby.");
 
             // A rewrite that the reader got in the way of is tried again.
             PumpUntil(() => ListedData(lobby, "round") == Rounds.ToString(CultureInfo.InvariantCulture), "the last round to reach the file");
+        }
+
+        [Test]
+        public void Directory_ReadInTheMiddleOfAReplacement_WaitsForTheLobbyFile()
+        {
+            // As File.Replace leaves the folder on Windows for a moment: the old file moved aside,
+            // the new one not yet in place, so no file has the lobby file's name.
+            MachineDirectory directory = new MachineDirectory(_folder, 7);
+            directory.Publish(new PlayerId(9), 7, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            directory.Abandon();
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+            string temporary = Path.ChangeExtension(file, ".tmp");
+            File.Move(file, temporary);
+
+            Thread owner = new Thread(() =>
+            {
+                Thread.Sleep(10);
+                File.Move(temporary, file);
+            });
+            owner.Start();
+            try
+            {
+                Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(1) }));
+            }
+            finally
+            {
+                owner.Join();
+            }
+
+            // What a process that ended left in the middle of a replacement is old, and nobody waits for it.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0));
+            Assert.That(MachineDirectory.Read(_folder), Is.Empty);
         }
 
         [Test]

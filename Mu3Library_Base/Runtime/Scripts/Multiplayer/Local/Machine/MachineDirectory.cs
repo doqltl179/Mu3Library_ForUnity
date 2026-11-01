@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -25,6 +26,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// with the first listing and ends when the file is deleted or abandoned, or when scripts
     /// reload; deleting and abandoning wait for a write in progress first, so no write lands after
     /// them.
+    /// <para>
+    /// A replacement is not one step on Windows: <see cref="File.Replace(string, string, string)"/>
+    /// renames the old file to a backup beside it, named after it with <c>~RF</c> and a number,
+    /// moves the new one in, and deletes the backup. For a moment the folder lists neither file
+    /// under the lobby file's name, and opening it fails as missing or as held. A reader therefore
+    /// goes by every file of an owner, its lobby file, its temporary file, and that backup, and
+    /// reads a lobby file it cannot open again shortly while another of them is fresh.
+    /// </para>
     /// </remarks>
     internal sealed class MachineDirectory
     {
@@ -32,7 +41,22 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         private const int FileMagic = 0x4C33554D;
         private const int FileVersion = 1;
+        private const string FilePrefix = "peer-";
         private const string Extension = ".lobbies";
+
+        // How long one read waits at most, in all, for lobby files whose owners replace them; a
+        // replacement takes a few milliseconds.
+        private const double ReplaceWaitSeconds = 0.05;
+
+        private enum FileRead
+        {
+            /// <summary>Read, or not a file this version wrote.</summary>
+            Done,
+            /// <summary>Not rewritten for <see cref="StaleSeconds"/>.</summary>
+            Stale,
+            /// <summary>Missing or held by another handle, as in the middle of a replacement.</summary>
+            Unavailable,
+        }
 
         // The writer thread only writes small files; the default stack would be a megabyte.
         private const int WriterStackBytes = 128 * 1024;
@@ -348,8 +372,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
         }
 
         /// <summary>
-        /// Every lobby in the folder whose owner still runs. Files left by processes that ended
-        /// are deleted on the way.
+        /// Every lobby in the folder whose owner still runs, also one whose owner is replacing its
+        /// file in the meantime. Files left by processes that ended are deleted on the way.
         /// </summary>
         public static List<MachineDirectoryEntry> Read(string folder)
         {
@@ -363,29 +387,86 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     return entries;
                 }
 
-                files = Directory.GetFiles(folder, "*" + Extension);
+                files = Directory.GetFiles(folder, FilePrefix + "*");
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
                 return entries;
             }
 
-            long staleBefore = DateTime.UtcNow.Ticks - TimeSpan.FromSeconds(StaleSeconds).Ticks;
+            // An owner's port, from whichever of its files the folder lists at the moment.
+            List<int> ports = new List<int>(files.Length);
             for (int i = 0; i < files.Length; i++)
             {
-                string file = files[i];
-                if (!file.EndsWith(Extension, StringComparison.Ordinal))
+                if (TryGetPort(Path.GetFileName(files[i]), out int port) && !ports.Contains(port))
                 {
-                    continue;
+                    ports.Add(port);
                 }
+            }
 
-                if (ReadFile(file, staleBefore, entries))
+            long staleBefore = DateTime.UtcNow.Ticks - TimeSpan.FromSeconds(StaleSeconds).Ticks;
+            long waitUntil = Stopwatch.GetTimestamp() + (long)(ReplaceWaitSeconds * Stopwatch.Frequency);
+            for (int i = 0; i < ports.Count; i++)
+            {
+                string file = PathOf(folder, ports[i]);
+                while (true)
                 {
-                    TryDelete(file);
+                    FileRead read = ReadFile(file, staleBefore, entries);
+                    if (read == FileRead.Stale)
+                    {
+                        TryDelete(file);
+                        break;
+                    }
+
+                    if (read == FileRead.Done
+                        || Stopwatch.GetTimestamp() >= waitUntil
+                        || !HasFreshFile(folder, ports[i], staleBefore))
+                    {
+                        break;
+                    }
+
+                    Thread.Sleep(1);
                 }
             }
 
             return KeepNewest(entries);
+        }
+
+        /// <summary>The port in the name of a file an owner writes, or a replacement leaves beside it.</summary>
+        private static bool TryGetPort(string name, out int port)
+        {
+            port = 0;
+            int end = name.IndexOf('.', FilePrefix.Length);
+            return name.StartsWith(FilePrefix, StringComparison.Ordinal)
+                && end > FilePrefix.Length
+                && int.TryParse(name.Substring(FilePrefix.Length, end - FilePrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out port)
+                && port > 0;
+        }
+
+        /// <summary>
+        /// Whether a file of the owner on <paramref name="port"/> was written within
+        /// <see cref="StaleSeconds"/>: the owner runs and is replacing its lobby file. What a
+        /// process that ended left behind is older.
+        /// </summary>
+        private static bool HasFreshFile(string folder, int port, long staleBefore)
+        {
+            try
+            {
+                string[] files = Directory.GetFiles(folder, FilePrefix + port.ToString(CultureInfo.InvariantCulture) + ".*");
+                for (int i = 0; i < files.Length; i++)
+                {
+                    if (File.GetLastWriteTimeUtc(files[i]).Ticks >= staleBefore)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // The folder is gone, or the files with it.
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -421,10 +502,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         }
 
         /// <summary>
-        /// Adds the lobbies of one file. True when the file is stale; one that cannot be read adds
-        /// nothing, and a lobby with a key or a value longer than the frames carry is left out.
+        /// Adds the lobbies of one file. One that cannot be read adds nothing, and a lobby with a
+        /// key or a value longer than the frames carry is left out.
         /// </summary>
-        private static bool ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries)
+        private static FileRead ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries)
         {
             int firstEntry = entries.Count;
 
@@ -435,13 +516,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 {
                     if (reader.ReadInt32() != FileMagic || reader.ReadInt32() != FileVersion)
                     {
-                        return false;
+                        return FileRead.Done;
                     }
 
                     long written = reader.ReadInt64();
                     if (written < staleBefore)
                     {
-                        return true;
+                        return FileRead.Stale;
                     }
 
                     int port = reader.ReadInt32();
@@ -484,13 +565,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     }
                 }
 
-                return false;
+                return FileRead.Done;
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is FormatException || e is ArgumentException)
+            catch (Exception e) when ((e is IOException && !(e is EndOfStreamException)) || e is UnauthorizedAccessException)
             {
-                // Deleted or replaced while being read, or not a file this version wrote.
+                // Deleted, or replaced or held in the meantime.
                 entries.RemoveRange(firstEntry, entries.Count - firstEntry);
-                return false;
+                return FileRead.Unavailable;
+            }
+            catch (Exception e) when (e is EndOfStreamException || e is FormatException || e is ArgumentException)
+            {
+                // Not a file this version wrote.
+                entries.RemoveRange(firstEntry, entries.Count - firstEntry);
+                return FileRead.Done;
             }
         }
 
