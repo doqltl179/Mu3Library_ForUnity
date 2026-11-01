@@ -106,6 +106,46 @@ namespace Mu3Library.Tests
             }
         }
 
+        // Required [Inject] properties the container cannot write: get-only here, as one is in a
+        // player whose linker removed the setter.
+        private class GetOnlyInjectTarget
+        {
+            [Inject] public IServiceA Service { get; }
+        }
+
+        private abstract class GetOnlyInjectBase
+        {
+            [Inject] private IServiceA BaseService => null;
+        }
+
+        private class GetOnlyInjectLeaf : GetOnlyInjectBase { }
+
+        private abstract class AbstractGetOnlyInjectBase
+        {
+            [Inject] public abstract IServiceA Service { get; }
+        }
+
+        private class OverriddenGetOnlyInjectLeaf : AbstractGetOnlyInjectBase
+        {
+            public override IServiceA Service => null;
+        }
+
+        private class OptionalGetOnlyInjectTarget
+        {
+            [Inject(required: false)] public IServiceA Service { get; }
+        }
+
+        // The base declaration has a setter, so the container still writes the property through it.
+        private class WritableVirtualInjectBase
+        {
+            [Inject] public virtual IServiceA Service { get; set; }
+        }
+
+        private class GetterOnlyOverrideInjectLeaf : WritableVirtualInjectBase
+        {
+            public override IServiceA Service => base.Service;
+        }
+
         private abstract class GameCoreBase : CoreBase
         {
             [Inject(required: false)] private IServiceA _service = null;
@@ -487,6 +527,81 @@ namespace Mu3Library.Tests
             {
                 UnityEngine.Object.DestroyImmediate(go);
             }
+        }
+        #endregion
+
+        #region Unwritable [Inject] properties
+        [Test]
+        public void InjectInto_RequiredGetOnlyProperty_ThrowsEvenWhenItsServiceIsRegistered()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => _scope.InjectInto(new GetOnlyInjectTarget()));
+
+            StringAssert.Contains($"{typeof(GetOnlyInjectTarget).FullName}.{nameof(GetOnlyInjectTarget.Service)}", exception.Message);
+            StringAssert.Contains("no setter", exception.Message);
+        }
+
+        [Test]
+        public void InjectInto_RequiredGetOnlyBaseClassProperty_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.InjectInto(new GetOnlyInjectLeaf()));
+        }
+
+        [Test]
+        public void InjectInto_RequiredGetOnlyOverriddenProperty_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.InjectInto(new OverriddenGetOnlyInjectLeaf()));
+        }
+
+        [Test]
+        public void Resolve_ServiceWithRequiredGetOnlyProperty_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            _scope.Register<GetOnlyInjectTarget>(ServiceLifetime.Transient);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.Resolve<GetOnlyInjectTarget>());
+        }
+
+        [Test]
+        public void InjectInto_OptionalGetOnlyProperty_IsSkipped()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            OptionalGetOnlyInjectTarget target = new();
+
+            Assert.DoesNotThrow(() => _scope.InjectInto(target));
+            Assert.IsNull(target.Service);
+        }
+
+        [Test]
+        public void InjectInto_GetterOnlyOverrideOfWritableProperty_InjectsThroughTheBaseSetter()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            GetterOnlyOverrideInjectLeaf target = new();
+
+            _scope.InjectInto(target);
+
+            Assert.AreSame(_scope.Resolve<IServiceA>(), target.Service);
+            Assert.AreEqual(0, InjectableMembers.GetUnwritableProperties(typeof(GetterOnlyOverrideInjectLeaf)).Count);
+        }
+
+        [Test]
+        public void InjectableMembers_UnwritableProperties_ListsEachGetOnlyPropertyOnce()
+        {
+            CollectionAssert.AreEqual(
+                new[] { nameof(GetOnlyInjectTarget.Service) },
+                InjectableMembers.GetUnwritableProperties(typeof(GetOnlyInjectTarget)).Select(property => property.Name).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "BaseService" },
+                InjectableMembers.GetUnwritableProperties(typeof(GetOnlyInjectLeaf)).Select(property => property.Name).ToArray());
+            Assert.AreEqual(1, InjectableMembers.GetUnwritableProperties(typeof(OverriddenGetOnlyInjectLeaf)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetUnwritableProperties(typeof(InjectLeaf)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetProperties(typeof(GetOnlyInjectTarget)).Count);
         }
         #endregion
 

@@ -10,7 +10,8 @@ namespace Mu3Library.Editor.Window.Drawer
     /// <summary>
     /// Validates the DI registrations of every registered core while the game runs: a
     /// registered implementation whose constructor or required [Inject] members cannot be
-    /// resolved is reported here before the first resolve throws at some later moment.
+    /// resolved, or that has a required [Inject] property without a setter, is reported here
+    /// before the first resolve throws at some later moment.
     /// Reading the registrations resolves nothing, so the check has no side effects.
     /// </summary>
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
@@ -152,6 +153,24 @@ namespace Mu3Library.Editor.Window.Drawer
                 if (!IsInjectSatisfied(coreRoot, core, property.PropertyType, attribute))
                 {
                     issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] target {property.PropertyType.Name} is not registered.");
+                }
+            }
+
+            ValidateUnwritableProperties(implementationType, issues);
+        }
+
+        /// <summary>
+        /// Reports each required [Inject] property of <paramref name="implementationType"/> that has
+        /// no setter, which the container throws for whether or not its service is registered.
+        /// </summary>
+        internal static void ValidateUnwritableProperties(Type implementationType, List<string> issues)
+        {
+            foreach (PropertyInfo property in InjectableMembers.GetUnwritableProperties(implementationType))
+            {
+                InjectAttribute attribute = property.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] property has no setter, so the container cannot inject it.");
                 }
             }
         }

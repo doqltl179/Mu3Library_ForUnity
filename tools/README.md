@@ -5,6 +5,7 @@ Repository-local support tooling lives here. These tools can help agents inspect
 | Path | Owns |
 |---|---|
 | [cli/](cli/README.md) | Python CLI (`mu3-cli`) with the `repo` command group for repository checks and the `unity` group for Unity automation |
+| [di-strip-harness/](di-strip-harness/) | The assets of the [DI stripping harness](#di-stripping-harness), which `mu3-cli unity di-strip-harness` copies into a mirror project, builds as a player, and runs |
 | [dev/](dev/) | The scripts that enter the [development environment](#development-environment), which the root `.envrc` mirrors for direnv, and `env.local.example`, the template for personal variables |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation configured by `unity-cli-packages.tsv` |
 | [../test-unity.sh](../test-unity.sh) | EditMode and PlayMode test runs through the Unity Test Framework, built on `compile-unity.sh`'s selection, Editor lookup, and mirror |
@@ -124,6 +125,32 @@ Every target then runs in an isolated mirror, and `--in-place` is refused. Befor
 - Each `com.unity.*` dependency that `Packages/manifest.json` pins to a version takes the version that Editor bundles: the one its own package manifest recommends, or else the version of its built-in copy. A built-in module the Editor does not ship, such as `com.unity.modules.tetgen` on 6000.3, is dropped. A package it does not bundle keeps its version, with a warning.
 
 The check therefore compiles against the Unity packages a project on that Editor gets by default. Run it when a change touches code behind a `UNITY_6000_x_OR_NEWER` branch or an API that differs between Editor versions, changes a package's dependencies, or moves the declared floor. Each mirror imports from scratch, so a run takes minutes per target. `UNITY_EDITOR` still overrides the executable, with a warning when it is not the requested version.
+
+## DI Stripping Harness
+
+The DI container reaches the constructors it calls and the `[Inject]` members it fills only through reflection, which the Unity linker cannot see, so a player built with Managed Stripping Level Medium or High keeps them only through the link.xml that Base's editor `DILinkerProcessor` writes for each build. The Editor and the EditMode and PlayMode tests never strip, so only a player shows a regression. `mu3-cli unity di-strip-harness` builds a Windows x64 player of a small mirror project, runs it, and prints one line per check:
+
+```bash
+PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping High
+PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping Medium --backend il2cpp
+PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping High --with-unitask --work-dir C:/mu3-strip
+```
+
+`--stripping` takes `Disabled`, `Minimal`, `Low`, `Medium`, or `High` (default `High`), and `--backend` takes `mono` (default) or `il2cpp`, which needs the Editor's Windows IL2CPP module and Visual Studio's C++ workload. Without `--with-unitask` cores prepare through the coroutine path, as in the URP project; with it, through UniTask. The command runs only on Windows.
+
+[di-strip-harness/](di-strip-harness/) holds the mirror's assets. No game code in them creates a service with `new`; only the container does:
+
+- `Assets/Harness/StripHarnessServices.cs`: the services, among them a class with a parameterless and a longer constructor, one whose only constructor takes parameters, one that takes the `ContainerScope` and registers the rest through it, a nested class, a class that only the player compiles, a class nothing uses, and a consumer with every kind of `[Inject]` member: private and base-class fields, auto and explicit properties, keys, another core, an optional missing one, `IEnumerable`, `Func`, `Lazy`, and `IObjectInjector`.
+- `Assets/Harness/StripHarnessBoot.cs`: creates itself in an empty scene, creates two cores, runs the checks after ten frames, destroys the core to check `Dispose`, and quits with 0 only when every check passed and nothing logged an error or exception.
+- `Assets/Domain/`: an assembly that does not reference `Mu3Library.DI`, whose classes `Assembly-CSharp` registers.
+- `Plugin/HarnessPlugin.cs`: compiled with the Editor's own Mono compiler into `Assets/Plugins/HarnessPlugin.dll`, a precompiled assembly that does not reference `Mu3Library.DI` either.
+- `Assets/Editor/StripHarnessBuild.cs`: the `-executeMethod` entry that sets the backend and the stripping level and builds the player.
+
+The checks cover the core (its initialized and prepared events, an `[Inject]` field and a private-set property), registrations and constructors (the default constructor, the longest constructor, a `ContainerScope` parameter, a keyed registration without the `new()` constraint, a class with only a parameterized constructor, a factory with field injection, an instance with property injection), where a constructed class lives (the DI-free assembly, the precompiled DLL, a nested class, a player-only class), member injection (each kind of member above, and a player-only `[Preserve, Inject]` property), and the lifecycle (`Initialize`, at least five `Update` and `LateUpdate` calls, and `Dispose`): 31 in all.
+
+`--work-dir`, `log/di-strip-harness` by default, holds the mirror in `project/`, the player in `players/<backend>-<level>[-unitask]/`, and Unity's logs as `<backend>-<level>[-unitask]-build.log` and `-player.log`. Each run brings the mirror up to date and keeps its `Library/`, so only the first run imports it from scratch. The mirror's `Packages/manifest.json` holds the URP project's built-in modules and uGUI, Base from this checkout as a `file:` path, and with `--with-unitask` the UniTask commit that the Built-In project's lock file pins; its `ProjectVersion.txt` is the URP project's, so the harness runs the Editor that project names, or `UNITY_EDITOR`. No tracked project is opened or changed. Keep `--work-dir` short on Windows: the command warns when the mirror path passes 100 characters, which a deep worktree reaches, since Unity's `Library/` and the IL2CPP build add their own long paths below it.
+
+The command exits 0 only when the player built, exited 0 within `--player-timeout` (120 seconds by default), logged every check as passed and as many checks as it counted, and logged no error or exception; 1 when a check failed or the player did not report; and 3 when the mirror could not be prepared or the build failed or passed `--build-timeout` (3600 seconds by default). It also prints the total size of the managed DLLs for Mono and of `GameAssembly.dll` for IL2CPP. On the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300, Unity 6000.6.7f1) a Mono run took about 80 seconds the first time, importing the mirror, and about 35 seconds after that, with no other Unity running; an IL2CPP run on that mirror took 50 to 80 seconds, with Visual Studio 2022 Build Tools (MSVC 14.44) and two other Unity batch runs at the same time.
 
 ## Environment
 
