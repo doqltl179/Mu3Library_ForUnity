@@ -166,7 +166,9 @@ namespace Mu3Library.Multiplayer
         /// copied its pixels copies them again. A texture keeps its size on Steam, whose sizes
         /// are fixed, and takes the new image's size on a backend that changes it. Nothing is
         /// raised for an avatar the manager does not hold, an image that did not change, or one
-        /// that could not be read, which leaves the earlier image.
+        /// that could not be read, which leaves the image the texture shows: the manager tries a
+        /// failed read again up to 3 times, 1 second after each failure, and raises the event once
+        /// a try brings a new image (see <see cref="IMultiplayerManager.LoadAvatar"/>).
         /// </summary>
         public event Action<AvatarResult> OnAvatarChanged;
     }

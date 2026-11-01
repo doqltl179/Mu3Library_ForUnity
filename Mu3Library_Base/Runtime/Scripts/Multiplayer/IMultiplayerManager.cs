@@ -333,7 +333,14 @@ namespace Mu3Library.Multiplayer
         /// texture the game shows changes with it, then raises
         /// <see cref="IMultiplayerManagerEventBus.OnAvatarChanged"/>. The same notice corrects the
         /// default image Steam hands out at first for an account it did not know, until it has
-        /// downloaded the account's own picture.
+        /// downloaded the account's own picture. A read after a change that fails is tried again
+        /// up to 3 times, 1 second after each failure, while the backend is available, so one
+        /// failure does not leave that default image behind; once the last try fails too, the
+        /// manager logs one warning, and the texture keeps the image it shows until the backend
+        /// tells of another change. Of reads that overlap, as for two notices in a row, the texture
+        /// takes the image of the latest one that brought an image, so a later read that fails does
+        /// not throw away the new image an earlier one brought, and an earlier read that answers
+        /// after a later one changes nothing.
         /// <para>
         /// The manager owns every texture it hands out: never destroy or change one. Asking again
         /// for the same player and size answers the same texture. An avatar of another player

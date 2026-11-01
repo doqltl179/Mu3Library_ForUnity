@@ -73,8 +73,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// after the game ran them. The manager then reads again the avatars it holds of
         /// that player, so the default image is replaced in the texture the game shows, as a new
         /// picture a player picks later is. Steam sends both notices for one download; the manager
-        /// raises its event once for it, as only its latest read counts and a read that finds the
-        /// image the texture shows raises nothing.
+        /// raises its event once for it, as a read that finds the image the texture shows raises
+        /// nothing and an earlier read that answers after a later one changes nothing. When such
+        /// a read fails, the manager tries it again, so a failure does not leave the default image
+        /// in place (see <see cref="IMultiplayerManager.LoadAvatar"/>).
         /// </para>
         /// <para>
         /// An avatar answers <see cref="MultiplayerReason.BackendError"/> once Steam is gone, not
