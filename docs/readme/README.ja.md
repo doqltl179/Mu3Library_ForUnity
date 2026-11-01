@@ -438,7 +438,7 @@ Base パッケージ (**Mu3 Library**):
 - **Template**: 基本的なCore構造と使用例
 - **Attribute**: `ConditionalHideAttribute` と `ButtonInvokeAttribute` の使用方法
 - **UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
-- **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、プレイヤーのキック。Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります
+- **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、プレイヤーのキック。Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。プレイヤービルドがなくても、Multiplayer Play Mode を使えばエディターだけで実行できます。Unity 6000.6.7f1 と、このエディターに同梱された Multiplayer Play Mode 3.0.0 で確認しました。仮想プレイヤーはメインエディターの環境を引き継ぐため、同じ一時フォルダーでメインエディターのロビーを見つけます。メインエディターと仮想プレイヤーは同じ Steam アカウントで、ホストはすでに参加したアカウントを `DuplicateAccount` で拒否するため、この場合は **Use Local Backend** をオンにする必要があります。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります
 
 URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
