@@ -72,6 +72,11 @@ namespace Mu3Library.Multiplayer
 
         private readonly PacketWriter _writer = new PacketWriter();
 
+        // Handler exceptions of the manager's events logged in this session, by event and
+        // exception type, from the session's start to the next one's. The events are a fixed set,
+        // and a handler's exception types come from the game's own code, so it needs no limit.
+        private readonly HashSet<(string Event, Type Exception)> _loggedEventFailures = new HashSet<(string Event, Type Exception)>();
+
         public event Action<SessionStateChange> OnStateChanged;
         public event Action<Participant> OnParticipantJoined;
         public event Action<Participant, MultiplayerReason> OnParticipantLeft;
@@ -512,7 +517,7 @@ namespace Mu3Library.Multiplayer
 
             int generation = _sessionGeneration;
             SessionState state = _state;
-            Raise(OnJoinRequested, lobby);
+            Raise(nameof(OnJoinRequested), OnJoinRequested, lobby);
 
             // A handler that already ended or started a session decided for itself.
             if (generation != _sessionGeneration || state != _state)
@@ -555,7 +560,15 @@ namespace Mu3Library.Multiplayer
 
             SessionState previous = _state;
             _state = next;
-            Raise(OnStateChanged, new SessionStateChange(previous, next, reason));
+
+            // A session starts here, so its event handler failures are logged afresh, while the
+            // change to Offline that ends it still counts with it.
+            if (previous == SessionState.Offline)
+            {
+                _loggedEventFailures.Clear();
+            }
+
+            Raise(nameof(OnStateChanged), OnStateChanged, new SessionStateChange(previous, next, reason));
         }
 
         /// <summary>
@@ -719,7 +732,8 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Events
-        private static void Raise(Action handler)
+        // Each Raise names its event, which the log of a handler's exception counts it by.
+        private void Raise(string eventName, Action handler)
         {
             if (handler == null)
             {
@@ -732,11 +746,11 @@ namespace Mu3Library.Multiplayer
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                LogEventFailure(eventName, e);
             }
         }
 
-        private static void Raise<T>(Action<T> handler, T arg)
+        private void Raise<T>(string eventName, Action<T> handler, T arg)
         {
             if (handler == null)
             {
@@ -749,11 +763,11 @@ namespace Mu3Library.Multiplayer
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                LogEventFailure(eventName, e);
             }
         }
 
-        private static void Raise<T1, T2>(Action<T1, T2> handler, T1 arg1, T2 arg2)
+        private void Raise<T1, T2>(string eventName, Action<T1, T2> handler, T1 arg1, T2 arg2)
         {
             if (handler == null)
             {
@@ -766,11 +780,51 @@ namespace Mu3Library.Multiplayer
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                LogEventFailure(eventName, e);
             }
         }
 
-        private static void Invoke<T>(Action<T> callback, T result) => Raise(callback, result);
+        /// <summary>
+        /// Logs an exception that a handler of a manager event threw, the first time the handlers
+        /// of that event throw that exception type in a session, whether a packet from another
+        /// player or a call of this player's own raised the event. Many events come from both,
+        /// such as <see cref="OnStateChanged"/> or the host's own <see cref="OnLobbyDataChanged"/>,
+        /// so one rule logs a handler's failure the same way wherever the event came from, and
+        /// another player's chat flood cannot become a log flood. The first one keeps its stack trace.
+        /// </summary>
+        private void LogEventFailure(string eventName, Exception e)
+        {
+            Type type = e.GetType();
+            if (!_loggedEventFailures.Add((eventName, type)))
+            {
+                return;
+            }
+
+            Debug.LogException(e);
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{0}",
+                $"[Multiplayer] A handler of {eventName} threw {type.Name}. Further {type.Name}s from the handlers of {eventName} go unlogged until another session starts.");
+        }
+
+        /// <summary>
+        /// Answers the callback of a call of this player's own. Each callback answers one call,
+        /// so every exception it throws is logged.
+        /// </summary>
+        private static void Invoke<T>(Action<T> callback, T result)
+        {
+            if (callback == null)
+            {
+                return;
+            }
+
+            try
+            {
+                callback(result);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
         #endregion
     }
 }

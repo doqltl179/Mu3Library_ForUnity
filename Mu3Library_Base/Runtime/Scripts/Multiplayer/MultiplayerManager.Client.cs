@@ -255,7 +255,7 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Welcome)
                 {
-                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    if (!IsUnreliableFromHost(kind, data) && IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
                     {
                         Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome. Further {PacketsOf(kind)} before the welcome go unlogged until the session ends.");
                     }
@@ -283,7 +283,7 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.RulesChanged:
                     _rules = ReadRules(ref reader);
-                    Raise(OnRulesChanged, _rules);
+                    Raise(nameof(OnRulesChanged), OnRulesChanged, _rules);
                     break;
 
                 case PacketKind.GameStarted:
@@ -340,6 +340,21 @@ namespace Mu3Library.Multiplayer
             }
         }
 
+        /// <summary>
+        /// True for what a host sends unreliably: a ping report, and a game message whose delivery
+        /// mode, the byte after its kind, says unreliable. Unreliable packets keep no order with
+        /// the reliable welcome, so while a loss makes the network send the welcome again, the ping
+        /// reports and unreliable messages that the host sent after it may arrive first. This
+        /// player drops them, as everything before its welcome, but without a warning, so the
+        /// warning names only a host that sent a reliable packet before welcoming the player, which
+        /// the order of reliable packets rules out for a host that behaves.
+        /// </summary>
+        private static bool IsUnreliableFromHost(PacketKind kind, ReadOnlySpan<byte> data)
+        {
+            return kind == PacketKind.ParticipantPings
+                || (kind == PacketKind.MessageFromHost && data.Length > 1 && data[1] == (byte)DeliveryMode.Unreliable);
+        }
+
         private void HandleWelcome(ref PacketReader reader)
         {
             SessionState state = (SessionState)reader.ReadByte();
@@ -356,7 +371,7 @@ namespace Mu3Library.Multiplayer
             {
                 throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
             }
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             Dictionary<string, string> lobbyData = ReadData(ref reader, MultiplayerLimits.MaxLobbyDataSize);
 
             int count = reader.ReadInt();
@@ -424,7 +439,7 @@ namespace Mu3Library.Multiplayer
             // A late joiner arrives in a running game and needs its start data as much as anyone.
             if (state == SessionState.InGame && generation == _sessionGeneration)
             {
-                Raise(OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -437,7 +452,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _participants.Add(joined);
-            Raise(OnParticipantJoined, joined);
+            Raise(nameof(OnParticipantJoined), OnParticipantJoined, joined);
         }
 
         private void HandleParticipantLeft(ref PacketReader reader)
@@ -457,7 +472,7 @@ namespace Mu3Library.Multiplayer
 
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
-            Raise(OnParticipantLeft, removed, reason);
+            Raise(nameof(OnParticipantLeft), OnParticipantLeft, removed, reason);
         }
 
         private void HandleParticipantUpdated(ref PacketReader reader)
@@ -475,13 +490,13 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner).WithLoaded(isLoaded);
             _participants[index] = updated;
-            Raise(OnParticipantChanged, updated);
+            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
         }
 
         private void HandleGameStarted(ref PacketReader reader)
         {
             int gameNumber = reader.ReadInt();
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             if (_state != SessionState.Lobby)
             {
                 return;
@@ -500,7 +515,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -517,7 +532,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnReturnedToLobby);
+                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
             }
         }
 
