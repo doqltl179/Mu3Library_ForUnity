@@ -1551,6 +1551,104 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Sends_ToAPlayerThatReadsSlowly_GoOutAMegabyteACallAtMost_AndDoNotHoldTheOtherPlayers([Values(false, true)] bool sendsSegments)
+        {
+            // #290: once a full socket takes more again, megabytes can wait for it. Windows was
+            // seen to take the whole of a send on a writable socket only up to a megabyte in
+            // Unity, and a socket that took part of a larger one would keep Unity's Socket.Send
+            // calling, and with it the sending thread and every other player's messages, until
+            // the slow player read the rest. So each call hands a socket a megabyte at most, and
+            // the other player's messages go out between the calls while the slow one reads.
+            const int allowedLag = 8;
+            (LocalBackend host, RecordingListener hostEvents, Peer slow, Peer other) = ConnectTwo();
+            host.SendsSegments = sendsSegments;
+            ConnectionId toSlow = ConnectionTo(hostEvents, slow);
+            ConnectionId toOther = ConnectionTo(hostEvents, other);
+            _paused.Add(slow.Backend);
+
+            byte[] packet = new byte[64 * 1024];
+            int accepted = 0;
+            RunWithin(5.0, "filling the connection to a player that does not read", () =>
+            {
+                for (; accepted < 256; accepted++)
+                {
+                    BitConverter.GetBytes(accepted).CopyTo(packet, 0);
+                    if (!host.Send(toSlow, packet, DeliveryMode.Reliable))
+                    {
+                        return;
+                    }
+                }
+
+                throw new InvalidOperationException("No send answered false.");
+            }, () => slow.Backend.SimulateCrash());
+
+            // The slow player reads a little in each update; the host sends the other player a
+            // message before each update and counts the updates until it arrives.
+            slow.Backend.ReceiveBytesPerUpdate = 32 * 1024;
+            _paused.Remove(slow.Backend);
+            List<int> sentAt = new List<int>();
+            int updates = 0;
+            int arrived = 0;
+            int maxLag = 0;
+            Stopwatch waited = Stopwatch.StartNew();
+            while (slow.Events.Received.Count < accepted || arrived < sentAt.Count)
+            {
+                Assert.That(waited.Elapsed.TotalSeconds, Is.LessThan(WaitSeconds), "Timed out waiting for what the slow player was sent.");
+                if (slow.Events.Received.Count < accepted)
+                {
+                    Assert.That(host.Send(toOther, BitConverter.GetBytes(sentAt.Count), DeliveryMode.Reliable), Is.True);
+                    sentAt.Add(updates);
+                }
+
+                Thread.Sleep(2);
+                UpdateAll();
+                updates++;
+
+                // A connection delivers in order.
+                for (; arrived < other.Events.Received.Count; arrived++)
+                {
+                    maxLag = Math.Max(maxLag, updates - sentAt[arrived]);
+                }
+            }
+
+            Assert.That(slow.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, accepted)));
+            Assert.That(other.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, sentAt.Count)));
+            Assert.That(host.LargestSocketSend, Is.InRange(1, 1024 * 1024), "One socket call took more than a megabyte.");
+            Assert.That(sentAt.Count, Is.GreaterThan(4 * allowedLag), "The slow player read its backlog too fast for the test to tell.");
+            Assert.That(maxLag, Is.LessThanOrEqualTo(allowedLag), "A message to the other player waited while the slow player read.");
+            Assert.That(hostEvents.Disconnected, Is.Empty);
+        }
+
+        [Test]
+        public void SendingThread_ThatFails_LosesTheConnectionsItHeldOnceEach_AndANewThreadSendsForTheOthers()
+        {
+            // #290: a defect that throws on a backend's sending thread ends the thread. The
+            // connections whose sends it held drop as lost, each reported once, since how much of
+            // their data reached the socket is unknown; the next hand-over starts a new thread,
+            // so the connections that had nothing in flight go on.
+            (LocalBackend host, RecordingListener hostEvents, Peer failed, Peer kept) = ConnectTwo();
+            ConnectionId toFailed = ConnectionTo(hostEvents, failed);
+            ConnectionId toKept = ConnectionTo(hostEvents, kept);
+            WaitForSends(host);
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Exception, new System.Text.RegularExpressions.Regex("sending thread fails"));
+            host.FailsSendingThread = true;
+            Assert.That(host.Send(toFailed, BitConverter.GetBytes(1), DeliveryMode.Reliable), Is.True);
+            PumpUntil(() => hostEvents.Disconnected.Count > 0 && failed.Events.Disconnected.Count > 0, "the connection the thread held to drop on both sides");
+
+            Assert.That(host.Send(toKept, BitConverter.GetBytes(2), DeliveryMode.Reliable), Is.True);
+            PumpUntil(() => kept.Events.Received.Count == 1, "a send after the thread failed");
+            PumpFor(0.5);
+
+            Assert.That(hostEvents.Disconnected, Is.EqualTo(new[] { (toFailed, BackendDisconnectKind.ConnectionLost, 0) }));
+            Assert.That(failed.Events.Disconnected.Select(disconnect => disconnect.Kind), Is.EqualTo(new[] { BackendDisconnectKind.ConnectionLost }));
+            Assert.That(failed.Events.Received, Is.Empty, "The thread failed before its socket call.");
+            Assert.That(BitConverter.ToInt32(kept.Events.Received.Single(), 0), Is.EqualTo(2));
+            Assert.That(kept.Events.Disconnected, Is.Empty);
+            Assert.That(host.FailsSendingThread, Is.False, "The switch turned itself off.");
+        }
+
+        [Test]
         public void SimulatedLatency_ABackendDisposedWithoutClosing_StillSendsWhatItHeldBack()
         {
             // As the in-process backend: what a backend already sent arrives even when it goes away.
@@ -1843,6 +1941,32 @@ namespace Mu3Library.Tests
             Assert.That(hostEvents.Connected[0].Remote, Is.EqualTo(client.LocalPlayerId));
             Assert.That(hostEvents.Connected[0].IsIncoming, Is.True);
             return (host, hostEvents, client, clientEvents);
+        }
+
+        /// <summary>A host listening in a lobby and two members connected to it, each in a "process" of its own.</summary>
+        private (LocalBackend Host, RecordingListener HostEvents, Peer First, Peer Second) ConnectTwo()
+        {
+            RecordingListener hostEvents = new RecordingListener();
+            LocalBackend host = CreateRawBackend(CreateNetwork(), "Host", hostEvents);
+            LobbyId lobby = CreateLobby(host, LobbyVisibility.Public, 3);
+            Assert.That(host.StartListening(), Is.True);
+
+            Peer first = CreatePeer("First");
+            Peer second = CreatePeer("Second");
+            foreach (Peer peer in new[] { first, second })
+            {
+                Assert.That(Join(peer.Backend, lobby), Is.EqualTo(MultiplayerReason.None));
+                peer.Backend.Connect(host.LocalPlayerId);
+            }
+
+            PumpUntil(() => hostEvents.Connected.Count == 2 && first.Events.Connected.Count == 1 && second.Events.Connected.Count == 1, "both connections");
+            return (host, hostEvents, first, second);
+        }
+
+        /// <summary>The host's connection to the peer.</summary>
+        private static ConnectionId ConnectionTo(RecordingListener hostEvents, Peer peer)
+        {
+            return hostEvents.Connected.Single(connected => connected.Remote == peer.Id).Connection;
         }
 
         /// <summary>An owner and two members, who joined in the order of their names.</summary>
