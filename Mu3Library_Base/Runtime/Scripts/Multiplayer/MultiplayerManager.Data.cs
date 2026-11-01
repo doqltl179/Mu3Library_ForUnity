@@ -357,6 +357,8 @@ namespace Mu3Library.Multiplayer
                 throw new FormatException("The host changed lobby data under an invalid key.");
             }
 
+            ThrowIfDataTooLarge(DataSizeWith(key, value, _lobbyData, MultiplayerLimits.MaxLobbyDataSize), MultiplayerLimits.MaxLobbyDataSize);
+
             _lobbyData[key] = value;
             Raise(_onLobbyDataChanged, key, value);
         }
@@ -376,6 +378,8 @@ namespace Mu3Library.Multiplayer
             {
                 return;
             }
+
+            ThrowIfDataTooLarge(DataSizeWith(key, value, _participants[index].Data, MultiplayerLimits.MaxParticipantDataSize), MultiplayerLimits.MaxParticipantDataSize);
 
             Participant updated = _participants[index].WithData(WithDataEntry(_participants[index].Data, key, value));
             _participants[index] = updated;
@@ -488,6 +492,18 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
+            return DataSizeWith(key, value, data, limit) > limit ? MultiplayerReason.MessageTooLarge : MultiplayerReason.None;
+        }
+
+        /// <summary>
+        /// The UTF-8 bytes of the keys and values in <paramref name="data"/> once
+        /// <paramref name="key"/> holds <paramref name="value"/> in place of the entry under the
+        /// same key, counted only until they pass <paramref name="limit"/>. The host counts each
+        /// change it takes this way, and a client counts each change the host sends against its own
+        /// copy the same way, so both put the limit at the same byte.
+        /// </summary>
+        private static long DataSizeWith(string key, string value, IEnumerable<KeyValuePair<string, string>> data, int limit)
+        {
             long size = (long)Encoding.UTF8.GetByteCount(key) + Encoding.UTF8.GetByteCount(value);
             foreach (KeyValuePair<string, string> pair in data)
             {
@@ -502,7 +518,23 @@ namespace Mu3Library.Multiplayer
                 }
             }
 
-            return size > limit ? MultiplayerReason.MessageTooLarge : MultiplayerReason.None;
+            return size;
+        }
+
+        /// <summary>
+        /// Makes a host's packet malformed when the data it brings takes more UTF-8 bytes of keys
+        /// and values than <paramref name="limit"/>, with <paramref name="size"/> counted as far
+        /// as it passed the limit. The host holds its own lobby and participant data to the same
+        /// limit with <see cref="CheckDataEntry"/>, and a client's copy follows the host's packet
+        /// by packet, so only a host that skips the check gets here; without this, a host could
+        /// grow a client's copy without bound through entries under ever new keys.
+        /// </summary>
+        private static void ThrowIfDataTooLarge(long size, int limit)
+        {
+            if (size > limit)
+            {
+                throw new FormatException($"Keys and values of {size} bytes or more exceed the {limit}-byte data limit.");
+            }
         }
 
         /// <summary>
@@ -594,10 +626,11 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
-        /// <paramref name="limit"/>, and no value more than all of it. Every entry also takes at
-        /// least <see cref="MinDataEntryBytes"/> of the packet, so a count that the rest of the
-        /// packet cannot hold is malformed before any room is reserved for it: a short packet
-        /// that claims thousands of entries allocates nothing for them.
+        /// <paramref name="limit"/>, and no value more than all of it; the keys and values together
+        /// take no more than all of it either, as the host's own data never does. Every entry also
+        /// takes at least <see cref="MinDataEntryBytes"/> of the packet, so a count that the rest
+        /// of the packet cannot hold is malformed before any room is reserved for it: a short
+        /// packet that claims thousands of entries allocates nothing for them.
         /// </summary>
         private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
         {
@@ -608,6 +641,7 @@ namespace Mu3Library.Multiplayer
             }
 
             Dictionary<string, string> data = new Dictionary<string, string>(count);
+            long size = 0;
             for (int i = 0; i < count; i++)
             {
                 string key = reader.ReadString(MaxDataKeyBytes);
@@ -617,6 +651,8 @@ namespace Mu3Library.Multiplayer
                     throw new FormatException("Data under an invalid key.");
                 }
 
+                size += Encoding.UTF8.GetByteCount(key) + Encoding.UTF8.GetByteCount(value);
+                ThrowIfDataTooLarge(size, limit);
                 data[key] = value;
             }
 

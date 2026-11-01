@@ -517,6 +517,15 @@ namespace Mu3Library.Multiplayer
 
         private void HandleParticipantJoined(ref PacketReader reader)
         {
+            // A host admits no more players than its rules hold, at most MaxCapacity, and tells of
+            // each one that leaves before it admits another, so only a host that skips that check
+            // gets here; without this, joins under ever new IDs would grow the roster without
+            // bound. A full roster drops the packet before it is decoded.
+            if (_participants.Count >= MultiplayerLimits.MaxCapacity)
+            {
+                throw new FormatException($"A participant joined a roster that already holds {MultiplayerLimits.MaxCapacity} players, the most a session holds.");
+            }
+
             Participant joined = ReadParticipant(ref reader, _hostId);
             if (IndexOfParticipant(joined.Id) >= 0)
             {
