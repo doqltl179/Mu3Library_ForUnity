@@ -35,8 +35,10 @@ namespace Mu3Library.Multiplayer.Local
     /// <para>
     /// On a machine-wide network each backend listens on a port of the loopback address, and the
     /// process that owns a lobby answers the joins to it. A lobby takes a moment to show up in
-    /// another process's search, and a connection that receives nothing for
-    /// <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> counts as lost. The other side states
+    /// another process's search. A search or a join by lobby ID reads the lobby files on a thread
+    /// of the thread pool and goes on in the first <see cref="Update"/> after the read, usually
+    /// the next one, or a few later when it met an owner replacing its file. A connection that
+    /// receives nothing for <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> counts as lost. The other side states
     /// its player ID itself, so the identity is only as trustworthy as the processes on this
     /// computer.
     /// </para>
