@@ -77,7 +77,9 @@ namespace Mu3Library.Multiplayer.Data
         /// or with <see cref="AllowLateJoin"/>. The library on that player's side connects again
         /// by itself while its game runs: its state turns to
         /// <see cref="SessionState.Reconnecting"/>, and it connects to the host again until it is
-        /// back or this time is over, counted from when it noticed the drop. The slot outlasts
+        /// back, for <see cref="MultiplayerConfig.ReconnectTimeoutSeconds"/> of that player's own
+        /// or this time, whichever is shorter, counted from when it noticed the drop; the host
+        /// keeps the slot for this time even when the player stopped trying. The slot outlasts
         /// the end of the game, so a player may come back to the lobby or to the next game. A
         /// player who does not come back in time leaves with
         /// <see cref="MultiplayerReason.ConnectionLost"/>; <see cref="SessionState.Reconnecting"/>

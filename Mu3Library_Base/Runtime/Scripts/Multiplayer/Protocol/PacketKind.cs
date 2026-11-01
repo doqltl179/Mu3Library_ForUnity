@@ -47,5 +47,13 @@ namespace Mu3Library.Multiplayer.Protocol
         ParticipantReconnected = 18,
         /// <summary>Client to host: the sender is ready to play the game of this number.</summary>
         ReportLoaded = 19,
+        /// <summary>Client to host: one key of the sender's own participant data to delete.</summary>
+        DeleteParticipantData = 20,
+        /// <summary>Host to clients: one key of the game's lobby data was deleted.</summary>
+        LobbyDataDeleted = 21,
+        /// <summary>Host to clients: one key of a player's participant data was deleted.</summary>
+        ParticipantDataDeleted = 22,
+        /// <summary>Host to clients, unreliable: the round trip to each player with a connection, as the host measures it.</summary>
+        ParticipantPings = 23,
     }
 }

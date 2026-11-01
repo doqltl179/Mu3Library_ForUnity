@@ -46,8 +46,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
             else
             {
-                // No lobby this player is in lists that player, so there is no port to reach, or
-                // an outage cuts this player off.
+                // No lobby this player is in lists that player, nor did one before, so there is
+                // no port to reach, or an outage cuts this player off.
                 link = new MachineLink { Role = MachineLinkRole.Session, State = MachineLinkState.Dead };
                 Defer(() =>
                 {
@@ -313,16 +313,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>
         /// The port of a player this player shares a lobby with, preferring the lobby's owner,
-        /// whom a session connects to. 0 when no lobby lists the player.
+        /// whom a session connects to. A player that no lobby lists any more is found where this
+        /// player last found it, as Steam reaches a player by account: a client that its lobby
+        /// dropped still reaches its host. 0 for a player never found.
         /// </summary>
         private int FindPort(PlayerId player)
         {
-            int memberPort = 0;
+            int port = 0;
             foreach (MachineLobby lobby in _lobbies.Values)
             {
                 if (lobby.OwnerId == player && lobby.OwnerPort != Port)
                 {
-                    return lobby.OwnerPort;
+                    port = lobby.OwnerPort;
+                    break;
                 }
 
                 for (int i = 0; i < lobby.Members.Count; i++)
@@ -330,12 +333,18 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     MachineMember member = lobby.Members[i];
                     if (member.Id == player && member.Port != Port)
                     {
-                        memberPort = member.Port;
+                        port = member.Port;
                     }
                 }
             }
 
-            return memberPort;
+            if (port > 0)
+            {
+                _knownPorts[player] = port;
+                return port;
+            }
+
+            return _knownPorts.TryGetValue(player, out int known) ? known : 0;
         }
 
         /// <summary>The first frame of an incoming connection asks for a session with this player.</summary>

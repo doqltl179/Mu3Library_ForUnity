@@ -170,7 +170,7 @@ namespace Mu3Library.Tests
             host.Manager.StartGame();
             Pump();
 
-            a.Backend.SimulateOutage(20f);
+            a.Backend.SimulateOutage(ShortOutageSeconds);
             Advance(1.0);
             Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
             Advance(DropSeconds);

@@ -39,6 +39,10 @@ namespace Mu3Library.Multiplayer
         // Players the host kicked from this session; they cannot come back until it ends.
         private readonly HashSet<PlayerId> _bannedPlayers = new HashSet<PlayerId>();
 
+        // Who may enter the lobby the host created, which decides whether a returning player
+        // needs an invite to enter it again.
+        private LobbyVisibility _lobbyVisibility = LobbyVisibility.Public;
+
 
 
         #region Create
@@ -70,6 +74,7 @@ namespace Mu3Library.Multiplayer
             _isHost = true;
             _hostId = LocalPlayerId;
             _rules = options.Rules;
+            _lobbyVisibility = options.Visibility;
             _pendingCallback = callback;
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
@@ -146,7 +151,13 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> accepted = new Dictionary<string, string>(options.Data.Count);
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                MultiplayerReason check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
+                MultiplayerReason check = CheckLobbyKeyCase(pair.Key, accepted);
+                if (check != MultiplayerReason.None)
+                {
+                    return check;
+                }
+
+                check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
                 WarnIfInvalid(check, pair.Key);
                 if (check != MultiplayerReason.None)
                 {
@@ -423,6 +434,19 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // Each waits for the handshake timeout, so an account that keeps opening connections
+            // without saying hello could otherwise fill the host's list.
+            if (CountPendingConnections(remote) >= MultiplayerLimits.MaxPendingConnectionsPerAccount)
+            {
+                if (IsFirstPacketDrop(default, PacketDrop.ExtraConnection))
+                {
+                    Debug.LogWarning($"[Multiplayer] Closed a connection from {remote}: {MultiplayerLimits.MaxPendingConnectionsPerAccount} of its connections already wait for the welcome. Further such connections close unlogged until the session ends.");
+                }
+
+                _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.Timeout));
+                return;
+            }
+
             _peers[connection] = new PeerConnection
             {
                 Connection = connection,
@@ -482,12 +506,16 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Hello)
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from {remote} before its hello.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from {remote} before its hello. Further {PacketsOf(kind)} before a hello go unlogged until the session ends.");
+                    }
+
                     return;
                 }
 
                 int wireVersion = reader.ReadInt();
-                string gameId = reader.ReadString();
+                string gameId = reader.ReadString(MaxGameIdBytes);
                 int protocolVersion = reader.ReadInt();
                 HandleHello(peer, gameId, protocolVersion, wireVersion, data.Length, ref reader);
                 return;
@@ -518,6 +546,10 @@ namespace Mu3Library.Multiplayer
                     HostHandleParticipantData(peer, ref reader);
                     break;
 
+                case PacketKind.DeleteParticipantData:
+                    HostHandleParticipantDataDeletion(peer, ref reader);
+                    break;
+
                 case PacketKind.ChatToHost:
                     HostHandleChat(peer, ref reader);
                     break;
@@ -528,7 +560,11 @@ namespace Mu3Library.Multiplayer
 
                 default:
                     // Only the host sends the other kinds; a client that sends one is ignored.
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.WrongDirection))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from client {remote}. Further {PacketsOf(kind)} from clients go unlogged until the session ends.");
+                    }
+
                     break;
             }
         }
@@ -767,6 +803,21 @@ namespace Mu3Library.Multiplayer
                 : name.Substring(0, MultiplayerLimits.MaxPlayerNameLength);
         }
 
+        /// <summary>The connections of the account that the host has not welcomed yet.</summary>
+        private int CountPendingConnections(PlayerId player)
+        {
+            int count = 0;
+            foreach (PeerConnection peer in _peers.Values)
+            {
+                if (!peer.IsWelcomed && peer.Player == player)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         private PeerConnection FindWelcomedPeer(PlayerId player)
         {
             foreach (PeerConnection peer in _peers.Values)
@@ -858,6 +909,7 @@ namespace Mu3Library.Multiplayer
             _peers.Clear();
             _expiredPeers.Clear();
             _bannedPlayers.Clear();
+            _lobbyVisibility = LobbyVisibility.Public;
             _reservations.Clear();
             _expiredReservations.Clear();
             _shortenedReservations.Clear();
