@@ -26,14 +26,44 @@ namespace Mu3Library.Multiplayer
             NoClientRelay,
         }
 
+        /// <summary>Why the manager dropped a packet below the game messages.</summary>
+        private enum PacketDrop : byte
+        {
+            /// <summary>The packet ended early or held an invalid value.</summary>
+            Malformed,
+            /// <summary>At the host, a connection's packet before its hello; at a client, the host's packet before its welcome.</summary>
+            BeforeHandshake,
+            /// <summary>A kind that only the other side sends.</summary>
+            WrongDirection,
+            /// <summary>
+            /// Not a packet: a connection past <see cref="MultiplayerLimits.MaxPendingConnectionsPerAccount"/>,
+            /// which the host closed. Its code names no packet kind.
+            /// </summary>
+            ExtraConnection,
+        }
+
         private const MessagePolicy KnownPolicies = MessagePolicy.HostOnly | MessagePolicy.NoClientRelay;
 
-        // Distinct (type, reason) drops logged per session. A flood of bad messages logs each
-        // pair once, and a flood of distinct pairs stops logging at this count.
+        // Distinct drops logged per session: a dropped message (type and reason), refused
+        // participant data (reason), or a dropped packet (kind and reason). A flood of bad
+        // messages or packets logs each cause once, and a flood of distinct causes stops logging
+        // at this count.
         private const int MaxDropWarnings = 32;
+
+        // The codes of those drops: 0 to 0xFFFFFF for dropped messages, negative ones for refused
+        // participant data, and the range from here for dropped packets.
+        private const int PacketDropCodes = 1 << 24;
+
+        // Every value of PacketKind; any other byte counts as one unknown kind.
+        private static readonly bool[] KnownPacketKinds = FindKnownPacketKinds();
 
         private readonly Dictionary<ushort, MessageRegistration> _messages = new Dictionary<ushort, MessageRegistration>();
         private readonly HashSet<int> _loggedDrops = new HashSet<int>();
+
+        // Handler exceptions logged per session, by message type and exception type. They count
+        // apart from the drops, so no flood of bad packets hides a handler's own failure, and need
+        // no limit: only registered types reach a handler.
+        private readonly HashSet<(ushort MessageType, Type Exception)> _loggedHandlerFailures = new HashSet<(ushort MessageType, Type Exception)>();
 
         // Players a reliable message could not reach. Reused, so finding none costs nothing.
         private readonly List<PeerConnection> _unreachablePeers = new List<PeerConnection>();
@@ -462,8 +492,36 @@ namespace Mu3Library.Multiplayer
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                LogHandlerFailure(messageType, sender, e);
             }
+        }
+
+        /// <summary>
+        /// Logs an exception that a message handler threw, the first time the handler of that type
+        /// throws that exception type in a session. What <see cref="MessageReader"/> throws for a
+        /// payload that does not hold what the handler reads becomes a warning without a stack
+        /// trace: the sender wrote another payload, so the stack of this player's handler does not
+        /// show the cause, and the message names it. Any other exception, a
+        /// <see cref="FormatException"/> of the game's own code included, keeps its stack trace.
+        /// </summary>
+        private void LogHandlerFailure(ushort messageType, PlayerId sender, Exception e)
+        {
+            Type type = e.GetType();
+            if (!_loggedHandlerFailures.Add((messageType, type)))
+            {
+                return;
+            }
+
+            if (e is PayloadFormatException)
+            {
+                Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{0}",
+                    $"[Multiplayer] The handler of message type {messageType} could not read a message from {sender}: {e.Message} Further unreadable messages of this type go unlogged until the session ends.");
+                return;
+            }
+
+            Debug.LogException(e);
+            Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{0}",
+                $"[Multiplayer] The handler of message type {messageType} threw {type.Name}. Further {type.Name}s from this handler go unlogged until the session ends.");
         }
 
         private static DeliveryMode ReadDeliveryMode(ref PacketReader reader)
@@ -489,6 +547,17 @@ namespace Mu3Library.Multiplayer
         /// </summary>
         private bool IsFirstParticipantDataDrop(MultiplayerReason reason) => IsFirstDrop(-1 - (int)reason);
 
+        /// <summary>
+        /// The same for a packet of a kind dropped for a reason, so a flood of bad packets logs
+        /// once. Every byte that names no kind counts as one unknown kind, so the bytes cannot
+        /// fill the warnings by themselves.
+        /// </summary>
+        private bool IsFirstPacketDrop(PacketKind kind, PacketDrop reason)
+        {
+            int kindCode = IsKnownPacketKind(kind) ? (int)kind : 0;
+            return IsFirstDrop(PacketDropCodes | (kindCode << 8) | (int)reason);
+        }
+
         private bool IsFirstDrop(int key)
         {
             if (_loggedDrops.Count >= MaxDropWarnings)
@@ -503,10 +572,26 @@ namespace Mu3Library.Multiplayer
 
             if (_loggedDrops.Count == MaxDropWarnings)
             {
-                Debug.LogWarning($"[Multiplayer] {MaxDropWarnings} kinds of dropped messages logged; later drops go unlogged until the session ends.");
+                Debug.LogWarning($"[Multiplayer] {MaxDropWarnings} kinds of dropped packets and messages logged; later drops go unlogged until the session ends.");
             }
 
             return true;
+        }
+
+        private static bool IsKnownPacketKind(PacketKind kind) => KnownPacketKinds[(byte)kind];
+
+        /// <summary>The packets of a kind, or of every unknown kind, as the drop warnings name them.</summary>
+        private static string PacketsOf(PacketKind kind) => IsKnownPacketKind(kind) ? $"{kind} packets" : "packets of unknown kinds";
+
+        private static bool[] FindKnownPacketKinds()
+        {
+            bool[] known = new bool[byte.MaxValue + 1];
+            foreach (PacketKind kind in Enum.GetValues(typeof(PacketKind)))
+            {
+                known[(byte)kind] = true;
+            }
+
+            return known;
         }
 
         private static void LogDroppedMessage(ushort messageType, string reason)
@@ -517,6 +602,7 @@ namespace Mu3Library.Multiplayer
         private void ResetMessageState()
         {
             _loggedDrops.Clear();
+            _loggedHandlerFailures.Clear();
             _unreachablePeers.Clear();
             _hostMaxMessageSize = 0;
         }

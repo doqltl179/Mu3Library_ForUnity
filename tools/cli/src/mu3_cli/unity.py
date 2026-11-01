@@ -797,6 +797,28 @@ def platform_arguments(platform_name: str) -> list[str]:
     return ["--platform", platform_name]
 
 
+def filter_arguments(test_filter: str | None) -> list[str]:
+    """The --filter option that test-unity.sh passes to Unity's -testFilter, or nothing."""
+    if test_filter is None:
+        return []
+    if not test_filter.strip():
+        raise ValueError("--filter requires a test name or pattern.")
+    if test_filter.startswith("-"):
+        raise ValueError(f"--filter expects a test name or pattern, not an option: {test_filter}")
+    if test_filter.startswith("/"):
+        raise ValueError(f"--filter cannot start with /, which Git Bash rewrites as a file path: {test_filter}")
+    return ["--filter", test_filter]
+
+
+def stall_timeout_arguments(stall_timeout: int | None) -> list[str]:
+    """The --stall-timeout option of test-unity.sh, or nothing for its default."""
+    if stall_timeout is None:
+        return []
+    if stall_timeout < 0:
+        raise ValueError("--stall-timeout expects a whole number of seconds.")
+    return ["--stall-timeout", str(stall_timeout)]
+
+
 def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
     """Run compile-unity.sh or test-unity.sh, which take the same selection options."""
     if not script_path.is_file():
@@ -898,13 +920,23 @@ def unity_test(
     test_platform: str = typer.Option(
         "editmode", "--platform", help="editmode or playmode: the Unity Test Framework platform to run."
     ),
+    test_filter: str | None = typer.Option(
+        None,
+        "--filter",
+        help="Run only the tests whose full name matches this Unity -testFilter pattern, [Explicit] ones included.",
+    ),
+    stall_timeout: int | None = typer.Option(
+        None,
+        "--stall-timeout",
+        help="Stop Unity and fail the target once its log has not grown for this many seconds (default 600; 0 never).",
+    ),
 ) -> None:
     """Run the EditMode or PlayMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
     try:
         arguments = entry_point_arguments(
             target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        ) + platform_arguments(test_platform)
+        ) + platform_arguments(test_platform) + filter_arguments(test_filter) + stall_timeout_arguments(stall_timeout)
         return_code = run_entry_point(test_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error

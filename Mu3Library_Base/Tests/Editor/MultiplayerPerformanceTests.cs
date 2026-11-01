@@ -19,18 +19,20 @@ namespace Mu3Library.Tests
     /// The load of NFR-1 in docs/specs/steam-player-hosted-multiplayer.md on the local backend:
     /// a full session of 16 players, every client sending 30 unreliable messages of 256 bytes a
     /// second and the host 30 reliable messages of 1 KB a second to everyone, at 60 frames a
-    /// second, each run once with the clients' messages going to the host only and once to every
-    /// other player through the host. It times only the host's own calls, its manager's update
+    /// second, with the clients' messages going to the host only; each network also runs once
+    /// with them going to every other player through the host, as a reference measurement that
+    /// NFR-1 does not hold to its target. It times only the host's own calls, its manager's update
     /// (which updates its backend) and its sends, and counts what they allocate; it also checks
     /// NFR-2, that each message reaches its handler in the frame after it was sent at the latest.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It asserts what does not depend on the machine, no allocation in the steady state and no
-    /// message handled later than the frame after the one it was sent in (one frame more on a
-    /// machine-wide network, for the loopback), and only logs the timing against the 0.5 ms
-    /// target, in a line that starts with <c>[NFR-1]</c>, in the Unity log and in the test's
-    /// output in the results file.
+    /// Every case asserts no allocation in the steady state and no message handled later than
+    /// the frame after the one it was sent in (one frame more on a machine-wide network, for the
+    /// loopback), and logs the timing in a line that starts with <c>[NFR-1]</c>, in the Unity log
+    /// and in the test's output in the results file. The cases whose clients send to the host
+    /// also assert that the host's average stays within the 0.5 ms target, which depends on the
+    /// machine; the relayed cases only log theirs.
     /// </para>
     /// <para>
     /// On a network inside this process the players run frame by frame on a test clock as fast
@@ -38,10 +40,10 @@ namespace Mu3Library.Tests
     /// machine-wide network every player has a network object of its own, as a separate process
     /// would, the frames keep to 60 a second in real time, and the timing includes the loopback
     /// sockets; those cases take about 40 seconds each, so <see cref="ExplicitAttribute"/> keeps
-    /// them out of a normal run. Run them by name, for example with <c>Unity -batchmode
-    /// -projectPath UnityProject_BuiltIn -runTests -testPlatform EditMode -testFilter
-    /// Mu3Library.Tests.MultiplayerPerformanceTests -testResults results.xml -logFile
-    /// run.log</c>. The players share this thread, so a garbage collection that another player's
+    /// them out of a normal run. Run them by name: in this repository with <c>bash
+    /// ./test-unity.sh built-in --filter Mu3Library.Tests.MultiplayerPerformanceTests</c>,
+    /// elsewhere with the Unity Test Framework's <c>-testFilter</c>. The players share this
+    /// thread, so a garbage collection that another player's
     /// allocation starts can land in a host frame.
     /// </para>
     /// </remarks>
@@ -51,9 +53,9 @@ namespace Mu3Library.Tests
         /// <summary>Who the clients' messages go to.</summary>
         public enum ClientRoute
         {
-            /// <summary>To the host only.</summary>
+            /// <summary>To the host only: the load NFR-1 holds to its target.</summary>
             ToHost,
-            /// <summary>To every other player, which the host relays to the other clients.</summary>
+            /// <summary>To every other player, which the host relays to the other clients: a reference measurement.</summary>
             ToOthers,
         }
 
@@ -69,6 +71,9 @@ namespace Mu3Library.Tests
         private const int ClientPayloadBytes = 256;
         private const int HostPayloadBytes = 1024;
         private const double TargetMilliseconds = 0.5;
+
+        // The report counts the host frames that took longer than this, such as one that waited for a file.
+        private const double LongFrameMilliseconds = 2.0;
 
         private const int WarmupFrames = 4 * FramesPerSecond;
         private const int InProcessFrames = 60 * FramesPerSecond;
@@ -98,7 +103,6 @@ namespace Mu3Library.Tests
             public readonly int[] SendAllocations;
             public readonly long[] UpdateBytes;
             public readonly long[] SendBytes;
-            public readonly bool[] IsDirectoryFrame;
             public int Count;
 
             public Samples(int frames)
@@ -109,7 +113,6 @@ namespace Mu3Library.Tests
                 SendAllocations = new int[frames];
                 UpdateBytes = new long[frames];
                 SendBytes = new long[frames];
-                IsDirectoryFrame = new bool[frames];
             }
         }
 
@@ -228,10 +231,14 @@ namespace Mu3Library.Tests
                 Assert.That(player.LateMessages, Is.Zero, $"NFR-2: {player.LateMessages} messages reached player {i} more than {AllowedLateFrames} frames after the frame they were sent in.");
             }
 
-            Assert.That(SumOf(samples.UpdateAllocations, samples, includeDirectoryFrames: false), Is.Zero,
-                "NFR-1: the host's update allocated in the steady state, outside the frames that rewrote its lobby file.");
-            Assert.That(SumOf(samples.SendAllocations, samples, includeDirectoryFrames: true), Is.Zero,
-                "NFR-1: the host's sends allocated in the steady state.");
+            Assert.That(SumOf(samples.UpdateAllocations, samples), Is.Zero, "NFR-1: the host's update allocated in the steady state.");
+            Assert.That(SumOf(samples.SendAllocations, samples), Is.Zero, "NFR-1: the host's sends allocated in the steady state.");
+
+            if (route == ClientRoute.ToHost)
+            {
+                double average = Average(samples.UpdateMilliseconds, samples.Count) + Average(samples.SendMilliseconds, samples.Count);
+                Assert.That(average, Is.LessThanOrEqualTo(TargetMilliseconds), "NFR-1: the host's average time per frame missed the target on this machine.");
+            }
         }
 
         /// <summary>
@@ -245,8 +252,6 @@ namespace Mu3Library.Tests
             {
                 _now += FrameSeconds;
             }
-
-            DateTime directoryBefore = samples != null && _isRealTime ? LobbyFileTime() : default;
 
             long allocatedBefore = AllocatedBytes();
             _allocations.FilterToCurrentThread();
@@ -280,7 +285,6 @@ namespace Mu3Library.Tests
                 samples.SendAllocations[i] = sendAllocations;
                 samples.UpdateBytes[i] = allocatedAfterUpdate - allocatedBefore;
                 samples.SendBytes[i] = allocatedAfterSend - allocatedAfterUpdate;
-                samples.IsDirectoryFrame[i] = _isRealTime && LobbyFileTime() != directoryBefore;
             }
 
             MessageTarget clientTarget = _route == ClientRoute.ToHost ? MessageTarget.Host : MessageTarget.Others;
@@ -479,12 +483,6 @@ namespace Mu3Library.Tests
                 }
             }
         }
-
-        private DateTime LobbyFileTime()
-        {
-            string file = Path.Combine(_folder, "peer-" + _host.Backend.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
-            return File.GetLastWriteTimeUtc(file);
-        }
         #endregion
 
         #region Allocations
@@ -511,15 +509,12 @@ namespace Mu3Library.Tests
 
         private long AllocatedBytes() => _hasAllocatedBytes ? GC.GetAllocatedBytesForCurrentThread() : 0L;
 
-        private static long SumOf(int[] values, Samples samples, bool includeDirectoryFrames)
+        private static long SumOf(int[] values, Samples samples)
         {
             long sum = 0;
             for (int i = 0; i < samples.Count; i++)
             {
-                if (includeDirectoryFrames || !samples.IsDirectoryFrame[i])
-                {
-                    sum += values[i];
-                }
+                sum += values[i];
             }
 
             return sum;
@@ -531,38 +526,24 @@ namespace Mu3Library.Tests
         {
             int count = samples.Count;
             double[] total = new double[count];
-            int directoryFrames = 0;
-            long allocationsOutsideDirectory = 0;
-            long allocationsInDirectory = 0;
-            long bytesOutsideDirectory = 0;
-            long bytesInDirectory = 0;
+            long allocationCount = 0;
+            long allocatedBytes = 0;
             int allocatingFrames = 0;
-            double directoryMilliseconds = 0.0;
-            double directoryMax = 0.0;
-            double otherMax = 0.0;
+            int longFrames = 0;
             for (int i = 0; i < count; i++)
             {
                 total[i] = samples.UpdateMilliseconds[i] + samples.SendMilliseconds[i];
                 int allocations = samples.UpdateAllocations[i] + samples.SendAllocations[i];
-                long bytes = samples.UpdateBytes[i] + samples.SendBytes[i];
+                allocationCount += allocations;
+                allocatedBytes += samples.UpdateBytes[i] + samples.SendBytes[i];
                 if (allocations > 0)
                 {
                     allocatingFrames++;
                 }
 
-                if (samples.IsDirectoryFrame[i])
+                if (total[i] > LongFrameMilliseconds)
                 {
-                    directoryFrames++;
-                    allocationsInDirectory += allocations;
-                    bytesInDirectory += bytes;
-                    directoryMilliseconds += total[i];
-                    directoryMax = Math.Max(directoryMax, total[i]);
-                }
-                else
-                {
-                    allocationsOutsideDirectory += allocations;
-                    bytesOutsideDirectory += bytes;
-                    otherMax = Math.Max(otherMax, total[i]);
+                    longFrames++;
                 }
             }
 
@@ -584,6 +565,11 @@ namespace Mu3Library.Tests
                 clientsSent += _players[i].Sent;
             }
 
+            // NFR-1 holds only the clients' messages to the host to its target; the relay is a reference.
+            string verdict = route == ClientRoute.ToHost
+                ? "target " + Format(TargetMilliseconds) + " ms " + (Average(total) <= TargetMilliseconds ? "met" : "MISSED")
+                : "reference, not held to the " + Format(TargetMilliseconds) + " ms target";
+
             StringBuilder report = new StringBuilder();
             report.Append("[NFR-1] mode=").Append(mode)
                 .Append(" route=").Append(route)
@@ -598,17 +584,11 @@ namespace Mu3Library.Tests
                 .Append(" max=").Append(Format(Max(total)))
                 .Append(" (update avg=").Append(Format(Average(samples.UpdateMilliseconds, count)))
                 .Append(" sends avg=").Append(Format(Average(samples.SendMilliseconds, count)))
-                .Append(") target ").Append(Format(TargetMilliseconds)).Append(" ms ")
-                .Append(Average(total) <= TargetMilliseconds ? "met" : "MISSED")
-                .Append(" | lobby-file frames=").Append(directoryFrames)
-                .Append(" avg=").Append(Format(directoryFrames > 0 ? directoryMilliseconds / directoryFrames : 0.0))
-                .Append(" max=").Append(Format(directoryMax))
-                .Append("; other frames max=").Append(Format(otherMax))
+                .Append(") ").Append(verdict)
+                .Append(" | frames over ").Append(Format(LongFrameMilliseconds)).Append(" ms=").Append(longFrames)
                 .Append(" | allocating frames=").Append(allocatingFrames)
-                .Append(", allocations outside lobby-file frames=").Append(allocationsOutsideDirectory)
-                .Append(" (").Append(_hasAllocatedBytes ? bytesOutsideDirectory.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
-                .Append(", in lobby-file frames=").Append(allocationsInDirectory)
-                .Append(" (").Append(_hasAllocatedBytes ? bytesInDirectory.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
+                .Append(", allocations=").Append(allocationCount)
+                .Append(" (").Append(_hasAllocatedBytes ? allocatedBytes.ToString(CultureInfo.InvariantCulture) : "n/a").Append(" B)")
                 .Append(" | messages sent: clients=").Append(clientsSent)
                 .Append(" host=").Append(_host.Sent)
                 .Append(" handled=").Append(received)

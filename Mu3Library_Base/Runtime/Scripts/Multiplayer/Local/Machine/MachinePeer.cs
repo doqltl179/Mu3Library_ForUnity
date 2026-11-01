@@ -23,7 +23,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// </summary>
     /// <remarks>
     /// Everything runs on the main thread inside <see cref="Update"/>, on non-blocking sockets;
-    /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>).
+    /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>), and
+    /// the lobby file is rewritten on a thread of its own (<see cref="MachineDirectory"/>).
     /// What the session sends during an update, such as the messages a host relays, waits in its
     /// connection's queue until the update ends, so each connection takes one socket call for all
     /// of them instead of one for each; what the game sends between updates leaves at once.
@@ -70,6 +71,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private readonly Dictionary<ConnectionId, MachineLink> _sessions = new Dictionary<ConnectionId, MachineLink>();
         private readonly Queue<Action> _deferred = new Queue<Action>();
 
+        // Where this player last found each player in a lobby, for FindPort.
+        private readonly Dictionary<PlayerId, int> _knownPorts = new Dictionary<PlayerId, int>();
+
         private IMultiplayerBackendListener _listener;
         private bool _isDisposed = false;
         private bool _isListening = false;
@@ -97,6 +101,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// open, as a full send buffer on Steam does.
         /// </summary>
         public int FailingSends { get; set; }
+
+        /// <summary>
+        /// Test switch: how much one update reads from one connection at most, so that what a
+        /// connection carries can take several updates to arrive, as from a slower network.
+        /// </summary>
+        public int ReceiveBytesPerUpdate { get; set; } = MaxReceiveBytesPerUpdate;
 
         // Until when SimulateOutage cuts this peer's session connections off.
         private double _outageEnd = double.NegativeInfinity;
@@ -235,6 +245,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             Abort(_acceptor);
+            _directory.Abandon();
             Clear();
         }
 
@@ -293,6 +304,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _links.Clear();
             _sessions.Clear();
             _lobbies.Clear();
+            _knownPorts.Clear();
             _joins.Clear();
             _deferred.Clear();
             _listener = null;
@@ -627,7 +639,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             int total = 0;
-            while (link.State == MachineLinkState.Open && !_isDisposed && total < MaxReceiveBytesPerUpdate)
+            while (link.State == MachineLinkState.Open && !_isDisposed && total < ReceiveBytesPerUpdate)
             {
                 EnsureReceiveSpace(link);
                 int received = link.Socket.Receive(link.Received, link.ReceivedCount, link.Received.Length - link.ReceivedCount, SocketFlags.None, out SocketError error);

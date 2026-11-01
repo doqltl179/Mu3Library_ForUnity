@@ -26,6 +26,9 @@ namespace Mu3Library.Tests
     {
         private const string EnableVariable = "MU3LIBRARY_STEAM_TESTS";
 
+        // Robin Walker of Valve (steamcommunity.com/id/robinwalker), a public profile since 2003.
+        private const ulong PublicAccountId = 76561197960435530UL;
+
         private sealed class Recorder : IMultiplayerBackendListener
         {
             public readonly List<string> Events = new List<string>();
@@ -49,6 +52,7 @@ namespace Mu3Library.Tests
 
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         private SteamBackend _backend;
@@ -236,6 +240,11 @@ namespace Mu3Library.Tests
 
                 Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
                 Assert.That(manager.Participants.Single().Data["character"], Is.EqualTo("knight"));
+
+                // FR-36: the host's own entry of the pings every player reads; a client's needs a second account.
+                Assert.That(manager.TryGetParticipantPing(_backend.LocalPlayerId, out int ping), Is.True);
+                Assert.That(ping, Is.Zero);
+                Assert.That(manager.TryGetParticipantPing(new PlayerId(_backend.LocalPlayerId.Value + 1), out _), Is.False);
                 Assert.That(dataChanges.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (_backend.LocalPlayerId, "character") }));
 
                 manager.Leave();
@@ -300,9 +309,89 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_RefusesAKeyThatDiffersOnlyByCase_AndSearchFindsAFilterKeyInAnyCase()
+        {
+            // FR-11, FR-38: Steam keeps one value for keys that differ only by case, so the manager
+            // refuses the second key on every backend, and the local backends match filter keys
+            // in any case because Steam does.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+
+                Assert.That(manager.SetLobbyData("map", "forest").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "desert" }));
+                Assert.That(manager.LobbyData["map"], Is.EqualTo("desert"));
+                Assert.That(_backend.GetLobbyData(lobby, "Map"), Is.EqualTo("desert"));
+                Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"), "Steam reads a key in any case");
+
+                LobbyInfo found = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby);
+                Assert.That(found, Is.Not.Null, "the lobby never showed up in a search filtered by its key as spelled");
+                // Steam's search may spell a key otherwise than the host wrote it, so a result finds it in any case.
+                TestContext.WriteLine($"Steam search hands the key back as '{string.Join("', '", found.Data.Keys)}'.");
+                Assert.That(found.Data.Count, Is.EqualTo(1));
+                Assert.That(found.Data["Map"], Is.EqualTo("desert"));
+                Assert.That(found.Data["map"], Is.EqualTo("desert"));
+
+                bool byOtherCase = SearchUntil(manager, () => Worldwide().AddStringFilter("MAP", "desert"), lobby, seconds: 10) != null;
+                bool byOtherValueCase = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "DESERT"), lobby, seconds: 10) != null;
+                TestContext.WriteLine($"Steam finds the lobby by the key in another case: {byOtherCase}; by the value in another case: {byOtherValueCase}.");
+                Assert.That(byOtherCase, Is.True, "Steam matches a filter key in any case, as the local backends do");
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_DeletesALobbyDataKey_FromTheLobbyAndFromSearch()
+        {
+            // FR-11 on Steam itself: a deleted key leaves the lobby, what search returns, and what
+            // it filters on; the host's own participant data loses a key the same way.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                List<(string Key, string Value)> lobbyChanges = new List<(string, string)>();
+                List<(Participant Participant, string Key)> dataChanges = new List<(Participant, string)>();
+                manager.OnLobbyDataChanged += (key, value) => lobbyChanges.Add((key, value));
+                manager.OnParticipantDataChanged += (participant, key) => dataChanges.Add((participant, key));
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(manager.SetLobbyData("Mode", "coop").IsSuccess, Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key");
+
+                Assert.That(manager.DeleteLobbyData("Map").IsSuccess, Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, "Map"), Is.Null);
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Mode"] = "coop" }));
+                Assert.That(lobbyChanges.Last(), Is.EqualTo(("Map", (string)null)));
+
+                LobbyInfo after = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && !info.Data.ContainsKey("Map"), 30);
+                Assert.That(after, Is.Not.Null, "search never dropped the deleted key");
+                Assert.That(after.Data["Mode"], Is.EqualTo("coop"));
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby, seconds: 5), Is.Null,
+                    "search no longer finds the lobby by the deleted key");
+
+                Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+                Assert.That(manager.DeleteParticipantData("character").IsSuccess, Is.True);
+                Assert.That(manager.Participants.Single().Data, Is.Empty);
+                Assert.That(dataChanges.Select(change => change.Key), Is.EqualTo(new[] { "character", "character" }));
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
         {
-            // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
+            // FR-4 on Steam itself, with this account's own avatar; another account's follows.
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
@@ -371,6 +460,146 @@ namespace Mu3Library.Tests
             {
                 manager.Dispose();
             }
+        }
+
+        [Test]
+        public void SteamAvatar_OnceSteamShutsDown_AnswersBackendError_ToTheRequestWaitingAndToANewOne()
+        {
+            // FR-4: one reason for an avatar once Steam is gone, the one the manager answers itself
+            // then. An account this client is unlikely to know makes Steam download it first.
+            // No update runs before Steam shuts down, since Steam can download an avatar within one.
+            PlayerId stranger = new PlayerId(76561197960265728UL + (ulong)new System.Random().Next(1 << 20, int.MaxValue));
+            MultiplayerReason? waiting = null;
+            _backend.LoadAvatar(stranger, AvatarSize.Large, (reason, avatar) => waiting = reason);
+            if (_backend.PendingAvatarCount == 0)
+            {
+                Assert.Ignore($"Steam held the avatar of {stranger} already, so no request waited.");
+            }
+
+            // Steam shut down under the backend, as a game may do; TearDown then releases only the
+            // backend's own resources, and the next SetUp starts Steam again.
+            Steamworks.SteamAPI.Shutdown();
+            Assert.That(_backend.IsAvailable, Is.False);
+            MultiplayerReason? later = null;
+            _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => later = reason);
+            _backend.Update();
+
+            Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
+            Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
+            Assert.That(_backend.PendingAvatarCount, Is.Zero);
+        }
+
+        [Test]
+        public void SteamAvatar_OfAPublicAccountThatIsNoFriend_IsDownloaded_AfterAskingSteamOnce()
+        {
+            // FR-4 through the path that downloads an avatar first: an account this one is no
+            // friend of and shares no lobby with, so Steam knows little of it. Robin Walker's
+            // account at Valve has had a public profile with a picture of its own since 2003, which
+            // makes it about as stable as a public account gets. Only a Steam that is offline, or
+            // that never learned the account's name, as for a deleted account, leaves the test
+            // ignored; any other failure to bring the avatar fails it.
+            PlayerId account = new PlayerId(PublicAccountId);
+            Steamworks.CSteamID steamId = new Steamworks.CSteamID(account.Value);
+            if (!Steamworks.SteamUser.BLoggedOn())
+            {
+                Assert.Ignore("Steam is not logged on to its servers, so it downloads nothing.");
+            }
+
+            if (Steamworks.SteamFriends.HasFriend(steamId, Steamworks.EFriendFlags.k_EFriendFlagImmediate))
+            {
+                Assert.Ignore($"{account} is a friend of this account, so Steam does not download the avatar.");
+            }
+
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(_backend, new MultiplayerConfig("mu3.test.avatar", 1)).IsSuccess, Is.True);
+                List<AvatarResult> changes = new List<AvatarResult>();
+                manager.OnAvatarChanged += changes.Add;
+
+                AvatarResult? result = null;
+                Stopwatch watch = Stopwatch.StartNew();
+                manager.LoadAvatar(account, AvatarSize.Large, r => result = r);
+                // Steam hands out no image (0) for an account it does not know yet, which the
+                // backend asks it about, or one it still loads (-1); either way the request waits.
+                bool downloads = _backend.PendingAvatarCount > 0;
+                bool knewNothing = _backend.UserInformationRequestCount > 0;
+                Pump(manager, () => result.HasValue, 15);
+                TestContext.WriteLine($"Steam answered the large avatar of {account} with {result?.Reason.ToString() ?? "nothing"} after {watch.Elapsed.TotalSeconds:0.00} s; "
+                    + (downloads ? (knewNothing ? "it knew nothing of the account at first" : "it was still loading the image") : "it handed out an image at once")
+                    + $", and the backend asked Steam about the account {_backend.UserInformationRequestCount} time(s).");
+
+                Assert.That(result.HasValue, Is.True, "every request answers, at the latest when its 10 seconds run out");
+                if (!result.Value.IsSuccess)
+                {
+                    if (!Steamworks.SteamUser.BLoggedOn())
+                    {
+                        Assert.Ignore($"Steam went offline while it fetched {account} ({result.Value.Reason}).");
+                    }
+
+                    // A name that never arrived excuses the failure only once the backend asked
+                    // Steam for it: a backend that stopped asking leaves the name unknown too.
+                    string name = Steamworks.SteamFriends.GetFriendPersonaName(steamId);
+                    bool isNameUnknown = string.IsNullOrEmpty(name) || name == "[unknown]";
+                    Assert.That(!isNameUnknown || _backend.UserInformationRequestCount > 0, Is.True,
+                        $"Steam never learned {account} ({result.Value.Reason}), and the backend never asked it to");
+                    if (isNameUnknown)
+                    {
+                        Assert.Ignore($"Steam never learned {account} ({result.Value.Reason}) although the backend asked; the account may be gone.");
+                    }
+                }
+
+                Assert.That(result.Value.IsSuccess, Is.True, result.Value.Reason.ToString());
+                Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
+                UnityEngine.Texture2D texture = result.Value.Texture;
+                Assert.That((texture.width, texture.height), Is.EqualTo((184, 184)));
+
+                // For an account it did not know, Steam hands out its default image at once and the
+                // account's own picture once it downloaded it, which replaces the first image in
+                // the same texture; the test waits for that notice, on every path, since Steam may
+                // hand out the default image without a wait first.
+                byte[] first = texture.GetRawTextureData();
+                Pump(manager, () => changes.Count > 0, 10);
+                Pump(manager, () => false, 1);
+                bool isReplaced = !texture.GetRawTextureData().SequenceEqual(first);
+                int mismatches = CountMismatches(texture, Steamworks.SteamFriends.GetLargeFriendAvatar(steamId));
+                TestContext.WriteLine($"After {watch.Elapsed.TotalSeconds:0.00} s the texture {(mismatches == 0 ? "shows" : "still differs from")} the image Steam holds; "
+                    + (isReplaced ? "it replaced the first image in place" : "the first image was the account's own")
+                    + $", and the manager raised OnAvatarChanged {changes.Count} time(s).");
+
+                Assert.That(mismatches, Is.Zero, "the texture shows the image Steam holds now");
+                Assert.That(changes.TrueForAll(change => ReferenceEquals(change.Texture, texture)), Is.True, "the same texture, redrawn");
+                Assert.That(changes.Count, Is.EqualTo(isReplaced ? 1 : 0), "raised once for a replaced image, although Steam sends two notices for it");
+                if (!downloads && !isReplaced)
+                {
+                    Assert.Ignore($"Steam held the avatar of {account} already, so the download path did not run; it runs again once the Steam client restarts.");
+                }
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamAvatar_OfAnAccountSteamCannotFind_AnswersOnce_AfterAskingSteamOnce()
+        {
+            // An account number far past the ones Steam has handed out: Steam knows nothing of it,
+            // so the backend asks about it, not on every update, and the request answers once,
+            // whatever Steam makes of it (its default image in the runs so far, or nothing until
+            // the 10 seconds run out).
+            PlayerId missing = new PlayerId(76561197960265728UL + 0xFFFFFF00UL + (ulong)new System.Random().Next(0, 0xF0));
+            List<MultiplayerReason> answers = new List<MultiplayerReason>();
+            Stopwatch watch = Stopwatch.StartNew();
+            _backend.LoadAvatar(missing, AvatarSize.Medium, (reason, avatar) => answers.Add(reason));
+            Pump(() => answers.Count > 0, 15);
+            Pump(() => false, 1);
+            TestContext.WriteLine($"Steam answered the avatar of {missing} with {(answers.Count > 0 ? answers[0].ToString() : "nothing")} after {watch.Elapsed.TotalSeconds:0.00} s, "
+                + $"asked about the account {_backend.UserInformationRequestCount} time(s).");
+
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+            Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
+            Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 
         [Test]
@@ -539,6 +768,88 @@ namespace Mu3Library.Tests
             LobbyId lobby = manager.CurrentLobbyId;
             Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo(map));
             return lobby;
+        }
+
+        /// <summary>Creates a lobby that search finds, with one game-defined value.</summary>
+        private LobbyId CreatePublicLobby(MultiplayerManager manager, string key, string value)
+        {
+            string gameId = "mu3.test." + Guid.NewGuid().ToString("N").Substring(0, 12);
+            Assert.That(manager.Initialize(_backend, new MultiplayerConfig(gameId, 1)).IsSuccess, Is.True);
+
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" };
+            options.Data[key] = value;
+            MultiplayerResult? created = null;
+            manager.CreateLobby(options, result => created = result);
+            Pump(manager, () => created.HasValue, 20);
+            Assert.That(created?.IsSuccess, Is.True);
+            return manager.CurrentLobbyId;
+        }
+
+        private static LobbySearchQuery Worldwide() => new LobbySearchQuery { Distance = LobbyDistance.Worldwide };
+
+        /// <summary>
+        /// Searches again and again until the results hold the lobby, since Steam publishes lobby
+        /// data a moment after it is set; null when they never do within the time.
+        /// </summary>
+        private static LobbyInfo SearchUntil(MultiplayerManager manager, Func<LobbySearchQuery> query, LobbyId lobby, int seconds = 30)
+        {
+            return SearchUntil(manager, query, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby), found => found != null, seconds);
+        }
+
+        /// <summary>Searches again and again until <paramref name="done"/> holds for what <paramref name="pick"/> takes from the results.</summary>
+        private static T SearchUntil<T>(MultiplayerManager manager, Func<LobbySearchQuery> query, Func<LobbySearchResult, T> pick, Func<T, bool> done, int seconds)
+        {
+            T picked = default;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < seconds)
+            {
+                LobbySearchResult? search = null;
+                manager.SearchLobbies(query(), result => search = result);
+                Pump(manager, () => search.HasValue, 25);
+                Assert.That(search?.IsSuccess, Is.True);
+                picked = pick(search.Value);
+                if (done(picked))
+                {
+                    return picked;
+                }
+
+                Pump(manager, () => false, 2);
+            }
+
+            return picked;
+        }
+
+        /// <summary>How many pixels of the texture differ from Steam's image, the top row taken as the texture's top.</summary>
+        private static int CountMismatches(UnityEngine.Texture2D texture, int image)
+        {
+            if (!Steamworks.SteamUtils.GetImageSize(image, out uint width, out uint height) || width != texture.width || height != texture.height)
+            {
+                return texture.width * texture.height;
+            }
+
+            int side = texture.width;
+            byte[] steam = new byte[side * side * 4];
+            if (!Steamworks.SteamUtils.GetImageRGBA(image, steam, steam.Length))
+            {
+                return side * side;
+            }
+
+            UnityEngine.Color32[] pixels = texture.GetPixels32();
+            int mismatches = 0;
+            for (int y = 0; y < side; y++)
+            {
+                for (int x = 0; x < side; x++)
+                {
+                    UnityEngine.Color32 pixel = pixels[y * side + x];
+                    int i = ((side - 1 - y) * side + x) * 4;
+                    if (pixel.r != steam[i] || pixel.g != steam[i + 1] || pixel.b != steam[i + 2] || pixel.a != steam[i + 3])
+                    {
+                        mismatches++;
+                    }
+                }
+            }
+
+            return mismatches;
         }
 
         private void Pump(Func<bool> done, int seconds)

@@ -62,5 +62,27 @@ namespace Mu3Library.Multiplayer.Data
         /// one as it arrives.
         /// </summary>
         public const int MaxDelayedRequests = 64;
+
+        /// <summary>
+        /// Most connections of one account that the host keeps while they wait for its welcome,
+        /// from the moment they open until the host admits the player or
+        /// <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/> runs out. A player holds one
+        /// such connection, and a returning player's next attempt may meet its last one for a
+        /// moment. The host closes one more at once with <see cref="MultiplayerReason.Timeout"/>,
+        /// as it closes a connection whose handshake timed out, so a returning player tries again.
+        /// The backend names the account of each connection, and Steam's relays hide the remote
+        /// address, so the limit counts accounts rather than addresses.
+        /// </summary>
+        public const int MaxPendingConnectionsPerAccount = 2;
+
+        /// <summary>
+        /// How often, in seconds, the host tells every client the ping of each player with a
+        /// connection, which <see cref="IMultiplayerManager.TryGetParticipantPing"/> reads. Each
+        /// report is one unreliable packet of 2 bytes and 10 more for each client, sent to every
+        /// client, so a client receives 2 + 10 × (clients) bytes a second and the host sends that
+        /// to each of them: in a session of <see cref="MaxCapacity"/> players, 152 bytes a second
+        /// per client and 2,280 bytes a second from the host, before the backend's own headers.
+        /// </summary>
+        public const float PingReportIntervalSeconds = 1f;
     }
 }

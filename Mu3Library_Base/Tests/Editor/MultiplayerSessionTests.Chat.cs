@@ -108,6 +108,34 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Chat_WithAnUnpairedSurrogate_IsRefused_SoEveryPlayerHearsTheSameText()
+        {
+            // FR-12: UTF-8 would carry a lone surrogate as a replacement character, so the
+            // clients would hear other text than the host's own handlers.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            string emoji = "\U0001F3AE";
+            string[] cut = { "cut " + emoji[0], emoji[1] + " cut", "a\uDC00b", "\uD800", new string(new[] { emoji[0], emoji[0], emoji[1] }) };
+
+            foreach (string text in cut)
+            {
+                foreach (Node sender in new[] { host, a })
+                {
+                    Assert.That(sender.Manager.SendChat(text).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), $"{sender.Backend.PlayerName}: {Escape(text)}");
+                }
+            }
+
+            Assert.That(host.Manager.SendChat("whole " + emoji).IsSuccess, Is.True);
+            Assert.That(a.Manager.SendChat(emoji + " too").IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(node.Chats.Select(chat => chat.Text), Is.EqualTo(new[] { "whole " + emoji, emoji + " too" }), node.Backend.PlayerName);
+            }
+        }
+
+        [Test]
         public void Chat_SentAsTheGameStarts_ReachesNobody()
         {
             // FR-12: the host drops a client's message that arrives after the lobby phase ended.
@@ -137,8 +165,8 @@ namespace Mu3Library.Tests
             raw.Send(connection, ChatFromHostPacket(a.Id, "spoofed"), DeliveryMode.Reliable);
             LogAssert.Expect(LogType.Warning, new Regex("Dropped a malformed packet .*exceeds the 4096-byte limit"));
             raw.Send(connection, ChatToHostPacket(new string('x', MultiplayerLimits.MaxChatMessageSize + 1)), DeliveryMode.Reliable);
-            // Invalid UTF-8 grows when decoded; the host counts the decoded text.
-            LogAssert.Expect(LogType.Warning, new Regex("Dropped a malformed packet .*empty or exceeds the size limit"));
+            // Invalid UTF-8 grows when decoded; the host counts the decoded text. It logs only the
+            // first malformed chat packet of the session.
             raw.Send(connection, RawChatToHostPacket(Enumerable.Repeat((byte)0xFF, MultiplayerLimits.MaxChatMessageSize).ToArray()), DeliveryMode.Reliable);
             Pump();
 
