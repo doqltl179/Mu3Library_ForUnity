@@ -190,11 +190,14 @@ namespace Mu3Library.Multiplayer.Steam
                         EChatRoomEnterResponse response = (EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse;
                         if (response == EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed && SteamMatchmaking.RequestLobbyData(lobby))
                         {
-                            // Steam knows the data of a lobby this player is not in only after
-                            // asking, unless a search found the lobby, and the data both tells a
-                            // game without late joiners from an invite-only lobby and names the
-                            // host, whom a player whose slot the host keeps reaches past the
-                            // lobby (FR-21). So the answer waits for the data.
+                            // Steam refuses a lobby that is not joinable and one that takes this
+                            // player only by invite with the same answer, and knows the data of a
+                            // lobby this player is not in only after asking, unless a search found
+                            // the lobby. The data tells whether the session's game runs, which
+                            // the refusal then names GameInProgress, whether that game refuses
+                            // late joiners, and who hosts it, so a player whose slot the host
+                            // keeps can reach the host past the lobby (FR-21). So the answer
+                            // waits for the data.
                             _refusals.Add(new PendingRefusal
                             {
                                 Lobby = lobby.m_SteamID,

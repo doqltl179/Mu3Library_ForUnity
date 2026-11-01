@@ -118,23 +118,34 @@ namespace Mu3Library.Multiplayer
         }
 
         /// <summary>
-        /// The lobby refused this player because its game runs without late joiners. This player
-        /// may still hold a slot in that game, as when it starts the game again within the
-        /// reservation time after a crash (FR-21), and only the host knows. So it connects to the
-        /// host the lobby data names, without entering the lobby: the host takes it back into its
-        /// slot and opens the lobby for it, inviting it to a lobby that is not public, as for any
-        /// player back in its slot (FR-20), and refuses every other account with
-        /// <see cref="MultiplayerReason.GameInProgress"/>. False when the lobby data, which a
+        /// The lobby refused this player with <see cref="MultiplayerReason.GameInProgress"/>, and
+        /// its data says that its game refuses late joiners (<see cref="LobbyDataKeys.Closed"/>).
+        /// This player may still hold a slot in that game, as when it starts the game again within
+        /// the reservation time after a crash (FR-21), and only the host knows. So it connects to
+        /// the host the lobby data names, without entering the lobby: the host takes it back into
+        /// its slot and opens the lobby for it, inviting it to a lobby that is not public, as for
+        /// any player back in its slot (FR-20), and refuses every other account with
+        /// <see cref="MultiplayerReason.GameInProgress"/>. Steam answers the same reason for an
+        /// invite-only or friends-only lobby whose game takes late joiners, when this player has no
+        /// invite; such a game's host would wait for a membership that never comes, so the
+        /// refusal stands there. False, and the refusal stands, also when the lobby data, which a
         /// backend lets a player read after such a refusal, names no host of a compatible session,
-        /// and the refusal stands.
+        /// or names another player than the lobby's owner, when the owner is known.
         /// </summary>
         private bool TryJoinPastLobby(LobbyId lobby)
         {
+            if (_backend.GetLobbyData(lobby, LobbyDataKeys.Closed) != LobbyDataKeys.ClosedForTheGame)
+            {
+                return false;
+            }
+
             string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
             string protocolVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.ProtocolVersion);
             string wireVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion);
             PlayerId host = ParsePlayerId(_backend.GetLobbyData(lobby, LobbyDataKeys.HostId));
-            if (!IsCompatible(gameId, protocolVersion, wireVersion) || !host.IsValid || host == LocalPlayerId)
+            PlayerId owner = _backend.GetLobbyOwner(lobby);
+            if (!IsCompatible(gameId, protocolVersion, wireVersion) || !host.IsValid || host == LocalPlayerId
+                || (owner.IsValid && owner != host))
             {
                 return false;
             }
@@ -244,7 +255,11 @@ namespace Mu3Library.Multiplayer
             if (_state == SessionState.Joining)
             {
                 // A refusal names its reason: full, banned, in progress, version, or duplicate.
-                reason = sent != MultiplayerReason.None ? sent : JoinConnectionFailure;
+                // Past the lobby, a host that answers Timeout closed a player that waited for a
+                // membership, which leaves the lobby's refusal standing too.
+                reason = sent == MultiplayerReason.None || (_isJoiningPastLobby && sent == MultiplayerReason.Timeout)
+                    ? JoinConnectionFailure
+                    : sent;
             }
             else if (_state == SessionState.Reconnecting)
             {

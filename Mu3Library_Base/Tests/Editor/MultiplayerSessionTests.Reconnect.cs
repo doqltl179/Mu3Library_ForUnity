@@ -384,6 +384,77 @@ namespace Mu3Library.Tests
             Assert.That(host.Manager.TryGetParticipant(e.Id, out Participant kept) && kept.IsConnected, Is.True);
         }
 
+        [TestCase(LobbyVisibility.InviteOnly)]
+        [TestCase(LobbyVisibility.FriendsOnly)]
+        public void Reconnect_ALobbyForInviteesOfAGameWithLateJoiners_RefusesAnAccountWithoutAnInviteAtOnce(LobbyVisibility visibility)
+        {
+            // FR-21, FR-19, #252: Steam refuses such a lobby without an invite as GameInProgress
+            // too, though its game takes late joiners; only a game that refuses them is tried
+            // past the lobby, since this host would wait for a membership that never comes.
+            UseTestNetworkClock();
+            HashSet<PlayerId> invited = new HashSet<PlayerId>();
+            Node host = CreateSteamLikeNode("Host", invited, out _);
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4, requireReady: false, allowLateJoin: true));
+            options.Visibility = visibility;
+            CreateHost(host, options);
+            host.Manager.StartGame();
+            Pump();
+            LobbyId lobbyId = host.Manager.CurrentLobbyId;
+            Assert.That(host.Backend.GetLobbyData(lobbyId, LobbyDataKeys.Closed), Is.EqualTo(LobbyDataKeys.NotClosed));
+
+            Node uninvited = CreateSteamLikeNode("Uninvited", invited, out SteamLikeBackend uninvitedSteam);
+            uninvitedSteam.RequiresInvite = true;
+            Assert.That(Join(uninvited, lobbyId).Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
+            Assert.That(host.Manager.Participants.Select(participant => participant.Id), Is.EqualTo(new[] { host.Id }));
+
+            // With an invite the account joins the running game as any late joiner.
+            invited.Add(uninvited.Id);
+            Assert.That(Join(uninvited, lobbyId).IsSuccess, Is.True);
+            Assert.That(uninvited.Manager.TryGetParticipant(uninvited.Id, out Participant self) && self.IsLateJoiner, Is.True);
+        }
+
+        [Test]
+        public void Reconnect_PastTheClosedLobby_AHostIdThatIsNotTheLobbysOwner_LeavesTheRefusalStanding()
+        {
+            // FR-21, #252: as on the way through the lobby, a lobby whose data names another host
+            // than its owner runs no session to come back to, and that player is not contacted.
+            RecordingListener otherListener = new RecordingListener();
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend other = CreateRawBackend("Other", otherListener);
+            Assert.That(other.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(owner, GameId, 1);
+            Assert.That(owner.SetLobbyData(lobby, LobbyDataKeys.HostId, other.LocalPlayerId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, LobbyDataKeys.State, LobbyDataKeys.StateInGame), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, LobbyDataKeys.Closed, LobbyDataKeys.ClosedForTheGame), Is.True);
+            Assert.That(owner.SetLobbyJoinable(lobby, false), Is.True);
+
+            Assert.That(Join(CreateNode("A"), lobby).Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
+            Assert.That(otherListener.Connected, Is.Empty);
+        }
+
+        [Test]
+        public void Reconnect_PastTheClosedLobby_AHostThatWaitsForAMembershipUntilItsTimeout_LeavesTheRefusalStanding()
+        {
+            // FR-21, #252: the host ended its game right after the lobby refused the entry, so it
+            // takes the player as a newcomer who must enter the lobby, and closes it after the
+            // handshake timeout; the player hears the lobby's refusal rather than Timeout.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Assert.That(host.Backend.SetLobbyData(lobby, LobbyDataKeys.Closed, LobbyDataKeys.ClosedForTheGame), Is.True);
+            Assert.That(host.Backend.SetLobbyJoinable(lobby, false), Is.True);
+
+            Node a = CreateNode("A");
+            MultiplayerResult? result = null;
+            a.Manager.JoinLobby(lobby, r => result = r);
+            Pump();
+            Assert.That(result.HasValue, Is.False, "the host waits for the player to enter the lobby");
+
+            _now = 10d;
+            Pump();
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(1));
+        }
+
         [Test]
         public void Reconnect_LeavingOrBeingKicked_NeverKeepsTheSlot_AndAKickWhileAwayBansTheReturn()
         {

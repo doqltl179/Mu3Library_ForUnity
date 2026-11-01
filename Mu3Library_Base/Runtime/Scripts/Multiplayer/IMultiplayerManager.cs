@@ -86,6 +86,9 @@ namespace Mu3Library.Multiplayer
         /// dropped connection does (<see cref="IMultiplayerManagerEventBus.OnLobbyRejoinFailed"/>
         /// when it cannot). The host refuses any other account with the same reason. A game that
         /// saved <see cref="CurrentLobbyId"/> before it went down joins that lobby again this way.
+        /// Steam refuses a player without an invite to an invite-only or friends-only lobby with
+        /// the same reason while its game runs, also when the game takes late joiners; that
+        /// refusal stands, as the lobby data tells the two apart.
         /// Until the host notices that the old connection broke, the host refuses the new start
         /// as <see cref="MultiplayerReason.DuplicateAccount"/>.
         /// </remarks>
