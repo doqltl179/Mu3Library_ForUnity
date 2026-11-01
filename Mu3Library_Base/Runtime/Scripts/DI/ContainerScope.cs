@@ -496,6 +496,18 @@ namespace Mu3Library.DI
 
             Type type = instance.GetType();
 
+            // A required [Inject] property without a setter can never be filled. Throwing before
+            // anything resolves, as for a required member whose service is missing, keeps it from
+            // staying null without a word; a warning would leave the object running until the
+            // property is first read, far from the cause.
+            foreach (PropertyInfo property in InjectableMembers.GetUnwritablePropertyArray(type))
+            {
+                if (property.GetCustomAttribute<InjectAttribute>().Required)
+                {
+                    throw new InvalidOperationException($"Inject failed. property has no setter: {type.FullName}.{property.Name}");
+                }
+            }
+
             FieldInfo[] injectableFields = InjectableMembers.GetFieldArray(type);
             foreach (FieldInfo field in injectableFields)
             {

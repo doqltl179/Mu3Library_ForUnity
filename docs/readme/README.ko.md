@@ -117,6 +117,8 @@ public class GameCore : CoreBase
 
 기반 클래스가 선언한 `[Inject]` 멤버도 private까지 포함해 주입됩니다. 클래스 계층을 거슬러 올라가는 탐색은 `CoreBase`에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
 
+필수 `[Inject]` 프로퍼티에는 setter가 있어야 합니다. private이어도 됩니다. get만 있는 프로퍼티나, 스트리핑한 플레이어에서 링커가 setter를 지운 프로퍼티처럼 setter가 없는 필수 `[Inject]` 프로퍼티가 있는 객체를 주입하면, 컨테이너는 아무것도 resolve하기 전에 `InvalidOperationException`을 던집니다. 서비스가 등록되지 않은 필수 멤버와 같습니다. 에디터의 DI 검증기도 이 프로퍼티를 보고하고, `InjectableMembers.GetUnwritableProperties`가 이런 프로퍼티를 나열합니다. setter가 없는 선택적 프로퍼티(`[Inject(false)]`)는 건너뜁니다.
+
 등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다. 등록 하나(구현 타입, 키, 수명)는 어떤 서비스 타입으로 resolve하든 인스턴스 하나를 돌려줍니다. 싱글턴은 컨테이너당 하나, 스코프드 서비스는 스코프당 하나입니다. 예외를 던진 생명주기 콜백은 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 계속 실행됩니다.
 
 ```csharp

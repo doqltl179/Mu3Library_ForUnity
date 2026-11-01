@@ -117,6 +117,8 @@ A core that overrides `Awake`, `Start`, `OnEnable`, `OnDisable`, or `OnDestroy` 
 
 `[Inject]` members that a base class declares, private ones included, are injected as well; the search up the class hierarchy stops at `CoreBase`. The editor DI validator checks the same members.
 
+A required `[Inject]` property needs a setter, which may be private. When the container injects an object with a required `[Inject]` property that has none, a get-only property or one whose setter the linker removed in a stripped player, it throws `InvalidOperationException` before it resolves anything, as it does for a required member whose service is not registered, and the editor DI validator reports the property; `InjectableMembers.GetUnwritableProperties` lists such properties. An optional one (`[Inject(false)]`) without a setter is skipped.
+
 Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks. One registration, which is its implementation type, key, and lifetime, yields one instance whatever service type resolves it: one per container for a singleton and one per scope for a scoped service. A lifecycle callback that throws is logged with `Debug.LogException`, and the other services and cores keep running.
 
 ```csharp
