@@ -356,7 +356,7 @@ namespace Mu3Library.Multiplayer
             {
                 throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
             }
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             Dictionary<string, string> lobbyData = ReadData(ref reader, MultiplayerLimits.MaxLobbyDataSize);
 
             int count = reader.ReadInt();
@@ -481,7 +481,7 @@ namespace Mu3Library.Multiplayer
         private void HandleGameStarted(ref PacketReader reader)
         {
             int gameNumber = reader.ReadInt();
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             if (_state != SessionState.Lobby)
             {
                 return;

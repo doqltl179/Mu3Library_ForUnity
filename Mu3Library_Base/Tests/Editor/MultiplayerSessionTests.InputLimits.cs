@@ -210,6 +210,123 @@ namespace Mu3Library.Tests
             Assert.That(a.Manager.LobbyData, Is.Empty);
             Assert.That(DataOf(a, hostId), Is.Empty);
         }
+
+        [Test]
+        public void ADataEntryCountThePacketCannotHold_IsMalformedAtAClient_BeforeAnythingIsReservedForIt()
+        {
+            // NFR-5: every entry of lobby or participant data takes at least its two length
+            // prefixes, so a count larger than the rest of the packet can hold is malformed before
+            // the client reserves room for it. Room for the most entries of participant data
+            // takes about 57 KB, so a flood of 21-byte packets that claim them would cost that
+            // much each. Each kind is logged once.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+            PlayerId late = new PlayerId(hostId.Value + 1000);
+
+            const int Floods = 64;
+            byte[] shortJoin = ParticipantJoinedWithDataPacket(late, MultiplayerLimits.MaxParticipantDataSize);
+            Assert.That(shortJoin.Length, Is.EqualTo(21));
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", "forest", lobbyDataCount: MultiplayerLimits.MaxLobbyDataSize), DeliveryMode.Reliable);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining), "the welcome is dropped");
+
+                fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", "forest"), DeliveryMode.Reliable);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+
+                long before = GC.GetTotalMemory(forceFullCollection: true);
+                for (int i = 0; i < Floods; i++)
+                {
+                    fakeHost.Send(connection, shortJoin, DeliveryMode.Reliable);
+                }
+
+                Pump();
+                long allocated = GC.GetTotalMemory(forceFullCollection: false) - before;
+                TestContext.WriteLine($"{Floods} ParticipantJoined packets of {shortJoin.Length} bytes that claim {MultiplayerLimits.MaxParticipantDataSize} data entries each took {allocated} bytes of the managed heap.");
+                Assert.That(allocated, Is.LessThan(Floods * 16 * 1024), "no packet reserves room for the entries it claims");
+
+                Assert.That(a.Manager.TryGetParticipant(late, out _), Is.False);
+                Assert.That(log.Count($"Invalid data entry count {MultiplayerLimits.MaxLobbyDataSize} with"), Is.EqualTo(1), "the welcome");
+                Assert.That(log.Count($"Invalid data entry count {MultiplayerLimits.MaxParticipantDataSize} with 0 bytes left"), Is.EqualTo(1), "the first ParticipantJoined; the others go unlogged");
+            }
+
+            // As many entries as the rest of the packet holds still arrive.
+            fakeHost.Send(connection, ParticipantJoinedWithDataPacket(late, 1, ("c", string.Empty)), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(DataOf(a, late)["c"], Is.EqualTo(string.Empty));
+        }
+
+        [Test]
+        public void StartDataLargerThanAHostMayStartWith_IsMalformedAtAClient_AndTheLargestStillArrives()
+        {
+            // NFR-5: a host never starts a game with more than the start data limit, so a client
+            // reads the start data of a welcome into a running game and of a game start with that
+            // limit and drops a larger one before it copies it. Each kind is logged once.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+
+            byte[] largest = new byte[MultiplayerLimits.MaxStartDataSize];
+            largest[largest.Length - 1] = 7;
+            byte[] tooLarge = new byte[MultiplayerLimits.MaxStartDataSize + 1];
+            string overLimit = $"exceeds the {MultiplayerLimits.MaxStartDataSize}-byte limit";
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", "forest", startData: tooLarge), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining), "both welcomes are dropped");
+                Assert.That(log.Count(overLimit), Is.EqualTo(1));
+            }
+
+            fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", "forest", startData: largest), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(a.GameStarts.Single(), Is.EqualTo(largest));
+
+            fakeHost.Send(connection, new[] { (byte)PacketKind.ReturnedToLobby }, DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    fakeHost.Send(connection, GameStartedPacket(2, tooLarge), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby), "both game starts are dropped");
+                Assert.That(log.Count(overLimit), Is.EqualTo(1));
+            }
+
+            fakeHost.Send(connection, GameStartedPacket(2, largest), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(a.GameStarts.Count, Is.EqualTo(2));
+            Assert.That(a.GameStarts[1], Is.EqualTo(largest));
+            Assert.That(a.Manager.StartData.ToArray(), Is.EqualTo(largest));
+        }
         #endregion
 
         #region Input Limit Helpers
@@ -226,15 +343,18 @@ namespace Mu3Library.Tests
 
         /// <summary>
         /// The welcome into a lobby with the default rules, one entry of lobby data, the host
-        /// under <paramref name="hostName"/>, and the client.
+        /// under <paramref name="hostName"/>, and the client. A <paramref name="lobbyDataCount"/>
+        /// other than 1 says that many entries, whatever follows, and <paramref name="startData"/>
+        /// makes it a welcome into a running game with that start data.
         /// </summary>
-        private static byte[] WelcomePacket(PlayerId host, PlayerId client, string hostName, string lobbyKey, string lobbyValue)
+        private static byte[] WelcomePacket(PlayerId host, PlayerId client, string hostName, string lobbyKey, string lobbyValue,
+            int lobbyDataCount = 1, byte[] startData = null)
         {
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.Welcome);
-            writer.WriteByte((byte)SessionState.Lobby);
+            writer.WriteByte((byte)(startData != null ? SessionState.InGame : SessionState.Lobby));
             writer.WriteULong(host.Value);
-            writer.WriteInt(0);
+            writer.WriteInt(startData != null ? 1 : 0);
 
             // The rules: capacity, minimum players, ready check, late join, both rate limits, the
             // kick time, the reservation time, and the load timeout.
@@ -249,8 +369,8 @@ namespace Mu3Library.Tests
             writer.WriteInt(BitConverter.SingleToInt32Bits(SessionRules.DefaultLoadTimeoutSeconds));
 
             writer.WriteInt(MultiplayerConfig.DefaultMaxMessageSize);
-            writer.WriteBytes(ReadOnlySpan<byte>.Empty);
-            writer.WriteInt(1);
+            writer.WriteBytes(startData);
+            writer.WriteInt(lobbyDataCount);
             writer.WriteString(lobbyKey);
             writer.WriteString(lobbyValue);
             writer.WriteInt(2);
@@ -279,6 +399,39 @@ namespace Mu3Library.Tests
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.ParticipantJoined);
             WriteParticipantEntry(writer, player, name);
+            return writer.Written.ToArray();
+        }
+
+        /// <summary>
+        /// A ParticipantJoined of a player with an empty name whose data count says
+        /// <paramref name="count"/>, whatever entries follow.
+        /// </summary>
+        private static byte[] ParticipantJoinedWithDataPacket(PlayerId player, int count, params (string Key, string Value)[] entries)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantJoined);
+            writer.WriteULong(player.Value);
+            writer.WriteString(string.Empty);
+            writer.WriteBool(false);
+            writer.WriteBool(false);
+            writer.WriteBool(true);
+            writer.WriteBool(false);
+            writer.WriteInt(count);
+            foreach ((string key, string value) in entries)
+            {
+                writer.WriteString(key);
+                writer.WriteString(value);
+            }
+
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] GameStartedPacket(int gameNumber, byte[] startData)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.GameStarted);
+            writer.WriteInt(gameNumber);
+            writer.WriteBytes(startData);
             return writer.Written.ToArray();
         }
 

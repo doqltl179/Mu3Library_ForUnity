@@ -28,6 +28,9 @@ namespace Mu3Library.Multiplayer
         // The UTF-8 bytes of the longest key a data request may hold: three for each character.
         private const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
 
+        // The fewest bytes one entry of data takes in a packet: the length prefixes of its key and its value.
+        private const int MinDataEntryBytes = 2 * sizeof(int);
+
 
 
         #region Requests
@@ -591,14 +594,17 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
-        /// <paramref name="limit"/>, and no value more than all of it.
+        /// <paramref name="limit"/>, and no value more than all of it. Every entry also takes at
+        /// least <see cref="MinDataEntryBytes"/> of the packet, so a count that the rest of the
+        /// packet cannot hold is malformed before any room is reserved for it: a short packet
+        /// that claims thousands of entries allocates nothing for them.
         /// </summary>
         private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
         {
             int count = reader.ReadInt();
-            if (count < 0 || count > limit)
+            if (count < 0 || count > limit || count > reader.Remaining / MinDataEntryBytes)
             {
-                throw new FormatException($"Invalid data entry count {count}.");
+                throw new FormatException($"Invalid data entry count {count} with {reader.Remaining} bytes left.");
             }
 
             Dictionary<string, string> data = new Dictionary<string, string>(count);
