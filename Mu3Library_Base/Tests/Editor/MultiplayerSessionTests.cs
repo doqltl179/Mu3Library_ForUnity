@@ -675,6 +675,41 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void HelloOfAnotherWireVersion_IsRefusedBeforeTheRestIsRead_HoweverItIsLaidOut()
+        {
+            // FR-30, NFR-5: every version starts a hello with its wire version, and another
+            // version may lay out the rest otherwise: nothing more, a game ID longer than a hello
+            // of this version carries, or a field this version reads as a length past the end.
+            Node host = CreateHost("Host");
+            byte[][] hellos =
+            {
+                HelloWithWireVersion(WireProtocol.Version + 1, rest => { }),
+                HelloWithWireVersion(WireProtocol.Version + 1, rest => rest.WriteString(new string('g', MultiplayerConfig.MaxGameIdLength * 3 + 1))),
+                HelloWithWireVersion(WireProtocol.Version - 1, rest => rest.WriteULong(42)),
+            };
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                foreach (byte[] hello in hellos)
+                {
+                    RecordingListener listener = new RecordingListener();
+                    LocalBackend raw = CreateRawBackend("Raw", listener);
+                    ConnectionId connection = raw.Connect(host.Id);
+                    Pump();
+
+                    raw.Send(connection, hello, DeliveryMode.Reliable);
+                    Pump();
+                    Assert.That(listener.Disconnected.Select(closed => (closed.Connection, closed.ReasonCode)),
+                        Is.EqualTo(new[] { (connection, ReasonCodes.ToWire(MultiplayerReason.VersionMismatch)) }), $"a hello of {hello.Length} bytes");
+                }
+
+                Assert.That(log.Count("Dropped a malformed packet"), Is.Zero);
+            }
+
+            Assert.That(host.Joined, Is.Empty);
+        }
+
+        [Test]
         public void MalformedOrClientOnlyPackets_AreDropped_AndTheSessionGoesOn()
         {
             // NFR-5
@@ -687,7 +722,7 @@ namespace Mu3Library.Tests
             Pump();
 
             raw.Send(connection, new byte[] { 0xFF, 0x01 }, DeliveryMode.Reliable);
-            raw.Send(connection, new byte[] { (byte)PacketKind.Hello, 0xFF, 0xFF, 0xFF, 0x7F }, DeliveryMode.Reliable);
+            raw.Send(connection, HelloWithWireVersion(WireProtocol.Version, rest => rest.WriteInt(int.MaxValue)), DeliveryMode.Reliable);
             Pump();
 
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Lobby));
@@ -1127,6 +1162,7 @@ namespace Mu3Library.Tests
                 [LobbyDataKeys.HostId] = owner.LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture),
                 [LobbyDataKeys.Name] = "Raw",
                 [LobbyDataKeys.State] = LobbyDataKeys.StateLobby,
+                [LobbyDataKeys.Closed] = LobbyDataKeys.NotClosed,
             };
 
             LobbyId created = LobbyId.None;
@@ -1171,6 +1207,16 @@ namespace Mu3Library.Tests
             raw.Send(connection, writer.Written, DeliveryMode.Reliable);
             Pump();
             return connection;
+        }
+
+        /// <summary>A hello of the kind, <paramref name="wireVersion"/>, and what <paramref name="writeRest"/> lays out after it.</summary>
+        private static byte[] HelloWithWireVersion(int wireVersion, Action<PacketWriter> writeRest)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.Hello);
+            writer.WriteInt(wireVersion);
+            writeRest(writer);
+            return writer.Written.ToArray();
         }
 
         /// <summary>Makes a raw backend a member of the host's lobby.</summary>

@@ -12,9 +12,21 @@ namespace Mu3Library.Multiplayer.Data
     {
         None = 0,
 
-        /// <summary>The manager has not been initialized with a backend.</summary>
+        /// <summary>
+        /// The manager has not been initialized with a backend, or has been disposed. The Steam
+        /// backend's invite requests (<c>SteamBackend.OpenInviteDialog</c> and <c>InviteFriend</c>)
+        /// answer it once that backend is disposed; while Steam cannot be used they answer
+        /// <see cref="SteamNotRunning"/>, as the lobby requests do.
+        /// </summary>
         NotInitialized = 1,
-        /// <summary>The Steam client is not running or Steam could not be initialized.</summary>
+        /// <summary>
+        /// Steam cannot be used. <c>SteamBackend.TryCreate</c> answers it when the Steam client is
+        /// missing, Steam could not start, or Steam's native library could not be loaded (FR-1,
+        /// FR-39). A Steam backend answers it for a lobby creation, entry, or search and for an
+        /// invite request once the game shut Steam down or a Steam call failed in its native
+        /// library (FR-1), the lobby requests that Steam had not answered yet included, and for a
+        /// lobby creation that failed because Steam had no connection.
+        /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
         OverlayUnavailable = 3,
@@ -34,7 +46,12 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>The minimum player count or the ready check is not met.</summary>
         StartConditionNotMet = 14,
 
-        /// <summary>The lobby does not exist or no longer runs a session.</summary>
+        /// <summary>
+        /// The lobby does not exist or no longer runs a session: a lobby without host data or
+        /// whose owner is not its host, a connection that a host running no session closed, and
+        /// a Steam lobby that refused the entry (Steam's <c>NotAllowed</c>) while its lobby data
+        /// does not show a game running, such as an invite-only lobby entered without an invite.
+        /// </summary>
         LobbyNotFound = 20,
         /// <summary>The session is full.</summary>
         SessionFull = 21,
@@ -46,9 +63,23 @@ namespace Mu3Library.Multiplayer.Data
         DuplicateAccount = 24,
         /// <summary>The host kicked this account from this session.</summary>
         Banned = 25,
-        /// <summary>The connection to the host could not be made.</summary>
+        /// <summary>
+        /// A connection could not be made: the client could not connect to the host, could not
+        /// send its hello, or its connection closed during the join without a reason from the
+        /// library; and the host could not start listening for connections when it created a
+        /// lobby (FR-29).
+        /// </summary>
         ConnectionFailed = 26,
-        /// <summary>The request did not finish in time.</summary>
+        /// <summary>
+        /// The request did not finish in time: the join (<see cref="MultiplayerConfig.JoinTimeoutSeconds"/>),
+        /// the host's handshake (<see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/>), a Steam
+        /// lobby search (25 seconds) or avatar (10 seconds), and a lobby rejoin that got no answer
+        /// (<see cref="IMultiplayerManagerEventBus.OnLobbyRejoinFailed"/>). The host also closes
+        /// with it a connection of an account that already has
+        /// <see cref="MultiplayerLimits.MaxPendingConnectionsPerAccount"/> connections it has not
+        /// admitted. That is no timeout, but a reconnecting client tries again on it, as on a
+        /// handshake that ran out, since an earlier attempt of its own may still wait at the host.
+        /// </summary>
         Timeout = 27,
 
         /// <summary>The player left on their own.</summary>

@@ -97,10 +97,7 @@ namespace Mu3Library.Multiplayer.Steam
                     (int)Math.Min(options.ConnectionTimeoutSeconds * 1000d, int.MaxValue)),
             };
 
-            // The native calls come before the pinned buffer and the callback, as the constructor
-            // keeps them; see there.
-            SteamNetworkingUtils.InitRelayNetworkAccess();
-            _pollGroup = SteamNetworkingSockets.CreatePollGroup();
+            // The constructor makes the native calls, the poll group's included, before this.
             EnsureSendBuffer(InitialBufferSize);
             _connectionStatusChanged = Callback<SteamNetConnectionStatusChangedCallback_t>.Create(HandleConnectionStatusChanged);
         }
@@ -114,7 +111,16 @@ namespace Mu3Library.Multiplayer.Steam
 
             if (_listenSocket == HSteamListenSocket.Invalid)
             {
-                _listenSocket = SteamNetworkingSockets.CreateListenSocketP2P(_virtualPort, _connectionOptions.Length, _connectionOptions);
+                try
+                {
+                    _listenSocket = SteamNetworkingSockets.CreateListenSocketP2P(_virtualPort, _connectionOptions.Length, _connectionOptions);
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                    return false;
+                }
+
                 if (_listenSocket == HSteamListenSocket.Invalid)
                 {
                     return false;
@@ -142,15 +148,26 @@ namespace Mu3Library.Multiplayer.Steam
                 return ConnectionId.None;
             }
 
-            SteamNetworkingIdentity identity = new SteamNetworkingIdentity();
-            identity.SetSteamID(new CSteamID(host.Value));
-            HSteamNetConnection connection = SteamNetworkingSockets.ConnectP2P(ref identity, _virtualPort, _connectionOptions.Length, _connectionOptions);
-            if (connection == HSteamNetConnection.Invalid)
+            HSteamNetConnection connection;
+            try
             {
+                // The identity's methods are native calls too.
+                SteamNetworkingIdentity identity = new SteamNetworkingIdentity();
+                identity.SetSteamID(new CSteamID(host.Value));
+                connection = SteamNetworkingSockets.ConnectP2P(ref identity, _virtualPort, _connectionOptions.Length, _connectionOptions);
+                if (connection == HSteamNetConnection.Invalid)
+                {
+                    return ConnectionId.None;
+                }
+
+                SteamNetworkingSockets.SetConnectionPollGroup(connection, _pollGroup);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
                 return ConnectionId.None;
             }
 
-            SteamNetworkingSockets.SetConnectionPollGroup(connection, _pollGroup);
             _connections[connection.m_HSteamNetConnection] = new SteamConnection { Remote = host, IsIncoming = false };
             return new ConnectionId(connection.m_HSteamNetConnection);
         }
@@ -168,12 +185,21 @@ namespace Mu3Library.Multiplayer.Steam
             int flags = mode == DeliveryMode.Reliable
                 ? Constants.k_nSteamNetworkingSend_Reliable
                 : Constants.k_nSteamNetworkingSend_Unreliable;
-            EResult result = SteamNetworkingSockets.SendMessageToConnection(
-                new HSteamNetConnection(connection.Value),
-                _sendHandle.AddrOfPinnedObject(),
-                (uint)data.Length,
-                flags,
-                out long _);
+            EResult result;
+            try
+            {
+                result = SteamNetworkingSockets.SendMessageToConnection(
+                    new HSteamNetConnection(connection.Value),
+                    _sendHandle.AddrOfPinnedObject(),
+                    (uint)data.Length,
+                    flags,
+                    out long _);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
 
             switch (result)
             {
@@ -198,7 +224,14 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             // Lingering sends what is still queued, the close reason included, before the connection goes.
-            SteamNetworkingSockets.CloseConnection(new HSteamNetConnection(connection.Value), reasonCode, null, true);
+            try
+            {
+                SteamNetworkingSockets.CloseConnection(new HSteamNetConnection(connection.Value), reasonCode, null, true);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+            }
         }
 
         /// <remarks>
@@ -223,7 +256,16 @@ namespace Mu3Library.Multiplayer.Steam
             {
                 steam.HasQualityRead = true;
                 steam.QualityReadAt = now;
-                steam.IsQualityKnown = ReadQuality(connection.Value, out steam.Quality);
+                try
+                {
+                    steam.IsQualityKnown = ReadQuality(connection.Value, out steam.Quality);
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                    steam.IsQualityKnown = false;
+                    return false;
+                }
             }
 
             quality = steam.Quality;
@@ -348,16 +390,28 @@ namespace Mu3Library.Multiplayer.Steam
         /// </summary>
         private void AcceptIncoming(SteamNetConnectionStatusChangedCallback_t status)
         {
-            if (!_isListening || SteamNetworkingSockets.AcceptConnection(status.m_hConn) != EResult.k_EResultOK)
+            PlayerId remote;
+            try
             {
-                SteamNetworkingSockets.CloseConnection(status.m_hConn, 0, null, false);
+                if (!_isListening || SteamNetworkingSockets.AcceptConnection(status.m_hConn) != EResult.k_EResultOK)
+                {
+                    SteamNetworkingSockets.CloseConnection(status.m_hConn, 0, null, false);
+                    return;
+                }
+
+                SteamNetworkingSockets.SetConnectionPollGroup(status.m_hConn, _pollGroup);
+                remote = new PlayerId(status.m_info.m_identityRemote.GetSteamID().m_SteamID);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                // Inside Steam's callbacks, which may be the game's own run of them.
+                Break(cause);
                 return;
             }
 
-            SteamNetworkingSockets.SetConnectionPollGroup(status.m_hConn, _pollGroup);
             _connections[status.m_hConn.m_HSteamNetConnection] = new SteamConnection
             {
-                Remote = new PlayerId(status.m_info.m_identityRemote.GetSteamID().m_SteamID),
+                Remote = remote,
                 IsIncoming = true,
             };
         }
@@ -385,9 +439,7 @@ namespace Mu3Library.Multiplayer.Steam
             int count;
             do
             {
-                count = IsAvailable
-                    ? SteamNetworkingSockets.ReceiveMessagesOnConnection(handle, _messagePointers, _messagePointers.Length)
-                    : 0;
+                count = TakeMessages(handle);
                 DeliverReceived(count);
             }
             while (count == _messagePointers.Length && !_isDisposed && _connections.ContainsKey(id));
@@ -399,7 +451,14 @@ namespace Mu3Library.Multiplayer.Steam
 
             if (IsAvailable)
             {
-                SteamNetworkingSockets.CloseConnection(handle, 0, null, false);
+                try
+                {
+                    SteamNetworkingSockets.CloseConnection(handle, 0, null, false);
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
             }
 
             // An incoming connection the listener never heard of ends as quietly as it began.
@@ -413,7 +472,7 @@ namespace Mu3Library.Multiplayer.Steam
         {
             while (IsAvailable)
             {
-                int count = SteamNetworkingSockets.ReceiveMessagesOnPollGroup(_pollGroup, _messagePointers, _messagePointers.Length);
+                int count = TakeMessages(HSteamNetConnection.Invalid);
                 DeliverReceived(count);
                 if (count < _messagePointers.Length)
                 {
@@ -428,16 +487,40 @@ namespace Mu3Library.Multiplayer.Steam
         }
 
         /// <summary>
+        /// Receives what Steam holds for the connection, or for every connection in the poll group
+        /// when it is <see cref="HSteamNetConnection.Invalid"/>, and copies it out; the number of
+        /// messages, 0 once the backend is not available. Steam's calls stay apart from the
+        /// listener's, so an exception from the game's handlers is never taken for a failed Steam
+        /// call.
+        /// </summary>
+        private int TakeMessages(HSteamNetConnection connection)
+        {
+            if (!IsAvailable)
+            {
+                return 0;
+            }
+
+            try
+            {
+                int count = connection == HSteamNetConnection.Invalid
+                    ? SteamNetworkingSockets.ReceiveMessagesOnPollGroup(_pollGroup, _messagePointers, _messagePointers.Length)
+                    : SteamNetworkingSockets.ReceiveMessagesOnConnection(connection, _messagePointers, _messagePointers.Length);
+                CopyReceived(count);
+                return count;
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Copies the received messages out and releases them back to Steam before any is handed
         /// on, so a handler that disposes the backend cannot strand a message Steam still owns.
         /// </summary>
-        private void DeliverReceived(int count)
+        private void CopyReceived(int count)
         {
-            if (count <= 0)
-            {
-                return;
-            }
-
             int total = 0;
             for (int i = 0; i < count; i++)
             {
@@ -458,7 +541,11 @@ namespace Mu3Library.Multiplayer.Steam
                 total += length;
                 SteamNetworkingMessage_t.Release(message);
             }
+        }
 
+        /// <summary>Hands the messages <see cref="CopyReceived"/> copied out on to the listener.</summary>
+        private void DeliverReceived(int count)
+        {
             for (int i = 0; i < count && !_isDisposed; i++)
             {
                 ReceivedMessage received = _received[i];
@@ -522,19 +609,26 @@ namespace Mu3Library.Multiplayer.Steam
         {
             if (steamRuns)
             {
-                foreach (uint id in _connections.Keys)
+                try
                 {
-                    SteamNetworkingSockets.CloseConnection(new HSteamNetConnection(id), 0, null, false);
-                }
+                    foreach (uint id in _connections.Keys)
+                    {
+                        SteamNetworkingSockets.CloseConnection(new HSteamNetConnection(id), 0, null, false);
+                    }
 
-                if (_listenSocket != HSteamListenSocket.Invalid)
-                {
-                    SteamNetworkingSockets.CloseListenSocket(_listenSocket);
-                }
+                    if (_listenSocket != HSteamListenSocket.Invalid)
+                    {
+                        SteamNetworkingSockets.CloseListenSocket(_listenSocket);
+                    }
 
-                if (_pollGroup != HSteamNetPollGroup.Invalid)
+                    if (_pollGroup != HSteamNetPollGroup.Invalid)
+                    {
+                        SteamNetworkingSockets.DestroyPollGroup(_pollGroup);
+                    }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
                 {
-                    SteamNetworkingSockets.DestroyPollGroup(_pollGroup);
+                    Break(cause);
                 }
             }
 

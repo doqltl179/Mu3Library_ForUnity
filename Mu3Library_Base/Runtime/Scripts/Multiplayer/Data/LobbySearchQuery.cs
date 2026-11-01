@@ -27,6 +27,17 @@ namespace Mu3Library.Multiplayer.Data
         /// case on every backend, as Steam matches it, since lobby data never holds two keys that
         /// differ only by case.
         /// </summary>
+        /// <remarks>
+        /// Every backend compares the values as Steam does, which Steam's search on AppID 480
+        /// showed on 2026-11-01 for all six comparisons: the letters a to z count as A to Z, so
+        /// <c>"desert"</c> equals <c>"DESERT"</c> and <c>"B"</c> is greater than <c>"a"</c>, and a
+        /// character that sorts between the upper-case and the lower-case letters sorts after
+        /// both, so <c>"_"</c> is greater than <c>"a"</c> as well as <c>"A"</c>. Every other
+        /// character, letters with accents or of other scripts among them, compares by its code
+        /// point, as UTF-8 text sorts, without regard to case only for a to z: <c>"é"</c> is
+        /// greater than <c>"É"</c>, and a character beyond U+FFFF, such as an emoji, is greater
+        /// than one up to U+FFFF. A value that another value begins with is less than it.
+        /// </remarks>
         public LobbySearchQuery AddStringFilter(string key, string value, LobbyComparison comparison = LobbyComparison.Equal)
         {
             _stringFilters.Add(new LobbyStringFilter(key, value, comparison));

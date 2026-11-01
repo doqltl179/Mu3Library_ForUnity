@@ -31,7 +31,10 @@ namespace Mu3Library.Multiplayer
         {
             /// <summary>The packet ended early or held an invalid value.</summary>
             Malformed,
-            /// <summary>At the host, a connection's packet before its hello; at a client, the host's packet before its welcome.</summary>
+            /// <summary>
+            /// At the host, a connection's packet before its hello; at a client, the host's packet
+            /// before its welcome, but for one the host sent unreliably, which a client drops unlogged.
+            /// </summary>
             BeforeHandshake,
             /// <summary>A kind that only the other side sends.</summary>
             WrongDirection,

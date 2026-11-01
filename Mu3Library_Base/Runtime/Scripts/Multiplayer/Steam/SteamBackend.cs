@@ -37,6 +37,29 @@ namespace Mu3Library.Multiplayer.Steam
     /// Steam publishes lobby data a moment after it is set, so a new lobby can take a few seconds
     /// to show up in search.
     /// </para>
+    /// <para>
+    /// A Steam native library can lack a function that only a later call needs, as an outdated
+    /// <c>steam_api64</c> that still starts Steam may. Every Steam call the backend makes once it
+    /// exists, Steam's callbacks that it runs and handles included, catches what
+    /// <see cref="TryCreate"/> turns into a reason, such as the
+    /// <see cref="EntryPointNotFoundException"/> of a missing function, so no such exception
+    /// reaches the game. The backend logs the first one as a warning and is no longer available
+    /// (<see cref="IsAvailable"/>): from then on it answers as when the game shut Steam down under
+    /// it. A lobby creation, entry, or search answers <see cref="MultiplayerReason.SteamNotRunning"/>,
+    /// the ones Steam had not answered yet included, and so does an invite request; an avatar
+    /// answers <see cref="MultiplayerReason.BackendError"/>, as <see cref="LoadAvatar"/> describes;
+    /// the calls that answer at once return false, <see cref="ConnectionId.None"/>,
+    /// <see cref="PlayerId.None"/>, or null; and an open connection carries nothing more. The
+    /// reason is <see cref="MultiplayerReason.SteamNotRunning"/> for the reason
+    /// <see cref="TryCreate"/> gives it: for the game, Steam no longer works in this process.
+    /// </para>
+    /// <para>
+    /// The backend catches the exception at its calls rather than checking at creation that every
+    /// function it calls exists: such a check would need a hand-kept list of every native function
+    /// the backend calls, reached through Steamworks.NET's internal <c>NativeMethods</c> by
+    /// reflection, which a later change to the backend or to Steamworks.NET can leave behind
+    /// without a compile error, while the catch covers every call the backend makes.
+    /// </para>
     /// </remarks>
     public sealed partial class SteamBackend : IMultiplayerBackend
     {
@@ -71,6 +94,12 @@ namespace Mu3Library.Multiplayer.Steam
         private IMultiplayerBackendListener _listener;
         private bool _isDisposed = false;
 
+        // True once a Steam call threw what IsSteamUnavailable tells; see Break.
+        private bool _isBroken = false;
+
+        // True for a backend the tests made without Steam (CreateWithoutSteam), which takes Steam for running.
+        private readonly bool _assumesSteamRuns;
+
         // A join request that arrived while nothing listened, as the lobby a launch from an
         // invite names does; it goes to the next listener.
         private LobbyId _heldJoinRequest = LobbyId.None;
@@ -79,8 +108,11 @@ namespace Mu3Library.Multiplayer.Steam
 
         public string Name => "Steam";
 
-        /// <summary>False once disposed, or once the game shut Steam down under this backend.</summary>
-        public bool IsAvailable => !_isDisposed && CallbackDispatcher.IsInitialized;
+        /// <summary>
+        /// False once disposed, once the game shut Steam down under this backend, or once a Steam
+        /// call failed in Steam's native library, as the remarks on the class describe.
+        /// </summary>
+        public bool IsAvailable => !_isDisposed && !_isBroken && SteamRuns;
 
         public PlayerId LocalPlayerId { get; }
         public int MaxPacketSize => Constants.k_cbMaxSteamNetworkingSocketsMessageSizeSend;
@@ -88,18 +120,27 @@ namespace Mu3Library.Multiplayer.Steam
         /// <summary>True when this backend started Steam, and so shuts it down when disposed.</summary>
         public bool OwnsSteam => _ownsSteam;
 
+        // Whether Steamworks.NET runs, which a backend made without Steam takes for granted.
+        private bool SteamRuns => _assumesSteamRuns || CallbackDispatcher.IsInitialized;
 
 
-        private SteamBackend(SteamBackendOptions options, bool ownsSteam)
+
+        private SteamBackend(SteamBackendOptions options, bool ownsSteam, bool withoutSteam = false)
         {
             _ownsSteam = ownsSteam;
             _runCallbacks = options.RunSteamCallbacks;
+            _assumesSteamRuns = withoutSteam;
 
             // Every native call comes before the first callback registration and the pinned send
             // buffer, so a native library that throws here, which TryCreate turns into a reason,
             // leaves nothing behind: no callback is registered and no buffer pinned yet, and
-            // TryCreate shuts down a Steam it started. Keep new native calls above them.
-            LocalPlayerId = new PlayerId(SteamUser.GetSteamID().m_SteamID);
+            // TryCreate shuts down a Steam it started. Keep new native calls in this block.
+            if (!withoutSteam)
+            {
+                LocalPlayerId = new PlayerId(SteamUser.GetSteamID().m_SteamID);
+                SteamNetworkingUtils.InitRelayNetworkAccess();
+                _pollGroup = SteamNetworkingSockets.CreatePollGroup();
+            }
 
             InitializeConnections(options);
             InitializeLobbies();
@@ -219,10 +260,23 @@ namespace Mu3Library.Multiplayer.Steam
         }
 
         /// <summary>
+        /// Test hook: a backend that reaches no Steam while it is made and takes Steam for running
+        /// afterwards, so every request goes on to Steamworks.NET. With Steam not started in this
+        /// process, Steamworks.NET throws <see cref="InvalidOperationException"/> from the calls
+        /// where an outdated native library throws <see cref="EntryPointNotFoundException"/>, and
+        /// the backend takes both alike (<see cref="IsSteamUnavailable"/>).
+        /// </summary>
+        internal static SteamBackend CreateWithoutSteam(SteamBackendOptions options)
+        {
+            return new SteamBackend(options ?? new SteamBackendOptions(), ownsSteam: false, withoutSteam: true);
+        }
+
+        /// <summary>
         /// True for an exception that tells Steam cannot run in this process, with the exception
         /// that caused it: Steamworks.NET's own checks (<see cref="InvalidOperationException"/>),
         /// and a native library that is missing, lacks a function, or is built for another
-        /// architecture, also inside a <see cref="TypeInitializationException"/>.
+        /// architecture, also inside a <see cref="TypeInitializationException"/>. A backend that
+        /// exists catches the same at every Steam call, and then calls <see cref="Break"/>.
         /// </summary>
         internal static bool IsSteamUnavailable(Exception exception, out Exception cause)
         {
@@ -236,6 +290,23 @@ namespace Mu3Library.Multiplayer.Steam
                 || cause is EntryPointNotFoundException
                 || cause is BadImageFormatException
                 || cause is InvalidOperationException;
+        }
+
+        /// <summary>
+        /// Makes the backend unavailable after a Steam call threw what
+        /// <see cref="IsSteamUnavailable"/> tells, as the remarks on the class describe, and logs
+        /// the first such call. The requests waiting on Steam answer on the next
+        /// <see cref="Update"/>.
+        /// </summary>
+        internal void Break(Exception cause)
+        {
+            if (_isBroken)
+            {
+                return;
+            }
+
+            _isBroken = true;
+            Debug.LogWarning($"[Multiplayer] The Steam backend is no longer available: a Steam call failed ({cause.GetType().Name}): {cause.Message}");
         }
 
         /// <summary>
@@ -282,9 +353,17 @@ namespace Mu3Library.Multiplayer.Steam
                 return player.ToString();
             }
 
-            return player == LocalPlayerId
-                ? SteamFriends.GetPersonaName()
-                : SteamFriends.GetFriendPersonaName(new CSteamID(player.Value));
+            try
+            {
+                return player == LocalPlayerId
+                    ? SteamFriends.GetPersonaName()
+                    : SteamFriends.GetFriendPersonaName(new CSteamID(player.Value));
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return player.ToString();
+            }
         }
 
         public void SetListener(IMultiplayerBackendListener listener)
@@ -305,23 +384,35 @@ namespace Mu3Library.Multiplayer.Steam
                 return;
             }
 
-            // With Steam shut down under the backend, nothing native runs, but every request
-            // still answers: the queued answers go out and the waiting searches fail.
+            // With Steam shut down under the backend, or a native library that failed a call,
+            // nothing native runs, but every request still answers: the queued answers go out
+            // and the requests waiting on Steam fail.
             if (IsAvailable && _runCallbacks)
             {
-                SteamAPI.RunCallbacks();
+                try
+                {
+                    SteamAPI.RunCallbacks();
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
             }
 
             DisposeFinishedCalls();
             CheckSearchTimeout();
+            CheckRefusalTimeouts();
             if (IsAvailable)
             {
                 UpdateAvatars();
             }
-            else
+
+            // Checked again, since a call above may have failed.
+            if (!IsAvailable)
             {
                 // An avatar answers the reason the manager gives then; see LoadAvatar.
                 FailSearches(MultiplayerReason.SteamNotRunning);
+                FailLobbyCalls(MultiplayerReason.SteamNotRunning);
                 FailAvatars(MultiplayerReason.BackendError);
             }
 
@@ -340,12 +431,15 @@ namespace Mu3Library.Multiplayer.Steam
 
         #region Invites
         /// <summary>Opens the Steam overlay's dialog for inviting friends to the lobby.</summary>
-        /// <returns><see cref="MultiplayerReason.OverlayUnavailable"/> when the overlay is turned off.</returns>
+        /// <returns>
+        /// <see cref="MultiplayerReason.OverlayUnavailable"/> when the overlay is turned off, and
+        /// what <see cref="InviteFriend"/> answers for an unavailable backend or an invalid lobby.
+        /// </returns>
         public MultiplayerResult OpenInviteDialog(LobbyId lobby)
         {
             if (!IsAvailable)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(UnavailableReason());
             }
 
             if (!lobby.IsValid)
@@ -353,21 +447,37 @@ namespace Mu3Library.Multiplayer.Steam
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            if (!SteamUtils.IsOverlayEnabled())
+            try
             {
-                return MultiplayerResult.Failure(MultiplayerReason.OverlayUnavailable);
-            }
+                if (!SteamUtils.IsOverlayEnabled())
+                {
+                    return MultiplayerResult.Failure(MultiplayerReason.OverlayUnavailable);
+                }
 
-            SteamFriends.ActivateGameOverlayInviteDialog(new CSteamID(lobby.Value));
-            return MultiplayerResult.Success;
+                SteamFriends.ActivateGameOverlayInviteDialog(new CSteamID(lobby.Value));
+                return MultiplayerResult.Success;
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return MultiplayerResult.Failure(MultiplayerReason.SteamNotRunning);
+            }
         }
 
         /// <summary>Sends a friend an invite to the lobby through Steam.</summary>
+        /// <returns>
+        /// <see cref="MultiplayerReason.NotInitialized"/> once the backend is disposed, as a
+        /// disposed manager answers; <see cref="MultiplayerReason.SteamNotRunning"/> while Steam
+        /// cannot be used, because the game shut it down or a Steam call failed in its native
+        /// library, as the lobby requests answer then; <see cref="MultiplayerReason.InvalidArgument"/>
+        /// for an invalid lobby or friend; and <see cref="MultiplayerReason.BackendError"/> when
+        /// Steam refuses the invite.
+        /// </returns>
         public MultiplayerResult InviteFriend(LobbyId lobby, PlayerId friend)
         {
             if (!IsAvailable)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(UnavailableReason());
             }
 
             if (!lobby.IsValid || !friend.IsValid)
@@ -375,9 +485,26 @@ namespace Mu3Library.Multiplayer.Steam
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            return SteamMatchmaking.InviteUserToLobby(new CSteamID(lobby.Value), new CSteamID(friend.Value))
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.BackendError);
+            try
+            {
+                return SteamMatchmaking.InviteUserToLobby(new CSteamID(lobby.Value), new CSteamID(friend.Value))
+                    ? MultiplayerResult.Success
+                    : MultiplayerResult.Failure(MultiplayerReason.BackendError);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return MultiplayerResult.Failure(MultiplayerReason.SteamNotRunning);
+            }
+        }
+
+        /// <summary>
+        /// Why an invite fails while the backend is not available: the backend itself is gone once
+        /// it is disposed, and otherwise Steam is.
+        /// </summary>
+        private MultiplayerReason UnavailableReason()
+        {
+            return _isDisposed ? MultiplayerReason.NotInitialized : MultiplayerReason.SteamNotRunning;
         }
         #endregion
 
@@ -441,7 +568,8 @@ namespace Mu3Library.Multiplayer.Steam
         /// <summary>
         /// Closes every connection, leaves every lobby, and lets go of Steam's callbacks. Steam
         /// itself shuts down only if this backend started it. When the game shut Steam down first,
-        /// only the backend's own resources are released.
+        /// only the backend's own resources are released. A backend that a failed Steam call made
+        /// unavailable still tries each of these, and releases its own resources either way.
         /// </summary>
         public void Dispose()
         {
@@ -450,7 +578,7 @@ namespace Mu3Library.Multiplayer.Steam
                 return;
             }
 
-            bool steamRuns = CallbackDispatcher.IsInitialized;
+            bool steamRuns = SteamRuns;
             _isDisposed = true;
             _listener = null;
             _events.Clear();
@@ -465,7 +593,14 @@ namespace Mu3Library.Multiplayer.Steam
 
             if (_ownsSteam && steamRuns)
             {
-                SteamAPI.Shutdown();
+                try
+                {
+                    SteamAPI.Shutdown();
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
             }
         }
     }

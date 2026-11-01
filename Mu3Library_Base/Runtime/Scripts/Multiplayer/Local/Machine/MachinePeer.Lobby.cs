@@ -27,6 +27,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // Joins waiting for the owner's answer; a second join of the same lobby waits with the first.
         private readonly Dictionary<LobbyId, MachineLink> _joins = new Dictionary<LobbyId, MachineLink>();
 
+        // The last lobby whose owner refused a first join because its game runs, with the data the
+        // folder listed for it, which this player reads though it is no member, as Steam lets it;
+        // the owner's port joins the ports known, so a session connection reaches the owner.
+        private LobbyId _refusedLobby = LobbyId.None;
+        private IReadOnlyDictionary<string, string> _refusedLobbyData = null;
+
         private readonly List<MachineLobby> _lobbyScratch = new List<MachineLobby>();
         private bool _isDirectoryDirty = false;
         private double _nextPublish = 0.0;
@@ -146,7 +152,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         public string GetLobbyData(LobbyId lobbyId, string key)
         {
-            return _lobbies.TryGetValue(lobbyId, out MachineLobby lobby) && key != null && lobby.Data.TryGetValue(key, out string value) ? value : null;
+            IReadOnlyDictionary<string, string> data = _lobbies.TryGetValue(lobbyId, out MachineLobby lobby)
+                ? lobby.Data
+                : lobbyId == _refusedLobby ? _refusedLobbyData : null;
+            return data != null && key != null && data.TryGetValue(key, out string value) ? value : null;
         }
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
@@ -258,6 +267,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             MachineLink link = StartJoinLink(lobbyId, entry.Owner, entry.Port, isRejoin: false);
             link.JoinCallbacks = new List<Action<MultiplayerReason>> { onCompleted };
+            link.ListedData = entry.Data;
             _joins[lobbyId] = link;
         }
 
@@ -409,7 +419,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 else
                 {
                     // A first join never hears NotYet from an owner; anything else names the reason.
-                    CompleteJoin(link, code > 0 ? (MultiplayerReason)code : MultiplayerReason.LobbyNotFound);
+                    MultiplayerReason reason = code > 0 ? (MultiplayerReason)code : MultiplayerReason.LobbyNotFound;
+                    if (reason == MultiplayerReason.GameInProgress)
+                    {
+                        // A player whose slot the owner keeps reaches it past the lobby (FR-21).
+                        _refusedLobby = link.Lobby;
+                        _refusedLobbyData = link.ListedData;
+                        _knownPorts[link.Remote] = link.RemotePort;
+                    }
+
+                    CompleteJoin(link, reason);
                 }
 
                 return;

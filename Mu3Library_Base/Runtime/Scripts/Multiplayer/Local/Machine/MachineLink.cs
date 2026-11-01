@@ -91,5 +91,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public LobbyId Lobby;
         public bool IsRejoin;
         public List<Action<MultiplayerReason>> JoinCallbacks;
+
+        /// <summary>The data the folder listed for the lobby that a first join asks to enter.</summary>
+        public IReadOnlyDictionary<string, string> ListedData;
     }
 }
