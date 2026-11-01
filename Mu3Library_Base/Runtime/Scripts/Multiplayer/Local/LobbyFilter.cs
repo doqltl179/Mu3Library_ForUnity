@@ -79,7 +79,7 @@ namespace Mu3Library.Multiplayer.Local
                 return c + 0x2000;
             }
 
-            return c >= '' ? c - 0x800 : c;
+            return c >= '\uE000' ? c - 0x800 : c;
         }
 
         /// <summary>

@@ -319,9 +319,9 @@ namespace Mu3Library.Tests
             ("des", "DESERT", -1),
             ("desert", "", 1),
             // Only a to z fold; other letters compare by code point, as UTF-8 text sorts.
-            ("é", "É", 1),
-            ("σ", "Σ", 1),
-            ("\U0001F600", "Ａ", 1),
+            ("\u00E9", "\u00C9", 1),
+            ("\u03C3", "\u03A3", 1),
+            ("\U0001F600", "\uFF21", 1),
         };
 
         internal static readonly LobbyComparison[] AllLobbyComparisons =
