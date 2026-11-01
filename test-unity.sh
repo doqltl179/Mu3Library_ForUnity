@@ -156,7 +156,9 @@ project_has_testables() {
     NO_TESTABLES_REASON="$manifest_path lists no testables"
 
     [[ -f "$REPO_ROOT/$manifest_path" && -r "$REPO_ROOT/$manifest_path" ]] || return 1
+    # As in compile-unity.sh, a line read from a CRLF checkout drops its CR.
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
         if [[ "$line" == *'"testables"'* ]]; then
             return 0
         fi
@@ -210,6 +212,7 @@ read_test_run_counts() {
     local count_pattern
 
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
         if [[ "$line" =~ $element_pattern ]]; then
             header="${BASH_REMATCH[0]}"
             break

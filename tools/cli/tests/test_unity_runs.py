@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -900,6 +901,68 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         self.assertIn(f"cannot find the packages that Unity {FLOOR_VERSION} bundles", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
         self.assertEqual([], self.mirrors_left())
+
+
+# Where Unity Hub keeps an Editor's executable inside the folder of its version.
+HUB_EXECUTABLE = {"Windows": "Editor/Unity.exe", "Darwin": "Unity.app/Contents/MacOS/Unity"}.get(
+    platform.system(), "Editor/Unity"
+)
+
+
+class CrlfCheckoutTests(FixtureRepositoryTestCase):
+    """A checkout with core.autocrlf holds a project's ProjectVersion.txt with CRLF, and the Editor
+    it names must not carry the CR."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        version_file = self.root / "ProjLeaf" / "ProjectSettings" / "ProjectVersion.txt"
+        self.addCleanup(version_file.write_bytes, version_file.read_bytes())
+        version_file.write_bytes(
+            b"m_EditorVersion: 6000.6.7f1\r\nm_EditorVersionWithRevision: 6000.6.7f1 (0123456789ab)\r\n"
+        )
+
+    def hub_editor(self) -> tuple[Path, Path]:
+        """A Unity Hub folder holding a fake of the Editor the fixture asks for, and its executable."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        # Hub names the folder Editor, which the scripts look for at the end of an override's path.
+        hub = Path(directory.name) / "Hub" / "Editor"
+        executable = hub / "6000.6.7f1" / HUB_EXECUTABLE
+        executable.parent.mkdir(parents=True)
+        executable.write_text(FAKE_UNITY, encoding="utf-8", newline="\n")
+        executable.chmod(0o755)
+        return hub, executable
+
+    def test_the_editor_version_has_no_cr(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh", 'project_editor_version ProjLeaf\nprintf "[%s]" "$PROJECT_EDITOR_VERSION"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("[6000.6.7f1]", completed.stdout)
+
+    def test_the_hub_editor_compiles_the_project_without_an_override(self) -> None:
+        hub, _ = self.hub_editor()
+        environment = self.unity_environment(UNITY_HUB_EDITOR_ROOT=str(hub))
+        del environment["UNITY_EDITOR"]
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=environment)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
+        self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+    def test_an_override_that_is_the_hub_editor_does_not_warn(self) -> None:
+        _, executable = self.hub_editor()
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", environment=self.unity_environment(UNITY_EDITOR=executable.as_posix())
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("but the explicit override will be used", completed.stderr)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
 
 if __name__ == "__main__":

@@ -193,6 +193,7 @@ project_references_package() {
 
     [[ -f "$manifest_file" && -r "$manifest_file" ]] || return 1
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
         if [[ "$line" == *"\"file:../../$package_path\""* ]]; then
             return 0
         fi
@@ -636,7 +637,9 @@ print_selection() {
 # Sets PROJECT_EDITOR_VERSION to the Editor version that a project's
 # ProjectSettings/ProjectVersion.txt names on its m_EditorVersion line, up to
 # any further ": ", or to nothing when no line names one. Returns 1 when the
-# file is missing.
+# file is missing. A checkout with core.autocrlf holds the file with CRLF, and
+# read keeps the CR, so each line drops it, as it does in every file these
+# scripts read line by line.
 project_editor_version() {
     local project_path="$1"
     local version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
@@ -645,6 +648,7 @@ project_editor_version() {
     PROJECT_EDITOR_VERSION=""
     [[ -f "$version_file" ]] || return 1
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
         if [[ "$line" == "m_EditorVersion: "* ]]; then
             line="${line#m_EditorVersion: }"
             PROJECT_EDITOR_VERSION="${line%%: *}"
