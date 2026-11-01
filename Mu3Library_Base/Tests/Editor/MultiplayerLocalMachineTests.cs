@@ -1080,6 +1080,112 @@ namespace Mu3Library.Tests
             Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 4 }));
             Assert.That(Directory.GetFiles(_folder), Has.Length.EqualTo(1));
         }
+
+        /// <summary>
+        /// How long the main thread takes, logged in a line that starts with <c>[Lobby file]</c>,
+        /// where it may wait for a write of the writer thread: the update that deletes the file
+        /// after the last lobby left, <see cref="LocalBackend.Dispose"/>,
+        /// <see cref="LocalBackend.SimulateCrash"/>, and the update in which an owner whose file
+        /// is there creates another lobby, which writes the file itself. Each runs once while a
+        /// rewrite is in flight and once while the writer thread is idle; the difference is the wait.
+        /// </summary>
+        [Explicit("Measures in real time, about 45 seconds; run it by name.")]
+        [Test]
+        public void LobbyFile_MainThreadWaits_AreMeasured()
+        {
+            const int Rounds = 12;
+            double[] leave = new double[Rounds], leaveIdle = new double[Rounds];
+            double[] dispose = new double[Rounds], disposeIdle = new double[Rounds];
+            double[] crash = new double[Rounds], crashIdle = new double[Rounds];
+            double[] create = new double[Rounds], createIdle = new double[Rounds];
+            int inFlight = 0;
+            for (int round = 0; round < Rounds; round++)
+            {
+                for (int busy = 0; busy < 2; busy++)
+                {
+                    bool isBusy = busy == 1;
+
+                    // The listing that deletes the file waits out the shortest interval after the
+                    // last listing, so the slowest update in that time is the one that deleted it.
+                    (LocalBackend owner, LobbyId lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    owner.LeaveLobby(lobby);
+                    double slowest = 0.0;
+                    Stopwatch waited = Stopwatch.StartNew();
+                    while (waited.Elapsed.TotalSeconds < 0.4)
+                    {
+                        slowest = Math.Max(slowest, Time(owner.Update));
+                        Thread.Sleep(1);
+                    }
+
+                    Assert.That(Directory.GetFiles(_folder, "*.lobbies"), Is.Empty);
+                    (isBusy ? leave : leaveIdle)[round] = slowest;
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    (isBusy ? dispose : disposeIdle)[round] = Time(owner.Dispose);
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    (isBusy ? crash : crashIdle)[round] = Time(owner.SimulateCrash);
+                    foreach (string file in Directory.GetFiles(_folder))
+                    {
+                        File.Delete(file);
+                    }
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    LobbyId second = LobbyId.None;
+                    owner.CreateLobby(LobbyVisibility.Public, 4, null, (r, id) => second = id);
+                    (isBusy ? create : createIdle)[round] = Time(owner.Update);
+                    Assert.That(second.IsValid, Is.True);
+                    owner.Dispose();
+                }
+            }
+
+            string report = "[Lobby file] main thread ms, with a rewrite in flight | with the writer thread idle:"
+                + " last leave " + Summary(leave) + " | " + Summary(leaveIdle)
+                + "; dispose " + Summary(dispose) + " | " + Summary(disposeIdle)
+                + "; crash " + Summary(crash) + " | " + Summary(crashIdle)
+                + "; second lobby " + Summary(create) + " | " + Summary(createIdle)
+                + $"; rewrite seen in flight {inFlight} of {Rounds * 4} times";
+            UnityEngine.Debug.Log(report);
+            TestContext.Out.WriteLine(report);
+        }
+
+        /// <summary>
+        /// An owner whose lobby file is there, past the shortest interval between listings, with
+        /// a rewrite on the writer thread when <paramref name="isBusy"/>, caught while it runs.
+        /// </summary>
+        private (LocalBackend Owner, LobbyId Lobby) OwnerWithAWrite(int round, bool isBusy, ref int inFlight)
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            Thread.Sleep(300);
+            if (isBusy)
+            {
+                string temporary = Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".tmp");
+                Assert.That(owner.SetLobbyData(lobby, "round", round.ToString(CultureInfo.InvariantCulture)), Is.True);
+                owner.Update();
+                if (SpinWait.SpinUntil(() => File.Exists(temporary), 50))
+                {
+                    inFlight++;
+                }
+            }
+
+            return (owner, lobby);
+        }
+
+        private static double Time(Action action)
+        {
+            long start = Stopwatch.GetTimestamp();
+            action();
+            return (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+        }
+
+        private static string Summary(double[] values)
+        {
+            double[] sorted = (double[])values.Clone();
+            Array.Sort(sorted);
+            return "median=" + sorted[sorted.Length / 2].ToString("0.000", CultureInfo.InvariantCulture)
+                + " max=" + sorted[sorted.Length - 1].ToString("0.000", CultureInfo.InvariantCulture);
+        }
         #endregion
 
         #region Simulation
