@@ -456,8 +456,10 @@ namespace Mu3Library.Tests
         /// sends after the host's update, so the host handles it in the next frame, and so does
         /// every client the host relays it to. Lateness counts from the frame of the send rather
         /// than from the arrival NFR-2 counts from, so on a machine-wide network one more frame is
-        /// allowed for a packet the loopback has not delivered yet when the receiver reads; the
-        /// report shows the largest lateness either way.
+        /// allowed for a packet that the sender's sending thread or the loopback has not delivered
+        /// yet when the receiver reads, such as a relay that the host handed its sending thread at
+        /// the end of its update, just before the clients update in this process; the report shows
+        /// the largest lateness either way.
         /// </summary>
         private int AllowedLateFrames => _isRealTime ? 2 : 1;
 

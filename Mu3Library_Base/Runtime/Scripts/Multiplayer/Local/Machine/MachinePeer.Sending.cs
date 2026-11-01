@@ -31,9 +31,21 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// </para>
     /// <para>
     /// The main thread only moves buffers under a lock, instead of a socket call for each
-    /// connection, which takes about 9 µs for 1 KB on Windows loopback. What a connection handed
-    /// over and its socket did not take counts toward <see cref="MaxPendingBytes"/>, past which a
-    /// send answers false, as a full send buffer on Steam does.
+    /// connection, which takes about 9 µs for 1 KB on Windows loopback. On an AMD Ryzen 7 5800X3D
+    /// with Windows 11 Pro and Unity 6000.6.7f1, under the NFR-1 load of 16 players in
+    /// MultiplayerPerformanceTests, the host's average per frame went from 0.529 to 0.547 ms to
+    /// 0.235 to 0.242 ms where it relays every client's messages to the other 15, and from 0.298 to
+    /// 0.324 ms to 0.155 to 0.157 ms where the clients send to it only; what is left is its
+    /// update, which reads every connection and queues the relays, while its sends take 0.011 to
+    /// 0.016 ms. The thread runs above normal priority: at normal priority, while two to six other
+    /// Unity processes ran, the relayed case once took 0.487 ms on average and 26 ms at most, and
+    /// some messages arrived three frames late; above it, while up to five ran, the cases took
+    /// 0.287 and 0.304 ms on average and up to 12 ms, and no message was late.
+    /// </para>
+    /// <para>
+    /// What a connection handed over and its socket did not take counts toward
+    /// <see cref="MaxPendingBytes"/>, past which a send answers false, as a full send buffer on
+    /// Steam does.
     /// </para>
     /// </remarks>
     internal sealed partial class MachinePeer
@@ -279,6 +291,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
             {
                 IsBackground = true,
                 Name = "Mu3Library.Multiplayer local sends",
+
+                // On a busy machine a thread of normal priority waits for a core while what the
+                // frame handed it waits too, and so does the frame while the thread holds the
+                // gate; this one only ever sends what is there and then waits, so it starves nobody.
+                Priority = ThreadPriority.AboveNormal,
             };
             _sender.Start();
         }
