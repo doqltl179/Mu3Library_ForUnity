@@ -52,7 +52,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// 0.016 ms. The thread runs above normal priority: at normal priority, while two to six other
     /// Unity processes ran, the relayed case once took 0.487 ms on average and 26 ms at most, and
     /// some messages arrived three frames late; above it, while up to five ran, the cases took
-    /// 0.287 and 0.304 ms on average and up to 12 ms, and no message was late.
+    /// 0.287 and 0.304 ms on average and up to 12 ms, and no message was late. Such long frames
+    /// come from the load, not from this thread: under a fixed load of 16 processes that each
+    /// spin a core, the send path before this thread had them as well, more of them and up to
+    /// 54 ms, and in the long frames with this thread the main thread was off its core for about
+    /// nine tenths of the frame and had waited for the lock less than 0.1 ms in all (#288).
     /// </para>
     /// <para>
     /// What a connection handed over and its socket did not take counts toward
