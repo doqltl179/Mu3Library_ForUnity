@@ -1162,6 +1162,7 @@ namespace Mu3Library.Tests
                 [LobbyDataKeys.HostId] = owner.LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture),
                 [LobbyDataKeys.Name] = "Raw",
                 [LobbyDataKeys.State] = LobbyDataKeys.StateLobby,
+                [LobbyDataKeys.Closed] = LobbyDataKeys.NotClosed,
             };
 
             LobbyId created = LobbyId.None;

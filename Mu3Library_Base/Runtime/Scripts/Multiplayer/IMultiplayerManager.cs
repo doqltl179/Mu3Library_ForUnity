@@ -61,7 +61,10 @@ namespace Mu3Library.Multiplayer
         public void CreateLobby(LobbyCreateOptions options, Action<MultiplayerResult> callback = null);
 
         /// <summary>
-        /// Finds public lobbies of this game and protocol version that have a free slot.
+        /// Finds public lobbies of this game and protocol version that have a free slot. A session
+        /// whose game refuses late joiners stays out, also while its host opens the lobby for a
+        /// player coming back to its slot, though the lobby then takes joins, Steam's own search
+        /// lists it, and Steam's friends list may offer to join it (FR-19, FR-20).
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback);
 

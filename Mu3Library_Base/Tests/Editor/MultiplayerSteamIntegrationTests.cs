@@ -386,6 +386,38 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
+        {
+            // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is
+            // outside it, and Steam's own search then lists the joinable lobby; the library's does not.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(SearchUntil(manager, Worldwide, lobby), Is.Not.Null, "the lobby never showed up in the library's search");
+                Assert.That(manager.StartGame().IsSuccess, Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.Closed), Is.EqualTo(LobbyDataKeys.ClosedForTheGame));
+
+                // As the host does for a returning player outside the lobby.
+                Assert.That(_backend.SetLobbyJoinable(lobby, true), Is.True);
+                Assert.That(SteamListsUntil(manager, lobby, data => data.TryGetValue(LobbyDataKeys.Closed, out string closed) && closed == LobbyDataKeys.ClosedForTheGame), Is.True,
+                    "Steam's own search never listed the opened lobby as closed for the game");
+
+                // Steam's filters may follow the data a moment later (#249).
+                bool isFound = SearchUntil(manager, Worldwide, result => result.Lobbies.Any(info => info.Id == lobby), found => !found, 30);
+                Assert.That(isFound, Is.False, "the library's search leaves the opened lobby out");
+                Assert.That(SteamListsUntil(manager, lobby, data => true), Is.True, "Steam's own search still lists the opened lobby");
+                Assert.That(SearchUntil(manager, Worldwide, lobby, seconds: 5), Is.Null, "the library's search keeps the opened lobby out");
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamLobby_DeletesALobbyDataKey_FromTheLobbyAndFromSearch()
         {
             // FR-11 on Steam itself: a deleted key leaves the lobby, what search returns, and what
@@ -897,6 +929,38 @@ namespace Mu3Library.Tests
                 if (done(picked) || watch.Elapsed.TotalSeconds >= seconds)
                 {
                     return picked;
+                }
+
+                Pump(manager, () => false, 2);
+            }
+        }
+
+        /// <summary>
+        /// Asks Steam's own search, filtered only by the lobby's game ID, again and again until it
+        /// lists the lobby with data that passes <paramref name="check"/>; false when it never does.
+        /// </summary>
+        private bool SteamListsUntil(MultiplayerManager manager, LobbyId lobby, Func<IReadOnlyDictionary<string, string>, bool> check, int seconds = 30)
+        {
+            string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
+            Stopwatch watch = Stopwatch.StartNew();
+            while (true)
+            {
+                IReadOnlyList<BackendLobby> lobbies = null;
+                bool isAnswered = false;
+                _backend.SearchLobbies(Worldwide().AddStringFilter(LobbyDataKeys.GameId, gameId), (reason, found) =>
+                {
+                    isAnswered = true;
+                    lobbies = found;
+                });
+                Pump(manager, () => isAnswered, 25);
+                if (lobbies != null && lobbies.Any(found => found.Id == lobby && check(found.Data)))
+                {
+                    return true;
+                }
+
+                if (watch.Elapsed.TotalSeconds >= seconds)
+                {
+                    return false;
                 }
 
                 Pump(manager, () => false, 2);

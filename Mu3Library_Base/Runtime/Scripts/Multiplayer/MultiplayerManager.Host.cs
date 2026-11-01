@@ -136,6 +136,7 @@ namespace Mu3Library.Multiplayer
             data[LobbyDataKeys.HostId] = LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture);
             data[LobbyDataKeys.Name] = options.Name ?? string.Empty;
             data[LobbyDataKeys.State] = LobbyDataKeys.StateLobby;
+            data[LobbyDataKeys.Closed] = LobbyDataKeys.NotClosed;
             return data;
         }
 
@@ -340,6 +341,9 @@ namespace Mu3Library.Multiplayer
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateInGame);
             if (!_rules.AllowLateJoin)
             {
+                // Marked before any opening of the lobby for a returning player, so search never
+                // finds the lobby joinable without the mark (#253).
+                _backend.SetLobbyData(_lobbyId, LobbyDataKeys.Closed, LobbyDataKeys.ClosedForTheGame);
                 _backend.SetLobbyJoinable(_lobbyId, false);
             }
 
@@ -371,6 +375,11 @@ namespace Mu3Library.Multiplayer
             EndLoadWait();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateLobby);
+            if (!_rules.AllowLateJoin)
+            {
+                _backend.SetLobbyData(_lobbyId, LobbyDataKeys.Closed, LobbyDataKeys.NotClosed);
+            }
+
             _backend.SetLobbyJoinable(_lobbyId, true);
 
             _writer.Begin(PacketKind.ReturnedToLobby);

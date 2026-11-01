@@ -735,6 +735,10 @@ namespace Mu3Library.Tests
             Assert.That(lobby.Members, Has.No.Member(late.Backend), "refused, it leaves the lobby too");
             Assert.That(host.Joined.Select(participant => participant.Id), Has.No.Member(late.Id));
             Assert.That(lobby.IsJoinable, Is.True, "still open for the returned player");
+
+            // #253: the lobby takes joins, but search leaves the game out.
+            Assert.That(Search(CreateNode("Seeker")).Lobbies, Is.Empty);
+            Assert.That(host.Backend.GetLobbyData(lobby.Id, LobbyDataKeys.Closed), Is.EqualTo(LobbyDataKeys.ClosedForTheGame));
         }
 
         [TestCase(LobbyVisibility.InviteOnly)]
