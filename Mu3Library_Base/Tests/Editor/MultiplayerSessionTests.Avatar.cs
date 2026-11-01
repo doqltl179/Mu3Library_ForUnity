@@ -790,6 +790,88 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void AvatarChange_AnImageThatArrivesBroken_DoesNotHideTheNewImageAnEarlierReadBrings()
+        {
+            Node node = CreatePlatformNode("A");
+            PlayerId stranger = new PlayerId(424242);
+            node.Platform.Avatars[(stranger, AvatarSize.Large)] = (MultiplayerReason.None, SolidAvatar(2, 2, 10));
+            Texture2D texture = LoadAvatar(node, stranger, AvatarSize.Large).Texture;
+            List<AvatarResult> changes = new List<AvatarResult>();
+            node.Manager.OnAvatarChanged += changes.Add;
+
+            // Two changes in a row: the read after the first brings the new image, the one after
+            // the second a broken image, which the backend answers first.
+            node.Platform.HoldsAvatars = true;
+            node.Platform.Avatars[(stranger, AvatarSize.Large)] = (MultiplayerReason.None, SolidAvatar(2, 2, 50));
+            node.Platform.ReportAvatarChanged(stranger);
+            Pump();
+            node.Platform.Avatars[(stranger, AvatarSize.Large)] = (MultiplayerReason.None, new BackendAvatar(2, 2, new byte[3]));
+            node.Platform.ReportAvatarChanged(stranger);
+            Pump();
+            node.Platform.AnswersLastFirst = true;
+            node.Platform.HoldsAvatars = false;
+            LogAssert.Expect(LogType.Warning, new Regex(@"as 2x2 pixels in 3 bytes"));
+            Pump();
+
+            Assert.That(changes.Count, Is.EqualTo(1));
+            Assert.That(texture.GetPixels32().All(pixel => pixel.r == 50), Is.True, "the image the earlier read brought");
+            Advance(5.0);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(3), "a broken image is not read again");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void AvatarChange_WhileATryIsOnItsWay_StartsTheTriesAnew_AndThatTryChangesNothing()
+        {
+            Node node = CreatePlatformNode("A");
+            PlayerId stranger = new PlayerId(424242);
+            node.Platform.Avatars[(stranger, AvatarSize.Medium)] = (MultiplayerReason.None, SolidAvatar(2, 2, 10));
+            Texture2D texture = LoadAvatar(node, stranger, AvatarSize.Medium).Texture;
+            List<AvatarResult> changes = new List<AvatarResult>();
+            node.Manager.OnAvatarChanged += changes.Add;
+
+            node.Platform.Avatars[(stranger, AvatarSize.Medium)] = (MultiplayerReason.Timeout, default);
+            node.Platform.ReportAvatarChanged(stranger);
+            Pump();
+            node.Platform.HoldsAvatars = true;
+            Advance(1.1);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(3), "the try is on its way");
+
+            // A new change while the try is on its way; the try fails, the read after the change brings the image.
+            node.Platform.Avatars[(stranger, AvatarSize.Medium)] = (MultiplayerReason.None, SolidAvatar(2, 2, 90));
+            node.Platform.ReportAvatarChanged(stranger);
+            Pump();
+            node.Platform.HoldsAvatars = false;
+            Pump();
+
+            Assert.That(changes.Count, Is.EqualTo(1));
+            Assert.That(texture.GetPixels32().All(pixel => pixel.r == 90), Is.True);
+            Advance(5.0);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(4), "the failed try, no longer the latest read, is not tried again");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void AvatarChange_AFailedReadToTryAgain_EndsWithTheSession()
+        {
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Node a = JoinNew("A", host);
+            host.Platform.Avatars[(a.Id, AvatarSize.Small)] = (MultiplayerReason.None, SolidAvatar(2, 2, 10));
+            Texture2D ofA = LoadAvatar(host, a.Id, AvatarSize.Small).Texture;
+
+            host.Platform.Avatars[(a.Id, AvatarSize.Small)] = (MultiplayerReason.Timeout, default);
+            host.Platform.ReportAvatarChanged(a.Id);
+            Pump();
+            Assert.That(host.Platform.AvatarReads, Is.EqualTo(2));
+            host.Manager.Leave();
+            Pump();
+            Assert.That(ofA == null, Is.True, "ended with the session");
+
+            Advance(5.0);
+            Assert.That(host.Platform.AvatarReads, Is.EqualTo(2), "an avatar that ended with the session is not read again");
+        }
+
+        [Test]
         public void AvatarChange_AnEarlierReadThatAnswersAfterALaterOne_ChangesNothing_AndOneForAReleasedAvatarChangesNothing()
         {
             Node node = CreatePlatformNode("A");

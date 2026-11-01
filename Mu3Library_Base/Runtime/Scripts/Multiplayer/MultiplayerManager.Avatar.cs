@@ -278,8 +278,8 @@ namespace Mu3Library.Multiplayer
         /// each failure, while the backend is available, as a failed read would otherwise leave the
         /// default image Steam hands out first for an account it did not know until Steam told of
         /// another change. It warns once it gives up, and the texture keeps the last image it took.
-        /// An image that arrives broken is not read again, since that cannot mend a backend that
-        /// hands it over so. An avatar the game released meanwhile, or that ended with its session,
+        /// An image that arrives broken counts as no image, and is not read again, since that cannot
+        /// mend a backend that hands it over so. An avatar the game released meanwhile, or that ended with its session,
         /// stays released.
         /// </summary>
         private void HandleAvatarRefreshed(PlayerId player, AvatarSize size, int read, MultiplayerReason reason, BackendAvatar avatar)
@@ -297,7 +297,10 @@ namespace Mu3Library.Multiplayer
             }
 
             refresh.Reading--;
-            bool draws = reason == MultiplayerReason.None && read > refresh.Drawn;
+
+            // A broken image brought no image, so it neither takes the place of the image an
+            // earlier read brings nor hides it.
+            bool draws = reason == MultiplayerReason.None && read > refresh.Drawn && IsUsableAvatar(player, size, avatar);
             if (draws)
             {
                 refresh.Drawn = read;
@@ -313,7 +316,8 @@ namespace Mu3Library.Multiplayer
                 }
                 else
                 {
-                    Debug.LogWarning($"[Multiplayer] The {size} avatar of {player} changed but could not be read again ({reason}) in {refresh.Retries + 1} tries; its texture keeps the last image it took.");
+                    int tries = refresh.Retries + 1;
+                    Debug.LogWarning($"[Multiplayer] The {size} avatar of {player} changed but could not be read again ({reason}) in {tries} {(tries == 1 ? "try" : "tries")}; its texture keeps the last image it took.");
                 }
             }
 
@@ -327,7 +331,7 @@ namespace Mu3Library.Multiplayer
             }
 
             // Last, as a handler may release the avatar or end the session.
-            if (draws && RedrawAvatarTexture(owned.Texture, player, size, avatar))
+            if (draws && RedrawAvatarTexture(owned.Texture, avatar))
             {
                 Raise(nameof(OnAvatarChanged), OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
             }
@@ -397,17 +401,12 @@ namespace Mu3Library.Multiplayer
         }
 
         /// <summary>
-        /// Draws the backend's image into a texture the manager made, resized to it when it has
-        /// another size. False, with the texture left as it was, for no usable image and for the
-        /// image the texture already shows.
+        /// Draws a usable image of the backend (see <see cref="IsUsableAvatar"/>) into a texture
+        /// the manager made, resized to it when it has another size. False, with the texture left
+        /// as it was, for the image the texture already shows.
         /// </summary>
-        private static bool RedrawAvatarTexture(Texture2D texture, PlayerId player, AvatarSize size, BackendAvatar avatar)
+        private static bool RedrawAvatarTexture(Texture2D texture, BackendAvatar avatar)
         {
-            if (!IsUsableAvatar(player, size, avatar))
-            {
-                return false;
-            }
-
             byte[] pixels = avatar.Pixels;
             FlipRows(pixels, avatar.Width * 4, avatar.Height);
 
