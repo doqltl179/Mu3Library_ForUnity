@@ -411,8 +411,13 @@ namespace Mu3Library.Tests
                     info => info != null && !info.Data.ContainsKey("Map"), 30);
                 Assert.That(after, Is.Not.Null, "search never dropped the deleted key");
                 Assert.That(after.Data["Mode"], Is.EqualTo("coop"));
-                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby, seconds: 5), Is.Null,
-                    "search no longer finds the lobby by the deleted key");
+
+                // Steam's filters follow a deletion later than the data a search returns, for up
+                // to about a second past it on AppID 480 (#249), so search is asked again until
+                // it no longer finds the lobby by the deleted key.
+                bool isStillFound = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"),
+                    result => result.Lobbies.Any(info => info.Id == lobby), found => !found, 30);
+                Assert.That(isStillFound, Is.False, "search no longer finds the lobby by the deleted key");
 
                 Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
                 Assert.That(manager.DeleteParticipantData("character").IsSuccess, Is.True);

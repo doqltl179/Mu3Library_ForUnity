@@ -176,6 +176,15 @@ namespace Mu3Library.Multiplayer
         /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
         /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
         /// not hold changes nothing.
+        /// <para>
+        /// Steam's search takes a moment to follow a deletion, and its filters follow later than
+        /// the data it returns: on AppID 480 on 2026-11-01, over eight deletions, the lobby a
+        /// search returned lacked the key within about 0.5 seconds, while a filter on the deleted
+        /// value went on finding the lobby for up to about 0.8 seconds and stopped within about
+        /// 1.4 seconds. A game that searches right after a deletion may still find the lobby by
+        /// the deleted value. The local backends filter on the data their search returns, so
+        /// both follow a deletion together.
+        /// </para>
         /// </summary>
         public MultiplayerResult DeleteLobbyData(string key);
 
