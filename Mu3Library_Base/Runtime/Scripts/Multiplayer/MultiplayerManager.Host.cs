@@ -146,7 +146,13 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> accepted = new Dictionary<string, string>(options.Data.Count);
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                MultiplayerReason check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
+                MultiplayerReason check = CheckLobbyKeyCase(pair.Key, accepted);
+                if (check != MultiplayerReason.None)
+                {
+                    return check;
+                }
+
+                check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
                 WarnIfInvalid(check, pair.Key);
                 if (check != MultiplayerReason.None)
                 {
@@ -533,6 +539,10 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.SetParticipantData:
                     HostHandleParticipantData(peer, ref reader);
+                    break;
+
+                case PacketKind.DeleteParticipantData:
+                    HostHandleParticipantDataDeletion(peer, ref reader);
                     break;
 
                 case PacketKind.ChatToHost:

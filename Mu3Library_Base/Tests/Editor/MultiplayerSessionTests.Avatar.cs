@@ -69,6 +69,7 @@ namespace Mu3Library.Tests
             public void LeaveLobby(LobbyId lobby) => _inner.LeaveLobby(lobby);
             public string GetLobbyData(LobbyId lobby, string key) => _inner.GetLobbyData(lobby, key);
             public bool SetLobbyData(LobbyId lobby, string key, string value) => _inner.SetLobbyData(lobby, key, value);
+            public bool DeleteLobbyData(LobbyId lobby, string key) => _inner.DeleteLobbyData(lobby, key);
             public bool SetLobbyJoinable(LobbyId lobby, bool joinable) => _inner.SetLobbyJoinable(lobby, joinable);
             public bool SetLobbyCapacity(LobbyId lobby, int capacity) => _inner.SetLobbyCapacity(lobby, capacity);
             public PlayerId GetLobbyOwner(LobbyId lobby) => _inner.GetLobbyOwner(lobby);

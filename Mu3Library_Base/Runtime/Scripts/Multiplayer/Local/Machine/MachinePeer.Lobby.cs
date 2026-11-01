@@ -81,7 +81,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         && IsSearchable(lobby.Visibility, lobby.IsJoinable, lobby.Members.Count, lobby.Capacity)
                         && LobbyFilter.Matches(lobby.Data, snapshot))
                     {
-                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data)));
+                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
                     }
                 }
 
@@ -147,6 +147,23 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             lobby.Data[key] = value ?? string.Empty;
             lobby.IsDirty = true;
+            return true;
+        }
+
+        public bool DeleteLobbyData(LobbyId lobbyId, string key)
+        {
+            MachineLobby lobby = FindOwnedLobby(lobbyId);
+            if (lobby == null || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            // The members and the lobby file take the whole data again, so the key leaves both.
+            if (lobby.Data.Remove(key))
+            {
+                lobby.IsDirty = true;
+            }
+
             return true;
         }
 

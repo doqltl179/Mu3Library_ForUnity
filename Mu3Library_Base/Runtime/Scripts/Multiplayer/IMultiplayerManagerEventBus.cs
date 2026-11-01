@@ -57,14 +57,17 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Raised when a value of a player's participant data changes, this player's own included,
-        /// with the player as the host now reports them and the key that changed. A joining player
-        /// reads the data set before it joined from <see cref="IMultiplayerManager.Participants"/> instead.
+        /// with the player as the host now reports them and the key that changed. When the player
+        /// deleted the key (<see cref="IMultiplayerManager.DeleteParticipantData"/>), the
+        /// participant's <see cref="Participant.Data"/> no longer holds it. A joining player reads
+        /// the data set before it joined from <see cref="IMultiplayerManager.Participants"/> instead.
         /// </summary>
         public event Action<Participant, string> OnParticipantDataChanged;
 
         /// <summary>
         /// Raised on every player, the host included, when the host sets a value of the lobby data,
-        /// with the key and the new value. A joining player reads the data set before it joined
+        /// with the key and the new value, or deletes a key (<see cref="IMultiplayerManager.DeleteLobbyData"/>),
+        /// with the key and a null value. A joining player reads the data set before it joined
         /// from <see cref="IMultiplayerManager.LobbyData"/> instead.
         /// </summary>
         public event Action<string, string> OnLobbyDataChanged;

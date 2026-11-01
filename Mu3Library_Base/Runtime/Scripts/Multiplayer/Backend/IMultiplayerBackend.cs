@@ -62,11 +62,21 @@ namespace Mu3Library.Multiplayer.Backend
 
         public void LeaveLobby(LobbyId lobby);
 
-        /// <summary>Null when the lobby or the key is unknown to this player.</summary>
+        /// <summary>
+        /// Null when the lobby or the key is unknown to this player. Lobby data keys are told apart
+        /// without regard to case, as Steam tells them apart, so a key is found in any case here, in
+        /// the data a search returns, and by the search filters.
+        /// </summary>
         public string GetLobbyData(LobbyId lobby, string key);
 
         /// <summary>Owner only; false otherwise.</summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
+
+        /// <summary>
+        /// Owner only; false otherwise. Removes the key from the lobby, so lobby search no longer
+        /// returns it or finds the lobby by it. The manager asks only for a key the lobby holds.
+        /// </summary>
+        public bool DeleteLobbyData(LobbyId lobby, string key);
 
         /// <summary>Owner only. A lobby that is not joinable leaves search and refuses every join.</summary>
         public bool SetLobbyJoinable(LobbyId lobby, bool joinable);

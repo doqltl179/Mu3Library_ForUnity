@@ -414,7 +414,7 @@ namespace Mu3Library.Multiplayer.Local
                         continue;
                     }
 
-                    results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data)));
+                    results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
                 }
 
                 onCompleted?.Invoke(MultiplayerReason.None, results);
@@ -497,6 +497,23 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             lobby.Data[key] = value ?? string.Empty;
+            return true;
+        }
+
+        public bool DeleteLobbyData(LobbyId lobbyId, string key)
+        {
+            if (_machine != null)
+            {
+                return _machine.DeleteLobbyData(lobbyId, key);
+            }
+
+            LocalLobby lobby = FindOwnedLobby(lobbyId);
+            if (lobby == null || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            lobby.Data.Remove(key);
             return true;
         }
 

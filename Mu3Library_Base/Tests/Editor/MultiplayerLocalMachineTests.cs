@@ -272,6 +272,33 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void DataDeletions_ReachEveryProcess_AndLeaveLobbySearch()
+        {
+            // FR-11 between "processes": a deletion travels as a change does, and another
+            // process's search reads the lobby file without the key once the file caught up.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            StartSession(host, a);
+            Assert.That(host.Manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Node[] everyone = { host, a };
+            PumpUntil(() => everyone.All(node => node.Manager.LobbyData.ContainsKey("map") && CharacterOf(node, a.Id) == "knight"), "every player to see the data");
+
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Assert.That(SearchedData(seeker, lobby, data => data.ContainsKey("map")), Is.Not.Null, "the lobby file never listed the key");
+
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True);
+            Assert.That(a.Manager.DeleteParticipantData("character").IsSuccess, Is.True);
+            PumpUntil(() => everyone.All(node => !node.Manager.LobbyData.ContainsKey("map") && CharacterOf(node, a.Id) == null), "every player to see the deletions");
+
+            IReadOnlyDictionary<string, string> seen = SearchedData(seeker, lobby, data => !data.ContainsKey("map"));
+            Assert.That(seen, Is.Not.Null, "the lobby file never dropped the key");
+            Assert.That(seen["mode"], Is.EqualTo("coop"));
+        }
+
+        [Test]
         public void Chat_ReachesEveryProcess_InTheSameOrder()
         {
             // FR-12 between "processes".
@@ -458,13 +485,15 @@ namespace Mu3Library.Tests
             Assert.That(owner.SetLobbyData(lobby, "map", "forest"), Is.True);
             Assert.That(member.SetLobbyData(lobby, "map", "spoofed"), Is.False);
             PumpUntil(() => member.GetLobbyData(lobby, "map") == "forest", "the data");
+            Assert.That(owner.GetLobbyData(lobby, "MAP"), Is.EqualTo("forest"), "a key reads in any case, as on Steam");
+            Assert.That(member.GetLobbyData(lobby, "Map"), Is.EqualTo("forest"));
 
             Assert.That(member.GetLobbyOwner(lobby), Is.EqualTo(owner.LocalPlayerId));
             Assert.That(owner.IsLobbyMember(lobby, member.LocalPlayerId) && member.IsLobbyMember(lobby, owner.LocalPlayerId), Is.True);
             Assert.That(member.GetPlayerName(owner.LocalPlayerId), Is.EqualTo("Owner"));
 
             LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
-            PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 2 && found.Data["map"] == "forest"), "the search to show the change");
+            PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 2 && found.Data["MAP"] == "forest"), "the search to show the change, a key in any case");
 
             member.LeaveLobby(lobby);
             PumpUntil(() => !owner.IsLobbyMember(lobby, member.LocalPlayerId), "the owner to drop the member");
@@ -624,6 +653,30 @@ namespace Mu3Library.Tests
             Assert.That(client.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Host).IsSuccess, Is.True);
             PumpUntil(() => host.Messages.Count == 1, "the delayed message");
             Assert.That(sent.Elapsed.TotalMilliseconds, Is.GreaterThanOrEqualTo(100.0));
+        }
+
+        [Test]
+        public void ParticipantPings_ReachEveryProcess_EachPlayersOwn()
+        {
+            // FR-36, FR-40 between "processes": each process delays what it sends, so A's 100 ms
+            // make a 100 ms round trip to the host and B's none, and every player reads both.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A", network => network.SimulatedLatencyMilliseconds = 100f);
+            Node b = CreateNode("B");
+            StartSession(host, a, b);
+            Node[] everyone = { host, a, b };
+
+            PumpUntil(() => everyone.All(node => PingOf(node, a.Id) >= 80 && PingOf(node, b.Id) >= 0), "every player to read both pings");
+            foreach (Node node in everyone)
+            {
+                string name = node.Backend.PlayerName;
+                TestContext.WriteLine($"{name} reads A at {PingOf(node, a.Id)} ms and B at {PingOf(node, b.Id)} ms.");
+                Assert.That(PingOf(node, host.Id), Is.Zero, name);
+                Assert.That(PingOf(node, a.Id), Is.InRange(80, 130), name);
+                Assert.That(PingOf(node, b.Id), Is.InRange(0, 40), name);
+            }
+
+            Assert.That(b.Manager.TryGetConnectionQuality(a.Id, out _), Is.False, "B has no connection of its own to A");
         }
 
         [Test]
@@ -897,6 +950,27 @@ namespace Mu3Library.Tests
             return lobbies.ToList();
         }
 
+        /// <summary>
+        /// Searches from another process until it shows the lobby with data that passes
+        /// <paramref name="check"/>, and returns that data; null when it never does in time.
+        /// </summary>
+        private IReadOnlyDictionary<string, string> SearchedData(LocalBackend seeker, LobbyId lobby, Func<IReadOnlyDictionary<string, string>, bool> check)
+        {
+            Stopwatch waited = Stopwatch.StartNew();
+            while (waited.Elapsed.TotalSeconds < WaitSeconds)
+            {
+                foreach (BackendLobby found in Search(seeker))
+                {
+                    if (found.Id == lobby && check(found.Data))
+                    {
+                        return found.Data;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>The host creates a public lobby, and every client joins it.</summary>
         private void StartSession(Node host, params Node[] clients)
         {
@@ -914,6 +988,12 @@ namespace Mu3Library.Tests
             }
 
             PumpUntil(() => clients.All(client => client.Manager.Participants.Count == clients.Length + 1), "every roster to list every player");
+        }
+
+        /// <summary>The player's ping as the node reads it, or -1 while it reads none.</summary>
+        private static int PingOf(Node node, PlayerId player)
+        {
+            return node.Manager.TryGetParticipantPing(player, out int ping) ? ping : -1;
         }
 
         private static string CharacterOf(Node node, PlayerId player)
