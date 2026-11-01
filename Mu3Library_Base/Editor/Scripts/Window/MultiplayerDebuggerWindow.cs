@@ -13,7 +13,8 @@ namespace Mu3Library.Editor.Window
 {
     /// <summary>
     /// Shows the multiplayer sessions of the game in play mode: each manager's session state, its
-    /// players with the quality of this player's connection to each, and how many messages of each
+    /// players with each one's ping as the host measures it, which a client reads for every player
+    /// too, and the quality of this player's own connection to each, and how many messages of each
     /// type it sent and received. It finds the managers among the singletons that the cores under
     /// <see cref="CoreRoot"/> hold, as the Runtime Diagnostics drawer finds its services, and reads
     /// them again every <see cref="RefreshIntervalSeconds"/>. Reading changes nothing.
@@ -162,16 +163,26 @@ namespace Mu3Library.Editor.Window
             if (view.Players.Count > 0)
             {
                 GUILayout.Space(4f);
-                DrawRow(EditorStyles.boldLabel, "Player", "Ping", "Loss", "Sent/s", "Recv/s");
+                EditorGUILayout.LabelField(
+                    "Host ping: the host's measure of each player's round trip, which every player reads. "
+                    + "Ping to Recv/s: this player's own connection to that player.",
+                    EditorStyles.wordWrappedMiniLabel);
+                DrawRow(EditorStyles.boldLabel, "Player", "Host ping", "Ping", "Loss", "Sent/s", "Recv/s");
                 for (int i = 0; i < view.Players.Count; i++)
                 {
                     MultiplayerSessionView.PlayerRow row = view.Players[i];
                     Participant participant = row.Participant;
                     string name = Describe(participant);
+
+                    // None for a player away while the host keeps their slot, and on a client for
+                    // one the host has not reported yet.
+                    string hostPing = row.HasHostPing
+                        ? string.Format(CultureInfo.InvariantCulture, "{0} ms", row.HostPingMilliseconds)
+                        : "-";
                     if (row.HasQuality)
                     {
                         ConnectionQuality quality = row.Quality;
-                        DrawRow(EditorStyles.label, name,
+                        DrawRow(EditorStyles.label, name, hostPing,
                             string.Format(CultureInfo.InvariantCulture, "{0} ms", quality.PingMilliseconds),
                             string.Format(CultureInfo.InvariantCulture, "{0:0.#}%", quality.PacketLoss * 100f),
                             Bytes(quality.BytesSentPerSecond),
@@ -180,7 +191,7 @@ namespace Mu3Library.Editor.Window
                     else
                     {
                         // The host's own row, and on a client the other clients, whom it reaches through the host.
-                        DrawRow(EditorStyles.label, name, "-", "-", "-", "-");
+                        DrawRow(EditorStyles.label, name, hostPing, "-", "-", "-", "-");
                     }
                 }
             }

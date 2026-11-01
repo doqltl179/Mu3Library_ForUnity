@@ -6,12 +6,15 @@ namespace Mu3Library.Sample.Multiplayer
 {
     /// <summary>
     /// The unattended run that <see cref="SampleCommandLine"/> turns on, which goes through the
-    /// same flows as the buttons. The host creates a public lobby, waits for a guest to join and
-    /// get ready, gets ready, starts the game, sends the guest a message, and kicks it once it
-    /// answers. The guest searches for the lobby by name, joins it by its lobby ID, gets ready,
-    /// answers the host's message, and waits to be kicked. Every step logs a line that starts with
-    /// <c>[MultiplayerSample] AUTO</c>; the run ends with <c>AUTO PASS</c> or <c>AUTO FAIL</c> and
-    /// then quits, a player with exit code 0 or 1 and the editor by leaving play mode.
+    /// same flows as the buttons. The host creates a public lobby with lobby data, waits for a
+    /// guest to join and get ready, gets ready, starts the game, sends the guest a message,
+    /// deletes the lobby data key once the guest answers, and kicks the guest once it deleted its
+    /// own participant data key. The guest searches for the lobby by name, joins it by its lobby
+    /// ID, sets its participant data key, gets ready, answers the host's message, deletes its key
+    /// once it heard the lobby data key deleted, and waits to be kicked. Every step logs a line
+    /// that starts with <c>[MultiplayerSample] AUTO</c>; the run ends with <c>AUTO PASS</c> or
+    /// <c>AUTO FAIL</c> and then quits, a player with exit code 0 or 1 and the editor by leaving
+    /// play mode.
     /// </summary>
     public partial class SampleMultiplayerCore
     {
@@ -27,12 +30,14 @@ namespace Mu3Library.Sample.Multiplayer
             WaitingForGuest,
             WaitingForGuestReady,
             WaitingForReply,
+            WaitingForGuestDataDeletion,
             WaitingForKick,
 
             SearchingLobby,
             JoiningLobby,
             WaitingForStart,
             WaitingForGreeting,
+            WaitingForLobbyDataDeletion,
             WaitingToBeKicked,
 
             Finished,
@@ -47,6 +52,8 @@ namespace Mu3Library.Sample.Multiplayer
         private PlayerId _autoGuest = PlayerId.None;
         private bool _hasGameStarted = false;
         private bool _hasPeerGreeted = false;
+        private bool _wasLobbyDataDeleted = false;
+        private bool _wasGuestDataDeleted = false;
         private bool _wasGuestKicked = false;
         private bool _wasKicked = false;
 
@@ -121,7 +128,8 @@ namespace Mu3Library.Sample.Multiplayer
                 case AutoStep.CreatingLobby:
                     if (_manager.State == SessionState.Lobby)
                     {
-                        StepAutoRun(AutoStep.WaitingForGuest, $"created the lobby, lobby ID {_manager.CurrentLobbyId}");
+                        _manager.LobbyData.TryGetValue(LobbyDataKey, out string map);
+                        StepAutoRun(AutoStep.WaitingForGuest, $"created the lobby, lobby ID {_manager.CurrentLobbyId}, with the lobby data \"{LobbyDataKey}\" \"{map}\"");
                     }
                     break;
 
@@ -152,7 +160,20 @@ namespace Mu3Library.Sample.Multiplayer
                 case AutoStep.WaitingForReply:
                     if (_hasPeerGreeted)
                     {
-                        StepAutoRun(AutoStep.WaitingForKick, "the guest answered; kicking it");
+                        if (!DeleteLobbyData())
+                        {
+                            FailAutoRun($"deleting the lobby data \"{LobbyDataKey}\" failed");
+                            break;
+                        }
+
+                        StepAutoRun(AutoStep.WaitingForGuestDataDeletion, $"the guest answered; deleted the lobby data \"{LobbyDataKey}\"");
+                    }
+                    break;
+
+                case AutoStep.WaitingForGuestDataDeletion:
+                    if (_wasGuestDataDeleted)
+                    {
+                        StepAutoRun(AutoStep.WaitingForKick, $"the guest deleted its data \"{ParticipantDataKey}\"; kicking it (its ping as this host measures it: {PingText(_autoGuest)})");
                         Kick(_autoGuest);
                     }
                     break;
@@ -160,7 +181,8 @@ namespace Mu3Library.Sample.Multiplayer
                 case AutoStep.WaitingForKick:
                     if (_wasGuestKicked)
                     {
-                        PassAutoRun("created the lobby, the guest joined and got ready, started the game, exchanged messages, kicked the guest");
+                        PassAutoRun("created the lobby, the guest joined and got ready, started the game, exchanged messages, "
+                            + "deleted the lobby data, saw the guest delete its participant data, kicked the guest");
                     }
                     break;
 
@@ -175,8 +197,15 @@ namespace Mu3Library.Sample.Multiplayer
                 case AutoStep.JoiningLobby:
                     if (_manager.State == SessionState.Lobby)
                     {
+                        if (!SetParticipantData())
+                        {
+                            FailAutoRun($"setting the participant data \"{ParticipantDataKey}\" failed");
+                            break;
+                        }
+
                         SetReady(true);
-                        StepAutoRun(AutoStep.WaitingForStart, $"joined the lobby of {NameOf(_manager.HostId)} and got ready");
+                        _manager.LobbyData.TryGetValue(LobbyDataKey, out string map);
+                        StepAutoRun(AutoStep.WaitingForStart, $"joined the lobby of {NameOf(_manager.HostId)}, whose lobby data \"{LobbyDataKey}\" is \"{map}\"; set its data \"{ParticipantDataKey}\" and got ready");
                     }
                     break;
 
@@ -191,14 +220,28 @@ namespace Mu3Library.Sample.Multiplayer
                     if (_hasPeerGreeted)
                     {
                         SendGreeting(MessageTarget.Host);
-                        StepAutoRun(AutoStep.WaitingToBeKicked, "the host sent a message; answered it");
+                        StepAutoRun(AutoStep.WaitingForLobbyDataDeletion, "the host sent a message; answered it");
+                    }
+                    break;
+
+                case AutoStep.WaitingForLobbyDataDeletion:
+                    if (_wasLobbyDataDeleted)
+                    {
+                        if (!DeleteParticipantData())
+                        {
+                            FailAutoRun($"deleting the participant data \"{ParticipantDataKey}\" failed");
+                            break;
+                        }
+
+                        StepAutoRun(AutoStep.WaitingToBeKicked, $"the host deleted the lobby data \"{LobbyDataKey}\"; deleted its own data \"{ParticipantDataKey}\" (its ping as the host measures it: {PingText(_manager.LocalPlayerId)})");
                     }
                     break;
 
                 case AutoStep.WaitingToBeKicked:
                     if (_wasKicked)
                     {
-                        PassAutoRun("found the lobby, joined it by its lobby ID, got ready, the game started, exchanged messages, was kicked");
+                        PassAutoRun("found the lobby, joined it by its lobby ID, got ready, the game started, exchanged messages, "
+                            + "saw the lobby data deleted, deleted its participant data, was kicked");
                     }
                     break;
             }
@@ -250,6 +293,23 @@ namespace Mu3Library.Sample.Multiplayer
         private void OnAutoRunGameStarted()
         {
             _hasGameStarted = true;
+        }
+
+        private void OnAutoRunLobbyDataChanged(string key, string value)
+        {
+            if (_autoStep == AutoStep.WaitingForLobbyDataDeletion && key == LobbyDataKey && value == null)
+            {
+                _wasLobbyDataDeleted = true;
+            }
+        }
+
+        private void OnAutoRunParticipantDataChanged(Participant participant, string key)
+        {
+            if (_autoStep == AutoStep.WaitingForGuestDataDeletion && participant.Id == _autoGuest
+                && key == ParticipantDataKey && !participant.Data.ContainsKey(key))
+            {
+                _wasGuestDataDeleted = true;
+            }
         }
 
         private void OnAutoRunGreetingReceived(PlayerId sender)

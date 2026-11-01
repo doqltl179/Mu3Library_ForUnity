@@ -6,8 +6,9 @@ namespace Mu3Library.Editor.Window
 {
     /// <summary>
     /// What the <see cref="MultiplayerDebuggerWindow"/> shows of one manager, as it was when last
-    /// captured: the session, its players with the quality of this player's connection to each,
-    /// and its message types with their counts and their rates since the capture before.
+    /// captured: the session, its players with each one's ping as the host measures it and the
+    /// quality of this player's own connection to each, and its message types with their counts
+    /// and their rates since the capture before.
     /// </summary>
     internal sealed class MultiplayerSessionView
     {
@@ -15,7 +16,20 @@ namespace Mu3Library.Editor.Window
         {
             public Participant Participant;
 
-            /// <summary>False for this player itself and, on a client, for the other clients.</summary>
+            /// <summary>
+            /// The round trip between the host and the player as the host measures it
+            /// (<see cref="IMultiplayerManager.TryGetParticipantPing"/>), which every player reads
+            /// for every player; the host's own is 0. False for a player away while the host keeps
+            /// their slot and, on a client, for a player the host has not reported yet.
+            /// </summary>
+            public bool HasHostPing;
+            public int HostPingMilliseconds;
+
+            /// <summary>
+            /// This player's own measure of its connection to the player
+            /// (<see cref="IMultiplayerManager.TryGetConnectionQuality"/>). False for this player
+            /// itself and, on a client, for the other clients.
+            /// </summary>
             public bool HasQuality;
             public ConnectionQuality Quality;
         }
@@ -69,6 +83,7 @@ namespace Mu3Library.Editor.Window
             for (int i = 0; i < participants.Count; i++)
             {
                 PlayerRow row = new PlayerRow { Participant = participants[i] };
+                row.HasHostPing = Manager.TryGetParticipantPing(row.Participant.Id, out row.HostPingMilliseconds);
                 row.HasQuality = Manager.TryGetConnectionQuality(row.Participant.Id, out row.Quality);
                 Players.Add(row);
             }
