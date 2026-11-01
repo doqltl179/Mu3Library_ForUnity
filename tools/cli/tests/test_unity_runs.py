@@ -551,6 +551,29 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertIn("fake unity tick 15", completed.stdout.splitlines())
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
+    def test_a_target_that_stalls_or_fails_ends_the_run_before_the_remaining_targets(self) -> None:
+        # all compiles the five fixture targets in mapping order, and the fake stalls or fails in
+        # each, so the first target ends the run and none of the other four may start.
+        for fake, status, error in (
+            (
+                {"sleep": "120"},
+                1,
+                "error: Unity compilation failed for shared: Unity wrote nothing to its log for 1 s, "
+                "so the script stopped it; see log/unity-compile/shared.log",
+            ),
+            ({"unity_status": 3}, 3, "error: Unity compilation failed for shared (exit 3)"),
+        ):
+            with self.subTest(error=error):
+                completed = self.compile("all", "--stall-timeout", "1", **fake)
+
+                self.assertEqual(status, completed.returncode, completed.stdout)
+                self.assertIn(error, completed.stderr)
+                ran = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+                self.assertEqual(1, len(ran), completed.stdout)
+                self.assertTrue(ran[0].endswith("/ProjShared"), ran[0])
+                self.assertNotIn("Compiling layered", completed.stdout)
+                self.assertNotIn("Unity compilation succeeded", completed.stdout)
+
 
 class UnfinishedTestTests(FixtureRepositoryTestCase):
     """unfinished_test reads the test a run was in from the lines -automated adds to the log."""
@@ -626,6 +649,54 @@ class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
                 self.assertEqual(1, completed.returncode, completed.stdout)
                 self.assertIn(f"UNITY_LOG_POLL_SECONDS expects a positive number of seconds: {value}", completed.stderr)
                 self.assertNotIn("fake unity ran", completed.stdout)
+
+
+class StallClockTests(FixtureRepositoryTestCase):
+    """The stall watch never stops Unity before the log has stood still for the whole timeout."""
+
+    # Prints, for each reading of the clock after the log last grew at 5 s, whether the watch would stop Unity.
+    JUDGE = """for now in "$@"; do
+    UNITY_CLOCK="$now"
+    if unity_log_stalled 5000000; then printf '%s stalled\\n' "$now"; else printf '%s waits\\n' "$now"; fi
+done
+"""
+
+    def judge(self, setup: str, *readings: int) -> list[str]:
+        completed = self.run_functions("compile-unity.sh", setup + self.JUDGE, *map(str, readings))
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout.splitlines()
+
+    def test_a_clock_to_the_microsecond_stops_unity_once_the_timeout_has_passed(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh", 'read_unity_clock\nprintf "%s %s" "$UNITY_CLOCK" "$UNITY_CLOCK_SLACK"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        clock, slack = map(int, completed.stdout.split())
+        if slack:
+            self.skipTest("this bash is older than 5 and has no EPOCHREALTIME")
+        self.assertLess(abs(clock - time.time() * 1_000_000), 60_000_000, "the clock does not count microseconds")
+        self.assertEqual(
+            ["6999999 waits", "7000000 stalled"],
+            self.judge("UNITY_STALL_SECONDS=2\nread_unity_clock\n", 6_999_999, 7_000_000),
+        )
+
+    def test_a_clock_in_whole_seconds_waits_a_second_more_than_the_timeout(self) -> None:
+        # Readings 2 s apart in whole seconds may be little more than 1 s apart in fact.
+        setup = "unset EPOCHREALTIME\nUNITY_STALL_SECONDS=2\nread_unity_clock\n"
+        completed = self.run_functions(
+            "compile-unity.sh", setup + 'printf "%s %s" "$((UNITY_CLOCK % 1000000))" "$UNITY_CLOCK_SLACK"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("0 1000000", completed.stdout)
+        self.assertEqual(["7000000 waits", "8000000 stalled"], self.judge(setup, 7_000_000, 8_000_000))
+
+    def test_a_timeout_of_zero_never_stops_unity(self) -> None:
+        self.assertEqual(
+            ["5000000 waits", "99000000000 waits"],
+            self.judge("UNITY_STALL_SECONDS=0\nread_unity_clock\n", 5_000_000, 99_000_000_000),
+        )
 
 
 class ProcessTreeTests(FixtureRepositoryTestCase):

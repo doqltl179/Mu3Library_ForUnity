@@ -18,6 +18,9 @@ Package release notes remain in:
 ### Changed
 - The stall watch looks at Unity's log every `UNITY_LOG_POLL_SECONDS`, 1 unless the environment sets it, and the tool tests set 0.1, so each run of the fake Unity, which exits at once, no longer waits out a whole second. On one machine `commands.test_tools` went from 79 to 94 s on `develop` to 72 to 77 s, with seven more tests, while one or no Unity batch process ran beside it. It still takes longer than the 44 s it took before the stall watch, mostly because the tests of the watch itself wait on purpose: five of them, the stall detection, the progressing run, and `--stall-timeout 0`, spend about 21 s together, and `--stall-timeout` takes whole seconds, so none of them can wait less than 2 s.
 
+### Fixed
+- The stall watch of `compile-unity.sh` and `test-unity.sh` no longer stops Unity up to a second before `--stall-timeout` has passed. It compared bash's `SECONDS`, which counts whole seconds, so a log that had stood still for little more than N - 1 seconds could count as N. It now times the silence to the microsecond with bash 5's `EPOCHREALTIME`, and an older bash, which has only `SECONDS`, waits a second longer instead. A tool test now also shows that a compile target that stalls or fails ends the run before the remaining targets, which only the script's `set -e` had kept so far.
+
 ## 2026-10-31 (agentkit 0.6.0)
 
 ### Changed

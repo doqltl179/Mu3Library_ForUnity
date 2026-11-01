@@ -39,6 +39,11 @@ UNITY_STALLED=0
 # 1; the tool tests set UNITY_LOG_POLL_SECONDS in the environment to a fraction
 # so that a fake Unity, which exits at once, does not wait out a whole second.
 UNITY_LOG_POLL_SECONDS="${UNITY_LOG_POLL_SECONDS:-1}"
+# The stall watch's clock, which read_unity_clock sets: the time in
+# microseconds, and how much shorter than the difference of two readings the
+# time between them may be.
+UNITY_CLOCK=0
+UNITY_CLOCK_SLACK=0
 
 SKIP_SAMPLES=0
 readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -1183,6 +1188,35 @@ stop_process_tree() {
     done
 }
 
+# Sets UNITY_CLOCK to the time in microseconds. Bash 5 reads it to the
+# microsecond from EPOCHREALTIME, whose decimal separator follows the locale.
+# An older bash, such as the 3.2 that macOS ships, has only SECONDS, which
+# counts whole seconds, so two of its readings N seconds apart may be little
+# more than N - 1 seconds apart in fact; UNITY_CLOCK_SLACK says by how much.
+read_unity_clock() {
+    local stamp="${EPOCHREALTIME:-}"
+
+    if [[ -n "$stamp" ]]; then
+        stamp="${stamp//[!0-9]/}"
+        UNITY_CLOCK=$((10#$stamp))
+        UNITY_CLOCK_SLACK=0
+    else
+        UNITY_CLOCK=$((SECONDS * 1000000))
+        UNITY_CLOCK_SLACK=1000000
+    fi
+}
+
+# Succeeds when the log, which has not grown since the reading $1 of
+# read_unity_clock, has surely stood still for UNITY_STALL_SECONDS by the
+# reading in UNITY_CLOCK. Taking the clock's slack off keeps the watch from
+# stopping Unity before that time, however coarse the clock is.
+unity_log_stalled() {
+    local last_growth="$1"
+
+    [[ "$UNITY_STALL_SECONDS" -gt 0 ]] \
+        && [[ $((UNITY_CLOCK - last_growth - UNITY_CLOCK_SLACK)) -ge $((UNITY_STALL_SECONDS * 1000000)) ]]
+}
+
 # Runs a Unity command with its standard output in UNITY_LOG_FILE, prints the
 # log as it grows, and returns Unity's exit status. A log that has not grown for
 # UNITY_STALL_SECONDS stops Unity and sets UNITY_STALLED, so a compile or a test
@@ -1192,22 +1226,29 @@ run_unity_logged() {
     local status
     local size
     local shown=0
-    local last_growth="$SECONDS"
+    local last_growth
 
     "$@" >"$UNITY_LOG_FILE" &
     unity_pid=$!
+    read_unity_clock
+    last_growth="$UNITY_CLOCK"
     # Unity runs in the background now, so an interrupt must stop it as well.
     # shellcheck disable=SC2064
     trap "stop_process_tree $unity_pid; exit 130" INT TERM
 
     while kill -0 "$unity_pid" 2>/dev/null; do
         sleep "$UNITY_LOG_POLL_SECONDS"
+        # The clock is read before the log is measured, so a silence it times
+        # has been seen whole, and again once growth is printed, so the growth
+        # is never dated earlier than the script saw it.
+        read_unity_clock
         size=$(($(wc -c <"$UNITY_LOG_FILE")))
         if [[ "$size" -gt "$shown" ]]; then
             tail -c "+$((shown + 1))" "$UNITY_LOG_FILE" | head -c "$((size - shown))"
             shown="$size"
-            last_growth="$SECONDS"
-        elif [[ "$UNITY_STALL_SECONDS" -gt 0 && $((SECONDS - last_growth)) -ge "$UNITY_STALL_SECONDS" ]]; then
+            read_unity_clock
+            last_growth="$UNITY_CLOCK"
+        elif unity_log_stalled "$last_growth"; then
             UNITY_STALLED=1
             stop_process_tree "$unity_pid"
             break
