@@ -348,7 +348,7 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.RulesChanged:
                     _rules = ReadRules(ref reader);
-                    Raise(nameof(OnRulesChanged), OnRulesChanged, _rules);
+                    Raise(_onRulesChanged, _rules);
                     break;
 
                 case PacketKind.GameStarted:
@@ -511,7 +511,7 @@ namespace Mu3Library.Multiplayer
             // A late joiner arrives in a running game and needs its start data as much as anyone.
             if (state == SessionState.InGame && generation == _sessionGeneration)
             {
-                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -524,7 +524,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _participants.Add(joined);
-            Raise(nameof(OnParticipantJoined), OnParticipantJoined, joined);
+            Raise(_onParticipantJoined, joined);
         }
 
         private void HandleParticipantLeft(ref PacketReader reader)
@@ -544,7 +544,7 @@ namespace Mu3Library.Multiplayer
 
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
-            Raise(nameof(OnParticipantLeft), OnParticipantLeft, removed, reason);
+            Raise(_onParticipantLeft, removed, reason);
         }
 
         private void HandleParticipantUpdated(ref PacketReader reader)
@@ -562,7 +562,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner).WithLoaded(isLoaded);
             _participants[index] = updated;
-            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
+            Raise(_onParticipantChanged, updated);
         }
 
         private void HandleGameStarted(ref PacketReader reader)
@@ -587,7 +587,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -604,7 +604,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
+                Raise(_onReturnedToLobby);
             }
         }
 

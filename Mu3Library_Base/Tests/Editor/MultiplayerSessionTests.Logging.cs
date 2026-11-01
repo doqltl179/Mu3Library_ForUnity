@@ -10,6 +10,9 @@ using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.TestTools.Constraints;
+// Unity's Is extends NUnit's with AllocatingGCMemory.
+using Is = UnityEngine.TestTools.Constraints.Is;
 
 namespace Mu3Library.Tests
 {
@@ -282,6 +285,94 @@ namespace Mu3Library.Tests
             Assert.That(host.Manager.SendChat("and again").IsSuccess, Is.True);
             Pump();
             Assert.That(chats, Is.EqualTo(7));
+        }
+
+        [Test]
+        public void AThrowingEventHandler_DoesNotKeepTheEventFromTheHandlersAfterIt()
+        {
+            // FR-33: each handler of an event runs on its own, in the order it subscribed, so a
+            // bug in one system's handler does not keep the event from the others, whether a
+            // packet or this player's own call raised it. Two handlers of one event that throw
+            // the same exception type are still logged once.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            List<string> order = new List<string>();
+            Action<Participant, string> last = (sender, text) => order.Add("last");
+            a.Manager.OnChatReceived += (sender, text) => order.Add("first");
+            a.Manager.OnChatReceived += (sender, text) => throw new InvalidOperationException("first chat handler bug");
+            a.Manager.OnChatReceived += (sender, text) => throw new InvalidOperationException("second chat handler bug");
+            a.Manager.OnChatReceived += last;
+            int lobbyDataChanges = 0;
+            host.Manager.OnLobbyDataChanged += (key, value) => throw new InvalidOperationException("lobby data handler bug");
+            host.Manager.OnLobbyDataChanged += (key, value) => lobbyDataChanges++;
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                LogAssert.Expect(LogType.Exception, new Regex("lobby data handler bug"));
+                LogAssert.Expect(LogType.Exception, new Regex("first chat handler bug"));
+                for (int i = 0; i < 3; i++)
+                {
+                    Assert.That(host.Manager.SendChat($"chat {i}").IsSuccess, Is.True);
+                    Assert.That(host.Manager.SetLobbyData("round", $"r{i}").IsSuccess, Is.True);
+                }
+
+                Pump();
+
+                Assert.That(order, Is.EqualTo(Enumerable.Range(0, 3).SelectMany(_ => new[] { "first", "last" })));
+                Assert.That(a.Chats.Count, Is.EqualTo(3), "the test's own handler subscribed before them all");
+                Assert.That(lobbyDataChanges, Is.EqualTo(3));
+                Assert.That(host.LobbyDataChanges.Count, Is.EqualTo(3));
+                Assert.That(log.Logs.Count(entry => entry.Type == LogType.Exception), Is.EqualTo(2), "once for each event");
+                Assert.That(log.Count("second chat handler bug"), Is.Zero);
+            }
+
+            // A handler that unsubscribed no longer receives the event, and the others still do.
+            a.Manager.OnChatReceived -= last;
+            Assert.That(host.Manager.SendChat("after").IsSuccess, Is.True);
+            Pump();
+            Assert.That(order.Count(entry => entry == "last"), Is.EqualTo(3));
+            Assert.That(order.Last(), Is.EqualTo("first"));
+            Assert.That(a.Chats.Count, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void RaisingAnEventToSeveralHandlers_AllocatesNothingOnceWarm()
+        {
+            // NFR-1: a raise reads the list of handlers built when they subscribed and runs each
+            // on its own without allocating: the host's own ready change, raised on the host, and
+            // the copy of it that reaches the client. The network's clock stands still, so no
+            // quality probe falls into the measured frame.
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            int handled = 0;
+            foreach (Node node in new[] { host, a })
+            {
+                // The test's own handler records every change; its list keeps room for them all.
+                node.Changed.Clear();
+                node.Changed.Capacity = 64;
+                for (int i = 0; i < 3; i++)
+                {
+                    node.Manager.OnParticipantChanged += participant => handled++;
+                }
+            }
+
+            bool isReady = false;
+            void ToggleReadyAndDeliver()
+            {
+                isReady = !isReady;
+                host.Manager.SetReady(isReady);
+                Pump(1);
+            }
+
+            for (int i = 0; i < 8; i++)
+            {
+                ToggleReadyAndDeliver();
+            }
+
+            int before = handled;
+            Assert.That(ToggleReadyAndDeliver, Is.Not.AllocatingGCMemory());
+            Assert.That(handled - before, Is.EqualTo(6), "three handlers on the host and three on the client");
         }
 
         [Test]
