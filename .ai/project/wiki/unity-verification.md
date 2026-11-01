@@ -40,11 +40,21 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 | Runtime code | The affected assemblies compile; null safety and define guards on the changed paths |
 | Editor code | The editor assembly compiles; no runtime assembly depends on editor code |
 | DI or core lifecycle | Initialization and injection order unchanged for the samples that depend on it; `commands.test_playmode` passes, `urp` included, since only that target runs the coroutine path |
+| DI reflection path (how `ContainerScope` or `InjectableMembers` finds constructors and `[Inject]` members) or Base's link.xml processor (`DILinkerProcessor`) | The [DI stripping harness](#di-stripping-harness) passes at Medium and High |
 | Optional integration | The code sits entirely inside its define symbol, and every development project that includes the file compiles, since their define sets differ |
 | Editor-version branch, version-sensitive API, package dependency, or the `unity` floor | The affected targets also compile with `--editor-version` set to an installed release of the floor |
 | Compile-only request | Compile only; do not add or run tests |
 
 - Base's samples compile only in `UnityProject_BuiltIn`, which resolves every optional package, so an unguarded optional-package reference in a Base sample compiles there. Prove a sample's guards by compiling a temporary mirror of that project with the optional packages removed from its manifest, and read the assembly's defines from its `Library/Bee` response file. A reading-only audit of the Template sample missed six unguarded files.
+
+## DI Stripping Harness
+
+- Managed code stripping shows only in a player: the Editor and the EditMode and PlayMode tests never strip, so a constructor or `[Inject]` setter that the linker removes passes every test and breaks injection in a Medium or High build.
+- Run it when a change touches how the container reaches constructors or `[Inject]` members by reflection, or `DILinkerProcessor`: `PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping Medium`, then `--stripping High`. Add `--with-unitask` when the change touches core preparation, and `--backend il2cpp` when it touches generics or reflection that IL2CPP compiles ahead of time.
+- It builds a Windows x64 player of a mirror project in `--work-dir`, never a tracked project, runs it with `-batchmode -nographics`, and prints `PASS` or `FAIL` for each of its 31 checks. It passes only with exit 0: every check passed, the player counted as many checks as it logged and logged no error or exception. Exit 1 is a failed check or a player that did not report, exit 3 a mirror or build failure. [tools/README.md](../../../tools/README.md#di-stripping-harness) lists the checks, the mirror, and the options.
+- Pass a short `--work-dir` from a deep worktree; the Windows path limit otherwise breaks Unity's `Library/` and the IL2CPP build.
+- A Mono run takes about 80 seconds on a new mirror and about 35 seconds after that on the measurement PC. Player builds are memory-heavy: run one at a time.
+- Report the backend, the stripping level, whether UniTask was in, the Editor version, the exit code, and the passed and failed check counts.
 
 ## Tests
 

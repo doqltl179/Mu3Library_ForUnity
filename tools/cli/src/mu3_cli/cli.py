@@ -8,6 +8,7 @@ from mu3_cli.repository import (
     repository_hygiene_issues,
     run_agentkit_check,
 )
+from mu3_cli.strip_harness import unity_di_strip_harness
 from mu3_cli.unity import load_target_specs, unity_app
 
 
@@ -19,6 +20,8 @@ app = typer.Typer(
 repo_app = typer.Typer(no_args_is_help=True, help="Repository discovery commands.")
 app.add_typer(repo_app, name="repo")
 app.add_typer(unity_app, name="unity")
+# The harness module imports the unity module, so it registers its command here rather than there.
+unity_app.command("di-strip-harness")(unity_di_strip_harness)
 
 
 @repo_app.command("info")
