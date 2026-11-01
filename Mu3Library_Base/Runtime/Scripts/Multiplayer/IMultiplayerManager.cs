@@ -286,8 +286,15 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerReason.NotSupported"/> on a backend without avatars, such as the
         /// local backend, <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or
         /// size, <see cref="MultiplayerReason.BackendError"/> at once when the backend is no
-        /// longer available, for example once it is disposed, and
-        /// <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10 seconds.
+        /// longer available, for example once it is disposed or the game shut Steam down, and
+        /// <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10 seconds. The
+        /// requests that still wait when the backend stops being available answer
+        /// <see cref="MultiplayerReason.BackendError"/> too, from the next request or the next
+        /// <c>Update</c> at the latest, so no callback stays held until the manager is disposed.
+        /// The Steam backend answers <see cref="MultiplayerReason.BackendError"/> as well for a
+        /// request it still holds when Steam shuts down, rather than the
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, since the
+        /// manager cannot tell a Steam that shut down from a backend that was disposed.
         /// Several requests for the same avatar while it loads share one answer, and a request that
         /// failed is tried again the next time.
         /// <para>
@@ -320,7 +327,10 @@ namespace Mu3Library.Multiplayer
         /// through <see cref="SessionState.Reconnecting"/>. When the session ends
         /// for any reason, or the manager is disposed, the manager removes the status and the
         /// group before <see cref="IMultiplayerManagerEventBus.OnStateChanged"/> reports the change
-        /// to Offline, so every session starts without a status. Text that holds a NUL character
+        /// to Offline, so every session starts without a status. When the platform refuses that
+        /// removal, the manager asks again on the next <c>Update</c> and then once a second, while
+        /// the backend is available, until the platform takes it or a new session shows something
+        /// else; it logs the refusal once, not every time it asks. Text that holds a NUL character
         /// or an unpaired UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>,
         /// text longer than <see cref="MultiplayerLimits.MaxPresenceStatusSize"/> UTF-8 bytes
         /// <see cref="MultiplayerReason.MessageTooLarge"/>, and a platform that refuses it
