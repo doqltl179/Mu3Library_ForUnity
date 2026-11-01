@@ -429,7 +429,11 @@ namespace Mu3Library.Multiplayer
             }
             catch (FormatException e)
             {
-                Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message}");
+                PacketKind kind = (PacketKind)data[0];
+                if (IsFirstPacketDrop(kind, PacketDrop.Malformed))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped a malformed packet from {remote}: {e.Message} Further malformed {PacketsOf(kind)} go unlogged until the session ends.");
+                }
             }
         }
 
@@ -605,6 +609,13 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Packets
+        // The UTF-8 bytes of the longest game ID and player name a packet carries: three for
+        // each UTF-16 character, which also covers a surrogate pair and a lone surrogate. Each
+        // packet reads a string with the limit of what it carries, so a longer one is malformed
+        // before it is decoded.
+        private const int MaxGameIdBytes = MultiplayerConfig.MaxGameIdLength * 3;
+        private const int MaxPlayerNameBytes = MultiplayerLimits.MaxPlayerNameLength * 3;
+
         private static void WriteRules(PacketWriter writer, SessionRules rules)
         {
             writer.WriteInt(rules.Capacity);
@@ -656,7 +667,7 @@ namespace Mu3Library.Multiplayer
         private Participant ReadParticipant(ref PacketReader reader, PlayerId host)
         {
             PlayerId id = new PlayerId(reader.ReadULong());
-            string name = reader.ReadString();
+            string name = reader.ReadString(MaxPlayerNameBytes);
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
             bool isConnected = reader.ReadBool();

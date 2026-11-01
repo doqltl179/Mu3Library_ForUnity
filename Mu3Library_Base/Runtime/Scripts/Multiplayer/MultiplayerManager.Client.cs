@@ -220,7 +220,11 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Welcome)
                 {
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome. Further {PacketsOf(kind)} before the welcome go unlogged until the session ends.");
+                    }
+
                     return;
                 }
 
@@ -280,7 +284,11 @@ namespace Mu3Library.Multiplayer
                     break;
 
                 default:
-                    Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}.");
+                    if (IsFirstPacketDrop(kind, PacketDrop.WrongDirection))
+                    {
+                        Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host {remote}. Further {PacketsOf(kind)} from the host go unlogged until the session ends.");
+                    }
+
                     break;
             }
         }

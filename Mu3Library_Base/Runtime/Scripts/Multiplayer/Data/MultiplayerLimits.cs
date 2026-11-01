@@ -62,5 +62,17 @@ namespace Mu3Library.Multiplayer.Data
         /// one as it arrives.
         /// </summary>
         public const int MaxDelayedRequests = 64;
+
+        /// <summary>
+        /// Most connections of one account that the host keeps while they wait for its welcome,
+        /// from the moment they open until the host admits the player or
+        /// <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/> runs out. A player holds one
+        /// such connection, and a returning player's next attempt may meet its last one for a
+        /// moment. The host closes one more at once with <see cref="MultiplayerReason.Timeout"/>,
+        /// as it closes a connection whose handshake timed out, so a returning player tries again.
+        /// The backend names the account of each connection, and Steam's relays hide the remote
+        /// address, so the limit counts accounts rather than addresses.
+        /// </summary>
+        public const int MaxPendingConnectionsPerAccount = 2;
     }
 }
