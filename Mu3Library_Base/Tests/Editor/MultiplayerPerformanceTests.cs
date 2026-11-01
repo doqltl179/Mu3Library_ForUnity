@@ -38,10 +38,10 @@ namespace Mu3Library.Tests
     /// machine-wide network every player has a network object of its own, as a separate process
     /// would, the frames keep to 60 a second in real time, and the timing includes the loopback
     /// sockets; those cases take about 40 seconds each, so <see cref="ExplicitAttribute"/> keeps
-    /// them out of a normal run. Run them by name, for example with <c>Unity -batchmode
-    /// -projectPath UnityProject_BuiltIn -runTests -testPlatform EditMode -testFilter
-    /// Mu3Library.Tests.MultiplayerPerformanceTests -testResults results.xml -logFile
-    /// run.log</c>. The players share this thread, so a garbage collection that another player's
+    /// them out of a normal run. Run them by name: in this repository with <c>bash
+    /// ./test-unity.sh built-in --filter Mu3Library.Tests.MultiplayerPerformanceTests</c>,
+    /// elsewhere with the Unity Test Framework's <c>-testFilter</c>. The players share this
+    /// thread, so a garbage collection that another player's
     /// allocation starts can land in a host frame.
     /// </para>
     /// </remarks>

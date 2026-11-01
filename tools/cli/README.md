@@ -12,7 +12,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
-- `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests.
+- `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, and `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-test-entrypoint)).
 
 ## Compile Verification
 
@@ -71,6 +71,8 @@ The tests that run `compile-unity.sh` find bash the way the `unity` commands do,
 
 When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks the CLI for this bash and puts it first on the PowerShell session's `PATH`.
 
+Git Bash also rewrites an argument that starts with `/` as a Windows path before it starts a Windows program such as `python`, so `mu3-cli unity test --filter /x`, typed in Git Bash, passes `C:/Program Files/Git/x` on; no test matches it and the target fails with `no test matched --filter`. `test-unity.sh` itself refuses a filter that starts with `/`, and PowerShell passes it unchanged for `mu3-cli` to refuse.
+
 ## Notes
 
 - This package lives under `tools/` so it stays outside Unity package delivery surfaces.
@@ -99,7 +101,7 @@ mu3-cli unity test watermelon
 
 Still planned:
 
-- `unity test`: PlayMode execution, filters, retries, and a timeout policy.
+- `unity test`: retries.
 - `unity build`: named Build Profiles, platform modules, output directories, and artifact manifests.
 - `unity logs`: per-run log directories, warning/error summaries, durations, and reproducible invocation metadata.
 - `unity cache`: cache size/status inspection and opt-in cleanup; never purge a Unity `Library` implicitly.
