@@ -421,6 +421,7 @@ namespace Mu3Library.Tests
             public void OnDisconnected(ConnectionId connection, PlayerId remote, BackendDisconnectKind kind, int reasonCode) { }
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         /// <summary>Hands the network the test's clock and a fixed seed; the managers already use that clock.</summary>

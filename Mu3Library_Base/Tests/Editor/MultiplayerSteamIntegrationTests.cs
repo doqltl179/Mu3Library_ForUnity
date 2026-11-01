@@ -26,6 +26,9 @@ namespace Mu3Library.Tests
     {
         private const string EnableVariable = "MU3LIBRARY_STEAM_TESTS";
 
+        // Robin Walker of Valve (steamcommunity.com/id/robinwalker), a public profile since 2003.
+        private const ulong PublicAccountId = 76561197960435530UL;
+
         private sealed class Recorder : IMultiplayerBackendListener
         {
             public readonly List<string> Events = new List<string>();
@@ -49,6 +52,7 @@ namespace Mu3Library.Tests
 
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         private SteamBackend _backend;
@@ -387,7 +391,7 @@ namespace Mu3Library.Tests
         [Test]
         public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
         {
-            // FR-4 on Steam itself, with this account's own avatar: another account's is a manual check.
+            // FR-4 on Steam itself, with this account's own avatar; another account's follows.
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
@@ -482,6 +486,119 @@ namespace Mu3Library.Tests
 
             Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
             Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
+            Assert.That(_backend.PendingAvatarCount, Is.Zero);
+        }
+
+        [Test]
+        public void SteamAvatar_OfAPublicAccountThatIsNoFriend_IsDownloaded_AfterAskingSteamOnce()
+        {
+            // FR-4 through the path that downloads an avatar first: an account this one is no
+            // friend of and shares no lobby with, so Steam knows little of it. Robin Walker's
+            // account at Valve has had a public profile with a picture of its own since 2003, which
+            // makes it about as stable as a public account gets. Only a Steam that is offline, or
+            // that never learned the account's name, as for a deleted account, leaves the test
+            // ignored; any other failure to bring the avatar fails it.
+            PlayerId account = new PlayerId(PublicAccountId);
+            Steamworks.CSteamID steamId = new Steamworks.CSteamID(account.Value);
+            if (!Steamworks.SteamUser.BLoggedOn())
+            {
+                Assert.Ignore("Steam is not logged on to its servers, so it downloads nothing.");
+            }
+
+            if (Steamworks.SteamFriends.HasFriend(steamId, Steamworks.EFriendFlags.k_EFriendFlagImmediate))
+            {
+                Assert.Ignore($"{account} is a friend of this account, so Steam does not download the avatar.");
+            }
+
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(_backend, new MultiplayerConfig("mu3.test.avatar", 1)).IsSuccess, Is.True);
+                List<AvatarResult> changes = new List<AvatarResult>();
+                manager.OnAvatarChanged += changes.Add;
+
+                AvatarResult? result = null;
+                Stopwatch watch = Stopwatch.StartNew();
+                manager.LoadAvatar(account, AvatarSize.Large, r => result = r);
+                // Steam hands out no image (0) for an account it does not know yet, which the
+                // backend asks it about, or one it still loads (-1); either way the request waits.
+                bool downloads = _backend.PendingAvatarCount > 0;
+                bool knewNothing = _backend.UserInformationRequestCount > 0;
+                Pump(manager, () => result.HasValue, 15);
+                TestContext.WriteLine($"Steam answered the large avatar of {account} with {result?.Reason.ToString() ?? "nothing"} after {watch.Elapsed.TotalSeconds:0.00} s; "
+                    + (downloads ? (knewNothing ? "it knew nothing of the account at first" : "it was still loading the image") : "it handed out an image at once")
+                    + $", and the backend asked Steam about the account {_backend.UserInformationRequestCount} time(s).");
+
+                Assert.That(result.HasValue, Is.True, "every request answers, at the latest when its 10 seconds run out");
+                if (!result.Value.IsSuccess)
+                {
+                    if (!Steamworks.SteamUser.BLoggedOn())
+                    {
+                        Assert.Ignore($"Steam went offline while it fetched {account} ({result.Value.Reason}).");
+                    }
+
+                    // A name that never arrived excuses the failure only once the backend asked
+                    // Steam for it: a backend that stopped asking leaves the name unknown too.
+                    string name = Steamworks.SteamFriends.GetFriendPersonaName(steamId);
+                    bool isNameUnknown = string.IsNullOrEmpty(name) || name == "[unknown]";
+                    Assert.That(!isNameUnknown || _backend.UserInformationRequestCount > 0, Is.True,
+                        $"Steam never learned {account} ({result.Value.Reason}), and the backend never asked it to");
+                    if (isNameUnknown)
+                    {
+                        Assert.Ignore($"Steam never learned {account} ({result.Value.Reason}) although the backend asked; the account may be gone.");
+                    }
+                }
+
+                Assert.That(result.Value.IsSuccess, Is.True, result.Value.Reason.ToString());
+                Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
+                UnityEngine.Texture2D texture = result.Value.Texture;
+                Assert.That((texture.width, texture.height), Is.EqualTo((184, 184)));
+
+                // For an account it did not know, Steam hands out its default image at once and the
+                // account's own picture once it downloaded it, which replaces the first image in
+                // the same texture; the test waits for that notice, on every path, since Steam may
+                // hand out the default image without a wait first.
+                byte[] first = texture.GetRawTextureData();
+                Pump(manager, () => changes.Count > 0, 10);
+                Pump(manager, () => false, 1);
+                bool isReplaced = !texture.GetRawTextureData().SequenceEqual(first);
+                int mismatches = CountMismatches(texture, Steamworks.SteamFriends.GetLargeFriendAvatar(steamId));
+                TestContext.WriteLine($"After {watch.Elapsed.TotalSeconds:0.00} s the texture {(mismatches == 0 ? "shows" : "still differs from")} the image Steam holds; "
+                    + (isReplaced ? "it replaced the first image in place" : "the first image was the account's own")
+                    + $", and the manager raised OnAvatarChanged {changes.Count} time(s).");
+
+                Assert.That(mismatches, Is.Zero, "the texture shows the image Steam holds now");
+                Assert.That(changes.TrueForAll(change => ReferenceEquals(change.Texture, texture)), Is.True, "the same texture, redrawn");
+                Assert.That(changes.Count, Is.EqualTo(isReplaced ? 1 : 0), "raised once for a replaced image, although Steam sends two notices for it");
+                if (!downloads && !isReplaced)
+                {
+                    Assert.Ignore($"Steam held the avatar of {account} already, so the download path did not run; it runs again once the Steam client restarts.");
+                }
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamAvatar_OfAnAccountSteamCannotFind_AnswersOnce_AfterAskingSteamOnce()
+        {
+            // An account number far past the ones Steam has handed out: Steam knows nothing of it,
+            // so the backend asks about it, not on every update, and the request answers once,
+            // whatever Steam makes of it (its default image in the runs so far, or nothing until
+            // the 10 seconds run out).
+            PlayerId missing = new PlayerId(76561197960265728UL + 0xFFFFFF00UL + (ulong)new System.Random().Next(0, 0xF0));
+            List<MultiplayerReason> answers = new List<MultiplayerReason>();
+            Stopwatch watch = Stopwatch.StartNew();
+            _backend.LoadAvatar(missing, AvatarSize.Medium, (reason, avatar) => answers.Add(reason));
+            Pump(() => answers.Count > 0, 15);
+            Pump(() => false, 1);
+            TestContext.WriteLine($"Steam answered the avatar of {missing} with {(answers.Count > 0 ? answers[0].ToString() : "nothing")} after {watch.Elapsed.TotalSeconds:0.00} s, "
+                + $"asked about the account {_backend.UserInformationRequestCount} time(s).");
+
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+            Assert.That(_backend.UserInformationRequestCount, Is.LessThanOrEqualTo(2), "asked once, and at most once more after Steam told of the account, not on every update");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 
@@ -700,6 +817,39 @@ namespace Mu3Library.Tests
             }
 
             return picked;
+        }
+
+        /// <summary>How many pixels of the texture differ from Steam's image, the top row taken as the texture's top.</summary>
+        private static int CountMismatches(UnityEngine.Texture2D texture, int image)
+        {
+            if (!Steamworks.SteamUtils.GetImageSize(image, out uint width, out uint height) || width != texture.width || height != texture.height)
+            {
+                return texture.width * texture.height;
+            }
+
+            int side = texture.width;
+            byte[] steam = new byte[side * side * 4];
+            if (!Steamworks.SteamUtils.GetImageRGBA(image, steam, steam.Length))
+            {
+                return side * side;
+            }
+
+            UnityEngine.Color32[] pixels = texture.GetPixels32();
+            int mismatches = 0;
+            for (int y = 0; y < side; y++)
+            {
+                for (int x = 0; x < side; x++)
+                {
+                    UnityEngine.Color32 pixel = pixels[y * side + x];
+                    int i = ((side - 1 - y) * side + x) * 4;
+                    if (pixel.r != steam[i] || pixel.g != steam[i + 1] || pixel.b != steam[i + 2] || pixel.a != steam[i + 3])
+                    {
+                        mismatches++;
+                    }
+                }
+            }
+
+            return mismatches;
         }
 
         private void Pump(Func<bool> done, int seconds)

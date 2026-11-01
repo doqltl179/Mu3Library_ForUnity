@@ -55,6 +55,7 @@ namespace Mu3Library.Tests
             public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => Received.Add(data.ToArray());
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) => OwnerChanges.Add((lobby, newOwner));
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         /// <summary>Records connections and hands each packet it receives, inside the update, to <see cref="Received"/>.</summary>
@@ -68,6 +69,7 @@ namespace Mu3Library.Tests
             public void OnReceived(ConnectionId connection, PlayerId remote, ReadOnlySpan<byte> data) => Received?.Invoke(connection, data.ToArray());
             public void OnLobbyOwnerChanged(LobbyId lobby, PlayerId newOwner) { }
             public void OnLobbyJoinRequested(LobbyId lobby) { }
+            public void OnAvatarChanged(PlayerId player) { }
         }
 
         /// <summary>A raw backend with what its listener heard.</summary>

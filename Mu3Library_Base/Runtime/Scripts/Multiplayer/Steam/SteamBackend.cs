@@ -49,6 +49,7 @@ namespace Mu3Library.Multiplayer.Steam
             Disconnected,
             OwnerChanged,
             JoinRequested,
+            AvatarChanged,
         }
 
         private struct PendingEvent
@@ -105,6 +106,7 @@ namespace Mu3Library.Multiplayer.Steam
             InitializeConnections(options);
             InitializeLobbies();
             InitializePresence(options);
+            InitializeAvatars();
             _lobbyJoinRequested = Callback<GameLobbyJoinRequested_t>.Create(HandleLobbyJoinRequested);
 
             if (!s_launchLobbyTaken && SteamLaunchArguments.TryGetConnectLobby(Environment.GetCommandLineArgs(), out LobbyId lobby))
@@ -430,6 +432,10 @@ namespace Mu3Library.Multiplayer.Steam
                         _heldJoinRequest = pending.Lobby;
                     }
                     break;
+
+                case EventKind.AvatarChanged:
+                    _listener?.OnAvatarChanged(pending.Player);
+                    break;
             }
         }
         #endregion
@@ -450,7 +456,7 @@ namespace Mu3Library.Multiplayer.Steam
             _isDisposed = true;
             _listener = null;
             _events.Clear();
-            _pendingAvatars.Clear();
+            ShutdownAvatars();
 
             _lobbyJoinRequested?.Dispose();
             _lobbyJoinRequested = null;

@@ -133,6 +133,9 @@ namespace Mu3Library.Multiplayer.Backend
         /// <see cref="MultiplayerReason.None"/> and the image, or with a failure reason and no
         /// image: <see cref="MultiplayerReason.NotSupported"/> on a backend that has no avatars,
         /// and <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or size.
+        /// A backend whose platform tells when an avatar changes reports it through
+        /// <see cref="IMultiplayerBackendListener.OnAvatarChanged"/>, and the manager then asks
+        /// again for the avatars it holds of that player.
         /// </summary>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted);
 
