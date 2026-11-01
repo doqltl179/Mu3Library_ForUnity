@@ -12,6 +12,8 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
+from shell_harness import run_sourced
+from test_unity_runs import FAKE_EDITOR_PACKAGES, FLOOR_VERSION
 from mu3_cli.cli import app
 from mu3_cli.repository import repo_root
 from mu3_cli.strip_harness import (
@@ -25,12 +27,14 @@ from mu3_cli.strip_harness import (
     claim_work_dir,
     mirror_manifest,
     parse_player_log,
+    retarget_dependencies,
     run_harness,
     run_problems,
     sync_template,
     template_dir,
     unitask_source,
 )
+from mu3_cli.unity import editor_bundled_versions, editor_package_manager_dir
 
 
 UNITASK_URL = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask"
@@ -94,6 +98,15 @@ def fixture_root(test: unittest.TestCase) -> Path:
     write(root / "tools" / "di-strip-harness" / "Assets" / "Harness" / "Boot.cs", "// boot\n")
     write(root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs", "// plugin\n")
     return root
+
+
+def fake_editor(root: Path, with_packages: bool = True) -> Path:
+    """An Editor executable, beside the packages an older Editor bundles when asked."""
+    editor = write(root / "Editor" / "Unity.exe", "")
+    if with_packages:
+        for relative, content in FAKE_EDITOR_PACKAGES.items():
+            write(root / "Editor" / "Data" / "Resources" / "PackageManager" / relative, json.dumps(content, indent=2) + "\n")
+    return editor
 
 
 class FakeUnity:
@@ -464,6 +477,132 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         self.assertNotIn("error:", result.output)
 
 
+class StripHarnessEditorVersionTests(unittest.TestCase):
+    """--editor-version builds with another installed Editor, in a mirror retargeted to the packages it bundles."""
+
+    def test_the_mirror_gets_its_own_folder_and_the_unity_packages_that_editor_bundles(self) -> None:
+        root = fixture_root(self)
+        manifest_file = root / "UnityProject_URP" / "Packages" / "manifest.json"
+        reference = json.loads(manifest_file.read_text(encoding="utf-8"))
+        reference["dependencies"]["com.unity.modules.tetgen"] = "1.0.0"
+        write(manifest_file, json.dumps(reference))
+        editor = fake_editor(root)
+        work = root / "work"
+        unity = FakeUnity()
+        lines: list[str] = []
+        options = HarnessOptions(stripping="Medium", work_dir=work, editor_version=FLOOR_VERSION)
+
+        with (
+            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
+            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)) as resolve,
+        ):
+            code = run_harness(root, options, unity, lines.append)
+
+        self.assertEqual(0, code, lines)
+        resolve.assert_called_once_with(FLOOR_VERSION)
+        mirror = work / f"project-{FLOOR_VERSION}"
+        build = unity.ran("-executeMethod")[0]
+        self.assertEqual(str(mirror), build[build.index("-projectPath") + 1])
+        self.assertTrue(build[build.index("-mu3-out") + 1].endswith(os.path.join("players", f"mono-medium-{FLOOR_VERSION}", "Harness.exe")))
+        self.assertFalse((work / "project").exists())
+        self.assertEqual(
+            f"m_EditorVersion: {FLOOR_VERSION}\n", (mirror / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            {
+                "com.github.doqltl179.mu3library.base": "file:" + (root / "Mu3Library_Base").resolve().as_posix(),
+                "com.unity.modules.audio": "1.0.0",
+                "com.unity.ugui": "2.0.0",
+            },
+            json.loads((mirror / "Packages" / "manifest.json").read_text(encoding="utf-8"))["dependencies"],
+        )
+        self.assertIn("  - com.unity.ugui 2.6.0 -> 2.0.0", lines)
+        self.assertIn(f"  - com.unity.modules.tetgen removed, Unity {FLOOR_VERSION} does not ship it", lines)
+        self.assertIn(f"mono-medium-{FLOOR_VERSION}: 2 checks, 2 passed, 0 failed", lines)
+
+        # Unity adds its revision line when it opens the mirror; the next run keeps it.
+        opened = f"m_EditorVersion: {FLOOR_VERSION}\nm_EditorVersionWithRevision: {FLOOR_VERSION} (abc)\n"
+        write(mirror / "ProjectSettings" / "ProjectVersion.txt", opened)
+        lines.clear()
+        with (
+            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
+            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)),
+        ):
+            self.assertEqual(0, run_harness(root, options, unity, lines.append))
+        self.assertEqual(opened, (mirror / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"))
+        self.assertIn("Mirror changes: none", lines)
+
+    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    def test_an_editor_without_bundled_packages_stops_before_unity_runs(self, _system: mock.Mock) -> None:
+        root = fixture_root(self)
+        editor = fake_editor(root, with_packages=False)
+        unity = FakeUnity()
+
+        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+            with self.assertRaisesRegex(HarnessSetupError, f"cannot find the packages that Unity {FLOOR_VERSION} bundles"):
+                run_harness(root, HarnessOptions(work_dir=root / "work", editor_version=FLOOR_VERSION), unity, lambda line: None)
+
+        self.assertEqual([], unity.commands)
+
+    def test_what_the_editor_does_not_bundle_is_kept_or_dropped_as_compile_unity_does(self) -> None:
+        package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
+
+        dependencies, changes, warnings = retarget_dependencies(
+            {
+                "com.unity.inputsystem": "1.20.1",
+                "com.unity.terrain-tools": "5.3.3",
+                "com.unity.textmeshpro": "3.0.6",
+                "com.unity.modules.tetgen": "1.0.0",
+                "com.unity.git-package": "https://example.com/package.git",
+                "com.example.pinned": "1.0.0",
+            },
+            package_manager,
+            FLOOR_VERSION,
+        )
+
+        self.assertEqual(
+            {
+                "com.unity.inputsystem": "1.19.0",
+                "com.unity.terrain-tools": "5.3.3",
+                "com.unity.textmeshpro": "5.0.0",
+                "com.unity.git-package": "https://example.com/package.git",
+                "com.example.pinned": "1.0.0",
+            },
+            dependencies,
+        )
+        self.assertEqual(
+            [
+                "com.unity.inputsystem 1.20.1 -> 1.19.0",
+                "com.unity.textmeshpro 3.0.6 -> 5.0.0",
+                f"com.unity.modules.tetgen removed, Unity {FLOOR_VERSION} does not ship it",
+            ],
+            changes,
+        )
+        self.assertEqual([f"Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the mirror keeps 5.3.3"], warnings)
+
+    def test_bundled_versions_are_the_ones_compile_unity_reads(self) -> None:
+        package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
+        names = [
+            "com.unity.ugui",
+            "com.unity.inputsystem",
+            "com.unity.textmeshpro",
+            "com.unity.modules.audio",
+            "com.unity.modules.tetgen",
+            "com.unity.terrain-tools",
+        ]
+
+        completed = run_sourced(
+            repo_root() / "compile-unity.sh",
+            'for name in "${@:2}"; do printf \'%s=%s\\n\' "$name" "$(editor_bundled_version "$1" "$name" || printf -- -)"; done',
+            arguments=[package_manager.as_posix(), *names],
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        bundled = editor_bundled_versions(package_manager, names)
+        self.assertEqual([f"{name}={bundled.get(name, '-')}" for name in names], completed.stdout.splitlines())
+        self.assertEqual({"com.unity.ugui", "com.unity.inputsystem", "com.unity.textmeshpro", "com.unity.modules.audio"}, set(bundled))
+
+
 class StripHarnessCommandTests(unittest.TestCase):
     def test_unknown_stripping_level_is_a_usage_error(self) -> None:
         result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--stripping", "Strongest"])
@@ -475,6 +614,14 @@ class StripHarnessCommandTests(unittest.TestCase):
         result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--backend", "dotnet"])
 
         self.assertEqual(2, result.exit_code)
+
+    def test_editor_version_must_name_a_full_release(self) -> None:
+        for version in ("6000.3", "../6000.3.17f1", "6000.3.17f1/x"):
+            with self.subTest(version=version):
+                result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--editor-version", version])
+
+                self.assertEqual(2, result.exit_code)
+                self.assertIn("--editor-version expects a full Unity version", result.output)
 
 
 if __name__ == "__main__":

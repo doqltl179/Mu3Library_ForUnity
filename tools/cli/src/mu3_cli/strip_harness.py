@@ -24,7 +24,13 @@ from typing import Callable, Iterator, Sequence
 import typer
 
 from mu3_cli.repository import repo_root
-from mu3_cli.unity import load_target_specs, project_editor_version, resolve_editor_path
+from mu3_cli.unity import (
+    editor_bundled_versions,
+    editor_package_manager_dir,
+    load_target_specs,
+    project_editor_version,
+    resolve_editor_path,
+)
 
 
 BACKENDS = ("mono", "il2cpp")
@@ -50,6 +56,8 @@ LONG_PROJECT_PATH = 100
 # folder and changes or deletes files only in a folder that has it.
 WORK_DIR_MARKER = ".mu3-di-strip-harness"
 WORK_DIR_MARKER_TEXT = "mu3-cli unity di-strip-harness made this folder and may change or delete any file in it.\n"
+# A full Unity release, as compile-unity.sh --editor-version accepts it; it names a Unity Hub folder.
+EDITOR_VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?")
 
 CHECK_PATTERN = re.compile(r"^HARNESS CHECK (\S+) (PASS|FAIL) ?(.*)$")
 RESULT_PATTERN = re.compile(r"^HARNESS RESULT (PASS|FAIL) checks=(\d+) failures=(\d+) errorLogs=(\d+)")
@@ -87,9 +95,15 @@ def default_work_dir(root: Path) -> Path:
     return root / "log" / "di-strip-harness"
 
 
-def run_label(backend: str, stripping: str, with_unitask: bool) -> str:
-    """The name of one configuration's player folder and logs, such as mono-high-unitask."""
-    return f"{backend}-{stripping.lower()}" + ("-unitask" if with_unitask else "")
+def mirror_project_dir(work_dir: Path, editor_version: str | None) -> Path:
+    """The mirror for the Editor the run uses: each --editor-version gets its own, with its own Library/."""
+    return work_dir / ("project" if editor_version is None else f"project-{editor_version}")
+
+
+def run_label(backend: str, stripping: str, with_unitask: bool, editor_version: str | None = None) -> str:
+    """The name of one configuration's player folder and logs, such as mono-high-unitask or mono-high-6000.3.17f1."""
+    label = f"{backend}-{stripping.lower()}" + ("-unitask" if with_unitask else "")
+    return label if editor_version is None else f"{label}-{editor_version}"
 
 
 def claim_work_dir(work_dir: Path) -> bool:
@@ -155,6 +169,38 @@ def mirror_manifest(reference_manifest: dict, base_path: Path, unitask: str | No
     if unitask:
         dependencies[UNITASK_PACKAGE] = unitask
     return {"dependencies": dict(sorted(dependencies.items()))}
+
+
+def retarget_dependencies(
+    dependencies: dict[str, str], package_manager_dir: Path, editor_version: str
+) -> tuple[dict[str, str], list[str], list[str]]:
+    """Point the mirror's dependencies at the Unity packages another Editor bundles.
+
+    This is what compile-unity.sh --editor-version does to its mirrors: each com.unity.* package
+    pinned to a version takes the version the Editor bundles, a built-in module the Editor does
+    not ship is dropped, since Unity cannot resolve it, and any other package it does not bundle
+    keeps its version. Returns the dependencies, the changes, and the warnings to print.
+    """
+    pinned = [
+        name for name, version in dependencies.items() if name.startswith("com.unity.") and re.match(r"[0-9]", version)
+    ]
+    bundled = editor_bundled_versions(package_manager_dir, pinned)
+    retargeted: dict[str, str] = {}
+    changes: list[str] = []
+    warnings: list[str] = []
+    for name, version in dependencies.items():
+        if name not in pinned:
+            retargeted[name] = version
+        elif name in bundled:
+            retargeted[name] = bundled[name]
+            if bundled[name] != version:
+                changes.append(f"{name} {version} -> {bundled[name]}")
+        elif name.startswith("com.unity.modules."):
+            changes.append(f"{name} removed, Unity {editor_version} does not ship it")
+        else:
+            retargeted[name] = version
+            warnings.append(f"Unity {editor_version} does not bundle {name}, so the mirror keeps {version}")
+    return retargeted, changes, warnings
 
 
 def write_if_changed(path: Path, data: bytes) -> bool:
@@ -344,10 +390,24 @@ class HarnessOptions:
     work_dir: Path | None = None
     build_timeout: float = 3600
     player_timeout: float = 120
+    # Another installed Editor to build with, such as 6000.3.17f1; None takes the URP project's.
+    editor_version: str | None = None
 
 
-def prepare_mirror(root: Path, project_dir: Path, editor_path: Path, with_unitask: bool, runner: Runner) -> list[str]:
-    """Create or refresh the mirror project and return what changed in it."""
+def prepare_mirror(
+    root: Path,
+    project_dir: Path,
+    editor_path: Path,
+    with_unitask: bool,
+    runner: Runner,
+    editor_version: str | None = None,
+    echo: Callable[[str], None] = lambda line: None,
+) -> list[str]:
+    """Create or refresh the mirror project and return what changed in it.
+
+    With editor_version the mirror names that Editor and takes the Unity package versions it
+    bundles; without it, the mirror takes the URP project's ProjectVersion.txt.
+    """
     specs = load_target_specs(root)
     reference = root / specs[REFERENCE_TARGET].project_path
     template = template_dir(root)
@@ -364,10 +424,32 @@ def prepare_mirror(root: Path, project_dir: Path, editor_path: Path, with_unitas
         root / BASE_PACKAGE_PATH,
         unitask_source(root) if with_unitask else None,
     )
+    version_file = project_dir / "ProjectSettings" / "ProjectVersion.txt"
+    if editor_version is None:
+        version = (reference / "ProjectSettings" / "ProjectVersion.txt").read_bytes()
+    else:
+        package_manager_dir = editor_package_manager_dir(editor_path)
+        if package_manager_dir is None:
+            raise HarnessSetupError(f"cannot find the packages that Unity {editor_version} bundles next to {editor_path}")
+        manifest["dependencies"], retargeted, warnings = retarget_dependencies(
+            manifest["dependencies"], package_manager_dir, editor_version
+        )
+        # Unity adds its revision line when it opens the mirror, so a file that already names the
+        # version stays as it is.
+        named = f"m_EditorVersion: {editor_version}"
+        current = version_file.read_text(encoding="utf-8-sig").splitlines() if version_file.is_file() else []
+        version = version_file.read_bytes() if named in current else f"{named}\n".encode("utf-8")
+        for warning in warnings:
+            echo(f"warning: {warning}")
+        echo(
+            f"Retargeted the mirror to Unity {editor_version}: ProjectVersion.txt names it, and "
+            + ("these Unity packages follow it:" if retargeted else "every Unity package already has the version it bundles.")
+        )
+        for change in retargeted:
+            echo(f"  - {change}")
     if write_if_changed(project_dir / "Packages" / "manifest.json", (json.dumps(manifest, indent=2) + "\n").encode("utf-8")):
         changed.append("Packages/manifest.json")
-    version = (reference / "ProjectSettings" / "ProjectVersion.txt").read_bytes()
-    if write_if_changed(project_dir / "ProjectSettings" / "ProjectVersion.txt", version):
+    if write_if_changed(version_file, version):
         changed.append("ProjectSettings/ProjectVersion.txt")
 
     source = template / "Plugin" / "HarnessPlugin.cs"
@@ -398,16 +480,17 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
     with setup_step("reading the development projects"):
         specs = load_target_specs(root)
         reference = specs[REFERENCE_TARGET]
-        version = project_editor_version(reference, root)
+        version = options.editor_version or project_editor_version(reference, root)
     if version is None:
         raise HarnessSetupError(f"no Editor version in {reference.project_path}/ProjectSettings/ProjectVersion.txt")
     editor_path, overridden = resolve_editor_path(version)
     if not editor_path.is_file():
-        raise HarnessSetupError(f"the Unity Editor {version} is not installed: {editor_path}")
+        requester = " for --editor-version" if options.editor_version else ""
+        raise HarnessSetupError(f"the Unity Editor {version}{requester} is not installed: {editor_path}")
 
     work_dir = Path(os.path.abspath(options.work_dir or default_work_dir(root)))
-    project_dir = work_dir / "project"
-    label = run_label(options.backend, options.stripping, options.with_unitask)
+    project_dir = mirror_project_dir(work_dir, options.editor_version)
+    label = run_label(options.backend, options.stripping, options.with_unitask, options.editor_version)
     player_path = work_dir / "players" / label / f"{PLAYER_NAME}.exe"
     build_log = work_dir / f"{label}-build.log"
     player_log = work_dir / f"{label}-player.log"
@@ -423,7 +506,9 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
         if claim_work_dir(work_dir):
             echo(f"Marked {work_dir} as the harness's work folder ({WORK_DIR_MARKER})")
     with setup_step(f"preparing the mirror project {project_dir}"):
-        changed = prepare_mirror(root, project_dir, editor_path, options.with_unitask, runner)
+        changed = prepare_mirror(
+            root, project_dir, editor_path, options.with_unitask, runner, options.editor_version, echo
+        )
     echo(f"Mirror changes: {', '.join(changed) if changed else 'none'}")
 
     with setup_step(f"removing the previous {label} player and logs"):
@@ -487,6 +572,12 @@ def unity_di_strip_harness(
         help="Folder for the mirror project, players, and logs (default log/di-strip-harness); "
         "it must be new, empty, or one the harness made.",
     ),
+    editor_version: str | None = typer.Option(
+        None,
+        "--editor-version",
+        help="Build with this installed Editor, such as 6000.3.17f1, in its own mirror whose Unity packages "
+        "take the versions that Editor bundles.",
+    ),
     build_timeout: int = typer.Option(3600, "--build-timeout", help="Seconds the Editor may take to import and build."),
     player_timeout: int = typer.Option(120, "--player-timeout", help="Seconds the player may run."),
 ) -> None:
@@ -502,6 +593,8 @@ def unity_di_strip_harness(
         raise typer.BadParameter(f"--backend expects one of: {', '.join(BACKENDS)}.")
     if build_timeout <= 0 or player_timeout <= 0:
         raise typer.BadParameter("--build-timeout and --player-timeout expect a positive number of seconds.")
+    if editor_version is not None and not EDITOR_VERSION_PATTERN.fullmatch(editor_version):
+        raise typer.BadParameter(f"--editor-version expects a full Unity version such as 6000.3.17f1: {editor_version}")
 
     options = HarnessOptions(
         backend=backend,
@@ -510,6 +603,7 @@ def unity_di_strip_harness(
         work_dir=work_dir,
         build_timeout=build_timeout,
         player_timeout=player_timeout,
+        editor_version=editor_version,
     )
     try:
         exit_code = run_harness(repo_root(), options)

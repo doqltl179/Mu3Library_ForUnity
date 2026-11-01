@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Iterable, Mapping
 
 import typer
 
@@ -275,6 +275,49 @@ def installed_playback_engines(editor_path: Path) -> list[str]:
         if candidate.is_dir():
             engines.update(path.name for path in candidate.iterdir() if path.is_dir())
     return sorted(engines)
+
+
+def editor_package_manager_dir(editor_path: Path) -> Path | None:
+    """The folder in which an Editor keeps the packages it bundles, or None when it has none.
+
+    It lies beside the executable in Data/ on Windows and Linux, and in Contents/Resources of
+    Unity.app on macOS, as compile-unity.sh's editor_package_manager_dir looks for it.
+    """
+    for candidate in (
+        editor_path.parent / "Data" / "Resources" / "PackageManager",
+        editor_path.parent.parent / "Resources" / "PackageManager",
+    ):
+        if (candidate / "BuiltInPackages").is_dir():
+            return candidate
+    return None
+
+
+def _json_version(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[str]) -> dict[str, str]:
+    """The version an Editor bundles of each named package it bundles.
+
+    The rule is compile-unity.sh's editor_bundled_version, which retargets its --editor-version
+    mirrors: the version the Editor's package manifest recommends, or else the version of the
+    package's built-in copy. A package with neither is left out.
+    """
+    manifest_file = package_manager_dir / "Editor" / "manifest.json"
+    recommended: dict = {}
+    if manifest_file.is_file():
+        recommended = json.loads(manifest_file.read_text(encoding="utf-8-sig")).get("packages", {})
+
+    versions: dict[str, str] = {}
+    for name in package_names:
+        entry = recommended.get(name)
+        version = _json_version(entry.get("version")) if isinstance(entry, dict) else None
+        built_in_copy = package_manager_dir / "BuiltInPackages" / name / "package.json"
+        if version is None and built_in_copy.is_file():
+            version = _json_version(json.loads(built_in_copy.read_text(encoding="utf-8-sig")).get("version"))
+        if version is not None:
+            versions[name] = version
+    return versions
 
 
 _WINDOWS_GENERIC_READ = 0x80000000
