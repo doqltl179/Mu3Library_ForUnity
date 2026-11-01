@@ -35,9 +35,10 @@ ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
 # -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
-# it is given, prints a tick each second for as many seconds as it is given, then stays silent
-# as long as it is told, in a child process whose PID it can write to a file, writes the test
-# results it is given to the path after -testResults, and exits with the status it is given.
+# it is given, prints as many ticks as it is given, FAKE_UNITY_TICK_SECONDS (1 unless given)
+# apart, then stays silent as long as it is told, in a child process whose PID it can write to
+# a file, writes the test results it is given to the path after -testResults, and exits with
+# the status it is given.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
@@ -63,7 +64,7 @@ if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_LOG"
 fi
 for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
-    sleep 1
+    sleep "${FAKE_UNITY_TICK_SECONDS:-1}"
     printf 'fake unity tick %s\\n' "$tick"
 done
 if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
@@ -186,9 +187,11 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             "FAKE_UNITY_STATUS",
             "FAKE_UNITY_LOG",
             "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_TICK_SECONDS",
             "FAKE_UNITY_SLEEP",
             "FAKE_UNITY_SLEEPER_FILE",
             "MSYS2_ARG_CONV_EXCL",
+            "UNITY_LOG_POLL_SECONDS",
         ):
             environment.pop(name, None)
         environment.update(
@@ -220,7 +223,9 @@ class FixtureRepositoryTestCase(unittest.TestCase):
     def unity_environment(self, **variables: str) -> dict[str, str]:
         """The fixture environment with the fake Unity and a mirror directory of this test's own.
 
-        The logs and results that a run with it writes under log/ go when the test ends.
+        The logs and results that a run with it writes under log/ go when the test ends. The
+        scripts look at the fake's log every 0.1 s instead of every second, since the fake
+        exits at once and each run would otherwise wait out a whole second.
         """
         self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
         mirror_directory = tempfile.TemporaryDirectory()
@@ -230,6 +235,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             **self._environment(),
             "UNITY_EDITOR": str(self.fake_unity),
             "TMPDIR": str(self.mirror_directory),
+            "UNITY_LOG_POLL_SECONDS": "0.1",
             **variables,
         }
 

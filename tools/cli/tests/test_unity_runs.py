@@ -390,13 +390,16 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "3", results=nunit_results(), ticks="5")
+        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        completed = self.run_tests(
+            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="15", tick_seconds="0.2"
+        )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 5", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
 
     def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="3")
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="2")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
@@ -541,10 +544,11 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        completed = self.compile("leaf", "--stall-timeout", "3", ticks="5")
+        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        completed = self.compile("leaf", "--stall-timeout", "2", ticks="15", tick_seconds="0.2")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 5", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
 
@@ -603,6 +607,25 @@ class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
 
                 self.assertEqual(1, completed.returncode, completed.stdout)
                 self.assertIn("--stall-timeout expects a whole number of seconds", completed.stderr)
+
+    def test_the_log_is_looked_at_every_second_unless_the_environment_says_otherwise(self) -> None:
+        body = 'printf %s "$UNITY_LOG_POLL_SECONDS"'
+        for entry_point in self.PARSE:
+            with self.subTest(entry_point=entry_point):
+                self.assertEqual("1", self.run_functions(entry_point, body).stdout)
+                shorter = {**self._environment(), "UNITY_LOG_POLL_SECONDS": "0.25"}
+                self.assertEqual("0.25", self.run_functions(entry_point, body, environment=shorter).stdout)
+
+    def test_a_poll_interval_that_is_not_a_positive_number_stops_the_run_before_unity(self) -> None:
+        for value in ("0", "0.0", "-1", "soon"):
+            with self.subTest(value=value):
+                completed = self.run_entry_point(
+                    "compile-unity.sh", "leaf", environment=self.unity_environment(UNITY_LOG_POLL_SECONDS=value)
+                )
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(f"UNITY_LOG_POLL_SECONDS expects a positive number of seconds: {value}", completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
 
 
 class ProcessTreeTests(FixtureRepositoryTestCase):

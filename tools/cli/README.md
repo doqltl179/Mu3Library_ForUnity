@@ -59,7 +59,7 @@ The same suite runs from Git Bash:
 PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests -v
 ```
 
-The tests that run `compile-unity.sh` find bash the way the `unity` commands do, so they run from PowerShell too. They are skipped, and the summary shows a skip count, on a host where `mu3-cli unity doctor` reports a failing `Bash` check. The tests that check who holds a lock file are also skipped on a host other than Windows without `lsof`, which the scripts and the doctor use for that check.
+The tests that run `compile-unity.sh` find bash the way the `unity` commands do, so they run from PowerShell too. They run the scripts against a fake Unity with `UNITY_LOG_POLL_SECONDS=0.1` in the environment, so the stall watch looks at the fake's log every 0.1 s instead of every second, the interval a real run keeps. They are skipped, and the summary shows a skip count, on a host where `mu3-cli unity doctor` reports a failing `Bash` check. The tests that check who holds a lock file are also skipped on a host other than Windows without `lsof`, which the scripts and the doctor use for that check.
 
 ## Bash on Windows
 

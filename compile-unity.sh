@@ -35,6 +35,10 @@ readonly COMPILE_LOG_DIR="$REPO_ROOT/log/unity-compile"
 UNITY_LOG_FILE=""
 UNITY_STALL_SECONDS=300
 UNITY_STALLED=0
+# How often, in seconds, run_unity_logged looks at that log. A real run keeps
+# 1; the tool tests set UNITY_LOG_POLL_SECONDS in the environment to a fraction
+# so that a fake Unity, which exits at once, does not wait out a whole second.
+UNITY_LOG_POLL_SECONDS="${UNITY_LOG_POLL_SECONDS:-1}"
 
 SKIP_SAMPLES=0
 readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -1197,7 +1201,7 @@ run_unity_logged() {
     trap "stop_process_tree $unity_pid; exit 130" INT TERM
 
     while kill -0 "$unity_pid" 2>/dev/null; do
-        sleep 1
+        sleep "$UNITY_LOG_POLL_SECONDS"
         size=$(($(wc -c <"$UNITY_LOG_FILE")))
         if [[ "$size" -gt "$shown" ]]; then
             tail -c "+$((shown + 1))" "$UNITY_LOG_FILE" | head -c "$((size - shown))"
@@ -1366,6 +1370,12 @@ preflight_selected_targets() {
     done
 
     check_sample_links error || preflight_failed=1
+
+    # A value sleep refuses, or 0, would turn the stall watch into a busy loop.
+    if ! [[ "$UNITY_LOG_POLL_SECONDS" =~ ^[0-9]*\.?[0-9]+$ && "$UNITY_LOG_POLL_SECONDS" =~ [1-9] ]]; then
+        printf 'error: UNITY_LOG_POLL_SECONDS expects a positive number of seconds: %s\n' "$UNITY_LOG_POLL_SECONDS" >&2
+        preflight_failed=1
+    fi
 
     [[ "$preflight_failed" -eq 0 ]]
 }
