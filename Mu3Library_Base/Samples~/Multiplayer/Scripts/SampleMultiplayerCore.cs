@@ -599,8 +599,12 @@ namespace Mu3Library.Sample.Multiplayer
             }
             else if (result.Reason == MultiplayerReason.NotSupported)
             {
-                _backendHasNoAvatars = true;
-                _log.Info($"The {_backend.Backend.Name} backend has no avatars ({result.Reason}); the lists leave them out.");
+                // Every request that was waiting answers so; the first one tells.
+                if (!_backendHasNoAvatars)
+                {
+                    _backendHasNoAvatars = true;
+                    _log.Info($"The {_backend.Backend.Name} backend has no avatars ({result.Reason}); the lists leave them out.");
+                }
             }
             else
             {
