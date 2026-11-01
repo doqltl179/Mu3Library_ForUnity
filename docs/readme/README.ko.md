@@ -137,6 +137,8 @@ public class AudioCore : CoreBase
 
 `MVPManager`도 좁은 공개 계약인 `IObjectInjector`를 사용해 컨테이너 외부에서 생성된 presenter에 `[Inject]` 필드와 프로퍼티 주입을 적용합니다. 구체적인 `ContainerScope`와 내부 주입 구현은 DI 어셈블리 내부에 유지됩니다.
 
+**Managed Stripping Level**을 Medium이나 High로 설정해 빌드한 플레이어에서는 Unity 링커가 어디서도 호출되지 않는 코드를 제거하는데, 컨테이너는 생성자와 `[Inject]` 멤버에 리플렉션으로만 접근합니다. 그래서 Base의 에디터 코드가 이런 빌드마다 링커에 link.xml을 넘깁니다. 이 파일은 `Mu3Library.DI`를 참조하는 어셈블리와, 그 어셈블리가 직접 또는 간접으로 참조하는 모든 스크립트 어셈블리와 사전 컴파일된 어셈블리에서 빌드가 어차피 남기는 모든 클래스의 생성자를 지킵니다. 그래서 서비스가 컨테이너를 전혀 모르는 어셈블리에 있어도 됩니다. 이 클래스들의 `[Inject]` 필드와 프로퍼티도 지킵니다. 아무것도 쓰지 않는 클래스와 어셈블리는 여전히 제거됩니다. `[Inject]` 멤버는 에디터가 불러온 어셈블리에서 읽으므로, `#if !UNITY_EDITOR` 안처럼 플레이어에서만 컴파일되는 `[Inject]` 멤버에는 `[Preserve]`(`UnityEngine.Scripting`)를 붙여야 하고, 직접 작성한 리플렉션으로만 닿는 코드도 마찬가지입니다. 사전 컴파일된 어셈블리는 파일 이름으로 찾으므로, 파일 이름이 어셈블리 이름과 다른 DLL은 경고 없이 빠지고, 에디터가 불러오지 않는 DLL은 위 어셈블리 중 하나가 참조할 때만 포함됩니다. 프로젝트 `Assets` 폴더 아래의 `link.xml`로 지켜도 됩니다. Unity는 패키지 안의 `link.xml`을 읽지 않습니다.
+
 ### MVP (Model-View-Presenter)
 UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
 
