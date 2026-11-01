@@ -1620,12 +1620,13 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void SendingThread_ThatFails_LosesTheConnectionsItHeldOnceEach_AndANewThreadSendsForTheOthers()
+        public void SendingThread_ThatMeetsAnUnexpectedException_LosesTheConnectionItWasSendingOn_AndGoesOnWithTheOthers()
         {
-            // #290: a defect that throws on a backend's sending thread ends the thread. The
-            // connections whose sends it held drop as lost, each reported once, since how much of
-            // their data reached the socket is unknown; the next hand-over starts a new thread,
-            // so the connections that had nothing in flight go on.
+            // #290: a defect that throws on a backend's sending thread would end the thread, and
+            // nothing would leave the backend after it. The thread starts its loop over instead:
+            // the connection it was sending on drops as lost, reported once, since how much of its
+            // data reached the socket is unknown, and what the other connections were handed,
+            // also while the thread failed, still goes out.
             (LocalBackend host, RecordingListener hostEvents, Peer failed, Peer kept) = ConnectTwo();
             ConnectionId toFailed = ConnectionTo(hostEvents, failed);
             ConnectionId toKept = ConnectionTo(hostEvents, kept);
@@ -1634,16 +1635,17 @@ namespace Mu3Library.Tests
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Exception, new System.Text.RegularExpressions.Regex("sending thread fails"));
             host.FailsSendingThread = true;
             Assert.That(host.Send(toFailed, BitConverter.GetBytes(1), DeliveryMode.Reliable), Is.True);
-            PumpUntil(() => hostEvents.Disconnected.Count > 0 && failed.Events.Disconnected.Count > 0, "the connection the thread held to drop on both sides");
-
             Assert.That(host.Send(toKept, BitConverter.GetBytes(2), DeliveryMode.Reliable), Is.True);
-            PumpUntil(() => kept.Events.Received.Count == 1, "a send after the thread failed");
+            PumpUntil(() => hostEvents.Disconnected.Count > 0 && failed.Events.Disconnected.Count > 0 && kept.Events.Received.Count == 1, "the connection the thread was sending on to drop on both sides, and the other one to deliver");
+
+            Assert.That(host.Send(toKept, BitConverter.GetBytes(3), DeliveryMode.Reliable), Is.True);
+            PumpUntil(() => kept.Events.Received.Count == 2, "a send after the thread failed");
             PumpFor(0.5);
 
             Assert.That(hostEvents.Disconnected, Is.EqualTo(new[] { (toFailed, BackendDisconnectKind.ConnectionLost, 0) }));
             Assert.That(failed.Events.Disconnected.Select(disconnect => disconnect.Kind), Is.EqualTo(new[] { BackendDisconnectKind.ConnectionLost }));
             Assert.That(failed.Events.Received, Is.Empty, "The thread failed before its socket call.");
-            Assert.That(BitConverter.ToInt32(kept.Events.Received.Single(), 0), Is.EqualTo(2));
+            Assert.That(kept.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(new[] { 2, 3 }));
             Assert.That(kept.Events.Disconnected, Is.Empty);
             Assert.That(host.FailsSendingThread, Is.False, "The switch turned itself off.");
         }

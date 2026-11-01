@@ -34,11 +34,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// connection, until its player read the rest.
     /// </para>
     /// <para>
-    /// A defect that throws on the thread ends it. The connections whose sends it held then
-    /// count as lost, since how much of their data reached the socket is unknown, and the next
-    /// update reports each once, as any connection that drops; the next hand-over starts a new
-    /// thread, which sends for the others. Restarting rather than failing every connection keeps
-    /// the connections that had nothing in flight, whose data all reached their sockets.
+    /// A defect that throws on the thread would end it, and every connection after it would
+    /// send nothing. Instead the thread logs the exception and starts its loop over: the
+    /// connection it was sending on counts as lost, since how much of its data reached the
+    /// socket is unknown, and the next update reports it once, as any connection that drops,
+    /// while the other connections go on. Failing every connection of the peer would also drop
+    /// the ones whose data all reached their sockets or waits intact for the thread.
     /// </para>
     /// <para>
     /// The main thread only moves buffers under a lock, instead of a socket call for each
@@ -84,10 +85,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private readonly List<MachineLink> _sendList = new List<MachineLink>();
         private int _handOvers = 0;
         private bool _isSenderStopping = false;
-
-        // Written under the gate as the last thing a sending thread that failed does; the main
-        // thread then starts a new one.
-        private volatile bool _hasSenderFailed = false;
 
         // Sending thread only.
         private readonly List<MachineLink> _sendBatch = new List<MachineLink>();
@@ -310,26 +307,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         private void StartSender()
         {
-            if (_isDisposed || (_sender != null && !_hasSenderFailed))
+            if (_sender != null || _isDisposed)
             {
                 return;
             }
 
-            // A thread that failed let go of everything it held (FailHeldSends), and the
-            // handler below belongs to the peer, so its successor only has to start.
-            if (_sender == null)
+            // A backend dropped without Dispose would leave the thread waiting until the process
+            // ends, and Unity reloads scripts without ending the process.
+            if (_onSenderDomainUnload == null)
             {
-                // A backend dropped without Dispose would leave the thread waiting until the
-                // process ends, and Unity reloads scripts without ending the process.
-                if (_onSenderDomainUnload == null)
-                {
-                    _onSenderDomainUnload = (sender, args) => AskSenderToStop(dropsUnsent: true);
-                }
-
-                AppDomain.CurrentDomain.DomainUnload += _onSenderDomainUnload;
+                _onSenderDomainUnload = (sender, args) => AskSenderToStop(dropsUnsent: true);
             }
 
-            _hasSenderFailed = false;
+            AppDomain.CurrentDomain.DomainUnload += _onSenderDomainUnload;
             _sender = new Thread(RunSender, SenderStackBytes)
             {
                 IsBackground = true,
@@ -379,11 +369,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>The sending thread: sends on every connection that has something to send, until it stops.</summary>
         private void RunSender()
         {
-            try
+            bool isWaiting = false;
+            int handOvers = 0;
+            while (true)
             {
-                bool isWaiting = false;
-                int handOvers = 0;
-                while (true)
+                MachineLink current = null;
+                try
                 {
                     lock (_sendGate)
                     {
@@ -420,64 +411,79 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     isWaiting = false;
                     for (int i = 0; i < _sendBatch.Count; i++)
                     {
-                        isWaiting |= SendSome(_sendBatch[i]);
+                        current = _sendBatch[i];
+                        isWaiting |= SendSome(current);
                     }
 
                     _sendBatch.Clear();
                 }
-            }
-            catch (Exception e) when (!(e is ThreadAbortException))
-            {
-                // Logged rather than thrown, since on this thread it would end the process; see
-                // the remarks for what becomes of the connections.
-                Debug.LogException(e);
-                FailHeldSends();
+                catch (Exception e) when (!(e is ThreadAbortException))
+                {
+                    // A defect, which would end the process if it left this thread: see the
+                    // remarks. It is logged once the connections are let go, so what the main
+                    // thread hands over meanwhile goes on.
+                    FailSends(current);
+                    isWaiting = false;
+                    Debug.LogException(e);
+                }
             }
         }
 
         /// <summary>
-        /// The sending thread, ending on an unexpected exception: the connections it held fail,
-        /// for the next update to report, and the next hand-over starts a new thread.
+        /// The sending thread, after an unexpected exception: lets go of the connection it was
+        /// sending on, for the next update to report lost, or, when it was between connections,
+        /// of every connection it holds, so the same defect does not come round for them again.
         /// </summary>
-        private void FailHeldSends()
+        private void FailSends(MachineLink current)
         {
             Socket orphan = null;
             lock (_sendGate)
             {
-                for (int i = 0; i < _sendList.Count; i++)
+                if (current != null)
                 {
-                    MachineLink link = _sendList[i];
-                    if (link.SendEnd == MachineSendEnd.None)
+                    orphan = Fail(current);
+                }
+                else
+                {
+                    for (int i = _sendList.Count - 1; i >= 0; i--)
                     {
-                        // The update that reports it closes its socket.
-                        link.HasFailed = true;
+                        Fail(_sendList[i]);
                     }
-                    else
-                    {
-                        if (link.SendEnd == MachineSendEnd.Linger && link.IsInSocketCall)
-                        {
-                            // Closed during the call, which left the socket to this thread.
-                            orphan = _socketInCall;
-                        }
-
-                        link.SendEnd = MachineSendEnd.Drop;
-                    }
-
-                    ClearHanded(link);
-                    link.IsInSocketCall = false;
-                    link.IsSendListed = false;
                 }
 
-                _sendList.Clear();
                 _sendBatch.Clear();
                 _socketInCall = null;
-
-                // Last: from here the main thread may start the next thread, which shares the
-                // fields above.
-                _hasSenderFailed = true;
             }
 
             Close(orphan);
+        }
+
+        /// <summary>
+        /// Under the gate: drops what the connection handed over and fails it while it is open;
+        /// returns the socket of a connection that closed during the call, which is this thread's to close.
+        /// </summary>
+        private Socket Fail(MachineLink link)
+        {
+            Socket orphan = null;
+            if (link.SendEnd == MachineSendEnd.None)
+            {
+                // The update that reports it closes its socket.
+                link.HasFailed = true;
+            }
+            else
+            {
+                if (link.SendEnd == MachineSendEnd.Linger && link.IsInSocketCall)
+                {
+                    orphan = _socketInCall;
+                }
+
+                link.SendEnd = MachineSendEnd.Drop;
+            }
+
+            ClearHanded(link);
+            link.IsInSocketCall = false;
+            Unlist(link);
+            return orphan;
         }
 
         /// <summary>
