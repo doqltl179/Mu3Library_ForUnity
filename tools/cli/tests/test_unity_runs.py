@@ -369,7 +369,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 completed = self.run_tests(
                     "leaf",
                     "--stall-timeout",
-                    "2",
+                    "1",
                     results=nunit_results(),
                     log=log,
                     sleep="120",
@@ -379,7 +379,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
                 self.assertEqual(1, completed.returncode, completed.stdout)
                 self.assertIn(
-                    f"error: leaf: Unity wrote nothing to its log for 2 s {phrase}, so the script stopped it; "
+                    f"error: leaf: Unity wrote nothing to its log for 1 s {phrase}, so the script stopped it; "
                     "see log/unity-tests/leaf-editmode.log",
                     completed.stderr,
                 )
@@ -390,16 +390,19 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        # 12 ticks 0.2 s apart run for 2.4 s, longer than the 2 s the log may stand still, and the
+        # gap between two ticks may grow almost tenfold under load before it counts as a stall.
         completed = self.run_tests(
-            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="15", tick_seconds="0.2"
+            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="12", tick_seconds="0.2"
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 12", completed.stdout.splitlines())
 
     def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="2")
+        # Were 0 taken as a timeout of 0 s, the first look at the log that found no growth would
+        # stop the fake, well within its 1 s of silence.
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="1")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
@@ -526,13 +529,13 @@ class CompileLogTests(FixtureRepositoryTestCase):
         sleeper_file = Path(sleeper_directory.name) / "sleeper.pid"
         started = time.monotonic()
         completed = self.compile(
-            "leaf", "--stall-timeout", "2", log="Compiling scripts", sleep="120", sleeper_file=str(sleeper_file)
+            "leaf", "--stall-timeout", "1", log="Compiling scripts", sleep="120", sleeper_file=str(sleeper_file)
         )
 
         self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn(
-            "error: Unity compilation failed for leaf: Unity wrote nothing to its log for 2 s, "
+            "error: Unity compilation failed for leaf: Unity wrote nothing to its log for 1 s, "
             "so the script stopped it; see log/unity-compile/leaf.log",
             completed.stderr,
         )
@@ -544,11 +547,12 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
-        completed = self.compile("leaf", "--stall-timeout", "2", ticks="15", tick_seconds="0.2")
+        # 12 ticks 0.2 s apart run for 2.4 s, longer than the 2 s the log may stand still, and the
+        # gap between two ticks may grow almost tenfold under load before it counts as a stall.
+        completed = self.compile("leaf", "--stall-timeout", "2", ticks="12", tick_seconds="0.2")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 12", completed.stdout.splitlines())
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
     def test_a_target_that_stalls_or_fails_ends_the_run_before_the_remaining_targets(self) -> None:
