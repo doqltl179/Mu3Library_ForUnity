@@ -194,8 +194,8 @@ namespace Mu3Library.Tests
                 backend.JoinLobby(SomeLobby, reason => answers.Add("join " + reason));
                 backend.SearchLobbies(null, (reason, lobbies) => answers.Add("search " + reason));
                 backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answers.Add("avatar " + reason));
-                Assert.That(backend.OpenInviteDialog(SomeLobby).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
-                Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
+                Assert.That(backend.OpenInviteDialog(SomeLobby).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the reason the lobby requests answer");
+                Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
                 Assert.That(backend.StartListening(), Is.False);
                 Assert.That(backend.Connect(SomeAccount), Is.EqualTo(ConnectionId.None));
                 Assert.That(backend.SetLobbyData(SomeLobby, "key", "value"), Is.False);
@@ -211,6 +211,24 @@ namespace Mu3Library.Tests
             }
 
             LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void Invites_AnswerSteamNotRunning_WhileSteamCannotBeUsed_AndNotInitialized_OnceTheBackendIsDisposed()
+        {
+            // The boundary of the two reasons: Steam that cannot be used, as the lobby requests
+            // answer it, and a backend that is gone, as a disposed manager answers it.
+            AssumeSteamCallsFail();
+            SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions());
+            LogAssert.Expect(LogType.Warning, FailedCallWarning);
+            backend.Update();
+
+            Assert.That(backend.OpenInviteDialog(SomeLobby).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+
+            backend.Dispose();
+            Assert.That(backend.OpenInviteDialog(SomeLobby).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
+            Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
         }
 
         [TestCaseSource(nameof(FirstSteamCalls))]
@@ -240,8 +258,8 @@ namespace Mu3Library.Tests
             yield return FirstCall("UpdateRunningSteamsCallbacks", (backend, answer) => { backend.Update(); return null; }, null, runsCallbacks: true);
             yield return FirstCall("UpdateReceivingMessages", (backend, answer) => { backend.Update(); return null; }, null);
             yield return FirstCall("GetPlayerName", (backend, answer) => backend.GetPlayerName(SomeAccount), SomeAccount.ToString());
-            yield return FirstCall("OpenInviteDialog", (backend, answer) => backend.OpenInviteDialog(SomeLobby).Reason, MultiplayerReason.NotInitialized);
-            yield return FirstCall("InviteFriend", (backend, answer) => backend.InviteFriend(SomeLobby, SomeAccount).Reason, MultiplayerReason.NotInitialized);
+            yield return FirstCall("OpenInviteDialog", (backend, answer) => backend.OpenInviteDialog(SomeLobby).Reason, MultiplayerReason.SteamNotRunning);
+            yield return FirstCall("InviteFriend", (backend, answer) => backend.InviteFriend(SomeLobby, SomeAccount).Reason, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("StartListening", (backend, answer) => backend.StartListening(), false);
             yield return FirstCall("Connect", (backend, answer) => backend.Connect(SomeAccount), ConnectionId.None);
             yield return FirstCall("LeaveLobby", (backend, answer) => { backend.LeaveLobby(SomeLobby); return null; }, null);

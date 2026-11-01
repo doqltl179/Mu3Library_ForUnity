@@ -46,9 +46,8 @@ namespace Mu3Library.Multiplayer.Steam
     /// reaches the game. The backend logs the first one as a warning and is no longer available
     /// (<see cref="IsAvailable"/>): from then on it answers as when the game shut Steam down under
     /// it. A lobby creation, entry, or search answers <see cref="MultiplayerReason.SteamNotRunning"/>,
-    /// the ones Steam had not answered yet included; an invite request answers
-    /// <see cref="MultiplayerReason.NotInitialized"/>; an avatar answers
-    /// <see cref="MultiplayerReason.BackendError"/>, as <see cref="LoadAvatar"/> describes;
+    /// the ones Steam had not answered yet included, and so does an invite request; an avatar
+    /// answers <see cref="MultiplayerReason.BackendError"/>, as <see cref="LoadAvatar"/> describes;
     /// the calls that answer at once return false, <see cref="ConnectionId.None"/>,
     /// <see cref="PlayerId.None"/>, or null; and an open connection carries nothing more. The
     /// reason is <see cref="MultiplayerReason.SteamNotRunning"/> for the reason
@@ -431,12 +430,15 @@ namespace Mu3Library.Multiplayer.Steam
 
         #region Invites
         /// <summary>Opens the Steam overlay's dialog for inviting friends to the lobby.</summary>
-        /// <returns><see cref="MultiplayerReason.OverlayUnavailable"/> when the overlay is turned off.</returns>
+        /// <returns>
+        /// <see cref="MultiplayerReason.OverlayUnavailable"/> when the overlay is turned off, and
+        /// what <see cref="InviteFriend"/> answers for an unavailable backend or an invalid lobby.
+        /// </returns>
         public MultiplayerResult OpenInviteDialog(LobbyId lobby)
         {
             if (!IsAvailable)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(UnavailableReason());
             }
 
             if (!lobby.IsValid)
@@ -457,16 +459,24 @@ namespace Mu3Library.Multiplayer.Steam
             catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
             {
                 Break(cause);
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(MultiplayerReason.SteamNotRunning);
             }
         }
 
         /// <summary>Sends a friend an invite to the lobby through Steam.</summary>
+        /// <returns>
+        /// <see cref="MultiplayerReason.NotInitialized"/> once the backend is disposed, as a
+        /// disposed manager answers; <see cref="MultiplayerReason.SteamNotRunning"/> while Steam
+        /// cannot be used, because the game shut it down or a Steam call failed in its native
+        /// library, as the lobby requests answer then; <see cref="MultiplayerReason.InvalidArgument"/>
+        /// for an invalid lobby or friend; and <see cref="MultiplayerReason.BackendError"/> when
+        /// Steam refuses the invite.
+        /// </returns>
         public MultiplayerResult InviteFriend(LobbyId lobby, PlayerId friend)
         {
             if (!IsAvailable)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(UnavailableReason());
             }
 
             if (!lobby.IsValid || !friend.IsValid)
@@ -483,8 +493,17 @@ namespace Mu3Library.Multiplayer.Steam
             catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
             {
                 Break(cause);
-                return MultiplayerResult.Failure(MultiplayerReason.NotInitialized);
+                return MultiplayerResult.Failure(MultiplayerReason.SteamNotRunning);
             }
+        }
+
+        /// <summary>
+        /// Why an invite fails while the backend is not available: the backend itself is gone once
+        /// it is disposed, and otherwise Steam is.
+        /// </summary>
+        private MultiplayerReason UnavailableReason()
+        {
+            return _isDisposed ? MultiplayerReason.NotInitialized : MultiplayerReason.SteamNotRunning;
         }
         #endregion
 

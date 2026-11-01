@@ -514,6 +514,8 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(_backend.IsAvailable, Is.False);
+            Assert.That(_backend.InviteFriend(new LobbyId(109775241000000001UL), new PlayerId(PublicAccountId)).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning),
+                "an invite answers as the lobby requests do");
             Pump(() => false, 1);
 
             Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning" }));
