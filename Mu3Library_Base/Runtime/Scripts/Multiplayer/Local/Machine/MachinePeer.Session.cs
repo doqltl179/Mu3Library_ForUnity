@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
@@ -40,7 +41,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 _writer.WriteInt(MachineProtocol.Magic);
                 _writer.WriteInt(MachineProtocol.Version);
                 _writer.WriteULong(LocalPlayerId.Value);
-                _writer.WriteString(PlayerName);
+                _writer.WriteString(_wireName);
                 _writer.WriteULong(host.Value);
                 QueueFrame(link, MachineFrameKind.SessionHello, _writer.Written, force: true);
             }
@@ -83,8 +84,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
-            // What the simulated network holds back counts as unread, as Steam's send buffer does.
-            if (link.PendingCount + link.DelayedBytes + MachineProtocol.HeaderBytes + 1 + data.Length > MaxPendingBytes)
+            // What the sending thread holds and the simulated network holds back count as unread,
+            // as Steam's send buffer does.
+            if (link.PendingCount + Volatile.Read(ref link.HandedBytes) + link.DelayedBytes + MachineProtocol.HeaderBytes + 1 + data.Length > MaxPendingBytes)
             {
                 return false;
             }
@@ -358,7 +360,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 PacketReader reader = new PacketReader(payload);
                 ReadVersion(ref reader);
                 remote = new PlayerId(reader.ReadULong());
-                name = reader.ReadString();
+                name = MachineProtocol.ReadName(ref reader);
                 expected = new PlayerId(reader.ReadULong());
             }
             catch (FormatException)
@@ -395,7 +397,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             _writer.Clear();
             _writer.WriteULong(LocalPlayerId.Value);
-            _writer.WriteString(PlayerName);
+            _writer.WriteString(_wireName);
             QueueFrame(link, MachineFrameKind.SessionAccept, _writer.Written, force: true);
             Flush(link);
 
@@ -457,7 +459,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             {
                 PacketReader reader = new PacketReader(payload);
                 remote = new PlayerId(reader.ReadULong());
-                name = reader.ReadString();
+                name = MachineProtocol.ReadName(ref reader);
             }
             catch (FormatException)
             {

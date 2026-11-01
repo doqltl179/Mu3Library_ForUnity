@@ -17,6 +17,10 @@ namespace Mu3Library.Multiplayer
         // True once the host accepted this player; until then the only packet that counts is Welcome.
         private bool _isWelcomed = false;
 
+        // True while this player joins through the host after the lobby refused it, as a player
+        // whose slot the host keeps may (FR-21), so it enters the lobby once the host takes it.
+        private bool _isJoiningPastLobby = false;
+
         private double _joinDeadline = 0d;
 
         // How long a client waits for its host's connection to close once the lobby says the host
@@ -75,7 +79,11 @@ namespace Mu3Library.Multiplayer
 
             if (reason != MultiplayerReason.None)
             {
-                EndSession(reason, raiseEvents: true);
+                if (reason != MultiplayerReason.GameInProgress || !TryJoinPastLobby(lobby))
+                {
+                    EndSession(reason, raiseEvents: true);
+                }
+
                 return;
             }
 
@@ -107,6 +115,52 @@ namespace Mu3Library.Multiplayer
             {
                 EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
             }
+        }
+
+        /// <summary>
+        /// The lobby refused this player with <see cref="MultiplayerReason.GameInProgress"/>, and
+        /// its data says that its game refuses late joiners (<see cref="LobbyDataKeys.Closed"/>).
+        /// This player may still hold a slot in that game, as when it starts the game again within
+        /// the reservation time after a crash (FR-21), and only the host knows. So it connects to
+        /// the host the lobby data names, without entering the lobby: the host takes it back into
+        /// its slot and opens the lobby for it, inviting it to a lobby that is not public, as for
+        /// any player back in its slot (FR-20), and refuses every other account with
+        /// <see cref="MultiplayerReason.GameInProgress"/>. Steam answers the same reason for an
+        /// invite-only or friends-only lobby whose game takes late joiners, when this player has no
+        /// invite; such a game's host would wait for a membership that never comes, so the
+        /// refusal stands there. False, and the refusal stands, also when the lobby data, which a
+        /// backend lets a player read after such a refusal, names no host of a compatible session,
+        /// or names another player than the lobby's owner, when the owner is known.
+        /// </summary>
+        private bool TryJoinPastLobby(LobbyId lobby)
+        {
+            if (_backend.GetLobbyData(lobby, LobbyDataKeys.Closed) != LobbyDataKeys.ClosedForTheGame)
+            {
+                return false;
+            }
+
+            string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
+            string protocolVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.ProtocolVersion);
+            string wireVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion);
+            PlayerId host = ParsePlayerId(_backend.GetLobbyData(lobby, LobbyDataKeys.HostId));
+            PlayerId owner = _backend.GetLobbyOwner(lobby);
+            if (!IsCompatible(gameId, protocolVersion, wireVersion) || !host.IsValid || host == LocalPlayerId
+                || (owner.IsValid && owner != host))
+            {
+                return false;
+            }
+
+            ConnectionId connection = _backend.Connect(host);
+            if (!connection.IsValid)
+            {
+                return false;
+            }
+
+            _lobbyId = lobby;
+            _hostId = host;
+            _hostConnection = connection;
+            _isJoiningPastLobby = true;
+            return true;
         }
 
         private void UpdateJoinTimeout()
@@ -145,9 +199,16 @@ namespace Mu3Library.Multiplayer
             }
             else
             {
-                EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
+                EndSession(JoinConnectionFailure, raiseEvents: true);
             }
         }
+
+        /// <summary>
+        /// Why a join ends when the connection to the host fails without a reason from the host:
+        /// <see cref="MultiplayerReason.ConnectionFailed"/>, or the lobby's own refusal for a
+        /// player that tried the host past the lobby, since the host may well have refused it.
+        /// </summary>
+        private MultiplayerReason JoinConnectionFailure => _isJoiningPastLobby ? MultiplayerReason.GameInProgress : MultiplayerReason.ConnectionFailed;
 
         /// <summary>
         /// The lobby says the host left, while its connection to this player is still open. A
@@ -194,7 +255,11 @@ namespace Mu3Library.Multiplayer
             if (_state == SessionState.Joining)
             {
                 // A refusal names its reason: full, banned, in progress, version, or duplicate.
-                reason = sent != MultiplayerReason.None ? sent : MultiplayerReason.ConnectionFailed;
+                // Past the lobby, a host that answers Timeout closed a player that waited for a
+                // membership, which leaves the lobby's refusal standing too.
+                reason = sent == MultiplayerReason.None || (_isJoiningPastLobby && sent == MultiplayerReason.Timeout)
+                    ? JoinConnectionFailure
+                    : sent;
             }
             else if (_state == SessionState.Reconnecting)
             {
@@ -255,7 +320,7 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Welcome)
                 {
-                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    if (!IsUnreliableFromHost(kind, data) && IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
                     {
                         Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome. Further {PacketsOf(kind)} before the welcome go unlogged until the session ends.");
                     }
@@ -283,7 +348,7 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.RulesChanged:
                     _rules = ReadRules(ref reader);
-                    Raise(OnRulesChanged, _rules);
+                    Raise(nameof(OnRulesChanged), OnRulesChanged, _rules);
                     break;
 
                 case PacketKind.GameStarted:
@@ -340,6 +405,21 @@ namespace Mu3Library.Multiplayer
             }
         }
 
+        /// <summary>
+        /// True for what a host sends unreliably: a ping report, and a game message whose delivery
+        /// mode, the byte after its kind, says unreliable. Unreliable packets keep no order with
+        /// the reliable welcome, so while a loss makes the network send the welcome again, the ping
+        /// reports and unreliable messages that the host sent after it may arrive first. This
+        /// player drops them, as everything before its welcome, but without a warning, so the
+        /// warning names only a host that sent a reliable packet before welcoming the player, which
+        /// the order of reliable packets rules out for a host that behaves.
+        /// </summary>
+        private static bool IsUnreliableFromHost(PacketKind kind, ReadOnlySpan<byte> data)
+        {
+            return kind == PacketKind.ParticipantPings
+                || (kind == PacketKind.MessageFromHost && data.Length > 1 && data[1] == (byte)DeliveryMode.Unreliable);
+        }
+
         private void HandleWelcome(ref PacketReader reader)
         {
             SessionState state = (SessionState)reader.ReadByte();
@@ -356,7 +436,7 @@ namespace Mu3Library.Multiplayer
             {
                 throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
             }
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             Dictionary<string, string> lobbyData = ReadData(ref reader, MultiplayerLimits.MaxLobbyDataSize);
 
             int count = reader.ReadInt();
@@ -417,6 +497,13 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            if (_isJoiningPastLobby)
+            {
+                // Back in its slot from outside the lobby, which the host now opens for it.
+                _isJoiningPastLobby = false;
+                BeginLobbyRejoin();
+            }
+
             Action<MultiplayerResult> callback = _pendingCallback;
             _pendingCallback = null;
             Invoke(callback, MultiplayerResult.Success);
@@ -424,7 +511,7 @@ namespace Mu3Library.Multiplayer
             // A late joiner arrives in a running game and needs its start data as much as anyone.
             if (state == SessionState.InGame && generation == _sessionGeneration)
             {
-                Raise(OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -437,7 +524,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _participants.Add(joined);
-            Raise(OnParticipantJoined, joined);
+            Raise(nameof(OnParticipantJoined), OnParticipantJoined, joined);
         }
 
         private void HandleParticipantLeft(ref PacketReader reader)
@@ -457,7 +544,7 @@ namespace Mu3Library.Multiplayer
 
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
-            Raise(OnParticipantLeft, removed, reason);
+            Raise(nameof(OnParticipantLeft), OnParticipantLeft, removed, reason);
         }
 
         private void HandleParticipantUpdated(ref PacketReader reader)
@@ -475,13 +562,13 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner).WithLoaded(isLoaded);
             _participants[index] = updated;
-            Raise(OnParticipantChanged, updated);
+            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
         }
 
         private void HandleGameStarted(ref PacketReader reader)
         {
             int gameNumber = reader.ReadInt();
-            byte[] startData = reader.ReadBytes();
+            byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             if (_state != SessionState.Lobby)
             {
                 return;
@@ -500,7 +587,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -517,7 +604,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnReturnedToLobby);
+                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
             }
         }
 
@@ -531,6 +618,7 @@ namespace Mu3Library.Multiplayer
             _joiningLobbyId = LobbyId.None;
             _hostConnection = ConnectionId.None;
             _isWelcomed = false;
+            _isJoiningPastLobby = false;
             _joinDeadline = 0d;
             _isAwaitingHostClose = false;
             _hostCloseDeadline = 0d;

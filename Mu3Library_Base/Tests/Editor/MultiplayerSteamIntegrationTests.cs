@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -10,6 +11,7 @@ using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 using Mu3Library.Multiplayer.Steam;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 using UnityEngine.TestTools.Constraints;
 // Unity's Is extends NUnit's with AllocatingGCMemory.
 using Is = UnityEngine.TestTools.Constraints.Is;
@@ -309,11 +311,11 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void SteamLobby_RefusesAKeyThatDiffersOnlyByCase_AndSearchFindsAFilterKeyInAnyCase()
+        public void SteamLobby_RefusesAKeyThatDiffersOnlyByCase_AndSearchFindsAFilterKeyAndValueInAnyCase()
         {
             // FR-11, FR-38: Steam keeps one value for keys that differ only by case, so the manager
             // refuses the second key on every backend, and the local backends match filter keys
-            // in any case because Steam does.
+            // and values in any case because Steam does (#239).
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
@@ -333,10 +335,79 @@ namespace Mu3Library.Tests
                 Assert.That(found.Data["Map"], Is.EqualTo("desert"));
                 Assert.That(found.Data["map"], Is.EqualTo("desert"));
 
-                bool byOtherCase = SearchUntil(manager, () => Worldwide().AddStringFilter("MAP", "desert"), lobby, seconds: 10) != null;
-                bool byOtherValueCase = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "DESERT"), lobby, seconds: 10) != null;
-                TestContext.WriteLine($"Steam finds the lobby by the key in another case: {byOtherCase}; by the value in another case: {byOtherValueCase}.");
-                Assert.That(byOtherCase, Is.True, "Steam matches a filter key in any case, as the local backends do");
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("MAP", "desert"), lobby, seconds: 10), Is.Not.Null,
+                    "Steam matches a filter key in any case, as the local backends do");
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "DESERT"), lobby, seconds: 10), Is.Not.Null,
+                    "Steam matches a filter value in any case, as the local backends do");
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_ComparesStringFilterValues_AsTheLocalBackendsDo()
+        {
+            // FR-6, FR-38, #239: all six comparisons of a string filter on Steam itself, against
+            // the results the local backends' tests hold every backend to.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Dictionary<string, string> data = MultiplayerSessionTests.StringComparisonData();
+                LobbyId lobby = CreatePublicLobby(manager, data);
+                foreach (KeyValuePair<string, string> pair in data)
+                {
+                    Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter(pair.Key, pair.Value), lobby), Is.Not.Null,
+                        $"the lobby never showed up in a search filtered by {pair.Key}");
+                }
+
+                // Every value reached search's filters above, so a filter that drops the lobby
+                // drops it at once, and one that keeps it is asked a little longer.
+                List<string> mismatches = new List<string>();
+                foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in MultiplayerSessionTests.StringComparisonChecks())
+                {
+                    bool isFound = SearchUntil(manager, () => Worldwide().AddStringFilter(key, filter, comparison), lobby, seconds: isKept ? 10 : 0) != null;
+                    if (isFound != isKept)
+                    {
+                        mismatches.Add(MultiplayerSessionTests.DescribeStringComparison(key, filter, comparison, isKept));
+                    }
+                }
+
+                Assert.That(mismatches, Is.Empty);
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
+        {
+            // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is
+            // outside it, and Steam's own search then lists the joinable lobby; the library's does not.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(SearchUntil(manager, Worldwide, lobby), Is.Not.Null, "the lobby never showed up in the library's search");
+                Assert.That(manager.StartGame().IsSuccess, Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.Closed), Is.EqualTo(LobbyDataKeys.ClosedForTheGame));
+
+                // As the host does for a returning player outside the lobby.
+                Assert.That(_backend.SetLobbyJoinable(lobby, true), Is.True);
+                Assert.That(SteamListsUntil(manager, lobby, data => data.TryGetValue(LobbyDataKeys.Closed, out string closed) && closed == LobbyDataKeys.ClosedForTheGame), Is.True,
+                    "Steam's own search never listed the opened lobby as closed for the game");
+
+                // Steam's filters may follow the data a moment later (#249).
+                bool isFound = SearchUntil(manager, Worldwide, result => result.Lobbies.Any(info => info.Id == lobby), found => !found, 30);
+                Assert.That(isFound, Is.False, "the library's search leaves the opened lobby out");
+                Assert.That(SteamListsUntil(manager, lobby, data => true), Is.True, "Steam's own search still lists the opened lobby");
+                Assert.That(SearchUntil(manager, Worldwide, lobby, seconds: 5), Is.Null, "the library's search keeps the opened lobby out");
 
                 manager.Leave();
             }
@@ -372,8 +443,13 @@ namespace Mu3Library.Tests
                     info => info != null && !info.Data.ContainsKey("Map"), 30);
                 Assert.That(after, Is.Not.Null, "search never dropped the deleted key");
                 Assert.That(after.Data["Mode"], Is.EqualTo("coop"));
-                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"), lobby, seconds: 5), Is.Null,
-                    "search no longer finds the lobby by the deleted key");
+
+                // Steam's filters follow a deletion later than the data a search returns, for up
+                // to about a second past it on AppID 480 (#249), so search is asked again until
+                // it no longer finds the lobby by the deleted key.
+                bool isStillFound = SearchUntil(manager, () => Worldwide().AddStringFilter("Map", "desert"),
+                    result => result.Lobbies.Any(info => info.Id == lobby), found => !found, 30);
+                Assert.That(isStillFound, Is.False, "search no longer finds the lobby by the deleted key");
 
                 Assert.That(manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
                 Assert.That(manager.DeleteParticipantData("character").IsSuccess, Is.True);
@@ -487,6 +563,36 @@ namespace Mu3Library.Tests
             Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
             Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
+        }
+
+        [TestCase(false, TestName = "SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_AfterASteamCallFailed")]
+        [TestCase(true, TestName = "SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_AfterSteamShutDown")]
+        public void SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_OnceSteamIsGone(bool shutsSteamDown)
+        {
+            // The backend contract: every lobby request answers once, also when Steam is gone
+            // before it answered. No update runs before, so Steam's answers wait in its queue.
+            List<string> answers = new List<string>();
+            _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, null, (reason, lobby) => answers.Add("create " + reason));
+            _backend.JoinLobby(new LobbyId(109775241000000001UL), reason => answers.Add("join " + reason));
+
+            if (shutsSteamDown)
+            {
+                // As a game may do; TearDown then releases only the backend's own resources.
+                Steamworks.SteamAPI.Shutdown();
+            }
+            else
+            {
+                // What a Steam call that throws EntryPointNotFoundException does.
+                LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+                _backend.Break(new EntryPointNotFoundException("simulated"));
+            }
+
+            Assert.That(_backend.IsAvailable, Is.False);
+            Assert.That(_backend.InviteFriend(new LobbyId(109775241000000001UL), new PlayerId(PublicAccountId)).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning),
+                "an invite answers as the lobby requests do");
+            Pump(() => false, 1);
+
+            Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning" }));
         }
 
         [Test]
@@ -773,11 +879,21 @@ namespace Mu3Library.Tests
         /// <summary>Creates a lobby that search finds, with one game-defined value.</summary>
         private LobbyId CreatePublicLobby(MultiplayerManager manager, string key, string value)
         {
+            return CreatePublicLobby(manager, new Dictionary<string, string> { [key] = value });
+        }
+
+        /// <summary>Creates a lobby that search finds, with the game-defined values.</summary>
+        private LobbyId CreatePublicLobby(MultiplayerManager manager, IReadOnlyDictionary<string, string> data)
+        {
             string gameId = "mu3.test." + Guid.NewGuid().ToString("N").Substring(0, 12);
             Assert.That(manager.Initialize(_backend, new MultiplayerConfig(gameId, 1)).IsSuccess, Is.True);
 
             LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" };
-            options.Data[key] = value;
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
             Pump(manager, () => created.HasValue, 20);
@@ -796,27 +912,59 @@ namespace Mu3Library.Tests
             return SearchUntil(manager, query, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby), found => found != null, seconds);
         }
 
-        /// <summary>Searches again and again until <paramref name="done"/> holds for what <paramref name="pick"/> takes from the results.</summary>
+        /// <summary>
+        /// Searches again and again until <paramref name="done"/> holds for what <paramref name="pick"/>
+        /// takes from the results, at least once even when <paramref name="seconds"/> is 0.
+        /// </summary>
         private static T SearchUntil<T>(MultiplayerManager manager, Func<LobbySearchQuery> query, Func<LobbySearchResult, T> pick, Func<T, bool> done, int seconds)
         {
-            T picked = default;
             Stopwatch watch = Stopwatch.StartNew();
-            while (watch.Elapsed.TotalSeconds < seconds)
+            while (true)
             {
                 LobbySearchResult? search = null;
                 manager.SearchLobbies(query(), result => search = result);
                 Pump(manager, () => search.HasValue, 25);
                 Assert.That(search?.IsSuccess, Is.True);
-                picked = pick(search.Value);
-                if (done(picked))
+                T picked = pick(search.Value);
+                if (done(picked) || watch.Elapsed.TotalSeconds >= seconds)
                 {
                     return picked;
                 }
 
                 Pump(manager, () => false, 2);
             }
+        }
 
-            return picked;
+        /// <summary>
+        /// Asks Steam's own search, filtered only by the lobby's game ID, again and again until it
+        /// lists the lobby with data that passes <paramref name="check"/>; false when it never does.
+        /// </summary>
+        private bool SteamListsUntil(MultiplayerManager manager, LobbyId lobby, Func<IReadOnlyDictionary<string, string>, bool> check, int seconds = 30)
+        {
+            string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
+            Stopwatch watch = Stopwatch.StartNew();
+            while (true)
+            {
+                IReadOnlyList<BackendLobby> lobbies = null;
+                bool isAnswered = false;
+                _backend.SearchLobbies(Worldwide().AddStringFilter(LobbyDataKeys.GameId, gameId), (reason, found) =>
+                {
+                    isAnswered = true;
+                    lobbies = found;
+                });
+                Pump(manager, () => isAnswered, 25);
+                if (lobbies != null && lobbies.Any(found => found.Id == lobby && check(found.Data)))
+                {
+                    return true;
+                }
+
+                if (watch.Elapsed.TotalSeconds >= seconds)
+                {
+                    return false;
+                }
+
+                Pump(manager, () => false, 2);
+            }
         }
 
         /// <summary>How many pixels of the texture differ from Steam's image, the top row taken as the texture's top.</summary>

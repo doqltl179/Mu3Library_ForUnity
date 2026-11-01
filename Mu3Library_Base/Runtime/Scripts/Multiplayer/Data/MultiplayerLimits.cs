@@ -14,7 +14,8 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Largest start data, in bytes, that <see cref="IMultiplayerManager.StartGame"/> accepts.
         /// A late joiner receives it together with the whole roster in one packet, which has to
-        /// stay well inside what one send may carry.
+        /// stay well inside what one send may carry. A client drops a welcome or a game start
+        /// whose start data is larger as malformed, before it copies the data.
         /// </summary>
         public const int MaxStartDataSize = 64 * 1024;
 

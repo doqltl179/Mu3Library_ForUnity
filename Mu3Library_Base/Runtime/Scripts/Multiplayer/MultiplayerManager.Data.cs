@@ -28,6 +28,9 @@ namespace Mu3Library.Multiplayer
         // The UTF-8 bytes of the longest key a data request may hold: three for each character.
         private const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
 
+        // The fewest bytes one entry of data takes in a packet: the length prefixes of its key and its value.
+        private const int MinDataEntryBytes = 2 * sizeof(int);
+
 
 
         #region Requests
@@ -71,7 +74,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnLobbyDataChanged, key, value);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, value);
             }
 
             return MultiplayerResult.Success;
@@ -114,7 +117,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnLobbyDataChanged, key, (string)null);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, (string)null);
             }
 
             return MultiplayerResult.Success;
@@ -288,7 +291,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnParticipantDataChanged, updated, key);
+                Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
             }
         }
 
@@ -339,7 +342,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnParticipantDataChanged, updated, key);
+                Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
             }
         }
         #endregion
@@ -355,7 +358,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _lobbyData[key] = value;
-            Raise(OnLobbyDataChanged, key, value);
+            Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, value);
         }
 
         private void HandleParticipantDataChanged(ref PacketReader reader)
@@ -376,7 +379,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithData(WithDataEntry(_participants[index].Data, key, value));
             _participants[index] = updated;
-            Raise(OnParticipantDataChanged, updated, key);
+            Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
         }
 
         private void HandleLobbyDataDeleted(ref PacketReader reader)
@@ -389,7 +392,7 @@ namespace Mu3Library.Multiplayer
 
             if (_lobbyData.Remove(key))
             {
-                Raise(OnLobbyDataChanged, key, (string)null);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, (string)null);
             }
         }
 
@@ -410,7 +413,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithData(WithoutDataEntry(_participants[index].Data, key));
             _participants[index] = updated;
-            Raise(OnParticipantDataChanged, updated, key);
+            Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
         }
 
         /// <summary>Takes this player's own data from the welcome, which its later requests build on.</summary>
@@ -591,14 +594,17 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
-        /// <paramref name="limit"/>, and no value more than all of it.
+        /// <paramref name="limit"/>, and no value more than all of it. Every entry also takes at
+        /// least <see cref="MinDataEntryBytes"/> of the packet, so a count that the rest of the
+        /// packet cannot hold is malformed before any room is reserved for it: a short packet
+        /// that claims thousands of entries allocates nothing for them.
         /// </summary>
         private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
         {
             int count = reader.ReadInt();
-            if (count < 0 || count > limit)
+            if (count < 0 || count > limit || count > reader.Remaining / MinDataEntryBytes)
             {
-                throw new FormatException($"Invalid data entry count {count}.");
+                throw new FormatException($"Invalid data entry count {count} with {reader.Remaining} bytes left.");
             }
 
             Dictionary<string, string> data = new Dictionary<string, string>(count);

@@ -55,7 +55,10 @@ namespace Mu3Library.Multiplayer
         /// Sends a message in the lobby or in a game. A copy addressed to this player is handled
         /// before the call returns; the others arrive at their players' next update after the
         /// network delivers them. A reliable message arrives in the order it was sent from the
-        /// same sender; an unreliable one may be lost.
+        /// same sender; an unreliable one may be lost, and keeps no order with reliable ones: one
+        /// that the host sends to a player it has just admitted may reach the player before the
+        /// welcome that admits it, which a lost packet can hold back, and the player drops it
+        /// without a warning.
         /// </summary>
         /// <returns>
         /// <see cref="MultiplayerReason.MessageTooLarge"/> above <see cref="MaxMessageSize"/>;

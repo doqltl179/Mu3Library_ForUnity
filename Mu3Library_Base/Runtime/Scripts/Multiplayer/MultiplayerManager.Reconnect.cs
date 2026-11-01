@@ -87,7 +87,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnParticipantDisconnected, away);
+                Raise(nameof(OnParticipantDisconnected), OnParticipantDisconnected, away);
             }
         }
 
@@ -167,7 +167,7 @@ namespace Mu3Library.Multiplayer
                     return true;
                 }
 
-                Raise(OnParticipantChanged, returned);
+                Raise(nameof(OnParticipantChanged), OnParticipantChanged, returned);
                 if (sessionGeneration != _sessionGeneration)
                 {
                     return true;
@@ -179,7 +179,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(peer.Connection);
             if (sessionGeneration == _sessionGeneration)
             {
-                Raise(OnParticipantReconnected, returned);
+                Raise(nameof(OnParticipantReconnected), OnParticipantReconnected, returned);
             }
 
             return true;
@@ -508,16 +508,16 @@ namespace Mu3Library.Multiplayer
 
             if (state == SessionState.InGame && !isSameGame)
             {
-                Raise(OnGameStarted, new System.ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new System.ReadOnlyMemory<byte>(_startData));
             }
             else if (state == SessionState.Lobby)
             {
-                Raise(OnReturnedToLobby);
+                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
             }
 
             if (generation == _sessionGeneration && TryGetParticipant(LocalPlayerId, out Participant self))
             {
-                Raise(OnParticipantReconnected, self);
+                Raise(nameof(OnParticipantReconnected), OnParticipantReconnected, self);
             }
         }
 
@@ -655,7 +655,7 @@ namespace Mu3Library.Multiplayer
         private void ReportLobbyRejoinFailed(MultiplayerReason reason)
         {
             Debug.LogWarning($"[Multiplayer] Could not enter lobby {_lobbyId} again after coming back ({reason}); the session goes on over the host's connection.");
-            Raise(OnLobbyRejoinFailed, reason);
+            Raise(nameof(OnLobbyRejoinFailed), OnLobbyRejoinFailed, reason);
         }
 
         private void ResetLobbyRejoinState()
@@ -684,7 +684,14 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithConnected(isConnected);
             _participants[index] = updated;
-            Raise(isConnected ? OnParticipantReconnected : OnParticipantDisconnected, updated);
+            if (isConnected)
+            {
+                Raise(nameof(OnParticipantReconnected), OnParticipantReconnected, updated);
+            }
+            else
+            {
+                Raise(nameof(OnParticipantDisconnected), OnParticipantDisconnected, updated);
+            }
         }
         #endregion
     }

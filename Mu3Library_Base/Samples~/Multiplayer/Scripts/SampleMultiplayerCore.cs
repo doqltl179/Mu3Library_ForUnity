@@ -147,8 +147,11 @@ namespace Mu3Library.Sample.Multiplayer
             }
             catch (Exception exception)
             {
-                // A backend reaches native code, such as a steam_api library that does not match
-                // the Steamworks.NET code, which can throw anything. The sample cannot go on then.
+                // Steam's own failures, a broken steam_api library included, answer a reason
+                // instead, both when the backend is created and in its later calls. What still
+                // throws here is a mistake in the code, such as a game ID that cannot name a
+                // machine-wide network (CreateMachineWide throws ArgumentException for one with a
+                // space or a dot). The sample cannot go on then.
                 Debug.LogException(exception);
                 _log.Warning($"The backend could not start: {exception.GetType().Name}: {exception.Message}");
             }
