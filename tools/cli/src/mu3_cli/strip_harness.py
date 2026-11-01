@@ -16,9 +16,10 @@ import platform
 import re
 import shutil
 import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Iterator, Sequence
 
 import typer
 
@@ -37,15 +38,45 @@ REFERENCE_TARGET = "urp"
 # The development project whose manifest and lock file pin the UniTask that --with-unitask adds.
 UNITASK_TARGET = "built-in"
 PLAYER_NAME = "Harness"
-# Exit codes beside 0 (every check passed) and typer's 2 (a usage error).
+# Exit codes beside 0 (every check passed) and typer's 2 (a usage error). 1 means only that the
+# player ran and a check failed or it did not report; anything that stops the harness before or
+# around the player, from a refused --work-dir to a locked file or a failed build, is 3.
 EXIT_CHECKS_FAILED = 1
 EXIT_BUILD_FAILED = 3
 # A project path longer than this risks the Windows path limit inside Library/ and the IL2CPP
 # build folders, as compile-unity.sh warns for its mirrors.
 LONG_PROJECT_PATH = 100
+# The file that marks a --work-dir as the harness's own. The harness writes it into a new or empty
+# folder and changes or deletes files only in a folder that has it.
+WORK_DIR_MARKER = ".mu3-di-strip-harness"
+WORK_DIR_MARKER_TEXT = "mu3-cli unity di-strip-harness made this folder and may change or delete any file in it.\n"
 
 CHECK_PATTERN = re.compile(r"^HARNESS CHECK (\S+) (PASS|FAIL) ?(.*)$")
 RESULT_PATTERN = re.compile(r"^HARNESS RESULT (PASS|FAIL) checks=(\d+) failures=(\d+) errorLogs=(\d+)")
+
+
+class HarnessSetupError(RuntimeError):
+    """The work folder or the mirror could not be prepared or cleaned, or the player could not be built or started."""
+
+
+def describe_error(error: BaseException) -> str:
+    """One line naming an exception and its message, such as PermissionError: [WinError 5] ..."""
+    message = " ".join(str(error).split())
+    return f"{type(error).__name__}: {message}" if message else type(error).__name__
+
+
+@contextmanager
+def setup_step(action: str) -> Iterator[None]:
+    """Turn a file, permission, or data error raised while doing `action` into a HarnessSetupError.
+
+    A locked or unwritable file raises OSError, a malformed manifest ValueError (JSONDecodeError)
+    or KeyError; none of them says anything about the checks, so none may end the command as a
+    failed check.
+    """
+    try:
+        yield
+    except (OSError, KeyError, ValueError) as error:
+        raise HarnessSetupError(f"{action} failed: {describe_error(error)}") from error
 
 
 def template_dir(root: Path) -> Path:
@@ -61,19 +92,50 @@ def run_label(backend: str, stripping: str, with_unitask: bool) -> str:
     return f"{backend}-{stripping.lower()}" + ("-unitask" if with_unitask else "")
 
 
+def claim_work_dir(work_dir: Path) -> bool:
+    """Make sure the harness may change and delete files in work_dir.
+
+    A folder that does not exist or is empty becomes the harness's own: it gets the marker file.
+    A folder with the marker is one the harness made. Any other folder is refused, so a wrong
+    --work-dir cannot cost a project its assets; a work folder made before the marker existed is
+    refused too, and the user deletes it or passes another. Returns whether this call wrote the marker.
+    """
+    marker = work_dir / WORK_DIR_MARKER
+    if marker.is_file():
+        return False
+    if work_dir.exists() and (not work_dir.is_dir() or any(work_dir.iterdir())):
+        raise HarnessSetupError(
+            f"{work_dir} is not an empty folder and has no {WORK_DIR_MARKER} marker, so the harness will not "
+            "change or delete files in it; pass a new or empty --work-dir, or delete the folder yourself "
+            "if an earlier version of the harness made it"
+        )
+    work_dir.mkdir(parents=True, exist_ok=True)
+    marker.write_text(WORK_DIR_MARKER_TEXT, encoding="utf-8")
+    return True
+
+
 def read_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    """A package manifest or lock file: a JSON object whose dependencies, when it lists them, are an object."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as error:
+        raise HarnessSetupError(f"{path} is not valid JSON: {describe_error(error)}") from error
+    if not isinstance(data, dict) or not isinstance(data.get("dependencies", {}), dict):
+        raise HarnessSetupError(f"{path} is not a package manifest: a JSON object with a dependencies object")
+    return data
 
 
 def unitask_source(root: Path) -> str:
     """The UniTask Git URL of the built-in development project, pinned to the commit its lock file names."""
     specs = load_target_specs(root)
     project = root / specs[UNITASK_TARGET].project_path / "Packages"
-    url = read_json(project / "manifest.json")["dependencies"][UNITASK_PACKAGE]
+    url = read_json(project / "manifest.json").get("dependencies", {}).get(UNITASK_PACKAGE)
+    if not isinstance(url, str):
+        raise HarnessSetupError(f"{project / 'manifest.json'} has no {UNITASK_PACKAGE} dependency for --with-unitask to pin")
     if "#" in url:
         return url
-    lock = read_json(project / "packages-lock.json").get("dependencies", {}).get(UNITASK_PACKAGE, {})
-    commit = lock.get("hash")
+    lock = read_json(project / "packages-lock.json").get("dependencies", {}).get(UNITASK_PACKAGE)
+    commit = lock.get("hash") if isinstance(lock, dict) else None
     return f"{url}#{commit}" if commit else url
 
 
@@ -284,10 +346,6 @@ class HarnessOptions:
     player_timeout: float = 120
 
 
-class HarnessSetupError(RuntimeError):
-    """The mirror could not be prepared or the player could not be built."""
-
-
 def prepare_mirror(root: Path, project_dir: Path, editor_path: Path, with_unitask: bool, runner: Runner) -> list[str]:
     """Create or refresh the mirror project and return what changed in it."""
     specs = load_target_specs(root)
@@ -329,14 +387,20 @@ def default_runner(command: list[str], timeout: float) -> int | None:
 
 
 def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_runner, echo: Callable[[str], None] = typer.echo) -> int:
-    """Build and run one configuration, print each check, and return the command's exit code."""
+    """Build and run one configuration, print each check, and return the command's exit code.
+
+    Raises HarnessSetupError, which the command ends with exit 3, when the work folder, the mirror,
+    or the files around the player cannot be prepared, read, or cleaned.
+    """
     if platform.system() != "Windows":
         raise HarnessSetupError("the harness builds a Windows x64 player, so it runs only on Windows")
 
-    specs = load_target_specs(root)
-    version = project_editor_version(specs[REFERENCE_TARGET], root)
+    with setup_step("reading the development projects"):
+        specs = load_target_specs(root)
+        reference = specs[REFERENCE_TARGET]
+        version = project_editor_version(reference, root)
     if version is None:
-        raise HarnessSetupError(f"no Editor version in {specs[REFERENCE_TARGET].project_path}/ProjectSettings/ProjectVersion.txt")
+        raise HarnessSetupError(f"no Editor version in {reference.project_path}/ProjectSettings/ProjectVersion.txt")
     editor_path, overridden = resolve_editor_path(version)
     if not editor_path.is_file():
         raise HarnessSetupError(f"the Unity Editor {version} is not installed: {editor_path}")
@@ -355,17 +419,26 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
             f"warning: the mirror path is {len(str(project_dir))} characters, so Unity's Library and the IL2CPP "
             "build may pass the Windows path limit; pass a shorter --work-dir"
         )
-    changed = prepare_mirror(root, project_dir, editor_path, options.with_unitask, runner)
+    with setup_step(f"preparing the work folder {work_dir}"):
+        if claim_work_dir(work_dir):
+            echo(f"Marked {work_dir} as the harness's work folder ({WORK_DIR_MARKER})")
+    with setup_step(f"preparing the mirror project {project_dir}"):
+        changed = prepare_mirror(root, project_dir, editor_path, options.with_unitask, runner)
     echo(f"Mirror changes: {', '.join(changed) if changed else 'none'}")
 
-    if player_path.parent.exists():
-        shutil.rmtree(player_path.parent)
-    for log in (build_log, player_log):
-        log.unlink(missing_ok=True)
+    with setup_step(f"removing the previous {label} player and logs"):
+        if player_path.parent.exists():
+            shutil.rmtree(player_path.parent)
+        for log in (build_log, player_log):
+            log.unlink(missing_ok=True)
 
     echo(f"Building {label} (backend {options.backend}, Managed Stripping Level {options.stripping}); log: {build_log}")
-    status = runner(build_command(editor_path, project_dir, options.backend, options.stripping, player_path, build_log), options.build_timeout)
-    build_text = build_log.read_text(encoding="utf-8", errors="replace") if build_log.is_file() else ""
+    with setup_step("running the Unity build"):
+        status = runner(
+            build_command(editor_path, project_dir, options.backend, options.stripping, player_path, build_log),
+            options.build_timeout,
+        )
+        build_text = build_log.read_text(encoding="utf-8", errors="replace") if build_log.is_file() else ""
     for line in build_text.splitlines():
         if line.startswith(("HARNESS BUILD", "HARNESS settings", "HARNESS STEP-", "HARNESS bad")):
             echo(line)
@@ -375,15 +448,16 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
         return EXIT_BUILD_FAILED
 
     echo(f"Running {player_path}; log: {player_log}")
-    exit_code = runner(player_command(player_path, player_log), options.player_timeout)
-    run = parse_player_log(player_log.read_text(encoding="utf-8", errors="replace") if player_log.is_file() else "")
+    with setup_step(f"running {player_path}"):
+        exit_code = runner(player_command(player_path, player_log), options.player_timeout)
+        run = parse_player_log(player_log.read_text(encoding="utf-8", errors="replace") if player_log.is_file() else "")
+        sizes = player_sizes(player_path)
 
     for note in run.notes:
         echo(note)
     for check in run.checks:
         echo(f"{'PASS' if check.passed else 'FAIL'} {check.name}" + (f" ({check.detail})" if check.detail else ""))
 
-    sizes = player_sizes(player_path)
     managed_total = sum(size for name, size in sizes.items() if name.startswith("Managed/"))
     if managed_total:
         echo(f"Managed DLLs: {managed_total} bytes in {sum(1 for name in sizes if name.startswith('Managed/'))} files")
@@ -408,15 +482,19 @@ def unity_di_strip_harness(
         False, "--with-unitask", help="Add UniTask, pinned as the built-in project pins it, so cores prepare through UniTask."
     ),
     work_dir: Path | None = typer.Option(
-        None, "--work-dir", help="Folder for the mirror project, players, and logs (default log/di-strip-harness)."
+        None,
+        "--work-dir",
+        help="Folder for the mirror project, players, and logs (default log/di-strip-harness); "
+        "it must be new, empty, or one the harness made.",
     ),
     build_timeout: int = typer.Option(3600, "--build-timeout", help="Seconds the Editor may take to import and build."),
     player_timeout: int = typer.Option(120, "--player-timeout", help="Seconds the player may run."),
 ) -> None:
     """Build the DI stripping harness as a Windows x64 player, run it, and report each check.
 
-    Exits 0 when every check passed, 1 when a check failed or the player did not report,
-    and 3 when the mirror could not be prepared or the build failed.
+    Exits 0 when every check passed, 1 when a check failed or the player did not report, and 3
+    when the work folder or the mirror could not be prepared or cleaned, the build failed, or the
+    player could not be started.
     """
     if stripping not in STRIPPING_LEVELS:
         raise typer.BadParameter(f"--stripping expects one of: {', '.join(STRIPPING_LEVELS)}.")
@@ -425,7 +503,14 @@ def unity_di_strip_harness(
     if build_timeout <= 0 or player_timeout <= 0:
         raise typer.BadParameter("--build-timeout and --player-timeout expect a positive number of seconds.")
 
-    options = HarnessOptions(backend, stripping, with_unitask, work_dir, build_timeout, player_timeout)
+    options = HarnessOptions(
+        backend=backend,
+        stripping=stripping,
+        with_unitask=with_unitask,
+        work_dir=work_dir,
+        build_timeout=build_timeout,
+        player_timeout=player_timeout,
+    )
     try:
         exit_code = run_harness(repo_root(), options)
     except HarnessSetupError as error:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -16,9 +17,12 @@ from mu3_cli.repository import repo_root
 from mu3_cli.strip_harness import (
     EXIT_BUILD_FAILED,
     EXIT_CHECKS_FAILED,
+    WORK_DIR_MARKER,
     HarnessOptions,
     HarnessRun,
     HarnessCheck,
+    HarnessSetupError,
+    claim_work_dir,
     mirror_manifest,
     parse_player_log,
     run_harness,
@@ -345,6 +349,119 @@ class StripHarnessRunTests(unittest.TestCase):
         self.assertEqual(2, len(compiles))
         self.assertIn("-sdk:4.5", compiles[0])
         self.assertTrue(compiles[0][1].endswith(os.path.join("lib", "mono", "4.5", "mcs.exe")))
+
+
+class StripHarnessWorkDirTests(unittest.TestCase):
+    def test_a_new_or_empty_folder_becomes_the_harnesss_own(self) -> None:
+        root = temporary_root(self)
+        empty = root / "empty"
+        empty.mkdir()
+
+        self.assertTrue(claim_work_dir(root / "new" / "work"))
+        self.assertTrue((root / "new" / "work" / WORK_DIR_MARKER).is_file())
+        self.assertFalse(claim_work_dir(root / "new" / "work"))
+        self.assertTrue(claim_work_dir(empty))
+
+    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    def test_a_folder_without_the_marker_is_refused_and_keeps_every_file(self, _system: mock.Mock) -> None:
+        root = fixture_root(self)
+        editor = write(root / "Editor" / "Unity.exe", "")
+        work = root / "work"
+        # A Unity project where the mirror would be, as an earlier harness made one or a wrong --work-dir names one.
+        asset = write(work / "project" / "Assets" / "Mine.cs", "// mine\n")
+        unity = FakeUnity()
+
+        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+            with self.assertRaisesRegex(HarnessSetupError, f"has no {re.escape(WORK_DIR_MARKER)} marker"):
+                run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
+
+        self.assertEqual("// mine\n", asset.read_text(encoding="utf-8"))
+        self.assertFalse((work / WORK_DIR_MARKER).exists())
+        self.assertFalse((work / "project" / "Packages").exists())
+        self.assertEqual([], unity.commands)
+
+
+class StripHarnessSetupFailureTests(unittest.TestCase):
+    """A run that fails around the player, not in it, ends with one line and exit 3, never as a failed check."""
+
+    def invoke(self, root: Path, unity: FakeUnity, *arguments: str) -> object:
+        editor = write(root / "Editor" / "Unity.exe", "")
+        with (
+            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
+            mock.patch("mu3_cli.strip_harness.repo_root", return_value=root),
+            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)),
+            mock.patch("mu3_cli.strip_harness.run_with_timeout", new=unity),
+        ):
+            return CliRunner().invoke(app, ["unity", "di-strip-harness", "--work-dir", str(root / "work"), *arguments])
+
+    def assert_setup_failure(self, result: object, cause: str) -> None:
+        self.assertEqual(EXIT_BUILD_FAILED, result.exit_code, result.output)
+        self.assertIsInstance(result.exception, SystemExit)
+        self.assertNotIn("Traceback", result.output)
+        [error] = [line for line in result.output.splitlines() if line.startswith("error:")]
+        self.assertIn(cause, error)
+
+    def test_each_setup_and_cleanup_failure_exits_three_with_its_cause(self) -> None:
+        locked = PermissionError(13, "The process cannot access the file because it is being used by another process")
+        cases = {
+            "unmarked work folder": (lambda root: write(root / "work" / "project" / "Assets" / "Mine.cs", ""), (), None,
+                                     f"has no {WORK_DIR_MARKER} marker"),
+            "malformed manifest": (lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", "{"), (), None,
+                                   "manifest.json is not valid JSON: JSONDecodeError"),
+            "manifest that is not an object": (
+                lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", '{"dependencies": []}'), (), None,
+                "manifest.json is not a package manifest"),
+            "manifest without UniTask": (
+                lambda root: write(root / "UnityProject_BuiltIn" / "Packages" / "manifest.json", '{"dependencies": {}}'),
+                ("--with-unitask",), None, "has no com.cysharp.unitask dependency"),
+            "UniTask lock file missing": (
+                lambda root: (root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json").unlink(),
+                ("--with-unitask",), None, "FileNotFoundError"),
+            "locked mirror file": (lambda root: None, (), ("mu3_cli.strip_harness.write_if_changed", locked),
+                                   "preparing the mirror project"),
+        }
+        for name, (arrange, arguments, failing, cause) in cases.items():
+            with self.subTest(name):
+                root = fixture_root(self)
+                arrange(root)
+                unity = FakeUnity()
+                with mock.patch(failing[0], side_effect=failing[1]) if failing else contextlib.nullcontext():
+                    result = self.invoke(root, unity, *arguments)
+
+                self.assert_setup_failure(result, cause)
+                self.assertEqual([], unity.ran("-executeMethod"))
+
+    def test_a_previous_player_that_cannot_be_removed_exits_three(self) -> None:
+        root = fixture_root(self)
+        self.assertEqual(0, self.invoke(root, FakeUnity()).exit_code)
+        unity = FakeUnity()
+
+        with mock.patch("mu3_cli.strip_harness.shutil.rmtree", side_effect=PermissionError(13, "Access is denied")):
+            result = self.invoke(root, unity)
+
+        self.assert_setup_failure(result, "removing the previous mono-high player and logs failed: PermissionError: [Errno 13] Access is denied")
+        self.assertEqual([], unity.ran("-executeMethod"))
+
+    def test_a_player_that_cannot_start_exits_three(self) -> None:
+        unity = FakeUnity()
+        original = unity.__call__
+
+        def missing_player(command: list[str], timeout: float) -> int | None:
+            if command[0].endswith("Harness.exe"):
+                raise FileNotFoundError(2, "The system cannot find the file specified")
+            return original(command, timeout)
+
+        result = self.invoke(fixture_root(self), missing_player)
+
+        self.assert_setup_failure(result, "FileNotFoundError")
+
+    def test_a_failed_check_still_exits_one(self) -> None:
+        unity = FakeUnity(PASSING_LOG.replace("inject.field PASS", "inject.field FAIL"), player_status=1)
+
+        result = self.invoke(fixture_root(self), unity)
+
+        self.assertEqual(EXIT_CHECKS_FAILED, result.exit_code, result.output)
+        self.assertNotIn("error:", result.output)
 
 
 class StripHarnessCommandTests(unittest.TestCase):
