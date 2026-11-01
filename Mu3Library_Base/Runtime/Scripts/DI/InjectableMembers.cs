@@ -68,8 +68,9 @@ namespace Mu3Library.DI
         /// <see cref="GetFields"/> leaves them out.
         /// </summary>
         /// <remarks>
-        /// Only its initializer or a constructor sets a readonly field, and the container injects
-        /// members after the constructor has run, so it never writes one. A required one
+        /// A readonly field is for its initializer or a constructor to set, and the container
+        /// injects members only after the constructor has run, so by its rule it does not write
+        /// one, although reflection could. A required one
         /// (<see cref="InjectAttribute.Required"/>) can therefore never be filled: the container
         /// throws when it injects the object, as it does for a required property without a setter,
         /// and the editor DI validator reports it. An optional one is skipped. A static field is
