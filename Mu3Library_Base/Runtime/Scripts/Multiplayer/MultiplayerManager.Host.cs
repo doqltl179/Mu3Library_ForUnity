@@ -136,6 +136,7 @@ namespace Mu3Library.Multiplayer
             data[LobbyDataKeys.HostId] = LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture);
             data[LobbyDataKeys.Name] = options.Name ?? string.Empty;
             data[LobbyDataKeys.State] = LobbyDataKeys.StateLobby;
+            data[LobbyDataKeys.Closed] = LobbyDataKeys.NotClosed;
             return data;
         }
 
@@ -340,6 +341,9 @@ namespace Mu3Library.Multiplayer
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateInGame);
             if (!_rules.AllowLateJoin)
             {
+                // Marked before any opening of the lobby for a returning player, so search never
+                // finds the lobby joinable without the mark (#253).
+                _backend.SetLobbyData(_lobbyId, LobbyDataKeys.Closed, LobbyDataKeys.ClosedForTheGame);
                 _backend.SetLobbyJoinable(_lobbyId, false);
             }
 
@@ -371,6 +375,11 @@ namespace Mu3Library.Multiplayer
             EndLoadWait();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateLobby);
+            if (!_rules.AllowLateJoin)
+            {
+                _backend.SetLobbyData(_lobbyId, LobbyDataKeys.Closed, LobbyDataKeys.NotClosed);
+            }
+
             _backend.SetLobbyJoinable(_lobbyId, true);
 
             _writer.Begin(PacketKind.ReturnedToLobby);
@@ -635,7 +644,12 @@ namespace Mu3Library.Multiplayer
         /// the host's account can open a connection, so membership is what keeps an invite-only or
         /// friends-only session to the players the lobby let in. The lobby may list a new member a
         /// moment after the connection opens, so a player who is not listed yet waits, up to the
-        /// handshake timeout. An account whose slot the host keeps goes back to it instead.
+        /// handshake timeout. An account whose slot the host keeps goes back to it instead, member
+        /// or not. A game that refuses late joiners takes nobody else, so there an account outside
+        /// the lobby, such as one that the lobby refused and that connected to the host in case it
+        /// held a slot (FR-21), is refused at once with
+        /// <see cref="MultiplayerReason.GameInProgress"/> rather than wait for a membership that
+        /// would change nothing.
         /// </summary>
         private void TryAdmit(PeerConnection peer)
         {
@@ -644,7 +658,7 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            if (!_backend.IsLobbyMember(_lobbyId, peer.Player))
+            if (!IsLobbyClosedForTheGame && !_backend.IsLobbyMember(_lobbyId, peer.Player))
             {
                 return;
             }

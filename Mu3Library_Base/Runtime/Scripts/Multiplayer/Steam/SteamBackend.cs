@@ -401,6 +401,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             DisposeFinishedCalls();
             CheckSearchTimeout();
+            CheckRefusalTimeouts();
             if (IsAvailable)
             {
                 UpdateAvatars();

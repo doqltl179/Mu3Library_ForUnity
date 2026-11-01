@@ -295,6 +295,7 @@ namespace Mu3Library.Multiplayer
             effective.AddStringFilter(LobbyDataKeys.GameId, _gameId);
             effective.AddNumericFilter(LobbyDataKeys.ProtocolVersion, _protocolVersion);
             effective.AddNumericFilter(LobbyDataKeys.WireVersion, WireProtocol.Version);
+            effective.AddStringFilter(LobbyDataKeys.Closed, LobbyDataKeys.NotClosed);
 
             _backend.SearchLobbies(effective, (reason, lobbies) => HandleSearchCompleted(callback, reason, lobbies));
         }
@@ -330,8 +331,11 @@ namespace Mu3Library.Multiplayer
                 }
 
                 // The backend filters already; checking again keeps a backend that cannot filter
-                // from offering another game's or another version's lobbies.
-                if (!IsCompatibleLobby(all))
+                // from offering another game's or another version's lobbies, or a game that
+                // refuses late joiners.
+                if (!IsCompatibleLobby(all)
+                    || !all.TryGetValue(LobbyDataKeys.Closed, out string closed)
+                    || closed != LobbyDataKeys.NotClosed)
                 {
                     continue;
                 }

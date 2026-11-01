@@ -56,7 +56,10 @@ namespace Mu3Library.Multiplayer.Backend
         /// <summary>
         /// Enters a lobby. A full lobby answers <see cref="MultiplayerReason.SessionFull"/>, one that
         /// is not joinable <see cref="MultiplayerReason.GameInProgress"/>, and a missing one
-        /// <see cref="MultiplayerReason.LobbyNotFound"/>.
+        /// <see cref="MultiplayerReason.LobbyNotFound"/>. After
+        /// <see cref="MultiplayerReason.GameInProgress"/>, <see cref="GetLobbyData"/> reads that
+        /// lobby's data, though this player is no member, so a player whose slot the host keeps
+        /// can reach the host past the lobby; a backend that cannot leaves such a player refused.
         /// </summary>
         public void JoinLobby(LobbyId lobby, Action<MultiplayerReason> onCompleted);
 

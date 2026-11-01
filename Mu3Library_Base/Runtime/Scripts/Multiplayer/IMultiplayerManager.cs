@@ -61,7 +61,13 @@ namespace Mu3Library.Multiplayer
         public void CreateLobby(LobbyCreateOptions options, Action<MultiplayerResult> callback = null);
 
         /// <summary>
-        /// Finds public lobbies of this game and protocol version that have a free slot.
+        /// Finds public lobbies of this game and protocol version that have a free slot. Only a
+        /// lobby whose reserved lobby data key <c>mu3.closed</c> reads <c>0</c> is found, as every
+        /// lobby a manager creates does outside a game that refuses late joiners, so a lobby made
+        /// directly through a backend without that key is not found either. A session whose game
+        /// refuses late joiners stays out, also while its host opens the lobby for a player coming
+        /// back to its slot, though the lobby then takes joins, Steam's own search lists it, and
+        /// Steam's friends list may offer to join it (FR-19, FR-20).
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback);
 
@@ -70,6 +76,22 @@ namespace Mu3Library.Multiplayer
         /// accept. On success the state is <see cref="SessionState.Lobby"/>, or
         /// <see cref="SessionState.InGame"/> for a late join.
         /// </summary>
+        /// <remarks>
+        /// A lobby whose game refuses late joiners refuses the entry with
+        /// <see cref="MultiplayerReason.GameInProgress"/>. This player then connects to the host
+        /// that the lobby data names, since the host may keep a slot for this account, as after a
+        /// crash and a new start of the game within the reservation time (FR-21): the host takes
+        /// the account back into its slot, the join succeeds with the state the host reports, and
+        /// this player enters the lobby, which the host opens for it, as a player back from a
+        /// dropped connection does (<see cref="IMultiplayerManagerEventBus.OnLobbyRejoinFailed"/>
+        /// when it cannot). The host refuses any other account with the same reason. A game that
+        /// saved <see cref="CurrentLobbyId"/> before it went down joins that lobby again this way.
+        /// Steam refuses a player without an invite to an invite-only or friends-only lobby with
+        /// the same reason while its game runs, also when the game takes late joiners; that
+        /// refusal stands, as the lobby data tells the two apart.
+        /// Until the host notices that the old connection broke, the host refuses the new start
+        /// as <see cref="MultiplayerReason.DuplicateAccount"/>.
+        /// </remarks>
         public void JoinLobby(LobbyId lobby, Action<MultiplayerResult> callback = null);
 
         /// <summary>
@@ -176,6 +198,15 @@ namespace Mu3Library.Multiplayer
         /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
         /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
         /// not hold changes nothing.
+        /// <para>
+        /// Steam's search takes a moment to follow a deletion, and its filters follow later than
+        /// the data it returns: on AppID 480 on 2026-11-01, over eight deletions, the lobby a
+        /// search returned lacked the key within about 0.5 seconds, while a filter on the deleted
+        /// value went on finding the lobby for up to about 0.8 seconds and stopped within about
+        /// 1.4 seconds. A game that searches right after a deletion may still find the lobby by
+        /// the deleted value. The local backends filter on the data their search returns, so
+        /// both follow a deletion together.
+        /// </para>
         /// </summary>
         public MultiplayerResult DeleteLobbyData(string key);
 

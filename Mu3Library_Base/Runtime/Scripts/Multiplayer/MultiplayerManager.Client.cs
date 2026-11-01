@@ -17,6 +17,10 @@ namespace Mu3Library.Multiplayer
         // True once the host accepted this player; until then the only packet that counts is Welcome.
         private bool _isWelcomed = false;
 
+        // True while this player joins through the host after the lobby refused it, as a player
+        // whose slot the host keeps may (FR-21), so it enters the lobby once the host takes it.
+        private bool _isJoiningPastLobby = false;
+
         private double _joinDeadline = 0d;
 
         // How long a client waits for its host's connection to close once the lobby says the host
@@ -75,7 +79,11 @@ namespace Mu3Library.Multiplayer
 
             if (reason != MultiplayerReason.None)
             {
-                EndSession(reason, raiseEvents: true);
+                if (reason != MultiplayerReason.GameInProgress || !TryJoinPastLobby(lobby))
+                {
+                    EndSession(reason, raiseEvents: true);
+                }
+
                 return;
             }
 
@@ -107,6 +115,52 @@ namespace Mu3Library.Multiplayer
             {
                 EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
             }
+        }
+
+        /// <summary>
+        /// The lobby refused this player with <see cref="MultiplayerReason.GameInProgress"/>, and
+        /// its data says that its game refuses late joiners (<see cref="LobbyDataKeys.Closed"/>).
+        /// This player may still hold a slot in that game, as when it starts the game again within
+        /// the reservation time after a crash (FR-21), and only the host knows. So it connects to
+        /// the host the lobby data names, without entering the lobby: the host takes it back into
+        /// its slot and opens the lobby for it, inviting it to a lobby that is not public, as for
+        /// any player back in its slot (FR-20), and refuses every other account with
+        /// <see cref="MultiplayerReason.GameInProgress"/>. Steam answers the same reason for an
+        /// invite-only or friends-only lobby whose game takes late joiners, when this player has no
+        /// invite; such a game's host would wait for a membership that never comes, so the
+        /// refusal stands there. False, and the refusal stands, also when the lobby data, which a
+        /// backend lets a player read after such a refusal, names no host of a compatible session,
+        /// or names another player than the lobby's owner, when the owner is known.
+        /// </summary>
+        private bool TryJoinPastLobby(LobbyId lobby)
+        {
+            if (_backend.GetLobbyData(lobby, LobbyDataKeys.Closed) != LobbyDataKeys.ClosedForTheGame)
+            {
+                return false;
+            }
+
+            string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
+            string protocolVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.ProtocolVersion);
+            string wireVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion);
+            PlayerId host = ParsePlayerId(_backend.GetLobbyData(lobby, LobbyDataKeys.HostId));
+            PlayerId owner = _backend.GetLobbyOwner(lobby);
+            if (!IsCompatible(gameId, protocolVersion, wireVersion) || !host.IsValid || host == LocalPlayerId
+                || (owner.IsValid && owner != host))
+            {
+                return false;
+            }
+
+            ConnectionId connection = _backend.Connect(host);
+            if (!connection.IsValid)
+            {
+                return false;
+            }
+
+            _lobbyId = lobby;
+            _hostId = host;
+            _hostConnection = connection;
+            _isJoiningPastLobby = true;
+            return true;
         }
 
         private void UpdateJoinTimeout()
@@ -145,9 +199,16 @@ namespace Mu3Library.Multiplayer
             }
             else
             {
-                EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
+                EndSession(JoinConnectionFailure, raiseEvents: true);
             }
         }
+
+        /// <summary>
+        /// Why a join ends when the connection to the host fails without a reason from the host:
+        /// <see cref="MultiplayerReason.ConnectionFailed"/>, or the lobby's own refusal for a
+        /// player that tried the host past the lobby, since the host may well have refused it.
+        /// </summary>
+        private MultiplayerReason JoinConnectionFailure => _isJoiningPastLobby ? MultiplayerReason.GameInProgress : MultiplayerReason.ConnectionFailed;
 
         /// <summary>
         /// The lobby says the host left, while its connection to this player is still open. A
@@ -194,7 +255,11 @@ namespace Mu3Library.Multiplayer
             if (_state == SessionState.Joining)
             {
                 // A refusal names its reason: full, banned, in progress, version, or duplicate.
-                reason = sent != MultiplayerReason.None ? sent : MultiplayerReason.ConnectionFailed;
+                // Past the lobby, a host that answers Timeout closed a player that waited for a
+                // membership, which leaves the lobby's refusal standing too.
+                reason = sent == MultiplayerReason.None || (_isJoiningPastLobby && sent == MultiplayerReason.Timeout)
+                    ? JoinConnectionFailure
+                    : sent;
             }
             else if (_state == SessionState.Reconnecting)
             {
@@ -432,6 +497,13 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            if (_isJoiningPastLobby)
+            {
+                // Back in its slot from outside the lobby, which the host now opens for it.
+                _isJoiningPastLobby = false;
+                BeginLobbyRejoin();
+            }
+
             Action<MultiplayerResult> callback = _pendingCallback;
             _pendingCallback = null;
             Invoke(callback, MultiplayerResult.Success);
@@ -546,6 +618,7 @@ namespace Mu3Library.Multiplayer
             _joiningLobbyId = LobbyId.None;
             _hostConnection = ConnectionId.None;
             _isWelcomed = false;
+            _isJoiningPastLobby = false;
             _joinDeadline = 0d;
             _isAwaitingHostClose = false;
             _hostCloseDeadline = 0d;
