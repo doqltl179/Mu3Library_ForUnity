@@ -1,9 +1,9 @@
 ﻿# Mu3 Library (Base)
 
-Core runtime package of **Mu3Library For Unity**: the `CoreBase`/DI container, MVP UI system, audio, scene loading, Addressables/Localization/InputSystem managers, WebRequest, Observable, and the shared editor tooling.
+Core runtime package of **Mu3Library For Unity**: the `CoreBase`/DI container, MVP UI system, audio, scene loading, Addressables/Localization/InputSystem managers, WebRequest, Observable, player-hosted multiplayer sessions, and the shared editor tooling.
 
 - Package name: `com.github.doqltl179.mu3library.base`
-- Optional integrations (enabled by define symbols when the package is present): UniTask, Addressables, Localization, Input System, Mobile Notifications (separate `Mu3Library.Notifications` assembly).
+- Optional integrations (enabled by define symbols when the package is present): UniTask, Addressables, Localization, Input System, Mobile Notifications (separate `Mu3Library.Notifications` assembly), Steamworks.NET (separate `Mu3Library.Multiplayer.Steam` assembly). [Optional Packages](https://github.com/doqltl179/Mu3Library_ForUnity#-optional-packages) in the repository README gives their define symbols and platform limits.
 
 ## Documentation
 
