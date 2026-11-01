@@ -87,6 +87,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public PlayerId LocalPlayerId { get; }
         public string PlayerName { get; }
 
+        // The name the other processes see, which the frames carry cut as the roster cuts it.
+        private readonly string _wireName;
+
         /// <summary>The loopback port this player listens on; it also tells two processes of one account apart.</summary>
         public int Port { get; }
 
@@ -136,6 +139,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             PlayerName = string.IsNullOrEmpty(playerName)
                 ? $"Player {LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture)}"
                 : playerName;
+            _wireName = MachineProtocol.ToWireName(PlayerName);
 
             try
             {

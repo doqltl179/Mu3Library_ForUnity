@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -13,6 +14,7 @@ using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Local.Machine;
+using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 
 namespace Mu3Library.Tests
@@ -797,6 +799,152 @@ namespace Mu3Library.Tests
             // The owner refreshes its file every two seconds, and tries a failed write again in half a second.
             PumpUntil(() => ListedData(lobby, "map") == "forest", "the change to reach the file", 1.0);
         }
+
+        [Test]
+        public void Directory_LeavesOutALobbyWhoseKeyOrValueIsLongerThanTheFramesCarry()
+        {
+            string longestKey = new string('k', MachineProtocol.MaxDataKeyBytes);
+            string longestValue = new string('v', MachineProtocol.MaxDataValueBytes);
+            MachineLobby whole = ListedLobby(1, longestKey, longestValue);
+            MachineLobby longKey = ListedLobby(2, longestKey + "k", "v");
+            MachineLobby longValue = ListedLobby(3, "map", longestValue + "v");
+            MachineLobby after = ListedLobby(4, "map", "forest");
+
+            // Written as a process of another version could write it.
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+            directory.Publish(new PlayerId(9), 1, new List<MachineLobby> { whole, longKey, longValue, after });
+            try
+            {
+                List<MachineDirectoryEntry> entries = MachineDirectory.Read(_folder);
+
+                Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(new[] { whole.Id, after.Id }));
+                Assert.That(entries[0].Data[longestKey], Is.EqualTo(longestValue));
+                Assert.That(entries[1].Data["map"], Is.EqualTo("forest"));
+            }
+            finally
+            {
+                directory.Remove();
+            }
+        }
+
+        [Test]
+        public void Join_WithANameLongerThanTheFramesCarry_IsDropped_AndTheOwnerGoesOn()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            PlayerId intruder = new PlayerId(0x1234567UL);
+
+            PacketWriter writer = new PacketWriter();
+            writer.WriteInt(MachineProtocol.Magic);
+            writer.WriteInt(MachineProtocol.Version);
+            writer.WriteULong(lobby.Value);
+            writer.WriteULong(intruder.Value);
+            writer.WriteInt(1);
+            writer.WriteString(new string('n', MachineProtocol.MaxNameBytes + 1));
+            writer.WriteBool(false);
+
+            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                socket.Connect(new IPEndPoint(IPAddress.Loopback, owner.Port));
+                socket.Send(Frame(MachineFrameKind.LobbyJoin, writer.Written));
+
+                // The owner drops the frame and its connection without an answer.
+                int received = -1;
+                PumpUntil(() => (received = ReceiveOnce(socket)) >= 0, "the owner to close the connection");
+                Assert.That(received, Is.Zero);
+            }
+
+            Assert.That(owner.IsLobbyMember(lobby, intruder), Is.False);
+            LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(owner.IsLobbyMember(lobby, joiner.LocalPlayerId), Is.True);
+        }
+
+        [Test]
+        public void Join_ToAnOwnerWhoseLobbyCarriesAValueLongerThanTheFramesCarry_Fails_AndTheJoinerGoesOn()
+        {
+            // Another process lists a lobby and answers the join with data that no owner of this
+            // version sends.
+            using (Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                listener.Listen(1);
+                int port = ((IPEndPoint)listener.LocalEndPoint).Port;
+                PlayerId impostor = new PlayerId(0x7654321UL);
+                MachineLobby listed = ListedLobby(0x123456UL, "map", "forest");
+                listed.OwnerId = impostor;
+                listed.OwnerPort = port;
+                listed.Members.Add(new MachineMember { Id = impostor, Port = port, Name = "Impostor" });
+
+                MachineDirectory directory = new MachineDirectory(_folder, port);
+                directory.Publish(impostor, port, new List<MachineLobby> { listed });
+                try
+                {
+                    LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
+                    MultiplayerReason? reason = null;
+                    joiner.JoinLobby(listed.Id, r => reason = r);
+                    PumpUntil(() => listener.Poll(0, SelectMode.SelectRead), "the join to connect");
+                    using (Socket accepted = listener.Accept())
+                    {
+                        listed.Data["map"] = new string('v', MachineProtocol.MaxDataValueBytes + 1);
+                        PacketWriter writer = new PacketWriter();
+                        writer.WriteInt((int)MultiplayerReason.None);
+                        MachineProtocol.WriteSnapshot(writer, listed);
+                        accepted.Send(Frame(MachineFrameKind.LobbyReply, writer.Written));
+                        PumpUntil(() => reason.HasValue, "the join");
+                    }
+
+                    Assert.That(reason, Is.EqualTo(MultiplayerReason.LobbyNotFound));
+                    Assert.That(joiner.GetLobbyOwner(listed.Id).IsValid, Is.False);
+
+                    LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+                    LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+                    Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+                }
+                finally
+                {
+                    directory.Remove();
+                }
+            }
+        }
+
+        [Test]
+        public void PlayerName_LongerThanTheRosterTakes_ReachesTheOtherProcessesCut()
+        {
+            // 300 UTF-8 bytes, more than a frame carries.
+            string name = new string('가', 100);
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            LocalBackend joiner = CreateRawBackend(CreateNetwork(), name);
+
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(joiner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name));
+            Assert.That(owner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name.Substring(0, MultiplayerLimits.MaxPlayerNameLength)));
+        }
+
+        [Test]
+        public void LobbyData_LongerThanTheFramesCarry_IsRefused_AndTheLongestReachesEveryProcess()
+        {
+            string longestKey = new string('k', MachineProtocol.MaxDataKeyBytes);
+            string longestValue = new string('v', MachineProtocol.MaxDataValueBytes);
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            Assert.That(owner.SetLobbyData(lobby, longestKey + "k", "v"), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, "map", longestValue + "v"), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, longestKey, longestValue), Is.True);
+
+            MultiplayerReason? created = null;
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("lobby was not created"));
+            owner.CreateLobby(LobbyVisibility.Public, 4, new Dictionary<string, string> { ["map"] = longestValue + "v" }, (r, id) => created = r);
+            PumpUntil(() => created.HasValue, "the refused lobby");
+            Assert.That(created, Is.EqualTo(MultiplayerReason.BackendError));
+
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            Assert.That(SearchedData(member, lobby, data => data.TryGetValue(longestKey, out string value) && value == longestValue), Is.Not.Null);
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(member.GetLobbyData(lobby, longestKey), Is.EqualTo(longestValue));
+        }
         #endregion
 
         #region Simulation
@@ -1372,6 +1520,38 @@ namespace Mu3Library.Tests
 
                 Thread.Sleep(2);
                 UpdateAll();
+            }
+        }
+
+        /// <summary>A lobby as its owner lists it, with one data entry.</summary>
+        private static MachineLobby ListedLobby(ulong id, string key, string value)
+        {
+            MachineLobby lobby = new MachineLobby { Id = new LobbyId(id), IsOwned = true, Visibility = LobbyVisibility.Public, Capacity = 4 };
+            lobby.Data[key] = value;
+            return lobby;
+        }
+
+        /// <summary>One frame of the machine-wide protocol, as another process sends it.</summary>
+        private static byte[] Frame(MachineFrameKind kind, ReadOnlySpan<byte> payload)
+        {
+            byte[] frame = new byte[MachineProtocol.HeaderBytes + 1 + payload.Length];
+            BinaryPrimitives.WriteInt32LittleEndian(frame, 1 + payload.Length);
+            frame[MachineProtocol.HeaderBytes] = (byte)kind;
+            payload.CopyTo(new Span<byte>(frame, MachineProtocol.HeaderBytes + 1, payload.Length));
+            return frame;
+        }
+
+        /// <summary>What one read of the socket returns: -1 while nothing arrived, 0 once the other side closed it.</summary>
+        private static int ReceiveOnce(Socket socket)
+        {
+            try
+            {
+                return socket.Poll(0, SelectMode.SelectRead) ? socket.Receive(new byte[4096]) : -1;
+            }
+            catch (SocketException)
+            {
+                // Reset: closed all the same.
+                return 0;
             }
         }
 

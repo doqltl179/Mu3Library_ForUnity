@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
+using Debug = UnityEngine.Debug;
 
 namespace Mu3Library.Multiplayer.Local.Machine
 {
@@ -34,16 +35,27 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted)
         {
             Dictionary<string, string> snapshot = new Dictionary<string, string>();
+            bool isWithinLimits = true;
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
                     snapshot[pair.Key] = pair.Value ?? string.Empty;
+                    isWithinLimits &= MachineProtocol.IsWithinLimits(pair.Key, pair.Value);
                 }
             }
 
             Defer(() =>
             {
+                // The other processes would drop the lobby as malformed, so it fails here, as a
+                // Steam lobby fails when Steam refuses one of its keys.
+                if (!isWithinLimits)
+                {
+                    Debug.LogWarning($"[Multiplayer] The local network carries lobby data keys of at most {MachineProtocol.MaxDataKeyBytes} and values of at most {MachineProtocol.MaxDataValueBytes} UTF-8 bytes; the lobby was not created.");
+                    onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None);
+                    return;
+                }
+
                 MachineLobby lobby = new MachineLobby
                 {
                     Id = new LobbyId(NewId(0xFFFFFFFFFFFFUL)),
@@ -54,7 +66,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     Capacity = capacity,
                     IsDirty = true,
                 };
-                lobby.Members.Add(new MachineMember { Id = LocalPlayerId, Port = Port, Name = PlayerName });
+                lobby.Members.Add(new MachineMember { Id = LocalPlayerId, Port = Port, Name = _wireName });
                 foreach (KeyValuePair<string, string> pair in snapshot)
                 {
                     lobby.Data[pair.Key] = pair.Value;
@@ -140,7 +152,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
         {
             MachineLobby lobby = FindOwnedLobby(lobbyId);
-            if (lobby == null || string.IsNullOrEmpty(key))
+            if (lobby == null || string.IsNullOrEmpty(key) || !MachineProtocol.IsWithinLimits(key, value))
             {
                 return false;
             }
@@ -263,7 +275,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _writer.WriteULong(lobbyId.Value);
             _writer.WriteULong(LocalPlayerId.Value);
             _writer.WriteInt(Port);
-            _writer.WriteString(PlayerName);
+            _writer.WriteString(_wireName);
             _writer.WriteBool(isRejoin);
             QueueFrame(link, MachineFrameKind.LobbyJoin, _writer.Written, force: true);
             return link;
@@ -284,7 +296,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 lobbyId = new LobbyId(reader.ReadULong());
                 player = new PlayerId(reader.ReadULong());
                 port = reader.ReadInt();
-                name = reader.ReadString();
+                name = MachineProtocol.ReadName(ref reader);
                 isRejoin = reader.ReadBool();
             }
             catch (FormatException)

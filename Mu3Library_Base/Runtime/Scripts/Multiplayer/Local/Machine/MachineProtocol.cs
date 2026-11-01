@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 
@@ -41,6 +42,45 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // A lobby holds at most a few dozen members and keys; more means a corrupt frame.
         private const int MaxListLength = 4096;
 
+        /// <summary>
+        /// The UTF-8 bytes of the longest player name, lobby data key, and lobby data value that the
+        /// frames and the lobby files carry: three for each character of a name or a key, which
+        /// also covers a surrogate pair and a lone surrogate, and for a value all of
+        /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, which also holds the reserved values
+        /// the manager adds. A string past its limit is a format error, found before it is decoded.
+        /// </summary>
+        public const int MaxNameBytes = MultiplayerLimits.MaxPlayerNameLength * 3;
+        public const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
+        public const int MaxDataValueBytes = MultiplayerLimits.MaxLobbyDataSize;
+
+        /// <summary>
+        /// Whether the other processes can read a lobby data entry: an owner takes only such
+        /// entries, as Steam refuses a key or a value that is too long.
+        /// </summary>
+        public static bool IsWithinLimits(string key, string value)
+        {
+            return Encoding.UTF8.GetByteCount(key) <= MaxDataKeyBytes
+                && Encoding.UTF8.GetByteCount(value ?? string.Empty) <= MaxDataValueBytes;
+        }
+
+        /// <summary>
+        /// A player's name as the frames carry it: cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+        /// characters, as the roster cuts it.
+        /// </summary>
+        public static string ToWireName(string name)
+        {
+            return name.Length <= MultiplayerLimits.MaxPlayerNameLength
+                ? name
+                : name.Substring(0, MultiplayerLimits.MaxPlayerNameLength);
+        }
+
+        public static void WriteName(PacketWriter writer, string name)
+        {
+            writer.WriteString(ToWireName(name ?? string.Empty));
+        }
+
+        public static string ReadName(ref PacketReader reader) => reader.ReadString(MaxNameBytes);
+
         public static void WriteSnapshot(PacketWriter writer, MachineLobby lobby)
         {
             writer.WriteULong(lobby.Id.Value);
@@ -56,7 +96,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 MachineMember member = lobby.Members[i];
                 writer.WriteULong(member.Id.Value);
                 writer.WriteInt(member.Port);
-                writer.WriteString(member.Name);
+                WriteName(writer, member.Name);
             }
 
             writer.WriteInt(lobby.Data.Count);
@@ -87,15 +127,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 {
                     Id = new PlayerId(reader.ReadULong()),
                     Port = reader.ReadInt(),
-                    Name = reader.ReadString(),
+                    Name = ReadName(ref reader),
                 });
             }
 
             int dataCount = ReadListLength(ref reader);
             for (int i = 0; i < dataCount; i++)
             {
-                string key = reader.ReadString();
-                lobby.Data[key] = reader.ReadString();
+                string key = reader.ReadString(MaxDataKeyBytes);
+                lobby.Data[key] = reader.ReadString(MaxDataValueBytes);
             }
 
             if (!lobby.Id.IsValid || lobby.Capacity < 1)

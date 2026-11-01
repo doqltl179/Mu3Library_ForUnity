@@ -422,7 +422,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>
         /// Adds the lobbies of one file. True when the file is stale; one that cannot be read adds
-        /// nothing.
+        /// nothing, and a lobby with a key or a value longer than the frames carry is left out.
         /// </summary>
         private static bool ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries)
         {
@@ -462,13 +462,25 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         };
 
                         int dataCount = reader.ReadInt32();
+                        bool isWithinLimits = true;
                         for (int j = 0; j < dataCount; j++)
                         {
-                            string key = reader.ReadString();
-                            entry.Data[key] = reader.ReadString();
+                            string key = ReadString(reader, MachineProtocol.MaxDataKeyBytes);
+                            string value = ReadString(reader, MachineProtocol.MaxDataValueBytes);
+                            if (key == null || value == null)
+                            {
+                                isWithinLimits = false;
+                            }
+                            else
+                            {
+                                entry.Data[key] = value;
+                            }
                         }
 
-                        entries.Add(entry);
+                        if (isWithinLimits)
+                        {
+                            entries.Add(entry);
+                        }
                     }
                 }
 
@@ -480,6 +492,55 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 entries.RemoveRange(firstEntry, entries.Count - firstEntry);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Reads a string that <see cref="BinaryWriter"/> wrote: its UTF-8 bytes, after their count
+        /// as a 7-bit encoded number. Null when there are more than <paramref name="maxBytes"/>,
+        /// which are skipped undecoded, so the reader goes on with what follows them.
+        /// </summary>
+        private static string ReadString(BinaryReader reader, int maxBytes)
+        {
+            int length = 0;
+            for (int shift = 0; ; shift += 7)
+            {
+                if (shift > 28)
+                {
+                    throw new FormatException("A string length takes more than five bytes.");
+                }
+
+                byte part = reader.ReadByte();
+                length |= (part & 0x7F) << shift;
+                if ((part & 0x80) == 0)
+                {
+                    break;
+                }
+            }
+
+            if (length < 0)
+            {
+                throw new FormatException($"Invalid string length {length}.");
+            }
+
+            if (length > maxBytes)
+            {
+                Stream stream = reader.BaseStream;
+                if (length > stream.Length - stream.Position)
+                {
+                    throw new EndOfStreamException();
+                }
+
+                stream.Seek(length, SeekOrigin.Current);
+                return null;
+            }
+
+            byte[] bytes = reader.ReadBytes(length);
+            if (bytes.Length < length)
+            {
+                throw new EndOfStreamException();
+            }
+
+            return Encoding.UTF8.GetString(bytes);
         }
 
         /// <summary>
