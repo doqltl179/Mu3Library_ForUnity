@@ -14,6 +14,17 @@ namespace Mu3Library.Editor.Window.Drawer
         [SerializeField, HideInInspector] private List<Mu3WindowDrawer> _drawers = new();
         public List<Mu3WindowDrawer> Drawers => _drawers;
 
+        /// <summary>
+        /// The full name of the window type whose project list this is, so the window finds the list after it is moved
+        /// or renamed under <c>Assets</c>. Empty for a list kept next to its window script.
+        /// </summary>
+        [SerializeField, HideInInspector] private string _windowTypeName = "";
+        internal string WindowTypeName
+        {
+            get => _windowTypeName;
+            set => _windowTypeName = value;
+        }
+
         private SerializedObject m_serializedObject;
         private SerializedObject _serializedObject
         {
