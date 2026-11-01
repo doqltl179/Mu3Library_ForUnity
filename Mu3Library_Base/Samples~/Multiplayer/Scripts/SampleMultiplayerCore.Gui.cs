@@ -17,6 +17,9 @@ namespace Mu3Library.Sample.Multiplayer
         private const float Margin = 12f;
         private const float LabelWidth = 90f;
 
+        /// <summary>The size of an avatar in the lists, that of Steam's small avatar.</summary>
+        private const float AvatarCellSize = 32f;
+
         private string _lobbyNameText = string.Empty;
         private string _lobbyIdText = string.Empty;
         private Vector2 _panelScroll;
@@ -123,10 +126,13 @@ namespace Mu3Library.Sample.Multiplayer
             {
                 LobbyInfo lobby = _foundLobbies[i];
                 string inGame = lobby.IsInGame ? ", in game" : string.Empty;
+                GUILayout.BeginHorizontal();
+                DrawAvatar(lobby.HostId);
                 if (GUILayout.Button($"Join \"{lobby.Name}\" ({lobby.MemberCount}/{lobby.Capacity}{inGame}), ID {lobby.Id}"))
                 {
                     JoinLobby(lobby.Id);
                 }
+                GUILayout.EndHorizontal();
             }
 
             GUILayout.BeginHorizontal();
@@ -175,9 +181,11 @@ namespace Mu3Library.Sample.Multiplayer
                 string you = participant.IsLocal ? " [you]" : string.Empty;
                 string ready = isInGame ? string.Empty : participant.IsReady ? "  ready" : "  not ready";
                 string away = participant.IsConnected ? string.Empty : "  away";
+                string data = participant.Data.TryGetValue(ParticipantDataKey, out string value) ? $"  {ParticipantDataKey} {value}" : string.Empty;
 
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"{participant.Name}{host}{you}{ready}{away}");
+                DrawAvatar(participant.Id);
+                GUILayout.Label($"{participant.Name}{host}{you}{ready}{away}  ping {PingText(participant.Id)}{data}");
                 if (_manager.IsHost && !participant.IsLocal && GUILayout.Button("Kick", GUILayout.Width(60f)))
                 {
                     kickTarget = participant.Id;
@@ -189,6 +197,11 @@ namespace Mu3Library.Sample.Multiplayer
             {
                 Kick(kickTarget);
             }
+
+            GUILayout.Label("Ping is the host's measure of each player's connection to it.");
+
+            GUILayout.Space(8f);
+            DrawData();
 
             GUILayout.Space(8f);
             if (GUILayout.Button("Send a message to the others"))
@@ -217,6 +230,73 @@ namespace Mu3Library.Sample.Multiplayer
             if (GUILayout.Button("Leave"))
             {
                 Leave();
+            }
+        }
+
+        /// <summary>
+        /// The lobby data key, which only the host sets and deletes, and this player's own
+        /// participant data key. The log shows the events that every player hears.
+        /// </summary>
+        private void DrawData()
+        {
+            bool hasLobbyData = _manager.LobbyData.TryGetValue(LobbyDataKey, out string map);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"Lobby data \"{LobbyDataKey}\": {(hasLobbyData ? map : "(none)")}");
+            if (_manager.IsHost)
+            {
+                if (GUILayout.Button("Set", GUILayout.Width(60f)))
+                {
+                    SetLobbyData();
+                }
+
+                GUI.enabled = hasLobbyData;
+                if (GUILayout.Button("Delete", GUILayout.Width(60f)))
+                {
+                    DeleteLobbyData();
+                }
+                GUI.enabled = true;
+            }
+            GUILayout.EndHorizontal();
+
+            string color = null;
+            bool hasOwnData = _manager.TryGetParticipant(_manager.LocalPlayerId, out Participant local)
+                && local.Data.TryGetValue(ParticipantDataKey, out color);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"My data \"{ParticipantDataKey}\": {(hasOwnData ? color : "(none)")}");
+            if (GUILayout.Button("Set", GUILayout.Width(60f)))
+            {
+                SetParticipantData();
+            }
+
+            GUI.enabled = hasOwnData;
+            if (GUILayout.Button("Delete", GUILayout.Width(60f)))
+            {
+                DeleteParticipantData();
+            }
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// A player's small avatar, or an empty cell while it loads or when it could not be
+        /// loaded. On a backend without avatars, such as the local backend, the lists leave the
+        /// cell out.
+        /// </summary>
+        private void DrawAvatar(PlayerId player)
+        {
+            Texture2D avatar = GetAvatar(player);
+            if (_backendHasNoAvatars)
+            {
+                return;
+            }
+
+            if (avatar != null)
+            {
+                GUILayout.Label(avatar, GUILayout.Width(AvatarCellSize), GUILayout.Height(AvatarCellSize));
+            }
+            else
+            {
+                GUILayout.Box(GUIContent.none, GUILayout.Width(AvatarCellSize), GUILayout.Height(AvatarCellSize));
             }
         }
     }
