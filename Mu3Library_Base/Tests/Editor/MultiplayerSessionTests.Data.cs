@@ -269,6 +269,109 @@ namespace Mu3Library.Tests
             Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "desert", LobbyComparison.NotEqual)).Lobbies, Is.Empty);
             Assert.That(Search(seeker, new LobbySearchQuery().AddNumericFilter("LEVEL", 3, LobbyComparison.GreaterThan)).Lobbies, Is.Empty);
         }
+
+        [Test]
+        public void LobbySearch_ComparesStringValues_AsSteamDoes()
+        {
+            // FR-6, FR-38, #239: every comparison of a string filter, as Steam made it.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            foreach (KeyValuePair<string, string> pair in StringComparisonData())
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in StringComparisonChecks())
+            {
+                bool isFound = Search(seeker, new LobbySearchQuery().AddStringFilter(key, filter, comparison)).Lobbies.Count == 1;
+                if (isFound != isKept)
+                {
+                    mismatches.Add(DescribeStringComparison(key, filter, comparison, isKept));
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+        #endregion
+
+        #region String Comparisons
+        /// <summary>
+        /// How Steam's string filters compared a lobby's value with a filter's value, as the sign
+        /// of the lobby's value minus the filter's: what Steam's search on AppID 480 gave for all
+        /// six comparisons of each pair on 2026-11-01 (#239). Every backend gives these results;
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        internal static readonly (string Lobby, string Filter, int Sign)[] SteamStringComparisons =
+        {
+            ("desert", "desert", 0),
+            ("desert", "DESERT", 0),
+            ("Desert", "dESERT", 0),
+            ("b", "a", 1),
+            ("B", "a", 1),
+            ("a", "B", -1),
+            // Folded to upper case, '_' (0x5F) sorts after 'A' (0x41) and so after 'a' too.
+            ("_", "a", 1),
+            ("_", "A", 1),
+            ("a", "_", -1),
+            ("des", "DESERT", -1),
+            ("desert", "", 1),
+            // Only a to z fold; other letters compare by code point, as UTF-8 text sorts.
+            ("\u00E9", "\u00C9", 1),
+            ("\u03C3", "\u03A3", 1),
+            ("\U0001F600", "\uFF21", 1),
+        };
+
+        internal static readonly LobbyComparison[] AllLobbyComparisons =
+        {
+            LobbyComparison.Equal, LobbyComparison.NotEqual, LobbyComparison.LessThan,
+            LobbyComparison.GreaterThan, LobbyComparison.EqualOrLessThan, LobbyComparison.EqualOrGreaterThan,
+        };
+
+        /// <summary>Lobby data that holds each lobby value of <see cref="SteamStringComparisons"/> under a key of its own.</summary>
+        internal static Dictionary<string, string> StringComparisonData()
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < SteamStringComparisons.Length; i++)
+            {
+                data["cmp" + i] = SteamStringComparisons[i].Lobby;
+            }
+
+            return data;
+        }
+
+        /// <summary>Each filter to search with on <see cref="StringComparisonData"/>, and whether it keeps the lobby.</summary>
+        internal static IEnumerable<(string Key, string Filter, LobbyComparison Comparison, bool IsKept)> StringComparisonChecks()
+        {
+            for (int i = 0; i < SteamStringComparisons.Length; i++)
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ("cmp" + i, SteamStringComparisons[i].Filter, comparison, IsKeptBy(SteamStringComparisons[i].Sign, comparison));
+                }
+            }
+        }
+
+        internal static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
+        {
+            int index = int.Parse(key.Substring(3), System.Globalization.CultureInfo.InvariantCulture);
+            return $"'{SteamStringComparisons[index].Lobby}' {comparison} '{filter}' should {(isKept ? "keep" : "drop")} the lobby";
+        }
+
+        private static bool IsKeptBy(int sign, LobbyComparison comparison)
+        {
+            switch (comparison)
+            {
+                case LobbyComparison.Equal: return sign == 0;
+                case LobbyComparison.NotEqual: return sign != 0;
+                case LobbyComparison.LessThan: return sign < 0;
+                case LobbyComparison.GreaterThan: return sign > 0;
+                case LobbyComparison.EqualOrLessThan: return sign <= 0;
+                default: return sign >= 0;
+            }
+        }
         #endregion
 
         #region Participant Data

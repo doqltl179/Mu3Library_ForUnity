@@ -84,9 +84,15 @@ namespace Mu3Library.Multiplayer.Protocol
             return value;
         }
 
-        public byte[] ReadBytes()
+        /// <summary>Reads a byte block and throws when it exceeds <paramref name="maxByteCount"/>, before it is copied.</summary>
+        public byte[] ReadBytes(int maxByteCount)
         {
             int length = ReadBlockLength();
+            if (length > maxByteCount)
+            {
+                throw new FormatException($"A byte block of {length} bytes exceeds the {maxByteCount}-byte limit.");
+            }
+
             byte[] value = _data.Slice(_position, length).ToArray();
             _position += length;
             return value;

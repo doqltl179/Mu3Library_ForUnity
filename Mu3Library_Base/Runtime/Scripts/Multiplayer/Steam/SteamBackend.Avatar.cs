@@ -56,9 +56,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// while it still hands out no image, which tells whether the player has none. The answer
         /// arrives from <see cref="Update"/> in any case:
         /// <see cref="MultiplayerReason.BackendError"/> when Steam knows the player but has no
-        /// image, and also once the game shut Steam down, for a request made then and for one
-        /// still waiting, and <see cref="MultiplayerReason.Timeout"/> when it has none within 10
-        /// seconds.
+        /// image, and also once the game shut Steam down or a Steam call failed in its native
+        /// library, for a request made then and for one still waiting, and
+        /// <see cref="MultiplayerReason.Timeout"/> when it has none within 10 seconds.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -73,8 +73,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// after the game ran them. The manager then reads again the avatars it holds of
         /// that player, so the default image is replaced in the texture the game shows, as a new
         /// picture a player picks later is. Steam sends both notices for one download; the manager
-        /// raises its event once for it, as only its latest read counts and a read that finds the
-        /// image the texture shows raises nothing.
+        /// raises its event once for it, as a read that finds the image the texture shows raises
+        /// nothing and an earlier read that answers after a later one changes nothing. When such
+        /// a read fails, the manager tries it again, so a failure does not leave the default image
+        /// in place (see <see cref="IMultiplayerManager.LoadAvatar"/>).
         /// </para>
         /// <para>
         /// An avatar answers <see cref="MultiplayerReason.BackendError"/> once Steam is gone, not
@@ -154,9 +156,10 @@ namespace Mu3Library.Multiplayer.Steam
                 return;
             }
 
+            // A request whose Steam call failed is answered; Update answers the rest then.
             double now = Time.realtimeSinceStartupAsDouble;
             int i = 0;
-            while (i < _pendingAvatars.Count)
+            while (i < _pendingAvatars.Count && IsAvailable)
             {
                 PendingAvatar pending = _pendingAvatars[i];
                 bool isAnswered = TryAnswerAvatar(pending);
@@ -187,8 +190,26 @@ namespace Mu3Library.Multiplayer.Steam
             _pendingAvatars.Clear();
         }
 
-        /// <summary>Answers the request when Steam has the image or cannot have one; false while Steam still downloads.</summary>
+        /// <summary>
+        /// Answers the request when Steam has the image or cannot have one, or when a Steam call
+        /// failed (<see cref="MultiplayerReason.BackendError"/>); false while Steam still downloads.
+        /// </summary>
         private bool TryAnswerAvatar(PendingAvatar pending)
+        {
+            try
+            {
+                return TryReadAvatar(pending);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                // Each Steam call comes before the answer, so this answers the request once.
+                Break(cause);
+                AnswerAvatar(pending, MultiplayerReason.BackendError, default);
+                return true;
+            }
+        }
+
+        private bool TryReadAvatar(PendingAvatar pending)
         {
             CSteamID player = new CSteamID(pending.Player.Value);
             int image = GetAvatarImage(player, pending.Size);
