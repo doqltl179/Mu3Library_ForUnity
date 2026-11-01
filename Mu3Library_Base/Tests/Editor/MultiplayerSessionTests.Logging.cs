@@ -283,6 +283,94 @@ namespace Mu3Library.Tests
             Pump();
             Assert.That(chats, Is.EqualTo(7));
         }
+
+        [Test]
+        public void UnreliablePacketsThatOvertakeAResentWelcome_AreDroppedWithoutAWarning()
+        {
+            // FR-33, FR-40: unreliable packets keep no order with the reliable welcome, so the
+            // ping reports and unreliable messages that a host sends once it admitted a player can
+            // reach the player first while a loss makes the network send the welcome again. The
+            // player drops them, as everything before its welcome, without a warning.
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Assert.That(host.Manager.RegisterMessage(Chat, null).IsSuccess, Is.True);
+            Node a = CreateNode("A");
+            Inbox inbox = Listen(a, Chat);
+            _network.SimulatedLatencyMilliseconds = 100f;
+
+            // At a loss of 100 % every reliable packet arrives only after the most resends, the
+            // hello and the welcome included.
+            _network.SimulatedLossPercent = 100f;
+            a.Manager.JoinLobby(host.Manager.CurrentLobbyId);
+            AdvanceUntil(() => host.Manager.TryGetParticipant(a.Id, out _), 5.0);
+            _network.SimulatedLossPercent = 0f;
+            double admitted = _now;
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                Assert.That(host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.To(a.Id), DeliveryMode.Unreliable).IsSuccess, Is.True);
+                AdvanceUntil(() => a.Manager.State == SessionState.Lobby, 5.0);
+
+                TestContext.WriteLine($"The welcome arrived {_now - admitted:F2} s after the host sent it, past ping reports every {MultiplayerLimits.PingReportIntervalSeconds} s and an unreliable message that took 0.1 s.");
+                Assert.That(_now - admitted, Is.GreaterThan(MultiplayerLimits.PingReportIntervalSeconds + 0.2), "a ping report and the message went out after the welcome and arrived before it");
+                Assert.That(inbox.Received, Is.Empty, "the message before the welcome is dropped");
+                Assert.That(log.Count("before its welcome"), Is.Zero, string.Join("\n", log.Logs.Select(entry => entry.Message)));
+            }
+
+            // Once welcomed, the player takes the same packets.
+            Assert.That(host.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.To(a.Id), DeliveryMode.Unreliable).IsSuccess, Is.True);
+            AdvanceUntil(() => inbox.Received.Count == 1 && a.Manager.TryGetParticipantPing(a.Id, out _), 2.0);
+            Assert.That(inbox.Received.Single().Payload, Is.EqualTo(new byte[] { 2 }));
+        }
+
+        [Test]
+        public void BeforeItsWelcome_AClientWarnsOfTheHostsReliablePacketsOnly()
+        {
+            // FR-33: the order of reliable packets keeps a host that behaves from sending one
+            // before its welcome, so such a packet still draws a warning, once per kind, while a
+            // ping report or a game message sent unreliably goes without one.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            Inbox inbox = Listen(a, Chat);
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    fakeHost.Send(connection, PingsPacket(1, (a.Id, 50)), DeliveryMode.Unreliable);
+                    fakeHost.Send(connection, MessageFromHostPacket(DeliveryMode.Unreliable, hostId, Chat, new byte[] { 1 }), DeliveryMode.Unreliable);
+                    fakeHost.Send(connection, MessageFromHostPacket(DeliveryMode.Reliable, hostId, Chat, new byte[] { 2 }), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(log.Count("before its welcome"), Is.EqualTo(1), string.Join("\n", log.Logs.Select(entry => entry.Message)));
+                Assert.That(log.Count("Dropped MessageFromHost from the host before its welcome"), Is.EqualTo(1));
+            }
+
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining));
+            Assert.That(inbox.Received, Is.Empty);
+        }
+        #endregion
+
+        #region Logging Helpers
+        /// <summary>A game message the host passes on, with the delivery mode it names.</summary>
+        private static byte[] MessageFromHostPacket(DeliveryMode deliveryMode, PlayerId sender, ushort messageType, byte[] payload)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.MessageFromHost);
+            writer.WriteByte((byte)deliveryMode);
+            writer.WriteULong(sender.Value);
+            writer.WriteUShort(messageType);
+            writer.WriteRemaining(payload);
+            return writer.Written.ToArray();
+        }
         #endregion
     }
 }

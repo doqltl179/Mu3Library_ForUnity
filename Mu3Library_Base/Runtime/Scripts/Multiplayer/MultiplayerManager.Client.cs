@@ -255,7 +255,7 @@ namespace Mu3Library.Multiplayer
             {
                 if (kind != PacketKind.Welcome)
                 {
-                    if (IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
+                    if (!IsUnreliableFromHost(kind, data) && IsFirstPacketDrop(kind, PacketDrop.BeforeHandshake))
                     {
                         Debug.LogWarning($"[Multiplayer] Dropped {kind} from the host before its welcome. Further {PacketsOf(kind)} before the welcome go unlogged until the session ends.");
                     }
@@ -338,6 +338,21 @@ namespace Mu3Library.Multiplayer
 
                     break;
             }
+        }
+
+        /// <summary>
+        /// True for what a host sends unreliably: a ping report, and a game message whose delivery
+        /// mode, the byte after its kind, says unreliable. Unreliable packets keep no order with
+        /// the reliable welcome, so while a loss makes the network send the welcome again, the ping
+        /// reports and unreliable messages that the host sent after it may arrive first. This
+        /// player drops them, as everything before its welcome, but without a warning, so the
+        /// warning names only a host that sent a reliable packet before welcoming the player, which
+        /// the order of reliable packets rules out for a host that behaves.
+        /// </summary>
+        private static bool IsUnreliableFromHost(PacketKind kind, ReadOnlySpan<byte> data)
+        {
+            return kind == PacketKind.ParticipantPings
+                || (kind == PacketKind.MessageFromHost && data.Length > 1 && data[1] == (byte)DeliveryMode.Unreliable);
         }
 
         private void HandleWelcome(ref PacketReader reader)
