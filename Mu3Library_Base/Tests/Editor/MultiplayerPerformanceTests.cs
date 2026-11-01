@@ -39,7 +39,7 @@ namespace Mu3Library.Tests
     /// as they can, about a second for each case, so these cases run with every other test. On a
     /// machine-wide network every player has a network object of its own, as a separate process
     /// would, the frames keep to 60 a second in real time, and the timing includes the loopback
-    /// sockets; those cases take about 40 seconds each, so <see cref="ExplicitAttribute"/> keeps
+    /// sockets; those cases take about 36 seconds each, so <see cref="ExplicitAttribute"/> keeps
     /// them out of a normal run. Run them by name: in this repository with <c>bash
     /// ./test-unity.sh built-in --filter Mu3Library.Tests.MultiplayerPerformanceTests</c>,
     /// elsewhere with the Unity Test Framework's <c>-testFilter</c>. The players share this
@@ -184,7 +184,7 @@ namespace Mu3Library.Tests
             Run("InProcess", route, InProcessFrames);
         }
 
-        [Explicit("Runs about 40 seconds of real time for each case; run it by name.")]
+        [Explicit("Runs about 36 seconds of real time for each case; run it by name.")]
         [TestCase(ClientRoute.ToHost)]
         [TestCase(ClientRoute.ToOthers)]
         public void MachineWideNetwork_UnderTheNfr1Load(ClientRoute route)
@@ -456,8 +456,10 @@ namespace Mu3Library.Tests
         /// sends after the host's update, so the host handles it in the next frame, and so does
         /// every client the host relays it to. Lateness counts from the frame of the send rather
         /// than from the arrival NFR-2 counts from, so on a machine-wide network one more frame is
-        /// allowed for a packet the loopback has not delivered yet when the receiver reads; the
-        /// report shows the largest lateness either way.
+        /// allowed for a packet that the sender's sending thread or the loopback has not delivered
+        /// yet when the receiver reads, such as a relay that the host handed its sending thread at
+        /// the end of its update, just before the clients update in this process; the report shows
+        /// the largest lateness either way.
         /// </summary>
         private int AllowedLateFrames => _isRealTime ? 2 : 1;
 

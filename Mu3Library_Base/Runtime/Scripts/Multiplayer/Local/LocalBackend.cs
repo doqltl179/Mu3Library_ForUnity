@@ -156,6 +156,28 @@ namespace Mu3Library.Multiplayer.Local
         internal long SocketSends => _machine != null ? _machine.SocketSends : 0;
 
         /// <summary>
+        /// True while the sending thread of a machine-wide network holds something it has not
+        /// handed to a socket yet; false on a network inside one process.
+        /// </summary>
+        internal bool HasSendsInFlight => _machine != null && _machine.HasSendsInFlight;
+
+        /// <summary>
+        /// Test switch on a machine-wide network: sends through the socket call that takes a list
+        /// of segments, as on systems other than Windows. Nothing on a network inside one process.
+        /// </summary>
+        internal bool SendsSegments
+        {
+            get => _machine != null && _machine.SendsSegments;
+            set
+            {
+                if (_machine != null)
+                {
+                    _machine.SendsSegments = value;
+                }
+            }
+        }
+
+        /// <summary>
         /// Test switch on a machine-wide network: how much one update reads from one connection at
         /// most, so a burst takes several updates to arrive. Nothing on a network inside one process.
         /// </summary>

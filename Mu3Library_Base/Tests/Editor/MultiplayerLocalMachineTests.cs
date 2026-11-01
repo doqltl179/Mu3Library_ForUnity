@@ -400,8 +400,9 @@ namespace Mu3Library.Tests
         [Test]
         public void RelayedBurst_LeavesInOneSocketCallPerConnection_AndArrivesWithoutAnotherHostUpdate()
         {
-            // NFR-1, NFR-2: a host relaying a burst it read in one update makes one socket call for
-            // each connection instead of one for each message, and makes it before the update ends.
+            // NFR-1, NFR-2: a host relaying a burst it read in one update hands each connection to
+            // its sending thread once instead of once for each message, before the update ends,
+            // and that thread makes one socket call for each.
             Node host = CreateNode("Host");
             Node a = CreateNode("A");
             Node b = CreateNode("B");
@@ -417,8 +418,10 @@ namespace Mu3Library.Tests
 
             // B sends between updates, so the burst is on the loopback already; let it cross.
             Thread.Sleep(100);
+            WaitForSends(host.Backend);
             long before = host.Backend.SocketSends;
             host.Manager.Update();
+            WaitForSends(host.Backend);
             long sends = host.Backend.SocketSends - before;
 
             Assert.That(host.Messages.Count, Is.EqualTo(burst), "The host read the whole burst in one update.");
@@ -1432,54 +1435,119 @@ namespace Mu3Library.Tests
         {
             // FR-27, FR-32, NFR-4, #198: what the host sent last is still on its way on the session
             // connection when the hand-over on the lobby connection reaches the client, and the
-            // client's session must not end before those messages and the close. The host runs on
-            // a thread of its own, as it would in a process of its own: Unity's runtime holds a
-            // send that the socket cannot take at once until the other side reads, which the
-            // client on this thread does meanwhile. The client reads little in each update, so
-            // what the sockets hold when the host leaves takes several updates to arrive.
+            // client's session must not end before those messages and the close. The host sends
+            // and leaves while the client does not read, on a thread of its own, so that a send
+            // that waited for the client to read (#251) fails the test instead of holding it; the
+            // client then reads a quarter of a megabyte in each update, so what the host's
+            // sockets hold takes several updates to arrive.
             Node host = CreateNode("Host");
             Node client = CreateNode("Client");
             StartSession(host, client);
             _paused.Add(host.Backend);
-            client.Backend.ReceiveBytesPerUpdate = 16 * 1024;
+            client.Backend.ReceiveBytesPerUpdate = 256 * 1024;
 
             const int count = 32;
-            Exception failure = null;
             double leftAt = double.NaN;
-            Thread hostThread = new Thread(() =>
+            RunWithin(5.0, "sending 2 MiB to a client that does not read and leaving", () =>
             {
-                try
+                byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
+                for (int i = 0; i < count; i++)
                 {
-                    byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
-                    for (int i = 0; i < count; i++)
+                    BitConverter.GetBytes(i).CopyTo(payload, 0);
+                    MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
+                    if (!sent.IsSuccess)
                     {
-                        BitConverter.GetBytes(i).CopyTo(payload, 0);
-                        MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
-                        if (!sent.IsSuccess)
-                        {
-                            throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
-                        }
+                        throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
                     }
-
-                    host.Manager.Leave();
-                    Volatile.Write(ref leftAt, _clock.Elapsed.TotalSeconds);
                 }
-                catch (Exception e)
-                {
-                    failure = e;
-                }
-            });
 
-            hostThread.Start();
-            PumpUntil(() => hostThread.Join(0), "the host to send and leave");
-            Assert.That(failure, Is.Null, failure?.ToString());
+                host.Manager.Leave();
+                leftAt = _clock.Elapsed.TotalSeconds;
+            }, () => client.Backend.SimulateCrash());
+
             PumpUntil(() => client.Manager.State == SessionState.Offline, "the client to end its session", 2.0);
             double offlineAt = _clock.Elapsed.TotalSeconds;
 
             Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, count)));
             Assert.That(client.Messages.Select(message => message.Payload.Length), Is.All.EqualTo(MultiplayerConfig.DefaultMaxMessageSize));
             Assert.That(client.States.Last().Reason, Is.EqualTo(MultiplayerReason.HostLeft));
-            Assert.That(offlineAt - Volatile.Read(ref leftAt), Is.LessThan(2.0), "NFR-4");
+            Assert.That(offlineAt - leftAt, Is.LessThan(2.0), "NFR-4");
+        }
+
+        [Test]
+        public void Sends_LargerThanTheSocketsHold_ToAPlayerThatDoesNotRead_ReturnAtOnce_AndArriveInOrderOnceItReads([Values(false, true)] bool sendsSegments)
+        {
+            // #251: Unity's Socket.Send calls the system again until the socket took everything,
+            // also on a non-blocking socket, so a send to a full socket waited for the other side
+            // to read, and with both players in one process, as here, for ever. The host sends
+            // megabytes to a client that does not update meanwhile, with either socket call of
+            // its sending thread.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            host.Backend.SendsSegments = sendsSegments;
+            StartSession(host, client);
+            _paused.Add(client.Backend);
+
+            const int count = 48;
+            RunWithin(5.0, "sending 3 MiB to a client that does not read", () =>
+            {
+                byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
+                for (int i = 0; i < count; i++)
+                {
+                    BitConverter.GetBytes(i).CopyTo(payload, 0);
+                    MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
+                    if (!sent.IsSuccess)
+                    {
+                        throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
+                    }
+                }
+            }, () => client.Backend.SimulateCrash());
+
+            _paused.Remove(client.Backend);
+            PumpUntil(() => client.Messages.Count >= count, "every message to arrive");
+            Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(client.Messages.Select(message => message.Payload.Length), Is.All.EqualTo(MultiplayerConfig.DefaultMaxMessageSize));
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(2), "The host kept the client.");
+        }
+
+        [Test]
+        public void Send_ToAPlayerThatDoesNotRead_AnswersFalsePastWhatTheConnectionKeeps_AndTheConnectionGoesOn([Values(false, true)] bool sendsSegments)
+        {
+            // #251, as a full send buffer on Steam: once a connection holds more than the backend
+            // keeps for it that its socket did not take, a send answers false at once.
+            (LocalBackend host, RecordingListener hostEvents, LocalBackend client, RecordingListener clientEvents) = ConnectPair();
+            ConnectionId toHost = clientEvents.Connected.Single().Connection;
+            client.SendsSegments = sendsSegments;
+            _paused.Add(host);
+
+            byte[] packet = new byte[64 * 1024];
+            int accepted = 0;
+            bool isRefused = false;
+            RunWithin(5.0, "sending to a host that does not read", () =>
+            {
+                for (int i = 0; i < 256 && !isRefused; i++)
+                {
+                    BitConverter.GetBytes(i).CopyTo(packet, 0);
+                    if (client.Send(toHost, packet, DeliveryMode.Reliable))
+                    {
+                        accepted++;
+                    }
+                    else
+                    {
+                        isRefused = true;
+                    }
+                }
+            }, () => host.SimulateCrash());
+
+            Assert.That(isRefused, Is.True, "No send answered false.");
+            _paused.Remove(host);
+            PumpUntil(() => hostEvents.Received.Count >= accepted, "what was sent before the refusal");
+            Assert.That(hostEvents.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, accepted)));
+
+            Assert.That(client.Send(toHost, packet, DeliveryMode.Reliable), Is.True, "The connection takes sends again once the host read.");
+            PumpUntil(() => hostEvents.Received.Count == accepted + 1, "the send after the refusal");
+            Assert.That(hostEvents.Disconnected, Is.Empty);
+            Assert.That(clientEvents.Disconnected, Is.Empty);
         }
 
         [Test]
@@ -1859,6 +1927,47 @@ namespace Mu3Library.Tests
                 Thread.Sleep(2);
                 UpdateAll();
             }
+        }
+
+        /// <summary>Waits until the backend's sending thread handed everything to its sockets.</summary>
+        private static void WaitForSends(LocalBackend backend)
+        {
+            Assert.That(SpinWait.SpinUntil(() => !backend.HasSendsInFlight, TimeSpan.FromSeconds(WaitSeconds)), Is.True, "The sending thread kept something.");
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> on a thread of its own and waits for it at most
+        /// <paramref name="seconds"/>, so a send that a full socket holds (#251) fails the test
+        /// instead of holding the run. <paramref name="release"/> breaks the connection that
+        /// holds it, so the thread ends before the test does.
+        /// </summary>
+        private static void RunWithin(double seconds, string what, Action action, Action release)
+        {
+            Exception failure = null;
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    failure = e;
+                }
+            })
+            {
+                IsBackground = true,
+            };
+
+            thread.Start();
+            if (!thread.Join(TimeSpan.FromSeconds(seconds)))
+            {
+                release();
+                thread.Join(TimeSpan.FromSeconds(WaitSeconds));
+                Assert.Fail($"Timed out after {seconds} s {what}: a send waited for the other side to read.");
+            }
+
+            Assert.That(failure, Is.Null, failure?.ToString());
         }
 
         /// <summary>A lobby as its owner lists it, with one data entry.</summary>

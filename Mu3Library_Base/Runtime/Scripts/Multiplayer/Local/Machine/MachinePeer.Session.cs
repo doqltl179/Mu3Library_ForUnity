@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
@@ -83,8 +84,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
-            // What the simulated network holds back counts as unread, as Steam's send buffer does.
-            if (link.PendingCount + link.DelayedBytes + MachineProtocol.HeaderBytes + 1 + data.Length > MaxPendingBytes)
+            // What the sending thread holds and the simulated network holds back count as unread,
+            // as Steam's send buffer does.
+            if (link.PendingCount + Volatile.Read(ref link.HandedBytes) + link.DelayedBytes + MachineProtocol.HeaderBytes + 1 + data.Length > MaxPendingBytes)
             {
                 return false;
             }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
@@ -22,12 +23,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// others reconnect to it, as a Steam lobby passes to another member.
     /// </summary>
     /// <remarks>
-    /// Everything runs on the main thread inside <see cref="Update"/>, on non-blocking sockets;
-    /// only a closed connection finishes in the background (<see cref="LingeringSockets"/>), and
-    /// the lobby file is rewritten on a thread of its own (<see cref="MachineDirectory"/>).
+    /// Everything but the sends runs on the main thread inside <see cref="Update"/>, on
+    /// non-blocking sockets: a thread of this peer hands each socket what the main thread queued
+    /// for it, as much as the socket takes at the time (MachinePeer.Sending.cs), a closed
+    /// connection finishes in the background (<see cref="LingeringSockets"/>), and the lobby file
+    /// is rewritten on a thread of its own (<see cref="MachineDirectory"/>).
     /// What the session sends during an update, such as the messages a host relays, waits in its
-    /// connection's queue until the update ends, so each connection takes one socket call for all
-    /// of them instead of one for each; what the game sends between updates leaves at once.
+    /// connection's queue until the update ends, so each connection goes to the sending thread
+    /// once for all of them, and the thread makes one socket call for what it got; what the game
+    /// sends between updates goes to the thread at once.
     /// Every packet travels over TCP, so none is lost or reordered, whichever
     /// <see cref="DeliveryMode"/> it uses, unless the network simulates a worse one: then this
     /// side drops or holds back the session packets it sends before they reach the socket, and its
@@ -49,8 +53,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // from returning.
         private const int MaxReceiveBytesPerUpdate = 4 * 1024 * 1024;
 
-        // During an update, a connection that queued this much sends it without waiting for the
-        // update to end, so a burst of relays never piles up against MaxPendingBytes.
+        // During an update, a connection that queued this much hands it to the sending thread
+        // without waiting for the update to end, so a burst of relays never piles up against
+        // MaxPendingBytes.
         private const int UpdateFlushBytes = 64 * 1024;
 
         private const int InitialBufferBytes = 16 * 1024;
@@ -92,9 +97,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>The loopback port this player listens on; it also tells two processes of one account apart.</summary>
         public int Port { get; }
-
-        /// <summary>How many times this peer has handed data to a socket; tests count it.</summary>
-        public long SocketSends { get; private set; }
 
         public bool IsAvailable => !_isDisposed;
         public bool IsListening => _isListening && !_isDisposed;
@@ -244,6 +246,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _isDisposed = true;
             for (int i = 0; i < _links.Count; i++)
             {
+                DropSends(_links[i]);
                 Abort(_links[i].Socket);
                 _links[i].State = MachineLinkState.Dead;
             }
@@ -251,6 +254,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             Abort(_acceptor);
             _directory.Abandon();
             Clear();
+            StopSender();
         }
 
         /// <summary>
@@ -301,6 +305,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             _directory.Remove();
             Clear();
+            StopSender();
         }
 
         private void Clear()
@@ -535,13 +540,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private bool QueueFrame(MachineLink link, MachineFrameKind kind, ReadOnlySpan<byte> payload, bool force)
         {
             int frameBytes = MachineProtocol.HeaderBytes + 1 + payload.Length;
-            if (!force && link.PendingCount + frameBytes > MaxPendingBytes)
+            if (!force && link.PendingCount + Volatile.Read(ref link.HandedBytes) + frameBytes > MaxPendingBytes)
             {
                 return false;
             }
 
             EnsurePending(link, frameBytes);
-            int at = link.PendingStart + link.PendingCount;
+            int at = link.PendingCount;
             BinaryPrimitives.WriteInt32LittleEndian(new Span<byte>(link.Pending, at, MachineProtocol.HeaderBytes), 1 + payload.Length);
             link.Pending[at + MachineProtocol.HeaderBytes] = (byte)kind;
             payload.CopyTo(new Span<byte>(link.Pending, at + MachineProtocol.HeaderBytes + 1, payload.Length));
@@ -558,17 +563,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
-            if (link.PendingStart + link.PendingCount + additional <= link.Pending.Length)
-            {
-                return;
-            }
-
-            if (link.PendingStart > 0)
-            {
-                Buffer.BlockCopy(link.Pending, link.PendingStart, link.Pending, 0, link.PendingCount);
-                link.PendingStart = 0;
-            }
-
             int required = link.PendingCount + additional;
             if (required > link.Pending.Length)
             {
@@ -579,60 +573,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 }
 
                 Array.Resize(ref link.Pending, size);
-            }
-        }
-
-        /// <summary>
-        /// Sends what the socket of an open connection takes now; a failure waits for the next
-        /// update to be reported.
-        /// </summary>
-        private void Flush(MachineLink link)
-        {
-            while (link.PendingCount > 0 && !link.HasFailed)
-            {
-                SocketSends++;
-                int sent = link.Socket.Send(link.Pending, link.PendingStart, link.PendingCount, SocketFlags.None, out SocketError error);
-                if (error == SocketError.WouldBlock)
-                {
-                    return;
-                }
-
-                if (error != SocketError.Success)
-                {
-                    link.HasFailed = true;
-                    return;
-                }
-
-                link.PendingStart += sent;
-                link.PendingCount -= sent;
-            }
-
-            if (link.PendingCount == 0)
-            {
-                link.PendingStart = 0;
-            }
-        }
-
-        /// <summary>
-        /// Sends what the session queued during the update, one socket call for each connection
-        /// that has something to send. A session connection that an outage cuts off keeps it.
-        /// </summary>
-        private void FlushQueued()
-        {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            bool isCutOff = IsCutOff;
-            for (int i = 0; i < _links.Count; i++)
-            {
-                MachineLink link = _links[i];
-                if (link.PendingCount > 0 && link.State == MachineLinkState.Open
-                    && !(isCutOff && link.Role == MachineLinkRole.Session))
-                {
-                    Flush(link);
-                }
             }
         }
 
@@ -811,6 +751,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             if (!isOpen || (link.Role == MachineLinkRole.Session && IsCutOff))
             {
                 DiscardDelayed(link);
+                DropSends(link);
                 Abort(link.Socket);
                 link.Socket = null;
                 return;
@@ -827,11 +768,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 QueueFrame(link, MachineFrameKind.Close, _writer.Written, force: true);
             }
 
-            // What the socket does not take now, the lingering socket sends.
-            Flush(link);
-            LingeringSockets.Close(link.Socket, link.Pending, link.PendingStart, link.PendingCount);
-            link.Socket = null;
-            link.PendingCount = 0;
+            // What the socket has not taken yet, the lingering socket sends.
+            LingerSends(link);
         }
 
         private enum LinkEnd
@@ -858,9 +796,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             link.State = MachineLinkState.Dead;
+            DropSends(link);
             Close(link.Socket);
             link.Socket = null;
-            link.PendingCount = 0;
             DiscardDelayed(link);
 
             switch (link.Role)
