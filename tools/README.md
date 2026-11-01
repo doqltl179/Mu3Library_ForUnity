@@ -73,6 +73,8 @@ A target compiles in place while its project is closed, and in a temporary sourc
 
 The script removes a mirror as soon as Unity exits, retrying for a few seconds while a Unity child process still holds its files. A mirror it still cannot remove is reported with its path, and Unity's exit status and the remaining targets carry on regardless.
 
+The script prints Unity's log as Unity writes it and keeps it in `log/unity-compile/<target>.log`, which is Git-ignored. When the log has not grown for `--stall-timeout <seconds>`, 300 by default, the script stops Unity and its child processes and fails the target, so a compile that waits on something batch mode never answers, such as a dialog, cannot hold the run; `--stall-timeout 0` waits as long as Unity runs. Like any failed compile, a stalled one ends the run before the remaining targets. The default is about 12 times the longest silence measured in a first import. On 2026-11-01, cold `--isolated` runs of `built-in`, `urp`, and `watermelon` and a `built-in --editor-version 6000.3.17f1` run, while up to six other Unity batch processes ran, each took 80 to 128 s; their logs stood still longest while Unity resolved the packages (up to 14 s) and compiled the scripts (up to 25 s, in the run beside six other Unity processes). A slower machine, a larger code base, or a package download can stay silent longer, which the margin leaves room for.
+
 Use a Git base when selecting committed changes in CI, or keep the explicit targets for manual verification:
 
 ```bash

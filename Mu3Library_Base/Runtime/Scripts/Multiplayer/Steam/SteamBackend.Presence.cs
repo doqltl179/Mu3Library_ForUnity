@@ -154,12 +154,27 @@ namespace Mu3Library.Multiplayer.Steam
         /// </remarks>
         public bool SetPresence(string status, LobbyId group, int groupSize)
         {
-            return IsAvailable && _presence.Set(status, group, groupSize);
+            try
+            {
+                return IsAvailable && _presence.Set(status, group, groupSize);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
         }
 
         private void ShutdownPresence(bool steamRuns)
         {
-            _presence?.Clear(deleteOnSteam: steamRuns);
+            try
+            {
+                _presence?.Clear(deleteOnSteam: steamRuns);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+            }
         }
     }
 }

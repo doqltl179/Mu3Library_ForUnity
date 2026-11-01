@@ -40,6 +40,18 @@ namespace Mu3Library.Multiplayer.Local
     /// its player ID itself, so the identity is only as trustworthy as the processes on this
     /// computer.
     /// </para>
+    /// <para>
+    /// On a machine-wide network the other processes read a player name and a lobby data key of
+    /// at most three UTF-8 bytes for each of <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+    /// and <see cref="MultiplayerLimits.MaxDataKeyLength"/> characters, and a lobby data value of
+    /// at most <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes, and drop what carries a
+    /// longer one: a frame ends the connection it came on, and a listed lobby leaves search and
+    /// joins by its ID.
+    /// So the player name travels cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+    /// characters, as the roster cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
+    /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
+    /// as Steam refuses a key or a value too long for it.
+    /// </para>
     /// </remarks>
     public sealed class LocalBackend : IMultiplayerBackend
     {
@@ -142,6 +154,28 @@ namespace Mu3Library.Multiplayer.Local
 
         /// <summary>How many times this backend has handed data to a socket; 0 on a network inside one process.</summary>
         internal long SocketSends => _machine != null ? _machine.SocketSends : 0;
+
+        /// <summary>
+        /// True while the sending thread of a machine-wide network holds something it has not
+        /// handed to a socket yet; false on a network inside one process.
+        /// </summary>
+        internal bool HasSendsInFlight => _machine != null && _machine.HasSendsInFlight;
+
+        /// <summary>
+        /// Test switch on a machine-wide network: sends through the socket call that takes a list
+        /// of segments, as on systems other than Windows. Nothing on a network inside one process.
+        /// </summary>
+        internal bool SendsSegments
+        {
+            get => _machine != null && _machine.SendsSegments;
+            set
+            {
+                if (_machine != null)
+                {
+                    _machine.SendsSegments = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Test switch on a machine-wide network: how much one update reads from one connection at

@@ -178,6 +178,27 @@ class UnityToolingTests(unittest.TestCase):
             arguments,
         )
 
+    def test_compile_command_hands_the_stall_timeout_to_the_compile_script(self) -> None:
+        calls: list[tuple[Path, list[str]]] = []
+
+        def run(script_path: Path, arguments: list[str], root: Path) -> int:
+            calls.append((script_path, arguments))
+            return 0
+
+        with mock.patch("mu3_cli.unity.run_entry_point", run):
+            result = CliRunner().invoke(app, ["unity", "compile", "built-in", "--dry-run", "--stall-timeout", "120"])
+            without = CliRunner().invoke(app, ["unity", "compile", "built-in", "--dry-run"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(0, without.exit_code, without.output)
+        self.assertEqual(
+            [
+                ("compile-unity.sh", ["built-in", "--dry-run", "--stall-timeout", "120"]),
+                ("compile-unity.sh", ["built-in", "--dry-run"]),
+            ],
+            [(script_path.name, arguments) for script_path, arguments in calls],
+        )
+
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
 

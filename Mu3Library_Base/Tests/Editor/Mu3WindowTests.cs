@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window;
 using Mu3Library.Editor.Window.Drawer;
@@ -17,7 +18,8 @@ namespace Mu3Library.Tests
     /// <summary>
     /// Where a <see cref="Mu3Window"/> finds its drawer list. A window under <c>Assets</c> and a window in a package
     /// that can be changed read the list next to their script; a window in a read-only package, such as one installed
-    /// from a Git URL, keeps it under <see cref="Mu3Window.ProjectDrawerListFolder"/>. The tests that need Base to be a
+    /// from a Git URL, keeps it under <see cref="Mu3Window.ProjectDrawerListFolder"/> and still finds it after it is
+    /// moved or renamed under <c>Assets</c>. The tests that need Base to be a
     /// local or embedded package are ignored where it is installed read-only. Each test deletes the assets and folders
     /// it created; its temporary folders carry <see cref="TempFolderPrefix"/> and a unique suffix, the next run deletes
     /// any that an interrupted run left, and Git ignores those inside the Base package.
@@ -136,6 +138,76 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadDrawerList_ProjectListMovedAndRenamed_ReadsTheMovedList()
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            TrackProjectList(typeof(Mu3WindowTests));
+            DrawerListDrawer created = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            string movedPath = $"{CreateTempFolder("Assets")}/Renamed.asset";
+            Assert.IsEmpty(AssetDatabase.MoveAsset(AssetDatabase.GetAssetPath(created), movedPath));
+
+            DrawerListDrawer reopened = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+
+            Assert.AreSame(created, reopened);
+            Assert.AreEqual(movedPath, AssetDatabase.GetAssetPath(reopened));
+            AssertNoProjectList(typeof(Mu3WindowTests));
+        }
+
+        [Test]
+        public void LoadDrawerList_ProjectListThatDoesNotRecordItsWindow_RecordsItSoTheMovedListIsFound()
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            TrackProjectList(typeof(Mu3WindowTests));
+            DrawerListDrawer created = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            // A list created before lists recorded their window type.
+            created.WindowTypeName = "";
+            EditorUtility.SetDirty(created);
+            AssetDatabase.SaveAssetIfDirty(created);
+
+            Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            string movedPath = $"{CreateTempFolder("Assets")}/Renamed.asset";
+            Assert.IsEmpty(AssetDatabase.MoveAsset(AssetDatabase.GetAssetPath(created), movedPath));
+            DrawerListDrawer reopened = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+
+            Assert.AreSame(created, reopened);
+            Assert.AreEqual(typeof(Mu3WindowTests).FullName, reopened.WindowTypeName);
+        }
+
+        [Test]
+        public void LoadDrawerList_SeveralMovedProjectLists_ReadsTheFirstInPathOrderAndWarns()
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            string projectListPath = Mu3Window.GetProjectDrawerListPath(typeof(Mu3WindowTests));
+            if (AssetDatabase.LoadMainAssetAtPath(projectListPath) != null)
+            {
+                Assert.Ignore($"{projectListPath} already exists in this project.");
+            }
+
+            TrackProjectList(typeof(Mu3WindowTests));
+            string folder = CreateTempFolder("Assets");
+            DrawerListDrawer first = CreateList($"{folder}/A.asset", typeof(Mu3WindowTests));
+            CreateList($"{folder}/B.asset", typeof(Mu3WindowTests));
+            LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape($"The window uses {folder}/A.asset")));
+
+            DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+
+            Assert.AreSame(first, loaded);
+            AssertNoProjectList(typeof(Mu3WindowTests));
+        }
+
+        [Test]
+        public void LoadDrawerList_ScriptUnderAssetsAboveAMovedProjectList_LeavesOutTheListOfTheOtherWindow()
+        {
+            string folder = CreateTempFolder("Assets");
+            DrawerListDrawer movedList = CreateList($"{folder}/Moved.asset", typeof(Mu3WindowTestWindow));
+
+            DrawerListDrawer loaded = Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), $"{folder}/Window.cs");
+
+            Assert.AreNotSame(movedList, loaded);
+            Assert.AreEqual($"{folder}/{DrawerListDrawer.FileName}.asset", AssetDatabase.GetAssetPath(loaded));
+        }
+
+        [Test]
         public void OnBecameVisible_WindowScriptInAPackage_LoadsOneListKeptInTheProject()
         {
             TrackProjectList(typeof(Mu3WindowTestWindow));
@@ -187,9 +259,14 @@ namespace Mu3Library.Tests
             return $"{package.assetPath}/Window.cs";
         }
 
-        private static DrawerListDrawer CreateList(string assetPath)
+        private static DrawerListDrawer CreateList(string assetPath, Type windowType = null)
         {
             DrawerListDrawer list = ScriptableObject.CreateInstance<DrawerListDrawer>();
+            if (windowType != null)
+            {
+                list.WindowTypeName = windowType.FullName;
+            }
+
             AssetDatabase.CreateAsset(list, assetPath);
 
             return list;

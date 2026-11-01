@@ -12,9 +12,12 @@ namespace Mu3Library.Sample.Multiplayer
     /// The sample's core. It registers a <see cref="MultiplayerManager"/> in its container, which
     /// then updates the manager every frame (<see cref="IUpdatable"/>) and disposes it with the core,
     /// attaches the backend that <see cref="SampleBackend"/> picks, and holds the lobby flows:
-    /// create, search, join by lobby ID, invite (Steam only), ready, start, message exchange, and
-    /// kick. The buttons in <c>SampleMultiplayerCore.Gui.cs</c> call them, and so does the
-    /// unattended run in <c>SampleMultiplayerCore.AutoRun.cs</c> that the command line turns on.
+    /// create, search, join by lobby ID, invite (Steam only), ready, start, message exchange,
+    /// setting and deleting lobby data and this player's own participant data, and kick. The
+    /// buttons in <c>SampleMultiplayerCore.Gui.cs</c> call them, and so does the unattended run in
+    /// <c>SampleMultiplayerCore.AutoRun.cs</c> that the command line turns on. The lists show each
+    /// player's ping as the host measures it and the players' avatars, which the core loads and
+    /// releases.
     /// </summary>
     public partial class SampleMultiplayerCore : CoreBase
     {
@@ -27,6 +30,15 @@ namespace Mu3Library.Sample.Multiplayer
 
         /// <summary>Raise it whenever builds can no longer play together.</summary>
         private const int ProtocolVersion = 1;
+
+        /// <summary>The lobby data key the host sets when it creates the lobby, and sets and deletes again.</summary>
+        private const string LobbyDataKey = "map";
+
+        /// <summary>The participant data key each player sets and deletes for themselves.</summary>
+        private const string ParticipantDataKey = "color";
+
+        private static readonly string[] Maps = { "forest", "desert", "harbor", "castle" };
+        private static readonly string[] Colors = { "red", "green", "blue", "yellow" };
 
         [Tooltip("The app ID Steam starts with when Steamworks.NET is installed. Steam's test app 480 works during development.")]
         [SerializeField] private uint _steamAppId = 480;
@@ -41,6 +53,7 @@ namespace Mu3Library.Sample.Multiplayer
         private readonly SampleLog _log = new SampleLog();
         private readonly MessageWriter _writer = new MessageWriter();
         private readonly List<LobbyInfo> _foundLobbies = new List<LobbyInfo>();
+        private readonly Dictionary<PlayerId, AvatarSlot> _avatars = new Dictionary<PlayerId, AvatarSlot>();
 
         private SampleCommandLine _commandLine;
         private SampleBackend _backend;
@@ -50,6 +63,7 @@ namespace Mu3Library.Sample.Multiplayer
 
         private bool _isSearching = false;
         private int _sentGreetings = 0;
+        private bool _backendHasNoAvatars = false;
 
         private string LocalName => _backend != null && _manager != null
             ? _backend.Backend.GetPlayerName(_manager.LocalPlayerId)
@@ -133,8 +147,11 @@ namespace Mu3Library.Sample.Multiplayer
             }
             catch (Exception exception)
             {
-                // A backend reaches native code, such as a steam_api library that does not match
-                // the Steamworks.NET code, which can throw anything. The sample cannot go on then.
+                // Steam's own failures, a broken steam_api library included, answer a reason
+                // instead, both when the backend is created and in its later calls. What still
+                // throws here is a mistake in the code, such as a game ID that cannot name a
+                // machine-wide network (CreateMachineWide throws ArgumentException for one with a
+                // space or a dot). The sample cannot go on then.
                 Debug.LogException(exception);
                 _log.Warning($"The backend could not start: {exception.GetType().Name}: {exception.Message}");
             }
@@ -169,6 +186,10 @@ namespace Mu3Library.Sample.Multiplayer
                     .WithRequireReady(true),
             };
 
+            // Lobby data that the lobby starts with, which search returns too. The host sets and
+            // deletes it later with SetLobbyData and DeleteLobbyData.
+            options.Data[LobbyDataKey] = Pick(Maps);
+
             _log.Info($"Creating the lobby \"{lobbyName}\"...");
             _manager.CreateLobby(options, result =>
             {
@@ -201,6 +222,17 @@ namespace Mu3Library.Sample.Multiplayer
         private void OnLobbiesFound(LobbySearchResult result)
         {
             _isSearching = false;
+
+            // The hosts of lobbies that drop out of the list no longer show, so their avatars go.
+            for (int i = 0; i < _foundLobbies.Count; i++)
+            {
+                PlayerId host = _foundLobbies[i].HostId;
+                if (!result.IsSuccess || !HostsAnyOf(result.Lobbies, host))
+                {
+                    ReleaseAvatar(host);
+                }
+            }
+
             _foundLobbies.Clear();
 
             if (!result.IsSuccess)
@@ -318,6 +350,43 @@ namespace Mu3Library.Sample.Multiplayer
         {
             _manager.Leave();
         }
+
+        /// <summary>
+        /// Host only. Sets the lobby data key to a new value, which every player hears through
+        /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>.
+        /// </summary>
+        private bool SetLobbyData()
+        {
+            return Report(_manager.SetLobbyData(LobbyDataKey, Pick(Maps)), $"Set the lobby data \"{LobbyDataKey}\"");
+        }
+
+        /// <summary>
+        /// Host only. Deletes the lobby data key, from lobby search too; every player hears it
+        /// through <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/> with a null value.
+        /// </summary>
+        private bool DeleteLobbyData()
+        {
+            return Report(_manager.DeleteLobbyData(LobbyDataKey), $"Delete the lobby data \"{LobbyDataKey}\"");
+        }
+
+        /// <summary>
+        /// Sets this player's own participant data key. For a client, the value changes once the
+        /// host reports it back through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>.
+        /// </summary>
+        private bool SetParticipantData()
+        {
+            return Report(_manager.SetParticipantData(ParticipantDataKey, Pick(Colors)), $"Set my data \"{ParticipantDataKey}\"");
+        }
+
+        /// <summary>
+        /// Deletes this player's own participant data key; every player hears it through
+        /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>, with the player
+        /// as they are without it. No player can delete another's.
+        /// </summary>
+        private bool DeleteParticipantData()
+        {
+            return Report(_manager.DeleteParticipantData(ParticipantDataKey), $"Delete my data \"{ParticipantDataKey}\"");
+        }
         #endregion
 
         #region Events
@@ -329,9 +398,12 @@ namespace Mu3Library.Sample.Multiplayer
             _eventBus.OnParticipantDisconnected += OnParticipantDisconnected;
             _eventBus.OnParticipantReconnected += OnParticipantReconnected;
             _eventBus.OnParticipantChanged += OnParticipantChanged;
+            _eventBus.OnParticipantDataChanged += OnParticipantDataChanged;
+            _eventBus.OnLobbyDataChanged += OnLobbyDataChanged;
             _eventBus.OnGameStarted += OnGameStarted;
             _eventBus.OnReturnedToLobby += OnReturnedToLobby;
             _eventBus.OnJoinRequested += OnJoinRequested;
+            _eventBus.OnAvatarChanged += OnAvatarChanged;
         }
 
         private void UnsubscribeEvents()
@@ -347,9 +419,12 @@ namespace Mu3Library.Sample.Multiplayer
             _eventBus.OnParticipantDisconnected -= OnParticipantDisconnected;
             _eventBus.OnParticipantReconnected -= OnParticipantReconnected;
             _eventBus.OnParticipantChanged -= OnParticipantChanged;
+            _eventBus.OnParticipantDataChanged -= OnParticipantDataChanged;
+            _eventBus.OnLobbyDataChanged -= OnLobbyDataChanged;
             _eventBus.OnGameStarted -= OnGameStarted;
             _eventBus.OnReturnedToLobby -= OnReturnedToLobby;
             _eventBus.OnJoinRequested -= OnJoinRequested;
+            _eventBus.OnAvatarChanged -= OnAvatarChanged;
         }
 
         private void OnStateChanged(SessionStateChange change)
@@ -357,6 +432,12 @@ namespace Mu3Library.Sample.Multiplayer
             // A failed request or an ended session names its reason, such as Kicked or HostLeft.
             string reason = change.Reason == MultiplayerReason.None ? string.Empty : $" ({change.Reason})";
             _log.Info($"State: {change.Previous} -> {change.Current}{reason}");
+
+            // In a session, the list of found lobbies closes.
+            if (change.Current == SessionState.Lobby || change.Current == SessionState.InGame)
+            {
+                CloseLobbyList();
+            }
 
             OnAutoRunStateChanged(change);
         }
@@ -389,6 +470,37 @@ namespace Mu3Library.Sample.Multiplayer
             _log.Info($"{participant.Name} is {(participant.IsReady ? "ready" : "not ready")}.");
         }
 
+        private void OnParticipantDataChanged(Participant participant, string key)
+        {
+            // The participant comes as the host reports them now: after a deletion, their data no
+            // longer holds the key.
+            if (participant.Data.TryGetValue(key, out string value))
+            {
+                _log.Info($"{participant.Name}'s data \"{key}\" is \"{value}\".");
+            }
+            else
+            {
+                _log.Info($"{participant.Name}'s data no longer holds \"{key}\".");
+            }
+
+            OnAutoRunParticipantDataChanged(participant, key);
+        }
+
+        private void OnLobbyDataChanged(string key, string value)
+        {
+            // A deleted key arrives with a null value.
+            if (value == null)
+            {
+                _log.Info($"The lobby data \"{key}\" was deleted.");
+            }
+            else
+            {
+                _log.Info($"The lobby data \"{key}\" is \"{value}\".");
+            }
+
+            OnAutoRunLobbyDataChanged(key, value);
+        }
+
         private void OnGameStarted(ReadOnlyMemory<byte> startData)
         {
             try
@@ -416,6 +528,13 @@ namespace Mu3Library.Sample.Multiplayer
             _log.Info($"Join requested for lobby {lobby}.");
         }
 
+        private void OnAvatarChanged(AvatarResult result)
+        {
+            // The manager drew the new picture into the texture it handed out, which the lists
+            // show already, so there is nothing to do but tell.
+            _log.Info($"The avatar of {NameOf(result.Player)} changed; the lists show the new picture in the same texture.");
+        }
+
         /// <summary>
         /// Handles a greeting. The sender is the player the host proved from the connection the
         /// message arrived on, never what the message says.
@@ -429,13 +548,148 @@ namespace Mu3Library.Sample.Multiplayer
         }
         #endregion
 
+        #region Avatars
+        /// <summary>What the lists hold of one player's avatar.</summary>
+        private sealed class AvatarSlot
+        {
+            public Texture2D Texture;
+            public bool IsLoading;
+            public bool HasFailed;
+        }
+
+        /// <summary>
+        /// The small avatar of a player for the lists, asked for the first time a list shows the
+        /// player: null while it loads, when it could not be loaded, and on a backend without
+        /// avatars, such as the local backend, which answers <see cref="MultiplayerReason.NotSupported"/>.
+        /// </summary>
+        private Texture2D GetAvatar(PlayerId player)
+        {
+            if (_backendHasNoAvatars)
+            {
+                return null;
+            }
+
+            if (!_avatars.TryGetValue(player, out AvatarSlot slot))
+            {
+                slot = new AvatarSlot();
+                _avatars.Add(player, slot);
+            }
+
+            // A texture the manager destroyed, as it destroys the avatars of a session's players
+            // when the session ends, is asked for again. The answer can come before LoadAvatar returns.
+            if (slot.Texture == null && !slot.IsLoading && !slot.HasFailed)
+            {
+                slot.IsLoading = true;
+                _manager.LoadAvatar(player, AvatarSize.Small, OnAvatarLoaded);
+            }
+
+            return slot.Texture;
+        }
+
+        private void OnAvatarLoaded(AvatarResult result)
+        {
+            // A slot let go while its avatar loaded leaves the texture to the manager, which
+            // destroys it with the next ReleaseAvatars or when it is disposed.
+            if (!_avatars.TryGetValue(result.Player, out AvatarSlot slot))
+            {
+                return;
+            }
+
+            slot.IsLoading = false;
+            if (result.IsSuccess)
+            {
+                slot.Texture = result.Texture;
+            }
+            else if (result.Reason == MultiplayerReason.NotSupported)
+            {
+                // Every request that was waiting answers so; the first one tells.
+                if (!_backendHasNoAvatars)
+                {
+                    _backendHasNoAvatars = true;
+                    _log.Info($"The {_backend.Backend.Name} backend has no avatars ({result.Reason}); the lists leave them out.");
+                }
+            }
+            else
+            {
+                // The manager logged why. The lists are drawn every frame, so they do not ask again.
+                slot.HasFailed = true;
+            }
+        }
+
+        /// <summary>
+        /// Lets go of the avatar of a player the lists no longer show, such as the host of a lobby
+        /// that dropped out of the search. The manager destroys its textures.
+        /// </summary>
+        private void ReleaseAvatar(PlayerId player)
+        {
+            _avatars.Remove(player);
+            _manager.ReleaseAvatar(player);
+        }
+
+        /// <summary>
+        /// Closes the list of found lobbies once this player is in a session. ReleaseAvatars lets
+        /// go of the hosts' avatars and keeps this player's own and those of the session's players,
+        /// the host of the lobby just joined among them.
+        /// </summary>
+        private void CloseLobbyList()
+        {
+            if (_foundLobbies.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _foundLobbies.Count; i++)
+            {
+                PlayerId host = _foundLobbies[i].HostId;
+                if (!_manager.TryGetParticipant(host, out _))
+                {
+                    _avatars.Remove(host);
+                }
+            }
+
+            _foundLobbies.Clear();
+            _manager.ReleaseAvatars();
+        }
+        #endregion
+
         #region Utility
-        private void Report(MultiplayerResult result, string action)
+        /// <summary>Logs a failed request; true when it succeeded.</summary>
+        private bool Report(MultiplayerResult result, string action)
         {
             if (!result.IsSuccess)
             {
                 _log.Warning($"{action}: {result.Reason}");
             }
+
+            return result.IsSuccess;
+        }
+
+        /// <summary>
+        /// A player's ping as the host measures it, which every player reads for every player of
+        /// the session. The host's own is 0; a player the host has not reported yet, such as one
+        /// that just joined, and one away while the host keeps their slot show a dash.
+        /// </summary>
+        private string PingText(PlayerId player)
+        {
+            return _manager.TryGetParticipantPing(player, out int ping) ? $"{ping} ms" : "-";
+        }
+
+        private static string Pick(string[] values)
+        {
+            return values[UnityEngine.Random.Range(0, values.Length)];
+        }
+
+        private static bool HostsAnyOf(IReadOnlyList<LobbyInfo> lobbies, PlayerId host)
+        {
+            for (int i = 0; i < lobbies.Count; i++)
+            {
+                if (lobbies[i].HostId == host)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private string NameOf(PlayerId player)

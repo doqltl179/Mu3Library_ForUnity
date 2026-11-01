@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -13,6 +14,7 @@ using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Local.Machine;
+using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 
 namespace Mu3Library.Tests
@@ -302,6 +304,78 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbySearch_ComparesStringValues_AsSteamDoes()
+        {
+            // FR-6, FR-38, #239: every comparison of a string filter, from another process.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
+            foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.StringComparisonData())
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in MultiplayerSessionTests.StringComparisonChecks())
+            {
+                LobbySearchResult? found = null;
+                seeker.Manager.SearchLobbies(new LobbySearchQuery().AddStringFilter(key, filter, comparison), r => found = r);
+                PumpUntil(() => found.HasValue, "the search");
+                if ((found.Value.Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add(MultiplayerSessionTests.DescribeStringComparison(key, filter, comparison, isKept));
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
+        {
+            // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again
+            // within the reservation time, while the game refuses late joiners.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            Assert.That(host.Manager.StartGame(new byte[] { 4 }).IsSuccess, Is.True);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the game to start");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            PumpUntil(() => ListedData(lobby, LobbyDataKeys.Closed) == LobbyDataKeys.ClosedForTheGame, "the folder to list the game as closed");
+
+            client.Backend.SimulateCrash();
+            PumpUntil(() => host.Manager.TryGetParticipant(client.Id, out Participant away) && !away.IsConnected, "the host to keep the slot");
+            _paused.Add(client.Backend);
+
+            Node again = CreateNode("Client", id: client.Id);
+            MultiplayerResult? joined = null;
+            again.Manager.JoinLobby(lobby, r => joined = r);
+            PumpUntil(() => joined.HasValue, "the new start to join");
+            Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+            Assert.That(again.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(again.GameStarts.Single(), Is.EqualTo(new byte[] { 4 }));
+
+            PumpUntil(() => again.Backend.IsLobbyMember(lobby, again.Id), "the new start to enter the lobby");
+            Assert.That(host.Manager.TryGetParticipant(client.Id, out Participant back) && back.IsConnected, Is.True);
+
+            Node stranger = CreateNode("Stranger");
+            LobbySearchResult? found = null;
+            stranger.Manager.SearchLobbies(null, r => found = r);
+            PumpUntil(() => found.HasValue, "the search");
+            Assert.That(found.Value.Lobbies, Is.Empty, "search leaves the game out");
+
+            MultiplayerResult? refused = null;
+            stranger.Manager.JoinLobby(lobby, r => refused = r);
+            PumpUntil(() => refused.HasValue, "the stranger's join");
+            Assert.That(refused.Value.Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
+        }
+
+        [Test]
         public void Chat_ReachesEveryProcess_InTheSameOrder()
         {
             // FR-12 between "processes".
@@ -326,8 +400,9 @@ namespace Mu3Library.Tests
         [Test]
         public void RelayedBurst_LeavesInOneSocketCallPerConnection_AndArrivesWithoutAnotherHostUpdate()
         {
-            // NFR-1, NFR-2: a host relaying a burst it read in one update makes one socket call for
-            // each connection instead of one for each message, and makes it before the update ends.
+            // NFR-1, NFR-2: a host relaying a burst it read in one update hands each connection to
+            // its sending thread once instead of once for each message, before the update ends,
+            // and that thread makes one socket call for each.
             Node host = CreateNode("Host");
             Node a = CreateNode("A");
             Node b = CreateNode("B");
@@ -343,8 +418,10 @@ namespace Mu3Library.Tests
 
             // B sends between updates, so the burst is on the loopback already; let it cross.
             Thread.Sleep(100);
+            WaitForSends(host.Backend);
             long before = host.Backend.SocketSends;
             host.Manager.Update();
+            WaitForSends(host.Backend);
             long sends = host.Backend.SocketSends - before;
 
             Assert.That(host.Messages.Count, Is.EqualTo(burst), "The host read the whole burst in one update.");
@@ -707,11 +784,13 @@ namespace Mu3Library.Tests
             PumpUntil(() => ListedData(lobby, "round") == "0", "the first round to reach the file");
 
             // Another thread reads the folder over and over, as a search in another process does,
-            // while the owner rewrites the file.
+            // while the owner rewrites the file. On Windows the file is missing or held for a
+            // moment in each replacement, which a read waits out.
             PlayerId ownerId = owner.LocalPlayerId;
             int ownerPort = owner.Port;
             int reads = 0;
             int listed = 0;
+            int missed = 0;
             List<string> broken = new List<string>();
             Exception failure = null;
             ManualResetEventSlim isDone = new ManualResetEventSlim();
@@ -722,9 +801,11 @@ namespace Mu3Library.Tests
                     while (!isDone.IsSet)
                     {
                         reads++;
+                        bool isListed = false;
                         foreach (MachineDirectoryEntry entry in MachineDirectory.Read(_folder))
                         {
                             listed++;
+                            isListed |= entry.Lobby == lobby;
                             bool isWhole = entry.Lobby == lobby
                                 && entry.Owner == ownerId
                                 && entry.Port == ownerPort
@@ -736,6 +817,11 @@ namespace Mu3Library.Tests
                             {
                                 broken.Add($"{entry.Lobby} on {entry.Port}, capacity {entry.Capacity}: {string.Join(", ", entry.Data.Select(pair => pair.Key + "=" + pair.Value))}");
                             }
+                        }
+
+                        if (!isListed)
+                        {
+                            missed++;
                         }
                     }
                 }
@@ -763,13 +849,72 @@ namespace Mu3Library.Tests
                 isDone.Dispose();
             }
 
-            TestContext.Out.WriteLine($"{reads} reads, {listed} of which listed the lobby.");
+            TestContext.Out.WriteLine($"{reads} reads, {listed} of which listed the lobby, {missed} missed it.");
             Assert.That(failure, Is.Null, failure?.ToString());
             Assert.That(broken, Is.Empty);
             Assert.That(listed, Is.GreaterThan(0));
+            Assert.That(missed, Is.Zero, $"{missed} of {reads} reads missed the lobby.");
 
             // A rewrite that the reader got in the way of is tried again.
             PumpUntil(() => ListedData(lobby, "round") == Rounds.ToString(CultureInfo.InvariantCulture), "the last round to reach the file");
+        }
+
+        [Test]
+        public void Directory_ReadInTheMiddleOfAReplacement_WaitsForTheLobbyFile()
+        {
+            // As File.Replace leaves the folder on Windows for a moment: the old file moved aside,
+            // the new one not yet in place, so no file has the lobby file's name. The rounds move
+            // the new one in at times 10 microseconds apart from the start of the read, and then
+            // a millisecond apart, so some move it between the read listing a file and looking at it.
+            const int FineRounds = 200;
+            const int CoarseRounds = 25;
+            MachineDirectory directory = new MachineDirectory(_folder, 7);
+            directory.Publish(new PlayerId(9), 7, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            directory.Abandon();
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+            string temporary = Path.ChangeExtension(file, ".tmp");
+
+            for (int round = 0; round < FineRounds + CoarseRounds; round++)
+            {
+                File.Move(file, temporary);
+                double delayMilliseconds = round < FineRounds ? round * 0.01 : round - FineRounds;
+                long delayTicks = (long)(delayMilliseconds * Stopwatch.Frequency / 1000.0);
+                long readStart = 0;
+                Thread owner = new Thread(() =>
+                {
+                    long start;
+                    while ((start = Interlocked.Read(ref readStart)) == 0)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    while (Stopwatch.GetTimestamp() - start < delayTicks)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    File.Move(temporary, file);
+                });
+                owner.Start();
+                try
+                {
+                    Interlocked.Exchange(ref readStart, Stopwatch.GetTimestamp());
+                    Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(1) }),
+                        $"Round {round} missed the lobby moved in {delayMilliseconds:0.00} ms after the read started.");
+                }
+                finally
+                {
+                    Interlocked.CompareExchange(ref readStart, Stopwatch.GetTimestamp(), 0);
+                    owner.Join();
+                }
+            }
+
+            // What a process that ended left in the middle of a replacement is old, and nobody waits for it.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0));
+            Stopwatch read = Stopwatch.StartNew();
+            Assert.That(MachineDirectory.Read(_folder), Is.Empty);
+            Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds * 0.8), "The read waited for a file that a process that ended left.");
         }
 
         [Test]
@@ -796,6 +941,350 @@ namespace Mu3Library.Tests
 
             // The owner refreshes its file every two seconds, and tries a failed write again in half a second.
             PumpUntil(() => ListedData(lobby, "map") == "forest", "the change to reach the file", 1.0);
+        }
+
+        [Test]
+        public void Directory_LeavesOutALobbyWhoseKeyOrValueIsLongerThanTheFramesCarry()
+        {
+            string longestKey = new string('k', MachineProtocol.MaxDataKeyBytes);
+            string longestValue = new string('v', MachineProtocol.MaxDataValueBytes);
+            MachineLobby whole = ListedLobby(1, longestKey, longestValue);
+            MachineLobby longKey = ListedLobby(2, longestKey + "k", "v");
+            MachineLobby longValue = ListedLobby(3, "map", longestValue + "v");
+            MachineLobby after = ListedLobby(4, "map", "forest");
+
+            // Written as a process of another version could write it.
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+            directory.Publish(new PlayerId(9), 1, new List<MachineLobby> { whole, longKey, longValue, after });
+            try
+            {
+                List<MachineDirectoryEntry> entries = MachineDirectory.Read(_folder);
+
+                Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(new[] { whole.Id, after.Id }));
+                Assert.That(entries[0].Data[longestKey], Is.EqualTo(longestValue));
+                Assert.That(entries[1].Data["map"], Is.EqualTo("forest"));
+            }
+            finally
+            {
+                directory.Remove();
+            }
+        }
+
+        [Test]
+        public void Join_WithANameLongerThanTheFramesCarry_IsDropped_AndTheOwnerGoesOn()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            PlayerId intruder = new PlayerId(0x1234567UL);
+
+            PacketWriter writer = new PacketWriter();
+            writer.WriteInt(MachineProtocol.Magic);
+            writer.WriteInt(MachineProtocol.Version);
+            writer.WriteULong(lobby.Value);
+            writer.WriteULong(intruder.Value);
+            writer.WriteInt(1);
+            writer.WriteString(new string('n', MachineProtocol.MaxNameBytes + 1));
+            writer.WriteBool(false);
+
+            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                socket.Connect(new IPEndPoint(IPAddress.Loopback, owner.Port));
+                socket.Send(Frame(MachineFrameKind.LobbyJoin, writer.Written));
+
+                // The owner drops the frame and its connection without an answer.
+                int received = -1;
+                PumpUntil(() => (received = ReceiveOnce(socket)) >= 0, "the owner to close the connection");
+                Assert.That(received, Is.Zero);
+            }
+
+            Assert.That(owner.IsLobbyMember(lobby, intruder), Is.False);
+            LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(owner.IsLobbyMember(lobby, joiner.LocalPlayerId), Is.True);
+        }
+
+        [Test]
+        public void Join_ToAnOwnerWhoseLobbyCarriesAValueLongerThanTheFramesCarry_Fails_AndTheJoinerGoesOn()
+        {
+            // Another process lists a lobby and answers the join with data that no owner of this
+            // version sends.
+            using (Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+                listener.Listen(1);
+                int port = ((IPEndPoint)listener.LocalEndPoint).Port;
+                PlayerId impostor = new PlayerId(0x7654321UL);
+                MachineLobby listed = ListedLobby(0x123456UL, "map", "forest");
+                listed.OwnerId = impostor;
+                listed.OwnerPort = port;
+                listed.Members.Add(new MachineMember { Id = impostor, Port = port, Name = "Impostor" });
+
+                MachineDirectory directory = new MachineDirectory(_folder, port);
+                directory.Publish(impostor, port, new List<MachineLobby> { listed });
+                try
+                {
+                    LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
+                    MultiplayerReason? reason = null;
+                    joiner.JoinLobby(listed.Id, r => reason = r);
+                    PumpUntil(() => listener.Poll(0, SelectMode.SelectRead), "the join to connect");
+                    using (Socket accepted = listener.Accept())
+                    {
+                        listed.Data["map"] = new string('v', MachineProtocol.MaxDataValueBytes + 1);
+                        PacketWriter writer = new PacketWriter();
+                        writer.WriteInt((int)MultiplayerReason.None);
+                        MachineProtocol.WriteSnapshot(writer, listed);
+                        accepted.Send(Frame(MachineFrameKind.LobbyReply, writer.Written));
+                        PumpUntil(() => reason.HasValue, "the join");
+                    }
+
+                    Assert.That(reason, Is.EqualTo(MultiplayerReason.LobbyNotFound));
+                    Assert.That(joiner.GetLobbyOwner(listed.Id).IsValid, Is.False);
+
+                    LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+                    LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+                    Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+                }
+                finally
+                {
+                    directory.Remove();
+                }
+            }
+        }
+
+        [Test]
+        public void PlayerName_LongerThanTheRosterTakes_ReachesTheOtherProcessesCut()
+        {
+            // 300 UTF-8 bytes, more than a frame carries.
+            string name = new string('가', 100);
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            LocalBackend joiner = CreateRawBackend(CreateNetwork(), name);
+
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(joiner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name));
+            Assert.That(owner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name.Substring(0, MultiplayerLimits.MaxPlayerNameLength)));
+        }
+
+        [Test]
+        public void LobbyData_LongerThanTheFramesCarry_IsRefused_AndTheLongestReachesEveryProcess()
+        {
+            string longestKey = new string('k', MachineProtocol.MaxDataKeyBytes);
+            string longestValue = new string('v', MachineProtocol.MaxDataValueBytes);
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+
+            Assert.That(owner.SetLobbyData(lobby, longestKey + "k", "v"), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, "map", longestValue + "v"), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, longestKey, longestValue), Is.True);
+
+            MultiplayerReason? created = null;
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("lobby was not created"));
+            owner.CreateLobby(LobbyVisibility.Public, 4, new Dictionary<string, string> { ["map"] = longestValue + "v" }, (r, id) => created = r);
+            PumpUntil(() => created.HasValue, "the refused lobby");
+            Assert.That(created, Is.EqualTo(MultiplayerReason.BackendError));
+
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            Assert.That(SearchedData(member, lobby, data => data.TryGetValue(longestKey, out string value) && value == longestValue), Is.Not.Null);
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(member.GetLobbyData(lobby, longestKey), Is.EqualTo(longestValue));
+        }
+        #endregion
+
+        #region Lobby file cost
+        /// <summary>
+        /// What one rewrite of the lobby file allocates, logged in a line that starts with
+        /// <c>[Lobby file]</c>: the call the writer thread makes for each listing, made here, where
+        /// the GC.Alloc recorder can be limited to this thread. Unity's Mono does not count the
+        /// bytes of one thread, so the bytes are how much the managed heap grew over many writes,
+        /// from batches that no collection interrupted: a coarse figure, since the heap grows by
+        /// whole blocks.
+        /// </summary>
+        [Explicit("Logs a measurement; run it by name.")]
+        [Test]
+        public void LobbyFileWrite_Allocations_AreMeasured()
+        {
+            const int Writes = 40;
+            const int Batches = 20;
+            const int BatchWrites = 100;
+            byte[] listing = new byte[160];
+            new System.Random(1).NextBytes(listing);
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+
+            // The first write creates the folder and the file; the later ones replace the file, as
+            // the writer thread does.
+            Assert.That(directory.TryWrite(listing, listing.Length), Is.True);
+            Assert.That(directory.TryWrite(listing, listing.Length), Is.True);
+
+            UnityEngine.Profiling.Recorder recorder = UnityEngine.Profiling.Recorder.Get("GC.Alloc");
+            int[] counts = new int[Writes];
+            for (int i = 0; i < Writes; i++)
+            {
+                recorder.FilterToCurrentThread();
+                recorder.enabled = false;
+                recorder.enabled = true;
+                bool isWritten = directory.TryWrite(listing, listing.Length);
+                recorder.enabled = false;
+                Assert.That(isWritten, Is.True);
+                counts[i] = recorder.sampleBlockCount;
+            }
+
+            recorder.CollectFromAllThreads();
+            Array.Sort(counts);
+            Assert.That(counts[Writes - 1], Is.GreaterThan(0), "The GC.Alloc recorder saw no allocation.");
+
+            List<double> bytes = new List<double>();
+            for (int batch = 0; batch < Batches; batch++)
+            {
+                int collections = GC.CollectionCount(0);
+                long before = GC.GetTotalMemory(false);
+                for (int i = 0; i < BatchWrites; i++)
+                {
+                    directory.TryWrite(listing, listing.Length);
+                }
+
+                long after = GC.GetTotalMemory(false);
+                if (GC.CollectionCount(0) == collections && after > before)
+                {
+                    bytes.Add((after - before) / (double)BatchWrites);
+                }
+            }
+
+            bytes.Sort();
+            string report = $"[Lobby file] one rewrite allocates: count min={counts[0]} median={counts[Writes / 2]} max={counts[Writes - 1]}"
+                + " | bytes per write, heap growth over " + BatchWrites + " writes: "
+                + (bytes.Count > 0
+                    ? $"min={bytes[0]:0} quartiles={bytes[bytes.Count / 4]:0}/{bytes[bytes.Count / 2]:0}/{bytes[bytes.Count * 3 / 4]:0} max={bytes[bytes.Count - 1]:0} ({bytes.Count} of {Batches} batches)"
+                    : "n/a, a collection ran in every batch");
+            UnityEngine.Debug.Log(report);
+            TestContext.Out.WriteLine(report);
+        }
+
+        [Test]
+        public void LobbyFileWrite_ReplacesOrCreatesTheFile_WhateverElseLeftOrDeletedIt()
+        {
+            MachineDirectory directory = new MachineDirectory(_folder, 3);
+            string file = Path.Combine(_folder, "peer-3.lobbies");
+
+            // A process that ended on this port left its file: the first write replaces it.
+            Directory.CreateDirectory(_folder);
+            File.WriteAllBytes(file, new byte[] { 1 });
+            Assert.That(directory.TryWrite(new byte[] { 2, 2 }, 2), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 2, 2 }));
+
+            // A reader deleted it, taking this owner for ended: the next write creates it again.
+            File.Delete(file);
+            Assert.That(directory.TryWrite(new byte[] { 3, 3, 3 }, 3), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 3, 3, 3 }));
+
+            Assert.That(directory.TryWrite(new byte[] { 4 }, 1), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 4 }));
+            Assert.That(Directory.GetFiles(_folder), Has.Length.EqualTo(1));
+        }
+
+        /// <summary>
+        /// How long the main thread takes, logged in a line that starts with <c>[Lobby file]</c>,
+        /// where it may wait for a write of the writer thread: the update that deletes the file
+        /// after the last lobby left, <see cref="LocalBackend.Dispose"/>,
+        /// <see cref="LocalBackend.SimulateCrash"/>, and the update in which an owner whose file
+        /// is there creates another lobby, which writes the file itself. Each runs once while a
+        /// rewrite is in flight and once while the writer thread is idle; the difference is the wait.
+        /// </summary>
+        [Explicit("Measures in real time, about 45 seconds; run it by name.")]
+        [Test]
+        public void LobbyFile_MainThreadWaits_AreMeasured()
+        {
+            const int Rounds = 12;
+            double[] leave = new double[Rounds], leaveIdle = new double[Rounds];
+            double[] dispose = new double[Rounds], disposeIdle = new double[Rounds];
+            double[] crash = new double[Rounds], crashIdle = new double[Rounds];
+            double[] create = new double[Rounds], createIdle = new double[Rounds];
+            int inFlight = 0;
+            for (int round = 0; round < Rounds; round++)
+            {
+                for (int busy = 0; busy < 2; busy++)
+                {
+                    bool isBusy = busy == 1;
+
+                    // The listing that deletes the file waits out the shortest interval after the
+                    // last listing, so the slowest update in that time is the one that deleted it.
+                    (LocalBackend owner, LobbyId lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    owner.LeaveLobby(lobby);
+                    double slowest = 0.0;
+                    Stopwatch waited = Stopwatch.StartNew();
+                    while (waited.Elapsed.TotalSeconds < 0.4)
+                    {
+                        slowest = Math.Max(slowest, Time(owner.Update));
+                        Thread.Sleep(1);
+                    }
+
+                    Assert.That(Directory.GetFiles(_folder, "*.lobbies"), Is.Empty);
+                    (isBusy ? leave : leaveIdle)[round] = slowest;
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    (isBusy ? dispose : disposeIdle)[round] = Time(owner.Dispose);
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    (isBusy ? crash : crashIdle)[round] = Time(owner.SimulateCrash);
+                    foreach (string file in Directory.GetFiles(_folder))
+                    {
+                        File.Delete(file);
+                    }
+
+                    (owner, lobby) = OwnerWithAWrite(round, isBusy, ref inFlight);
+                    LobbyId second = LobbyId.None;
+                    owner.CreateLobby(LobbyVisibility.Public, 4, null, (r, id) => second = id);
+                    (isBusy ? create : createIdle)[round] = Time(owner.Update);
+                    Assert.That(second.IsValid, Is.True);
+                    owner.Dispose();
+                }
+            }
+
+            string report = "[Lobby file] main thread ms, with a rewrite in flight | with the writer thread idle:"
+                + " last leave " + Summary(leave) + " | " + Summary(leaveIdle)
+                + "; dispose " + Summary(dispose) + " | " + Summary(disposeIdle)
+                + "; crash " + Summary(crash) + " | " + Summary(crashIdle)
+                + "; second lobby " + Summary(create) + " | " + Summary(createIdle)
+                + $"; rewrite seen in flight {inFlight} of {Rounds * 4} times";
+            UnityEngine.Debug.Log(report);
+            TestContext.Out.WriteLine(report);
+        }
+
+        /// <summary>
+        /// An owner whose lobby file is there, past the shortest interval between listings, with
+        /// a rewrite on the writer thread when <paramref name="isBusy"/>, caught while it runs.
+        /// </summary>
+        private (LocalBackend Owner, LobbyId Lobby) OwnerWithAWrite(int round, bool isBusy, ref int inFlight)
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            Thread.Sleep(300);
+            if (isBusy)
+            {
+                string temporary = Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".tmp");
+                Assert.That(owner.SetLobbyData(lobby, "round", round.ToString(CultureInfo.InvariantCulture)), Is.True);
+                owner.Update();
+                if (SpinWait.SpinUntil(() => File.Exists(temporary), 50))
+                {
+                    inFlight++;
+                }
+            }
+
+            return (owner, lobby);
+        }
+
+        private static double Time(Action action)
+        {
+            long start = Stopwatch.GetTimestamp();
+            action();
+            return (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+        }
+
+        private static string Summary(double[] values)
+        {
+            double[] sorted = (double[])values.Clone();
+            Array.Sort(sorted);
+            return "median=" + sorted[sorted.Length / 2].ToString("0.000", CultureInfo.InvariantCulture)
+                + " max=" + sorted[sorted.Length - 1].ToString("0.000", CultureInfo.InvariantCulture);
         }
         #endregion
 
@@ -946,54 +1435,119 @@ namespace Mu3Library.Tests
         {
             // FR-27, FR-32, NFR-4, #198: what the host sent last is still on its way on the session
             // connection when the hand-over on the lobby connection reaches the client, and the
-            // client's session must not end before those messages and the close. The host runs on
-            // a thread of its own, as it would in a process of its own: Unity's runtime holds a
-            // send that the socket cannot take at once until the other side reads, which the
-            // client on this thread does meanwhile. The client reads little in each update, so
-            // what the sockets hold when the host leaves takes several updates to arrive.
+            // client's session must not end before those messages and the close. The host sends
+            // and leaves while the client does not read, on a thread of its own, so that a send
+            // that waited for the client to read (#251) fails the test instead of holding it; the
+            // client then reads a quarter of a megabyte in each update, so what the host's
+            // sockets hold takes several updates to arrive.
             Node host = CreateNode("Host");
             Node client = CreateNode("Client");
             StartSession(host, client);
             _paused.Add(host.Backend);
-            client.Backend.ReceiveBytesPerUpdate = 16 * 1024;
+            client.Backend.ReceiveBytesPerUpdate = 256 * 1024;
 
             const int count = 32;
-            Exception failure = null;
             double leftAt = double.NaN;
-            Thread hostThread = new Thread(() =>
+            RunWithin(5.0, "sending 2 MiB to a client that does not read and leaving", () =>
             {
-                try
+                byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
+                for (int i = 0; i < count; i++)
                 {
-                    byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
-                    for (int i = 0; i < count; i++)
+                    BitConverter.GetBytes(i).CopyTo(payload, 0);
+                    MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
+                    if (!sent.IsSuccess)
                     {
-                        BitConverter.GetBytes(i).CopyTo(payload, 0);
-                        MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
-                        if (!sent.IsSuccess)
-                        {
-                            throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
-                        }
+                        throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
                     }
-
-                    host.Manager.Leave();
-                    Volatile.Write(ref leftAt, _clock.Elapsed.TotalSeconds);
                 }
-                catch (Exception e)
-                {
-                    failure = e;
-                }
-            });
 
-            hostThread.Start();
-            PumpUntil(() => hostThread.Join(0), "the host to send and leave");
-            Assert.That(failure, Is.Null, failure?.ToString());
+                host.Manager.Leave();
+                leftAt = _clock.Elapsed.TotalSeconds;
+            }, () => client.Backend.SimulateCrash());
+
             PumpUntil(() => client.Manager.State == SessionState.Offline, "the client to end its session", 2.0);
             double offlineAt = _clock.Elapsed.TotalSeconds;
 
             Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, count)));
             Assert.That(client.Messages.Select(message => message.Payload.Length), Is.All.EqualTo(MultiplayerConfig.DefaultMaxMessageSize));
             Assert.That(client.States.Last().Reason, Is.EqualTo(MultiplayerReason.HostLeft));
-            Assert.That(offlineAt - Volatile.Read(ref leftAt), Is.LessThan(2.0), "NFR-4");
+            Assert.That(offlineAt - leftAt, Is.LessThan(2.0), "NFR-4");
+        }
+
+        [Test]
+        public void Sends_LargerThanTheSocketsHold_ToAPlayerThatDoesNotRead_ReturnAtOnce_AndArriveInOrderOnceItReads([Values(false, true)] bool sendsSegments)
+        {
+            // #251: Unity's Socket.Send calls the system again until the socket took everything,
+            // also on a non-blocking socket, so a send to a full socket waited for the other side
+            // to read, and with both players in one process, as here, for ever. The host sends
+            // megabytes to a client that does not update meanwhile, with either socket call of
+            // its sending thread.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            host.Backend.SendsSegments = sendsSegments;
+            StartSession(host, client);
+            _paused.Add(client.Backend);
+
+            const int count = 48;
+            RunWithin(5.0, "sending 3 MiB to a client that does not read", () =>
+            {
+                byte[] payload = new byte[MultiplayerConfig.DefaultMaxMessageSize];
+                for (int i = 0; i < count; i++)
+                {
+                    BitConverter.GetBytes(i).CopyTo(payload, 0);
+                    MultiplayerResult sent = host.Manager.Send(Chat, payload, MessageTarget.Others);
+                    if (!sent.IsSuccess)
+                    {
+                        throw new InvalidOperationException($"Message {i} answered {sent.Reason}.");
+                    }
+                }
+            }, () => client.Backend.SimulateCrash());
+
+            _paused.Remove(client.Backend);
+            PumpUntil(() => client.Messages.Count >= count, "every message to arrive");
+            Assert.That(client.Messages.Select(message => BitConverter.ToInt32(message.Payload, 0)), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(client.Messages.Select(message => message.Payload.Length), Is.All.EqualTo(MultiplayerConfig.DefaultMaxMessageSize));
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(2), "The host kept the client.");
+        }
+
+        [Test]
+        public void Send_ToAPlayerThatDoesNotRead_AnswersFalsePastWhatTheConnectionKeeps_AndTheConnectionGoesOn([Values(false, true)] bool sendsSegments)
+        {
+            // #251, as a full send buffer on Steam: once a connection holds more than the backend
+            // keeps for it that its socket did not take, a send answers false at once.
+            (LocalBackend host, RecordingListener hostEvents, LocalBackend client, RecordingListener clientEvents) = ConnectPair();
+            ConnectionId toHost = clientEvents.Connected.Single().Connection;
+            client.SendsSegments = sendsSegments;
+            _paused.Add(host);
+
+            byte[] packet = new byte[64 * 1024];
+            int accepted = 0;
+            bool isRefused = false;
+            RunWithin(5.0, "sending to a host that does not read", () =>
+            {
+                for (int i = 0; i < 256 && !isRefused; i++)
+                {
+                    BitConverter.GetBytes(i).CopyTo(packet, 0);
+                    if (client.Send(toHost, packet, DeliveryMode.Reliable))
+                    {
+                        accepted++;
+                    }
+                    else
+                    {
+                        isRefused = true;
+                    }
+                }
+            }, () => host.SimulateCrash());
+
+            Assert.That(isRefused, Is.True, "No send answered false.");
+            _paused.Remove(host);
+            PumpUntil(() => hostEvents.Received.Count >= accepted, "what was sent before the refusal");
+            Assert.That(hostEvents.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, accepted)));
+
+            Assert.That(client.Send(toHost, packet, DeliveryMode.Reliable), Is.True, "The connection takes sends again once the host read.");
+            PumpUntil(() => hostEvents.Received.Count == accepted + 1, "the send after the refusal");
+            Assert.That(hostEvents.Disconnected, Is.Empty);
+            Assert.That(clientEvents.Disconnected, Is.Empty);
         }
 
         [Test]
@@ -1154,10 +1708,10 @@ namespace Mu3Library.Tests
             return backend;
         }
 
-        private Node CreateNode(string name, Action<LocalNetwork> configure = null)
+        private Node CreateNode(string name, Action<LocalNetwork> configure = null, PlayerId id = default)
         {
             LocalNetwork network = CreateNetwork(configure);
-            LocalBackend backend = new LocalBackend(network, name);
+            LocalBackend backend = new LocalBackend(network, name, id);
             MultiplayerManager manager = new MultiplayerManager();
             Assert.That(manager.Initialize(backend, new MultiplayerConfig(GameId, 1) { Clock = () => _clock.Elapsed.TotalSeconds }).IsSuccess, Is.True);
 
@@ -1372,6 +1926,79 @@ namespace Mu3Library.Tests
 
                 Thread.Sleep(2);
                 UpdateAll();
+            }
+        }
+
+        /// <summary>Waits until the backend's sending thread handed everything to its sockets.</summary>
+        private static void WaitForSends(LocalBackend backend)
+        {
+            Assert.That(SpinWait.SpinUntil(() => !backend.HasSendsInFlight, TimeSpan.FromSeconds(WaitSeconds)), Is.True, "The sending thread kept something.");
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> on a thread of its own and waits for it at most
+        /// <paramref name="seconds"/>, so a send that a full socket holds (#251) fails the test
+        /// instead of holding the run. <paramref name="release"/> breaks the connection that
+        /// holds it, so the thread ends before the test does.
+        /// </summary>
+        private static void RunWithin(double seconds, string what, Action action, Action release)
+        {
+            Exception failure = null;
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    failure = e;
+                }
+            })
+            {
+                IsBackground = true,
+            };
+
+            thread.Start();
+            if (!thread.Join(TimeSpan.FromSeconds(seconds)))
+            {
+                release();
+                thread.Join(TimeSpan.FromSeconds(WaitSeconds));
+                Assert.Fail($"Timed out after {seconds} s {what}: a send waited for the other side to read.");
+            }
+
+            Assert.That(failure, Is.Null, failure?.ToString());
+        }
+
+        /// <summary>A lobby as its owner lists it, with one data entry.</summary>
+        private static MachineLobby ListedLobby(ulong id, string key, string value)
+        {
+            MachineLobby lobby = new MachineLobby { Id = new LobbyId(id), IsOwned = true, Visibility = LobbyVisibility.Public, Capacity = 4 };
+            lobby.Data[key] = value;
+            return lobby;
+        }
+
+        /// <summary>One frame of the machine-wide protocol, as another process sends it.</summary>
+        private static byte[] Frame(MachineFrameKind kind, ReadOnlySpan<byte> payload)
+        {
+            byte[] frame = new byte[MachineProtocol.HeaderBytes + 1 + payload.Length];
+            BinaryPrimitives.WriteInt32LittleEndian(frame, 1 + payload.Length);
+            frame[MachineProtocol.HeaderBytes] = (byte)kind;
+            payload.CopyTo(new Span<byte>(frame, MachineProtocol.HeaderBytes + 1, payload.Length));
+            return frame;
+        }
+
+        /// <summary>What one read of the socket returns: -1 while nothing arrived, 0 once the other side closed it.</summary>
+        private static int ReceiveOnce(Socket socket)
+        {
+            try
+            {
+                return socket.Poll(0, SelectMode.SelectRead) ? socket.Receive(new byte[4096]) : -1;
+            }
+            catch (SocketException)
+            {
+                // Reset: closed all the same.
+                return 0;
             }
         }
 
