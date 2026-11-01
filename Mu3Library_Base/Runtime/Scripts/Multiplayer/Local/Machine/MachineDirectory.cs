@@ -89,6 +89,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         // Whichever thread writes the file: the main thread only while no writer thread runs.
         private bool _hasFolder = false;
+        private bool _isFileInPlace = false;
 
         public MachineDirectory(string folder, int port)
         {
@@ -207,6 +208,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             _hasFile = false;
+            _isFileInPlace = false;
             TryDelete(_path);
             TryDelete(_temporaryPath);
         }
@@ -317,7 +319,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
         }
 
-        private bool TryWrite(byte[] listing, int length)
+        /// <summary>
+        /// Writes the file from the listing: what the writer thread does for each listing, and the
+        /// main thread for one that adds a lobby. Internal so the tests can measure one write.
+        /// </summary>
+        internal bool TryWrite(byte[] listing, int length)
         {
             try
             {
@@ -360,8 +366,25 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 file.Write(listing, 0, length);
             }
 
-            // A reader sees the old file or the new one, never half of one.
-            if (File.Exists(_path))
+            // A reader sees the old file or the new one, never half of one. Whether the file is
+            // there follows from the last write, rather than from a File.Exists on every write,
+            // which allocates; a file that something else deleted or created since, as a reader
+            // deletes the file of an owner it takes for ended, takes the other call.
+            try
+            {
+                MoveIntoPlace(_isFileInPlace);
+            }
+            catch (IOException) when (File.Exists(_path) != _isFileInPlace)
+            {
+                MoveIntoPlace(!_isFileInPlace);
+            }
+
+            _isFileInPlace = true;
+        }
+
+        private void MoveIntoPlace(bool replaces)
+        {
+            if (replaces)
             {
                 File.Replace(_temporaryPath, _path, null);
             }

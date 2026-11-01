@@ -990,6 +990,98 @@ namespace Mu3Library.Tests
         }
         #endregion
 
+        #region Lobby file cost
+        /// <summary>
+        /// What one rewrite of the lobby file allocates, logged in a line that starts with
+        /// <c>[Lobby file]</c>: the call the writer thread makes for each listing, made here, where
+        /// the GC.Alloc recorder can be limited to this thread. Unity's Mono does not count the
+        /// bytes of one thread, so the bytes are how much the managed heap grew over many writes,
+        /// from batches that no collection interrupted: a coarse figure, since the heap grows by
+        /// whole blocks.
+        /// </summary>
+        [Explicit("Logs a measurement; run it by name.")]
+        [Test]
+        public void LobbyFileWrite_Allocations_AreMeasured()
+        {
+            const int Writes = 40;
+            const int Batches = 20;
+            const int BatchWrites = 100;
+            byte[] listing = new byte[160];
+            new System.Random(1).NextBytes(listing);
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+
+            // The first write creates the folder and the file; the later ones replace the file, as
+            // the writer thread does.
+            Assert.That(directory.TryWrite(listing, listing.Length), Is.True);
+            Assert.That(directory.TryWrite(listing, listing.Length), Is.True);
+
+            UnityEngine.Profiling.Recorder recorder = UnityEngine.Profiling.Recorder.Get("GC.Alloc");
+            int[] counts = new int[Writes];
+            for (int i = 0; i < Writes; i++)
+            {
+                recorder.FilterToCurrentThread();
+                recorder.enabled = false;
+                recorder.enabled = true;
+                bool isWritten = directory.TryWrite(listing, listing.Length);
+                recorder.enabled = false;
+                Assert.That(isWritten, Is.True);
+                counts[i] = recorder.sampleBlockCount;
+            }
+
+            recorder.CollectFromAllThreads();
+            Array.Sort(counts);
+            Assert.That(counts[Writes - 1], Is.GreaterThan(0), "The GC.Alloc recorder saw no allocation.");
+
+            List<double> bytes = new List<double>();
+            for (int batch = 0; batch < Batches; batch++)
+            {
+                int collections = GC.CollectionCount(0);
+                long before = GC.GetTotalMemory(false);
+                for (int i = 0; i < BatchWrites; i++)
+                {
+                    directory.TryWrite(listing, listing.Length);
+                }
+
+                long after = GC.GetTotalMemory(false);
+                if (GC.CollectionCount(0) == collections && after > before)
+                {
+                    bytes.Add((after - before) / (double)BatchWrites);
+                }
+            }
+
+            bytes.Sort();
+            string report = $"[Lobby file] one rewrite allocates: count min={counts[0]} median={counts[Writes / 2]} max={counts[Writes - 1]}"
+                + " | bytes per write, heap growth over " + BatchWrites + " writes: "
+                + (bytes.Count > 0
+                    ? $"min={bytes[0]:0} quartiles={bytes[bytes.Count / 4]:0}/{bytes[bytes.Count / 2]:0}/{bytes[bytes.Count * 3 / 4]:0} max={bytes[bytes.Count - 1]:0} ({bytes.Count} of {Batches} batches)"
+                    : "n/a, a collection ran in every batch");
+            UnityEngine.Debug.Log(report);
+            TestContext.Out.WriteLine(report);
+        }
+
+        [Test]
+        public void LobbyFileWrite_ReplacesOrCreatesTheFile_WhateverElseLeftOrDeletedIt()
+        {
+            MachineDirectory directory = new MachineDirectory(_folder, 3);
+            string file = Path.Combine(_folder, "peer-3.lobbies");
+
+            // A process that ended on this port left its file: the first write replaces it.
+            Directory.CreateDirectory(_folder);
+            File.WriteAllBytes(file, new byte[] { 1 });
+            Assert.That(directory.TryWrite(new byte[] { 2, 2 }, 2), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 2, 2 }));
+
+            // A reader deleted it, taking this owner for ended: the next write creates it again.
+            File.Delete(file);
+            Assert.That(directory.TryWrite(new byte[] { 3, 3, 3 }, 3), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 3, 3, 3 }));
+
+            Assert.That(directory.TryWrite(new byte[] { 4 }, 1), Is.True);
+            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 4 }));
+            Assert.That(Directory.GetFiles(_folder), Has.Length.EqualTo(1));
+        }
+        #endregion
+
         #region Simulation
         [Test]
         public void SimulatedLatency_OnBothProcesses_ReportsTheRoundTripAsPing()
