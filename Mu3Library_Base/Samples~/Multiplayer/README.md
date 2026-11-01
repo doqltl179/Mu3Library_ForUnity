@@ -34,6 +34,17 @@ With Steamworks.NET installed and the Steam client running, an editor and a play
 
 A player of the sample sets `Application.runInBackground`, so its window keeps the session going in the background. In the editor, the project's **Run In Background** player setting decides, and the sample leaves it alone.
 
+### With Multiplayer Play Mode
+
+Multiplayer Play Mode tries the sample in the editor alone, without a player build. This was checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that editor bundles, on the local backend: a virtual player inherits the main editor's environment, so it finds the main editor's lobbies in the same temporary folder.
+
+1. Add `com.unity.multiplayer.playmode` to the project through the Package Manager, at the version your editor bundles. Base and the sample neither need it nor install it, so it can go in only while you try this and come out again afterwards.
+2. Open `Scenes/Sample_Multiplayer.unity`, turn on **Use Local Backend** on the `SampleMultiplayerCore` object, and save the scene. The main editor and a virtual player are one Steam account, so on Steam the host refuses the virtual player with `DuplicateAccount`. Without Steamworks.NET the sample is on the local backend already.
+3. In **Window > Multiplayer > Multiplayer Play Mode**, turn on Player 2, then enter play mode in the main editor. Player 2 enters play mode with it.
+4. Go through steps 3 to 7 above with the main editor and Player 2 as the two instances.
+
+A kicked player cannot come back into the same game: the host refuses them with `Banned` for the rest of the session, and a lobby in a game drops out of the search and refuses joins with `GameInProgress`. To try something else after a kick, such as the host's **Leave**, which ends the other player's session with `HostLeft`, exit play mode and enter it again for a new session.
+
 ## On Steam
 
 With Steamworks.NET installed and Steam running, the same buttons play on Steam lobbies and connections, and the lobby shows **Invite friends (Steam overlay)**, which opens the overlay's invite dialog. An accepted invite, a join from the friends list, or a launch from an invite joins by itself; the log shows the join request. While the Steam overlay is off for the game, the button logs `OverlayUnavailable` instead. One Steam account takes one slot in a session, so two players need two accounts, normally on two computers.
