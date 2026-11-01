@@ -10,15 +10,24 @@ namespace Mu3Library.Editor.FileUtil {
 
         #region Utility
         /// <summary>
-        /// 
+        /// ScriptableObject 에셋을 만들어 저장한다. 폴더가 없으면 만든다.
+        /// <br/> 폴더는 <c>Assets</c>이거나 그 아래여야 한다. <c>Packages/...</c>처럼 <c>Assets</c> 밖의 경로는
+        /// 임베디드·로컬 패키지처럼 쓸 수 있는 패키지의 경로라도 받지 않는다. 그런 경로를 받으면 받을 수 없는 경로를 적은
+        /// 오류를 한 번 남기고 null을 돌려주며, 예외를 던지지 않는다.
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 </param>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 (<c>Assets</c> 또는 <c>Assets/...</c>) </param>
+        /// <param name="fileName"> 확장자를 제외한 파일 이름 </param>
+        /// <returns> 만든 에셋, 인자가 비었거나 폴더가 <c>Assets</c> 밖이면 null </returns>
         public static T CreateScriptableObject<T>(string directory, string fileName) where T : ScriptableObject {
             if(string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
                 Debug.LogError($"Property not enough. directory: {directory}, fileName: {fileName}");
+
+                return null;
+            }
+
+            if(!FilePathConvertor.IsAssetPath(directory.Replace('\\', '/'))) {
+                Debug.LogError($"Cannot create '{fileName}.asset' in '{directory}'. The folder must be 'Assets' or under it; package folders are not supported.");
 
                 return null;
             }
