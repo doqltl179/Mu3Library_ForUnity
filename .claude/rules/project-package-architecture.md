@@ -65,6 +65,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 - Explicit access modifiers on every member; interface names start with `I`.
 - Log actionable problems with `Debug.LogWarning` or `Debug.LogError`; keep hot paths quiet. Catch exceptions at I/O, parsing, and network boundaries.
 - Async code follows the coroutine or UniTask pattern already used nearby; reuse the existing pooling and utilities.
+- Write a character a reader cannot see or tell apart as a `\uXXXX` escape, since a diff shows it as nothing or as a lookalike: private-use, format, and control characters, and non-ASCII data such as the accented and full-width letters of a string-comparison table. Korean and Japanese prose in comments and strings stays as written. `mu3-cli repo check` reports the invisible and private-use characters in package `.cs` files.
 
 ## Review Focus
 
