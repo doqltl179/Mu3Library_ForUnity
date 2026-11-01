@@ -40,7 +40,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 _writer.WriteInt(MachineProtocol.Magic);
                 _writer.WriteInt(MachineProtocol.Version);
                 _writer.WriteULong(LocalPlayerId.Value);
-                _writer.WriteString(PlayerName);
+                _writer.WriteString(_wireName);
                 _writer.WriteULong(host.Value);
                 QueueFrame(link, MachineFrameKind.SessionHello, _writer.Written, force: true);
             }
@@ -358,7 +358,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 PacketReader reader = new PacketReader(payload);
                 ReadVersion(ref reader);
                 remote = new PlayerId(reader.ReadULong());
-                name = reader.ReadString();
+                name = MachineProtocol.ReadName(ref reader);
                 expected = new PlayerId(reader.ReadULong());
             }
             catch (FormatException)
@@ -395,7 +395,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             _writer.Clear();
             _writer.WriteULong(LocalPlayerId.Value);
-            _writer.WriteString(PlayerName);
+            _writer.WriteString(_wireName);
             QueueFrame(link, MachineFrameKind.SessionAccept, _writer.Written, force: true);
             Flush(link);
 
@@ -457,7 +457,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             {
                 PacketReader reader = new PacketReader(payload);
                 remote = new PlayerId(reader.ReadULong());
-                name = reader.ReadString();
+                name = MachineProtocol.ReadName(ref reader);
             }
             catch (FormatException)
             {

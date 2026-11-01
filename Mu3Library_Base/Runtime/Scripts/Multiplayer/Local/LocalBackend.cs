@@ -40,6 +40,18 @@ namespace Mu3Library.Multiplayer.Local
     /// its player ID itself, so the identity is only as trustworthy as the processes on this
     /// computer.
     /// </para>
+    /// <para>
+    /// On a machine-wide network the other processes read a player name and a lobby data key of
+    /// at most three UTF-8 bytes for each of <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+    /// and <see cref="MultiplayerLimits.MaxDataKeyLength"/> characters, and a lobby data value of
+    /// at most <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes, and drop what carries a
+    /// longer one: a frame ends the connection it came on, and a listed lobby leaves search and
+    /// joins by its ID.
+    /// So the player name travels cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+    /// characters, as the roster cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
+    /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
+    /// as Steam refuses a key or a value too long for it.
+    /// </para>
     /// </remarks>
     public sealed class LocalBackend : IMultiplayerBackend
     {
