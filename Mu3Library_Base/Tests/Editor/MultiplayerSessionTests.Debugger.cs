@@ -137,6 +137,64 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Debugger_ShowsTheHostsPingOfEveryPlayer_OnTheHostAndEveryClient_ApartFromThisPlayersOwnQuality()
+        {
+            // FR-42, FR-36: a client reaches the other clients through the host only, so their row
+            // shows no connection quality of its own, but the host's ping of them.
+            UseTestNetworkClock();
+            (Node host, Node[] clients) = CreateSession(3);
+            Node[] everyone = clients.Prepend(host).ToArray();
+            List<(string Source, IMultiplayerManager Manager)> managers = everyone
+                .Select(node => (node.Backend.PlayerName, (IMultiplayerManager)node.Manager))
+                .ToList();
+
+            MultiplayerDebuggerWindow window = ScriptableObject.CreateInstance<MultiplayerDebuggerWindow>();
+            try
+            {
+                // Before the host's first report, a client has no ping of the other clients.
+                window.Refresh(managers, _now);
+                MultiplayerSessionView.PlayerRow early = window.Views[1].Players.Single(row => row.Participant.Id == clients[1].Id);
+                Assert.That(early.HasHostPing, Is.False, "nothing reported yet");
+                Assert.That(early.HasQuality, Is.False);
+
+                _network.SimulatedLatencyMilliseconds = 100f;
+                RefreshFor(window, managers, 3.5);
+
+                foreach (MultiplayerSessionView view in window.Views)
+                {
+                    Assert.That(view.Players.Select(row => row.Participant.Id), Is.EquivalentTo(everyone.Select(node => node.Id)), view.Source);
+                    foreach (MultiplayerSessionView.PlayerRow row in view.Players)
+                    {
+                        string about = $"{view.Source} about {row.Participant}";
+                        Assert.That(row.HasHostPing, Is.True, about);
+                        if (row.Participant.Id == host.Id)
+                        {
+                            Assert.That(row.HostPingMilliseconds, Is.Zero, $"{about}: the host's own entry");
+                        }
+                        else
+                        {
+                            Assert.That(row.HostPingMilliseconds, Is.InRange(180, 220), about);
+                        }
+
+                        // This player's own connection quality stays in its own fields.
+                        bool hasConnection = view.IsHost ? row.Participant.Id != host.Id : row.Participant.Id == host.Id;
+                        Assert.That(row.HasQuality, Is.EqualTo(hasConnection), about);
+                    }
+                }
+
+                // A client's row of another client shows the host's ping, with no quality of its own.
+                MultiplayerSessionView.PlayerRow other = window.Views[1].Players.Single(row => row.Participant.Id == clients[1].Id);
+                Assert.That(other.HasQuality, Is.False);
+                Assert.That(clients[0].Manager.TryGetParticipantPing(clients[1].Id, out int read), Is.True);
+                Assert.That(other.HostPingMilliseconds, Is.EqualTo(read));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
         public void Debugger_ShowsWhoIsAwayOrLoaded_AndAClientThatReconnects()
         {
             // FR-42, FR-9, FR-20, FR-25
@@ -163,6 +221,7 @@ namespace Mu3Library.Tests
                     $"B ({b.Id}) [away]",
                 }));
                 Assert.That(hostView.Players[2].HasQuality, Is.False, "nothing to measure while the player is away");
+                Assert.That(hostView.Players[2].HasHostPing, Is.False, "no host ping while the player is away");
 
                 MultiplayerSessionView clientView = window.Views[1];
                 Assert.That(clientView.State, Is.EqualTo(SessionState.Reconnecting));

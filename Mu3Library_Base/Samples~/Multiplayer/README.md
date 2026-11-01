@@ -88,4 +88,4 @@ The editor reads the same options from its own command line, so an editor starte
 | `Scripts/SampleCommandLine.cs` | The command-line options |
 | `Scripts/SampleLog.cs` | The on-screen log |
 
-In play mode, **Mu3Library > Windows > Multiplayer Debugger** shows the sample's session, its players, their connection quality, and the message counts.
+In play mode, **Mu3Library > Windows > Multiplayer Debugger** shows the sample's session, its players with each one's ping as the host measures it and this player's own connection quality to each, and the message counts.
