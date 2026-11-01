@@ -27,6 +27,7 @@ from mu3_cli.repository import repo_root
 from mu3_cli.unity import (
     editor_bundled_versions,
     editor_package_manager_dir,
+    is_hub_editor_for,
     load_target_specs,
     project_editor_version,
     resolve_editor_path,
@@ -509,6 +510,10 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
     player_log = work_dir / f"{label}-player.log"
 
     echo(f"Unity: {editor_path}" + (" (UNITY_EDITOR override)" if overridden else ""))
+    if overridden and not is_hub_editor_for(editor_path, version):
+        # As compile-unity.sh warns: the mirror and the labels name the version, the override decides.
+        requester = "--editor-version" if options.editor_version else reference.project_path.as_posix()
+        echo(f"warning: {requester} requires Unity {version} but the explicit override will be used: {editor_path}")
     echo(f"Mirror project: {project_dir}")
     if len(str(project_dir)) > LONG_PROJECT_PATH:
         echo(

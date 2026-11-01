@@ -594,6 +594,29 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         self.assertIn("Mirror changes: none", lines)
 
     @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    def test_an_override_that_is_not_the_requested_editor_is_named_in_a_warning(self, _system: mock.Mock) -> None:
+        for name, location, editor_version, warning in (
+            ("other Editor for --editor-version", "elsewhere", FLOOR_VERSION,
+             f"warning: --editor-version requires Unity {FLOOR_VERSION} but the explicit override will be used: "),
+            ("other Editor for the URP project", "elsewhere", None,
+             "warning: UnityProject_URP requires Unity 6000.6.7f1 but the explicit override will be used: "),
+            ("Hub install of the requested Editor", f"Hub/Editor/{FLOOR_VERSION}", FLOOR_VERSION, None),
+        ):
+            with self.subTest(name):
+                root = fixture_root(self)
+                editor = fake_editor(root / location)
+                lines: list[str] = []
+
+                with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, True)):
+                    code = run_harness(
+                        root, HarnessOptions(work_dir=root / "work", editor_version=editor_version), FakeUnity(), lines.append
+                    )
+
+                self.assertEqual(0, code, lines)
+                warnings = [line for line in lines if "the explicit override will be used" in line]
+                self.assertEqual([warning + str(editor)] if warning else [], warnings)
+
+    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
     def test_an_editor_without_bundled_packages_stops_before_unity_runs(self, _system: mock.Mock) -> None:
         root = fixture_root(self)
         editor = fake_editor(root, with_packages=False)

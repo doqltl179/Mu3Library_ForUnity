@@ -142,6 +142,20 @@ def resolve_editor_path(version: str) -> tuple[Path, bool]:
     return default_editor_path(version), False
 
 
+def is_hub_editor_for(editor_path: Path, version: str) -> bool:
+    """Whether a Unity executable sits where Unity Hub installs that Editor version.
+
+    compile-unity.sh's hub_editor_suffix makes the same test to warn when UNITY_EDITOR or UNITY
+    overrides the Editor a project or --editor-version asks for with another one.
+    """
+    if platform.system() == "Darwin":
+        suffix: tuple[str, ...] = ("Editor", version, "Unity.app", "Contents", "MacOS", "Unity")
+    else:
+        suffix = ("Editor", version, "Editor", "Unity.exe" if platform.system() == "Windows" else "Unity")
+    tail = editor_path.parts[-len(suffix):]
+    return [os.path.normcase(part) for part in tail] == [os.path.normcase(part) for part in suffix]
+
+
 class BashNotFoundError(ValueError):
     """No bash that can run the repository's shell entry points was found."""
 
