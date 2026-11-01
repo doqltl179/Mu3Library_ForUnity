@@ -15,8 +15,9 @@ namespace Mu3Library.Editor.Window.Drawer
         public List<Mu3WindowDrawer> Drawers => _drawers;
 
         /// <summary>
-        /// The full name of the window type whose project list this is, so the window finds the list after it is moved
-        /// or renamed under <c>Assets</c>. Empty for a list kept next to its window script.
+        /// The full name of the window type whose list this is, so the window finds the list after it is moved or
+        /// renamed under <c>Assets</c>. Empty until a window records it, as for a list made from the Create menu, and
+        /// for a list next to a window script in a package that can be changed.
         /// </summary>
         [SerializeField, HideInInspector] private string _windowTypeName = "";
         internal string WindowTypeName
