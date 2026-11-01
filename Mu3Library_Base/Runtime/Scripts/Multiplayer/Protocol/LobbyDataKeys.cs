@@ -22,10 +22,15 @@ namespace Mu3Library.Multiplayer.Protocol
 
         /// <summary>
         /// <see cref="ClosedForTheGame"/> from the start of a game that refuses late joiners to
-        /// its end, <see cref="NotClosed"/> otherwise. The library's search keeps only lobbies that
-        /// are not closed, so such a session stays out of it also while the host opens its lobby
-        /// for a player coming back to a kept slot (FR-19, FR-20, FR-21), when Steam's own search
-        /// would list it again.
+        /// its end, <see cref="NotClosed"/> otherwise. The library's search keeps only lobbies
+        /// whose value is <see cref="NotClosed"/>, so such a session stays out of it also while the
+        /// host opens its lobby for a player coming back to a kept slot (FR-19, FR-20, FR-21), when
+        /// Steam's own search would list it again. A lobby without the key is left out too: Steam's
+        /// string filters drop a lobby that lacks the key under every comparison (AppID 480,
+        /// 2026-11-01), so no filter keeps such lobbies on Steam, and dropping closed lobbies only
+        /// after the search would spend the search's result slots on them. A player whose entry
+        /// the lobby refused goes past it only when the key reads <see cref="ClosedForTheGame"/>,
+        /// since Steam refuses an invite-only lobby of a game that takes late joiners the same way.
         /// </summary>
         public const string Closed = "mu3.closed";
         public const string NotClosed = "0";
