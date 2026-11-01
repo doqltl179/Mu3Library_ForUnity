@@ -514,10 +514,19 @@ namespace Mu3Library.Multiplayer
                     return;
                 }
 
+                // Every version starts a hello with its wire version, and another version may lay
+                // out the rest otherwise, so a hello of another version is refused before the rest
+                // is read, rather than dropped as malformed until the handshake times out.
                 int wireVersion = reader.ReadInt();
+                if (wireVersion != WireProtocol.Version)
+                {
+                    RefusePeer(peer, MultiplayerReason.VersionMismatch);
+                    return;
+                }
+
                 string gameId = reader.ReadString(MaxGameIdBytes);
                 int protocolVersion = reader.ReadInt();
-                HandleHello(peer, gameId, protocolVersion, wireVersion, data.Length, ref reader);
+                HandleHello(peer, gameId, protocolVersion, data.Length, ref reader);
                 return;
             }
 
@@ -569,11 +578,9 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int wireVersion, int bytes, ref PacketReader reader)
+        private void HandleHello(PeerConnection peer, string gameId, int protocolVersion, int bytes, ref PacketReader reader)
         {
-            if (!string.Equals(gameId, _gameId, StringComparison.Ordinal)
-                || protocolVersion != _protocolVersion
-                || wireVersion != WireProtocol.Version)
+            if (!string.Equals(gameId, _gameId, StringComparison.Ordinal) || protocolVersion != _protocolVersion)
             {
                 RefusePeer(peer, MultiplayerReason.VersionMismatch);
                 return;
