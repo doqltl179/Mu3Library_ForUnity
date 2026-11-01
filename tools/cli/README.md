@@ -11,7 +11,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity doctor`: diagnose bash, package mappings, sample links, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
-- `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint.
+- `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
 - `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, and `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-test-entrypoint)).
 
 ## Compile Verification
@@ -59,7 +59,7 @@ The same suite runs from Git Bash:
 PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests -v
 ```
 
-The tests that run `compile-unity.sh` find bash the way the `unity` commands do, so they run from PowerShell too. They are skipped, and the summary shows a skip count, on a host where `mu3-cli unity doctor` reports a failing `Bash` check. The tests that check who holds a lock file are also skipped on a host other than Windows without `lsof`, which the scripts and the doctor use for that check.
+The tests that run `compile-unity.sh` find bash the way the `unity` commands do, so they run from PowerShell too. They run the scripts against a fake Unity with `UNITY_LOG_POLL_SECONDS=0.1` in the environment, so the stall watch looks at the fake's log every 0.1 s instead of every second, the interval a real run keeps. They are skipped, and the summary shows a skip count, on a host where `mu3-cli unity doctor` reports a failing `Bash` check. The tests that check who holds a lock file are also skipped on a host other than Windows without `lsof`, which the scripts and the doctor use for that check.
 
 ## Bash on Windows
 

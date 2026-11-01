@@ -234,9 +234,6 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
     def log_file(self, target: str, platform: str = "editmode") -> Path:
         return self.results_file(target, platform).with_suffix(".log")
 
-    def tearDown(self) -> None:
-        shutil.rmtree(self.root / "log", ignore_errors=True)
-
     def test_passing_run_reports_its_counts(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(passed=3, skipped=1))
 
@@ -393,13 +390,16 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "3", results=nunit_results(), ticks="5")
+        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        completed = self.run_tests(
+            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="15", tick_seconds="0.2"
+        )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 5", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
 
     def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="3")
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="2")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
@@ -491,6 +491,67 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertNotIn("fake unity ran", completed.stdout)
 
 
+class CompileLogTests(FixtureRepositoryTestCase):
+    """compile-unity.sh keeps Unity's log and stops a Unity that stops writing to it."""
+
+    def compile(self, *arguments: str, unity_status: int = 0, **fake: str):
+        """Run compile-unity.sh; fake sets FAKE_UNITY_<NAME> variables, such as log, ticks, and sleep."""
+        return self.run_entry_point(
+            "compile-unity.sh",
+            *arguments,
+            environment=self.unity_environment(
+                FAKE_UNITY_STATUS=str(unity_status),
+                **{f"FAKE_UNITY_{name.upper()}": value for name, value in fake.items()},
+            ),
+        )
+
+    def log_file(self, target: str) -> Path:
+        return self.root / "log" / "unity-compile" / f"{target}.log"
+
+    def test_unity_log_is_printed_and_kept(self) -> None:
+        completed = self.compile("leaf", log="Compiling scripts")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+        [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
+        self.assertIn(" -quit ", arguments)
+        self.assertIn("Compiling scripts", completed.stdout.splitlines())
+        log = self.log_file("leaf").read_text(encoding="utf-8").splitlines()
+        self.assertIn(arguments, log)
+        self.assertIn("Compiling scripts", log)
+
+    def test_silent_unity_is_stopped_and_fails_the_target(self) -> None:
+        sleeper_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(sleeper_directory.cleanup)
+        sleeper_file = Path(sleeper_directory.name) / "sleeper.pid"
+        started = time.monotonic()
+        completed = self.compile(
+            "leaf", "--stall-timeout", "2", log="Compiling scripts", sleep="120", sleeper_file=str(sleeper_file)
+        )
+
+        self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(
+            "error: Unity compilation failed for leaf: Unity wrote nothing to its log for 2 s, "
+            "so the script stopped it; see log/unity-compile/leaf.log",
+            completed.stderr,
+        )
+        self.assertNotIn("Unity compilation succeeded", completed.stdout)
+        self.assertIn("Compiling scripts", self.log_file("leaf").read_text(encoding="utf-8").splitlines())
+        # The fake's own child, which taskkill /T does not reach on Git Bash, is gone too.
+        sleeper = sleeper_file.read_text(encoding="utf-8").strip()
+        alive = subprocess.run([str(bash_or_skip()), "-c", f"kill -0 {sleeper}"], capture_output=True, check=False)
+        self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
+
+    def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
+        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        completed = self.compile("leaf", "--stall-timeout", "2", ticks="15", tick_seconds="0.2")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+
 class UnfinishedTestTests(FixtureRepositoryTestCase):
     """unfinished_test reads the test a run was in from the lines -automated adds to the log."""
 
@@ -517,17 +578,54 @@ class UnfinishedTestTests(FixtureRepositoryTestCase):
 
 
 class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
-    def stall_seconds(self, *arguments: str) -> str:
-        completed = self.run_functions(
-            "test-unity.sh", 'parse_test_arguments "$@"\nprintf %s "$UNITY_STALL_SECONDS"', *arguments
-        )
+    # Each entry point parses its own options first, as its main function does.
+    PARSE = {
+        "compile-unity.sh": 'parse_arguments "$@"',
+        "test-unity.sh": 'parse_test_arguments "$@"\nparse_arguments ${COMPILE_ARGUMENTS[@]+"${COMPILE_ARGUMENTS[@]}"}',
+    }
+
+    def parse(self, entry_point: str, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return self.run_functions(entry_point, f'{self.PARSE[entry_point]}\nprintf %s "$UNITY_STALL_SECONDS"', *arguments)
+
+    def stall_seconds(self, entry_point: str, *arguments: str) -> str:
+        completed = self.parse(entry_point, *arguments)
         self.assertEqual(0, completed.returncode, completed.stderr)
         return completed.stdout
 
-    def test_a_run_waits_600_seconds_unless_told_otherwise(self) -> None:
-        self.assertEqual("600", self.stall_seconds("leaf"))
-        self.assertEqual("0", self.stall_seconds("leaf", "--stall-timeout", "0"))
-        self.assertEqual("90", self.stall_seconds("leaf", "--stall-timeout", "090"))
+    def test_a_compile_waits_300_seconds_and_a_test_run_600_unless_told_otherwise(self) -> None:
+        self.assertEqual("300", self.stall_seconds("compile-unity.sh", "leaf"))
+        self.assertEqual("600", self.stall_seconds("test-unity.sh", "leaf"))
+        for entry_point in self.PARSE:
+            with self.subTest(entry_point=entry_point):
+                self.assertEqual("0", self.stall_seconds(entry_point, "leaf", "--stall-timeout", "0"))
+                self.assertEqual("90", self.stall_seconds(entry_point, "leaf", "--stall-timeout", "090"))
+
+    def test_compile_stall_timeout_needs_whole_seconds(self) -> None:
+        for values in ((), ("1.5",), ("-1",), ("soon",)):
+            with self.subTest(values=values):
+                completed = self.parse("compile-unity.sh", "leaf", "--stall-timeout", *values)
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn("--stall-timeout expects a whole number of seconds", completed.stderr)
+
+    def test_the_log_is_looked_at_every_second_unless_the_environment_says_otherwise(self) -> None:
+        body = 'printf %s "$UNITY_LOG_POLL_SECONDS"'
+        for entry_point in self.PARSE:
+            with self.subTest(entry_point=entry_point):
+                self.assertEqual("1", self.run_functions(entry_point, body).stdout)
+                shorter = {**self._environment(), "UNITY_LOG_POLL_SECONDS": "0.25"}
+                self.assertEqual("0.25", self.run_functions(entry_point, body, environment=shorter).stdout)
+
+    def test_a_poll_interval_that_is_not_a_positive_number_stops_the_run_before_unity(self) -> None:
+        for value in ("0", "0.0", "-1", "soon"):
+            with self.subTest(value=value):
+                completed = self.run_entry_point(
+                    "compile-unity.sh", "leaf", environment=self.unity_environment(UNITY_LOG_POLL_SECONDS=value)
+                )
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(f"UNITY_LOG_POLL_SECONDS expects a positive number of seconds: {value}", completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
 
 
 class ProcessTreeTests(FixtureRepositoryTestCase):
