@@ -139,6 +139,7 @@ InGame (클라이언트) ──끊김, 예약 시간 안──▶ Reconnecting �
 
 - Given Steam 클라이언트가 실행 중이 아님, When 초기화, Then 실패 이벤트가 사유 코드 `SteamNotRunning`과 함께 발생하고 예외가 게임 코드로 전파되지 않는다.
 - Given 게임 코드가 이미 Steam을 초기화함, When 라이브러리 초기화, Then 중복 초기화 없이 준비 완료가 되고, 라이브러리 해제 시 Steam을 종료하지 않는다.
+- Given 만든 Steam 백엔드, When 그 뒤의 Steam 호출이 네이티브 라이브러리 예외를 던짐 (예: 나중의 호출만 쓰는 함수가 빠진 오래된 `steam_api64`의 `EntryPointNotFoundException`), Then 예외가 게임 코드로 전파되지 않고, 백엔드는 쓸 수 없게 되며 (경고 한 번), 그 뒤의 로비 요청과 Steam이 아직 답하지 않은 로비 요청은 `SteamNotRunning`으로 답한다.
 
 **FR-2 [M] Steam 이벤트 처리**
 라이브러리가 Steam을 초기화한 경우, 게임 코드가 따로 호출하지 않아도 Steam 이벤트가 매 프레임 처리되어야 한다.
@@ -482,7 +483,7 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 |---|---|---|
 | `None` | 0 | 실패가 아니다. 성공한 요청, 성공을 알리는 이벤트, 실패나 종료가 아닌 상태 변경이 싣는다. |
 | `NotInitialized` | 1 | 매니저가 백엔드로 초기화되지 않았거나 이미 해제되었다. Steam 백엔드의 초대 요청 (`OpenInviteDialog`, `InviteFriend`)은 백엔드를 쓸 수 없을 때도 이 코드를 답한다. |
-| `SteamNotRunning` | 2 | Steam을 쓸 수 없다. `SteamBackend.TryCreate`에서 Steam 클라이언트가 없거나 시작하지 못했거나 Steam 네이티브 라이브러리를 읽지 못했을 때 (FR-1, FR-39), 그리고 Steam이 꺼진 뒤의 로비 생성, 참가, 검색과 Steam 연결이 없어 실패한 로비 생성이 이 코드다. |
+| `SteamNotRunning` | 2 | Steam을 쓸 수 없다. `SteamBackend.TryCreate`에서 Steam 클라이언트가 없거나 시작하지 못했거나 Steam 네이티브 라이브러리를 읽지 못했을 때 (FR-1, FR-39), 그리고 Steam이 꺼진 뒤나 만든 백엔드의 Steam 호출이 네이티브 라이브러리에서 실패한 뒤 (FR-1)의 로비 생성, 참가, 검색 (Steam이 아직 답하지 않은 것 포함)과 Steam 연결이 없어 실패한 로비 생성이 이 코드다. |
 | `OverlayUnavailable` | 3 | Steam 오버레이가 꺼져 있어 초대 대화상자를 열 수 없다 (`SteamBackend.OpenInviteDialog`, FR-8). |
 | `BackendError` | 4 | 백엔드가 이름 붙이지 않은 이유로 요청을 거부하거나 실패했다. 쓸 수 없는 백엔드로 한 `Initialize`, Steam이 보고한 그 밖의 실패 (`SteamAPI.InitEx`의 버전 불일치 포함, 대체 설정 (`SteamBackendOptions.EditorFallbackNetwork`)이 켜진 에디터는 `SteamNotRunning`처럼 이때도 로컬 백엔드로 대체한다), 플랫폼이 거부한 정원, 로비 데이터, 프레즌스 변경과 초대, 백엔드를 쓸 수 없거나 Steam이 이미지를 주지 못한 아바타 요청이 이 코드다. |
 | `NotSupported` | 5 | 백엔드에 그 기능이 없다. 지금은 아바타가 없는 로컬 백엔드의 `LoadAvatar`만 이 코드를 답한다. |

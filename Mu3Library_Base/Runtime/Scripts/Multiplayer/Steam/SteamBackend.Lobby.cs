@@ -17,6 +17,18 @@ namespace Mu3Library.Multiplayer.Steam
             public bool IsAnswered;
         }
 
+        /// <summary>A request Steam answers later through a call result.</summary>
+        private sealed class ActiveCall
+        {
+            public IDisposable Result;
+
+            /// <summary>
+            /// Answers the request when Steam never will, since it is gone; null for a search,
+            /// which <see cref="FailSearches"/> answers.
+            /// </summary>
+            public Action<MultiplayerReason> OnAbandoned;
+        }
+
         // Steam gives up on a lobby search after about 20 seconds; past this the backend answers
         // itself, so a search Steam never answers cannot hold up the ones behind it.
         private const double SearchTimeoutSeconds = 25d;
@@ -27,11 +39,11 @@ namespace Mu3Library.Multiplayer.Steam
         // Steam runs one lobby search at a time and cancels the older one, so searches wait in line.
         private readonly Queue<PendingSearch> _searches = new Queue<PendingSearch>();
         private PendingSearch _currentSearch = null;
-        private IDisposable _currentSearchCall = null;
+        private ActiveCall _currentSearchCall = null;
         private double _currentSearchStartedAt = 0d;
 
         // Call results stay referenced until Steam answers, then are disposed on the next update.
-        private readonly List<IDisposable> _activeCalls = new List<IDisposable>();
+        private readonly List<ActiveCall> _activeCalls = new List<ActiveCall>();
         private readonly List<IDisposable> _finishedCalls = new List<IDisposable>();
 
         private Callback<LobbyDataUpdate_t> _lobbyDataUpdated;
@@ -56,9 +68,19 @@ namespace Mu3Library.Multiplayer.Steam
                 }
             }
 
-            SteamAPICall_t call = IsAvailable
-                ? SteamMatchmaking.CreateLobby(SteamReasons.ToLobbyType(visibility), capacity)
-                : SteamAPICall_t.Invalid;
+            SteamAPICall_t call = SteamAPICall_t.Invalid;
+            if (IsAvailable)
+            {
+                try
+                {
+                    call = SteamMatchmaking.CreateLobby(SteamReasons.ToLobbyType(visibility), capacity);
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
+            }
+
             if (call == SteamAPICall_t.Invalid)
             {
                 MultiplayerReason failure = UnavailableOr(MultiplayerReason.BackendError);
@@ -76,22 +98,32 @@ namespace Mu3Library.Multiplayer.Steam
                 }
 
                 CSteamID lobby = new CSteamID(created.m_ulSteamIDLobby);
-                foreach (KeyValuePair<string, string> pair in snapshot)
+                try
                 {
-                    // Without its reserved keys a lobby can be neither found nor joined, so a key
-                    // Steam refuses, too long or with too long a value, fails the whole lobby.
-                    if (!SteamMatchmaking.SetLobbyData(lobby, pair.Key, pair.Value ?? string.Empty))
+                    foreach (KeyValuePair<string, string> pair in snapshot)
                     {
-                        Debug.LogWarning($"[Multiplayer] Steam refused lobby data '{pair.Key}'; the lobby is closed again.");
-                        SteamMatchmaking.LeaveLobby(lobby);
-                        EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None));
-                        return;
+                        // Without its reserved keys a lobby can be neither found nor joined, so a key
+                        // Steam refuses, too long or with too long a value, fails the whole lobby.
+                        if (!SteamMatchmaking.SetLobbyData(lobby, pair.Key, pair.Value ?? string.Empty))
+                        {
+                            Debug.LogWarning($"[Multiplayer] Steam refused lobby data '{pair.Key}'; the lobby is closed again.");
+                            SteamMatchmaking.LeaveLobby(lobby);
+                            EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None));
+                            return;
+                        }
                     }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    // Inside Steam's callbacks, which may be the game's own run of them.
+                    Break(cause);
+                    EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.SteamNotRunning, LobbyId.None));
+                    return;
                 }
 
                 _lobbyOwners[lobby.m_SteamID] = LocalPlayerId;
                 EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.None, new LobbyId(lobby.m_SteamID)));
-            });
+            }, reason => onCompleted?.Invoke(reason, LobbyId.None));
         }
 
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted)
@@ -107,7 +139,19 @@ namespace Mu3Library.Multiplayer.Steam
         public void JoinLobby(LobbyId lobbyId, Action<MultiplayerReason> onCompleted)
         {
             CSteamID lobby = new CSteamID(lobbyId.Value);
-            SteamAPICall_t call = IsAvailable ? SteamMatchmaking.JoinLobby(lobby) : SteamAPICall_t.Invalid;
+            SteamAPICall_t call = SteamAPICall_t.Invalid;
+            if (IsAvailable)
+            {
+                try
+                {
+                    call = SteamMatchmaking.JoinLobby(lobby);
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
+            }
+
             if (call == SteamAPICall_t.Invalid)
             {
                 MultiplayerReason failure = UnavailableOr(MultiplayerReason.BackendError);
@@ -118,20 +162,29 @@ namespace Mu3Library.Multiplayer.Steam
             Track<LobbyEnter_t>(call, (entered, ioFailure) =>
             {
                 MultiplayerReason reason = MultiplayerReason.BackendError;
-                if (!ioFailure)
+                try
                 {
-                    // Known only for a lobby this player saw in search; otherwise a refusal reads as not found.
-                    bool isInGame = SteamMatchmaking.GetLobbyData(lobby, LobbyDataKeys.State) == LobbyDataKeys.StateInGame;
-                    reason = SteamReasons.FromEnterResponse((EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse, isInGame);
-                }
+                    if (!ioFailure)
+                    {
+                        // Known only for a lobby this player saw in search; otherwise a refusal reads as not found.
+                        bool isInGame = SteamMatchmaking.GetLobbyData(lobby, LobbyDataKeys.State) == LobbyDataKeys.StateInGame;
+                        reason = SteamReasons.FromEnterResponse((EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse, isInGame);
+                    }
 
-                if (reason == MultiplayerReason.None)
+                    if (reason == MultiplayerReason.None)
+                    {
+                        _lobbyOwners[lobby.m_SteamID] = new PlayerId(SteamMatchmaking.GetLobbyOwner(lobby).m_SteamID);
+                    }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
                 {
-                    _lobbyOwners[lobby.m_SteamID] = new PlayerId(SteamMatchmaking.GetLobbyOwner(lobby).m_SteamID);
+                    // Inside Steam's callbacks, which may be the game's own run of them.
+                    Break(cause);
+                    reason = MultiplayerReason.SteamNotRunning;
                 }
 
                 EnqueueCallback(() => onCompleted?.Invoke(reason));
-            });
+            }, reason => onCompleted?.Invoke(reason));
         }
 
         public void LeaveLobby(LobbyId lobby)
@@ -142,7 +195,14 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             _lobbyOwners.Remove(lobby.Value);
-            SteamMatchmaking.LeaveLobby(new CSteamID(lobby.Value));
+            try
+            {
+                SteamMatchmaking.LeaveLobby(new CSteamID(lobby.Value));
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+            }
         }
 
         public string GetLobbyData(LobbyId lobby, string key)
@@ -153,39 +213,89 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             // Steam answers an empty string for a key or lobby it does not know.
-            string value = SteamMatchmaking.GetLobbyData(new CSteamID(lobby.Value), key);
+            string value;
+            try
+            {
+                value = SteamMatchmaking.GetLobbyData(new CSteamID(lobby.Value), key);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return null;
+            }
+
             return string.IsNullOrEmpty(value) ? null : value;
         }
 
         public bool SetLobbyData(LobbyId lobby, string key, string value)
         {
-            return IsAvailable
-                && !string.IsNullOrEmpty(key)
-                && SteamMatchmaking.SetLobbyData(new CSteamID(lobby.Value), key, value ?? string.Empty);
+            try
+            {
+                return IsAvailable
+                    && !string.IsNullOrEmpty(key)
+                    && SteamMatchmaking.SetLobbyData(new CSteamID(lobby.Value), key, value ?? string.Empty);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
         }
 
         public bool DeleteLobbyData(LobbyId lobby, string key)
         {
-            return IsAvailable
-                && !string.IsNullOrEmpty(key)
-                && SteamMatchmaking.DeleteLobbyData(new CSteamID(lobby.Value), key);
+            try
+            {
+                return IsAvailable
+                    && !string.IsNullOrEmpty(key)
+                    && SteamMatchmaking.DeleteLobbyData(new CSteamID(lobby.Value), key);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
         }
 
         public bool SetLobbyJoinable(LobbyId lobby, bool joinable)
         {
-            return IsAvailable && SteamMatchmaking.SetLobbyJoinable(new CSteamID(lobby.Value), joinable);
+            try
+            {
+                return IsAvailable && SteamMatchmaking.SetLobbyJoinable(new CSteamID(lobby.Value), joinable);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
         }
 
         public bool SetLobbyCapacity(LobbyId lobby, int capacity)
         {
-            return IsAvailable && SteamMatchmaking.SetLobbyMemberLimit(new CSteamID(lobby.Value), capacity);
+            try
+            {
+                return IsAvailable && SteamMatchmaking.SetLobbyMemberLimit(new CSteamID(lobby.Value), capacity);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return false;
+            }
         }
 
         public PlayerId GetLobbyOwner(LobbyId lobby)
         {
-            return IsAvailable
-                ? new PlayerId(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby.Value)).m_SteamID)
-                : PlayerId.None;
+            try
+            {
+                return IsAvailable
+                    ? new PlayerId(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby.Value)).m_SteamID)
+                    : PlayerId.None;
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
+                return PlayerId.None;
+            }
         }
 
         public bool IsLobbyMember(LobbyId lobby, PlayerId player)
@@ -196,13 +306,20 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             CSteamID steamLobby = new CSteamID(lobby.Value);
-            int count = SteamMatchmaking.GetNumLobbyMembers(steamLobby);
-            for (int i = 0; i < count; i++)
+            try
             {
-                if (SteamMatchmaking.GetLobbyMemberByIndex(steamLobby, i).m_SteamID == player.Value)
+                int count = SteamMatchmaking.GetNumLobbyMembers(steamLobby);
+                for (int i = 0; i < count; i++)
                 {
-                    return true;
+                    if (SteamMatchmaking.GetLobbyMemberByIndex(steamLobby, i).m_SteamID == player.Value)
+                    {
+                        return true;
+                    }
                 }
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
             }
 
             return false;
@@ -219,9 +336,20 @@ namespace Mu3Library.Multiplayer.Steam
             while (_currentSearch == null && IsAvailable && _searches.Count > 0)
             {
                 PendingSearch search = _searches.Dequeue();
-                ApplyFilters(search.Query);
+                SteamAPICall_t call;
+                try
+                {
+                    ApplyFilters(search.Query);
+                    call = SteamMatchmaking.RequestLobbyList();
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    // The searches behind it answer on the next update, with the others waiting on Steam.
+                    Break(cause);
+                    AnswerSearch(search, MultiplayerReason.SteamNotRunning, null);
+                    return;
+                }
 
-                SteamAPICall_t call = SteamMatchmaking.RequestLobbyList();
                 if (call == SteamAPICall_t.Invalid)
                 {
                     AnswerSearch(search, MultiplayerReason.BackendError, null);
@@ -248,6 +376,12 @@ namespace Mu3Library.Multiplayer.Steam
                             reason = MultiplayerReason.None;
                         }
                     }
+                    catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                    {
+                        // Inside Steam's callbacks, which may be the game's own run of them.
+                        Break(cause);
+                        reason = MultiplayerReason.SteamNotRunning;
+                    }
                     finally
                     {
                         // Whatever reading the results did, this search answers and the next one starts.
@@ -265,7 +399,7 @@ namespace Mu3Library.Multiplayer.Steam
                 if (_currentSearchCall != null)
                 {
                     _activeCalls.Remove(_currentSearchCall);
-                    _currentSearchCall.Dispose();
+                    _currentSearchCall.Result.Dispose();
                 }
 
                 AnswerSearch(_currentSearch, reason, null);
@@ -276,6 +410,30 @@ namespace Mu3Library.Multiplayer.Steam
             while (_searches.Count > 0)
             {
                 AnswerSearch(_searches.Dequeue(), reason, null);
+            }
+        }
+
+        /// <summary>
+        /// Answers every lobby creation and entry Steam has not answered with the reason, as
+        /// Steam will not answer them now, and lets go of their call results, so an answer that
+        /// arrives after all is not handed on twice.
+        /// </summary>
+        private void FailLobbyCalls(MultiplayerReason reason)
+        {
+            int i = 0;
+            while (i < _activeCalls.Count)
+            {
+                ActiveCall call = _activeCalls[i];
+                if (call.OnAbandoned == null)
+                {
+                    i++;
+                    continue;
+                }
+
+                _activeCalls.RemoveAt(i);
+                call.Result.Dispose();
+                Action<MultiplayerReason> onAbandoned = call.OnAbandoned;
+                EnqueueCallback(() => onAbandoned(reason));
             }
         }
 
@@ -292,7 +450,7 @@ namespace Mu3Library.Multiplayer.Steam
                 if (_currentSearchCall != null)
                 {
                     _activeCalls.Remove(_currentSearchCall);
-                    _currentSearchCall.Dispose();
+                    _currentSearchCall.Result.Dispose();
                 }
 
                 FinishCurrentSearch(MultiplayerReason.Timeout, null);
@@ -387,7 +545,18 @@ namespace Mu3Library.Multiplayer.Steam
                 return;
             }
 
-            PlayerId owner = new PlayerId(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby)).m_SteamID);
+            PlayerId owner;
+            try
+            {
+                owner = new PlayerId(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby)).m_SteamID);
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                // Inside Steam's callbacks, which may be the game's own run of them.
+                Break(cause);
+                return;
+            }
+
             if (!owner.IsValid || owner == known)
             {
                 return;
@@ -397,20 +566,25 @@ namespace Mu3Library.Multiplayer.Steam
             _events.Enqueue(new PendingEvent { Kind = EventKind.OwnerChanged, Lobby = new LobbyId(lobby), Player = owner });
         }
 
-        private IDisposable Track<T>(SteamAPICall_t call, Action<T, bool> onResult)
+        /// <param name="onAbandoned">
+        /// Answers the request when Steam is gone before it answered; null for a search, which
+        /// <see cref="FailSearches"/> answers.
+        /// </param>
+        private ActiveCall Track<T>(SteamAPICall_t call, Action<T, bool> onResult, Action<MultiplayerReason> onAbandoned = null)
         {
             CallResult<T> result = CallResult<T>.Create();
-            _activeCalls.Add(result);
+            ActiveCall active = new ActiveCall { Result = result, OnAbandoned = onAbandoned };
+            _activeCalls.Add(active);
             result.Set(call, (value, ioFailure) =>
             {
-                _activeCalls.Remove(result);
+                _activeCalls.Remove(active);
                 _finishedCalls.Add(result);
                 if (!_isDisposed)
                 {
                     onResult(value, ioFailure);
                 }
             });
-            return result;
+            return active;
         }
 
         private void DisposeFinishedCalls()
@@ -428,9 +602,16 @@ namespace Mu3Library.Multiplayer.Steam
         {
             if (steamRuns)
             {
-                foreach (ulong lobby in _lobbyOwners.Keys)
+                try
                 {
-                    SteamMatchmaking.LeaveLobby(new CSteamID(lobby));
+                    foreach (ulong lobby in _lobbyOwners.Keys)
+                    {
+                        SteamMatchmaking.LeaveLobby(new CSteamID(lobby));
+                    }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
                 }
             }
 
@@ -441,7 +622,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             for (int i = 0; i < _activeCalls.Count; i++)
             {
-                _activeCalls[i].Dispose();
+                _activeCalls[i].Result.Dispose();
             }
 
             _activeCalls.Clear();

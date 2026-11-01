@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -10,6 +11,7 @@ using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Protocol;
 using Mu3Library.Multiplayer.Steam;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 using UnityEngine.TestTools.Constraints;
 // Unity's Is extends NUnit's with AllocatingGCMemory.
 using Is = UnityEngine.TestTools.Constraints.Is;
@@ -487,6 +489,34 @@ namespace Mu3Library.Tests
             Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
             Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
+        }
+
+        [TestCase(false, TestName = "SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_AfterASteamCallFailed")]
+        [TestCase(true, TestName = "SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_AfterSteamShutDown")]
+        public void SteamLobby_RequestsSteamHasNotAnswered_AnswerSteamNotRunningOnce_OnceSteamIsGone(bool shutsSteamDown)
+        {
+            // The backend contract: every lobby request answers once, also when Steam is gone
+            // before it answered. No update runs before, so Steam's answers wait in its queue.
+            List<string> answers = new List<string>();
+            _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, null, (reason, lobby) => answers.Add("create " + reason));
+            _backend.JoinLobby(new LobbyId(109775241000000001UL), reason => answers.Add("join " + reason));
+
+            if (shutsSteamDown)
+            {
+                // As a game may do; TearDown then releases only the backend's own resources.
+                Steamworks.SteamAPI.Shutdown();
+            }
+            else
+            {
+                // What a Steam call that throws EntryPointNotFoundException does.
+                LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+                _backend.Break(new EntryPointNotFoundException("simulated"));
+            }
+
+            Assert.That(_backend.IsAvailable, Is.False);
+            Pump(() => false, 1);
+
+            Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning" }));
         }
 
         [Test]

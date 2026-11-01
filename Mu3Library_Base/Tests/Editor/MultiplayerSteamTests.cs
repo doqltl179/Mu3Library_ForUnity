@@ -8,6 +8,7 @@ using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Steam;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 using Steamworks;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -16,9 +17,10 @@ namespace Mu3Library.Tests
 {
     /// <summary>
     /// The parts of <see cref="SteamBackend"/> that need no Steam client: how Steam's answers map
-    /// to the library's reasons, a Steam that cannot load, the launch arguments, the order of the
-    /// rich presence keys, and the editor fallback (FR-1, FR-5 to FR-7, FR-13, FR-19, FR-39). The
-    /// rest is checked by hand against Steam (spec section 13).
+    /// to the library's reasons, a Steam that cannot load, a Steam call that fails once the
+    /// backend exists, the launch arguments, the order of the rich presence keys, and the editor
+    /// fallback (FR-1, FR-5 to FR-7, FR-13, FR-19, FR-39). The rest is checked by hand against
+    /// Steam (spec section 13).
     /// </summary>
     public class MultiplayerSteamTests
     {
@@ -171,6 +173,108 @@ namespace Mu3Library.Tests
             result = SteamBackend.CreateOrFallbackWith(new SteamBackendOptions(), Throwing(new EntryPointNotFoundException("simulated")), out IMultiplayerBackend none);
             Assert.That(result.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "without the fallback the reason reaches the game");
             Assert.That(none, Is.Null);
+        }
+
+        [Test]
+        public void ABackendWhoseSteamCallFailed_AnswersEveryRequestAsUnavailable_WithoutAnException()
+        {
+            // FR-1 once the backend exists: the first failed Steam call, here the callback run of
+            // the first update, stops the backend, and every request answers from then on.
+            AssumeSteamCallsFail();
+            List<string> answers = new List<string>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                Assert.That(backend.IsAvailable, Is.True, "a backend made without Steam takes Steam for running");
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+
+                backend.Update();
+                Assert.That(backend.IsAvailable, Is.False);
+
+                backend.CreateLobby(LobbyVisibility.Public, 4, null, (reason, lobby) => answers.Add("create " + reason));
+                backend.JoinLobby(SomeLobby, reason => answers.Add("join " + reason));
+                backend.SearchLobbies(null, (reason, lobbies) => answers.Add("search " + reason));
+                backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answers.Add("avatar " + reason));
+                Assert.That(backend.OpenInviteDialog(SomeLobby).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
+                Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.NotInitialized));
+                Assert.That(backend.StartListening(), Is.False);
+                Assert.That(backend.Connect(SomeAccount), Is.EqualTo(ConnectionId.None));
+                Assert.That(backend.SetLobbyData(SomeLobby, "key", "value"), Is.False);
+                Assert.That(backend.GetLobbyData(SomeLobby, "key"), Is.Null);
+                Assert.That(backend.SetPresence("Waiting", SomeLobby, 2), Is.False);
+                Assert.That(backend.GetPlayerName(SomeAccount), Is.EqualTo(SomeAccount.ToString()));
+
+                backend.Update();
+                Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning", "search SteamNotRunning", "avatar BackendError" }));
+
+                backend.Update();
+                Assert.That(answers.Count, Is.EqualTo(4), "every request answers once");
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [TestCaseSource(nameof(FirstSteamCalls))]
+        public void ASteamCallThatFails_StopsTheBackend_WithoutAnException(SteamBackendOptions options, Func<SteamBackend, Action<MultiplayerReason>, object> call, object returns, MultiplayerReason? answers)
+        {
+            // FR-1 once the backend exists, for each request whose Steam call fails first.
+            AssumeSteamCallsFail();
+            List<MultiplayerReason> heard = new List<MultiplayerReason>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(options))
+            {
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+
+                Assert.That(call(backend, heard.Add), Is.EqualTo(returns));
+                Assert.That(backend.IsAvailable, Is.False, "the failed call stops the backend");
+
+                backend.Update();
+                Assert.That(heard, answers.HasValue ? (IResolveConstraint)Is.EqualTo(new[] { answers.Value }) : Is.Empty);
+            }
+        }
+
+        private static readonly LobbyId SomeLobby = new LobbyId(109775241000000001UL);
+        private static readonly PlayerId SomeAccount = new PlayerId(76561197960435530UL);
+        private static readonly Regex FailedCallWarning = new Regex(@"The Steam backend is no longer available: a Steam call failed \(\w+\)");
+
+        private static IEnumerable<TestCaseData> FirstSteamCalls()
+        {
+            yield return FirstCall("UpdateRunningSteamsCallbacks", (backend, answer) => { backend.Update(); return null; }, null, runsCallbacks: true);
+            yield return FirstCall("UpdateReceivingMessages", (backend, answer) => { backend.Update(); return null; }, null);
+            yield return FirstCall("GetPlayerName", (backend, answer) => backend.GetPlayerName(SomeAccount), SomeAccount.ToString());
+            yield return FirstCall("OpenInviteDialog", (backend, answer) => backend.OpenInviteDialog(SomeLobby).Reason, MultiplayerReason.NotInitialized);
+            yield return FirstCall("InviteFriend", (backend, answer) => backend.InviteFriend(SomeLobby, SomeAccount).Reason, MultiplayerReason.NotInitialized);
+            yield return FirstCall("StartListening", (backend, answer) => backend.StartListening(), false);
+            yield return FirstCall("Connect", (backend, answer) => backend.Connect(SomeAccount), ConnectionId.None);
+            yield return FirstCall("LeaveLobby", (backend, answer) => { backend.LeaveLobby(SomeLobby); return null; }, null);
+            yield return FirstCall("GetLobbyData", (backend, answer) => backend.GetLobbyData(SomeLobby, "key"), null);
+            yield return FirstCall("SetLobbyData", (backend, answer) => backend.SetLobbyData(SomeLobby, "key", "value"), false);
+            yield return FirstCall("DeleteLobbyData", (backend, answer) => backend.DeleteLobbyData(SomeLobby, "key"), false);
+            yield return FirstCall("SetLobbyJoinable", (backend, answer) => backend.SetLobbyJoinable(SomeLobby, false), false);
+            yield return FirstCall("SetLobbyCapacity", (backend, answer) => backend.SetLobbyCapacity(SomeLobby, 4), false);
+            yield return FirstCall("GetLobbyOwner", (backend, answer) => backend.GetLobbyOwner(SomeLobby), PlayerId.None);
+            yield return FirstCall("IsLobbyMember", (backend, answer) => backend.IsLobbyMember(SomeLobby, SomeAccount), false);
+            yield return FirstCall("SetPresence", (backend, answer) => backend.SetPresence("Waiting", SomeLobby, 2), false);
+            yield return FirstCall("CreateLobby", (backend, answer) => { backend.CreateLobby(LobbyVisibility.Public, 4, null, (reason, lobby) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
+            yield return FirstCall("JoinLobby", (backend, answer) => { backend.JoinLobby(SomeLobby, answer); return null; }, null, MultiplayerReason.SteamNotRunning);
+            yield return FirstCall("SearchLobbies", (backend, answer) => { backend.SearchLobbies(null, (reason, lobbies) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
+            yield return FirstCall("LoadAvatar", (backend, answer) => { backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answer(reason)); return null; }, null, MultiplayerReason.BackendError);
+        }
+
+        /// <param name="runsCallbacks">Off by default, so an update fails at the messages it receives instead.</param>
+        private static TestCaseData FirstCall(string name, Func<SteamBackend, Action<MultiplayerReason>, object> call, object returns, MultiplayerReason? answers = null, bool runsCallbacks = false)
+        {
+            SteamBackendOptions options = new SteamBackendOptions { RunSteamCallbacks = runsCallbacks };
+            return new TestCaseData(options, call, returns, answers).SetName($"ASteamCallThatFails_StopsTheBackend_WithoutAnException({name})");
+        }
+
+        /// <summary>
+        /// A backend made without Steam fails at its first Steam call only while Steam has not
+        /// started in this process: Steamworks.NET then throws <see cref="InvalidOperationException"/>
+        /// where an outdated steam_api64 throws <see cref="EntryPointNotFoundException"/>.
+        /// </summary>
+        private static void AssumeSteamCallsFail()
+        {
+            Assume.That(CallbackDispatcher.IsInitialized, Is.False, "Steam runs in this process, so its calls do not fail.");
+            Assume.That(() => SteamUser.GetSteamID(), Throws.Exception, "Steam runs in this process, so its calls do not fail.");
         }
 
         [Test]
