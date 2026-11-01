@@ -84,6 +84,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// while the owner's files are all older belongs to a process that ended in the middle of
         /// a write or a replacement, and a read does not wait for it.
         /// </summary>
+        /// <remarks>
+        /// While <see cref="File.Replace(string, string, string)"/> or the first move runs, either
+        /// the temporary file was just written or the new lobby file, which keeps its time when it
+        /// is moved, has a fresh one; the backup keeps the old file's time and does not count. A
+        /// lobby file a read can miss this way belongs to a writer that stalled for more than a
+        /// second between writing the temporary file and finishing the replacement, or one that a
+        /// third program holds while its time is old, and the read would give up on either after
+        /// <see cref="ReplaceWaitSeconds"/> anyway. How long a replacement takes under an
+        /// antivirus scan or on a slow disk was not measured.
+        /// </remarks>
         internal const double ReplaceSeconds = 1.0;
 
         /// <summary>

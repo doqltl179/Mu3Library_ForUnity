@@ -13,8 +13,11 @@ namespace Mu3Library.Multiplayer.Local
     /// process, or with <see cref="LocalNetwork.CreateMachineWide"/>, across the processes of this
     /// computer. Like a real network, nothing arrives during the call that sent it: every answer
     /// and every packet waits until this backend's next <see cref="Update"/>, in the order it was
-    /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use, unless the
-    /// network simulates a worse one with <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
+    /// sent. On a machine-wide network a search or a join by lobby ID is the exception: it goes
+    /// on once its read of the lobby files is done, which can be a later <see cref="Update"/>,
+    /// after the answers to later requests. Messages are never lost, whichever
+    /// <see cref="DeliveryMode"/> they use, unless the network simulates a worse one with
+    /// <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
     /// <see cref="LocalNetwork.SimulatedJitterMilliseconds"/>, and
     /// <see cref="LocalNetwork.SimulatedLossPercent"/>, or <see cref="SimulateOutage"/> cuts a
     /// player off for a while.
