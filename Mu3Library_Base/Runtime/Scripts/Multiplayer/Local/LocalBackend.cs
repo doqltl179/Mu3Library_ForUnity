@@ -143,6 +143,22 @@ namespace Mu3Library.Multiplayer.Local
         /// <summary>How many times this backend has handed data to a socket; 0 on a network inside one process.</summary>
         internal long SocketSends => _machine != null ? _machine.SocketSends : 0;
 
+        /// <summary>
+        /// Test switch on a machine-wide network: how much one update reads from one connection at
+        /// most, so a burst takes several updates to arrive. Nothing on a network inside one process.
+        /// </summary>
+        internal int ReceiveBytesPerUpdate
+        {
+            get => _machine != null ? _machine.ReceiveBytesPerUpdate : 0;
+            set
+            {
+                if (_machine != null)
+                {
+                    _machine.ReceiveBytesPerUpdate = value;
+                }
+            }
+        }
+
 
 
         public LocalBackend(LocalNetwork network, string playerName)
@@ -934,8 +950,8 @@ namespace Mu3Library.Multiplayer.Local
         /// Tells this member that the lobby passed on. The news comes after the reliable packets
         /// and the closes already on their way to this player's session connections, even while
         /// the simulated network still holds them back: a client that heard first that its host
-        /// left the lobby would end its session and drop them, so a host that leaves would lose
-        /// its last messages.
+        /// left the lobby waits only a moment for the host's close before it ends its session, so
+        /// on a slow simulated network a host that leaves would lose its last messages.
         /// </summary>
         internal void EnqueueOwnerChanged(LobbyId lobby, PlayerId newOwner)
         {

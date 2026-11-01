@@ -41,6 +41,7 @@ namespace Mu3Library.Tests
             public readonly List<Participant> Disconnected = new List<Participant>();
             public readonly List<Participant> Reconnected = new List<Participant>();
             public readonly List<PlayerId[]> LoadTimeouts = new List<PlayerId[]>();
+            public readonly List<MultiplayerReason> LobbyRejoinFailures = new List<MultiplayerReason>();
             public int AllLoadedCount;
             public int ReturnedToLobbyCount;
 
@@ -914,18 +915,72 @@ namespace Mu3Library.Tests
         [Test]
         public void LobbyPassingToAnotherMember_EndsTheSession_EvenWhileTheHostConnectionLives()
         {
-            // FR-27
+            // FR-27, NFR-4: the clients wait a moment for the host's close, then end without it.
             Node host = CreateHost("Host");
             Node a = JoinNew("A", host);
             Node b = JoinNew("B", host);
 
             host.Backend.LeaveLobby(host.Manager.CurrentLobbyId);
             Pump();
+            Assert.That(new[] { a, b }.Select(client => client.Manager.State), Is.All.EqualTo(SessionState.Lobby), "waiting for the host's close");
+
+            Advance(1.0);
 
             foreach (Node client in new[] { a, b })
             {
                 Assert.That(client.Manager.State, Is.EqualTo(SessionState.Offline));
                 Assert.That(client.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            }
+        }
+
+        [TestCase(0)]
+        [TestCase(5000)]
+        public void LobbyNewsAheadOfTheHostsClose_ThenAConnectionThatBreaks_EndsWithHostLeftAtOnce(int closeCode)
+        {
+            // FR-27, NFR-4: a connection that breaks, or closes with a code that is not the
+            // library's, after the lobby said the host left starts no reconnect and waits no longer.
+            (LocalBackend fakeHost, RecordingListener listener, LobbyId lobby, Node a) = JoinFakeHostInGame();
+            fakeHost.LeaveLobby(lobby);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame), "waiting for the host's close");
+
+            fakeHost.Disconnect(listener.Connected[0], closeCode);
+            Pump();
+
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.ToString(), Is.EqualTo("InGame -> Offline (HostLeft)"));
+            Assert.That(listener.Connected.Count, Is.EqualTo(1), "no attempt to come back");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void LobbyNewsAheadOfTheHostsClose_LetsTheHostsLastMessagesThrough(bool inGame)
+        {
+            // FR-27, FR-32, NFR-4: what the host sent before it closed reaches the handlers first,
+            // and its close ends the session at once, without waiting the rest of the moment.
+            (Node host, Node[] clients) = CreateSession(2);
+            if (inGame)
+            {
+                Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+                Pump();
+            }
+
+            Dictionary<Node, Inbox> inboxes = ListenAll(Chat, clients);
+            host.Backend.LeaveLobby(host.Manager.CurrentLobbyId);
+            Pump();
+
+            Assert.That(host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.Others).IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.Send(Chat, new byte[] { 2 }, MessageTarget.Others).IsSuccess, Is.True);
+            host.Manager.Leave();
+            Pump();
+
+            foreach (Node client in clients)
+            {
+                Assert.That(inboxes[client].Received.Select(message => message.Payload[0]), Is.EqualTo(new byte[] { 1, 2 }), client.Backend.PlayerName);
+                Assert.That(client.Manager.State, Is.EqualTo(SessionState.Offline), client.Backend.PlayerName);
+                Assert.That(client.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft), client.Backend.PlayerName);
+                Assert.That(client.States.Any(change => change.Current == SessionState.Reconnecting), Is.False, client.Backend.PlayerName);
             }
         }
 
@@ -1023,12 +1078,12 @@ namespace Mu3Library.Tests
         }
 
         private Node AttachNode(LocalBackend backend, int protocolVersion = 1, string gameId = GameId, Action<MultiplayerConfig> configure = null,
-            PlatformBackend platform = null)
+            PlatformBackend platform = null, IMultiplayerBackend wrapper = null)
         {
             MultiplayerManager manager = new MultiplayerManager();
             MultiplayerConfig config = new MultiplayerConfig(gameId, protocolVersion) { Clock = () => _now };
             configure?.Invoke(config);
-            Assert.That(manager.Initialize(platform ?? (IMultiplayerBackend)backend, config).IsSuccess, Is.True);
+            Assert.That(manager.Initialize(wrapper ?? platform ?? (IMultiplayerBackend)backend, config).IsSuccess, Is.True);
 
             Node node = new Node { Backend = backend, Platform = platform, Manager = manager };
             manager.OnStateChanged += change => node.States.Add(change);
@@ -1046,6 +1101,7 @@ namespace Mu3Library.Tests
             manager.OnParticipantReconnected += participant => node.Reconnected.Add(participant);
             manager.OnAllPlayersLoaded += () => node.AllLoadedCount++;
             manager.OnLoadTimedOut += players => node.LoadTimeouts.Add(players.ToArray());
+            manager.OnLobbyRejoinFailed += reason => node.LobbyRejoinFailures.Add(reason);
 
             _nodes.Add(node);
             return node;
