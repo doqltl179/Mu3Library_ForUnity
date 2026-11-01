@@ -18,6 +18,35 @@ namespace Mu3Library.Multiplayer
             public bool EndsWithSession;
         }
 
+        /// <summary>
+        /// The reads that redraw one avatar the manager holds after the backend told it changed,
+        /// numbered in the order the manager asked for them.
+        /// </summary>
+        private struct AvatarRefresh
+        {
+            /// <summary>The first read, so one asked for before the avatar was released and held anew counts for nothing.</summary>
+            public int First;
+
+            /// <summary>The latest read: after the latest change, or a failed one tried again. Only its failure is tried again.</summary>
+            public int Latest;
+
+            /// <summary>The newest read whose image the texture took, so an earlier one that answers after it changes nothing.</summary>
+            public int Drawn;
+
+            /// <summary>How many of the reads are still on their way.</summary>
+            public int Reading;
+
+            /// <summary>How many times a failed read after the latest change was tried again.</summary>
+            public int Retries;
+
+            /// <summary>When the failed latest read is tried again; NaN while none waits.</summary>
+            public double RetryAt;
+        }
+
+        // How many times a failed read after a change is tried again, and how long after each failure.
+        private const int AvatarRefreshRetries = 3;
+        private const double AvatarRefreshRetrySeconds = 1d;
+
         // The textures this manager made, one per player and size. It owns them and destroys them.
         private readonly Dictionary<(PlayerId Player, AvatarSize Size), OwnedAvatar> _avatars =
             new Dictionary<(PlayerId Player, AvatarSize Size), OwnedAvatar>();
@@ -28,10 +57,11 @@ namespace Mu3Library.Multiplayer
 
         private readonly List<(PlayerId Player, AvatarSize Size)> _endingAvatars = new List<(PlayerId Player, AvatarSize Size)>();
 
-        // The reads that redraw a held avatar after the backend told it changed: the latest one
-        // for each player and size, so an earlier read that answers after it changes nothing.
-        private readonly Dictionary<(PlayerId Player, AvatarSize Size), int> _avatarRefreshes =
-            new Dictionary<(PlayerId Player, AvatarSize Size), int>();
+        // The reads that redraw a held avatar after the backend told it changed, for each player
+        // and size while any is on its way or waits to be tried again (see HandleAvatarRefreshed).
+        private readonly Dictionary<(PlayerId Player, AvatarSize Size), AvatarRefresh> _avatarRefreshes =
+            new Dictionary<(PlayerId Player, AvatarSize Size), AvatarRefresh>();
+        private readonly List<(PlayerId Player, AvatarSize Size)> _dueAvatarRefreshes = new List<(PlayerId Player, AvatarSize Size)>();
         private int _lastAvatarRefresh = 0;
 
         public event Action<AvatarResult> OnAvatarChanged;
@@ -207,48 +237,142 @@ namespace Mu3Library.Multiplayer
 
             for (int i = 0; sizes != null && i < sizes.Count && !_isDisposed; i++)
             {
-                AvatarSize size = sizes[i];
-                int refresh = ++_lastAvatarRefresh;
-                _avatarRefreshes[(player, size)] = refresh;
-                _backend.LoadAvatar(player, size, (reason, avatar) => HandleAvatarRefreshed(player, size, refresh, reason, avatar));
+                ReadAvatarAgain((player, sizes[i]), isRetry: false);
             }
+        }
+
+        /// <summary>
+        /// Asks the backend again for an avatar the manager holds: after a change, which starts its
+        /// tries anew, or to try a failed read again.
+        /// </summary>
+        private void ReadAvatarAgain((PlayerId Player, AvatarSize Size) key, bool isRetry)
+        {
+            int read = ++_lastAvatarRefresh;
+            if (!_avatarRefreshes.TryGetValue(key, out AvatarRefresh refresh))
+            {
+                refresh.First = read;
+            }
+
+            refresh.Latest = read;
+            refresh.Reading++;
+            refresh.RetryAt = double.NaN;
+            if (!isRetry)
+            {
+                refresh.Retries = 0;
+            }
+
+            // Stored before the request, so a backend that answers inside it, against its contract, finds it.
+            _avatarRefreshes[key] = refresh;
+            (PlayerId player, AvatarSize size) = key;
+            _backend.LoadAvatar(player, size, (reason, avatar) => HandleAvatarRefreshed(player, size, read, reason, avatar));
         }
 
         /// <summary>
         /// Draws the image a read after a change brought into the texture the manager holds, so a
         /// texture the game shows changes with it and stays the same object, and raises
-        /// <see cref="OnAvatarChanged"/> when the image is a new one. Only the latest read for a
-        /// player and size counts; one the game released meanwhile, or that ended with its
-        /// session, stays released, and a read that failed keeps the earlier image.
+        /// <see cref="OnAvatarChanged"/> when the image is a new one. Of reads that overlap, the
+        /// texture takes the image of the latest one that brought an image: an earlier read that
+        /// answers after it changes nothing, and a later read that fails leaves the image an earlier
+        /// one brought. When the latest read fails, the manager tries it again up to
+        /// <see cref="AvatarRefreshRetries"/> times, <see cref="AvatarRefreshRetrySeconds"/> after
+        /// each failure, while the backend is available, as a failed read would otherwise leave the
+        /// default image Steam hands out first for an account it did not know until Steam told of
+        /// another change. It warns once it gives up, and the texture keeps the last image it took.
+        /// An image that arrives broken is not read again, since that cannot mend a backend that
+        /// hands it over so. An avatar the game released meanwhile, or that ended with its session,
+        /// stays released.
         /// </summary>
-        private void HandleAvatarRefreshed(PlayerId player, AvatarSize size, int refresh, MultiplayerReason reason, BackendAvatar avatar)
+        private void HandleAvatarRefreshed(PlayerId player, AvatarSize size, int read, MultiplayerReason reason, BackendAvatar avatar)
         {
             (PlayerId, AvatarSize) key = (player, size);
-            if (_isDisposed || !_avatarRefreshes.TryGetValue(key, out int latest) || latest != refresh)
+            if (_isDisposed || !_avatarRefreshes.TryGetValue(key, out AvatarRefresh refresh) || read < refresh.First)
             {
                 return;
             }
 
-            _avatarRefreshes.Remove(key);
             if (!_avatars.TryGetValue(key, out OwnedAvatar owned) || owned.Texture == null)
             {
+                _avatarRefreshes.Remove(key);
                 return;
             }
 
-            if (reason != MultiplayerReason.None)
+            refresh.Reading--;
+            bool draws = reason == MultiplayerReason.None && read > refresh.Drawn;
+            if (draws)
             {
-                if (reason != MultiplayerReason.NotSupported)
+                refresh.Drawn = read;
+            }
+            else if (read == refresh.Latest && reason != MultiplayerReason.None && reason != MultiplayerReason.NotSupported)
+            {
+                // A later change may have brought another image, so the latest read is tried again
+                // even when an earlier one brought an image.
+                if (refresh.Retries < AvatarRefreshRetries && _backend.IsAvailable)
                 {
-                    Debug.LogWarning($"[Multiplayer] The {size} avatar of {player} changed but could not be read again ({reason}); its texture keeps the earlier image.");
+                    refresh.Retries++;
+                    refresh.RetryAt = Now + AvatarRefreshRetrySeconds;
                 }
-
-                return;
+                else
+                {
+                    Debug.LogWarning($"[Multiplayer] The {size} avatar of {player} changed but could not be read again ({reason}) in {refresh.Retries + 1} tries; its texture keeps the last image it took.");
+                }
             }
 
-            if (RedrawAvatarTexture(owned.Texture, player, size, avatar))
+            if (refresh.Reading == 0 && double.IsNaN(refresh.RetryAt))
+            {
+                _avatarRefreshes.Remove(key);
+            }
+            else
+            {
+                _avatarRefreshes[key] = refresh;
+            }
+
+            // Last, as a handler may release the avatar or end the session.
+            if (draws && RedrawAvatarTexture(owned.Texture, player, size, avatar))
             {
                 Raise(nameof(OnAvatarChanged), OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
             }
+        }
+
+        /// <summary>
+        /// Tries the failed reads after a change again once their time comes, and forgets every read
+        /// once the backend is no longer available, since it answers none of them then. It allocates
+        /// nothing while no read is due.
+        /// </summary>
+        private void UpdateAvatarRefreshes()
+        {
+            if (_avatarRefreshes.Count == 0)
+            {
+                return;
+            }
+
+            if (!_backend.IsAvailable)
+            {
+                _avatarRefreshes.Clear();
+                return;
+            }
+
+            double now = Now;
+            foreach (KeyValuePair<(PlayerId Player, AvatarSize Size), AvatarRefresh> pair in _avatarRefreshes)
+            {
+                // NaN, for no read to try again, is never due.
+                if (pair.Value.RetryAt <= now)
+                {
+                    _dueAvatarRefreshes.Add(pair.Key);
+                }
+            }
+
+            // Gathered first, so a backend that answers inside a request, against its contract, and
+            // a handler that releases avatars then cannot change what is being looked through.
+            for (int i = 0; i < _dueAvatarRefreshes.Count && !_isDisposed; i++)
+            {
+                (PlayerId Player, AvatarSize Size) key = _dueAvatarRefreshes[i];
+                if (_avatarRefreshes.TryGetValue(key, out AvatarRefresh refresh) && refresh.RetryAt <= now)
+                {
+                    ReadAvatarAgain(key, isRetry: true);
+                }
+            }
+
+            _dueAvatarRefreshes.Clear();
         }
 
         private static Texture2D CreateAvatarTexture(PlayerId player, AvatarSize size, BackendAvatar avatar)
@@ -394,7 +518,10 @@ namespace Mu3Library.Multiplayer
             DestroyEndingAvatars();
         }
 
-        /// <summary>Destroys and forgets the avatars listed in <see cref="_endingAvatars"/>.</summary>
+        /// <summary>
+        /// Destroys and forgets the avatars listed in <see cref="_endingAvatars"/>, with the reads
+        /// after a change that would redraw them.
+        /// </summary>
         private void DestroyEndingAvatars()
         {
             for (int i = 0; i < _endingAvatars.Count; i++)
@@ -402,6 +529,7 @@ namespace Mu3Library.Multiplayer
                 (PlayerId, AvatarSize) key = _endingAvatars[i];
                 DestroyTexture(_avatars[key].Texture);
                 _avatars.Remove(key);
+                _avatarRefreshes.Remove(key);
             }
 
             _endingAvatars.Clear();
