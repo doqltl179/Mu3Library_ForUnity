@@ -73,6 +73,19 @@ namespace Mu3Library.Multiplayer
         /// accept. On success the state is <see cref="SessionState.Lobby"/>, or
         /// <see cref="SessionState.InGame"/> for a late join.
         /// </summary>
+        /// <remarks>
+        /// A lobby whose game refuses late joiners refuses the entry with
+        /// <see cref="MultiplayerReason.GameInProgress"/>. This player then connects to the host
+        /// that the lobby data names, since the host may keep a slot for this account, as after a
+        /// crash and a new start of the game within the reservation time (FR-21): the host takes
+        /// the account back into its slot, the join succeeds with the state the host reports, and
+        /// this player enters the lobby, which the host opens for it, as a player back from a
+        /// dropped connection does (<see cref="IMultiplayerManagerEventBus.OnLobbyRejoinFailed"/>
+        /// when it cannot). The host refuses any other account with the same reason. A game that
+        /// saved <see cref="CurrentLobbyId"/> before it went down joins that lobby again this way.
+        /// Until the host notices that the old connection broke, the host refuses the new start
+        /// as <see cref="MultiplayerReason.DuplicateAccount"/>.
+        /// </remarks>
         public void JoinLobby(LobbyId lobby, Action<MultiplayerResult> callback = null);
 
         /// <summary>

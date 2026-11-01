@@ -29,9 +29,20 @@ namespace Mu3Library.Multiplayer.Steam
             public Action<MultiplayerReason> OnAbandoned;
         }
 
+        /// <summary>An entry Steam refused, waiting for the lobby's data that tells why.</summary>
+        private sealed class PendingRefusal
+        {
+            public ulong Lobby;
+            public double Deadline;
+            public Action<MultiplayerReason> OnCompleted;
+        }
+
         // Steam gives up on a lobby search after about 20 seconds; past this the backend answers
         // itself, so a search Steam never answers cannot hold up the ones behind it.
         private const double SearchTimeoutSeconds = 25d;
+
+        // How long a refused entry waits for the lobby's data before it answers with what it knows.
+        private const double RefusalDataTimeoutSeconds = 5d;
 
         // Lobbies this player is in, with the owner last seen, so an owner change can be told.
         private readonly Dictionary<ulong, PlayerId> _lobbyOwners = new Dictionary<ulong, PlayerId>();
@@ -45,6 +56,7 @@ namespace Mu3Library.Multiplayer.Steam
         // Call results stay referenced until Steam answers, then are disposed on the next update.
         private readonly List<ActiveCall> _activeCalls = new List<ActiveCall>();
         private readonly List<IDisposable> _finishedCalls = new List<IDisposable>();
+        private readonly List<PendingRefusal> _refusals = new List<PendingRefusal>();
 
         private Callback<LobbyDataUpdate_t> _lobbyDataUpdated;
         private Callback<LobbyChatUpdate_t> _lobbyChatUpdated;
@@ -53,7 +65,16 @@ namespace Mu3Library.Multiplayer.Steam
 
         private void InitializeLobbies()
         {
-            _lobbyDataUpdated = Callback<LobbyDataUpdate_t>.Create(update => CheckLobbyOwner(update.m_ulSteamIDLobby));
+            _lobbyDataUpdated = Callback<LobbyDataUpdate_t>.Create(update =>
+            {
+                // The lobby's own data, rather than a member's, answers the entries waiting for it.
+                if (update.m_ulSteamIDMember == update.m_ulSteamIDLobby)
+                {
+                    AnswerRefusals(update.m_ulSteamIDLobby, onlyExpired: false);
+                }
+
+                CheckLobbyOwner(update.m_ulSteamIDLobby);
+            });
             _lobbyChatUpdated = Callback<LobbyChatUpdate_t>.Create(update => CheckLobbyOwner(update.m_ulSteamIDLobby));
         }
 
@@ -166,9 +187,24 @@ namespace Mu3Library.Multiplayer.Steam
                 {
                     if (!ioFailure)
                     {
-                        // Known only for a lobby this player saw in search; otherwise a refusal reads as not found.
-                        bool isInGame = SteamMatchmaking.GetLobbyData(lobby, LobbyDataKeys.State) == LobbyDataKeys.StateInGame;
-                        reason = SteamReasons.FromEnterResponse((EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse, isInGame);
+                        EChatRoomEnterResponse response = (EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse;
+                        if (response == EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed && SteamMatchmaking.RequestLobbyData(lobby))
+                        {
+                            // Steam knows the data of a lobby this player is not in only after
+                            // asking, unless a search found the lobby, and the data both tells a
+                            // game without late joiners from an invite-only lobby and names the
+                            // host, whom a player whose slot the host keeps reaches past the
+                            // lobby (FR-21). So the answer waits for the data.
+                            _refusals.Add(new PendingRefusal
+                            {
+                                Lobby = lobby.m_SteamID,
+                                Deadline = Time.realtimeSinceStartupAsDouble + RefusalDataTimeoutSeconds,
+                                OnCompleted = onCompleted,
+                            });
+                            return;
+                        }
+
+                        reason = SteamReasons.FromEnterResponse(response, IsLobbyInGame(lobby));
                     }
 
                     if (reason == MultiplayerReason.None)
@@ -416,7 +452,8 @@ namespace Mu3Library.Multiplayer.Steam
         /// <summary>
         /// Answers every lobby creation and entry Steam has not answered with the reason, as
         /// Steam will not answer them now, and lets go of their call results, so an answer that
-        /// arrives after all is not handed on twice.
+        /// arrives after all is not handed on twice. A refused entry waiting for the lobby's data
+        /// answers the reason too.
         /// </summary>
         private void FailLobbyCalls(MultiplayerReason reason)
         {
@@ -435,6 +472,58 @@ namespace Mu3Library.Multiplayer.Steam
                 Action<MultiplayerReason> onAbandoned = call.OnAbandoned;
                 EnqueueCallback(() => onAbandoned(reason));
             }
+
+            for (int j = 0; j < _refusals.Count; j++)
+            {
+                Action<MultiplayerReason> onCompleted = _refusals[j].OnCompleted;
+                EnqueueCallback(() => onCompleted?.Invoke(reason));
+            }
+
+            _refusals.Clear();
+        }
+
+        /// <summary>
+        /// Answers the refused entries into the lobby, or, with <paramref name="onlyExpired"/>,
+        /// those of any lobby that waited too long for its data, from the data Steam knows now:
+        /// <see cref="MultiplayerReason.GameInProgress"/> when it shows the game running, and
+        /// <see cref="MultiplayerReason.LobbyNotFound"/> otherwise.
+        /// </summary>
+        private void AnswerRefusals(ulong lobby, bool onlyExpired)
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            int i = 0;
+            while (i < _refusals.Count)
+            {
+                PendingRefusal refusal = _refusals[i];
+                if (onlyExpired ? now < refusal.Deadline : refusal.Lobby != lobby)
+                {
+                    i++;
+                    continue;
+                }
+
+                _refusals.RemoveAt(i);
+                MultiplayerReason reason = MultiplayerReason.SteamNotRunning;
+                try
+                {
+                    if (IsAvailable)
+                    {
+                        reason = SteamReasons.FromEnterResponse(EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed, IsLobbyInGame(new CSteamID(refusal.Lobby)));
+                    }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    // Possibly inside Steam's callbacks, which may be the game's own run of them.
+                    Break(cause);
+                }
+
+                Action<MultiplayerReason> onCompleted = refusal.OnCompleted;
+                EnqueueCallback(() => onCompleted?.Invoke(reason));
+            }
+        }
+
+        private static bool IsLobbyInGame(CSteamID lobby)
+        {
+            return SteamMatchmaking.GetLobbyData(lobby, LobbyDataKeys.State) == LobbyDataKeys.StateInGame;
         }
 
         /// <summary>The reason a request fails when Steam is gone, or <paramref name="otherwise"/>.</summary>
@@ -454,6 +543,14 @@ namespace Mu3Library.Multiplayer.Steam
                 }
 
                 FinishCurrentSearch(MultiplayerReason.Timeout, null);
+            }
+        }
+
+        private void CheckRefusalTimeouts()
+        {
+            if (_refusals.Count > 0 && IsAvailable)
+            {
+                AnswerRefusals(0UL, onlyExpired: true);
             }
         }
 
@@ -626,6 +723,7 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             _activeCalls.Clear();
+            _refusals.Clear();
             DisposeFinishedCalls();
 
             _lobbyDataUpdated?.Dispose();

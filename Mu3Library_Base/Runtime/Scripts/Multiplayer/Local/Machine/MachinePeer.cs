@@ -306,6 +306,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
             _lobbies.Clear();
             _knownPorts.Clear();
             _joins.Clear();
+            _refusedLobby = LobbyId.None;
+            _refusedLobbyData = null;
             _deferred.Clear();
             _listener = null;
         }

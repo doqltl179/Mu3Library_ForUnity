@@ -13,6 +13,7 @@ using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Local.Machine;
+using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
 
 namespace Mu3Library.Tests
@@ -331,6 +332,46 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
+        {
+            // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again
+            // within the reservation time, while the game refuses late joiners.
+            Node host = CreateNode("Host");
+            Node client = CreateNode("Client");
+            StartSession(host, client);
+            Assert.That(host.Manager.StartGame(new byte[] { 4 }).IsSuccess, Is.True);
+            PumpUntil(() => client.Manager.State == SessionState.InGame, "the game to start");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            PumpUntil(() => ListedData(lobby, LobbyDataKeys.Closed) == LobbyDataKeys.ClosedForTheGame, "the folder to list the game as closed");
+
+            client.Backend.SimulateCrash();
+            PumpUntil(() => host.Manager.TryGetParticipant(client.Id, out Participant away) && !away.IsConnected, "the host to keep the slot");
+            _paused.Add(client.Backend);
+
+            Node again = CreateNode("Client", id: client.Id);
+            MultiplayerResult? joined = null;
+            again.Manager.JoinLobby(lobby, r => joined = r);
+            PumpUntil(() => joined.HasValue, "the new start to join");
+            Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+            Assert.That(again.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(again.GameStarts.Single(), Is.EqualTo(new byte[] { 4 }));
+
+            PumpUntil(() => again.Backend.IsLobbyMember(lobby, again.Id), "the new start to enter the lobby");
+            Assert.That(host.Manager.TryGetParticipant(client.Id, out Participant back) && back.IsConnected, Is.True);
+
+            Node stranger = CreateNode("Stranger");
+            LobbySearchResult? found = null;
+            stranger.Manager.SearchLobbies(null, r => found = r);
+            PumpUntil(() => found.HasValue, "the search");
+            Assert.That(found.Value.Lobbies, Is.Empty, "search leaves the game out");
+
+            MultiplayerResult? refused = null;
+            stranger.Manager.JoinLobby(lobby, r => refused = r);
+            PumpUntil(() => refused.HasValue, "the stranger's join");
+            Assert.That(refused.Value.Reason, Is.EqualTo(MultiplayerReason.GameInProgress));
         }
 
         [Test]
@@ -1186,10 +1227,10 @@ namespace Mu3Library.Tests
             return backend;
         }
 
-        private Node CreateNode(string name, Action<LocalNetwork> configure = null)
+        private Node CreateNode(string name, Action<LocalNetwork> configure = null, PlayerId id = default)
         {
             LocalNetwork network = CreateNetwork(configure);
-            LocalBackend backend = new LocalBackend(network, name);
+            LocalBackend backend = new LocalBackend(network, name, id);
             MultiplayerManager manager = new MultiplayerManager();
             Assert.That(manager.Initialize(backend, new MultiplayerConfig(GameId, 1) { Clock = () => _clock.Elapsed.TotalSeconds }).IsSuccess, Is.True);
 

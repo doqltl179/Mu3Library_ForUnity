@@ -644,7 +644,12 @@ namespace Mu3Library.Multiplayer
         /// the host's account can open a connection, so membership is what keeps an invite-only or
         /// friends-only session to the players the lobby let in. The lobby may list a new member a
         /// moment after the connection opens, so a player who is not listed yet waits, up to the
-        /// handshake timeout. An account whose slot the host keeps goes back to it instead.
+        /// handshake timeout. An account whose slot the host keeps goes back to it instead, member
+        /// or not. A game that refuses late joiners takes nobody else, so there an account outside
+        /// the lobby, such as one that the lobby refused and that connected to the host in case it
+        /// held a slot (FR-21), is refused at once with
+        /// <see cref="MultiplayerReason.GameInProgress"/> rather than wait for a membership that
+        /// would change nothing.
         /// </summary>
         private void TryAdmit(PeerConnection peer)
         {
@@ -653,7 +658,7 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            if (!_backend.IsLobbyMember(_lobbyId, peer.Player))
+            if (!IsLobbyClosedForTheGame && !_backend.IsLobbyMember(_lobbyId, peer.Player))
             {
                 return;
             }
