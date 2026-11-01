@@ -32,7 +32,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// moves the new one in, and deletes the backup. For a moment the folder lists neither file
     /// under the lobby file's name, and opening it fails as missing or as held. A reader therefore
     /// goes by every file of an owner, its lobby file, its temporary file, and that backup, and
-    /// reads a lobby file it cannot open again shortly while another of them is fresh.
+    /// reads a lobby file it cannot open again shortly while another of them is fresh, or was
+    /// listed and is gone a moment later, as a file the replacement just moved.
     /// </para>
     /// <para>
     /// On an AMD Ryzen 7 5800X3D with Windows 11 Pro and Unity 6000.6.7f1, a dispose or a
@@ -54,9 +55,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const string FilePrefix = "peer-";
         private const string Extension = ".lobbies";
 
-        // How long one read waits at most, in all, for lobby files whose owners replace them; a
-        // replacement takes a few milliseconds.
-        private const double ReplaceWaitSeconds = 0.05;
+        /// <summary>
+        /// How long one read waits at most, in all, for lobby files whose owners replace them; a
+        /// replacement takes a few milliseconds.
+        /// </summary>
+        internal const double ReplaceWaitSeconds = 0.05;
 
         private enum FileRead
         {
@@ -477,9 +480,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         }
 
         /// <summary>
-        /// Whether a file of the owner on <paramref name="port"/> was written within
-        /// <see cref="StaleSeconds"/>: the owner runs and is replacing its lobby file. What a
-        /// process that ended left behind is older.
+        /// Whether the owner on <paramref name="port"/> is replacing its lobby file: one of its
+        /// files was written within <see cref="StaleSeconds"/>, or the folder listed it and it is
+        /// gone a moment later, moved by the replacement. What a process that ended left behind
+        /// is older and stays where it is.
         /// </summary>
         private static bool HasFreshFile(string folder, int port, long staleBefore)
         {
@@ -488,7 +492,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 string[] files = Directory.GetFiles(folder, FilePrefix + port.ToString(CultureInfo.InvariantCulture) + ".*");
                 for (int i = 0; i < files.Length; i++)
                 {
-                    if (File.GetLastWriteTimeUtc(files[i]).Ticks >= staleBefore)
+                    // For a file that is not there it reads a time long past, 1601 on Windows.
+                    if (File.GetLastWriteTimeUtc(files[i]).Ticks >= staleBefore || !File.Exists(files[i]))
                     {
                         return true;
                     }

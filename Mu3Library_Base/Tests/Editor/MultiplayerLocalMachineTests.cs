@@ -788,33 +788,58 @@ namespace Mu3Library.Tests
         public void Directory_ReadInTheMiddleOfAReplacement_WaitsForTheLobbyFile()
         {
             // As File.Replace leaves the folder on Windows for a moment: the old file moved aside,
-            // the new one not yet in place, so no file has the lobby file's name.
+            // the new one not yet in place, so no file has the lobby file's name. The rounds move
+            // the new one in at times 10 microseconds apart from the start of the read, and then
+            // a millisecond apart, so some move it between the read listing a file and looking at it.
+            const int FineRounds = 200;
+            const int CoarseRounds = 25;
             MachineDirectory directory = new MachineDirectory(_folder, 7);
             directory.Publish(new PlayerId(9), 7, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
             directory.Abandon();
             string file = Directory.GetFiles(_folder, "*.lobbies").Single();
             string temporary = Path.ChangeExtension(file, ".tmp");
-            File.Move(file, temporary);
 
-            Thread owner = new Thread(() =>
+            for (int round = 0; round < FineRounds + CoarseRounds; round++)
             {
-                Thread.Sleep(10);
-                File.Move(temporary, file);
-            });
-            owner.Start();
-            try
-            {
-                Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(1) }));
-            }
-            finally
-            {
-                owner.Join();
+                File.Move(file, temporary);
+                double delayMilliseconds = round < FineRounds ? round * 0.01 : round - FineRounds;
+                long delayTicks = (long)(delayMilliseconds * Stopwatch.Frequency / 1000.0);
+                long readStart = 0;
+                Thread owner = new Thread(() =>
+                {
+                    long start;
+                    while ((start = Interlocked.Read(ref readStart)) == 0)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    while (Stopwatch.GetTimestamp() - start < delayTicks)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    File.Move(temporary, file);
+                });
+                owner.Start();
+                try
+                {
+                    Interlocked.Exchange(ref readStart, Stopwatch.GetTimestamp());
+                    Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(1) }),
+                        $"Round {round} missed the lobby moved in {delayMilliseconds:0.00} ms after the read started.");
+                }
+                finally
+                {
+                    Interlocked.CompareExchange(ref readStart, Stopwatch.GetTimestamp(), 0);
+                    owner.Join();
+                }
             }
 
             // What a process that ended left in the middle of a replacement is old, and nobody waits for it.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0));
+            Stopwatch read = Stopwatch.StartNew();
             Assert.That(MachineDirectory.Read(_folder), Is.Empty);
+            Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds * 0.8), "The read waited for a file that a process that ended left.");
         }
 
         [Test]
