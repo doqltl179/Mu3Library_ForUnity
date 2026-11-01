@@ -302,6 +302,38 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbySearch_ComparesStringValues_AsSteamDoes()
+        {
+            // FR-6, FR-38, #239: every comparison of a string filter, from another process.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
+            foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.StringComparisonData())
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in MultiplayerSessionTests.StringComparisonChecks())
+            {
+                LobbySearchResult? found = null;
+                seeker.Manager.SearchLobbies(new LobbySearchQuery().AddStringFilter(key, filter, comparison), r => found = r);
+                PumpUntil(() => found.HasValue, "the search");
+                if ((found.Value.Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add(MultiplayerSessionTests.DescribeStringComparison(key, filter, comparison, isKept));
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
         public void Chat_ReachesEveryProcess_InTheSameOrder()
         {
             // FR-12 between "processes".
