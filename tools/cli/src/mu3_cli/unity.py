@@ -296,17 +296,31 @@ def _json_version(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _read_json_object(path: Path) -> dict:
+    """A JSON file that holds an object; anything else raises ValueError naming the file."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"{path} is not valid JSON: {error}") from error
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} does not hold a JSON object")
+    return data
+
+
 def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[str]) -> dict[str, str]:
     """The version an Editor bundles of each named package it bundles.
 
     The rule is compile-unity.sh's editor_bundled_version, which retargets its --editor-version
     mirrors: the version the Editor's package manifest recommends, or else the version of the
-    package's built-in copy. A package with neither is left out.
+    package's built-in copy. A package with neither is left out. A file of a shape other than
+    the Editor writes raises ValueError naming it.
     """
     manifest_file = package_manager_dir / "Editor" / "manifest.json"
     recommended: dict = {}
     if manifest_file.is_file():
-        recommended = json.loads(manifest_file.read_text(encoding="utf-8-sig")).get("packages", {})
+        recommended = _read_json_object(manifest_file).get("packages", {})
+        if not isinstance(recommended, dict):
+            raise ValueError(f"{manifest_file} is malformed: packages is not a JSON object")
 
     versions: dict[str, str] = {}
     for name in package_names:
@@ -314,7 +328,7 @@ def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[s
         version = _json_version(entry.get("version")) if isinstance(entry, dict) else None
         built_in_copy = package_manager_dir / "BuiltInPackages" / name / "package.json"
         if version is None and built_in_copy.is_file():
-            version = _json_version(json.loads(built_in_copy.read_text(encoding="utf-8-sig")).get("version"))
+            version = _json_version(_read_json_object(built_in_copy).get("version"))
         if version is not None:
             versions[name] = version
     return versions

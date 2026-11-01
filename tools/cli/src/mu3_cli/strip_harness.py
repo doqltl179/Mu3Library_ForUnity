@@ -128,29 +128,37 @@ def claim_work_dir(work_dir: Path) -> bool:
     return True
 
 
-def read_json(path: Path) -> dict:
-    """A package manifest or lock file: a JSON object whose dependencies, when it lists them, are an object."""
+def read_dependencies(path: Path, entry_type: type) -> dict:
+    """The dependencies object of a package manifest or lock file, each entry checked to be entry_type.
+
+    A manifest maps each package to a version string, a lock file to an object. A file that is not
+    JSON, or whose shape is not that, stops the run with its path rather than a traceback.
+    """
     try:
         data = json.loads(path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as error:
         raise HarnessSetupError(f"{path} is not valid JSON: {describe_error(error)}") from error
-    if not isinstance(data, dict) or not isinstance(data.get("dependencies", {}), dict):
+    dependencies = data.get("dependencies", {}) if isinstance(data, dict) else None
+    if not isinstance(dependencies, dict):
         raise HarnessSetupError(f"{path} is not a package manifest: a JSON object with a dependencies object")
-    return data
+    for name, entry in dependencies.items():
+        if not isinstance(entry, entry_type):
+            expected = "a string" if entry_type is str else "a JSON object"
+            raise HarnessSetupError(f"{path} is malformed: the dependency {name} is not {expected}")
+    return dependencies
 
 
 def unitask_source(root: Path) -> str:
     """The UniTask Git URL of the built-in development project, pinned to the commit its lock file names."""
     specs = load_target_specs(root)
     project = root / specs[UNITASK_TARGET].project_path / "Packages"
-    url = read_json(project / "manifest.json").get("dependencies", {}).get(UNITASK_PACKAGE)
-    if not isinstance(url, str):
+    url = read_dependencies(project / "manifest.json", str).get(UNITASK_PACKAGE)
+    if url is None:
         raise HarnessSetupError(f"{project / 'manifest.json'} has no {UNITASK_PACKAGE} dependency for --with-unitask to pin")
     if "#" in url:
         return url
-    lock = read_json(project / "packages-lock.json").get("dependencies", {}).get(UNITASK_PACKAGE)
-    commit = lock.get("hash") if isinstance(lock, dict) else None
-    return f"{url}#{commit}" if commit else url
+    commit = read_dependencies(project / "packages-lock.json", dict).get(UNITASK_PACKAGE, {}).get("hash")
+    return f"{url}#{commit}" if isinstance(commit, str) and commit else url
 
 
 def mirror_manifest(reference_manifest: dict, base_path: Path, unitask: str | None) -> dict:
@@ -361,7 +369,12 @@ def player_sizes(player_path: Path) -> dict[str, int]:
 def stop_process_tree(process: subprocess.Popen) -> None:
     """Stop a process this module started and the processes it started, such as Unity's build workers."""
     if platform.system() == "Windows":
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
+        except OSError:
+            # Without taskkill only the process itself stops below; the run still reports the timeout
+            # rather than this error.
+            pass
     process.kill()
     process.wait()
 
@@ -420,7 +433,7 @@ def prepare_mirror(
     changed += [f"Assets/{path}" for path in synced]
 
     manifest = mirror_manifest(
-        read_json(reference / "Packages" / "manifest.json"),
+        {"dependencies": read_dependencies(reference / "Packages" / "manifest.json", str)},
         root / BASE_PACKAGE_PATH,
         unitask_source(root) if with_unitask else None,
     )
@@ -533,16 +546,23 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
         return EXIT_BUILD_FAILED
 
     echo(f"Running {player_path}; log: {player_log}")
-    with setup_step(f"running {player_path}"):
+    with setup_step(f"starting {player_path}"):
         exit_code = runner(player_command(player_path, player_log), options.player_timeout)
-        run = parse_player_log(player_log.read_text(encoding="utf-8", errors="replace") if player_log.is_file() else "")
-        sizes = player_sizes(player_path)
+    with setup_step(f"reading {player_log}"):
+        log_text = player_log.read_text(encoding="utf-8", errors="replace") if player_log.is_file() else ""
+    run = parse_player_log(log_text)
 
+    # From here on the checks are known, so nothing may turn them into exit 3.
     for note in run.notes:
         echo(note)
     for check in run.checks:
         echo(f"{'PASS' if check.passed else 'FAIL'} {check.name}" + (f" ({check.detail})" if check.detail else ""))
 
+    try:
+        sizes = player_sizes(player_path)
+    except OSError as error:
+        echo(f"warning: could not measure the player's DLLs: {describe_error(error)}")
+        sizes = {}
     managed_total = sum(size for name, size in sizes.items() if name.startswith("Managed/"))
     if managed_total:
         echo(f"Managed DLLs: {managed_total} bytes in {sum(1 for name in sizes if name.startswith('Managed/'))} files")

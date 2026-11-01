@@ -8,6 +8,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import Callable
 from unittest import mock
 
 from typer.testing import CliRunner
@@ -30,6 +31,7 @@ from mu3_cli.strip_harness import (
     retarget_dependencies,
     run_harness,
     run_problems,
+    stop_process_tree,
     sync_template,
     template_dir,
     unitask_source,
@@ -416,7 +418,39 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
 
     def test_each_setup_and_cleanup_failure_exits_three_with_its_cause(self) -> None:
         locked = PermissionError(13, "The process cannot access the file because it is being used by another process")
+        floor = ("--editor-version", FLOOR_VERSION)
+
+        def older_editor_with(relative: str, text: str) -> Callable[[Path], None]:
+            """An older Editor whose bundled-package file at relative holds text."""
+
+            def arrange(root: Path) -> None:
+                fake_editor(root)
+                write(root / "Editor" / "Data" / "Resources" / "PackageManager" / relative, text)
+
+            return arrange
+
+        def urp_dependencies(dependencies: str) -> Callable[[Path], None]:
+            def arrange(root: Path) -> None:
+                fake_editor(root)
+                write(root / "UnityProject_URP" / "Packages" / "manifest.json", f'{{"dependencies": {dependencies}}}')
+
+            return arrange
+
         cases = {
+            "dependency version that is not a string": (urp_dependencies('{"com.unity.ugui": 2}'), floor, None,
+                                                        "manifest.json is malformed: the dependency com.unity.ugui is not a string"),
+            "Editor package manifest whose packages is not an object": (
+                older_editor_with("Editor/manifest.json", '{"packages": []}'), floor, None, "packages is not a JSON object"),
+            "Editor package manifest that is not an object": (
+                older_editor_with("Editor/manifest.json", "[]"), floor, None, "manifest.json does not hold a JSON object"),
+            "built-in copy that is not an object": (
+                older_editor_with("BuiltInPackages/com.unity.modules.audio/package.json", "[]"), floor, None,
+                "package.json does not hold a JSON object"),
+            "lock file entry that is not an object": (
+                lambda root: write(
+                    root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json", '{"dependencies": {"com.cysharp.unitask": "x"}}'
+                ),
+                ("--with-unitask",), None, "the dependency com.cysharp.unitask is not a JSON object"),
             "unmarked work folder": (lambda root: write(root / "work" / "project" / "Assets" / "Mine.cs", ""), (), None,
                                      f"has no {WORK_DIR_MARKER} marker"),
             "malformed manifest": (lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", "{"), (), None,
@@ -475,6 +509,33 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
 
         self.assertEqual(EXIT_CHECKS_FAILED, result.exit_code, result.output)
         self.assertNotIn("error:", result.output)
+
+    def test_a_failure_after_the_player_ran_keeps_its_check_results(self) -> None:
+        for name, unity, expected in (
+            ("passing", FakeUnity(), 0),
+            ("failing", FakeUnity(PASSING_LOG.replace("inject.field PASS", "inject.field FAIL"), player_status=1), EXIT_CHECKS_FAILED),
+        ):
+            with self.subTest(name):
+                with mock.patch("mu3_cli.strip_harness.player_sizes", side_effect=PermissionError(13, "Access is denied")):
+                    result = self.invoke(fixture_root(self), unity)
+
+                self.assertEqual(expected, result.exit_code, result.output)
+                lines = result.output.splitlines()
+                self.assertIn("PASS core.initialized-event", lines)
+                self.assertIn("warning: could not measure the player's DLLs: PermissionError: [Errno 13] Access is denied", lines)
+                self.assertNotIn("error:", result.output)
+
+    def test_a_timeout_stop_without_taskkill_still_stops_the_process(self) -> None:
+        process = mock.Mock(pid=123)
+
+        with (
+            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
+            mock.patch("mu3_cli.strip_harness.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
+        ):
+            stop_process_tree(process)
+
+        process.kill.assert_called_once_with()
+        process.wait.assert_called_once_with()
 
 
 class StripHarnessEditorVersionTests(unittest.TestCase):
