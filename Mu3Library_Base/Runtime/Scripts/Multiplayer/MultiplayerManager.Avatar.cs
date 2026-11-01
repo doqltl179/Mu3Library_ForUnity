@@ -247,7 +247,7 @@ namespace Mu3Library.Multiplayer
 
             if (RedrawAvatarTexture(owned.Texture, player, size, avatar))
             {
-                Raise(OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
+                Raise(nameof(OnAvatarChanged), OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
             }
         }
 

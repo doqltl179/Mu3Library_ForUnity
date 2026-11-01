@@ -74,7 +74,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnLobbyDataChanged, key, value);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, value);
             }
 
             return MultiplayerResult.Success;
@@ -117,7 +117,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnLobbyDataChanged, key, (string)null);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, (string)null);
             }
 
             return MultiplayerResult.Success;
@@ -291,7 +291,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnParticipantDataChanged, updated, key);
+                Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
             }
         }
 
@@ -342,7 +342,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnParticipantDataChanged, updated, key);
+                Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
             }
         }
         #endregion
@@ -358,7 +358,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _lobbyData[key] = value;
-            Raise(OnLobbyDataChanged, key, value);
+            Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, value);
         }
 
         private void HandleParticipantDataChanged(ref PacketReader reader)
@@ -379,7 +379,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithData(WithDataEntry(_participants[index].Data, key, value));
             _participants[index] = updated;
-            Raise(OnParticipantDataChanged, updated, key);
+            Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
         }
 
         private void HandleLobbyDataDeleted(ref PacketReader reader)
@@ -392,7 +392,7 @@ namespace Mu3Library.Multiplayer
 
             if (_lobbyData.Remove(key))
             {
-                Raise(OnLobbyDataChanged, key, (string)null);
+                Raise(nameof(OnLobbyDataChanged), OnLobbyDataChanged, key, (string)null);
             }
         }
 
@@ -413,7 +413,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithData(WithoutDataEntry(_participants[index].Data, key));
             _participants[index] = updated;
-            Raise(OnParticipantDataChanged, updated, key);
+            Raise(nameof(OnParticipantDataChanged), OnParticipantDataChanged, updated, key);
         }
 
         /// <summary>Takes this player's own data from the welcome, which its later requests build on.</summary>

@@ -233,6 +233,56 @@ namespace Mu3Library.Tests
 
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Lobby));
         }
+
+        [Test]
+        public void AThrowingEventHandler_IsLoggedOncePerEventAndExceptionType_AndLaterEventsStillArrive()
+        {
+            // FR-33: a game's chat handler with a bug cannot turn another player's chat flood into
+            // a log flood. An event that this player's own call raises, as the host's own lobby
+            // data change, follows the same rule, and each event counts apart.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            int chats = 0;
+            a.Manager.OnChatReceived += (sender, text) =>
+            {
+                chats++;
+                throw new InvalidOperationException("chat handler bug");
+            };
+            host.Manager.OnLobbyDataChanged += (key, value) => throw new InvalidOperationException("lobby data handler bug");
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                // The host's own change raises its event at once; the chat reaches A in the next update.
+                LogAssert.Expect(LogType.Exception, new Regex("lobby data handler bug"));
+                LogAssert.Expect(LogType.Exception, new Regex("chat handler bug"));
+                for (int i = 0; i < 5; i++)
+                {
+                    Assert.That(host.Manager.SendChat($"flood {i}").IsSuccess, Is.True);
+                    Assert.That(host.Manager.SetLobbyData("round", $"r{i}").IsSuccess, Is.True);
+                }
+
+                Pump();
+
+                Assert.That(chats, Is.EqualTo(5), "every chat still reaches the handler");
+                Assert.That(a.LobbyDataChanges.Count, Is.EqualTo(5), "the events after the chats still arrive");
+                Assert.That(host.LobbyDataChanges.Count, Is.EqualTo(5));
+                Assert.That(log.Logs.Count(entry => entry.Type == LogType.Exception), Is.EqualTo(2));
+                Assert.That(log.Count("A handler of OnChatReceived threw InvalidOperationException"), Is.EqualTo(1));
+                Assert.That(log.Count("A handler of OnLobbyDataChanged threw InvalidOperationException"), Is.EqualTo(1));
+            }
+
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+            Assert.That(a.Manager.LobbyData["round"], Is.EqualTo("r4"));
+
+            // The next session logs each cause again.
+            a.Manager.Leave();
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            LogAssert.Expect(LogType.Exception, new Regex("chat handler bug"));
+            Assert.That(host.Manager.SendChat("again").IsSuccess, Is.True);
+            Assert.That(host.Manager.SendChat("and again").IsSuccess, Is.True);
+            Pump();
+            Assert.That(chats, Is.EqualTo(7));
+        }
         #endregion
     }
 }

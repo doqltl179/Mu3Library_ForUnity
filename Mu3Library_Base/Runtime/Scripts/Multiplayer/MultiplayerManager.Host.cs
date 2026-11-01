@@ -253,7 +253,7 @@ namespace Mu3Library.Multiplayer
             WriteRules(_writer, rules);
             BroadcastToWelcomed(ConnectionId.None);
 
-            Raise(OnRulesChanged, rules);
+            Raise(nameof(OnRulesChanged), OnRulesChanged, rules);
             return MultiplayerResult.Success;
         }
 
@@ -353,7 +353,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
 
             return new StartGameResult(MultiplayerReason.None, null);
@@ -380,7 +380,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnReturnedToLobby);
+                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
             }
 
             return MultiplayerResult.Success;
@@ -698,7 +698,7 @@ namespace Mu3Library.Multiplayer
             WriteParticipant(_writer, joined);
             BroadcastToWelcomed(peer.Connection);
 
-            Raise(OnParticipantJoined, joined);
+            Raise(nameof(OnParticipantJoined), OnParticipantJoined, joined);
         }
 
         /// <summary>Sends the player the session as it stands: state, rules, data, and the roster.</summary>
@@ -740,7 +740,7 @@ namespace Mu3Library.Multiplayer
             WriteParticipantUpdated(updated);
             BroadcastToWelcomed(ConnectionId.None);
 
-            Raise(OnParticipantChanged, updated);
+            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
         }
 
         private void WriteParticipantUpdated(Participant participant)
@@ -771,7 +771,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
 
             int generation = _sessionGeneration;
-            Raise(OnParticipantLeft, removed, reason);
+            Raise(nameof(OnParticipantLeft), OnParticipantLeft, removed, reason);
             if (generation == _sessionGeneration)
             {
                 // A player who left is no longer one the game started with, even if it joins again late.

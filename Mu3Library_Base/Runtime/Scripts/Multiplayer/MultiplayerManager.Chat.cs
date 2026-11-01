@@ -91,7 +91,7 @@ namespace Mu3Library.Multiplayer
             BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(OnChatReceived, from, text);
+                Raise(nameof(OnChatReceived), OnChatReceived, from, text);
             }
         }
 
@@ -104,7 +104,7 @@ namespace Mu3Library.Multiplayer
             // missing from the roster means a packet this player cannot place.
             if (TryGetParticipant(sender, out Participant from))
             {
-                Raise(OnChatReceived, from, text);
+                Raise(nameof(OnChatReceived), OnChatReceived, from, text);
             }
         }
     }
