@@ -351,18 +351,23 @@ namespace Mu3Library.Tests
         [Test]
         public void SteamLobby_ComparesStringFilterValues_AsTheLocalBackendsDo()
         {
-            // FR-6, FR-38, #239: all six comparisons of a string filter on Steam itself, against
-            // the results the local backends' tests hold every backend to.
+            // FR-6, FR-38, #239, #286: all six comparisons of a string filter on Steam itself,
+            // on the lobby's values and on a key the lobby lacks or holds empty, against the
+            // results the local backends' tests hold every backend to.
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
                 Dictionary<string, string> data = MultiplayerSessionTests.StringComparisonData();
                 LobbyId lobby = CreatePublicLobby(manager, data);
-                foreach (KeyValuePair<string, string> pair in data)
+                LobbyInfo found = null;
+                foreach (KeyValuePair<string, string> pair in data.Where(pair => pair.Value.Length > 0))
                 {
-                    Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter(pair.Key, pair.Value), lobby), Is.Not.Null,
-                        $"the lobby never showed up in a search filtered by {pair.Key}");
+                    found = SearchUntil(manager, () => Worldwide().AddStringFilter(pair.Key, pair.Value), lobby);
+                    Assert.That(found, Is.Not.Null, $"the lobby never showed up in a search filtered by {pair.Key}");
                 }
+
+                Assert.That(found.Data.ContainsKey(MultiplayerSessionTests.EmptyStringKey), Is.False,
+                    "a Steam lobby keeps no key written with an empty value, so no filter can keep the lobby by it");
 
                 // Every value reached search's filters above, so a filter that drops the lobby
                 // drops it at once, and one that keeps it is asked a little longer.

@@ -306,7 +306,8 @@ namespace Mu3Library.Tests
         [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
-            // FR-6, FR-38, #239: every comparison of a string filter, from another process.
+            // FR-6, FR-38, #239, #286: every comparison of a string filter, from another process,
+            // on the values the lobby file lists and on a key it lacks or holds empty.
             Node host = CreateNode("Host");
             LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
             foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.StringComparisonData())
