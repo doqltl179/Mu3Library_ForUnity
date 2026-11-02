@@ -49,6 +49,17 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Attaches the backend. The manager does not own the backend: dispose it after the manager.
         /// </summary>
+        /// <remarks>
+        /// When the backend stops being available during a session
+        /// (<see cref="IMultiplayerBackend.IsAvailable"/>), the manager ends the session on its
+        /// next <c>Update</c>, raising the change to <see cref="SessionState.Offline"/> and
+        /// answering a pending create or join, with
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> for a Steam backend that can no longer
+        /// use Steam, because the game shut Steam down or a Steam call failed in its native
+        /// library, and <see cref="MultiplayerReason.BackendError"/> for any other backend, such
+        /// as one disposed before the manager. Such a backend reports nothing more, so the session
+        /// would otherwise stay as it is with no event.
+        /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 
         public bool TryGetParticipant(PlayerId player, out Participant participant);
@@ -414,7 +425,9 @@ namespace Mu3Library.Multiplayer
         /// to Offline, so every session starts without a status. When the platform refuses that
         /// removal, the manager asks again on the next <c>Update</c> and then once a second, while
         /// the backend is available, until the platform takes it or a new session shows something
-        /// else; it logs the refusal once, not every time it asks. Text that holds a NUL character
+        /// else; it logs the refusal once, not every time it asks, and not at all for a backend
+        /// that is no longer available, whose session ends with a reason of its own (see
+        /// <see cref="Initialize"/>). Text that holds a NUL character
         /// or an unpaired UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>,
         /// text longer than <see cref="MultiplayerLimits.MaxPresenceStatusSize"/> UTF-8 bytes
         /// <see cref="MultiplayerReason.MessageTooLarge"/>, and a platform that refuses it

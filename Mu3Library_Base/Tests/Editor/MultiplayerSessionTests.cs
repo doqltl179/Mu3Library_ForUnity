@@ -642,6 +642,67 @@ namespace Mu3Library.Tests
             Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.ConnectionFailed));
             Assert.That(disposed.States, Is.Empty);
         }
+
+        [Test]
+        public void BackendGone_EndsTheSession_WithTheReasonTheBackendNames()
+        {
+            // #272: a backend that stops being available reports nothing more, as the Steam
+            // backend once the game shut Steam down or a Steam call failed, so the manager ends
+            // the session itself. The local backend under this one still carries the host's
+            // closes, so the client hears that the host left.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(new SessionRules(4, requireReady: false)));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.InGame));
+
+            host.Platform.IsGone = true;
+            host.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            host.Manager.Update();
+
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline), "on the next update");
+            Assert.That(host.LastChange, Is.EqualTo(new SessionStateChange(SessionState.InGame, SessionState.Offline, MultiplayerReason.SteamNotRunning)));
+
+            Pump();
+            Assert.That(host.States.Count(change => change.Current == SessionState.Offline), Is.EqualTo(1), "ended once");
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
+
+        [Test]
+        public void BackendDisposedBeforeTheManager_EndsTheSession_WithBackendError()
+        {
+            // #272 for a backend that names no reason: the client's, disposed before its manager.
+            // Without the backend the client cannot reach the host again, so it does not try.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+
+            a.Backend.Dispose();
+            a.Manager.Update();
+
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange, Is.EqualTo(new SessionStateChange(SessionState.InGame, SessionState.Offline, MultiplayerReason.BackendError)));
+            Assert.That(a.Manager.Participants, Is.Empty);
+        }
+
+        [Test]
+        public void BackendGone_WhileCreating_AnswersTheCreateOnce_WithTheReason()
+        {
+            // #272: a disposed backend never answers the lobby it was asked for, and the manager
+            // has no timeout while it creates one.
+            Node node = CreateNode("Host");
+            List<MultiplayerResult> answers = new List<MultiplayerResult>();
+            node.Manager.CreateLobby(PublicOptions(SessionRules.Default), answers.Add);
+            Assert.That(node.Manager.State, Is.EqualTo(SessionState.Creating));
+
+            node.Backend.Dispose();
+            Pump();
+
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }));
+            Assert.That(node.LastChange, Is.EqualTo(new SessionStateChange(SessionState.Creating, SessionState.Offline, MultiplayerReason.BackendError)));
+        }
         #endregion
 
         #region Connection

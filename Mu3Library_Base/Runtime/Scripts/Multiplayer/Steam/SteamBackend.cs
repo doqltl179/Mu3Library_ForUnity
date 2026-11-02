@@ -54,10 +54,22 @@ namespace Mu3Library.Multiplayer.Steam
     /// <see cref="TryCreate"/> gives it: for the game, Steam no longer works in this process.
     /// </para>
     /// <para>
-    /// A <see cref="MultiplayerManager"/> on this backend answers
-    /// <see cref="MultiplayerReason.SteamNotRunning"/> at once to
-    /// <see cref="MultiplayerManager.CreateLobby"/> once the backend is not available because
-    /// Steam cannot be used, after a failure as once the game shut Steam down.
+    /// Steam's client still runs after such a failure, so the backend's connections and lobbies
+    /// would stay open on Steam's side, and the other players would hear nothing until this
+    /// backend is disposed. So the backend closes every connection and leaves every lobby at the
+    /// failure, as <see cref="Dispose"/> does, and a Steam call that fails there fails as
+    /// quietly: the other players see the connection drop and the lobby pass on, as when this
+    /// player's game stops. A Steam callback dispatched after the failure, later in the same run
+    /// of callbacks or in the game's own run of them, calls Steam no more: a lobby creation or
+    /// entry it answers answers <see cref="MultiplayerReason.SteamNotRunning"/>, and a connection
+    /// it reports is neither taken nor reported. A lobby that Steam creates or enters for such a
+    /// late answer stays until Steam shuts down, since leaving it would call Steam again.
+    /// </para>
+    /// <para>
+    /// A <see cref="MultiplayerManager"/> on this backend ends its session on its next update
+    /// once the backend is not available because Steam cannot be used, after a failure as once
+    /// the game shut Steam down, with <see cref="MultiplayerReason.SteamNotRunning"/>, and
+    /// answers the same reason at once to <see cref="MultiplayerManager.CreateLobby"/>.
     /// </para>
     /// <para>
     /// The backend catches the exception at its calls rather than checking at creation that every
@@ -116,7 +128,8 @@ namespace Mu3Library.Multiplayer.Steam
 
         /// <summary>
         /// False once disposed, once the game shut Steam down under this backend, or once a Steam
-        /// call failed in Steam's native library, as the remarks on the class describe.
+        /// call failed in Steam's native library, as the remarks on the class describe. A manager
+        /// on the backend ends its session then.
         /// </summary>
         public bool IsAvailable => !_isDisposed && !_isBroken && SteamRuns;
 
@@ -285,6 +298,17 @@ namespace Mu3Library.Multiplayer.Steam
         }
 
         /// <summary>
+        /// Test hook: holds a connection and a lobby as if Steam had reported them, so a backend
+        /// made without Steam (<see cref="CreateWithoutSteam"/>) has something to close and leave
+        /// when it breaks or is disposed.
+        /// </summary>
+        internal void HoldForTests(ConnectionId connection, PlayerId remote, LobbyId lobby)
+        {
+            _connections[connection.Value] = new SteamConnection { Remote = remote, IsReported = true };
+            _lobbyOwners[lobby.Value] = LocalPlayerId;
+        }
+
+        /// <summary>
         /// True for an exception that tells Steam cannot run in this process, with the exception
         /// that caused it: Steamworks.NET's own checks (<see cref="InvalidOperationException"/>),
         /// and a native library that is missing, lacks a function, or is built for another
@@ -307,9 +331,10 @@ namespace Mu3Library.Multiplayer.Steam
 
         /// <summary>
         /// Makes the backend unavailable after a Steam call threw what
-        /// <see cref="IsSteamUnavailable"/> tells, as the remarks on the class describe, and logs
-        /// the first such call. The requests waiting on Steam answer on the next
-        /// <see cref="Update"/>.
+        /// <see cref="IsSteamUnavailable"/> tells, as the remarks on the class describe, logs
+        /// the first such call, and closes the connections and leaves the lobbies that Steam,
+        /// whose client still runs, would otherwise keep open. The requests waiting on Steam
+        /// answer on the next <see cref="Update"/>.
         /// </summary>
         internal void Break(Exception cause)
         {
@@ -320,6 +345,14 @@ namespace Mu3Library.Multiplayer.Steam
 
             _isBroken = true;
             Debug.LogWarning($"[Multiplayer] The Steam backend is no longer available: a Steam call failed ({cause.GetType().Name}): {cause.Message}");
+
+            // As Dispose does, each step inside the guard, so a call that fails here only ends that
+            // step; a backend being disposed does it itself.
+            if (!_isDisposed && SteamRuns)
+            {
+                CloseConnections(steamRuns: true);
+                LeaveLobbies(steamRuns: true);
+            }
         }
 
         /// <summary>
@@ -582,7 +615,8 @@ namespace Mu3Library.Multiplayer.Steam
         /// Closes every connection, leaves every lobby, and lets go of Steam's callbacks. Steam
         /// itself shuts down only if this backend started it. When the game shut Steam down first,
         /// only the backend's own resources are released. A backend that a failed Steam call made
-        /// unavailable still tries each of these, and releases its own resources either way.
+        /// unavailable closed its connections and left its lobbies at that failure already; it
+        /// still tries the rest, and releases its own resources either way.
         /// </summary>
         public void Dispose()
         {

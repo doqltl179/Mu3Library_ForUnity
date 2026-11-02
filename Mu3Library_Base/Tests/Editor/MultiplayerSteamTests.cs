@@ -309,6 +309,47 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void ABackendWhoseSteamCallFailed_ClosesItsConnectionsAndLeavesItsLobbies_AsDisposeDoes()
+        {
+            // #272: Steam's client still runs after such a failure, so the backend closes and
+            // leaves what it holds at once, each step inside the guard. Here those calls fail as
+            // well, without a second warning, and the backend lets go of what it held either way.
+            AssumeSteamCallsFail();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                backend.HoldForTests(new ConnectionId(7), SomeAccount, SomeLobby);
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+
+                Assert.That(backend.GetLobbyData(SomeLobby, "key"), Is.Null);
+
+                Assert.That(backend.IsAvailable, Is.False);
+                Assert.That(backend.HeldConnectionCount, Is.Zero, "the connection is closed");
+                Assert.That(backend.HeldLobbyCount, Is.Zero, "the lobby is left");
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void Dispose_WhereSteamCallsFail_LetsGoOfWhatTheBackendHolds_WithoutAnException()
+        {
+            // The guards of the dispose path: closing the connection and leaving the lobby both
+            // fail here, quietly after the first warning.
+            AssumeSteamCallsFail();
+            SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions());
+            backend.HoldForTests(new ConnectionId(7), SomeAccount, SomeLobby);
+            LogAssert.Expect(LogType.Warning, FailedCallWarning);
+
+            Assert.That(() => backend.Dispose(), Throws.Nothing);
+
+            Assert.That(backend.IsAvailable, Is.False);
+            Assert.That(backend.HeldConnectionCount, Is.Zero);
+            Assert.That(backend.HeldLobbyCount, Is.Zero);
+            Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.NotInitialized), "a disposed backend, which no failure turns into one that cannot use Steam");
+            LogAssert.NoUnexpectedReceived();
+        }
+
         private static readonly LobbyId SomeLobby = new LobbyId(109775241000000001UL);
         private static readonly PlayerId SomeAccount = new PlayerId(76561197960435530UL);
         private static readonly Regex FailedCallWarning = new Regex(@"The Steam backend is no longer available: a Steam call failed \(\w+\)");
@@ -335,6 +376,9 @@ namespace Mu3Library.Tests
             yield return FirstCall("JoinLobby", (backend, answer) => { backend.JoinLobby(SomeLobby, answer); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("SearchLobbies", (backend, answer) => { backend.SearchLobbies(null, (reason, lobbies) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("LoadAvatar", (backend, answer) => { backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answer(reason)); return null; }, null, MultiplayerReason.BackendError);
+
+            // The integration tests' hook guards its Steam calls as the rest of the backend does.
+            yield return FirstCall("CreateLoopbackPair", (backend, answer) => backend.CreateLoopbackPair(out _, out _), false);
         }
 
         /// <param name="runsCallbacks">Off by default, so an update fails at the messages it receives instead.</param>

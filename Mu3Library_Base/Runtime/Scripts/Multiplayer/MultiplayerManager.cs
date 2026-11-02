@@ -166,6 +166,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _backend.Update();
+            EndSessionIfBackendIsGone();
             UpdateAvatarWaiters();
             UpdateAvatarRefreshes();
 
@@ -554,6 +555,21 @@ namespace Mu3Library.Multiplayer
             }
 
             return _state == SessionState.Offline ? MultiplayerReason.None : MultiplayerReason.InvalidState;
+        }
+
+        /// <summary>
+        /// Ends the session once the backend is no longer available, as when the game shut Steam
+        /// down or a Steam call failed in its native library: such a backend reports nothing
+        /// more, not even its connections closing, so the session would stay as it is with no
+        /// event. The reason is the one the backend names, or
+        /// <see cref="MultiplayerReason.BackendError"/>.
+        /// </summary>
+        private void EndSessionIfBackendIsGone()
+        {
+            if (_state != SessionState.Offline && !_backend.IsAvailable)
+            {
+                EndSession(UnavailableReason(MultiplayerReason.BackendError), raiseEvents: true);
+            }
         }
 
         /// <summary>

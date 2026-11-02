@@ -27,7 +27,12 @@ namespace Mu3Library.Multiplayer.Backend
     {
         public string Name { get; }
 
-        /// <summary>False once the backend cannot serve requests, for example after it is disposed.</summary>
+        /// <summary>
+        /// False once the backend cannot serve requests, for example after it is disposed. Once it
+        /// turns false during a session, the manager ends that session on its next
+        /// <see cref="MultiplayerManager.Update"/>, so a backend that stops being available need
+        /// not report its connections closed.
+        /// </summary>
         public bool IsAvailable { get; }
 
         public PlayerId LocalPlayerId { get; }

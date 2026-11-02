@@ -111,8 +111,9 @@ namespace Mu3Library.Multiplayer
                 _presenceRemovalRetryAt = isRetry ? Now + PresenceRemovalRetrySeconds : Now;
             }
 
-            // Once per refusal, not once per retry.
-            if (!isRetry)
+            // Once per refusal, not once per retry. A backend that is gone refused nothing, and the
+            // manager ends a session on it with a reason of its own.
+            if (!isRetry && _backend.IsAvailable)
             {
                 Debug.LogWarning($"[Multiplayer] The {_backend.Name} backend refused to show the presence (group {group}, {groupSize} players).");
             }
