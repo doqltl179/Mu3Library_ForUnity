@@ -9,7 +9,14 @@ from typer.testing import CliRunner
 
 from mu3_cli import repository
 from mu3_cli.cli import app
-from mu3_cli.repository import agentkit_cli_path, is_generated_tool_artifact, repo_root, repository_hygiene_issues
+from mu3_cli.repository import (
+    agentkit_cli_path,
+    is_generated_tool_artifact,
+    package_code_issues,
+    package_code_paths,
+    repo_root,
+    repository_hygiene_issues,
+)
 from mu3_cli.unity import create_directory_link, remove_directory_link
 
 MODULE_PATH = Path("tools", "cli", "src", "mu3_cli", "repository.py")
@@ -35,6 +42,65 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertEqual(3, len(package_lines), result.output)
         for package in ("Mu3Library_Base", "Mu3Library_URP", "Mu3Library_Game_WatermelonGame"):
             self.assertIn(str(repo_root() / package), result.output)
+
+
+class PackageCodeCharacterTests(unittest.TestCase):
+    """Package code writes a character a reader cannot see as a \\u escape, never as the character."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+
+    def write(self, data: bytes) -> str:
+        relative_path = "Mu3Library_Base/Runtime/Scripts/Code.cs"
+        path = self.root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return relative_path
+
+    def test_hidden_character_is_reported_with_its_line(self) -> None:
+        hidden = {
+            "\ue000": "U+E000",  # private use, the sort key LobbyFilter once held as the character
+            "\u200b": "U+200B",  # zero-width space
+            "\u202e": "U+202E",  # right-to-left override
+            "\ufeff": "U+FEFF",  # byte order mark past the start of the file
+            "\u0007": "U+0007",  # bell
+            "\u2028": "U+2028",  # line separator, which str.splitlines() would split at
+        }
+        for character, code_point in hidden.items():
+            with self.subTest(code_point=code_point):
+                path = self.write(f"// first\r\nchar c = '{character}';\r\n".encode("utf-8"))
+
+                self.assertEqual(
+                    [
+                        f"invisible or private-use character {code_point} in package code, "
+                        f"write it as a \\u escape: {Path(path)}:2"
+                    ],
+                    package_code_issues(self.root, [path]),
+                )
+
+    def test_text_a_reader_can_see_passes(self) -> None:
+        # A leading byte order mark, tabs, CRLF, Korean, Japanese, an accented and a full-width
+        # letter, and the escape that stands for a private-use character.
+        text = "\ufeff// \ud55c\uad6d\uc5b4 \u65e5\u672c\u8a9e \u00e9 \uff21\r\n\tchar c = '\\uE000';\r\n"
+        path = self.write(text.encode("utf-8"))
+
+        self.assertEqual([], package_code_issues(self.root, [path]))
+
+    def test_file_that_is_not_utf8_is_reported(self) -> None:
+        path = self.write(b"char c = '\xff';\n")
+
+        issues = package_code_issues(self.root, [path])
+
+        self.assertEqual(1, len(issues), issues)
+        self.assertTrue(issues[0].startswith(f"could not inspect package code file: {Path(path)} ("), issues)
+
+    def test_package_code_paths_lists_the_package_csharp_files(self) -> None:
+        paths = package_code_paths(repo_root())
+
+        self.assertIn("Mu3Library_Base/Runtime/Scripts/Multiplayer/Local/LobbyFilter.cs", paths)
+        self.assertTrue(all(path.startswith("Mu3Library_") and path.endswith(".cs") for path in paths), paths)
 
 
 class RepositoryRootSpellingTests(unittest.TestCase):
