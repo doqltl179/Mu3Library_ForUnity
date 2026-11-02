@@ -61,12 +61,25 @@ namespace Mu3Library.Multiplayer.Steam
         private Callback<LobbyDataUpdate_t> _lobbyDataUpdated;
         private Callback<LobbyChatUpdate_t> _lobbyChatUpdated;
 
+        /// <summary>How many lobbies the backend is in, for the tests.</summary>
+        internal int HeldLobbyCount => _lobbyOwners.Count;
+
+        /// <summary>How many requests wait for Steam's answer, for the integration tests.</summary>
+        internal int PendingLobbyCallCount => _activeCalls.Count;
+
 
 
         private void InitializeLobbies()
         {
             _lobbyDataUpdated = Callback<LobbyDataUpdate_t>.Create(update =>
             {
+                // Dispatched late, once Steam cannot be used: the next update answers the
+                // entries waiting for the data, and nothing here calls Steam.
+                if (!IsAvailable)
+                {
+                    return;
+                }
+
                 // The lobby's own data, rather than a member's, answers the entries waiting for it.
                 if (update.m_ulSteamIDMember == update.m_ulSteamIDLobby)
                 {
@@ -136,7 +149,9 @@ namespace Mu3Library.Multiplayer.Steam
                 }
                 catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
                 {
-                    // Inside Steam's callbacks, which may be the game's own run of them.
+                    // Inside Steam's callbacks, which may be the game's own run of them. Steam
+                    // made the lobby, so it is left with the others the backend is in.
+                    _lobbyOwners[lobby.m_SteamID] = LocalPlayerId;
                     Break(cause);
                     EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.SteamNotRunning, LobbyId.None));
                     return;
@@ -217,7 +232,13 @@ namespace Mu3Library.Multiplayer.Steam
                 }
                 catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
                 {
-                    // Inside Steam's callbacks, which may be the game's own run of them.
+                    // Inside Steam's callbacks, which may be the game's own run of them. A lobby
+                    // Steam let this player into is left with the others the backend is in.
+                    if (!ioFailure && (EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse == EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
+                    {
+                        _lobbyOwners[lobby.m_SteamID] = PlayerId.None;
+                    }
+
                     Break(cause);
                     reason = MultiplayerReason.SteamNotRunning;
                 }
@@ -640,7 +661,8 @@ namespace Mu3Library.Multiplayer.Steam
         /// </summary>
         private void CheckLobbyOwner(ulong lobby)
         {
-            if (_isDisposed || !_lobbyOwners.TryGetValue(lobby, out PlayerId known))
+            // Dispatched late, once Steam cannot be used, it calls Steam no more.
+            if (!IsAvailable || !_lobbyOwners.TryGetValue(lobby, out PlayerId known))
             {
                 return;
             }
@@ -670,6 +692,15 @@ namespace Mu3Library.Multiplayer.Steam
         /// Answers the request when Steam is gone before it answered; null for a search, which
         /// <see cref="FailSearches"/> answers.
         /// </param>
+        /// <remarks>
+        /// An answer that Steam dispatches once Steam cannot be used, later in the run of
+        /// callbacks in which a call failed or in the game's own run of them, is not handed on:
+        /// handling it would call Steam again, and a lobby creation or entry would answer
+        /// success from a backend that is not available. The request answers
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> instead, as one that Steam never
+        /// answered does; a search is still the running one, which <see cref="FailSearches"/>
+        /// answers on the next update.
+        /// </remarks>
         private ActiveCall Track<T>(SteamAPICall_t call, Action<T, bool> onResult, Action<MultiplayerReason> onAbandoned = null)
         {
             CallResult<T> result = CallResult<T>.Create();
@@ -679,10 +710,22 @@ namespace Mu3Library.Multiplayer.Steam
             {
                 _activeCalls.Remove(active);
                 _finishedCalls.Add(result);
-                if (!_isDisposed)
+                if (_isDisposed)
                 {
-                    onResult(value, ioFailure);
+                    return;
                 }
+
+                if (!IsAvailable)
+                {
+                    if (onAbandoned != null)
+                    {
+                        EnqueueCallback(() => onAbandoned(MultiplayerReason.SteamNotRunning));
+                    }
+
+                    return;
+                }
+
+                onResult(value, ioFailure);
             });
             return active;
         }
@@ -700,22 +743,7 @@ namespace Mu3Library.Multiplayer.Steam
 
         private void ShutdownLobbies(bool steamRuns)
         {
-            if (steamRuns)
-            {
-                try
-                {
-                    foreach (ulong lobby in _lobbyOwners.Keys)
-                    {
-                        SteamMatchmaking.LeaveLobby(new CSteamID(lobby));
-                    }
-                }
-                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
-                {
-                    Break(cause);
-                }
-            }
-
-            _lobbyOwners.Clear();
+            LeaveLobbies(steamRuns);
             _searches.Clear();
             _currentSearch = null;
             _currentSearchCall = null;
@@ -733,6 +761,31 @@ namespace Mu3Library.Multiplayer.Steam
             _lobbyChatUpdated?.Dispose();
             _lobbyDataUpdated = null;
             _lobbyChatUpdated = null;
+        }
+
+        /// <summary>
+        /// Leaves every lobby the backend is in when <paramref name="steamRuns"/>, inside the
+        /// guard, so a call that fails ends only this step; then forgets them either way. Steam
+        /// passes a lobby this player owned on to another member.
+        /// </summary>
+        private void LeaveLobbies(bool steamRuns)
+        {
+            if (steamRuns)
+            {
+                try
+                {
+                    foreach (ulong lobby in _lobbyOwners.Keys)
+                    {
+                        SteamMatchmaking.LeaveLobby(new CSteamID(lobby));
+                    }
+                }
+                catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+                {
+                    Break(cause);
+                }
+            }
+
+            _lobbyOwners.Clear();
         }
     }
 }
