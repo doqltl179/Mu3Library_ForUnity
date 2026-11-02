@@ -146,6 +146,43 @@ namespace Mu3Library.Tests
             public override IServiceA Service => base.Service;
         }
 
+        private interface IServiceAHolder
+        {
+            IServiceA Service { get; }
+        }
+
+        // An explicit interface implementation is a private member of the class.
+        private class ExplicitGetOnlyInjectTarget : IServiceAHolder
+        {
+            [Inject] IServiceA IServiceAHolder.Service => null;
+        }
+
+        // Required readonly [Inject] fields: only an initializer or a constructor sets them.
+        private class ReadOnlyInjectTarget
+        {
+            [Inject(required: false)] private IServiceA _writable = null;
+            [Inject] private readonly IServiceA _service = null;
+
+            public IServiceA Writable => _writable;
+            public IServiceA Service => _service;
+        }
+
+        private abstract class ReadOnlyInjectBase
+        {
+            [Inject] private readonly IServiceA _baseService = null;
+
+            public IServiceA BaseService => _baseService;
+        }
+
+        private class ReadOnlyInjectLeaf : ReadOnlyInjectBase { }
+
+        private class OptionalReadOnlyInjectTarget
+        {
+            [Inject(required: false)] private readonly IServiceA _service = null;
+
+            public IServiceA Service => _service;
+        }
+
         private abstract class GameCoreBase : CoreBase
         {
             [Inject(required: false)] private IServiceA _service = null;
@@ -560,6 +597,19 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void InjectInto_RequiredGetOnlyExplicitInterfaceProperty_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => _scope.InjectInto(new ExplicitGetOnlyInjectTarget()));
+
+            StringAssert.Contains($"{typeof(ExplicitGetOnlyInjectTarget).FullName}.", exception.Message);
+            StringAssert.Contains($"{nameof(IServiceAHolder)}.{nameof(IServiceAHolder.Service)}", exception.Message);
+            StringAssert.Contains("no setter", exception.Message);
+        }
+
+        [Test]
         public void Resolve_ServiceWithRequiredGetOnlyProperty_Throws()
         {
             _scope.Register<ServiceA>(ServiceLifetime.Singleton);
@@ -602,6 +652,63 @@ namespace Mu3Library.Tests
             Assert.AreEqual(1, InjectableMembers.GetUnwritableProperties(typeof(OverriddenGetOnlyInjectLeaf)).Count);
             Assert.AreEqual(0, InjectableMembers.GetUnwritableProperties(typeof(InjectLeaf)).Count);
             Assert.AreEqual(0, InjectableMembers.GetProperties(typeof(GetOnlyInjectTarget)).Count);
+        }
+        #endregion
+
+        #region Readonly [Inject] fields
+        [Test]
+        public void InjectInto_RequiredReadOnlyField_ThrowsBeforeInjectingAnyMember()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            ReadOnlyInjectTarget target = new();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _scope.InjectInto(target));
+
+            StringAssert.Contains($"{typeof(ReadOnlyInjectTarget).FullName}._service", exception.Message);
+            StringAssert.Contains("readonly", exception.Message);
+            Assert.IsNull(target.Writable);
+        }
+
+        [Test]
+        public void InjectInto_RequiredReadOnlyBaseClassField_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.InjectInto(new ReadOnlyInjectLeaf()));
+        }
+
+        [Test]
+        public void Resolve_ServiceWithRequiredReadOnlyField_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            _scope.Register<ReadOnlyInjectTarget>(ServiceLifetime.Transient);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.Resolve<ReadOnlyInjectTarget>());
+        }
+
+        [Test]
+        public void InjectInto_OptionalReadOnlyField_IsSkipped()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            OptionalReadOnlyInjectTarget target = new();
+
+            Assert.DoesNotThrow(() => _scope.InjectInto(target));
+            Assert.IsNull(target.Service);
+        }
+
+        [Test]
+        public void InjectableMembers_ReadOnlyFields_ListsReadOnlyFieldsOnly()
+        {
+            CollectionAssert.AreEqual(
+                new[] { "_service" },
+                InjectableMembers.GetReadOnlyFields(typeof(ReadOnlyInjectTarget)).Select(field => field.Name).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "_baseService" },
+                InjectableMembers.GetReadOnlyFields(typeof(ReadOnlyInjectLeaf)).Select(field => field.Name).ToArray());
+            Assert.AreEqual(0, InjectableMembers.GetReadOnlyFields(typeof(InjectLeaf)).Count);
+            CollectionAssert.AreEqual(
+                new[] { "_writable" },
+                InjectableMembers.GetFields(typeof(ReadOnlyInjectTarget)).Select(field => field.Name).ToArray());
         }
         #endregion
 

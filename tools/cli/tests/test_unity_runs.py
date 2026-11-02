@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -369,7 +370,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 completed = self.run_tests(
                     "leaf",
                     "--stall-timeout",
-                    "2",
+                    "1",
                     results=nunit_results(),
                     log=log,
                     sleep="120",
@@ -379,7 +380,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
                 self.assertEqual(1, completed.returncode, completed.stdout)
                 self.assertIn(
-                    f"error: leaf: Unity wrote nothing to its log for 2 s {phrase}, so the script stopped it; "
+                    f"error: leaf: Unity wrote nothing to its log for 1 s {phrase}, so the script stopped it; "
                     "see log/unity-tests/leaf-editmode.log",
                     completed.stderr,
                 )
@@ -390,16 +391,19 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
+        # 12 ticks 0.2 s apart run for 2.4 s, longer than the 2 s the log may stand still, and the
+        # gap between two ticks may grow almost tenfold under load before it counts as a stall.
         completed = self.run_tests(
-            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="15", tick_seconds="0.2"
+            "leaf", "--stall-timeout", "2", results=nunit_results(), ticks="12", tick_seconds="0.2"
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 12", completed.stdout.splitlines())
 
     def test_stall_timeout_zero_waits_for_a_silent_unity(self) -> None:
-        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="2")
+        # Were 0 taken as a timeout of 0 s, the first look at the log that found no growth would
+        # stop the fake, well within its 1 s of silence.
+        completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="1")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
@@ -526,13 +530,13 @@ class CompileLogTests(FixtureRepositoryTestCase):
         sleeper_file = Path(sleeper_directory.name) / "sleeper.pid"
         started = time.monotonic()
         completed = self.compile(
-            "leaf", "--stall-timeout", "2", log="Compiling scripts", sleep="120", sleeper_file=str(sleeper_file)
+            "leaf", "--stall-timeout", "1", log="Compiling scripts", sleep="120", sleeper_file=str(sleeper_file)
         )
 
         self.assertLess(time.monotonic() - started, 60, "the silent Unity was not stopped")
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn(
-            "error: Unity compilation failed for leaf: Unity wrote nothing to its log for 2 s, "
+            "error: Unity compilation failed for leaf: Unity wrote nothing to its log for 1 s, "
             "so the script stopped it; see log/unity-compile/leaf.log",
             completed.stderr,
         )
@@ -544,12 +548,36 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertNotEqual(0, alive.returncode, f"sleep {sleeper} outlived the stopped run")
 
     def test_unity_that_keeps_logging_is_not_stopped(self) -> None:
-        # 15 ticks 0.2 s apart run for 3 s, longer than the 2 s the log may stand still.
-        completed = self.compile("leaf", "--stall-timeout", "2", ticks="15", tick_seconds="0.2")
+        # 12 ticks 0.2 s apart run for 2.4 s, longer than the 2 s the log may stand still, and the
+        # gap between two ticks may grow almost tenfold under load before it counts as a stall.
+        completed = self.compile("leaf", "--stall-timeout", "2", ticks="12", tick_seconds="0.2")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("fake unity tick 15", completed.stdout.splitlines())
+        self.assertIn("fake unity tick 12", completed.stdout.splitlines())
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+    def test_a_target_that_stalls_or_fails_ends_the_run_before_the_remaining_targets(self) -> None:
+        # all compiles the five fixture targets in mapping order, and the fake stalls or fails in
+        # each, so the first target ends the run and none of the other four may start.
+        for fake, status, error in (
+            (
+                {"sleep": "120"},
+                1,
+                "error: Unity compilation failed for shared: Unity wrote nothing to its log for 1 s, "
+                "so the script stopped it; see log/unity-compile/shared.log",
+            ),
+            ({"unity_status": 3}, 3, "error: Unity compilation failed for shared (exit 3)"),
+        ):
+            with self.subTest(error=error):
+                completed = self.compile("all", "--stall-timeout", "1", **fake)
+
+                self.assertEqual(status, completed.returncode, completed.stdout)
+                self.assertIn(error, completed.stderr)
+                ran = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+                self.assertEqual(1, len(ran), completed.stdout)
+                self.assertTrue(ran[0].endswith("/ProjShared"), ran[0])
+                self.assertNotIn("Compiling layered", completed.stdout)
+                self.assertNotIn("Unity compilation succeeded", completed.stdout)
 
 
 class UnfinishedTestTests(FixtureRepositoryTestCase):
@@ -626,6 +654,54 @@ class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
                 self.assertEqual(1, completed.returncode, completed.stdout)
                 self.assertIn(f"UNITY_LOG_POLL_SECONDS expects a positive number of seconds: {value}", completed.stderr)
                 self.assertNotIn("fake unity ran", completed.stdout)
+
+
+class StallClockTests(FixtureRepositoryTestCase):
+    """The stall watch never stops Unity before the log has stood still for the whole timeout."""
+
+    # Prints, for each reading of the clock after the log last grew at 5 s, whether the watch would stop Unity.
+    JUDGE = """for now in "$@"; do
+    UNITY_CLOCK="$now"
+    if unity_log_stalled 5000000; then printf '%s stalled\\n' "$now"; else printf '%s waits\\n' "$now"; fi
+done
+"""
+
+    def judge(self, setup: str, *readings: int) -> list[str]:
+        completed = self.run_functions("compile-unity.sh", setup + self.JUDGE, *map(str, readings))
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout.splitlines()
+
+    def test_a_clock_to_the_microsecond_stops_unity_once_the_timeout_has_passed(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh", 'read_unity_clock\nprintf "%s %s" "$UNITY_CLOCK" "$UNITY_CLOCK_SLACK"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        clock, slack = map(int, completed.stdout.split())
+        if slack:
+            self.skipTest("this bash is older than 5 and has no EPOCHREALTIME")
+        self.assertLess(abs(clock - time.time() * 1_000_000), 60_000_000, "the clock does not count microseconds")
+        self.assertEqual(
+            ["6999999 waits", "7000000 stalled"],
+            self.judge("UNITY_STALL_SECONDS=2\nread_unity_clock\n", 6_999_999, 7_000_000),
+        )
+
+    def test_a_clock_in_whole_seconds_waits_a_second_more_than_the_timeout(self) -> None:
+        # Readings 2 s apart in whole seconds may be little more than 1 s apart in fact.
+        setup = "unset EPOCHREALTIME\nUNITY_STALL_SECONDS=2\nread_unity_clock\n"
+        completed = self.run_functions(
+            "compile-unity.sh", setup + 'printf "%s %s" "$((UNITY_CLOCK % 1000000))" "$UNITY_CLOCK_SLACK"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("0 1000000", completed.stdout)
+        self.assertEqual(["7000000 waits", "8000000 stalled"], self.judge(setup, 7_000_000, 8_000_000))
+
+    def test_a_timeout_of_zero_never_stops_unity(self) -> None:
+        self.assertEqual(
+            ["5000000 waits", "99000000000 waits"],
+            self.judge("UNITY_STALL_SECONDS=0\nread_unity_clock\n", 5_000_000, 99_000_000_000),
+        )
 
 
 class ProcessTreeTests(FixtureRepositoryTestCase):
@@ -825,6 +901,68 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         self.assertIn(f"cannot find the packages that Unity {FLOOR_VERSION} bundles", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
         self.assertEqual([], self.mirrors_left())
+
+
+# Where Unity Hub keeps an Editor's executable inside the folder of its version.
+HUB_EXECUTABLE = {"Windows": "Editor/Unity.exe", "Darwin": "Unity.app/Contents/MacOS/Unity"}.get(
+    platform.system(), "Editor/Unity"
+)
+
+
+class CrlfCheckoutTests(FixtureRepositoryTestCase):
+    """A checkout with core.autocrlf holds a project's ProjectVersion.txt with CRLF, and the Editor
+    it names must not carry the CR."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        version_file = self.root / "ProjLeaf" / "ProjectSettings" / "ProjectVersion.txt"
+        self.addCleanup(version_file.write_bytes, version_file.read_bytes())
+        version_file.write_bytes(
+            b"m_EditorVersion: 6000.6.7f1\r\nm_EditorVersionWithRevision: 6000.6.7f1 (0123456789ab)\r\n"
+        )
+
+    def hub_editor(self) -> tuple[Path, Path]:
+        """A Unity Hub folder holding a fake of the Editor the fixture asks for, and its executable."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        # Hub names the folder Editor, which the scripts look for at the end of an override's path.
+        hub = Path(directory.name) / "Hub" / "Editor"
+        executable = hub / "6000.6.7f1" / HUB_EXECUTABLE
+        executable.parent.mkdir(parents=True)
+        executable.write_text(FAKE_UNITY, encoding="utf-8", newline="\n")
+        executable.chmod(0o755)
+        return hub, executable
+
+    def test_the_editor_version_has_no_cr(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh", 'project_editor_version ProjLeaf\nprintf "[%s]" "$PROJECT_EDITOR_VERSION"'
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("[6000.6.7f1]", completed.stdout)
+
+    def test_the_hub_editor_compiles_the_project_without_an_override(self) -> None:
+        hub, _ = self.hub_editor()
+        environment = self.unity_environment(UNITY_HUB_EDITOR_ROOT=str(hub))
+        del environment["UNITY_EDITOR"]
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=environment)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
+        self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+    def test_an_override_that_is_the_hub_editor_does_not_warn(self) -> None:
+        _, executable = self.hub_editor()
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", environment=self.unity_environment(UNITY_EDITOR=executable.as_posix())
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("but the explicit override will be used", completed.stderr)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
 
 if __name__ == "__main__":

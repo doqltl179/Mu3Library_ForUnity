@@ -64,7 +64,9 @@ namespace Mu3Library.Multiplayer
         private readonly List<(PlayerId Player, AvatarSize Size)> _dueAvatarRefreshes = new List<(PlayerId Player, AvatarSize Size)>();
         private int _lastAvatarRefresh = 0;
 
-        public event Action<AvatarResult> OnAvatarChanged;
+        private readonly ManagerEvent<Action<AvatarResult>> _onAvatarChanged = new ManagerEvent<Action<AvatarResult>>(nameof(OnAvatarChanged));
+
+        public event Action<AvatarResult> OnAvatarChanged { add => _onAvatarChanged.Add(value); remove => _onAvatarChanged.Remove(value); }
 
 
 
@@ -333,7 +335,7 @@ namespace Mu3Library.Multiplayer
             // Last, as a handler may release the avatar or end the session.
             if (draws && RedrawAvatarTexture(owned.Texture, avatar))
             {
-                Raise(nameof(OnAvatarChanged), OnAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
+                Raise(_onAvatarChanged, new AvatarResult(MultiplayerReason.None, player, size, owned.Texture));
             }
         }
 
@@ -548,7 +550,7 @@ namespace Mu3Library.Multiplayer
             _avatars.Clear();
             _avatarWaiters.Clear();
             _avatarRefreshes.Clear();
-            OnAvatarChanged = null;
+            _onAvatarChanged.Clear();
         }
 
         private static void DestroyTexture(Texture2D texture)

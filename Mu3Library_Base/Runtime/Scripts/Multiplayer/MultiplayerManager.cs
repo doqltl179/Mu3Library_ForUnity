@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Threading;
 using Mu3Library.DI;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
@@ -77,23 +78,42 @@ namespace Mu3Library.Multiplayer
         // and a handler's exception types come from the game's own code, so it needs no limit.
         private readonly HashSet<(string Event, Type Exception)> _loggedEventFailures = new HashSet<(string Event, Type Exception)>();
 
-        public event Action<SessionStateChange> OnStateChanged;
-        public event Action<Participant> OnParticipantJoined;
-        public event Action<Participant, MultiplayerReason> OnParticipantLeft;
-        public event Action<Participant> OnParticipantChanged;
-        public event Action<Participant, string> OnParticipantDataChanged;
-        public event Action<string, string> OnLobbyDataChanged;
-        public event Action<Participant, string> OnChatReceived;
-        public event Action<SessionRules> OnRulesChanged;
-        public event Action<ReadOnlyMemory<byte>> OnGameStarted;
-        public event Action OnReturnedToLobby;
-        public event Action<LobbyId> OnJoinRequested;
-        public event Action<Participant> OnRateLimitExceeded;
-        public event Action<Participant> OnParticipantDisconnected;
-        public event Action<Participant> OnParticipantReconnected;
-        public event Action<MultiplayerReason> OnLobbyRejoinFailed;
-        public event Action OnAllPlayersLoaded;
-        public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
+        // The handlers of each event, which Raise invokes one by one (see ManagerEvent).
+        private readonly ManagerEvent<Action<SessionStateChange>> _onStateChanged = new ManagerEvent<Action<SessionStateChange>>(nameof(OnStateChanged));
+        private readonly ManagerEvent<Action<Participant>> _onParticipantJoined = new ManagerEvent<Action<Participant>>(nameof(OnParticipantJoined));
+        private readonly ManagerEvent<Action<Participant, MultiplayerReason>> _onParticipantLeft = new ManagerEvent<Action<Participant, MultiplayerReason>>(nameof(OnParticipantLeft));
+        private readonly ManagerEvent<Action<Participant>> _onParticipantChanged = new ManagerEvent<Action<Participant>>(nameof(OnParticipantChanged));
+        private readonly ManagerEvent<Action<Participant, string>> _onParticipantDataChanged = new ManagerEvent<Action<Participant, string>>(nameof(OnParticipantDataChanged));
+        private readonly ManagerEvent<Action<string, string>> _onLobbyDataChanged = new ManagerEvent<Action<string, string>>(nameof(OnLobbyDataChanged));
+        private readonly ManagerEvent<Action<Participant, string>> _onChatReceived = new ManagerEvent<Action<Participant, string>>(nameof(OnChatReceived));
+        private readonly ManagerEvent<Action<SessionRules>> _onRulesChanged = new ManagerEvent<Action<SessionRules>>(nameof(OnRulesChanged));
+        private readonly ManagerEvent<Action<ReadOnlyMemory<byte>>> _onGameStarted = new ManagerEvent<Action<ReadOnlyMemory<byte>>>(nameof(OnGameStarted));
+        private readonly ManagerEvent<Action> _onReturnedToLobby = new ManagerEvent<Action>(nameof(OnReturnedToLobby));
+        private readonly ManagerEvent<Action<LobbyId>> _onJoinRequested = new ManagerEvent<Action<LobbyId>>(nameof(OnJoinRequested));
+        private readonly ManagerEvent<Action<Participant>> _onRateLimitExceeded = new ManagerEvent<Action<Participant>>(nameof(OnRateLimitExceeded));
+        private readonly ManagerEvent<Action<Participant>> _onParticipantDisconnected = new ManagerEvent<Action<Participant>>(nameof(OnParticipantDisconnected));
+        private readonly ManagerEvent<Action<Participant>> _onParticipantReconnected = new ManagerEvent<Action<Participant>>(nameof(OnParticipantReconnected));
+        private readonly ManagerEvent<Action<MultiplayerReason>> _onLobbyRejoinFailed = new ManagerEvent<Action<MultiplayerReason>>(nameof(OnLobbyRejoinFailed));
+        private readonly ManagerEvent<Action> _onAllPlayersLoaded = new ManagerEvent<Action>(nameof(OnAllPlayersLoaded));
+        private readonly ManagerEvent<Action<IReadOnlyList<PlayerId>>> _onLoadTimedOut = new ManagerEvent<Action<IReadOnlyList<PlayerId>>>(nameof(OnLoadTimedOut));
+
+        public event Action<SessionStateChange> OnStateChanged { add => _onStateChanged.Add(value); remove => _onStateChanged.Remove(value); }
+        public event Action<Participant> OnParticipantJoined { add => _onParticipantJoined.Add(value); remove => _onParticipantJoined.Remove(value); }
+        public event Action<Participant, MultiplayerReason> OnParticipantLeft { add => _onParticipantLeft.Add(value); remove => _onParticipantLeft.Remove(value); }
+        public event Action<Participant> OnParticipantChanged { add => _onParticipantChanged.Add(value); remove => _onParticipantChanged.Remove(value); }
+        public event Action<Participant, string> OnParticipantDataChanged { add => _onParticipantDataChanged.Add(value); remove => _onParticipantDataChanged.Remove(value); }
+        public event Action<string, string> OnLobbyDataChanged { add => _onLobbyDataChanged.Add(value); remove => _onLobbyDataChanged.Remove(value); }
+        public event Action<Participant, string> OnChatReceived { add => _onChatReceived.Add(value); remove => _onChatReceived.Remove(value); }
+        public event Action<SessionRules> OnRulesChanged { add => _onRulesChanged.Add(value); remove => _onRulesChanged.Remove(value); }
+        public event Action<ReadOnlyMemory<byte>> OnGameStarted { add => _onGameStarted.Add(value); remove => _onGameStarted.Remove(value); }
+        public event Action OnReturnedToLobby { add => _onReturnedToLobby.Add(value); remove => _onReturnedToLobby.Remove(value); }
+        public event Action<LobbyId> OnJoinRequested { add => _onJoinRequested.Add(value); remove => _onJoinRequested.Remove(value); }
+        public event Action<Participant> OnRateLimitExceeded { add => _onRateLimitExceeded.Add(value); remove => _onRateLimitExceeded.Remove(value); }
+        public event Action<Participant> OnParticipantDisconnected { add => _onParticipantDisconnected.Add(value); remove => _onParticipantDisconnected.Remove(value); }
+        public event Action<Participant> OnParticipantReconnected { add => _onParticipantReconnected.Add(value); remove => _onParticipantReconnected.Remove(value); }
+        public event Action<MultiplayerReason> OnLobbyRejoinFailed { add => _onLobbyRejoinFailed.Add(value); remove => _onLobbyRejoinFailed.Remove(value); }
+        public event Action OnAllPlayersLoaded { add => _onAllPlayersLoaded.Add(value); remove => _onAllPlayersLoaded.Remove(value); }
+        public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut { add => _onLoadTimedOut.Add(value); remove => _onLoadTimedOut.Remove(value); }
 
         private double Now => _clock != null ? _clock() : Time.realtimeSinceStartupAsDouble;
 
@@ -206,23 +226,23 @@ namespace Mu3Library.Multiplayer
             DisposeAvatars();
             _isDisposed = true;
 
-            OnStateChanged = null;
-            OnParticipantJoined = null;
-            OnParticipantLeft = null;
-            OnParticipantChanged = null;
-            OnParticipantDataChanged = null;
-            OnLobbyDataChanged = null;
-            OnChatReceived = null;
-            OnRulesChanged = null;
-            OnGameStarted = null;
-            OnReturnedToLobby = null;
-            OnJoinRequested = null;
-            OnRateLimitExceeded = null;
-            OnParticipantDisconnected = null;
-            OnParticipantReconnected = null;
-            OnLobbyRejoinFailed = null;
-            OnAllPlayersLoaded = null;
-            OnLoadTimedOut = null;
+            _onStateChanged.Clear();
+            _onParticipantJoined.Clear();
+            _onParticipantLeft.Clear();
+            _onParticipantChanged.Clear();
+            _onParticipantDataChanged.Clear();
+            _onLobbyDataChanged.Clear();
+            _onChatReceived.Clear();
+            _onRulesChanged.Clear();
+            _onGameStarted.Clear();
+            _onReturnedToLobby.Clear();
+            _onJoinRequested.Clear();
+            _onRateLimitExceeded.Clear();
+            _onParticipantDisconnected.Clear();
+            _onParticipantReconnected.Clear();
+            _onLobbyRejoinFailed.Clear();
+            _onAllPlayersLoaded.Clear();
+            _onLoadTimedOut.Clear();
 
             // Handlers often hold scene objects; a disposed manager must not keep them alive.
             _messages.Clear();
@@ -523,7 +543,7 @@ namespace Mu3Library.Multiplayer
 
             int generation = _sessionGeneration;
             SessionState state = _state;
-            Raise(nameof(OnJoinRequested), OnJoinRequested, lobby);
+            Raise(_onJoinRequested, lobby);
 
             // A handler that already ended or started a session decided for itself.
             if (generation != _sessionGeneration || state != _state)
@@ -601,7 +621,7 @@ namespace Mu3Library.Multiplayer
                 _loggedEventFailures.Clear();
             }
 
-            Raise(nameof(OnStateChanged), OnStateChanged, new SessionStateChange(previous, next, reason));
+            Raise(_onStateChanged, new SessionStateChange(previous, next, reason));
         }
 
         /// <summary>
@@ -765,55 +785,134 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Events
-        // Each Raise names its event, which the log of a handler's exception counts it by.
-        private void Raise(string eventName, Action handler)
+        /// <summary>
+        /// The handlers of one manager event, under the event's name, which the log of a
+        /// handler's exception counts it by. Subscribing and unsubscribing build the list of
+        /// handlers anew, so a raise reads it without allocating and invokes each handler on its
+        /// own: one handler's exception does not keep the event from the handlers after it. A
+        /// raise keeps the list it started with, so a handler that subscribes or unsubscribes
+        /// during a raise changes the next one, as it would with a multicast delegate.
+        /// </summary>
+        private sealed class ManagerEvent<THandler> where THandler : Delegate
         {
-            if (handler == null)
+            public readonly string Name;
+
+            private readonly object _gate = new object();
+
+            // Delegate.Combine and Delegate.Remove keep the order and the removal rules of a
+            // field-like event; the list of handlers is built from what they leave.
+            private THandler _combined;
+            private THandler[] _handlers = Array.Empty<THandler>();
+
+            public ManagerEvent(string name)
             {
-                return;
+                Name = name;
             }
 
-            try
+            public THandler[] Handlers => Volatile.Read(ref _handlers);
+
+            public void Add(THandler handler)
             {
-                handler();
+                if (handler == null)
+                {
+                    return;
+                }
+
+                lock (_gate)
+                {
+                    _combined = (THandler)Delegate.Combine(_combined, handler);
+                    Volatile.Write(ref _handlers, ToArray(_combined));
+                }
             }
-            catch (Exception e)
+
+            public void Remove(THandler handler)
             {
-                LogEventFailure(eventName, e);
+                if (handler == null)
+                {
+                    return;
+                }
+
+                lock (_gate)
+                {
+                    _combined = (THandler)Delegate.Remove(_combined, handler);
+                    Volatile.Write(ref _handlers, ToArray(_combined));
+                }
+            }
+
+            public void Clear()
+            {
+                lock (_gate)
+                {
+                    _combined = null;
+                    Volatile.Write(ref _handlers, Array.Empty<THandler>());
+                }
+            }
+
+            private static THandler[] ToArray(THandler combined)
+            {
+                if (combined == null)
+                {
+                    return Array.Empty<THandler>();
+                }
+
+                Delegate[] invocations = combined.GetInvocationList();
+                THandler[] handlers = new THandler[invocations.Length];
+                for (int i = 0; i < invocations.Length; i++)
+                {
+                    handlers[i] = (THandler)invocations[i];
+                }
+
+                return handlers;
             }
         }
 
-        private void Raise<T>(string eventName, Action<T> handler, T arg)
+        // Each handler runs on its own, so a handler's exception does not keep the event from the
+        // handlers after it, and the event's name counts the exception for the log.
+        private void Raise(ManagerEvent<Action> raised)
         {
-            if (handler == null)
+            Action[] handlers = raised.Handlers;
+            for (int i = 0; i < handlers.Length; i++)
             {
-                return;
-            }
-
-            try
-            {
-                handler(arg);
-            }
-            catch (Exception e)
-            {
-                LogEventFailure(eventName, e);
+                try
+                {
+                    handlers[i]();
+                }
+                catch (Exception e)
+                {
+                    LogEventFailure(raised.Name, e);
+                }
             }
         }
 
-        private void Raise<T1, T2>(string eventName, Action<T1, T2> handler, T1 arg1, T2 arg2)
+        private void Raise<T>(ManagerEvent<Action<T>> raised, T arg)
         {
-            if (handler == null)
+            Action<T>[] handlers = raised.Handlers;
+            for (int i = 0; i < handlers.Length; i++)
             {
-                return;
+                try
+                {
+                    handlers[i](arg);
+                }
+                catch (Exception e)
+                {
+                    LogEventFailure(raised.Name, e);
+                }
             }
+        }
 
-            try
+        private void Raise<T1, T2>(ManagerEvent<Action<T1, T2>> raised, T1 arg1, T2 arg2)
+        {
+            Action<T1, T2>[] handlers = raised.Handlers;
+            for (int i = 0; i < handlers.Length; i++)
             {
-                handler(arg1, arg2);
-            }
-            catch (Exception e)
-            {
-                LogEventFailure(eventName, e);
+                try
+                {
+                    handlers[i](arg1, arg2);
+                }
+                catch (Exception e)
+                {
+                    LogEventFailure(raised.Name, e);
+                }
             }
         }
 

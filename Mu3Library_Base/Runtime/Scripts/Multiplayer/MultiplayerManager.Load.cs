@@ -133,7 +133,7 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
-            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
+            Raise(_onParticipantChanged, updated);
             if (generation == _sessionGeneration)
             {
                 StopWaitingFor(player);
@@ -152,7 +152,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _isLoadWaitRunning = false;
-            Raise(nameof(OnAllPlayersLoaded), OnAllPlayersLoaded);
+            Raise(_onAllPlayersLoaded);
         }
 
         /// <summary>Ends the wait once its time passed, with the players who did not report, in roster order.</summary>
@@ -174,7 +174,7 @@ namespace Mu3Library.Multiplayer
             }
 
             EndLoadWait();
-            Raise(nameof(OnLoadTimedOut), OnLoadTimedOut, (IReadOnlyList<PlayerId>)missing);
+            Raise(_onLoadTimedOut, (IReadOnlyList<PlayerId>)missing);
         }
         #endregion
 
