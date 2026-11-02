@@ -208,9 +208,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
         }
 
-        /// <summary>Under the gate: moves what the connection queued to its outbox and lists it for the sending thread.</summary>
+        /// <summary>
+        /// Under the gate: moves what the connection queued to its outbox and lists it for the
+        /// sending thread, or drops it when the thread failed the connection.
+        /// </summary>
         private void HandOver(MachineLink link)
         {
+            if (link.HasFailed)
+            {
+                // The thread failed it after the caller looked (Fail): nothing more may reach
+                // the other side after the bytes the failure dropped.
+                link.PendingCount = 0;
+                return;
+            }
+
             MoveToOutbox(link);
             _handOvers++;
             if (!link.IsSendListed)
@@ -273,17 +284,29 @@ namespace Mu3Library.Multiplayer.Local.Machine
             int firstCount;
             byte[] second;
             int secondCount;
+            bool hasFailed;
             lock (_sendGate)
             {
                 // The sending thread reads the socket under the gate while the link is open.
                 socket = link.Socket;
                 link.Socket = null;
-                MoveToOutbox(link);
-                if (link.IsInSocketCall)
+                hasFailed = link.HasFailed;
+                if (hasFailed)
                 {
-                    // The thread holds the socket of its call.
-                    link.SendEnd = MachineSendEnd.Linger;
-                    return;
+                    // The thread failed it after CloseLink looked (Fail): it resets, as a
+                    // connection that already failed does, rather than deliver what follows
+                    // the bytes the failure dropped.
+                    link.PendingCount = 0;
+                }
+                else
+                {
+                    MoveToOutbox(link);
+                    if (link.IsInSocketCall)
+                    {
+                        // The thread holds the socket of its call.
+                        link.SendEnd = MachineSendEnd.Linger;
+                        return;
+                    }
                 }
 
                 first = link.Sending;
@@ -293,6 +316,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 secondCount = link.OutboxCount;
                 ClearHanded(link);
                 link.SendEnd = MachineSendEnd.Drop;
+            }
+
+            if (hasFailed)
+            {
+                Abort(socket);
+                return;
             }
 
             LingeringSockets.Close(socket, first, firstOffset, firstCount, second, secondCount);
@@ -417,6 +446,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     {
                         current = _sendBatch[i];
                         isWaiting |= SendSome(current);
+                        current = null;
                     }
 
                     _sendBatch.Clear();
@@ -502,8 +532,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
             int count;
             lock (_sendGate)
             {
-                if (link.SendEnd != MachineSendEnd.None || link.SendingCount + link.OutboxCount == 0)
+                if (link.SendEnd != MachineSendEnd.None || link.HasFailed || link.SendingCount + link.OutboxCount == 0)
                 {
+                    // Nothing of a failed connection reaches its socket after the failure.
+                    if (link.HasFailed)
+                    {
+                        ClearHanded(link);
+                    }
+
                     Unlist(link);
                     return false;
                 }
