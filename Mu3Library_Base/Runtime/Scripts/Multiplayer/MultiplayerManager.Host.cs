@@ -67,7 +67,14 @@ namespace Mu3Library.Multiplayer
 
             if (!_backend.StartListening())
             {
-                Invoke(callback, MultiplayerResult.Failure(MultiplayerReason.ConnectionFailed));
+                // A backend that is not available names why, as the Steam backend answers
+                // SteamNotRunning, the reason its own lobby creation gives then, so a game that
+                // asks the player to start Steam sees it here too; otherwise the host could not
+                // take connections (FR-29).
+                MultiplayerReason failure = _backend.IsAvailable
+                    ? MultiplayerReason.ConnectionFailed
+                    : UnavailableReason(MultiplayerReason.ConnectionFailed);
+                Invoke(callback, MultiplayerResult.Failure(failure));
                 return;
             }
 

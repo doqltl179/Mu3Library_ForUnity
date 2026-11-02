@@ -58,6 +58,13 @@ namespace Mu3Library.Multiplayer
         /// Hosts a new session. On success the state is <see cref="SessionState.Lobby"/> and this
         /// player is the host.
         /// </summary>
+        /// <remarks>
+        /// The host starts taking connections before it creates the lobby. When it cannot, the
+        /// request answers at once and changes nothing:
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer
+        /// use Steam, as its lobby requests answer then, and
+        /// <see cref="MultiplayerReason.ConnectionFailed"/> otherwise.
+        /// </remarks>
         public void CreateLobby(LobbyCreateOptions options, Action<MultiplayerResult> callback = null);
 
         /// <summary>
@@ -324,8 +331,8 @@ namespace Mu3Library.Multiplayer
         /// <c>Update</c> at the latest, so no callback stays held until the manager is disposed.
         /// The Steam backend answers <see cref="MultiplayerReason.BackendError"/> as well for a
         /// request it still holds when Steam shuts down, rather than the
-        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, since the
-        /// manager cannot tell a Steam that shut down from a backend that was disposed.
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, so an avatar
+        /// answers one reason whatever made the backend unavailable.
         /// Several requests for the same avatar while it loads share one answer, and a request that
         /// failed is tried again the next time. When the backend tells that a player's avatar
         /// changed, as Steam does when the player picks a new picture, the manager reads again

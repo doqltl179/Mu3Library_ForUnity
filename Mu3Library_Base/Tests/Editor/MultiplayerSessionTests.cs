@@ -617,6 +617,31 @@ namespace Mu3Library.Tests
             Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
             Assert.That(_network.FindLobby(host.Manager.CurrentLobbyId).Members.Count, Is.EqualTo(1));
         }
+
+        [Test]
+        public void CreateLobby_OnABackendThatIsGone_AnswersAtOnce_WithTheReasonTheBackendNames()
+        {
+            // #273: the host starts listening before it creates the lobby, and a backend that is
+            // gone refuses that first. A Steam backend that can no longer use Steam names
+            // SteamNotRunning, the reason its own lobby creation gives then.
+            Node node = CreatePlatformNode("Host");
+            node.Platform.IsGone = true;
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+
+            MultiplayerResult? result = null;
+            node.Manager.CreateLobby(PublicOptions(SessionRules.Default), r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+            Assert.That(node.States, Is.Empty, "a request that fails at once changes nothing");
+
+            // A backend that names no reason, as one disposed before the manager, leaves the
+            // reason the host gives when it cannot listen.
+            Node disposed = CreateNode("Disposed");
+            disposed.Backend.Dispose();
+            result = null;
+            disposed.Manager.CreateLobby(PublicOptions(SessionRules.Default), r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.ConnectionFailed));
+            Assert.That(disposed.States, Is.Empty);
+        }
         #endregion
 
         #region Connection

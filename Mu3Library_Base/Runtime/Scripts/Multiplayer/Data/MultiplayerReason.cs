@@ -25,7 +25,9 @@ namespace Mu3Library.Multiplayer.Data
         /// FR-39). A Steam backend answers it for a lobby creation, entry, or search and for an
         /// invite request once the game shut Steam down or a Steam call failed in its native
         /// library (FR-1), the lobby requests that Steam had not answered yet included, and for a
-        /// lobby creation that failed because Steam had no connection.
+        /// lobby creation that failed because Steam had no connection. Once its Steam backend
+        /// can no longer use Steam, the manager answers it at once to <c>CreateLobby</c>, which
+        /// cannot start taking connections then.
         /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
@@ -67,7 +69,8 @@ namespace Mu3Library.Multiplayer.Data
         /// A connection could not be made: the client could not connect to the host, could not
         /// send its hello, or its connection closed during the join without a reason from the
         /// library; and the host could not start listening for connections when it created a
-        /// lobby (FR-29).
+        /// lobby (FR-29), unless its backend was a Steam backend that can no longer use Steam,
+        /// which answers <see cref="SteamNotRunning"/>.
         /// </summary>
         ConnectionFailed = 26,
         /// <summary>

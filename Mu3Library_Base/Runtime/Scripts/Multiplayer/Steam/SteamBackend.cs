@@ -54,6 +54,12 @@ namespace Mu3Library.Multiplayer.Steam
     /// <see cref="TryCreate"/> gives it: for the game, Steam no longer works in this process.
     /// </para>
     /// <para>
+    /// A <see cref="MultiplayerManager"/> on this backend answers
+    /// <see cref="MultiplayerReason.SteamNotRunning"/> at once to
+    /// <see cref="MultiplayerManager.CreateLobby"/> once the backend is not available because
+    /// Steam cannot be used, after a failure as once the game shut Steam down.
+    /// </para>
+    /// <para>
     /// The backend catches the exception at its calls rather than checking at creation that every
     /// function it calls exists: such a check would need a hand-kept list of every native function
     /// the backend calls, reached through Steamworks.NET's internal <c>NativeMethods</c> by
@@ -61,7 +67,7 @@ namespace Mu3Library.Multiplayer.Steam
     /// without a compile error, while the catch covers every call the backend makes.
     /// </para>
     /// </remarks>
-    public sealed partial class SteamBackend : IMultiplayerBackend
+    public sealed partial class SteamBackend : IMultiplayerBackend, IUnavailableReasonBackend
     {
         private enum EventKind
         {
@@ -113,6 +119,13 @@ namespace Mu3Library.Multiplayer.Steam
         /// call failed in Steam's native library, as the remarks on the class describe.
         /// </summary>
         public bool IsAvailable => !_isDisposed && !_isBroken && SteamRuns;
+
+        /// <summary>
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> while Steam cannot be used, the reason
+        /// the lobby requests answer then, and nothing once the backend is disposed, which leaves
+        /// the manager its own reason.
+        /// </summary>
+        MultiplayerReason IUnavailableReasonBackend.UnavailableReason => _isDisposed ? MultiplayerReason.None : MultiplayerReason.SteamNotRunning;
 
         public PlayerId LocalPlayerId { get; }
         public int MaxPacketSize => Constants.k_cbMaxSteamNetworkingSocketsMessageSizeSend;

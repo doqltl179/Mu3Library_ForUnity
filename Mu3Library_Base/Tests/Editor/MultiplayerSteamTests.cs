@@ -249,6 +249,66 @@ namespace Mu3Library.Tests
             }
         }
 
+        [Test]
+        public void ManagerCreateLobby_OnABackendThatCannotUseSteam_AnswersSteamNotRunning_AtOnce()
+        {
+            // #273: the manager starts listening before it creates the lobby, and on a backend
+            // whose Steam calls fail that step fails first. The manager answers the reason the
+            // backend's own lobby creation gives then, so a game that asks the player to start
+            // Steam on SteamNotRunning sees it here too.
+            AssumeSteamCallsFail();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                MultiplayerManager manager = new MultiplayerManager();
+                try
+                {
+                    Assert.That(manager.Initialize(backend, new MultiplayerConfig("tests.steam", 1)).IsSuccess, Is.True);
+                    List<SessionStateChange> states = new List<SessionStateChange>();
+                    manager.OnStateChanged += states.Add;
+
+                    LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                    MultiplayerResult? created = null;
+                    manager.CreateLobby(new LobbyCreateOptions(), result => created = result);
+                    Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the call that starts listening failed");
+                    Assert.That(backend.IsAvailable, Is.False);
+
+                    created = null;
+                    manager.CreateLobby(new LobbyCreateOptions(), result => created = result);
+                    Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "on a backend that could not use Steam before the request");
+                    Assert.That(states, Is.Empty, "a request that fails at once changes nothing");
+                }
+                finally
+                {
+                    manager.Dispose();
+                }
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void ManagerCreateLobby_OnADisposedSteamBackend_AnswersConnectionFailed()
+        {
+            // The boundary of #273: a disposed backend is no Steam that cannot be used, so the
+            // manager keeps the reason it gives when the host cannot listen.
+            SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions());
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig("tests.steam", 1)).IsSuccess, Is.True);
+                backend.Dispose();
+
+                MultiplayerResult? created = null;
+                manager.CreateLobby(new LobbyCreateOptions(), result => created = result);
+                Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.ConnectionFailed));
+            }
+            finally
+            {
+                manager.Dispose();
+                backend.Dispose();
+            }
+        }
+
         private static readonly LobbyId SomeLobby = new LobbyId(109775241000000001UL);
         private static readonly PlayerId SomeAccount = new PlayerId(76561197960435530UL);
         private static readonly Regex FailedCallWarning = new Regex(@"The Steam backend is no longer available: a Steam call failed \(\w+\)");

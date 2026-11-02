@@ -556,6 +556,18 @@ namespace Mu3Library.Multiplayer
             return _state == SessionState.Offline ? MultiplayerReason.None : MultiplayerReason.InvalidState;
         }
 
+        /// <summary>
+        /// The reason the backend names for not being available
+        /// (<see cref="IUnavailableReasonBackend"/>), as the Steam backend names
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> once Steam cannot be used, or
+        /// <paramref name="otherwise"/>.
+        /// </summary>
+        private MultiplayerReason UnavailableReason(MultiplayerReason otherwise)
+        {
+            MultiplayerReason named = _backend is IUnavailableReasonBackend backend ? backend.UnavailableReason : MultiplayerReason.None;
+            return named != MultiplayerReason.None ? named : otherwise;
+        }
+
         private void SetState(SessionState next, MultiplayerReason reason)
         {
             if (_state == next)
