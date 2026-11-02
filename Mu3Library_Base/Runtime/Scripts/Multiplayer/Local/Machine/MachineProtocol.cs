@@ -39,8 +39,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public const byte ProbeRequest = 1;
         public const byte ProbeReply = 2;
 
-        // A lobby holds at most a few dozen members and keys; more means a corrupt frame.
-        private const int MaxListLength = 4096;
+        /// <summary>
+        /// Most members or data entries of one lobby that a frame carries: a lobby holds at most a
+        /// few dozen members and keys, so more means a corrupt frame. The lobby files keep to it too.
+        /// </summary>
+        public const int MaxListLength = 4096;
 
         /// <summary>
         /// The UTF-8 bytes of the longest player name, lobby data key, and lobby data value that the

@@ -13,8 +13,11 @@ namespace Mu3Library.Multiplayer.Local
     /// process, or with <see cref="LocalNetwork.CreateMachineWide"/>, across the processes of this
     /// computer. Like a real network, nothing arrives during the call that sent it: every answer
     /// and every packet waits until this backend's next <see cref="Update"/>, in the order it was
-    /// sent. Messages are never lost, whichever <see cref="DeliveryMode"/> they use, unless the
-    /// network simulates a worse one with <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
+    /// sent. On a machine-wide network a search or a join by lobby ID is the exception: it goes
+    /// on once its read of the lobby files is done, which can be a later <see cref="Update"/>,
+    /// after the answers to later requests. Messages are never lost, whichever
+    /// <see cref="DeliveryMode"/> they use, unless the network simulates a worse one with
+    /// <see cref="LocalNetwork.SimulatedLatencyMilliseconds"/>,
     /// <see cref="LocalNetwork.SimulatedJitterMilliseconds"/>, and
     /// <see cref="LocalNetwork.SimulatedLossPercent"/>, or <see cref="SimulateOutage"/> cuts a
     /// player off for a while.
@@ -35,8 +38,10 @@ namespace Mu3Library.Multiplayer.Local
     /// <para>
     /// On a machine-wide network each backend listens on a port of the loopback address, and the
     /// process that owns a lobby answers the joins to it. A lobby takes a moment to show up in
-    /// another process's search, and a connection that receives nothing for
-    /// <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> counts as lost. The other side states
+    /// another process's search. A search or a join by lobby ID reads the lobby files on a thread
+    /// of the thread pool and goes on in the first <see cref="Update"/> after the read, usually
+    /// the next one, or a few later when it met an owner replacing its file. A connection that
+    /// receives nothing for <see cref="LocalNetwork.ConnectionTimeoutSeconds"/> counts as lost. The other side states
     /// its player ID itself, so the identity is only as trustworthy as the processes on this
     /// computer.
     /// </para>
