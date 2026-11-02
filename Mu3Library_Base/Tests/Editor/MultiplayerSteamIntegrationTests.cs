@@ -601,6 +601,137 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_AnAnswerSteamDispatchesAfterACallFailed_AnswersSteamNotRunning_WithoutCallingSteam()
+        {
+            // #272: Steam may dispatch an answer after a call failed, later in the same run of its
+            // callbacks or in the game's own run of them, as here. The backend hands it on as one
+            // Steam never answered, and does not write the lobby data of the lobby Steam made.
+            List<string> answers = new List<string>();
+            ulong entered = 0UL;
+
+            // Steam enters the lobby it creates for this player, which tells the test its ID.
+            Steamworks.Callback<Steamworks.LobbyEnter_t> enter = Steamworks.Callback<Steamworks.LobbyEnter_t>.Create(lobby => entered = lobby.m_ulSteamIDLobby);
+            try
+            {
+                _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, new Dictionary<string, string> { ["mu3_test"] = "late" }, (reason, lobby) => answers.Add("create " + reason));
+                LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+                _backend.Break(new EntryPointNotFoundException("simulated"));
+
+                Stopwatch watch = Stopwatch.StartNew();
+                while ((_backend.PendingLobbyCallCount > 0 || entered == 0UL) && watch.Elapsed.TotalSeconds < 20.0)
+                {
+                    Steamworks.SteamAPI.RunCallbacks();
+                    Thread.Sleep(20);
+                }
+
+                Assert.That(_backend.PendingLobbyCallCount, Is.Zero, "Steam answered the creation");
+                Assert.That(answers, Is.Empty, "the answer waits for the backend's update");
+                _backend.Update();
+                Assert.That(answers, Is.EqualTo(new[] { "create SteamNotRunning" }));
+
+                Assert.That(entered, Is.Not.EqualTo(0UL), "Steam made the lobby");
+                Assert.That(Steamworks.SteamMatchmaking.GetLobbyData(new Steamworks.CSteamID(entered), "mu3_test"), Is.Empty, "no lobby data written after the failure");
+
+                _backend.Update();
+                Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+            }
+            finally
+            {
+                enter.Dispose();
+                if (entered != 0UL)
+                {
+                    Steamworks.SteamMatchmaking.LeaveLobby(new Steamworks.CSteamID(entered));
+                }
+            }
+        }
+
+        [Test]
+        public void SteamConnectionsAndLobbies_AreClosedAndLeft_WhenASteamCallFails()
+        {
+            // #272: Steam's client still runs after the failure, so the backend closes its
+            // connections and leaves its lobbies at once, as disposing it does, and the other
+            // players need not wait for this one to dispose it. The loopback pair's two ends are
+            // both this backend's.
+            Recorder recorder = new Recorder();
+            _backend.SetListener(recorder);
+            Assert.That(_backend.CreateLoopbackPair(out ConnectionId first, out ConnectionId second), Is.True);
+            bool isCreated = false;
+            LobbyId lobby = LobbyId.None;
+            _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, null, (reason, made) =>
+            {
+                isCreated = true;
+                lobby = made;
+            });
+            Pump(() => isCreated, 20);
+            Assert.That(lobby.IsValid, Is.True);
+            Assert.That(IsOwnLobbyMember(lobby), Is.True);
+            Assert.That(Steamworks.SteamNetworkingSockets.GetConnectionInfo(new Steamworks.HSteamNetConnection(first.Value), out _), Is.True);
+            recorder.Events.Clear();
+
+            LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+            _backend.Break(new EntryPointNotFoundException("simulated"));
+
+            Assert.That(_backend.HeldConnectionCount, Is.Zero);
+            Assert.That(_backend.HeldLobbyCount, Is.Zero);
+            Assert.That(Steamworks.SteamNetworkingSockets.GetConnectionInfo(new Steamworks.HSteamNetConnection(first.Value), out _), Is.False, "the first end is closed");
+            Assert.That(Steamworks.SteamNetworkingSockets.GetConnectionInfo(new Steamworks.HSteamNetConnection(second.Value), out _), Is.False, "the second end is closed");
+            Assert.That(IsOwnLobbyMember(lobby), Is.False, "the lobby is left");
+
+            // What Steam dispatches afterwards, in the game's own run of its callbacks, reaches nobody.
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < 1.0)
+            {
+                Steamworks.SteamAPI.RunCallbacks();
+                _backend.Update();
+                Thread.Sleep(20);
+            }
+
+            Assert.That(recorder.Events, Is.Empty);
+        }
+
+        [TestCase(false, TestName = "SteamSession_EndsWithSteamNotRunning_AfterASteamCallFailed")]
+        [TestCase(true, TestName = "SteamSession_EndsWithSteamNotRunning_AfterSteamShutDown")]
+        public void SteamSession_EndsWithSteamNotRunning_OnceSteamIsGone(bool shutsSteamDown)
+        {
+            // #272: the backend reports nothing more once Steam is gone, so the manager ends the
+            // session on its next update; #273: a lobby creation then answers the same reason at once.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreateFriendsOnlyLobby(manager, "forest");
+                List<SessionStateChange> states = new List<SessionStateChange>();
+                manager.OnStateChanged += states.Add;
+
+                if (shutsSteamDown)
+                {
+                    // As a game may do; TearDown then releases only the backend's own resources.
+                    Steamworks.SteamAPI.Shutdown();
+                }
+                else
+                {
+                    LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+                    _backend.Break(new EntryPointNotFoundException("simulated"));
+                    Assert.That(IsOwnLobbyMember(lobby), Is.False, "Steam's client still runs, and the backend left the lobby at the failure");
+                }
+
+                Assert.That(manager.State, Is.EqualTo(SessionState.Lobby), "until the manager's next update");
+                manager.Update();
+                Assert.That(states, Is.EqualTo(new[] { new SessionStateChange(SessionState.Lobby, SessionState.Offline, MultiplayerReason.SteamNotRunning) }));
+
+                MultiplayerResult? created = null;
+                manager.CreateLobby(new LobbyCreateOptions(), result => created = result);
+                Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+
+                manager.Update();
+                Assert.That(states.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfAPublicAccountThatIsNoFriend_IsDownloaded_AfterAskingSteamOnce()
         {
             // FR-4 through the path that downloads an avatar first: an account this one is no
@@ -839,6 +970,22 @@ namespace Mu3Library.Tests
             Assert.That(HasOwnPresenceKey(SteamBackend.DisplayKey), Is.False, "disposing the backend deletes the token it set");
             Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
             Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        /// <summary>Whether Steam lists this account among the lobby's members.</summary>
+        private bool IsOwnLobbyMember(LobbyId lobby)
+        {
+            Steamworks.CSteamID steamLobby = new Steamworks.CSteamID(lobby.Value);
+            int count = Steamworks.SteamMatchmaking.GetNumLobbyMembers(steamLobby);
+            for (int i = 0; i < count; i++)
+            {
+                if (Steamworks.SteamMatchmaking.GetLobbyMemberByIndex(steamLobby, i).m_SteamID == _backend.LocalPlayerId.Value)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Whether this account's own rich presence lists the key.</summary>

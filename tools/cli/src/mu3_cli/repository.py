@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Iterable
 
@@ -36,6 +37,14 @@ STALE_AGENT_REFERENCE_PARTS = (
     "urp-package-" + "routing",
 )
 REPOSITORY_TEXT_SUFFIXES = {".md", ".py", ".yml"}
+PACKAGE_CODE_PATHSPEC = "Mu3Library_*"
+PACKAGE_CODE_SUFFIXES = {".cs"}
+# Characters a diff or an editor shows as nothing, or as something else: controls other than tab and
+# carriage return, format characters such as zero-width spaces, bidirectional controls, and a byte
+# order mark past the start of a file, private-use characters, and the line and paragraph separators.
+# Package code writes them as \u escapes; an editing tool once saved such escapes as the characters.
+HIDDEN_CHARACTER_CATEGORIES = {"Cc", "Cf", "Co", "Zl", "Zp"}
+ALLOWED_CONTROL_CHARACTERS = {"\t", "\r"}
 
 
 def _enclosing_root(path: Path) -> Path | None:
@@ -110,11 +119,59 @@ def repository_text_paths(root: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if Path(line).suffix in REPOSITORY_TEXT_SUFFIXES]
 
 
+def package_code_paths(root: Path) -> list[str]:
+    """List tracked and untracked, non-ignored package code files."""
+    result = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", PACKAGE_CODE_PATHSPEC],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return [line for line in result.stdout.splitlines() if Path(line).suffix in PACKAGE_CODE_SUFFIXES]
+
+
+def hidden_characters(line: str) -> list[str]:
+    """Return the code points, as U+XXXX, of the characters in a line that a reader cannot see."""
+    return [
+        f"U+{ord(character):04X}"
+        for character in line
+        if character not in ALLOWED_CONTROL_CHARACTERS
+        and unicodedata.category(character) in HIDDEN_CHARACTER_CATEGORIES
+    ]
+
+
+def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
+    """Report each line of package code that holds an invisible or private-use character."""
+    issues: list[str] = []
+    for relative_path_text in relative_paths:
+        relative_path = Path(relative_path_text)
+        candidate = root / relative_path
+        if not candidate.is_file():
+            continue
+        try:
+            # utf-8-sig drops only a byte order mark at the start; one anywhere else is reported.
+            text = candidate.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError) as error:
+            issues.append(f"could not inspect package code file: {relative_path} ({error})")
+            continue
+        # str.splitlines() would also split at the separators this check reports.
+        for line_number, line in enumerate(text.split("\n"), start=1):
+            code_points = hidden_characters(line)
+            if code_points:
+                issues.append(
+                    f"invisible or private-use character {', '.join(code_points)} in package code, "
+                    f"write it as a \\u escape: {relative_path}:{line_number}"
+                )
+    return issues
+
+
 def repository_hygiene_issues(
     root: Path | None = None,
     tracked_paths: Iterable[str] | None = None,
 ) -> list[str]:
-    """Collect repository layout, link, routing-reference, and tooling hygiene issues."""
+    """Collect repository layout, link, routing-reference, package-code character, and tooling hygiene issues."""
     root = root or repo_root()
     issues: list[str] = []
 
@@ -151,6 +208,13 @@ def repository_hygiene_issues(
             for line_number, line in enumerate(lines, start=1):
                 if any(reference in line for reference in STALE_AGENT_REFERENCE_PARTS):
                     issues.append(f"stale AI-agent routing reference: {relative_path}:{line_number}")
+
+    try:
+        code_paths = package_code_paths(root)
+    except (OSError, subprocess.CalledProcessError) as error:
+        issues.append(f"could not list package code files: {error}")
+    else:
+        issues.extend(package_code_issues(root, code_paths))
 
     try:
         tool_paths = list(tracked_paths) if tracked_paths is not None else tracked_tool_paths(root)

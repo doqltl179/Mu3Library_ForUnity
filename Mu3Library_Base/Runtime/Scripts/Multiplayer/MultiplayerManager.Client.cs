@@ -348,7 +348,7 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.RulesChanged:
                     _rules = ReadRules(ref reader);
-                    Raise(nameof(OnRulesChanged), OnRulesChanged, _rules);
+                    Raise(_onRulesChanged, _rules);
                     break;
 
                 case PacketKind.GameStarted:
@@ -511,12 +511,21 @@ namespace Mu3Library.Multiplayer
             // A late joiner arrives in a running game and needs its start data as much as anyone.
             if (state == SessionState.InGame && generation == _sessionGeneration)
             {
-                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
         private void HandleParticipantJoined(ref PacketReader reader)
         {
+            // A host admits no more players than its rules hold, at most MaxCapacity, and tells of
+            // each one that leaves before it admits another, so only a host that skips that check
+            // gets here; without this, joins under ever new IDs would grow the roster without
+            // bound. A full roster drops the packet before it is decoded.
+            if (_participants.Count >= MultiplayerLimits.MaxCapacity)
+            {
+                throw new FormatException($"A participant joined a roster that already holds {MultiplayerLimits.MaxCapacity} players, the most a session holds.");
+            }
+
             Participant joined = ReadParticipant(ref reader, _hostId);
             if (IndexOfParticipant(joined.Id) >= 0)
             {
@@ -524,7 +533,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _participants.Add(joined);
-            Raise(nameof(OnParticipantJoined), OnParticipantJoined, joined);
+            Raise(_onParticipantJoined, joined);
         }
 
         private void HandleParticipantLeft(ref PacketReader reader)
@@ -544,7 +553,7 @@ namespace Mu3Library.Multiplayer
 
             Participant removed = _participants[index];
             _participants.RemoveAt(index);
-            Raise(nameof(OnParticipantLeft), OnParticipantLeft, removed, reason);
+            Raise(_onParticipantLeft, removed, reason);
         }
 
         private void HandleParticipantUpdated(ref PacketReader reader)
@@ -562,7 +571,7 @@ namespace Mu3Library.Multiplayer
 
             Participant updated = _participants[index].WithReady(isReady).WithLateJoiner(isLateJoiner).WithLoaded(isLoaded);
             _participants[index] = updated;
-            Raise(nameof(OnParticipantChanged), OnParticipantChanged, updated);
+            Raise(_onParticipantChanged, updated);
         }
 
         private void HandleGameStarted(ref PacketReader reader)
@@ -587,7 +596,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(nameof(OnGameStarted), OnGameStarted, new ReadOnlyMemory<byte>(_startData));
+                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
             }
         }
 
@@ -604,7 +613,7 @@ namespace Mu3Library.Multiplayer
             SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(nameof(OnReturnedToLobby), OnReturnedToLobby);
+                Raise(_onReturnedToLobby);
             }
         }
 
