@@ -160,6 +160,25 @@ namespace Mu3Library.Multiplayer.Local
         /// <summary>How many times this backend has handed data to a socket; 0 on a network inside one process.</summary>
         internal long SocketSends => _machine != null ? _machine.SocketSends : 0;
 
+        /// <summary>The most bytes this backend has handed one socket call; 0 on a network inside one process.</summary>
+        internal int LargestSocketSend => _machine != null ? _machine.LargestSocketSend : 0;
+
+        /// <summary>
+        /// Test switch on a machine-wide network: the sending thread throws at its next socket
+        /// call, as a defect in it would. Nothing on a network inside one process.
+        /// </summary>
+        internal bool FailsSendingThread
+        {
+            get => _machine != null && _machine.FailsSendingThread;
+            set
+            {
+                if (_machine != null)
+                {
+                    _machine.FailsSendingThread = value;
+                }
+            }
+        }
+
         /// <summary>
         /// True while the sending thread of a machine-wide network holds something it has not
         /// handed to a socket yet; false on a network inside one process.
