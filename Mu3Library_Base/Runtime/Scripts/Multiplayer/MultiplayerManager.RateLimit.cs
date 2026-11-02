@@ -334,7 +334,7 @@ namespace Mu3Library.Multiplayer
             if (isFirstInWindow && TryGetParticipant(player, out Participant sender))
             {
                 int generation = _sessionGeneration;
-                Raise(nameof(OnRateLimitExceeded), OnRateLimitExceeded, sender);
+                Raise(_onRateLimitExceeded, sender);
 
                 // A handler may have kicked the sender or ended the session.
                 if (generation != _sessionGeneration || IndexOfParticipant(player) < 0)

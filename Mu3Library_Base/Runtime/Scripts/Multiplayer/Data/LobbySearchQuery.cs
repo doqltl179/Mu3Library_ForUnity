@@ -25,7 +25,11 @@ namespace Mu3Library.Multiplayer.Data
         /// Keeps the lobbies whose value under <paramref name="key"/>, compared with
         /// <paramref name="value"/>, gives <paramref name="comparison"/>. The key matches in any
         /// case on every backend, as Steam matches it, since lobby data never holds two keys that
-        /// differ only by case.
+        /// differ only by case. A lobby that lacks the key, or holds it with an empty value, is
+        /// left out whatever the comparison on every backend, as Steam's search on AppID 480 left
+        /// it out on 2026-11-01, since a Steam lobby keeps no key written with an empty value. So
+        /// neither <c>NotEqual "ranked"</c> nor <c>Equal ""</c> finds a lobby that never wrote the
+        /// key or wrote it empty.
         /// </summary>
         /// <remarks>
         /// Every backend compares the values as Steam does, which Steam's search on AppID 480

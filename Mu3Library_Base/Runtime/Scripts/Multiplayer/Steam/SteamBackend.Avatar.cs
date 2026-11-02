@@ -81,9 +81,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// <para>
         /// An avatar answers <see cref="MultiplayerReason.BackendError"/> once Steam is gone, not
         /// the <see cref="MultiplayerReason.SteamNotRunning"/> a lobby search answers then, so the
-        /// game sees one reason for it: the manager answers <see cref="MultiplayerReason.BackendError"/>
-        /// itself while a backend is not available, since a disposed backend answers nothing, and
-        /// it cannot tell a Steam that shut down from a backend that was disposed.
+        /// game sees one reason for it whatever made the backend unavailable: the manager answers
+        /// <see cref="MultiplayerReason.BackendError"/> itself while a backend is not available,
+        /// since a disposed backend answers nothing.
         /// </para>
         /// </remarks>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted)

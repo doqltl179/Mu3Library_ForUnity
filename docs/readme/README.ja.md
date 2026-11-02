@@ -117,7 +117,7 @@ public class GameCore : CoreBase
 
 基底クラスが宣言した `[Inject]` メンバーも、private を含めて注入されます。クラス階層をさかのぼる探索は `CoreBase` で止まります。エディタの DI 検証ツールも同じメンバーを検査します。
 
-必須の `[Inject]` プロパティには setter が必要です。private でも構いません。get だけのプロパティや、ストリッピングしたプレイヤーでリンカーが setter を削除したプロパティのように、setter のない必須の `[Inject]` プロパティを持つオブジェクトを注入すると、コンテナはどのメンバーも注入する前に `InvalidOperationException` を投げます。サービスが登録されていない必須メンバーと同じです。エディタの DI 検証ツールもこのプロパティを報告し、`InjectableMembers.GetUnwritableProperties` がこのようなプロパティを列挙します。setter のない任意のプロパティ（`[Inject(false)]`）は飛ばされます。
+必須の `[Inject]` プロパティには setter が必要です。private でも構いません。必須の `[Inject]` フィールドは `readonly` にできません。get だけのプロパティ、ストリッピングしたプレイヤーでリンカーが setter を削除したプロパティ、`readonly` フィールドのように、コンテナが埋められない必須の `[Inject]` メンバーを持つオブジェクトを注入すると、コンテナはどのメンバーも注入する前に `InvalidOperationException` を投げます。サービスが登録されていない必須メンバーと同じです。エディタの DI 検証ツールは、コンテナが生成するクラスだけでなく、登録されたインスタンスとコア自身についてもこのようなメンバーを報告します。`InjectableMembers.GetUnwritableProperties` と `InjectableMembers.GetReadOnlyFields` がこのようなプロパティとフィールドを列挙します。このようなメンバーが任意（`[Inject(false)]`）なら飛ばされます。
 
 登録されたサービスも、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されます。1 つの登録（実装型、キー、ライフタイム）は、どのサービス型で resolve しても 1 つのインスタンスを返します。シングルトンはコンテナごとに 1 つ、スコープドのサービスはスコープごとに 1 つです。例外を投げたライフサイクル callback は `Debug.LogException` で記録され、ほかのサービスとコアは動き続けます。
 

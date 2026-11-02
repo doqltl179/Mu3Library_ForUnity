@@ -224,7 +224,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         """The fixture environment with the fake Unity and a mirror directory of this test's own.
 
         The logs and results that a run with it writes under log/ go when the test ends. The
-        scripts look at the fake's log every 0.1 s instead of every second, since the fake
+        scripts look at the fake's log every 0.02 s instead of every second, since the fake
         exits at once and each run would otherwise wait out a whole second.
         """
         self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
@@ -235,7 +235,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             **self._environment(),
             "UNITY_EDITOR": str(self.fake_unity),
             "TMPDIR": str(self.mirror_directory),
-            "UNITY_LOG_POLL_SECONDS": "0.1",
+            "UNITY_LOG_POLL_SECONDS": "0.02",
             **variables,
         }
 

@@ -617,6 +617,114 @@ namespace Mu3Library.Tests
             Assert.That(host.Left.Single().Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
             Assert.That(_network.FindLobby(host.Manager.CurrentLobbyId).Members.Count, Is.EqualTo(1));
         }
+
+        [Test]
+        public void CreateLobby_OnABackendThatIsGone_AnswersAtOnce_WithTheReasonTheBackendNames()
+        {
+            // #273: the host starts listening before it creates the lobby, and a backend that is
+            // gone refuses that first. A Steam backend that can no longer use Steam names
+            // SteamNotRunning, the reason its own lobby creation gives then.
+            Node node = CreatePlatformNode("Host");
+            node.Platform.IsGone = true;
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+
+            MultiplayerResult? result = null;
+            node.Manager.CreateLobby(PublicOptions(SessionRules.Default), r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+            Assert.That(node.States, Is.Empty, "a request that fails at once changes nothing");
+
+            // A backend that names no reason, as one disposed before the manager, leaves the
+            // reason the host gives when it cannot listen.
+            Node disposed = CreateNode("Disposed");
+            disposed.Backend.Dispose();
+            result = null;
+            disposed.Manager.CreateLobby(PublicOptions(SessionRules.Default), r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.ConnectionFailed));
+            Assert.That(disposed.States, Is.Empty);
+        }
+
+        [Test]
+        public void BackendGone_EndsTheSession_WithTheReasonTheBackendNames()
+        {
+            // #272: a backend that stops being available reports nothing more, as the Steam
+            // backend once the game shut Steam down or a Steam call failed, so the manager ends
+            // the session itself. The local backend under this one still carries the host's
+            // closes, so the client hears that the host left.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(new SessionRules(4, requireReady: false)));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.InGame));
+
+            host.Platform.IsGone = true;
+            host.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            host.Manager.Update();
+
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline), "on the next update");
+            Assert.That(host.LastChange, Is.EqualTo(new SessionStateChange(SessionState.InGame, SessionState.Offline, MultiplayerReason.SteamNotRunning)));
+
+            Pump();
+            Assert.That(host.States.Count(change => change.Current == SessionState.Offline), Is.EqualTo(1), "ended once");
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange.Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+        }
+
+        [Test]
+        public void BackendDisposedBeforeTheManager_EndsTheSession_WithBackendError()
+        {
+            // #272 for a backend that names no reason: the client's, disposed before its manager.
+            // Without the backend the client cannot reach the host again, so it does not try.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+
+            a.Backend.Dispose();
+            a.Manager.Update();
+
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(a.LastChange, Is.EqualTo(new SessionStateChange(SessionState.InGame, SessionState.Offline, MultiplayerReason.BackendError)));
+            Assert.That(a.Manager.Participants, Is.Empty);
+        }
+
+        [Test]
+        public void BackendGone_WhileCreating_AnswersTheCreateOnce_WithTheReason()
+        {
+            // #272: a disposed backend never answers the lobby it was asked for, and the manager
+            // has no timeout while it creates one.
+            Node node = CreateNode("Host");
+            List<MultiplayerResult> answers = new List<MultiplayerResult>();
+            node.Manager.CreateLobby(PublicOptions(SessionRules.Default), answers.Add);
+            Assert.That(node.Manager.State, Is.EqualTo(SessionState.Creating));
+
+            node.Backend.Dispose();
+            Pump();
+
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }));
+            Assert.That(node.LastChange, Is.EqualTo(new SessionStateChange(SessionState.Creating, SessionState.Offline, MultiplayerReason.BackendError)));
+        }
+
+        [Test]
+        public void BackendGone_WhileJoining_AnswersTheJoinOnce_WithTheReason_BeforeTheJoinTimeout()
+        {
+            // #272: a disposed backend never answers the lobby entry it was asked for either; the
+            // join ends on the next update instead of at the join timeout, with Timeout.
+            Node host = CreateHost("Host");
+            Node node = CreateNode("A");
+            List<MultiplayerResult> answers = new List<MultiplayerResult>();
+            node.Manager.JoinLobby(host.Manager.CurrentLobbyId, answers.Add);
+            Assert.That(node.Manager.State, Is.EqualTo(SessionState.Joining));
+
+            node.Backend.Dispose();
+            Pump();
+
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }));
+            Assert.That(node.LastChange, Is.EqualTo(new SessionStateChange(SessionState.Joining, SessionState.Offline, MultiplayerReason.BackendError)));
+
+            _now += 60.0;
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
         #endregion
 
         #region Connection

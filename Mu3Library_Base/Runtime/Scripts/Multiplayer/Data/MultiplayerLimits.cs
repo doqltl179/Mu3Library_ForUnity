@@ -6,7 +6,8 @@ namespace Mu3Library.Multiplayer.Data
         public const int MinCapacity = 1;
         /// <summary>
         /// Largest capacity a session accepts. The host's machine runs the game and sends to every
-        /// player, so the library supports and verifies sessions up to this size.
+        /// player, so the library supports and verifies sessions up to this size. A client drops a
+        /// welcome with a larger roster, and a join to a roster this size, as malformed.
         /// </summary>
         public const int MaxCapacity = 16;
         public const int DefaultCapacity = 4;
@@ -28,14 +29,18 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Largest game-defined lobby data, counted as the UTF-8 bytes of all its keys and values.
         /// It stays well inside the 8 KB Steam takes for one lobby data value, and a joining player
-        /// receives all of it with the roster in one packet.
+        /// receives all of it with the roster in one packet. A client drops a welcome or a change
+        /// that would take the lobby data past it as malformed, counting a change against the
+        /// lobby data it holds, as the host counts its own.
         /// </summary>
         public const int MaxLobbyDataSize = 4 * 1024;
 
         /// <summary>
         /// Largest participant data of one player, counted as the UTF-8 bytes of all its keys and
         /// values. A joining player receives every player's with the roster in one packet, which
-        /// has to stay inside one send even for <see cref="MaxCapacity"/> players.
+        /// has to stay inside one send even for <see cref="MaxCapacity"/> players. A client drops a
+        /// welcome, a join, or a change that would take a player's data past it as malformed,
+        /// counting a change against the data it holds for that player, as the host counts it.
         /// </summary>
         public const int MaxParticipantDataSize = 2 * 1024;
 

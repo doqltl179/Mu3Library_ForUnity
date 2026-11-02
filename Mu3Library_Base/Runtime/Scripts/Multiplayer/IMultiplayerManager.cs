@@ -49,6 +49,17 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Attaches the backend. The manager does not own the backend: dispose it after the manager.
         /// </summary>
+        /// <remarks>
+        /// When the backend stops being available during a session
+        /// (<see cref="IMultiplayerBackend.IsAvailable"/>), the manager ends the session on its
+        /// next <c>Update</c>, raising the change to <see cref="SessionState.Offline"/> and
+        /// answering a pending create or join, with
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> for a Steam backend that can no longer
+        /// use Steam, because the game shut Steam down or a Steam call failed in its native
+        /// library, and <see cref="MultiplayerReason.BackendError"/> for any other backend, such
+        /// as one disposed before the manager. Such a backend reports nothing more, so the session
+        /// would otherwise stay as it is with no event.
+        /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 
         public bool TryGetParticipant(PlayerId player, out Participant participant);
@@ -58,6 +69,13 @@ namespace Mu3Library.Multiplayer
         /// Hosts a new session. On success the state is <see cref="SessionState.Lobby"/> and this
         /// player is the host.
         /// </summary>
+        /// <remarks>
+        /// The host starts taking connections before it creates the lobby. When it cannot, the
+        /// request answers at once and changes nothing:
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer
+        /// use Steam, as its lobby requests answer then, and
+        /// <see cref="MultiplayerReason.ConnectionFailed"/> otherwise.
+        /// </remarks>
         public void CreateLobby(LobbyCreateOptions options, Action<MultiplayerResult> callback = null);
 
         /// <summary>
@@ -324,8 +342,8 @@ namespace Mu3Library.Multiplayer
         /// <c>Update</c> at the latest, so no callback stays held until the manager is disposed.
         /// The Steam backend answers <see cref="MultiplayerReason.BackendError"/> as well for a
         /// request it still holds when Steam shuts down, rather than the
-        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, since the
-        /// manager cannot tell a Steam that shut down from a backend that was disposed.
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, so an avatar
+        /// answers one reason whatever made the backend unavailable.
         /// Several requests for the same avatar while it loads share one answer, and a request that
         /// failed is tried again the next time. When the backend tells that a player's avatar
         /// changed, as Steam does when the player picks a new picture, the manager reads again
@@ -407,7 +425,9 @@ namespace Mu3Library.Multiplayer
         /// to Offline, so every session starts without a status. When the platform refuses that
         /// removal, the manager asks again on the next <c>Update</c> and then once a second, while
         /// the backend is available, until the platform takes it or a new session shows something
-        /// else; it logs the refusal once, not every time it asks. Text that holds a NUL character
+        /// else; it logs the refusal once, not every time it asks, and not at all for a backend
+        /// that is no longer available, whose session ends with a reason of its own (see
+        /// <see cref="Initialize"/>). Text that holds a NUL character
         /// or an unpaired UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>,
         /// text longer than <see cref="MultiplayerLimits.MaxPresenceStatusSize"/> UTF-8 bytes
         /// <see cref="MultiplayerReason.MessageTooLarge"/>, and a platform that refuses it

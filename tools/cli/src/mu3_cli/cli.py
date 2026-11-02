@@ -54,7 +54,10 @@ def repo_check() -> None:
             typer.echo(f"- {issue}")
         raise typer.Exit(code=1)
 
-    typer.echo("Repository document layout, README links, routing references, and tooling artifacts are valid.")
+    typer.echo(
+        "Repository document layout, README links, routing references, package code characters, "
+        "and tooling artifacts are valid."
+    )
 
     root = repo_root()
     if not agentkit_cli_path(root).is_file():
