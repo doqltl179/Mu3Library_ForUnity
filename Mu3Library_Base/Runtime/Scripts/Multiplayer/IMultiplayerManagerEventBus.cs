@@ -6,11 +6,13 @@ namespace Mu3Library.Multiplayer
 {
     /// <summary>The events of a <see cref="IMultiplayerManager"/>.</summary>
     /// <remarks>
-    /// The manager catches an exception that a handler throws, and the session and every later
-    /// event go on. It logs the exception with <c>Debug.LogException</c>, with a warning that later
-    /// ones go unlogged, only the first time the handlers of that event throw that exception type
-    /// in a session, so another player's chat flood cannot become a log flood while a handler of
-    /// <see cref="OnChatReceived"/> has a bug. The rule is the same whether a packet from another
+    /// The manager invokes the handlers of an event one by one, in the order they subscribed,
+    /// and catches an exception that a handler throws: the handlers after it still receive the
+    /// event, so a bug in one system's handler does not keep the event from the others, and the
+    /// session and every later event go on. It logs the exception with <c>Debug.LogException</c>,
+    /// with a warning that later ones go unlogged, only the first time the handlers of that event
+    /// throw that exception type in a session, so another player's chat flood cannot become a log
+    /// flood while a handler of <see cref="OnChatReceived"/> has a bug. The rule is the same whether a packet from another
     /// player or a call of this player's own raised the event: many events come from both, such
     /// as <see cref="OnStateChanged"/> or the host's own <see cref="OnLobbyDataChanged"/>, so a
     /// handler's failure is logged the same way wherever the event came from. The change to
@@ -18,7 +20,10 @@ namespace Mu3Library.Multiplayer
     /// session, and the next session logs each cause again. Catch an exception in the handler to
     /// log each one yourself. The callbacks that answer this player's own calls, such as those of
     /// <see cref="IMultiplayerManager.CreateLobby"/> and <see cref="IMultiplayerManager.JoinLobby"/>,
-    /// log every exception they throw, since each answers one call.
+    /// log every exception they throw, since each answers one call. Subscribing and unsubscribing
+    /// copy the event's list of handlers, so raising an event allocates nothing, and a handler that
+    /// subscribes or unsubscribes while the event is raised changes only the next raise, as with a
+    /// multicast delegate.
     /// </remarks>
     public interface IMultiplayerManagerEventBus
     {

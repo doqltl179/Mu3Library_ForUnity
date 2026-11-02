@@ -6,9 +6,9 @@ namespace Mu3Library.DI
 {
     /// <summary>
     /// The member rule of <see cref="InjectAttribute"/>: which fields and properties of a type
-    /// receive injection, and which [Inject] properties the container cannot write. The container
-    /// and the editor DI validator both read it from here, so what the validator reports is what
-    /// the container injects.
+    /// receive injection, and which [Inject] members the container cannot fill: properties without
+    /// a setter and readonly fields. The container and the editor DI validator both read it from
+    /// here, so what the validator reports is what the container injects.
     /// </summary>
     /// <remarks>
     /// The rule walks the type and its base classes, so an [Inject] member a base class
@@ -24,6 +24,7 @@ namespace Mu3Library.DI
         private static readonly Dictionary<Type, FieldInfo[]> _fieldsCache = new();
         private static readonly Dictionary<Type, PropertyInfo[]> _propertiesCache = new();
         private static readonly Dictionary<Type, PropertyInfo[]> _unwritablePropertiesCache = new();
+        private static readonly Dictionary<Type, FieldInfo[]> _readOnlyFieldsCache = new();
         private static readonly object _cacheLock = new object();
 
 
@@ -60,6 +61,24 @@ namespace Mu3Library.DI
         public static IReadOnlyList<PropertyInfo> GetUnwritableProperties(Type type)
         {
             return Array.AsReadOnly(GetUnwritablePropertyArray(type));
+        }
+
+        /// <summary>
+        /// The readonly [Inject] fields of a type and of its base classes, the type's own first.
+        /// <see cref="GetFields"/> leaves them out.
+        /// </summary>
+        /// <remarks>
+        /// A readonly field is for its initializer or a constructor to set, and the container
+        /// injects members only after the constructor has run, so by its rule it does not write
+        /// one, although reflection could. A required one
+        /// (<see cref="InjectAttribute.Required"/>) can therefore never be filled: the container
+        /// throws when it injects the object, as it does for a required property without a setter,
+        /// and the editor DI validator reports it. An optional one is skipped. A static field is
+        /// never injected and is not listed.
+        /// </remarks>
+        public static IReadOnlyList<FieldInfo> GetReadOnlyFields(Type type)
+        {
+            return Array.AsReadOnly(GetReadOnlyFieldArray(type));
         }
 
         internal static FieldInfo[] GetFieldArray(Type type)
@@ -181,6 +200,38 @@ namespace Mu3Library.DI
             }
         }
 
+        internal static FieldInfo[] GetReadOnlyFieldArray(Type type)
+        {
+            if (type == null)
+            {
+                return Array.Empty<FieldInfo>();
+            }
+
+            lock (_cacheLock)
+            {
+                if (_readOnlyFieldsCache.TryGetValue(type, out FieldInfo[] cached))
+                {
+                    return cached;
+                }
+
+                List<FieldInfo> fields = new();
+                for (Type current = type; !IsWalkEnd(current); current = current.BaseType)
+                {
+                    foreach (FieldInfo field in current.GetFields(DeclaredMemberFlags))
+                    {
+                        if (IsReadOnlyInjectField(field))
+                        {
+                            fields.Add(field);
+                        }
+                    }
+                }
+
+                FieldInfo[] result = fields.Count == 0 ? Array.Empty<FieldInfo>() : fields.ToArray();
+                _readOnlyFieldsCache[type] = result;
+                return result;
+            }
+        }
+
         private static bool IsWalkEnd(Type type)
         {
             return type == null ||
@@ -193,6 +244,13 @@ namespace Mu3Library.DI
         {
             return field.GetCustomAttribute<InjectAttribute>() != null &&
                    !field.IsInitOnly &&
+                   !field.IsStatic;
+        }
+
+        private static bool IsReadOnlyInjectField(FieldInfo field)
+        {
+            return field.GetCustomAttribute<InjectAttribute>() != null &&
+                   field.IsInitOnly &&
                    !field.IsStatic;
         }
 

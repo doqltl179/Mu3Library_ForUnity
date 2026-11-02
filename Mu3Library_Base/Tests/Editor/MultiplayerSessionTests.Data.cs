@@ -273,7 +273,8 @@ namespace Mu3Library.Tests
         [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
-            // FR-6, FR-38, #239: every comparison of a string filter, as Steam made it.
+            // FR-6, FR-38, #239, #286: every comparison of a string filter, as Steam made it, on
+            // the lobby's values and on a key the lobby lacks or holds empty.
             LobbyCreateOptions options = PublicOptions(new SessionRules(4));
             foreach (KeyValuePair<string, string> pair in StringComparisonData())
             {
@@ -324,13 +325,24 @@ namespace Mu3Library.Tests
             ("\U0001F600", "\uFF21", 1),
         };
 
+        /// <summary>
+        /// A key that <see cref="StringComparisonData"/> lacks, and one it holds with an empty
+        /// value. Steam's string filters dropped a lobby under all six comparisons on AppID 480 on
+        /// 2026-11-01 for both (#286): a Steam lobby keeps no key written with an empty value.
+        /// </summary>
+        internal const string MissingStringKey = "missing";
+        internal const string EmptyStringKey = "empty";
+
         internal static readonly LobbyComparison[] AllLobbyComparisons =
         {
             LobbyComparison.Equal, LobbyComparison.NotEqual, LobbyComparison.LessThan,
             LobbyComparison.GreaterThan, LobbyComparison.EqualOrLessThan, LobbyComparison.EqualOrGreaterThan,
         };
 
-        /// <summary>Lobby data that holds each lobby value of <see cref="SteamStringComparisons"/> under a key of its own.</summary>
+        /// <summary>
+        /// Lobby data that holds each lobby value of <see cref="SteamStringComparisons"/> under a
+        /// key of its own, and <see cref="EmptyStringKey"/> with an empty value.
+        /// </summary>
         internal static Dictionary<string, string> StringComparisonData()
         {
             Dictionary<string, string> data = new Dictionary<string, string>();
@@ -339,6 +351,7 @@ namespace Mu3Library.Tests
                 data["cmp" + i] = SteamStringComparisons[i].Lobby;
             }
 
+            data[EmptyStringKey] = string.Empty;
             return data;
         }
 
@@ -352,12 +365,26 @@ namespace Mu3Library.Tests
                     yield return ("cmp" + i, SteamStringComparisons[i].Filter, comparison, IsKeptBy(SteamStringComparisons[i].Sign, comparison));
                 }
             }
+
+            // A filter value that an empty value would equal, and one that it would sort before.
+            foreach (string key in new[] { MissingStringKey, EmptyStringKey })
+            {
+                foreach (string filter in new[] { string.Empty, "x" })
+                {
+                    foreach (LobbyComparison comparison in AllLobbyComparisons)
+                    {
+                        yield return (key, filter, comparison, false);
+                    }
+                }
+            }
         }
 
         internal static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
         {
-            int index = int.Parse(key.Substring(3), System.Globalization.CultureInfo.InvariantCulture);
-            return $"'{SteamStringComparisons[index].Lobby}' {comparison} '{filter}' should {(isKept ? "keep" : "drop")} the lobby";
+            string lobby = key == MissingStringKey ? "a lobby without the key"
+                : key == EmptyStringKey ? "a lobby with the key empty"
+                : $"'{SteamStringComparisons[int.Parse(key.Substring(3), System.Globalization.CultureInfo.InvariantCulture)].Lobby}'";
+            return $"{lobby} {comparison} '{filter}' should {(isKept ? "keep" : "drop")} the lobby";
         }
 
         private static bool IsKeptBy(int sign, LobbyComparison comparison)

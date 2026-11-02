@@ -24,9 +24,10 @@ namespace Mu3Library.Tests
         /// <summary>
         /// A <see cref="LocalBackend"/> with what the local network lacks: the avatars a test hands
         /// it, answered on its next update as a backend must, the avatar changes a test reports
-        /// through it, and a record of every presence the manager asked it to show.
+        /// through it, a record of every presence the manager asked it to show, and a platform
+        /// that can go away under it, naming why, as Steam can under the Steam backend.
         /// </summary>
-        private sealed class PlatformBackend : IMultiplayerBackend
+        private sealed class PlatformBackend : IMultiplayerBackend, IUnavailableReasonBackend
         {
             private readonly LocalBackend _inner;
             private readonly Queue<Action> _avatarAnswers = new Queue<Action>();
@@ -50,8 +51,18 @@ namespace Mu3Library.Tests
                 _inner = inner;
             }
 
+            /// <summary>
+            /// Makes the backend unavailable, naming <see cref="GoneReason"/>, while the local
+            /// backend under it goes on, as a Steam backend whose Steam went away still closes what
+            /// it can; it no longer starts listening either.
+            /// </summary>
+            public bool IsGone;
+
+            public MultiplayerReason GoneReason = MultiplayerReason.None;
+
             public string Name => "Platform";
-            public bool IsAvailable => _inner.IsAvailable;
+            public bool IsAvailable => !IsGone && _inner.IsAvailable;
+            MultiplayerReason IUnavailableReasonBackend.UnavailableReason => GoneReason;
             public PlayerId LocalPlayerId => _inner.LocalPlayerId;
             public int MaxPacketSize => _inner.MaxPacketSize;
             public string GetPlayerName(PlayerId player) => _inner.GetPlayerName(player);
@@ -97,7 +108,7 @@ namespace Mu3Library.Tests
             public bool SetLobbyCapacity(LobbyId lobby, int capacity) => _inner.SetLobbyCapacity(lobby, capacity);
             public PlayerId GetLobbyOwner(LobbyId lobby) => _inner.GetLobbyOwner(lobby);
             public bool IsLobbyMember(LobbyId lobby, PlayerId player) => _inner.IsLobbyMember(lobby, player);
-            public bool StartListening() => _inner.StartListening();
+            public bool StartListening() => !IsGone && _inner.StartListening();
             public void StopListening() => _inner.StopListening();
             public ConnectionId Connect(PlayerId host) => _inner.Connect(host);
             public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode) => _inner.Send(connection, data, mode);

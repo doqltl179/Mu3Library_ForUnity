@@ -8,7 +8,10 @@ namespace Mu3Library.Multiplayer.Local
     /// The search filters as Steam applies them, for the lobbies of a local network. A filter
     /// finds its key in any case, as Steam does, since the local backends keep lobby data in
     /// dictionaries that ignore case, and compares a string value as Steam compares it
-    /// (<see cref="CompareText"/>).
+    /// (<see cref="CompareText"/>). A string filter drops a lobby that lacks its key, or holds it
+    /// with an empty value, under every comparison, as Steam's search on AppID 480 did on
+    /// 2026-11-01 (#286): a Steam lobby keeps no key written with an empty value, so neither
+    /// lobby has a value that a comparison could keep.
     /// </summary>
     internal static class LobbyFilter
     {
@@ -17,9 +20,9 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.StringFilters.Count; i++)
             {
                 LobbyStringFilter filter = query.StringFilters[i];
-                data.TryGetValue(filter.Key ?? string.Empty, out string value);
-                int compared = CompareText(value ?? string.Empty, filter.Value ?? string.Empty);
-                if (!Satisfies(compared, filter.Comparison))
+                if (!data.TryGetValue(filter.Key ?? string.Empty, out string value)
+                    || string.IsNullOrEmpty(value)
+                    || !Satisfies(CompareText(value, filter.Value ?? string.Empty), filter.Comparison))
                 {
                     return false;
                 }

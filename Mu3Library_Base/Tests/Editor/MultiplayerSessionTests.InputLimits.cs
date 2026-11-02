@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
@@ -12,7 +13,8 @@ namespace Mu3Library.Tests
     /// <summary>
     /// What a host or a client takes from another player before it decodes anything: the
     /// connections of one account that wait for the welcome, and the length of each string a
-    /// packet carries (NFR-5).
+    /// packet carries; and what a client takes from a host over many packets: the roster and the
+    /// data, each up to its limit (NFR-5).
     /// </summary>
     public partial class MultiplayerSessionTests
     {
@@ -104,16 +106,20 @@ namespace Mu3Library.Tests
             ConnectionId connection = listener.Connected.Single();
             PlayerId hostId = fakeHost.LocalPlayerId;
 
-            // Each string at the limit its packet reads it with, and one byte over it. The limit
-            // of a name counts three UTF-8 bytes for each of its characters.
+            // Each string one byte over the limit its packet reads it with, and the longest that
+            // arrives. A value shares its data limit with its key, so the longest one leaves a
+            // byte for a one-character key. The limit of a name counts three UTF-8 bytes for each
+            // of its characters.
             string name = new string('가', MultiplayerLimits.MaxPlayerNameLength);
-            string lobbyValue = new string('v', MultiplayerLimits.MaxLobbyDataSize);
-            string participantValue = new string('v', MultiplayerLimits.MaxParticipantDataSize);
+            string lobbyValue = new string('v', MultiplayerLimits.MaxLobbyDataSize - 1);
+            string participantValue = new string('v', MultiplayerLimits.MaxParticipantDataSize - 1);
+            string tooLongLobbyValue = new string('v', MultiplayerLimits.MaxLobbyDataSize + 1);
+            string tooLongParticipantValue = new string('v', MultiplayerLimits.MaxParticipantDataSize + 1);
             PlayerId late = new PlayerId(hostId.Value + 1000);
 
             using (LogRecorder log = new LogRecorder())
             {
-                fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", lobbyValue + "v"), DeliveryMode.Reliable);
+                fakeHost.Send(connection, WelcomePacket(hostId, a.Id, "FakeHost", "m", tooLongLobbyValue), DeliveryMode.Reliable);
                 fakeHost.Send(connection, WelcomePacket(hostId, a.Id, name + "x", "m", "forest"), DeliveryMode.Reliable);
                 Pump();
                 Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining), "both welcomes are dropped");
@@ -126,8 +132,8 @@ namespace Mu3Library.Tests
 
                 for (int i = 0; i < 2; i++)
                 {
-                    fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "map", lobbyValue + "v"), DeliveryMode.Reliable);
-                    fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, "c", participantValue + "v"), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "map", tooLongLobbyValue), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, "c", tooLongParticipantValue), DeliveryMode.Reliable);
                     fakeHost.Send(connection, ParticipantJoinedPacket(late, name + "x"), DeliveryMode.Reliable);
                 }
 
@@ -136,16 +142,158 @@ namespace Mu3Library.Tests
                 Assert.That(DataOf(a, hostId).ContainsKey("c"), Is.False);
                 Assert.That(a.Manager.TryGetParticipant(late, out _), Is.False);
                 Assert.That(log.Count("Dropped a malformed packet"), Is.EqualTo(4), "once for each kind: Welcome, LobbyDataChanged, ParticipantDataChanged, ParticipantJoined");
+                Assert.That(log.Count("-byte data limit"), Is.Zero, "each string is dropped for its own length");
             }
 
-            fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "map", lobbyValue), DeliveryMode.Reliable);
+            string otherLobbyValue = new string('w', MultiplayerLimits.MaxLobbyDataSize - 1);
+            fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "m", otherLobbyValue), DeliveryMode.Reliable);
             fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, "c", participantValue), DeliveryMode.Reliable);
             fakeHost.Send(connection, ParticipantJoinedPacket(late, name), DeliveryMode.Reliable);
             Pump();
 
-            Assert.That(a.Manager.LobbyData["map"], Is.EqualTo(lobbyValue));
+            Assert.That(a.Manager.LobbyData["m"], Is.EqualTo(otherLobbyValue));
             Assert.That(DataOf(a, hostId)["c"], Is.EqualTo(participantValue));
             Assert.That(a.Manager.TryGetParticipant(late, out Participant joined) && joined.Name == name, Is.True);
+        }
+
+        [Test]
+        public void ARosterLargerThanASessionHolds_IsMalformedAtAClient_AndAFullOneStillArrives()
+        {
+            // NFR-5: a host admits at most MaxCapacity players, so a client drops a welcome with a
+            // larger roster, and a join to a full roster whatever ID it names, as malformed;
+            // without that a host could grow the roster without bound. Once a player has left,
+            // the next join arrives. Each kind is logged once.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+
+            // With the host and A, one more than a session holds.
+            PlayerId[] others = Enumerable.Range(1, MultiplayerLimits.MaxCapacity - 1)
+                .Select(i => new PlayerId(hostId.Value + 1000 + (ulong)i))
+                .ToArray();
+            PlayerId[] fullRoster = others.Take(MultiplayerLimits.MaxCapacity - 2).ToArray();
+            PlayerId late = others[others.Length - 1];
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                fakeHost.Send(connection, WelcomeWithDataPacket(hostId, a.Id, NoEntries, NoEntries, others), DeliveryMode.Reliable);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining), "the welcome is dropped");
+                Assert.That(log.Count($"Invalid participant count {MultiplayerLimits.MaxCapacity + 1} in the welcome"), Is.EqualTo(1));
+            }
+
+            fakeHost.Send(connection, WelcomeWithDataPacket(hostId, a.Id, NoEntries, NoEntries, fullRoster), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+            Assert.That(a.Manager.Participants.Count, Is.EqualTo(MultiplayerLimits.MaxCapacity));
+            a.Joined.Clear();
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                for (ulong i = 0; i < 3; i++)
+                {
+                    fakeHost.Send(connection, ParticipantJoinedPacket(new PlayerId(late.Value + i), "Late"), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(a.Manager.Participants.Count, Is.EqualTo(MultiplayerLimits.MaxCapacity));
+                Assert.That(a.Manager.TryGetParticipant(late, out _), Is.False);
+                Assert.That(a.Joined, Is.Empty);
+                Assert.That(log.Count("Dropped a malformed packet"), Is.EqualTo(1), "the first join; the others go unlogged");
+                Assert.That(log.Count($"already holds {MultiplayerLimits.MaxCapacity} players"), Is.EqualTo(1));
+            }
+
+            fakeHost.Send(connection, ParticipantLeftPacket(fullRoster[0]), DeliveryMode.Reliable);
+            fakeHost.Send(connection, ParticipantJoinedPacket(late, "Late"), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.Participants.Count, Is.EqualTo(MultiplayerLimits.MaxCapacity));
+            Assert.That(a.Joined.Select(participant => participant.Id), Is.EqualTo(new[] { late }));
+        }
+
+        [Test]
+        public void DataLargerInAllThanItsLimit_IsMalformedAtAClient_AndDataAtTheLimitStillArrives()
+        {
+            // NFR-5: a host holds the keys and values of its lobby data, and of each player's
+            // data, to their limits in UTF-8 bytes, so a client drops a welcome, a join, or a
+            // change that brings more as malformed, though each value alone fits. A change counts
+            // against the data the client holds, without the entry it replaces, as the host
+            // counts it; without that a host could grow the data without bound under ever new
+            // keys. Data at its limit still arrives. Each kind is logged once.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+            PlayerId late = new PlayerId(hostId.Value + 1000);
+
+            const int LobbyLimit = MultiplayerLimits.MaxLobbyDataSize;
+            const int PlayerLimit = MultiplayerLimits.MaxParticipantDataSize;
+            (string Key, string Value)[] fullLobby = TwoEntriesOfSize(LobbyLimit);
+            (string Key, string Value)[] fullPlayer = TwoEntriesOfSize(PlayerLimit);
+
+            using (LogRecorder log = new LogRecorder())
+            {
+                fakeHost.Send(connection, WelcomeWithDataPacket(hostId, a.Id, TwoEntriesOfSize(LobbyLimit + 1), NoEntries), DeliveryMode.Reliable);
+                fakeHost.Send(connection, WelcomeWithDataPacket(hostId, a.Id, fullLobby, TwoEntriesOfSize(PlayerLimit + 1)), DeliveryMode.Reliable);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Joining), "both welcomes are dropped");
+
+                fakeHost.Send(connection, WelcomeWithDataPacket(hostId, a.Id, fullLobby, fullPlayer), DeliveryMode.Reliable);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+                Assert.That(a.Manager.LobbyData, Is.EquivalentTo(DataFrom(fullLobby)));
+                Assert.That(DataOf(a, hostId), Is.EquivalentTo(DataFrom(fullPlayer)));
+
+                // A new key, even with an empty value, and a value one byte longer than the one it replaces.
+                string longerLobbyValue = fullLobby[0].Value + "v";
+                string longerPlayerValue = fullPlayer[0].Value + "v";
+                for (int i = 0; i < 2; i++)
+                {
+                    fakeHost.Send(connection, ParticipantJoinedWithDataPacket(late, 2, TwoEntriesOfSize(PlayerLimit + 1)), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "c", string.Empty), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, fullLobby[0].Key, longerLobbyValue), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, "c", string.Empty), DeliveryMode.Reliable);
+                    fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, fullPlayer[0].Key, longerPlayerValue), DeliveryMode.Reliable);
+                }
+
+                Pump();
+                Assert.That(a.Manager.TryGetParticipant(late, out _), Is.False);
+                Assert.That(a.Manager.LobbyData, Is.EquivalentTo(DataFrom(fullLobby)));
+                Assert.That(DataOf(a, hostId), Is.EquivalentTo(DataFrom(fullPlayer)));
+                Assert.That(a.LobbyDataChanges, Is.Empty);
+                Assert.That(a.DataChanges, Is.Empty);
+                Assert.That(log.Count("Dropped a malformed packet"), Is.EqualTo(4), "once for each kind: Welcome, ParticipantJoined, LobbyDataChanged, ParticipantDataChanged");
+                Assert.That(log.Count($"exceed the {LobbyLimit}-byte data limit"), Is.EqualTo(2), "Welcome, LobbyDataChanged");
+                Assert.That(log.Count($"exceed the {PlayerLimit}-byte data limit"), Is.EqualTo(2), "ParticipantJoined, ParticipantDataChanged");
+            }
+
+            // A value as long as the one it replaces, a join with data at the limit, and a new key
+            // in the room a deleted one left.
+            string otherLobbyValue = new string('w', fullLobby[0].Value.Length);
+            string otherPlayerValue = new string('w', fullPlayer[0].Value.Length);
+            string newLobbyValue = new string('n', fullLobby[1].Value.Length);
+            fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, fullLobby[0].Key, otherLobbyValue), DeliveryMode.Reliable);
+            fakeHost.Send(connection, ParticipantDataChangedPacket(hostId, fullPlayer[0].Key, otherPlayerValue), DeliveryMode.Reliable);
+            fakeHost.Send(connection, ParticipantJoinedWithDataPacket(late, 2, fullPlayer), DeliveryMode.Reliable);
+            fakeHost.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, fullLobby[1].Key), DeliveryMode.Reliable);
+            fakeHost.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "c", newLobbyValue), DeliveryMode.Reliable);
+            Pump();
+
+            Assert.That(a.Manager.LobbyData[fullLobby[0].Key], Is.EqualTo(otherLobbyValue));
+            Assert.That(a.Manager.LobbyData.ContainsKey(fullLobby[1].Key), Is.False);
+            Assert.That(a.Manager.LobbyData["c"], Is.EqualTo(newLobbyValue));
+            Assert.That(DataOf(a, hostId)[fullPlayer[0].Key], Is.EqualTo(otherPlayerValue));
+            Assert.That(DataOf(a, late), Is.EquivalentTo(DataFrom(fullPlayer)));
         }
 
         [Test]
@@ -355,6 +503,50 @@ namespace Mu3Library.Tests
             int lobbyDataCount = 1, byte[] startData = null)
         {
             PacketWriter writer = new PacketWriter();
+            WriteWelcomeStart(writer, host, startData);
+            writer.WriteInt(lobbyDataCount);
+            writer.WriteString(lobbyKey);
+            writer.WriteString(lobbyValue);
+            writer.WriteInt(2);
+            WriteParticipantEntry(writer, host, hostName);
+            WriteParticipantEntry(writer, client, "A");
+            return writer.Written.ToArray();
+        }
+
+        /// <summary>
+        /// The welcome into a lobby with the default rules and <paramref name="lobbyData"/>, and a
+        /// roster of the host with <paramref name="hostData"/>, the client, and <paramref name="others"/>.
+        /// </summary>
+        private static byte[] WelcomeWithDataPacket(PlayerId host, PlayerId client, (string Key, string Value)[] lobbyData,
+            (string Key, string Value)[] hostData, params PlayerId[] others)
+        {
+            PacketWriter writer = new PacketWriter();
+            WriteWelcomeStart(writer, host, startData: null);
+            writer.WriteInt(lobbyData.Length);
+            foreach ((string key, string value) in lobbyData)
+            {
+                writer.WriteString(key);
+                writer.WriteString(value);
+            }
+
+            writer.WriteInt(2 + others.Length);
+            WriteParticipantEntry(writer, host, "FakeHost", hostData);
+            WriteParticipantEntry(writer, client, "A");
+            foreach (PlayerId other in others)
+            {
+                WriteParticipantEntry(writer, other, "Other");
+            }
+
+            return writer.Written.ToArray();
+        }
+
+        /// <summary>
+        /// What a welcome holds before its lobby data: the state, the host, the game number, the
+        /// default rules, the message size limit, and the start data, which makes it a welcome
+        /// into a running game.
+        /// </summary>
+        private static void WriteWelcomeStart(PacketWriter writer, PlayerId host, byte[] startData)
+        {
             writer.Begin(PacketKind.Welcome);
             writer.WriteByte((byte)(startData != null ? SessionState.InGame : SessionState.Lobby));
             writer.WriteULong(host.Value);
@@ -374,12 +566,28 @@ namespace Mu3Library.Tests
 
             writer.WriteInt(MultiplayerConfig.DefaultMaxMessageSize);
             writer.WriteBytes(startData);
-            writer.WriteInt(lobbyDataCount);
-            writer.WriteString(lobbyKey);
-            writer.WriteString(lobbyValue);
-            writer.WriteInt(2);
-            WriteParticipantEntry(writer, host, hostName);
-            WriteParticipantEntry(writer, client, "A");
+        }
+
+        private static readonly (string Key, string Value)[] NoEntries = Array.Empty<(string, string)>();
+
+        /// <summary>Two entries of data, under the keys <c>a</c> and <c>b</c>, whose keys and values take exactly <paramref name="size"/> UTF-8 bytes.</summary>
+        private static (string Key, string Value)[] TwoEntriesOfSize(int size)
+        {
+            int first = size / 2;
+            return new[] { ("a", new string('v', first - 1)), ("b", new string('v', size - first - 1)) };
+        }
+
+        private static Dictionary<string, string> DataFrom((string Key, string Value)[] entries)
+        {
+            return entries.ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
+
+        private static byte[] ParticipantLeftPacket(PlayerId player)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantLeft);
+            writer.WriteULong(player.Value);
+            writer.WriteInt((int)MultiplayerReason.LeftNormally);
             return writer.Written.ToArray();
         }
 
@@ -439,8 +647,8 @@ namespace Mu3Library.Tests
             return writer.Written.ToArray();
         }
 
-        /// <summary>A roster entry: the ID, the name, the ready, late-join, connected, and loaded flags, and no data.</summary>
-        private static void WriteParticipantEntry(PacketWriter writer, PlayerId player, string name)
+        /// <summary>A roster entry: the ID, the name, the ready, late-join, connected, and loaded flags, and the data.</summary>
+        private static void WriteParticipantEntry(PacketWriter writer, PlayerId player, string name, params (string Key, string Value)[] data)
         {
             writer.WriteULong(player.Value);
             writer.WriteString(name);
@@ -448,7 +656,12 @@ namespace Mu3Library.Tests
             writer.WriteBool(false);
             writer.WriteBool(true);
             writer.WriteBool(false);
-            writer.WriteInt(0);
+            writer.WriteInt(data.Length);
+            foreach ((string key, string value) in data)
+            {
+                writer.WriteString(key);
+                writer.WriteString(value);
+            }
         }
         #endregion
     }

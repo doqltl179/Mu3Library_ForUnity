@@ -73,6 +73,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// </summary>
         internal double QualityRefreshSeconds { get; set; } = 0.5;
 
+        /// <summary>How many connections the backend holds open, for the tests.</summary>
+        internal int HeldConnectionCount => _connections.Count;
+
         // Reused for every quality read; Steam fills them in.
         private SteamNetConnectionRealTimeStatus_t _realTimeStatus;
         private SteamNetConnectionRealTimeLaneStatus_t _laneStatus;
@@ -309,34 +312,47 @@ namespace Mu3Library.Multiplayer.Steam
                 return false;
             }
 
-            SteamNetworkingIdentity identity1 = new SteamNetworkingIdentity();
-            SteamNetworkingIdentity identity2 = new SteamNetworkingIdentity();
-            identity1.SetSteamID(new CSteamID(LocalPlayerId.Value));
-            identity2.SetSteamID(new CSteamID(LocalPlayerId.Value));
-            if (!SteamNetworkingSockets.CreateSocketPair(out HSteamNetConnection one, out HSteamNetConnection two, throughNetwork, ref identity1, ref identity2))
+            // Guarded as every other Steam call the backend makes, so a test sees the failure as
+            // a game would: false, and a backend that is no longer available.
+            try
             {
+                SteamNetworkingIdentity identity1 = new SteamNetworkingIdentity();
+                SteamNetworkingIdentity identity2 = new SteamNetworkingIdentity();
+                identity1.SetSteamID(new CSteamID(LocalPlayerId.Value));
+                identity2.SetSteamID(new CSteamID(LocalPlayerId.Value));
+                if (!SteamNetworkingSockets.CreateSocketPair(out HSteamNetConnection one, out HSteamNetConnection two, throughNetwork, ref identity1, ref identity2))
+                {
+                    return false;
+                }
+
+                // Held before anything else is asked of Steam, so a failure closes them with the rest.
+                _connections[one.m_HSteamNetConnection] = new SteamConnection { Remote = LocalPlayerId, IsReported = true };
+                _connections[two.m_HSteamNetConnection] = new SteamConnection { Remote = LocalPlayerId, IsReported = true };
+                SteamNetworkingSockets.SetConnectionPollGroup(one, _pollGroup);
+                SteamNetworkingSockets.SetConnectionPollGroup(two, _pollGroup);
+
+                first = new ConnectionId(one.m_HSteamNetConnection);
+                second = new ConnectionId(two.m_HSteamNetConnection);
+                return true;
+            }
+            catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
+            {
+                Break(cause);
                 return false;
             }
-
-            foreach (HSteamNetConnection connection in new[] { one, two })
-            {
-                SteamNetworkingSockets.SetConnectionPollGroup(connection, _pollGroup);
-                _connections[connection.m_HSteamNetConnection] = new SteamConnection { Remote = LocalPlayerId, IsReported = true };
-            }
-
-            first = new ConnectionId(one.m_HSteamNetConnection);
-            second = new ConnectionId(two.m_HSteamNetConnection);
-            return true;
         }
 
         #region Steam Callbacks
         /// <remarks>
         /// Steam raises this for every connection in the process, the game's own included, so a
-        /// connection this backend does not hold is left alone.
+        /// connection this backend does not hold is left alone. Once the backend is not available,
+        /// a report that Steam dispatches late, in the same run of callbacks or in the game's own,
+        /// is dropped without a Steam call: the backend takes no connection then, and
+        /// <see cref="Break"/> closed the ones it held.
         /// </remarks>
         private void HandleConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t status)
         {
-            if (_isDisposed)
+            if (!IsAvailable)
             {
                 return;
             }
@@ -607,6 +623,25 @@ namespace Mu3Library.Multiplayer.Steam
 
         private void ShutdownConnections(bool steamRuns)
         {
+            CloseConnections(steamRuns);
+
+            _connectionStatusChanged?.Dispose();
+            _connectionStatusChanged = null;
+
+            if (_sendHandle.IsAllocated)
+            {
+                _sendHandle.Free();
+            }
+        }
+
+        /// <summary>
+        /// Closes every connection and the listen socket on Steam and destroys the poll group
+        /// when <paramref name="steamRuns"/>, inside the guard, so a call that fails ends only
+        /// this step; then forgets them either way. The other side of a closed connection sees
+        /// it drop without a reason, as when this player's game stops.
+        /// </summary>
+        private void CloseConnections(bool steamRuns)
+        {
             if (steamRuns)
             {
                 try
@@ -636,14 +671,6 @@ namespace Mu3Library.Multiplayer.Steam
             _isListening = false;
             _listenSocket = HSteamListenSocket.Invalid;
             _pollGroup = HSteamNetPollGroup.Invalid;
-
-            _connectionStatusChanged?.Dispose();
-            _connectionStatusChanged = null;
-
-            if (_sendHandle.IsAllocated)
-            {
-                _sendHandle.Free();
-            }
         }
     }
 }
