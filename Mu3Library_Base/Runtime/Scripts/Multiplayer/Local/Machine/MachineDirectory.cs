@@ -32,8 +32,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// moves the new one in, and deletes the backup. For a moment the folder lists neither file
     /// under the lobby file's name, and opening it fails as missing or as held. A reader therefore
     /// goes by every file of an owner, its lobby file, its temporary file, and that backup, and
-    /// reads a lobby file it cannot open again shortly while another of them is fresh, or was
-    /// listed and is gone a moment later, as a file the replacement just moved.
+    /// reads a lobby file it cannot open again shortly while another of them was written within
+    /// <see cref="ReplaceSeconds"/>, or was listed and is gone a moment later, as a file the
+    /// replacement just moved. Since that takes a sleep or more, <see cref="MachinePeer"/> reads
+    /// on a thread of the pool, never on the main thread. A process that ends in the middle of a
+    /// write or a replacement leaves the temporary file or the backup behind, and a reader deletes
+    /// them once they are <see cref="StaleSeconds"/> old and the lobby file is gone, as it deletes
+    /// a lobby file that stopped being rewritten.
+    /// </para>
+    /// <para>
+    /// A reader takes a file only within the bounds an owner of this version keeps to:
+    /// <see cref="MaxFileBytes"/>, <see cref="MaxListedLobbies"/>, and
+    /// <see cref="MaxLobbyDataEntries"/>. It skips a file past them as malformed, before it reads
+    /// what the file declares, and goes on with the other files.
     /// </para>
     /// <para>
     /// On an AMD Ryzen 7 5800X3D with Windows 11 Pro and Unity 6000.6.7f1, a dispose or a
@@ -54,6 +65,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const int FileVersion = 1;
         private const string FilePrefix = "peer-";
         private const string Extension = ".lobbies";
+        private const string TemporaryExtension = ".tmp";
+
+        // What File.Replace names the backup of the file it replaces on Windows: the file's name,
+        // this mark, a number, and the extension.
+        private const string BackupMark = "~RF";
+        private const string BackupExtension = ".TMP";
 
         /// <summary>
         /// How long one read waits at most, in all, for lobby files whose owners replace them; a
@@ -61,14 +78,61 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         internal const double ReplaceWaitSeconds = 0.05;
 
+        /// <summary>
+        /// How recently an owner in the middle of a replacement wrote one of its files: it writes
+        /// the new file a few milliseconds before it moves it in. A lobby file that is missing
+        /// while the owner's files are all older belongs to a process that ended in the middle of
+        /// a write or a replacement, and a read does not wait for it.
+        /// </summary>
+        /// <remarks>
+        /// While <see cref="File.Replace(string, string, string)"/> or the first move runs, either
+        /// the temporary file was just written or the new lobby file, which keeps its time when it
+        /// is moved, has a fresh one; the backup keeps the old file's time and does not count. A
+        /// lobby file a read can miss this way belongs to a writer that stalled for more than a
+        /// second between writing the temporary file and finishing the replacement, or one that a
+        /// third program holds while its time is old, and the read would give up on either after
+        /// <see cref="ReplaceWaitSeconds"/> anyway. How long a replacement takes under an
+        /// antivirus scan or on a slow disk was not measured.
+        /// </remarks>
+        internal const double ReplaceSeconds = 1.0;
+
+        /// <summary>
+        /// Most lobbies one file lists. Each backend writes a file of its own, and the backend of
+        /// a <see cref="MultiplayerManager"/> owns one lobby at a time; the rest leaves room for a
+        /// test or a tool that creates lobbies through a <see cref="LocalBackend"/> itself. An
+        /// owner lists no more, so a file that declares more is malformed.
+        /// </summary>
+        internal const int MaxListedLobbies = 64;
+
+        /// <summary>
+        /// Most data entries one listed lobby carries: as many as the frames that bring a lobby to
+        /// its members carry. A <see cref="MultiplayerManager"/>'s lobby holds at most 2,119: its
+        /// own data takes at most <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes of
+        /// distinct keys and their values, at most 128 keys take a single byte and the others two
+        /// or more, and the library adds seven keys of its own. An owner leaves a lobby with more
+        /// out of its file.
+        /// </summary>
+        internal const int MaxLobbyDataEntries = MachineProtocol.MaxListLength;
+
+        /// <summary>
+        /// Largest file, in bytes. A <see cref="MultiplayerManager"/>'s lobby takes under 16 KiB
+        /// of it with the length of each string, so <see cref="MaxListedLobbies"/> of them fit,
+        /// and so does any one lobby that can reach its members: the frame that carries a lobby
+        /// (<see cref="MachineProtocol.MaxFrameBytes"/>) takes more bytes for it than the file
+        /// does. An owner leaves a lobby that does not fit out of its file.
+        /// </summary>
+        internal const int MaxFileBytes = 1024 * 1024;
+
         private enum FileRead
         {
             /// <summary>Read, or not a file this version wrote.</summary>
             Done,
             /// <summary>Not rewritten for <see cref="StaleSeconds"/>.</summary>
             Stale,
-            /// <summary>Missing or held by another handle, as in the middle of a replacement.</summary>
-            Unavailable,
+            /// <summary>Not there, as in the middle of a replacement, or after the owner ended.</summary>
+            Missing,
+            /// <summary>Held by another handle, as in the middle of a replacement.</summary>
+            Held,
         }
 
         // The writer thread only writes small files; the default stack would be a megabyte.
@@ -79,13 +143,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private readonly string _temporaryPath;
 
         // Main thread only: the latest listing, written into the same buffer each time, and the
-        // lobbies it listed.
+        // lobbies it took, also those it left out past the bounds.
         private readonly MemoryStream _listing = new MemoryStream();
         private readonly BinaryWriter _listingWriter;
         private readonly List<LobbyId> _listed = new List<LobbyId>();
         private Thread _writer = null;
         private EventHandler _onDomainUnload = null;
         private bool _hasFile = false;
+        private bool _hasWarnedLeftOut = false;
 
         // Shared with the writer thread under _gate: the listing it writes next.
         private readonly object _gate = new object();
@@ -108,7 +173,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             _folder = folder;
             _path = PathOf(folder, port);
-            _temporaryPath = Path.ChangeExtension(_path, ".tmp");
+            _temporaryPath = Path.ChangeExtension(_path, TemporaryExtension);
             _listingWriter = new BinaryWriter(_listing, Encoding.UTF8, leaveOpen: true);
         }
 
@@ -130,7 +195,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// Lists the lobbies this process owns, or deletes its file when it owns none. A listing
         /// that adds a lobby is written at once, the others in the background; when a write fails,
         /// for example while another program holds the file, <see cref="TakeFailedWrite"/> says
-        /// so, and the caller lists them again later.
+        /// so, and the caller lists them again later. Past the bounds a reader takes, the listing
+        /// leaves a lobby out, with a warning the first time.
         /// </summary>
         public void Publish(PlayerId owner, int port, List<MachineLobby> lobbies)
         {
@@ -149,24 +215,48 @@ namespace Mu3Library.Multiplayer.Local.Machine
             writer.Write(DateTime.UtcNow.Ticks);
             writer.Write(port);
             writer.Write(owner.Value);
-            writer.Write(lobbies.Count);
+
+            // The count follows once the lobbies that fit are known.
+            long countPosition = _listing.Position;
+            writer.Write(0);
+            int count = 0;
             for (int i = 0; i < lobbies.Count; i++)
             {
                 MachineLobby lobby = lobbies[i];
+
+                // Also one left out, so it does not count as a lobby the next listing adds.
                 _listed.Add(lobby.Id);
-                writer.Write(lobby.Id.Value);
-                writer.Write((byte)lobby.Visibility);
-                writer.Write(lobby.Capacity);
-                writer.Write(lobby.Members.Count);
-                writer.Write(lobby.IsJoinable);
-                writer.Write(lobby.Data.Count);
-                foreach (KeyValuePair<string, string> pair in lobby.Data)
+                if (count < MaxListedLobbies && lobby.Data.Count <= MaxLobbyDataEntries)
                 {
-                    writer.Write(pair.Key);
-                    writer.Write(pair.Value ?? string.Empty);
+                    long start = _listing.Position;
+                    writer.Write(lobby.Id.Value);
+                    writer.Write((byte)lobby.Visibility);
+                    writer.Write(lobby.Capacity);
+                    writer.Write(lobby.Members.Count);
+                    writer.Write(lobby.IsJoinable);
+                    writer.Write(lobby.Data.Count);
+                    foreach (KeyValuePair<string, string> pair in lobby.Data)
+                    {
+                        writer.Write(pair.Key);
+                        writer.Write(pair.Value ?? string.Empty);
+                    }
+
+                    if (_listing.Length <= MaxFileBytes)
+                    {
+                        count++;
+                        continue;
+                    }
+
+                    _listing.SetLength(start);
+                    _listing.Position = start;
                 }
+
+                WarnLeftOut(lobby.Id);
             }
 
+            _listing.Position = countPosition;
+            writer.Write(count);
+            _listing.Position = _listing.Length;
             writer.Flush();
             int length = (int)_listing.Length;
 
@@ -248,6 +338,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             return false;
+        }
+
+        private void WarnLeftOut(LobbyId lobby)
+        {
+            if (!_hasWarnedLeftOut)
+            {
+                _hasWarnedLeftOut = true;
+                Debug.LogWarning($"[Multiplayer] A backend on the local network lists at most {MaxListedLobbies} of its lobbies, each with at most {MaxLobbyDataEntries} data entries, in at most {MaxFileBytes} bytes; lobby {lobby} is left out of search and of joins by its ID while it does not fit. This warning is not repeated for this backend.");
+            }
         }
 
         private void StartWriting()
@@ -411,6 +510,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// Every lobby in the folder whose owner still runs, also one whose owner is replacing its
         /// file in the meantime. Files left by processes that ended are deleted on the way.
         /// </summary>
+        /// <remarks>
+        /// It sleeps while an owner replaces its file, up to <see cref="ReplaceWaitSeconds"/> and
+        /// one sleep more in all, so call it off the main thread.
+        /// </remarks>
         public static List<MachineDirectoryEntry> Read(string folder)
         {
             List<MachineDirectoryEntry> entries = new List<MachineDirectoryEntry>();
@@ -440,7 +543,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 }
             }
 
-            long staleBefore = DateTime.UtcNow.Ticks - TimeSpan.FromSeconds(StaleSeconds).Ticks;
+            long now = DateTime.UtcNow.Ticks;
+            long staleBefore = now - TimeSpan.FromSeconds(StaleSeconds).Ticks;
+            long replacingSince = now - TimeSpan.FromSeconds(ReplaceSeconds).Ticks;
             long waitUntil = Stopwatch.GetTimestamp() + (long)(ReplaceWaitSeconds * Stopwatch.Frequency);
             for (int i = 0; i < ports.Count; i++)
             {
@@ -451,12 +556,27 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     if (read == FileRead.Stale)
                     {
                         TryDelete(file);
+                        RemoveLeftovers(files, ports[i], staleBefore);
                         break;
                     }
 
-                    if (read == FileRead.Done
-                        || Stopwatch.GetTimestamp() >= waitUntil
-                        || !HasFreshFile(folder, ports[i], staleBefore))
+                    if (read == FileRead.Done)
+                    {
+                        break;
+                    }
+
+                    if (!IsReplacing(folder, ports[i], replacingSince))
+                    {
+                        // Only a lobby file that is gone leaves what is beside it to nobody.
+                        if (read == FileRead.Missing)
+                        {
+                            RemoveLeftovers(files, ports[i], staleBefore);
+                        }
+
+                        break;
+                    }
+
+                    if (Stopwatch.GetTimestamp() >= waitUntil)
                     {
                         break;
                     }
@@ -481,11 +601,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>
         /// Whether the owner on <paramref name="port"/> is replacing its lobby file: one of its
-        /// files was written within <see cref="StaleSeconds"/>, or the folder listed it and it is
-        /// gone a moment later, moved by the replacement. What a process that ended left behind
-        /// is older and stays where it is.
+        /// files was written since <paramref name="since"/>, as the new file is a moment before
+        /// the replacement moves it in, or the folder listed it and it is gone a moment later,
+        /// moved by the replacement. A backup carries the time of the file it replaced, and what
+        /// a process that ended left behind is older and stays where it is.
         /// </summary>
-        private static bool HasFreshFile(string folder, int port, long staleBefore)
+        private static bool IsReplacing(string folder, int port, long since)
         {
             try
             {
@@ -493,7 +614,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 for (int i = 0; i < files.Length; i++)
                 {
                     // For a file that is not there it reads a time long past, 1601 on Windows.
-                    if (File.GetLastWriteTimeUtc(files[i]).Ticks >= staleBefore || !File.Exists(files[i]))
+                    if (File.GetLastWriteTimeUtc(files[i]).Ticks >= since || !File.Exists(files[i]))
                     {
                         return true;
                     }
@@ -505,6 +626,45 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Deletes the temporary file and the replacement backups of the owner on
+        /// <paramref name="port"/>, among <paramref name="files"/>, that were written before
+        /// <paramref name="staleBefore"/>: with its lobby file gone, they are what a process that
+        /// ended in the middle of a write or a replacement left, which nobody else deletes. An
+        /// owner that runs writes its temporary file anew for every listing, and a backup carries
+        /// the time of a lobby file it rewrites every few seconds, so its own are never that old.
+        /// </summary>
+        private static void RemoveLeftovers(string[] files, int port, long staleBefore)
+        {
+            string name = FilePrefix + port.ToString(CultureInfo.InvariantCulture);
+            string temporary = name + TemporaryExtension;
+            string backup = name + Extension + BackupMark;
+            for (int i = 0; i < files.Length; i++)
+            {
+                string file = Path.GetFileName(files[i]);
+                bool isLeftover = string.Equals(file, temporary, StringComparison.OrdinalIgnoreCase)
+                    || (file.StartsWith(backup, StringComparison.OrdinalIgnoreCase) && file.EndsWith(BackupExtension, StringComparison.OrdinalIgnoreCase));
+
+                if (!isLeftover)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    // A file deleted since reads as written in 1601 on Windows, and deleting it again does nothing.
+                    if (File.GetLastWriteTimeUtc(files[i]).Ticks < staleBefore)
+                    {
+                        File.Delete(files[i]);
+                    }
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    // Another process holds it; whoever reads the folder next tries again.
+                }
+            }
         }
 
         /// <summary>
@@ -540,8 +700,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         }
 
         /// <summary>
-        /// Adds the lobbies of one file. One that cannot be read adds nothing, and a lobby with a
-        /// key or a value longer than the frames carry is left out.
+        /// Adds the lobbies of one file. One that cannot be read adds nothing, nor does one past
+        /// <see cref="MaxFileBytes"/>, <see cref="MaxListedLobbies"/>, or
+        /// <see cref="MaxLobbyDataEntries"/>, which is checked before anything it declares is
+        /// read; a lobby with a key or a value longer than the frames carry is left out.
         /// </summary>
         private static FileRead ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries)
         {
@@ -552,7 +714,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 using (FileStream stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                 using (BinaryReader reader = new BinaryReader(stream, Encoding.UTF8))
                 {
-                    if (reader.ReadInt32() != FileMagic || reader.ReadInt32() != FileVersion)
+                    if (stream.Length > MaxFileBytes
+                        || reader.ReadInt32() != FileMagic
+                        || reader.ReadInt32() != FileVersion)
                     {
                         return FileRead.Done;
                     }
@@ -565,7 +729,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
                     int port = reader.ReadInt32();
                     PlayerId owner = new PlayerId(reader.ReadUInt64());
-                    int lobbyCount = reader.ReadInt32();
+                    int lobbyCount = ReadCount(reader, MaxListedLobbies);
                     for (int i = 0; i < lobbyCount; i++)
                     {
                         MachineDirectoryEntry entry = new MachineDirectoryEntry
@@ -580,7 +744,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                             IsJoinable = reader.ReadBoolean(),
                         };
 
-                        int dataCount = reader.ReadInt32();
+                        int dataCount = ReadCount(reader, MaxLobbyDataEntries);
                         bool isWithinLimits = true;
                         for (int j = 0; j < dataCount; j++)
                         {
@@ -605,11 +769,17 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
                 return FileRead.Done;
             }
+            catch (Exception e) when (e is FileNotFoundException || e is DirectoryNotFoundException)
+            {
+                // Deleted, or moved aside by a replacement in the meantime.
+                entries.RemoveRange(firstEntry, entries.Count - firstEntry);
+                return FileRead.Missing;
+            }
             catch (Exception e) when ((e is IOException && !(e is EndOfStreamException)) || e is UnauthorizedAccessException)
             {
-                // Deleted, or replaced or held in the meantime.
+                // Replaced or held in the meantime.
                 entries.RemoveRange(firstEntry, entries.Count - firstEntry);
-                return FileRead.Unavailable;
+                return FileRead.Held;
             }
             catch (Exception e) when (e is EndOfStreamException || e is FormatException || e is ArgumentException)
             {
@@ -617,6 +787,18 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 entries.RemoveRange(firstEntry, entries.Count - firstEntry);
                 return FileRead.Done;
             }
+        }
+
+        /// <summary>A count the file declares, or a <see cref="FormatException"/> past <paramref name="max"/>.</summary>
+        private static int ReadCount(BinaryReader reader, int max)
+        {
+            int count = reader.ReadInt32();
+            if (count < 0 || count > max)
+            {
+                throw new FormatException($"Invalid count {count}.");
+            }
+
+            return count;
         }
 
         /// <summary>

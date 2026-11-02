@@ -238,6 +238,33 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Presence_ARemovalTheGoneBackendRefuses_AsTheSessionEnds_LogsNoRefusal()
+        {
+            // #272: a backend that is gone refuses the removal of the presence as the manager ends
+            // the session, as the Steam backend does once Steam cannot be used. It refused
+            // nothing, and the session's end already says why, so the manager logs no refusal,
+            // then or on a later update.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));
+            Assert.That(host.Manager.SetPresenceStatus("Waiting").IsSuccess, Is.True);
+            Pump();
+            int attempts = host.Platform.PresenceAttempts;
+
+            host.Platform.RefusesPresence = true;
+            host.Platform.IsGone = true;
+            host.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            host.Manager.Update();
+            for (int i = 0; i < 5; i++)
+            {
+                _now += 1.1;
+                host.Manager.Update();
+            }
+
+            Assert.That(host.LastChange.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            Assert.That(host.Platform.PresenceAttempts, Is.EqualTo(attempts + 1), "asked once, as the session ended, and not again");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
         public void Presence_ARefusedChangeThatIsNoRemoval_IsNotAskedAgain()
         {
             // A refused status during a session answers BackendError, and the next update shows the

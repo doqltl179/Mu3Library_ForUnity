@@ -26,8 +26,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// Everything but the sends runs on the main thread inside <see cref="Update"/>, on
     /// non-blocking sockets: a thread of this peer hands each socket what the main thread queued
     /// for it, as much as the socket takes at the time (MachinePeer.Sending.cs), a closed
-    /// connection finishes in the background (<see cref="LingeringSockets"/>), and the lobby file
-    /// is rewritten on a thread of its own (<see cref="MachineDirectory"/>).
+    /// connection finishes in the background (<see cref="LingeringSockets"/>), the lobby file
+    /// is rewritten on a thread of its own (<see cref="MachineDirectory"/>), and a search or a
+    /// join by lobby ID reads the lobby files on a thread of the pool (MachinePeer.Lobby.cs).
     /// What the session sends during an update, such as the messages a host relays, waits in its
     /// connection's queue until the update ends, so each connection goes to the sending thread
     /// once for all of them, and the thread makes one socket call for what it got; what the game

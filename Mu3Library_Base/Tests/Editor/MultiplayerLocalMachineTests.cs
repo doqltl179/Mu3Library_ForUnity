@@ -306,7 +306,8 @@ namespace Mu3Library.Tests
         [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
-            // FR-6, FR-38, #239: every comparison of a string filter, from another process.
+            // FR-6, FR-38, #239, #286: every comparison of a string filter, from another process,
+            // on the values the lobby file lists and on a key it lacks or holds empty.
             Node host = CreateNode("Host");
             LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
             foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.StringComparisonData())
@@ -863,9 +864,10 @@ namespace Mu3Library.Tests
         public void Directory_ReadInTheMiddleOfAReplacement_WaitsForTheLobbyFile()
         {
             // As File.Replace leaves the folder on Windows for a moment: the old file moved aside,
-            // the new one not yet in place, so no file has the lobby file's name. The rounds move
-            // the new one in at times 10 microseconds apart from the start of the read, and then
-            // a millisecond apart, so some move it between the read listing a file and looking at it.
+            // the new one, just written, not yet in place, so no file has the lobby file's name.
+            // The rounds move the new one in at times 10 microseconds apart from the start of the
+            // read, and then a millisecond apart, so some move it between the read listing a file
+            // and looking at it.
             const int FineRounds = 200;
             const int CoarseRounds = 25;
             MachineDirectory directory = new MachineDirectory(_folder, 7);
@@ -877,6 +879,7 @@ namespace Mu3Library.Tests
             for (int round = 0; round < FineRounds + CoarseRounds; round++)
             {
                 File.Move(file, temporary);
+                File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
                 double delayMilliseconds = round < FineRounds ? round * 0.01 : round - FineRounds;
                 long delayTicks = (long)(delayMilliseconds * Stopwatch.Frequency / 1000.0);
                 long readStart = 0;
@@ -909,12 +912,227 @@ namespace Mu3Library.Tests
                 }
             }
 
-            // What a process that ended left in the middle of a replacement is old, and nobody waits for it.
+            // What a process that ended in the middle of a replacement left is older, and nobody
+            // waits for it: neither two seconds later, far longer than a replacement takes, while a
+            // lobby file that old would still count, nor once it is stale, when the read deletes it.
             File.Move(file, temporary);
-            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0));
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-2.0));
             Stopwatch read = Stopwatch.StartNew();
             Assert.That(MachineDirectory.Read(_folder), Is.Empty);
-            Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds * 0.8), "The read waited for a file that a process that ended left.");
+            Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds * 0.8), "The read waited for a file that a process that ended two seconds ago left.");
+            Assert.That(File.Exists(temporary), Is.True, "The read deleted a temporary file younger than a lobby file goes stale.");
+
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0));
+            read.Restart();
+            Assert.That(MachineDirectory.Read(_folder), Is.Empty);
+            Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds * 0.8), "The read waited for a file that a process that ended long ago left.");
+            Assert.That(File.Exists(temporary), Is.False, "The read left a stale temporary file of a process that ended.");
+        }
+
+        [Test]
+        public void Directory_DeletesTheTemporaryFileAndBackupsThatAProcessThatEndedLeft_AndKeepsTheOthers()
+        {
+            Directory.CreateDirectory(_folder);
+            DateTime stale = DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0);
+
+            // Port 5: a process that ended long ago in the middle of a replacement, with the old
+            // lobby file moved aside and the new one not yet in place.
+            string endedTemporary = WriteFile("peer-5.tmp", stale);
+            string endedBackup = WriteFile("peer-5.lobbies~RF1a2b3c.TMP", stale);
+            string unknown = WriteFile("peer-5.other", stale);
+
+            // Port 6: a process that ended long ago in the middle of a write, whose lobby file went stale.
+            MachineDirectory ended = new MachineDirectory(_folder, 6);
+            ended.Publish(new PlayerId(6), 6, new List<MachineLobby> { ListedLobby(6, "map", "forest") });
+            ended.Abandon();
+            string staleFile = Path.Combine(_folder, "peer-6.lobbies");
+            byte[] bytes = File.ReadAllBytes(staleFile);
+            BitConverter.GetBytes(stale.Ticks).CopyTo(bytes, 8);
+            File.WriteAllBytes(staleFile, bytes);
+            string staleTemporary = WriteFile("peer-6.tmp", stale);
+
+            // Port 7: an owner in the middle of a replacement, whose new file it just wrote, and
+            // whose backup has the time of the lobby file it replaces, rewritten a few seconds ago.
+            string freshTemporary = WriteFile("peer-7.tmp", DateTime.UtcNow);
+            string freshBackup = WriteFile("peer-7.lobbies~RF4d5e6f.TMP", DateTime.UtcNow.AddSeconds(-2.0));
+
+            // Port 8: an owner that runs, beside a temporary file that a process that ended on
+            // the same port long ago left; its own next write replaces that file.
+            MachineDirectory running = new MachineDirectory(_folder, 8);
+            running.Publish(new PlayerId(8), 8, new List<MachineLobby> { ListedLobby(8, "map", "forest") });
+            try
+            {
+                string oldTemporary = WriteFile("peer-8.tmp", stale);
+
+                Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(8) }));
+
+                Assert.That(new[] { endedTemporary, endedBackup, staleFile, staleTemporary }.Where(File.Exists), Is.Empty);
+                Assert.That(new[] { unknown, freshTemporary, freshBackup, oldTemporary }.Where(path => !File.Exists(path)), Is.Empty);
+            }
+            finally
+            {
+                running.Remove();
+            }
+        }
+
+        [Test]
+        public void Directory_SkipsAFileThatDeclaresOrHoldsMoreThanAnOwnerLists_AndReadsTheOthers()
+        {
+            MachineDirectory valid = new MachineDirectory(_folder, 1);
+            valid.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            try
+            {
+                // What a listing starts with: the magic number, the format version, the time
+                // written, the port, and the owner.
+                byte[] header = File.ReadAllBytes(Path.Combine(_folder, "peer-1.lobbies")).Take(28).ToArray();
+
+                // Short files that declare more lobbies, or more data entries for a lobby, than an owner lists.
+                WriteListing(2, header, writer => writer.Write(int.MaxValue));
+                WriteListing(3, header, writer =>
+                {
+                    writer.Write(1);
+                    WriteListedLobby(writer, 3, int.MaxValue, 0);
+                });
+
+                // Whole files that list one lobby more, or one data entry more, than an owner does.
+                WriteListing(4, header, writer =>
+                {
+                    writer.Write(MachineDirectory.MaxListedLobbies + 1);
+                    for (int i = 0; i <= MachineDirectory.MaxListedLobbies; i++)
+                    {
+                        WriteListedLobby(writer, 400UL + (ulong)i, 0, 0);
+                    }
+                });
+                WriteListing(5, header, writer =>
+                {
+                    writer.Write(1);
+                    WriteListedLobby(writer, 5, MachineDirectory.MaxLobbyDataEntries + 1, MachineDirectory.MaxLobbyDataEntries + 1);
+                });
+
+                // Files whose lobby is whole, followed by nothing up to the largest file an owner
+                // writes, and one byte more.
+                string largest = WriteListing(6, header, writer =>
+                {
+                    writer.Write(1);
+                    WriteListedLobby(writer, 6, 1, 1);
+                });
+                string larger = WriteListing(7, header, writer =>
+                {
+                    writer.Write(1);
+                    WriteListedLobby(writer, 7, 1, 1);
+                });
+                using (FileStream stream = new FileStream(largest, FileMode.Open, FileAccess.Write))
+                {
+                    stream.SetLength(MachineDirectory.MaxFileBytes);
+                }
+
+                using (FileStream stream = new FileStream(larger, FileMode.Open, FileAccess.Write))
+                {
+                    stream.SetLength(MachineDirectory.MaxFileBytes + 1);
+                }
+
+                Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(new[] { new LobbyId(1), new LobbyId(6) }));
+            }
+            finally
+            {
+                valid.Remove();
+            }
+        }
+
+        [Test]
+        public void Directory_ReadsAListingAtTheBounds_WhichLeavesOutTheLobbiesPastThem()
+        {
+            // As many lobbies as a file lists, the first with as many data entries as a lobby
+            // carries and the others with as much data as a MultiplayerManager's lobby holds.
+            string value = new string('v', MultiplayerLimits.MaxLobbyDataSize - 3);
+            MachineLobby crowded = ListedLobby(1, "map", value);
+            for (int i = 1; i < MachineDirectory.MaxLobbyDataEntries; i++)
+            {
+                crowded.Data["k" + i.ToString(CultureInfo.InvariantCulture)] = string.Empty;
+            }
+
+            // Past the bounds: one data entry more, a lobby that does not fit in the file, and one
+            // lobby more than a file lists, after the others.
+            MachineLobby tooCrowded = ListedLobby(2, "map", value);
+            for (int i = 1; i <= MachineDirectory.MaxLobbyDataEntries; i++)
+            {
+                tooCrowded.Data["k" + i.ToString(CultureInfo.InvariantCulture)] = string.Empty;
+            }
+
+            MachineLobby tooLarge = ListedLobby(3, "map", value);
+            for (int i = 1; i * MachineProtocol.MaxDataValueBytes <= MachineDirectory.MaxFileBytes; i++)
+            {
+                tooLarge.Data["k" + i.ToString(CultureInfo.InvariantCulture)] = new string('v', MachineProtocol.MaxDataValueBytes);
+            }
+
+            List<MachineLobby> lobbies = new List<MachineLobby> { crowded, tooCrowded, tooLarge };
+            List<LobbyId> expected = new List<LobbyId> { crowded.Id };
+            for (ulong id = 10; lobbies.Count < MachineDirectory.MaxListedLobbies + 2; id++)
+            {
+                lobbies.Add(ListedLobby(id, "map", value));
+                expected.Add(new LobbyId(id));
+            }
+
+            lobbies.Add(ListedLobby(100, "map", value));
+
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("is left out of search"));
+            directory.Publish(new PlayerId(9), 1, lobbies);
+            try
+            {
+                Assert.That(new FileInfo(Path.Combine(_folder, "peer-1.lobbies")).Length, Is.LessThanOrEqualTo(MachineDirectory.MaxFileBytes));
+                List<MachineDirectoryEntry> entries = MachineDirectory.Read(_folder);
+                Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(expected));
+                Assert.That(entries[0].Data, Has.Count.EqualTo(MachineDirectory.MaxLobbyDataEntries));
+                Assert.That(entries[1].Data["map"], Is.EqualTo(value));
+
+                // The lobbies left out do not count as added, which would write the file on the
+                // main thread at every update.
+                Assert.That(directory.AddsLobby(lobbies), Is.False);
+            }
+            finally
+            {
+                directory.Remove();
+            }
+        }
+
+        [Test]
+        public void SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate()
+        {
+            // An update that read the files itself would hold the frame for the whole wait, at
+            // least a sleep of about 16 ms in batch mode on Windows, and the full
+            // ReplaceWaitSeconds for a replacement that does not finish in time.
+            double bound = MachineDirectory.ReplaceWaitSeconds * 1000.0 * 0.5;
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+            string temporary = Path.ChangeExtension(file, ".tmp");
+
+            // The new file moves in 10 ms after the search's first update started.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+            (double Slowest, double Answer, double Updates, bool IsFound) moved = TimeSearch(seeker, lobby, () => File.Move(temporary, file), 10.0);
+            Assert.That(moved.IsFound, Is.True, "The search missed the lobby whose file its owner was replacing.");
+            Assert.That(moved.Slowest, Is.LessThan(bound), "An update of the search waited for the replacement.");
+
+            // A replacement that does not finish in time: the read waits it out on its own thread.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+            (double Slowest, double Answer, double Updates, bool IsFound) unfinished = TimeSearch(seeker, lobby, null, 0.0);
+            File.Move(temporary, file);
+            Assert.That(unfinished.IsFound, Is.False);
+            Assert.That(unfinished.Slowest, Is.LessThan(bound), "An update of the search waited for the replacement.");
+            Assert.That(unfinished.Answer, Is.GreaterThan(MachineDirectory.ReplaceWaitSeconds * 1000.0 * 0.8), "The read did not wait for the replacement.");
+
+            // A join by the lobby's ID, whose owner answers it.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+            MultiplayerReason? reason = null;
+            seeker.JoinLobby(lobby, r => reason = r);
+            (double Slowest, double Answer, double Updates) joined = TimeUpdates(seeker, () => reason.HasValue, () => File.Move(temporary, file), 10.0, owner);
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(joined.Slowest, Is.LessThan(bound), "An update of the join waited for the replacement.");
         }
 
         [Test]
@@ -1250,6 +1468,155 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>
+        /// How long the main thread takes in the updates of a search from another process, logged
+        /// in a line that starts with <c>[Lobby file]</c>: with the owner's lobby file in place; in
+        /// the middle of a replacement, the new file moved in a few milliseconds after the
+        /// search's first update starts; and with only the new file that a process that ended in
+        /// the middle of a replacement two seconds ago left. For each, the slowest update of the
+        /// search, the time from its first update to its answer, and the updates it took; the
+        /// updates come a millisecond's sleep apart, about 16 ms in batch mode on Windows. The
+        /// first comes right after the search starts, before the read on a thread of the pool can
+        /// be done, so a search answers in the second at the soonest here, while a game's next
+        /// update, a frame after the search, usually finds the read done.
+        /// </summary>
+        [Explicit("Measures in real time, about 2 seconds; run it by name.")]
+        [Test]
+        public void LobbyFile_SearchesMeetingAReplacement_AreMeasured()
+        {
+            const int Rounds = 30;
+            const double MoveInMilliseconds = 10.0;
+            double[] inPlace = new double[Rounds], inPlaceAnswer = new double[Rounds], inPlaceUpdates = new double[Rounds];
+            double[] replacing = new double[Rounds], replacingAnswer = new double[Rounds], replacingUpdates = new double[Rounds];
+            double[] ended = new double[Rounds], endedAnswer = new double[Rounds], endedUpdates = new double[Rounds];
+            int inPlaceFound = 0, replacingFound = 0, endedFound = 0;
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            bool isFound;
+            for (int round = 0; round < Rounds; round++)
+            {
+                LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+                LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+                (inPlace[round], inPlaceAnswer[round], inPlaceUpdates[round], isFound) = TimeSearch(seeker, lobby, null, 0.0);
+                inPlaceFound += isFound ? 1 : 0;
+                owner.Dispose();
+
+                // As File.Replace leaves the folder for a moment: the old file gone, the new one
+                // freshly written beside it and not yet moved in.
+                owner = CreateRawBackend(CreateNetwork(), "Owner");
+                lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+                string file = Directory.GetFiles(_folder, "*.lobbies").Single();
+                string temporary = Path.ChangeExtension(file, ".tmp");
+                File.Move(file, temporary);
+                File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+                (replacing[round], replacingAnswer[round], replacingUpdates[round], isFound) = TimeSearch(seeker, lobby, () => File.Move(temporary, file), MoveInMilliseconds);
+                replacingFound += isFound ? 1 : 0;
+                owner.Dispose();
+
+                owner = CreateRawBackend(CreateNetwork(), "Owner");
+                lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+                owner.SimulateCrash();
+                file = Directory.GetFiles(_folder, "*.lobbies").Single();
+                temporary = Path.ChangeExtension(file, ".tmp");
+                File.Move(file, temporary);
+                File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-2.0));
+                (ended[round], endedAnswer[round], endedUpdates[round], isFound) = TimeSearch(seeker, lobby, null, 0.0);
+                endedFound += isFound ? 1 : 0;
+                File.Delete(temporary);
+            }
+
+            string report = "[Lobby file] a search from another process, main thread ms of its slowest update | ms from its first update to its answer | updates:"
+                + " file in place " + Summary(inPlace) + " | " + Summary(inPlaceAnswer) + " | " + Summary(inPlaceUpdates)
+                + $", listed the lobby {inPlaceFound} of {Rounds} times"
+                + $"; new file moved in {MoveInMilliseconds:0} ms after the first update started " + Summary(replacing) + " | " + Summary(replacingAnswer) + " | " + Summary(replacingUpdates)
+                + $", listed the lobby {replacingFound} of {Rounds} times"
+                + "; new file of a process that ended 2 s ago " + Summary(ended) + " | " + Summary(endedAnswer) + " | " + Summary(endedUpdates)
+                + $", listed the lobby {endedFound} of {Rounds} times";
+            UnityEngine.Debug.Log(report);
+            TestContext.Out.WriteLine(report);
+        }
+
+        /// <summary>
+        /// Searches from <paramref name="seeker"/>, as <see cref="TimeUpdates"/> times it, and
+        /// whether the search listed <paramref name="lobby"/>.
+        /// </summary>
+        private static (double Slowest, double Answer, double Updates, bool IsFound) TimeSearch(LocalBackend seeker, LobbyId lobby, Action moveIn, double moveInMilliseconds)
+        {
+            IReadOnlyList<BackendLobby> found = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (r, lobbies) => found = lobbies);
+            (double slowest, double answer, double updates) = TimeUpdates(seeker, () => found != null, moveIn, moveInMilliseconds);
+            return (slowest, answer, updates, found.Any(entry => entry.Id == lobby));
+        }
+
+        /// <summary>
+        /// Updates <paramref name="backend"/> a millisecond's sleep apart until
+        /// <paramref name="isAnswered"/>, with <paramref name="other"/>, when given, updated
+        /// untimed in between: the slowest update in milliseconds, the milliseconds from the first
+        /// update to the answer, and the updates it took. <paramref name="moveIn"/>, when given,
+        /// runs on another thread <paramref name="moveInMilliseconds"/> after the first update
+        /// starts, as an owner's replacement would finish.
+        /// </summary>
+        private static (double Slowest, double Answer, double Updates) TimeUpdates(LocalBackend backend, Func<bool> isAnswered, Action moveIn, double moveInMilliseconds, LocalBackend other = null)
+        {
+            long firstUpdate = 0;
+            long moveInTicks = (long)(moveInMilliseconds * Stopwatch.Frequency / 1000.0);
+            Exception moveFailure = null;
+            Thread mover = null;
+            if (moveIn != null)
+            {
+                mover = new Thread(() =>
+                {
+                    long start;
+                    while ((start = Interlocked.Read(ref firstUpdate)) == 0)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    while (Stopwatch.GetTimestamp() - start < moveInTicks)
+                    {
+                        Thread.SpinWait(10);
+                    }
+
+                    try
+                    {
+                        moveIn();
+                    }
+                    catch (Exception e)
+                    {
+                        moveFailure = e;
+                    }
+                });
+                mover.Start();
+            }
+
+            double slowest = 0.0;
+            int updates = 0;
+            long started = Stopwatch.GetTimestamp();
+            try
+            {
+                Interlocked.Exchange(ref firstUpdate, started);
+                while (!isAnswered())
+                {
+                    Assert.That((Stopwatch.GetTimestamp() - started) / (double)Stopwatch.Frequency, Is.LessThan(WaitSeconds), "No answer came.");
+                    if (updates > 0)
+                    {
+                        Thread.Sleep(1);
+                        other?.Update();
+                    }
+
+                    slowest = Math.Max(slowest, Time(backend.Update));
+                    updates++;
+                }
+            }
+            finally
+            {
+                mover?.Join();
+            }
+
+            Assert.That(moveFailure, Is.Null, moveFailure?.ToString());
+            double answer = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
+            return (slowest, answer, updates);
+        }
+
+        /// <summary>
         /// An owner whose lobby file is there, past the shortest interval between listings, with
         /// a rewrite on the writer thread when <paramref name="isBusy"/>, caught while it runs.
         /// </summary>
@@ -1551,6 +1918,106 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Sends_ToAPlayerThatReadsSlowly_GoOutAMegabyteACallAtMost_AndDoNotHoldTheOtherPlayers([Values(false, true)] bool sendsSegments)
+        {
+            // #290: once a full socket takes more again, megabytes can wait for it. Windows was
+            // seen to take the whole of a send on a writable socket only up to a megabyte in
+            // Unity, and a socket that took part of a larger one would keep Unity's Socket.Send
+            // calling, and with it the sending thread and every other player's messages, until
+            // the slow player read the rest. So each call hands a socket a megabyte at most, and
+            // the other player's messages go out between the calls while the slow one reads.
+            const int allowedLag = 8;
+            (LocalBackend host, RecordingListener hostEvents, Peer slow, Peer other) = ConnectTwo();
+            host.SendsSegments = sendsSegments;
+            ConnectionId toSlow = ConnectionTo(hostEvents, slow);
+            ConnectionId toOther = ConnectionTo(hostEvents, other);
+            _paused.Add(slow.Backend);
+
+            byte[] packet = new byte[64 * 1024];
+            int accepted = 0;
+            RunWithin(5.0, "filling the connection to a player that does not read", () =>
+            {
+                for (; accepted < 256; accepted++)
+                {
+                    BitConverter.GetBytes(accepted).CopyTo(packet, 0);
+                    if (!host.Send(toSlow, packet, DeliveryMode.Reliable))
+                    {
+                        return;
+                    }
+                }
+
+                throw new InvalidOperationException("No send answered false.");
+            }, () => slow.Backend.SimulateCrash());
+
+            // The slow player reads a little in each update; the host sends the other player a
+            // message before each update and counts the updates until it arrives.
+            slow.Backend.ReceiveBytesPerUpdate = 32 * 1024;
+            _paused.Remove(slow.Backend);
+            List<int> sentAt = new List<int>();
+            int updates = 0;
+            int arrived = 0;
+            int maxLag = 0;
+            Stopwatch waited = Stopwatch.StartNew();
+            while (slow.Events.Received.Count < accepted || arrived < sentAt.Count)
+            {
+                Assert.That(waited.Elapsed.TotalSeconds, Is.LessThan(WaitSeconds), "Timed out waiting for what the slow player was sent.");
+                if (slow.Events.Received.Count < accepted)
+                {
+                    Assert.That(host.Send(toOther, BitConverter.GetBytes(sentAt.Count), DeliveryMode.Reliable), Is.True);
+                    sentAt.Add(updates);
+                }
+
+                Thread.Sleep(2);
+                UpdateAll();
+                updates++;
+
+                // A connection delivers in order.
+                for (; arrived < other.Events.Received.Count; arrived++)
+                {
+                    maxLag = Math.Max(maxLag, updates - sentAt[arrived]);
+                }
+            }
+
+            Assert.That(slow.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, accepted)));
+            Assert.That(other.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(Enumerable.Range(0, sentAt.Count)));
+            Assert.That(host.LargestSocketSend, Is.InRange(1, 1024 * 1024), "One socket call took more than a megabyte.");
+            Assert.That(sentAt.Count, Is.GreaterThan(4 * allowedLag), "The slow player read its backlog too fast for the test to tell.");
+            Assert.That(maxLag, Is.LessThanOrEqualTo(allowedLag), "A message to the other player waited while the slow player read.");
+            Assert.That(hostEvents.Disconnected, Is.Empty);
+        }
+
+        [Test]
+        public void SendingThread_ThatMeetsAnUnexpectedException_LosesTheConnectionItWasSendingOn_AndGoesOnWithTheOthers()
+        {
+            // #290: a defect that throws on a backend's sending thread would end the thread, and
+            // nothing would leave the backend after it. The thread starts its loop over instead:
+            // the connection it was sending on drops as lost, reported once, since how much of its
+            // data reached the socket is unknown, and what the other connections were handed,
+            // also while the thread failed, still goes out.
+            (LocalBackend host, RecordingListener hostEvents, Peer failed, Peer kept) = ConnectTwo();
+            ConnectionId toFailed = ConnectionTo(hostEvents, failed);
+            ConnectionId toKept = ConnectionTo(hostEvents, kept);
+            WaitForSends(host);
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Exception, new System.Text.RegularExpressions.Regex("sending thread fails"));
+            host.FailsSendingThread = true;
+            Assert.That(host.Send(toFailed, BitConverter.GetBytes(1), DeliveryMode.Reliable), Is.True);
+            Assert.That(host.Send(toKept, BitConverter.GetBytes(2), DeliveryMode.Reliable), Is.True);
+            PumpUntil(() => hostEvents.Disconnected.Count > 0 && failed.Events.Disconnected.Count > 0 && kept.Events.Received.Count == 1, "the connection the thread was sending on to drop on both sides, and the other one to deliver");
+
+            Assert.That(host.Send(toKept, BitConverter.GetBytes(3), DeliveryMode.Reliable), Is.True);
+            PumpUntil(() => kept.Events.Received.Count == 2, "a send after the thread failed");
+            PumpFor(0.5);
+
+            Assert.That(hostEvents.Disconnected, Is.EqualTo(new[] { (toFailed, BackendDisconnectKind.ConnectionLost, 0) }));
+            Assert.That(failed.Events.Disconnected.Select(disconnect => disconnect.Kind), Is.EqualTo(new[] { BackendDisconnectKind.ConnectionLost }));
+            Assert.That(failed.Events.Received, Is.Empty, "The thread failed before its socket call.");
+            Assert.That(kept.Events.Received.Select(data => BitConverter.ToInt32(data, 0)), Is.EqualTo(new[] { 2, 3 }));
+            Assert.That(kept.Events.Disconnected, Is.Empty);
+            Assert.That(host.FailsSendingThread, Is.False, "The switch turned itself off.");
+        }
+
+        [Test]
         public void SimulatedLatency_ABackendDisposedWithoutClosing_StillSendsWhatItHeldBack()
         {
             // As the in-process backend: what a backend already sent arrives even when it goes away.
@@ -1845,6 +2312,32 @@ namespace Mu3Library.Tests
             return (host, hostEvents, client, clientEvents);
         }
 
+        /// <summary>A host listening in a lobby and two members connected to it, each in a "process" of its own.</summary>
+        private (LocalBackend Host, RecordingListener HostEvents, Peer First, Peer Second) ConnectTwo()
+        {
+            RecordingListener hostEvents = new RecordingListener();
+            LocalBackend host = CreateRawBackend(CreateNetwork(), "Host", hostEvents);
+            LobbyId lobby = CreateLobby(host, LobbyVisibility.Public, 3);
+            Assert.That(host.StartListening(), Is.True);
+
+            Peer first = CreatePeer("First");
+            Peer second = CreatePeer("Second");
+            foreach (Peer peer in new[] { first, second })
+            {
+                Assert.That(Join(peer.Backend, lobby), Is.EqualTo(MultiplayerReason.None));
+                peer.Backend.Connect(host.LocalPlayerId);
+            }
+
+            PumpUntil(() => hostEvents.Connected.Count == 2 && first.Events.Connected.Count == 1 && second.Events.Connected.Count == 1, "both connections");
+            return (host, hostEvents, first, second);
+        }
+
+        /// <summary>The host's connection to the peer.</summary>
+        private static ConnectionId ConnectionTo(RecordingListener hostEvents, Peer peer)
+        {
+            return hostEvents.Connected.Single(connected => connected.Remote == peer.Id).Connection;
+        }
+
         /// <summary>An owner and two members, who joined in the order of their names.</summary>
         private (LobbyId Lobby, LocalBackend Owner, Peer First, Peer Second) LobbyOfThree()
         {
@@ -1976,6 +2469,51 @@ namespace Mu3Library.Tests
             MachineLobby lobby = new MachineLobby { Id = new LobbyId(id), IsOwned = true, Visibility = LobbyVisibility.Public, Capacity = 4 };
             lobby.Data[key] = value;
             return lobby;
+        }
+
+        /// <summary>A file of one byte in the network's folder, last written at <paramref name="written"/>.</summary>
+        private string WriteFile(string name, DateTime written)
+        {
+            string path = Path.Combine(_folder, name);
+            File.WriteAllBytes(path, new byte[] { 1 });
+            File.SetLastWriteTimeUtc(path, written);
+            return path;
+        }
+
+        /// <summary>
+        /// The lobby file of <paramref name="port"/> as another process could write it: the
+        /// <paramref name="header"/> of a listing, then what <paramref name="write"/> writes.
+        /// </summary>
+        private string WriteListing(int port, byte[] header, Action<BinaryWriter> write)
+        {
+            string path = Path.Combine(_folder, "peer-" + port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+            using (BinaryWriter writer = new BinaryWriter(File.Create(path)))
+            {
+                writer.Write(header);
+                write(writer);
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// A public lobby of a listing, as <see cref="MachineDirectory.Publish"/> writes one, that
+        /// declares <paramref name="declared"/> data entries and holds the first
+        /// <paramref name="written"/> of them.
+        /// </summary>
+        private static void WriteListedLobby(BinaryWriter writer, ulong id, int declared, int written)
+        {
+            writer.Write(id);
+            writer.Write((byte)LobbyVisibility.Public);
+            writer.Write(4);
+            writer.Write(1);
+            writer.Write(true);
+            writer.Write(declared);
+            for (int i = 0; i < written; i++)
+            {
+                writer.Write("k" + i.ToString(CultureInfo.InvariantCulture));
+                writer.Write(string.Empty);
+            }
         }
 
         /// <summary>One frame of the machine-wide protocol, as another process sends it.</summary>

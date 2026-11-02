@@ -360,3 +360,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 9314dd47f45cdd64990e407d5e1077e1, type: 2}
   - {fileID: 11400000, guid: 46a19a6500cd5e1469056f25de4627e1, type: 2}
   - {fileID: 11400000, guid: 6f73377d6164572478600f96aaef16b9, type: 2}
+  _windowTypeName: Mu3Library.Sample.UtilWindow.UtilWindow

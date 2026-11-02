@@ -27,7 +27,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// that is writable, so there the array overload calls the system once and allocates nothing;
     /// elsewhere a writable socket may take only part of it, so the thread sends through the
     /// overload that takes a list of segments, which calls the system once and allocates two
-    /// small arrays a call, on this thread.
+    /// small arrays a call, on this thread. One call hands a socket at most
+    /// <see cref="MaxSocketCallBytes"/>, the most that Windows was seen to take whole in Unity: a
+    /// socket that had been full can have up to <see cref="MaxPendingBytes"/> waiting for it, and
+    /// one that took only part of that would hold the thread, and the sends to every other
+    /// connection, until its player read the rest.
+    /// </para>
+    /// <para>
+    /// A defect that throws on the thread would end it, and every connection after it would
+    /// send nothing. Instead the thread logs the exception and starts its loop over: the
+    /// connection it was sending on counts as lost, since how much of its data reached the
+    /// socket is unknown, and the next update reports it once, as any connection that drops,
+    /// while the other connections go on. Failing every connection of the peer would also drop
+    /// the ones whose data all reached their sockets or waits intact for the thread.
     /// </para>
     /// <para>
     /// The main thread only moves buffers under a lock, instead of a socket call for each
@@ -40,7 +52,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
     /// 0.016 ms. The thread runs above normal priority: at normal priority, while two to six other
     /// Unity processes ran, the relayed case once took 0.487 ms on average and 26 ms at most, and
     /// some messages arrived three frames late; above it, while up to five ran, the cases took
-    /// 0.287 and 0.304 ms on average and up to 12 ms, and no message was late.
+    /// 0.287 and 0.304 ms on average and up to 12 ms, and no message was late. Such long frames
+    /// come from the load, not from this thread: under a fixed load of 16 processes that each
+    /// spin a core, the send path before this thread had them as well, more of them and up to
+    /// 54 ms, and in the long frames with this thread the main thread was off its core for about
+    /// nine tenths of the frame and had waited for the lock less than 0.1 ms in all (#288).
     /// </para>
     /// <para>
     /// What a connection handed over and its socket did not take counts toward
@@ -56,9 +72,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // How long the sending thread waits before it asks a full socket again, unless more to send comes first.
         private const int FullSocketWaitMilliseconds = 1;
 
-        // A socket that select calls writable takes the whole of a send on Windows (measured with
-        // sends of 1 KiB to 1 MiB), so the array overload of Socket.Send calls the system once.
+        // A socket that select calls writable takes the whole of a send on Windows (measured in
+        // Unity with sends of 1 KiB to 1 MiB), so the array overload of Socket.Send calls the system once.
         private static readonly bool TakesWholeSends = Environment.OSVersion.Platform == PlatformID.Win32NT;
+
+        // The most one socket call takes from a connection, on every system: what Windows took
+        // whole in the measurement above. What is left goes in the next call, after the other
+        // connections had their turn.
+        private const int MaxSocketCallBytes = 1024 * 1024;
 
         private readonly object _sendGate = new object();
 
@@ -72,16 +93,32 @@ namespace Mu3Library.Multiplayer.Local.Machine
         // Sending thread only.
         private readonly List<MachineLink> _sendBatch = new List<MachineLink>();
         private readonly ArraySegment<byte>[] _sendSegments = new ArraySegment<byte>[1];
+        private Socket _socketInCall = null;
 
         // Main thread only.
         private Thread _sender = null;
         private EventHandler _onSenderDomainUnload = null;
 
         private long _socketSends = 0;
+        private int _largestSocketSend = 0;
         private volatile bool _sendsSegments = false;
+        private volatile bool _failsSendingThread = false;
 
         /// <summary>How many times this peer has handed data to a socket; tests count it.</summary>
         public long SocketSends => Interlocked.Read(ref _socketSends);
+
+        /// <summary>The most bytes this peer has handed one socket call; tests read it.</summary>
+        public int LargestSocketSend => Volatile.Read(ref _largestSocketSend);
+
+        /// <summary>
+        /// Test switch: the sending thread throws at its next socket call, as a defect in it
+        /// would, and the switch turns itself off.
+        /// </summary>
+        public bool FailsSendingThread
+        {
+            get => _failsSendingThread;
+            set => _failsSendingThread = value;
+        }
 
         /// <summary>
         /// Test switch: sends through the overload of <see cref="Socket.Send(IList{ArraySegment{byte}}, SocketFlags, out SocketError)"/>
@@ -171,9 +208,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
         }
 
-        /// <summary>Under the gate: moves what the connection queued to its outbox and lists it for the sending thread.</summary>
+        /// <summary>
+        /// Under the gate: moves what the connection queued to its outbox and lists it for the
+        /// sending thread, or drops it when the thread failed the connection.
+        /// </summary>
         private void HandOver(MachineLink link)
         {
+            if (link.HasFailed)
+            {
+                // The thread failed it after the caller looked (Fail): nothing more may reach
+                // the other side after the bytes the failure dropped.
+                link.PendingCount = 0;
+                return;
+            }
+
             MoveToOutbox(link);
             _handOvers++;
             if (!link.IsSendListed)
@@ -236,17 +284,29 @@ namespace Mu3Library.Multiplayer.Local.Machine
             int firstCount;
             byte[] second;
             int secondCount;
+            bool hasFailed;
             lock (_sendGate)
             {
                 // The sending thread reads the socket under the gate while the link is open.
                 socket = link.Socket;
                 link.Socket = null;
-                MoveToOutbox(link);
-                if (link.IsInSocketCall)
+                hasFailed = link.HasFailed;
+                if (hasFailed)
                 {
-                    // The thread holds the socket of its call.
-                    link.SendEnd = MachineSendEnd.Linger;
-                    return;
+                    // The thread failed it after CloseLink looked (Fail): it resets, as a
+                    // connection that already failed does, rather than deliver what follows
+                    // the bytes the failure dropped.
+                    link.PendingCount = 0;
+                }
+                else
+                {
+                    MoveToOutbox(link);
+                    if (link.IsInSocketCall)
+                    {
+                        // The thread holds the socket of its call.
+                        link.SendEnd = MachineSendEnd.Linger;
+                        return;
+                    }
                 }
 
                 first = link.Sending;
@@ -256,6 +316,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 secondCount = link.OutboxCount;
                 ClearHanded(link);
                 link.SendEnd = MachineSendEnd.Drop;
+            }
+
+            if (hasFailed)
+            {
+                Abort(socket);
+                return;
             }
 
             LingeringSockets.Close(socket, first, firstOffset, firstCount, second, secondCount);
@@ -336,11 +402,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>The sending thread: sends on every connection that has something to send, until it stops.</summary>
         private void RunSender()
         {
-            try
+            bool isWaiting = false;
+            int handOvers = 0;
+            while (true)
             {
-                bool isWaiting = false;
-                int handOvers = 0;
-                while (true)
+                MachineLink current = null;
+                try
                 {
                     lock (_sendGate)
                     {
@@ -377,28 +444,80 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     isWaiting = false;
                     for (int i = 0; i < _sendBatch.Count; i++)
                     {
-                        isWaiting |= SendSome(_sendBatch[i]);
+                        current = _sendBatch[i];
+                        isWaiting |= SendSome(current);
+                        current = null;
                     }
 
                     _sendBatch.Clear();
                 }
-            }
-            catch (Exception e) when (!(e is ThreadAbortException))
-            {
-                // Logged rather than thrown, since on this thread it would end the process; the
-                // connections it held are reported lost.
-                Debug.LogException(e);
-                lock (_sendGate)
+                catch (Exception e) when (!(e is ThreadAbortException))
                 {
-                    for (int i = 0; i < _sendList.Count; i++)
-                    {
-                        _sendList[i].HasFailed = true;
-                        _sendList[i].IsSendListed = false;
-                    }
-
-                    _sendList.Clear();
+                    // A defect, which would end the process if it left this thread: see the
+                    // remarks. It is logged once the connections are let go, so what the main
+                    // thread hands over meanwhile goes on.
+                    FailSends(current);
+                    isWaiting = false;
+                    Debug.LogException(e);
                 }
             }
+        }
+
+        /// <summary>
+        /// The sending thread, after an unexpected exception: lets go of the connection it was
+        /// sending on, for the next update to report lost, or, when it was between connections,
+        /// of every connection it holds, so the same defect does not come round for them again.
+        /// </summary>
+        private void FailSends(MachineLink current)
+        {
+            Socket orphan = null;
+            lock (_sendGate)
+            {
+                if (current != null)
+                {
+                    orphan = Fail(current);
+                }
+                else
+                {
+                    for (int i = _sendList.Count - 1; i >= 0; i--)
+                    {
+                        Fail(_sendList[i]);
+                    }
+                }
+
+                _sendBatch.Clear();
+                _socketInCall = null;
+            }
+
+            Close(orphan);
+        }
+
+        /// <summary>
+        /// Under the gate: drops what the connection handed over and fails it while it is open;
+        /// returns the socket of a connection that closed during the call, which is this thread's to close.
+        /// </summary>
+        private Socket Fail(MachineLink link)
+        {
+            Socket orphan = null;
+            if (link.SendEnd == MachineSendEnd.None)
+            {
+                // The update that reports it closes its socket.
+                link.HasFailed = true;
+            }
+            else
+            {
+                if (link.SendEnd == MachineSendEnd.Linger && link.IsInSocketCall)
+                {
+                    orphan = _socketInCall;
+                }
+
+                link.SendEnd = MachineSendEnd.Drop;
+            }
+
+            ClearHanded(link);
+            link.IsInSocketCall = false;
+            Unlist(link);
+            return orphan;
         }
 
         /// <summary>
@@ -413,8 +532,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
             int count;
             lock (_sendGate)
             {
-                if (link.SendEnd != MachineSendEnd.None || link.SendingCount + link.OutboxCount == 0)
+                if (link.SendEnd != MachineSendEnd.None || link.HasFailed || link.SendingCount + link.OutboxCount == 0)
                 {
+                    // Nothing of a failed connection reaches its socket after the failure.
+                    if (link.HasFailed)
+                    {
+                        ClearHanded(link);
+                    }
+
                     Unlist(link);
                     return false;
                 }
@@ -432,8 +557,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 socket = link.Socket;
                 buffer = link.Sending;
                 offset = link.SendingStart;
-                count = link.SendingCount;
+                count = Math.Min(link.SendingCount, MaxSocketCallBytes);
                 link.IsInSocketCall = true;
+                _socketInCall = socket;
             }
 
             int sent = 0;
@@ -441,9 +567,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
             bool hasFailed = false;
             try
             {
+                if (_failsSendingThread)
+                {
+                    _failsSendingThread = false;
+                    throw new InvalidOperationException("Test switch: the local backend's sending thread fails.");
+                }
+
                 if (socket.Poll(0, SelectMode.SelectWrite))
                 {
                     Interlocked.Increment(ref _socketSends);
+                    if (count > _largestSocketSend)
+                    {
+                        Volatile.Write(ref _largestSocketSend, count);
+                    }
+
                     sent = SendOnce(socket, buffer, offset, count, out SocketError error);
                     if (error == SocketError.WouldBlock)
                     {
@@ -472,6 +609,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             lock (_sendGate)
             {
                 link.IsInSocketCall = false;
+                _socketInCall = null;
                 if (link.SendEnd == MachineSendEnd.None)
                 {
                     if (hasFailed)
