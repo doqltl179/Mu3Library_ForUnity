@@ -703,6 +703,28 @@ namespace Mu3Library.Tests
             Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }));
             Assert.That(node.LastChange, Is.EqualTo(new SessionStateChange(SessionState.Creating, SessionState.Offline, MultiplayerReason.BackendError)));
         }
+
+        [Test]
+        public void BackendGone_WhileJoining_AnswersTheJoinOnce_WithTheReason_BeforeTheJoinTimeout()
+        {
+            // #272: a disposed backend never answers the lobby entry it was asked for either; the
+            // join ends on the next update instead of at the join timeout, with Timeout.
+            Node host = CreateHost("Host");
+            Node node = CreateNode("A");
+            List<MultiplayerResult> answers = new List<MultiplayerResult>();
+            node.Manager.JoinLobby(host.Manager.CurrentLobbyId, answers.Add);
+            Assert.That(node.Manager.State, Is.EqualTo(SessionState.Joining));
+
+            node.Backend.Dispose();
+            Pump();
+
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }));
+            Assert.That(node.LastChange, Is.EqualTo(new SessionStateChange(SessionState.Joining, SessionState.Offline, MultiplayerReason.BackendError)));
+
+            _now += 60.0;
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
         #endregion
 
         #region Connection

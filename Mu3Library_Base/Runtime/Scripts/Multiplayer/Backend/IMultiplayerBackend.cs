@@ -22,16 +22,26 @@ namespace Mu3Library.Multiplayer.Backend
     /// that arrives before <see cref="SetListener"/>, such as the lobby a launch from an invite
     /// names, until a listener can receive it.
     /// </para>
+    /// <para>
+    /// These promises hold while <see cref="IsAvailable"/> is true. Once it turns false, a backend
+    /// need not report its connections closed, and one that is disposed answers nothing more: the
+    /// manager ends its session on its next <see cref="MultiplayerManager.Update"/> instead, which
+    /// also answers a lobby creation or entry still pending (see <see cref="IsAvailable"/>). So a
+    /// backend turns <see cref="IsAvailable"/> false only when it can no longer carry the
+    /// session, never for an outage it may recover from, which it reports through its
+    /// connections as above.
+    /// </para>
     /// </remarks>
     public interface IMultiplayerBackend : IDisposable
     {
         public string Name { get; }
 
         /// <summary>
-        /// False once the backend cannot serve requests, for example after it is disposed. Once it
-        /// turns false during a session, the manager ends that session on its next
+        /// False once the backend cannot serve requests, for example after it is disposed, and
+        /// never false for an outage the backend may recover from. Once it turns false during a
+        /// session, the manager ends that session on its next
         /// <see cref="MultiplayerManager.Update"/>, so a backend that stops being available need
-        /// not report its connections closed.
+        /// not report its connections closed (see the remarks on the interface).
         /// </summary>
         public bool IsAvailable { get; }
 
