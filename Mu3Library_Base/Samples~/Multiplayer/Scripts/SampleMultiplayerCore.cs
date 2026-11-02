@@ -352,12 +352,13 @@ namespace Mu3Library.Sample.Multiplayer
         }
 
         /// <summary>
-        /// Host only. Sets the lobby data key to a new value, which every player hears through
-        /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>.
+        /// Host only. Sets the lobby data key to another value than it holds, which every player
+        /// hears through <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>.
         /// </summary>
         private bool SetLobbyData()
         {
-            return Report(_manager.SetLobbyData(LobbyDataKey, Pick(Maps)), $"Set the lobby data \"{LobbyDataKey}\"");
+            _manager.LobbyData.TryGetValue(LobbyDataKey, out string current);
+            return Report(_manager.SetLobbyData(LobbyDataKey, PickOther(Maps, current)), $"Set the lobby data \"{LobbyDataKey}\"");
         }
 
         /// <summary>
@@ -370,12 +371,19 @@ namespace Mu3Library.Sample.Multiplayer
         }
 
         /// <summary>
-        /// Sets this player's own participant data key. For a client, the value changes once the
-        /// host reports it back through <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>.
+        /// Sets this player's own participant data key to another value than it holds. For a
+        /// client, the value changes once the host reports it back through
+        /// <see cref="IMultiplayerManagerEventBus.OnParticipantDataChanged"/>.
         /// </summary>
         private bool SetParticipantData()
         {
-            return Report(_manager.SetParticipantData(ParticipantDataKey, Pick(Colors)), $"Set my data \"{ParticipantDataKey}\"");
+            string current = null;
+            if (_manager.TryGetParticipant(_manager.LocalPlayerId, out Participant local))
+            {
+                local.Data.TryGetValue(ParticipantDataKey, out current);
+            }
+
+            return Report(_manager.SetParticipantData(ParticipantDataKey, PickOther(Colors, current)), $"Set my data \"{ParticipantDataKey}\"");
         }
 
         /// <summary>
@@ -549,18 +557,36 @@ namespace Mu3Library.Sample.Multiplayer
         #endregion
 
         #region Avatars
+        /// <summary>
+        /// How long the lists wait before they ask again for an avatar that could not be loaded.
+        /// The manager tries a failed request again only when it is asked again, and its
+        /// <see cref="IMultiplayerManagerEventBus.OnAvatarChanged"/> comes only for an avatar it
+        /// holds, never for one that failed; a new session alone would leave the cell empty for
+        /// the rest of the session after one failure. So the sample asks again at this fixed
+        /// interval, in this session or a later one: a failure that passes, such as a Steam
+        /// download that timed out, ends with the next request, and one that lasts asks once per
+        /// interval instead of in every frame the lists are drawn in.
+        /// </summary>
+        private const float AvatarRetrySeconds = 10f;
+
         /// <summary>What the lists hold of one player's avatar.</summary>
         private sealed class AvatarSlot
         {
             public Texture2D Texture;
             public bool IsLoading;
-            public bool HasFailed;
+
+            /// <summary>
+            /// The <see cref="Time.realtimeSinceStartup"/> from which the lists may ask again,
+            /// <see cref="AvatarRetrySeconds"/> after a request failed; 0 until one fails.
+            /// </summary>
+            public float RetryTime;
         }
 
         /// <summary>
         /// The small avatar of a player for the lists, asked for the first time a list shows the
         /// player: null while it loads, when it could not be loaded, and on a backend without
         /// avatars, such as the local backend, which answers <see cref="MultiplayerReason.NotSupported"/>.
+        /// One that could not be loaded is asked for again <see cref="AvatarRetrySeconds"/> later.
         /// </summary>
         private Texture2D GetAvatar(PlayerId player)
         {
@@ -577,7 +603,7 @@ namespace Mu3Library.Sample.Multiplayer
 
             // A texture the manager destroyed, as it destroys the avatars of a session's players
             // when the session ends, is asked for again. The answer can come before LoadAvatar returns.
-            if (slot.Texture == null && !slot.IsLoading && !slot.HasFailed)
+            if (slot.Texture == null && !slot.IsLoading && Time.realtimeSinceStartup >= slot.RetryTime)
             {
                 slot.IsLoading = true;
                 _manager.LoadAvatar(player, AvatarSize.Small, OnAvatarLoaded);
@@ -611,8 +637,10 @@ namespace Mu3Library.Sample.Multiplayer
             }
             else
             {
-                // The manager logged why. The lists are drawn every frame, so they do not ask again.
-                slot.HasFailed = true;
+                // The manager warns of a failure the backend answered with, such as Timeout. The
+                // lists are drawn every frame, so they ask again only once AvatarRetrySeconds have
+                // passed.
+                slot.RetryTime = Time.realtimeSinceStartup + AvatarRetrySeconds;
             }
         }
 
@@ -677,6 +705,30 @@ namespace Mu3Library.Sample.Multiplayer
         private static string Pick(string[] values)
         {
             return values[UnityEngine.Random.Range(0, values.Length)];
+        }
+
+        /// <summary>
+        /// One of the values other than the current one, each as likely, or any of them when the
+        /// current one is none of them, such as a key that holds no value. Setting a key to the
+        /// value it holds changes nothing, and no player hears an event for it, so a <b>Set</b>
+        /// that picked it would change neither the value nor the log.
+        /// </summary>
+        private static string PickOther(string[] values, string current)
+        {
+            int currentIndex = Array.IndexOf(values, current);
+            if (currentIndex < 0)
+            {
+                return Pick(values);
+            }
+
+            // Draws from the other values only, by skipping the current one's place.
+            int index = UnityEngine.Random.Range(0, values.Length - 1);
+            if (index >= currentIndex)
+            {
+                index++;
+            }
+
+            return values[index];
         }
 
         private static bool HostsAnyOf(IReadOnlyList<LobbyInfo> lobbies, PlayerId host)
