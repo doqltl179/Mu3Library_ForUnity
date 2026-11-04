@@ -10,10 +10,9 @@ namespace Mu3Library.Editor.Window.Drawer
     /// <summary>
     /// Validates the DI registrations of every registered core while the game runs: a
     /// registered implementation whose constructor or required [Inject] members cannot be
-    /// resolved, and a registered implementation, registered instance, or core that has a required
-    /// [Inject] property without a setter, a required readonly [Inject] field, or a required static
-    /// [Inject] member, is reported here before the first resolve or injection throws at some
-    /// later moment.
+    /// resolved, and a registered implementation or core that has a required [Inject] property
+    /// without a setter, a required readonly [Inject] field, or a required static [Inject] member,
+    /// is reported here before the first resolve or injection throws at some later moment.
     /// Reading the registrations resolves nothing, so the check has no side effects.
     /// </summary>
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
@@ -84,12 +83,16 @@ namespace Mu3Library.Editor.Window.Drawer
 
         /// <summary>
         /// Reports the issues of one core. For each class the container creates: a constructor or
-        /// required [Inject] member that cannot resolve. For those classes, each registered
-        /// instance, and the core itself, all of which the container injects: each required
-        /// [Inject] member it can never fill, whether or not its service is registered.
+        /// required [Inject] member that cannot resolve. For those classes and the core itself, both
+        /// of which the container injects: each required [Inject] member it can never fill, whether
+        /// or not its service is registered.
         /// </summary>
         /// <remarks>
-        /// A factory's product is left out: its type is known only once the factory runs.
+        /// A registered instance is left out, so the report matches what runs:
+        /// <c>Container.RegisterInstance</c> never injects the instance it registers, and
+        /// <c>ContainerScope.RegisterInstance</c> injects it as it registers it and undoes the
+        /// registration when that throws, so every instance it leaves registered has been injected.
+        /// A factory's product is left out as well: its type is known only once the factory runs.
         /// <paramref name="coreRoot"/> is read only for a member that names another core.
         /// </remarks>
         internal static void ValidateCore(CoreRoot coreRoot, CoreBase core, IReadOnlyList<ServiceDescriptor> descriptors, List<string> issues)
@@ -104,14 +107,12 @@ namespace Mu3Library.Editor.Window.Drawer
             foreach (ServiceDescriptor descriptor in descriptors)
             {
                 Type implementationType = descriptor.ImplementationType;
-                if (implementationType == null || descriptor.Factory != null)
+                if (implementationType == null || descriptor.Factory != null || descriptor.Instance != null)
                 {
                     continue;
                 }
 
-                // A registered instance already exists, so only the checks that need no
-                // registration lookup apply to it.
-                if (descriptor.Instance == null && registrationCheckedTypes.Add(implementationType))
+                if (registrationCheckedTypes.Add(implementationType))
                 {
                     ValidateConstructor(core, implementationType, issues);
                     ValidateInjectMembers(coreRoot, core, implementationType, issues);
