@@ -134,7 +134,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             int bytes = SnapshotFixedBytes;
             for (int i = 0; i < lobby.Members.Count; i++)
             {
-                bytes += MemberFixedBytes + StringBytes(ToWireName(lobby.Members[i].Name ?? string.Empty));
+                bytes += MemberBytes(lobby.Members[i].Name);
             }
 
             foreach (KeyValuePair<string, string> pair in lobby.Data)
@@ -144,6 +144,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             return bytes;
         }
+
+        /// <summary>
+        /// The bytes one member takes in what <see cref="WriteSnapshot"/> writes: its ID, its port,
+        /// and its name as the frames carry it, at most <see cref="MaxNameBytes"/> long.
+        /// </summary>
+        public static int MemberBytes(string name) => MemberFixedBytes + StringBytes(ToWireName(name ?? string.Empty));
 
         /// <summary>The bytes one lobby data entry takes in what <see cref="WriteSnapshot"/> writes.</summary>
         public static int DataEntryBytes(string key, string value) => StringBytes(key) + StringBytes(value);

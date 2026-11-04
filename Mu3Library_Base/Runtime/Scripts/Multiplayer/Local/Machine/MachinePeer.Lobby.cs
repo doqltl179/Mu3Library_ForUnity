@@ -23,10 +23,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const double RejoinGraceSeconds = 5.0;
         private const double RejoinRetrySeconds = 0.1;
 
-        // The start of the warning for a lobby or a change that would not fit a frame or the lobby file (#346).
+        // The start of the warning for a join that would not fit a frame (#352), and of the one
+        // for a lobby or a change that would not fit a frame or the lobby file (#346).
+        private static readonly string FrameSizeWarning =
+            $"[Multiplayer] A lobby on the local network takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members";
         private static readonly string SizeWarning =
-            $"[Multiplayer] A lobby on the local network takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members, "
-            + $"and a backend's lobbies at most {MachineDirectory.MaxFileBytes} bytes in its lobby file; ";
+            FrameSizeWarning + $", and a backend's lobbies at most {MachineDirectory.MaxFileBytes} bytes in its lobby file; ";
 
         private readonly Dictionary<LobbyId, MachineLobby> _lobbies = new Dictionary<LobbyId, MachineLobby>();
 
@@ -530,6 +532,17 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     else if (!_network.IgnoreLobbyCapacity && lobby.Members.Count >= lobby.Capacity)
                     {
                         code = (int)MultiplayerReason.SessionFull;
+                    }
+                    else if (MachineProtocol.SnapshotBytes(lobby) + MachineProtocol.MemberBytes(name) > MachineProtocol.MaxSnapshotBytes)
+                    {
+                        // The answer to this join, the largest frame there is, would carry the
+                        // lobby past what a frame carries, so the player would drop it; a few bytes
+                        // more, and every member would drop the next frame that brings the lobby,
+                        // losing its link to this player (#352). The join is refused as CreateLobby
+                        // and SetLobbyData refuse such a lobby (#346); the lobby file lists no
+                        // members, so a join never grows it.
+                        Debug.LogWarning(FrameSizeWarning + $"; player {player} was not let into lobby {lobbyId}, which it would take past them.");
+                        code = (int)MultiplayerReason.BackendError;
                     }
                     else
                     {
