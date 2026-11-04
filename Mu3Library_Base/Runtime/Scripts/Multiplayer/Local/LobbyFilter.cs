@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 using Mu3Library.Multiplayer.Data;
 
 namespace Mu3Library.Multiplayer.Local
@@ -18,8 +17,9 @@ namespace Mu3Library.Multiplayer.Local
     /// 0. A numeric filter reads a key the lobby lacks as 0 too, as Steam's numeric filters read
     /// it that day (#353), so <c>Equal 0</c>, <c>EqualOrLessThan 0</c>, and
     /// <c>EqualOrGreaterThan 0</c> keep such a lobby, unlike a string filter. A numeric filter
-    /// drops a lobby that holds a value that is not a whole number, which Steam reads otherwise
-    /// (#362). A filter whose key is null or empty is skipped and drops no lobby, as the Steam
+    /// reads every other value as a number too, as Steam's numeric filters read it
+    /// (<see cref="ReadNumber"/>, #362), so it drops no lobby for a value that is not a whole
+    /// number. A filter whose key is null or empty is skipped and drops no lobby, as the Steam
     /// backend skips it rather than hand Steam such a key (#314).
     /// </summary>
     internal static class LobbyFilter
@@ -51,8 +51,7 @@ namespace Mu3Library.Multiplayer.Local
 
                 // A key the lobby lacks leaves the text null, which reads as 0.
                 data.TryGetValue(filter.Key, out string text);
-                if (!TryReadNumber(text, out int value)
-                    || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
+                if (!Satisfies(ReadNumber(text).CompareTo(filter.Value), filter.Comparison))
                 {
                     return false;
                 }
@@ -62,19 +61,109 @@ namespace Mu3Library.Multiplayer.Local
         }
 
         /// <summary>
-        /// A lobby value as a numeric filter reads it: a whole number, and a key the lobby lacks
-        /// (null) or holds with an empty value as 0, as Steam's numeric filters read both on
-        /// AppID 480 on 2026-11-04 (#343, #353).
+        /// A lobby value as Steam's numeric filters read it, by the rule that
+        /// <see cref="LobbySearchQuery.AddNumericFilter"/> states and Steam's search on AppID 480
+        /// followed for 64 values on 2026-11-04 (#362): one sign, then the hexadecimal digits
+        /// after <c>0x</c>, the signed first UTF-8 byte of the character after <c>'</c>, or the
+        /// decimal digits, summed in 64 bits that wrap around, of which the low 32 count. A key
+        /// the lobby lacks (null) or holds with an empty value reads as 0, as Steam read both
+        /// that day (#343, #353).
         /// </summary>
-        private static bool TryReadNumber(string text, out int value)
+        private static int ReadNumber(string text)
         {
             if (string.IsNullOrEmpty(text))
             {
-                value = 0;
-                return true;
+                return 0;
             }
 
-            return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+            int i = 0;
+            long sign = 1;
+            if (text[0] == '-')
+            {
+                sign = -1;
+                i++;
+            }
+            else if (text[0] == '+')
+            {
+                i++;
+            }
+
+            long value = 0;
+            if (i + 1 < text.Length && text[i] == '0' && (text[i + 1] == 'x' || text[i + 1] == 'X'))
+            {
+                for (i += 2; i < text.Length; i++)
+                {
+                    int digit = HexDigit(text[i]);
+                    if (digit < 0)
+                    {
+                        break;
+                    }
+
+                    value = unchecked((value << 4) + digit);
+                }
+            }
+            else if (i < text.Length && text[i] == '\'')
+            {
+                value = i + 1 < text.Length ? unchecked((sbyte)FirstUtf8Byte(text, i + 1)) : 0;
+            }
+            else
+            {
+                for (; i < text.Length; i++)
+                {
+                    char c = text[i];
+                    if (c < '0' || c > '9')
+                    {
+                        break;
+                    }
+
+                    value = unchecked(value * 10 + (c - '0'));
+                }
+            }
+
+            return unchecked((int)(value * sign));
+        }
+
+        private static int HexDigit(char c)
+        {
+            if (c >= '0' && c <= '9')
+            {
+                return c - '0';
+            }
+
+            if (c >= 'a' && c <= 'f')
+            {
+                return c - 'a' + 10;
+            }
+
+            return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+        }
+
+        /// <summary>
+        /// The first byte of the UTF-8 form of the character at <paramref name="index"/>, an
+        /// unpaired surrogate taken as U+FFFD, as UTF-8 encoding replaces it on its way to Steam
+        /// or to a lobby file.
+        /// </summary>
+        private static byte FirstUtf8Byte(string text, int index)
+        {
+            char c = text[index];
+            if (c < 0x80)
+            {
+                return (byte)c;
+            }
+
+            if (c < 0x800)
+            {
+                return (byte)(0xC0 | (c >> 6));
+            }
+
+            if (char.IsSurrogate(c))
+            {
+                return index + 1 < text.Length && char.IsSurrogatePair(c, text[index + 1])
+                    ? (byte)(0xF0 | (char.ConvertToUtf32(c, text[index + 1]) >> 18))
+                    : (byte)0xEF;
+            }
+
+            return (byte)(0xE0 | (c >> 12));
         }
 
         /// <summary>

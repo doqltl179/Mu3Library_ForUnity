@@ -506,6 +506,72 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbySearch_ReadsAValueThatIsNotAWholeNumber_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #362: Steam's numeric filters read every value as a number, from
+            // another process, which reads the lobby file, and from the owner's own process,
+            // which reads its lobby as it is.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
+            foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.NumericReadingData(MultiplayerSessionTests.SteamNumericReadings, MultiplayerSessionTests.NumericReadingKey))
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+
+            List<string> mismatches = new List<string>();
+            foreach (Node seeker in new[] { CreateNode("Seeker"), host })
+            {
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.NumericReadingChecks(MultiplayerSessionTests.SteamNumericReadings, MultiplayerSessionTests.NumericReadingKey))
+                {
+                    LobbySearchResult? found = null;
+                    seeker.Manager.SearchLobbies(query, r => found = r);
+                    PumpUntil(() => found.HasValue, "the search");
+                    if ((found.Value.Lobbies.Count == 1) != isKept)
+                    {
+                        mismatches.Add($"{seeker.Backend.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void Backend_ReadsAQuoteBeforeAnUnpairedSurrogate_InNumericFilters_AsTheLobbyFileCarriesIt()
+        {
+            // #362: only a caller of a backend itself writes such a value. The owner, which reads
+            // its lobby as it is, reads the surrogate as the U+FFFD that the lobby file carries to
+            // another process in its place, as UTF-8 carries it to Steam.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            (MultiplayerReason reason, LobbyId lobby) = CreateLobbies(owner, 1,
+                MultiplayerSessionTests.NumericReadingData(MultiplayerSessionTests.UnpairedSurrogateReadings, MultiplayerSessionTests.UnpairedSurrogateKey)).Single();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+
+            List<string> mismatches = new List<string>();
+            foreach (LocalBackend searcher in new[] { seeker, owner })
+            {
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.NumericReadingChecks(MultiplayerSessionTests.UnpairedSurrogateReadings, MultiplayerSessionTests.UnpairedSurrogateKey))
+                {
+                    IReadOnlyList<BackendLobby> found = null;
+                    searcher.SearchLobbies(query, (r, lobbies) => found = lobbies);
+                    PumpUntil(() => found != null, "the search");
+                    if (found.Any(candidate => candidate.Id == lobby) != isKept)
+                    {
+                        mismatches.Add($"{searcher.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
         public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
         {
             // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again
