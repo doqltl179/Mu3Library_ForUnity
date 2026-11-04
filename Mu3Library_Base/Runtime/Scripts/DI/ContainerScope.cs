@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Mu3Library.DI
 {
@@ -214,10 +215,11 @@ namespace Mu3Library.DI
         /// through them, and the registration log (<c>[DI Registration]</c>) logs each removal
         /// as rolled back.</description></item>
         /// <item><description>A singleton or scoped service that the injection created and that
-        /// received the instance from the container, directly or through another such service,
-        /// leaves the cache, so the next resolve creates it again. The scope stops tracking it and
-        /// calls its <see cref="IDisposable.Dispose"/>, as its own <see cref="Dispose"/> would. A
-        /// service the injection created that did not receive the instance stays.</description></item>
+        /// received the instance from the container, directly or through another service the
+        /// injection created, transient ones included, leaves the cache, so the next resolve
+        /// creates it again. The scope stops tracking it and calls its
+        /// <see cref="IDisposable.Dispose"/>, as its own <see cref="Dispose"/> would. A service the
+        /// injection created that did not receive the instance stays.</description></item>
         /// <item><description>The lifecycle tracking this call started for the instance, during the
         /// injection included, stops. When the scope has already run the instance's
         /// <see cref="IInitializable.Initialize"/>, the instance gets
@@ -226,9 +228,15 @@ namespace Mu3Library.DI
         /// </list>
         /// <para>
         /// An earlier registration of the same instance stays, and so does the instance's
-        /// tracking, since the instance still resolves through that registration. The container
-        /// knows only what it resolved: a service that holds the instance some other way, such as
-        /// through a factory that closes over it, stays cached.
+        /// tracking, since the instance still resolves through that registration.
+        /// </para>
+        /// <para>
+        /// The scope knows only what it resolved itself. A service that holds the instance some
+        /// other way, such as through a factory that closes over it, stays cached, and so does a
+        /// service of another core that received the instance through
+        /// <c>[Inject(typeof(TCore))]</c>, which that core's scope created. Creating an evicted
+        /// service again runs its constructor again, side effects such as the registrations it
+        /// makes included.
         /// </para>
         /// </remarks>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
@@ -929,8 +937,9 @@ namespace Mu3Library.DI
             internal RegistrationRollback Outer { get; }
 
             // What the injection resolved that received the instance, directly or through
-            // another of them.
-            internal HashSet<object> Holders { get; } = new();
+            // another of them. Compared by reference, as the instance is: a service that
+            // overrides Equals must not make another object a holder.
+            internal HashSet<object> Holders { get; } = new(ReferenceComparer.Instance);
 
             // The depths of the resolves still running that have received the instance or one
             // of the holders.
@@ -955,6 +964,16 @@ namespace Mu3Library.DI
 
             // Whether the resolve that created it started its lifecycle tracking.
             internal bool StartedTracking { get; }
+        }
+
+        // Object identity, which .NET Standard 2.1 has no comparer for.
+        private sealed class ReferenceComparer : IEqualityComparer<object>
+        {
+            internal static readonly ReferenceComparer Instance = new();
+
+            bool IEqualityComparer<object>.Equals(object x, object y) => ReferenceEquals(x, y);
+
+            int IEqualityComparer<object>.GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
         }
     }
 }

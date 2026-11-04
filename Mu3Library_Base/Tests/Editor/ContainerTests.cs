@@ -350,6 +350,109 @@ namespace Mu3Library.Tests
             public ThrowsOnDisposeRollbackDependent Dependent => _dependent;
         }
 
+        // Equal to every object, with one hash code for all: by Equals, any of them would look
+        // like a service that received the instance once one of them did.
+        private abstract class EqualToAll
+        {
+            public override bool Equals(object obj) => true;
+
+            public override int GetHashCode() => 42;
+        }
+
+        private sealed class EqualToAllDependent : EqualToAll
+        {
+            public EqualToAllDependent(IRollbackTarget target) { }
+        }
+
+        private sealed class EqualToAllService : EqualToAll { }
+
+        private sealed class ConsumesEqualToAll
+        {
+            public ConsumesEqualToAll(EqualToAllService service) { }
+        }
+
+        private sealed class EqualityConfusedFailingInjectService : IRollbackTarget
+        {
+            [Inject(required: false)] private EqualToAllDependent _dependent = null;
+            [Inject(required: false)] private ConsumesEqualToAll _unrelated = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public EqualToAllDependent Dependent => _dependent;
+            public ConsumesEqualToAll Unrelated => _unrelated;
+        }
+
+        // A RegisterInstance call inside another one's injection: the holder of the outer
+        // instance registers the inner one from its constructor.
+        private interface IOuterTarget { }
+
+        private interface IInnerTarget { }
+
+        private sealed class InnerSupply
+        {
+            public InnerSupply(IInnerTarget instance) => Instance = instance;
+
+            public IInnerTarget Instance { get; }
+        }
+
+        private sealed class DependsOnInner : RecordingService
+        {
+            public DependsOnInner(IInnerTarget target) => Target = target;
+
+            public IInnerTarget Target { get; }
+        }
+
+        private sealed class FailingInnerTarget : IInnerTarget
+        {
+            [Inject(required: false)] private DependsOnInner _dependent = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public DependsOnInner Dependent => _dependent;
+        }
+
+        private sealed class ValidInnerTarget : IInnerTarget
+        {
+            [Inject(required: false)] private DependsOnInner _dependent = null;
+
+            public DependsOnInner Dependent => _dependent;
+        }
+
+        private sealed class NestingHolder : RecordingService
+        {
+            public NestingHolder(ContainerScope scope, IOuterTarget outer, InnerSupply supply)
+            {
+                Outer = outer;
+                try
+                {
+                    scope.RegisterInstance(supply.Instance);
+                }
+                catch (InvalidOperationException)
+                {
+                    InnerFailed = true;
+                }
+            }
+
+            public IOuterTarget Outer { get; }
+            public bool InnerFailed { get; }
+        }
+
+        private sealed class NestingOuterTarget : IOuterTarget
+        {
+            [Inject(required: false)] private NestingHolder _holder = null;
+
+            public NestingHolder Holder => _holder;
+        }
+
+        private sealed class FailingNestingOuterTarget : IOuterTarget
+        {
+            [Inject(required: false)] private NestingHolder _holder = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public NestingHolder Holder => _holder;
+        }
+
         private Container _container;
         private ContainerScope _scope;
 
@@ -1040,10 +1143,11 @@ namespace Mu3Library.Tests
             Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(instance.Dependent));
         }
 
-        [Test]
-        public void RegisterInstance_InjectionFails_EvictsWhatHoldsTheInstanceThroughAnotherService()
+        [TestCase(ServiceLifetime.Singleton)]
+        [TestCase(ServiceLifetime.Transient)]
+        public void RegisterInstance_InjectionFails_EvictsWhatHoldsTheInstanceThroughAnotherService(ServiceLifetime throughLifetime)
         {
-            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnRollbackTarget>(throughLifetime);
             _scope.Register<DependsOnDependent>(ServiceLifetime.Singleton);
             PartlyInjectedFailingInjectService instance = new();
 
@@ -1183,6 +1287,95 @@ namespace Mu3Library.Tests
             InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(new ThrowingDependentFailingInjectService()));
 
             StringAssert.Contains($"{typeof(ThrowingDependentFailingInjectService).FullName}.{nameof(ThrowingDependentFailingInjectService.Missing)}", exception.Message);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_TellsServicesThatReceivedTheInstanceByReference()
+        {
+            _scope.Register<EqualToAllDependent>(ServiceLifetime.Singleton);
+            _scope.Register<EqualToAllService>(ServiceLifetime.Singleton);
+            _scope.Register<ConsumesEqualToAll>(ServiceLifetime.Singleton);
+            EqualityConfusedFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            Assert.IsNotNull(instance.Dependent);
+            Assert.IsNotNull(instance.Unrelated);
+            Assert.AreSame(instance.Unrelated, _scope.Resolve<ConsumesEqualToAll>());
+        }
+
+        [Test]
+        public void RegisterInstance_NestedRegistrationFailsInsideOneThatSucceeds_UndoesOnlyTheNestedOne()
+        {
+            _scope.Register<NestingHolder>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnInner>(ServiceLifetime.Singleton);
+            FailingInnerTarget inner = new();
+            _container.RegisterInstance(new InnerSupply(inner));
+            NestingOuterTarget outer = new();
+
+            _scope.RegisterInstance(outer);
+
+            NestingHolder holder = outer.Holder;
+            Assert.IsTrue(holder.InnerFailed);
+            Assert.AreSame(outer, holder.Outer);
+            Assert.AreSame(outer, _scope.Resolve<IOuterTarget>());
+            Assert.AreSame(holder, _scope.Resolve<NestingHolder>());
+            Assert.AreEqual(0, holder.DisposeCount);
+            Assert.IsFalse(_container.IsRegistered(typeof(IInnerTarget)));
+            Assert.AreSame(inner, inner.Dependent.Target);
+            Assert.AreEqual(1, inner.Dependent.DisposeCount);
+            Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(inner.Dependent));
+
+            ValidInnerTarget replacement = new();
+            _scope.RegisterInstance<IInnerTarget>(replacement);
+            DependsOnInner resolved = _scope.Resolve<DependsOnInner>();
+            Assert.AreNotSame(inner.Dependent, resolved);
+            Assert.AreSame(replacement, resolved.Target);
+            AssertAFailedRegistrationStillEvictsWhatReceivedTheInstance();
+        }
+
+        [Test]
+        public void RegisterInstance_NestedRegistrationSucceedsInsideOneThatFails_UndoesOnlyTheOuterOne()
+        {
+            _scope.Register<NestingHolder>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnInner>(ServiceLifetime.Singleton);
+            ValidInnerTarget inner = new();
+            _container.RegisterInstance(new InnerSupply(inner));
+            FailingNestingOuterTarget outer = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(outer));
+
+            NestingHolder holder = outer.Holder;
+            Assert.IsFalse(holder.InnerFailed);
+            Assert.AreSame(outer, holder.Outer);
+            Assert.AreEqual(1, holder.DisposeCount);
+            Assert.IsFalse(_container.IsRegistered(typeof(IOuterTarget)));
+            Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(holder));
+            Assert.AreSame(inner, _scope.Resolve<IInnerTarget>());
+            Assert.AreSame(inner.Dependent, _scope.Resolve<DependsOnInner>());
+            Assert.AreSame(inner, inner.Dependent.Target);
+            Assert.AreEqual(0, inner.Dependent.DisposeCount);
+
+            NestingOuterTarget replacement = new();
+            _scope.RegisterInstance<IOuterTarget>(replacement);
+            Assert.AreNotSame(holder, replacement.Holder);
+            Assert.AreSame(replacement, replacement.Holder.Outer);
+            Assert.AreSame(replacement.Holder, _scope.Resolve<NestingHolder>());
+            Assert.AreSame(inner.Dependent, _scope.Resolve<DependsOnInner>());
+            AssertAFailedRegistrationStillEvictsWhatReceivedTheInstance();
+        }
+
+        // After nested registrations, a later failed one still takes back what received its instance.
+        private void AssertAFailedRegistrationStillEvictsWhatReceivedTheInstance()
+        {
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Singleton);
+            SelfResolvingFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            Assert.AreSame(instance, instance.Dependent.Target);
+            Assert.IsFalse(_container.IsRegistered(typeof(IRollbackTarget)));
+            Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(instance.Dependent));
         }
         #endregion
 
