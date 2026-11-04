@@ -259,6 +259,10 @@ class StripHarnessTemplateTests(unittest.TestCase):
         self.assertEqual(1, services.count("_injectedButUnread"))
         self.assertEqual(0, boot.count("_injectedButUnread"))
         self.assertIn("[Inject] private IUnreadFieldService _injectedButUnread;", services)
+        # Reflection on the class itself, such as typeof(...).GetField, can make the linker keep
+        # the field too, so the boot only creates it.
+        self.assertEqual(1, boot.count("UnreadFieldHolder"))
+        self.assertIn("new UnreadFieldHolder()", boot)
 
 
 class StripHarnessLogTests(unittest.TestCase):

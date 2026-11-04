@@ -231,7 +231,8 @@ namespace Mu3Library.Editor.DI
             // reads the field, and no code needs to read a static [Inject] field, which the
             // container never fills, or an instance one that is there only so that the container
             // creates a service: preserve="fields" keeps the attribute, at the cost of the class's
-            // other fields. A property entry keeps its attribute on its own.
+            // other fields. The field entries add nothing to it but name the [Inject] fields for
+            // whoever reads the link.xml. A property entry keeps its attribute on its own.
             string preserve = keptFields.Count > 0 ? "fields" : "nothing";
 
             StringBuilder entry = new StringBuilder();
