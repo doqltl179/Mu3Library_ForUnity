@@ -59,8 +59,9 @@ namespace Mu3Library.Multiplayer.Local
     /// </para>
     /// <para>
     /// On a machine-wide network a backend's lobby file lists at most 64 lobbies, each with at
-    /// most 4,096 data entries, every key it holds counting as one whatever its value, and a frame
-    /// brings a lobby to its members with no more entries. So <see cref="CreateLobby"/> answers
+    /// most 4,096 data entries, every key it holds counting as one whatever its value, and keys
+    /// that differ only in case as one, since the lobby keeps them as one key; and a frame brings
+    /// a lobby to its members with no more entries. So <see cref="CreateLobby"/> answers
     /// <see cref="MultiplayerReason.BackendError"/> when the backend already owns 64 lobbies or
     /// the data holds more than 4,096 keys, and <see cref="SetLobbyData"/> refuses with false a
     /// new key that would make a lobby hold more than 4,096, each with a warning; a key the lobby
