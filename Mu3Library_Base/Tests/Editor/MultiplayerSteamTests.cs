@@ -204,7 +204,7 @@ namespace Mu3Library.Tests
                 Assert.That(backend.GetPlayerName(SomeAccount), Is.EqualTo(SomeAccount.ToString()));
 
                 backend.Update();
-                Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning", "search SteamNotRunning", "avatar BackendError" }));
+                Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning", "search SteamNotRunning", "avatar SteamNotRunning" }));
 
                 backend.Update();
                 Assert.That(answers.Count, Is.EqualTo(4), "every request answers once");
@@ -307,6 +307,46 @@ namespace Mu3Library.Tests
                 manager.Dispose();
                 backend.Dispose();
             }
+        }
+
+        [Test]
+        public void ManagerLoadAvatar_OnABackendThatCannotUseSteam_AnswersSteamNotRunning_AndBackendError_OnceItIsDisposed()
+        {
+            // #318: an avatar answers the reason the lobby requests answer once Steam cannot be
+            // used, from the Steam backend for the request it held, whose Steam call failed here,
+            // and from the manager at once for one made then. A disposed backend answers nothing,
+            // and the manager answers BackendError for it, as for any backend that names no reason.
+            AssumeSteamCallsFail();
+            SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions());
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig("tests.steam", 1)).IsSuccess, Is.True);
+
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                LogAssert.Expect(LogType.Warning, new Regex(@"avatar of .+ could not be loaded \(SteamNotRunning\)"));
+                AvatarResult? held = null;
+                manager.LoadAvatar(SomeAccount, AvatarSize.Small, result => held = result);
+                Assert.That(backend.IsAvailable, Is.False, "the backend's Steam call failed");
+                manager.Update();
+                Assert.That(held?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the request the backend held");
+
+                AvatarResult? atOnce = null;
+                manager.LoadAvatar(SomeAccount, AvatarSize.Medium, result => atOnce = result);
+                Assert.That(atOnce?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+
+                backend.Dispose();
+                AvatarResult? disposed = null;
+                manager.LoadAvatar(SomeAccount, AvatarSize.Large, result => disposed = result);
+                Assert.That(disposed?.Reason, Is.EqualTo(MultiplayerReason.BackendError));
+            }
+            finally
+            {
+                manager.Dispose();
+                backend.Dispose();
+            }
+
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -450,7 +490,7 @@ namespace Mu3Library.Tests
             yield return FirstCall("CreateLobby", (backend, answer) => { backend.CreateLobby(LobbyVisibility.Public, 4, null, (reason, lobby) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("JoinLobby", (backend, answer) => { backend.JoinLobby(SomeLobby, answer); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("SearchLobbies", (backend, answer) => { backend.SearchLobbies(null, (reason, lobbies) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
-            yield return FirstCall("LoadAvatar", (backend, answer) => { backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answer(reason)); return null; }, null, MultiplayerReason.BackendError);
+            yield return FirstCall("LoadAvatar", (backend, answer) => { backend.LoadAvatar(SomeAccount, AvatarSize.Small, (reason, avatar) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
 
             // The integration tests' hook guards its Steam calls as the rest of the backend does.
             yield return FirstCall("CreateLoopbackPair", (backend, answer) => backend.CreateLoopbackPair(out _, out _), false);

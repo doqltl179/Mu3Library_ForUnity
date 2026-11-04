@@ -413,6 +413,32 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LoadAvatar_ABackendThatIsGone_AnswersTheReasonItNames_ToTheRequestStillWaitingAndAtOnce()
+        {
+            // #318: a Steam backend that can no longer use Steam names SteamNotRunning, the reason
+            // its lobby requests answer then, so a game that asks the player to start Steam on it
+            // sees it for an avatar too. A backend that names none keeps BackendError (above).
+            Node node = CreatePlatformNode("A");
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+            List<AvatarResult> answers = new List<AvatarResult>();
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, answers.Add);
+            Pump();
+            Assert.That(answers, Is.Empty);
+
+            node.Platform.IsGone = true;
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }), "the request still waiting, on the next update");
+
+            AvatarResult? result = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Large, r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+            Assert.That(result.Value.Texture == null, Is.True);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(1));
+        }
+
+        [Test]
         public void LoadAvatar_ACallbackThatEndsTheSession_LeavesTheNextOnesAFreshTexture()
         {
             Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(SessionRules.Default));

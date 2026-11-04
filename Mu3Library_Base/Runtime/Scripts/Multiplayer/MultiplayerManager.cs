@@ -588,9 +588,17 @@ namespace Mu3Library.Multiplayer
         {
             if (_state != SessionState.Offline && !_backend.IsAvailable)
             {
-                EndSession(UnavailableReason(MultiplayerReason.BackendError), raiseEvents: true);
+                EndSession(GoneBackendReason, raiseEvents: true);
             }
         }
+
+        /// <summary>
+        /// The reason the manager gives once the backend is no longer available, for a session it
+        /// ends and a request it answers itself: the one the backend names, as the Steam backend
+        /// names <see cref="MultiplayerReason.SteamNotRunning"/> once Steam cannot be used, or
+        /// <see cref="MultiplayerReason.BackendError"/>, as for a backend disposed before the manager.
+        /// </summary>
+        private MultiplayerReason GoneBackendReason => UnavailableReason(MultiplayerReason.BackendError);
 
         /// <summary>
         /// The reason the backend names for not being available

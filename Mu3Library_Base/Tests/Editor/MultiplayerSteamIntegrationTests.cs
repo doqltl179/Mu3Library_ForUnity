@@ -544,10 +544,10 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void SteamAvatar_OnceSteamShutsDown_AnswersBackendError_ToTheRequestWaitingAndToANewOne()
+        public void SteamAvatar_OnceSteamShutsDown_AnswersSteamNotRunning_ToTheRequestWaitingAndToANewOne()
         {
-            // FR-4: one reason for an avatar once Steam is gone, the one the manager answers itself
-            // then. An account this client is unlikely to know makes Steam download it first.
+            // FR-4, #318: an avatar answers the reason the lobby requests answer once Steam is gone,
+            // the one the manager answers itself then. An account this client is unlikely to know makes Steam download it first.
             // No update runs before Steam shuts down, since Steam can download an avatar within one.
             PlayerId stranger = new PlayerId(76561197960265728UL + (ulong)new System.Random().Next(1 << 20, int.MaxValue));
             MultiplayerReason? waiting = null;
@@ -565,8 +565,8 @@ namespace Mu3Library.Tests
             _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => later = reason);
             _backend.Update();
 
-            Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
-            Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
+            Assert.That(waiting, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the request that waited");
+            Assert.That(later, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the request made after Steam shut down");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 

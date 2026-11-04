@@ -22,21 +22,22 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Steam cannot be used. <c>SteamBackend.TryCreate</c> answers it when the Steam client is
         /// missing, Steam could not start, or Steam's native library could not be loaded (FR-1,
-        /// FR-39). A Steam backend answers it for a lobby creation, entry, or search and for an
-        /// invite request once the game shut Steam down or a Steam call failed in its native
-        /// library (FR-1), the lobby requests that Steam had not answered yet included, and for a
+        /// FR-39). A Steam backend answers it for a lobby creation, entry, or search, an avatar,
+        /// and an invite request once the game shut Steam down or a Steam call failed in its
+        /// native library (FR-1), the requests that Steam had not answered yet included, and for a
         /// lobby creation that failed because Steam had no connection. Once its Steam backend
         /// can no longer use Steam, the manager answers it at once to <c>CreateLobby</c>, which
-        /// cannot start taking connections then, and ends a session with it on its next
-        /// <c>Update</c>.
+        /// cannot start taking connections then, and to <c>LoadAvatar</c>, and ends a session
+        /// with it on its next <c>Update</c>.
         /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
         OverlayUnavailable = 3,
         /// <summary>
         /// The backend refused or failed the request for a reason it does not name. The manager
-        /// also ends a session with it once its backend stops being available for a reason the
-        /// backend does not name, as one disposed before the manager.
+        /// also ends a session with it, and answers it to an avatar request, once its backend
+        /// stops being available for a reason the backend does not name, as one disposed before
+        /// the manager.
         /// </summary>
         BackendError = 4,
         /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>

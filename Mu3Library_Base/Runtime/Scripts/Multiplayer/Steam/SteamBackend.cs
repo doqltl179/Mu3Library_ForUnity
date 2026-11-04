@@ -45,9 +45,9 @@ namespace Mu3Library.Multiplayer.Steam
     /// <see cref="EntryPointNotFoundException"/> of a missing function, so no such exception
     /// reaches the game. The backend logs the first one as a warning and is no longer available
     /// (<see cref="IsAvailable"/>): from then on it answers as when the game shut Steam down under
-    /// it. A lobby creation, entry, or search answers <see cref="MultiplayerReason.SteamNotRunning"/>,
-    /// the ones Steam had not answered yet included, and so does an invite request; an avatar
-    /// answers <see cref="MultiplayerReason.BackendError"/>, as <see cref="LoadAvatar"/> describes;
+    /// it. A lobby creation, entry, or search and an avatar answer
+    /// <see cref="MultiplayerReason.SteamNotRunning"/>, the ones Steam had not answered yet
+    /// included, and so does an invite request;
     /// the calls that answer at once return false, <see cref="ConnectionId.None"/>,
     /// <see cref="PlayerId.None"/>, or null; and an open connection carries nothing more. The
     /// reason is <see cref="MultiplayerReason.SteamNotRunning"/> for the reason
@@ -70,7 +70,8 @@ namespace Mu3Library.Multiplayer.Steam
     /// A <see cref="MultiplayerManager"/> on this backend ends its session on its next update
     /// once the backend is not available because Steam cannot be used, after a failure as once
     /// the game shut Steam down, with <see cref="MultiplayerReason.SteamNotRunning"/>, and
-    /// answers the same reason at once to <see cref="MultiplayerManager.CreateLobby"/>.
+    /// answers the same reason at once to <see cref="MultiplayerManager.CreateLobby"/> and
+    /// <see cref="MultiplayerManager.LoadAvatar"/>.
     /// </para>
     /// <para>
     /// Once the backend finds Steam not running, at its update or at any call, it stays
@@ -498,10 +499,9 @@ namespace Mu3Library.Multiplayer.Steam
             // Checked again, since a call above may have failed.
             if (!IsAvailable)
             {
-                // An avatar answers the reason the manager gives then; see LoadAvatar.
                 FailSearches(MultiplayerReason.SteamNotRunning);
                 FailLobbyCalls(MultiplayerReason.SteamNotRunning);
-                FailAvatars(MultiplayerReason.BackendError);
+                FailAvatars(MultiplayerReason.SteamNotRunning);
             }
 
             // What a callback queues while being handed on waits for the next update.
