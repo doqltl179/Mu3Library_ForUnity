@@ -27,8 +27,8 @@ namespace Mu3Library.Tests
     /// the next run deletes any that an interrupted run left, and Git ignores those inside the Base package. An error
     /// that Unity logs because it could not write the .meta file of an asset the test created, such as the one in
     /// #341, does not fail the test: the window never writes .meta files itself, and the test still checks what the
-    /// window did. Every other error fails the test as before. Each test turns this on with the first helper it calls,
-    /// <see cref="CreateTempFolder"/> or <see cref="TrackProjectList"/>.
+    /// window did. Every other log that the Test Framework counts as failing still fails the test. Each test turns this
+    /// on with the first helper it calls, <see cref="CreateTempFolder"/> or <see cref="TrackProjectList"/>.
     /// </summary>
     public class Mu3WindowTests
     {
@@ -41,7 +41,7 @@ namespace Mu3Library.Tests
             @"^(?:Cannot open file '(?<path>[^']+)\.meta' for write\.|Failed to write meta file '(?<path>[^']+)\.meta')");
 
         private readonly List<string> _createdPaths = new();
-        private readonly List<(LogType Type, string Message)> _failingLogs = new();
+        private readonly List<(LogType Type, string Message, string StackTrace)> _failingLogs = new();
         private volatile bool _toleratingMetaWriteFailures;
 
         [SetUp]
@@ -55,6 +55,12 @@ namespace Mu3Library.Tests
                 DeleteTempFolders(basePackage.assetPath);
             }
 
+            // A log that reached the callback of the previous test after its TearDown took the logs.
+            lock (_failingLogs)
+            {
+                _failingLogs.Clear();
+            }
+
             Application.logMessageReceivedThreaded += RecordFailingLog;
         }
 
@@ -62,24 +68,39 @@ namespace Mu3Library.Tests
         public void TearDown()
         {
             // The TearDown checks its logs in a scope of its own.
-            if (_toleratingMetaWriteFailures)
+            bool tolerating = _toleratingMetaWriteFailures;
+            if (tolerating)
             {
                 LogAssert.ignoreFailingMessages = true;
             }
 
-            // DeleteAsset also deletes a folder whose .meta file Unity could not write.
-            for (int i = _createdPaths.Count - 1; i >= 0; i--)
+            List<(LogType Type, string Message, string StackTrace)> unexpectedLogs;
+            try
             {
-                AssetDatabase.DeleteAsset(_createdPaths[i]);
+                // DeleteAsset also deletes a folder whose .meta file Unity could not write.
+                for (int i = _createdPaths.Count - 1; i >= 0; i--)
+                {
+                    AssetDatabase.DeleteAsset(_createdPaths[i]);
+                }
+            }
+            finally
+            {
+                // The Test Framework counts failing logs again before the callback stops recording them.
+                if (tolerating)
+                {
+                    LogAssert.ignoreFailingMessages = false;
+                }
+
+                Application.logMessageReceivedThreaded -= RecordFailingLog;
+                _toleratingMetaWriteFailures = false;
+                unexpectedLogs = TakeUnexpectedLogs();
+                _createdPaths.Clear();
             }
 
-            Application.logMessageReceivedThreaded -= RecordFailingLog;
-            _toleratingMetaWriteFailures = false;
-            List<string> unexpectedLogs = TakeUnexpectedLogs();
-            _createdPaths.Clear();
             if (unexpectedLogs.Count > 0)
             {
-                Assert.Fail($"Unhandled log message: {string.Join(" | ", unexpectedLogs)}");
+                string messages = string.Join(" | ", unexpectedLogs.Select(log => $"[{log.Type}] {log.Message}"));
+                Assert.Fail($"Unhandled log message: {messages}\nStack trace of the first:\n{unexpectedLogs[0].StackTrace}");
             }
         }
 
@@ -512,14 +533,17 @@ namespace Mu3Library.Tests
         private bool IsCreatedByTest(string assetPath)
         {
             return !string.IsNullOrEmpty(assetPath) &&
-                _createdPaths.Any(path => assetPath == path || assetPath.StartsWith(path + "/"));
+                _createdPaths.Any(path =>
+                    assetPath == path || assetPath.StartsWith(path + "/", StringComparison.Ordinal));
         }
 
         /// <summary>
         /// From here to the end of the test, an error that Unity logs because it could not write the .meta file of an
         /// asset this test created does not fail the test. The Test Framework then lets every failing log pass, so the
         /// TearDown fails the test on any other. The test body calls this, since the Test Framework checks the logs of
-        /// the body apart from those of the SetUp and the TearDown, and ignores the setting the SetUp makes.
+        /// the body apart from those of the SetUp and the TearDown, and ignores the setting the SetUp makes. An error
+        /// that a test expects with <c>LogAssert.Expect</c> after this call still fails it, since the TearDown sees
+        /// every failing log.
         /// </summary>
         private void TolerateMetaWriteFailures()
         {
@@ -529,45 +553,57 @@ namespace Mu3Library.Tests
 
         private void RecordFailingLog(string message, string stackTrace, LogType type)
         {
-            // The logs the Test Framework counts as failing: it leaves out the exceptions that carry an NUnit result.
+            // The logs the Test Framework counts as failing (LogScope.AddLog).
             bool failing = type == LogType.Error || type == LogType.Assert ||
-                (type == LogType.Exception &&
-                    !string.IsNullOrEmpty(stackTrace) && !stackTrace.StartsWith("NUnit.Framework.Assert."));
+                (type == LogType.Exception && !CarriesNUnitResult(message, stackTrace));
             if (failing && _toleratingMetaWriteFailures)
             {
                 lock (_failingLogs)
                 {
-                    _failingLogs.Add((type, message));
+                    _failingLogs.Add((type, message, stackTrace));
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether an exception log carries an NUnit success, inconclusive, or ignore result, the only exceptions the
+        /// Test Framework does not count as failing.
+        /// </summary>
+        private static bool CarriesNUnitResult(string message, string stackTrace)
+        {
+            return (string.IsNullOrEmpty(stackTrace) ||
+                    stackTrace.StartsWith("NUnit.Framework.Assert.", StringComparison.Ordinal)) &&
+                (message.StartsWith("SuccessException: ", StringComparison.Ordinal) ||
+                    message.StartsWith("InconclusiveException: ", StringComparison.Ordinal) ||
+                    message.StartsWith("IgnoreException: ", StringComparison.Ordinal));
         }
 
         /// <summary>
         /// Takes the failing logs recorded while the test tolerated .meta write failures, logs a warning for each of
         /// those failures that names an asset this test created, and returns the others.
         /// </summary>
-        private List<string> TakeUnexpectedLogs()
+        private List<(LogType Type, string Message, string StackTrace)> TakeUnexpectedLogs()
         {
-            List<(LogType Type, string Message)> logs;
+            List<(LogType Type, string Message, string StackTrace)> logs;
             lock (_failingLogs)
             {
-                logs = new List<(LogType Type, string Message)>(_failingLogs);
+                logs = new List<(LogType Type, string Message, string StackTrace)>(_failingLogs);
                 _failingLogs.Clear();
             }
 
-            List<string> unexpectedLogs = new();
-            foreach ((LogType type, string message) in logs)
+            List<(LogType Type, string Message, string StackTrace)> unexpectedLogs = new();
+            foreach ((LogType Type, string Message, string StackTrace) log in logs)
             {
-                Match match = MetaWriteFailure.Match(message);
-                if (type == LogType.Error && match.Success && IsCreatedByTest(match.Groups["path"].Value))
+                Match match = MetaWriteFailure.Match(log.Message);
+                if (log.Type == LogType.Error && match.Success && IsCreatedByTest(match.Groups["path"].Value))
                 {
                     Debug.LogWarning(
                         $"{nameof(Mu3WindowTests)} tolerates this error, since the test created " +
-                        $"{match.Groups["path"].Value}: {message}");
+                        $"{match.Groups["path"].Value}: {log.Message}");
                 }
                 else
                 {
-                    unexpectedLogs.Add($"[{type}] {message}");
+                    unexpectedLogs.Add(log);
                 }
             }
 
