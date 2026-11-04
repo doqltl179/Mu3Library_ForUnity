@@ -24,6 +24,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public const int MaxFrameBytes = 1 + 1024 * 1024;
 
         /// <summary>
+        /// Most bytes of a lobby, as <see cref="WriteSnapshot"/> writes it, that the frames carry:
+        /// the answer to a join, the largest frame that brings a lobby, holds a 4-byte code beside
+        /// the kind byte and the lobby.
+        /// </summary>
+        public const int MaxSnapshotBytes = MaxFrameBytes - 1 - sizeof(int);
+
+        // What WriteSnapshot writes before the members and the data: the lobby ID, the owner's ID
+        // and port, the visibility, the capacity, whether it is joinable, and the two list lengths.
+        private const int SnapshotFixedBytes = sizeof(ulong) + sizeof(ulong) + sizeof(int) + 1 + sizeof(int) + 1 + sizeof(int) + sizeof(int);
+
+        // What WriteSnapshot writes for a member besides its name: the player ID and the port.
+        private const int MemberFixedBytes = sizeof(ulong) + sizeof(int);
+
+        /// <summary>
         /// A <see cref="MachineFrameKind.LobbyReply"/> that asks a returning member to try again in
         /// a moment: the player it reached has not noticed yet that the lobby passed to it.
         /// </summary>
@@ -109,6 +123,33 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 writer.WriteString(pair.Value);
             }
         }
+
+        /// <summary>
+        /// The bytes <see cref="WriteSnapshot"/> writes for the lobby, counted field by field as it
+        /// writes them, without writing, to hold against <see cref="MaxSnapshotBytes"/>. Change it
+        /// with <see cref="WriteSnapshot"/>: <c>MultiplayerLocalMachineTests</c> compare the two.
+        /// </summary>
+        public static int SnapshotBytes(MachineLobby lobby)
+        {
+            int bytes = SnapshotFixedBytes;
+            for (int i = 0; i < lobby.Members.Count; i++)
+            {
+                bytes += MemberFixedBytes + StringBytes(ToWireName(lobby.Members[i].Name ?? string.Empty));
+            }
+
+            foreach (KeyValuePair<string, string> pair in lobby.Data)
+            {
+                bytes += DataEntryBytes(pair.Key, pair.Value);
+            }
+
+            return bytes;
+        }
+
+        /// <summary>The bytes one lobby data entry takes in what <see cref="WriteSnapshot"/> writes.</summary>
+        public static int DataEntryBytes(string key, string value) => StringBytes(key) + StringBytes(value);
+
+        /// <summary>What <see cref="PacketWriter.WriteString"/> writes: a 4-byte length, then the UTF-8 bytes.</summary>
+        private static int StringBytes(string value) => sizeof(int) + Encoding.UTF8.GetByteCount(value ?? string.Empty);
 
         /// <summary>Reads a lobby that <see cref="WriteSnapshot"/> wrote, or throws <see cref="FormatException"/>.</summary>
         public static MachineLobby ReadSnapshot(ref PacketReader reader)

@@ -59,8 +59,10 @@ namespace Mu3Library.Multiplayer.Backend
 
         #region Lobby
         /// <summary>
-        /// Creates a lobby owned by this player with the given lobby data. The callback answers
-        /// with <see cref="MultiplayerReason.None"/> and the new lobby, or a failure reason.
+        /// Creates a lobby owned by this player with the given lobby data, each entry written as
+        /// <see cref="SetLobbyData"/> writes it, so an entry with an empty value writes no key. The
+        /// callback answers with <see cref="MultiplayerReason.None"/> and the new lobby, or a
+        /// failure reason.
         /// </summary>
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted);
 
@@ -83,31 +85,32 @@ namespace Mu3Library.Multiplayer.Backend
         public void LeaveLobby(LobbyId lobby);
 
         /// <summary>
-        /// Null when the lobby or the key is unknown to this player. Lobby data keys are told apart
-        /// without regard to case, as Steam tells them apart, so a key is found in any case here, in
-        /// the data a search returns, and by the search filters.
+        /// Null when the lobby or the key is unknown to this player, and for a key the lobby holds
+        /// with an empty value, as Steam answers an empty string for each (<see cref="SetLobbyData"/>).
+        /// Lobby data keys are told apart without regard to case, as Steam tells them apart, so a
+        /// key is found in any case here, in the data a search returns, and by the search filters.
         /// </summary>
         public string GetLobbyData(LobbyId lobby, string key);
 
         /// <summary>
-        /// Owner only; false otherwise. The manager never writes an empty value here and deletes
-        /// the key instead (<see cref="IMultiplayerManager.SetLobbyData"/>), and it leaves a key
-        /// with an empty value out of the data it hands <see cref="CreateLobby"/>, since the
-        /// backends treat such a value differently (#313). On AppID 480 on 2026-11-04 a Steam
-        /// lobby kept a key it held when the key was set to an empty value, which search then
-        /// returned with the empty value and a filter for the empty value matched, but wrote no
-        /// key it lacked, and <see cref="DeleteLobbyData"/> answered false for a key the lobby
-        /// lacked. The local backends keep every key written with an empty value, at creation
-        /// too: <see cref="GetLobbyData"/> answers the empty value where the Steam backend answers
-        /// null, their search returns the key and its filters leave out a lobby that holds it
-        /// whatever the comparison, and <see cref="DeleteLobbyData"/> answers true for a key the
-        /// lobby lacks.
+        /// Owner only; false otherwise. Every backend takes an empty or null value as a Steam lobby
+        /// took an empty one on AppID 480 on 2026-11-04 (#343): it writes no key the lobby lacks,
+        /// and answers true all the same, and it leaves a key the lobby holds with the empty value.
+        /// <see cref="GetLobbyData"/> answers null for such a key, the data a search returns holds
+        /// it with the empty value, and the search filters compare that value as Steam's search
+        /// did: a string filter as an empty string, so <c>Equal ""</c> and <c>NotEqual "x"</c>
+        /// keep the lobby, and a numeric filter as 0. The manager never writes an empty value here
+        /// and deletes the key instead (<see cref="IMultiplayerManager.SetLobbyData"/>), and it
+        /// leaves a key with an empty value out of the data it hands <see cref="CreateLobby"/>,
+        /// so its <see cref="IMultiplayerManager.LobbyData"/> and the lobby that search reads hold
+        /// the same keys (#313).
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 
         /// <summary>
-        /// Owner only; false otherwise. Removes the key from the lobby, so lobby search no longer
-        /// returns it or finds the lobby by it. The manager asks only for a key the lobby holds.
+        /// Owner only; false otherwise, and false for a key the lobby lacks, as Steam answers
+        /// (#343). Removes the key from the lobby, so lobby search no longer returns it or finds
+        /// the lobby by it. The manager asks only for a key the lobby holds.
         /// </summary>
         public bool DeleteLobbyData(LobbyId lobby, string key);
 
