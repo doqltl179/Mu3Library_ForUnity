@@ -537,6 +537,32 @@ namespace Mu3Library.Tests
             Assert.That(inbox.Received, Is.Empty);
         }
 
+        [TestCase(true, TestName = "Send_AMessageThatWentOutBeforeAHandlerEndedTheSession_CountsAsSent(TheHostsPastADropThatLeaves)")]
+        [TestCase(false, TestName = "Send_AMessageThatWentOutBeforeAHandlerEndedTheSession_CountsAsSent(AClientsWhoseOwnCopyLeaves)")]
+        public void Send_AMessageThatWentOutBeforeAHandlerEndedTheSession_CountsAsSent(bool fromHost)
+        {
+            // #340: the call answers the reason the session ended with, but the message went out
+            // and its receivers count it, so GetMessageCounts counts it as sent too.
+            (Node host, Node[] clients) = CreateSession(2);
+            Node sender = fromHost ? host : clients[0];
+            if (fromHost)
+            {
+                Listen(host, Chat);
+                host.Manager.OnParticipantLeft += (participant, reason) => host.Manager.Leave();
+                host.Backend.FailingSends = 1;
+            }
+            else
+            {
+                Assert.That(sender.Manager.RegisterMessage(Chat, (context, payload) => sender.Manager.Leave()).IsSuccess, Is.True);
+            }
+
+            Assert.That(sender.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.All).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+
+            List<MessageCounts> counts = new List<MessageCounts>();
+            sender.Manager.GetMessageCounts(counts);
+            Assert.That(counts.Single(count => count.MessageType == Chat).Sent, Is.EqualTo(1), "the message went out");
+        }
+
         [TestCase(false, TestName = "StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(Leaves)")]
         [TestCase(true, TestName = "StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(LeavesAndCreatesAnother)")]
         public void StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(bool createsAnother)
@@ -822,8 +848,10 @@ namespace Mu3Library.Tests
                 case "DeleteLobbyData": return host.LobbyDataChanges.Count;
                 case "SetParticipantData":
                 case "DeleteParticipantData": return host.DataChanges.Count;
-                case "SendToAll":
-                case "SendToOne": return inbox.Received.Count;
+                case "SendToAll": return inbox.Received.Count;
+
+                // A message to another player has no event on the host; the reason is what counts.
+                case "SendToOne": return 0;
                 default: throw new ArgumentOutOfRangeException(nameof(request), request, null);
             }
         }

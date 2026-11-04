@@ -135,23 +135,21 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
             }
 
-            // A handler of a player dropped on the way, or of this player's own copy, may end the
-            // session, and so may a send to the host that cannot leave (#339, #340).
             int generation = _sessionGeneration;
             MultiplayerResult result = _isHost
                 ? HostSendMessage(messageType, payload, target, deliveryMode)
                 : ClientSendMessage(messageType, payload, target, deliveryMode);
-            if (generation != _sessionGeneration)
-            {
-                result = ResultSince(generation);
-            }
 
+            // Counted by whether the message went out, as its receivers count it, before the
+            // answer below can turn into the reason the session ended with.
             if (result.IsSuccess && _messages.TryGetValue(messageType, out MessageRegistration registration))
             {
                 registration.Sent++;
             }
 
-            return result;
+            // A handler of a player dropped on the way, or of this player's own copy, may end the
+            // session, and so may a send to the host that cannot leave (#339, #340).
+            return generation == _sessionGeneration ? result : ResultSince(generation);
         }
 
         public void GetMessageCounts(List<MessageCounts> results)
