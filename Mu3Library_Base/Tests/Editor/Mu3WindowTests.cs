@@ -40,8 +40,9 @@ namespace Mu3Library.Tests
         private const string TempFolderPrefix = nameof(Mu3WindowTests) + "_";
 
         /// <summary>
-        /// The paths a TearDown could not delete, each line the GUID in the path's .meta file, a tab, and the path. It
-        /// lies in the Library folder, which outlives the Editor and which Git ignores.
+        /// The paths a TearDown could not delete, each line the GUID in the path's .meta file, a tab, and the path; a
+        /// later line for a path replaces an earlier one. It lies in the Library folder, which outlives the Editor and
+        /// which Git ignores.
         /// </summary>
         private static string LeftPathRecord => Path.Combine(
             Path.GetDirectoryName(Application.dataPath), "Library", "Mu3Library",
@@ -775,9 +776,10 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>
-        /// Deletes the paths this test created, the last first, and returns those still there afterwards, which it
-        /// records with the GUID each had for the next test to delete. A temporary folder that is still there only
-        /// gets a warning, since the next SetUp deletes it by its prefix. A handle that holds a .meta file open without
+        /// Deletes the paths this test created, the last first, and returns those still there afterwards. It records
+        /// each with the GUID it had for the next test to delete, except one that has no GUID to record, which only
+        /// gets a warning. A temporary folder that is still there is not returned but only gets a warning, since the
+        /// next SetUp deletes it by its prefix. A handle that holds a .meta file open without
         /// <see cref="FileShare.Delete"/> keeps it, and the folders above it, although DeleteAsset returns true for the
         /// asset of that .meta file, and Unity creates a folder again from its .meta file with no more than a warning
         /// (#355). Calling DeleteAsset again does not help while the handle is open.
@@ -820,13 +822,7 @@ namespace Mu3Library.Tests
 
             if (record.Count > 0)
             {
-                Dictionary<string, string> leftByEarlierTests = ReadLeftPathRecord();
-                foreach (KeyValuePair<string, string> entry in record)
-                {
-                    leftByEarlierTests[entry.Key] = entry.Value;
-                }
-
-                WriteLeftPathRecord(leftByEarlierTests);
+                AppendToLeftPathRecord(record);
             }
 
             return leftPaths;
@@ -837,8 +833,9 @@ namespace Mu3Library.Tests
         /// is recorded, it first refreshes the whole AssetDatabase, which also imports any other change waiting in the
         /// project, so that Unity deletes the .meta file left of a deleted asset and creates a folder again from its
         /// .meta file. It deletes a path only while its .meta file carries the recorded GUID, so it never deletes an
-        /// asset that came with a .meta file of its own, such as one that version control brought; Unity gives an
-        /// asset created again at a path the GUID the path had, so the GUID does not tell such an asset apart. It
+        /// asset that came with a .meta file of its own, such as one that version control brought; Unity gives a
+        /// folder created again at a path the GUID the path had, and may do so for other assets, so the GUID does not
+        /// tell such an asset apart. It
         /// deletes a folder only once it is empty, keeps recording one that holds nothing but recorded paths still
         /// left, and forgets one that holds anything else, so it never deletes what was put into a left folder. A path
         /// that it cannot delete, or whose .meta file it cannot read yet, stays recorded for the next test.
@@ -932,7 +929,8 @@ namespace Mu3Library.Tests
         /// <summary>
         /// The GUID in the .meta file of an asset: an empty string when it has no .meta file or the file names no GUID,
         /// and null when the file cannot be read now, as while another process holds it open without sharing reading.
-        /// A process that holds it open to write it still lets this read it.
+        /// This read shares writing and deletion, so a process that writes the file while sharing reading does not
+        /// keep it from reading.
         /// </summary>
         private static string ReadMetaGuid(string assetPath)
         {
@@ -1020,6 +1018,23 @@ namespace Mu3Library.Tests
 
                 Directory.CreateDirectory(Path.GetDirectoryName(LeftPathRecord));
                 File.WriteAllLines(LeftPathRecord, record.Select(entry => $"{entry.Value}\t{entry.Key}"));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                Debug.LogWarning($"{nameof(Mu3WindowTests)} could not write {LeftPathRecord}: {exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Adds lines to the record without reading it, so a record that cannot be read now keeps what earlier tests
+        /// wrote.
+        /// </summary>
+        private static void AppendToLeftPathRecord(Dictionary<string, string> record)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(LeftPathRecord));
+                File.AppendAllLines(LeftPathRecord, record.Select(entry => $"{entry.Value}\t{entry.Key}"));
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
