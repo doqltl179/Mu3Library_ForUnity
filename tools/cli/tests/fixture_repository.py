@@ -240,11 +240,23 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         }
 
     def run_entry_point(
-        self, entry_point: str, *arguments: str, environment: dict[str, str] | None = None
+        self,
+        entry_point: str,
+        *arguments: str,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+        script: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
+        """Run an entry point from cwd, the fixture's root unless given.
+
+        script spells the entry point's path for bash, such as in another form of the same path;
+        without it the entry point runs by its path as the unity commands run it.
+        """
         return subprocess.run(
-            bash_script_command(self.root / entry_point, list(arguments)),
-            cwd=self.root,
+            bash_script_command(self.root / entry_point, list(arguments))
+            if script is None
+            else [str(bash_or_skip()), script, *arguments],
+            cwd=cwd or self.root,
             env=environment if environment is not None else self._environment(),
             capture_output=True,
             text=True,
@@ -253,13 +265,24 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         )
 
     def run_functions(
-        self, entry_point: str, body: str, *arguments: str, environment: dict[str, str] | None = None
+        self,
+        entry_point: str,
+        body: str,
+        *arguments: str,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+        script: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        """Source an entry point and run body with the arguments as its positional parameters."""
+        """Source an entry point and run body with the arguments as its positional parameters.
+
+        It runs from cwd, the fixture's root unless given, and sources script, a spelling of the
+        entry point's path, or the path itself.
+        """
         return run_sourced(
-            self.root / entry_point,
+            script or self.root / entry_point,
             body,
             environment if environment is not None else self._environment(),
+            cwd=cwd or self.root,
             arguments=arguments,
         )
 

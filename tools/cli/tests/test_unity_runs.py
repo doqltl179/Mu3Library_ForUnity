@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
 from shell_harness import bash_or_skip
-from test_compile_selection import CAN_CHECK_LOCK_HOLDERS
+from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
@@ -816,6 +816,14 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         project = mirror / "ProjLeaf"
         [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
         self.assertIn(mirror.name, ran)
+        # The manifest was written with CRLF, as a core.autocrlf checkout holds it, and every line
+        # the retargeting writes back has dropped the CR.
+        self.assertNotIn(b"\r", (project / "Packages" / "manifest.json").read_bytes())
+        # The mirror holds the packages that manifest references, and no other.
+        self.assertEqual(
+            ["PkgLayered", "PkgLeaf", "PkgShared", "ProjLeaf"],
+            sorted(path.name for path in mirror.iterdir() if path.is_dir()),
+        )
         self.assertEqual(
             f"m_EditorVersion: {FLOOR_VERSION}\n",
             (project / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
@@ -910,8 +918,15 @@ HUB_EXECUTABLE = {"Windows": "Editor/Unity.exe", "Darwin": "Unity.app/Contents/M
 
 
 class CrlfCheckoutTests(FixtureRepositoryTestCase):
-    """A checkout with core.autocrlf holds a project's ProjectVersion.txt with CRLF, and the Editor
-    it names must not carry the CR."""
+    """A checkout with core.autocrlf holds each project's ProjectVersion.txt and Packages/manifest.json
+    with CRLF, and every line the entry points read from them must drop the CR.
+
+    A CR left on a line would change the Editor version the scripts look for. The manifest readers
+    match part of a line, which a trailing CR cannot change, so these tests check their results.
+    EditorVersionTests retargets a mirror from a manifest written with CRLF.
+    """
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
 
     def setUp(self) -> None:
         super().setUp()
@@ -920,6 +935,12 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         version_file.write_bytes(
             b"m_EditorVersion: 6000.6.7f1\r\nm_EditorVersionWithRevision: 6000.6.7f1 (0123456789ab)\r\n"
         )
+        # As bytes, so that every manifest holds CRLF on every OS.
+        for _, _, project in MAPPING:
+            manifest = self.root / project / "Packages" / "manifest.json"
+            content = manifest.read_bytes()
+            self.addCleanup(manifest.write_bytes, content)
+            manifest.write_bytes(content.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
 
     def hub_editor(self) -> tuple[Path, Path]:
         """A Unity Hub folder holding a fake of the Editor the fixture asks for, and its executable."""
@@ -953,6 +974,39 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
+    def test_each_package_compiles_in_the_projects_whose_manifest_references_it(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'load_package_config\nload_package_consumers\nprintf "%s\\n" "${PACKAGE_CONSUMER_TARGETS[@]}"',
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(["shared layered leaf", "layered leaf", "leaf", "extra", "orphan"], completed.stdout.splitlines())
+
+    def test_only_the_manifest_that_lists_testables_has_tests_to_run(self) -> None:
+        completed = self.run_entry_point("test-unity.sh", "all", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        plan = run_plan(completed.stdout)
+        self.assertEqual("in place", plan["leaf"])
+        for key, _, project in MAPPING:
+            if key != "leaf":
+                self.assertEqual(f"skipped, {project}/Packages/manifest.json lists no testables", plan[key])
+
+    def test_the_hub_editor_tests_the_project_without_an_override(self) -> None:
+        hub, _ = self.hub_editor()
+        environment = self.unity_environment(UNITY_HUB_EDITOR_ROOT=str(hub), FAKE_UNITY_RESULTS=nunit_results())
+        del environment["UNITY_EDITOR"]
+
+        completed = self.run_entry_point("test-unity.sh", "leaf", environment=environment)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
+        self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
+        self.assertIn(
+            "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout.splitlines()
+        )
+
     def test_an_override_that_is_the_hub_editor_does_not_warn(self) -> None:
         _, executable = self.hub_editor()
 
@@ -963,6 +1017,109 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertNotIn("but the explicit override will be used", completed.stderr)
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+
+class OverrideWarningTests(FixtureRepositoryTestCase):
+    """An explicit Editor that is not the one a target asks for is warned about once per target, by
+    the preflight, before any Unity starts; the run of the target does not repeat it."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+
+    def test_each_target_is_warned_about_once_before_unity_starts(self) -> None:
+        runs = (
+            ("compile-unity.sh", "compile_main", [project for _, _, project in MAPPING]),
+            ("test-unity.sh", "test_main", ["ProjShared", "ProjLeaf"]),
+        )
+        for entry_point, main, projects in runs:
+            with self.subTest(entry_point=entry_point):
+                # One stream keeps the warnings in order with the runs they come before.
+                completed = self.run_functions(
+                    entry_point,
+                    f'{main} "$@" 2>&1',
+                    "all",
+                    environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                )
+
+                self.assertEqual(0, completed.returncode, completed.stdout)
+                lines = completed.stdout.splitlines()
+                warnings = [
+                    index for index, line in enumerate(lines) if "but the explicit override will be used" in line
+                ]
+                self.assertEqual(
+                    [
+                        f"warning: {project} requires Unity 6000.6.7f1 but the explicit override will be used: "
+                        f"{self.fake_unity}"
+                        for project in projects
+                    ],
+                    [lines[index] for index in warnings],
+                )
+                runs_of_unity = [index for index, line in enumerate(lines) if line.startswith("fake unity ran ")]
+                self.assertEqual(len(projects), len(runs_of_unity), completed.stdout)
+                self.assertLess(warnings[-1], runs_of_unity[0], completed.stdout)
+
+
+class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
+    """Each entry point finds the repository from its own path, never from the working directory, so
+    it runs the fixture's targets from a folder outside it, by every absolute spelling of that path.
+
+    A script that cut its own folder wrong would fall back to the working directory, which the other
+    tests keep at the fixture's root, where the result would look the same."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+
+    def setUp(self) -> None:
+        super().setUp()
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        self.outside = Path(outside.name)
+
+    def spellings(self, entry_point: str) -> dict[str, str]:
+        """The absolute spellings of an entry point's path that callers on this host use."""
+        path = self.root / entry_point
+        spellings = {"native": str(path)}
+        if platform.system() == "Windows":
+            # The native spelling is the Windows one, with backslashes.
+            spellings["Windows with forward slashes"] = path.as_posix()
+            spellings["POSIX"] = f"/{path.drive[0].lower()}{path.as_posix()[len(path.drive):]}"
+        return spellings
+
+    def test_both_entry_points_run_the_fixture_targets_from_outside_the_repository(self) -> None:
+        runs = (
+            ("compile-unity.sh", "Unity compilation succeeded: leaf", self.root / "log" / "unity-compile" / "leaf.log"),
+            ("test-unity.sh", "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped",
+             self.root / "log" / "unity-tests" / "leaf-editmode.xml"),
+        )
+        for entry_point, success, kept in runs:
+            for spelling, script in self.spellings(entry_point).items():
+                with self.subTest(entry_point=entry_point, spelling=spelling):
+                    shutil.rmtree(self.root / "log", ignore_errors=True)
+
+                    completed = self.run_entry_point(
+                        entry_point,
+                        "leaf",
+                        environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                        cwd=self.outside,
+                        script=script,
+                    )
+
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    self.assertIn(success, completed.stdout.splitlines())
+                    [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+                    self.assertTrue(ran.endswith("/repository/ProjLeaf"), ran)
+                    self.assertTrue(kept.is_file(), completed.stdout)
+                    self.assertEqual([], list(self.outside.iterdir()))
+
+    def test_sourced_entry_points_find_the_repository_from_outside_it(self) -> None:
+        body = 'load_package_config\nprintf "root %s\\ntargets %s\\n" "$REPO_ROOT" "${TARGET_KEYS[*]}"'
+        for entry_point in ("compile-unity.sh", "test-unity.sh"):
+            for spelling, script in self.spellings(entry_point).items():
+                with self.subTest(entry_point=entry_point, spelling=spelling):
+                    completed = self.run_functions(entry_point, body, cwd=self.outside, script=script)
+
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    root, targets = completed.stdout.splitlines()
+                    self.assertTrue(root.endswith("/repository"), root)
+                    self.assertEqual(f"targets {' '.join(key for key, _, _ in MAPPING)}", targets)
 
 
 if __name__ == "__main__":

@@ -113,7 +113,7 @@ namespace Mu3Library.Multiplayer
             _hostConnection = _backend.Connect(host);
             if (!_hostConnection.IsValid)
             {
-                EndSession(MultiplayerReason.ConnectionFailed, raiseEvents: true);
+                EndSession(FailureReason(MultiplayerReason.ConnectionFailed), raiseEvents: true);
             }
         }
 
@@ -193,13 +193,14 @@ namespace Mu3Library.Multiplayer
 
             if (isReturning)
             {
-                // Tried again after the retry interval, while the time to try lasts.
+                // Tried again after the retry interval, while the time to try lasts; a backend
+                // that is gone ends the session on the manager's next update instead.
                 _backend.Disconnect(connection, ReasonCodes.ToWire(MultiplayerReason.ConnectionLost));
                 _hostConnection = ConnectionId.None;
             }
             else
             {
-                EndSession(JoinConnectionFailure, raiseEvents: true);
+                EndSession(FailureReason(JoinConnectionFailure), raiseEvents: true);
             }
         }
 

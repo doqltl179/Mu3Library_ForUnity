@@ -19,7 +19,7 @@ def bash_or_skip() -> Path:
 
 
 def run_sourced(
-    script: Path,
+    script: Path | str,
     body: str,
     environment: Mapping[str, str] | None = None,
     cwd: Path | None = None,
@@ -27,11 +27,12 @@ def run_sourced(
 ) -> subprocess.CompletedProcess[str]:
     """Source an entry point, which defines its functions without running it, then run body.
 
-    Inside body the arguments are the positional parameters.
+    Inside body the arguments are the positional parameters. script may be a spelling of the path
+    for bash, such as its POSIX form on Windows, given with cwd.
     """
     return subprocess.run(
         [str(bash_or_skip()), "-c", f'source "$1"\nshift\n{body}', "harness", str(script), *arguments],
-        cwd=cwd or script.parent,
+        cwd=cwd or Path(script).parent,
         env=dict(environment if environment is not None else os.environ),
         capture_output=True,
         text=True,

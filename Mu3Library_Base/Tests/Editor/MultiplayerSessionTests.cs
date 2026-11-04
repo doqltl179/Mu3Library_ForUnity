@@ -725,6 +725,129 @@ namespace Mu3Library.Tests
             Pump();
             Assert.That(answers.Count, Is.EqualTo(1), "answered once");
         }
+
+        [Test]
+        public void SearchLobbies_OnABackendDisposedBeforeTheManager_AnswersBackendError_ToTheSearchWaitingAndAtOnce()
+        {
+            // #321: a disposed backend answers no search it still holds, and a search belongs to
+            // no session whose end would answer it, so the manager answers it itself, once.
+            CreateHost("Host");
+            Node node = CreateNode("A");
+            List<LobbySearchResult> answers = new List<LobbySearchResult>();
+            LobbySearchResult? askedAgain = null;
+            node.Manager.SearchLobbies(null, answer =>
+            {
+                answers.Add(answer);
+                node.Manager.SearchLobbies(null, r => askedAgain = r);
+            });
+
+            node.Backend.Dispose();
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }), "the search still waiting, on the next update");
+            Assert.That(answers[0].Lobbies, Is.Empty);
+            Assert.That(askedAgain?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "a callback that searches again is answered at once");
+
+            LobbySearchResult? atOnce = null;
+            node.Manager.SearchLobbies(null, r => atOnce = r);
+            Assert.That(atOnce?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "at once");
+
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
+
+        [Test]
+        public void SearchLobbies_OnABackendThatIsGone_AnswersTheReasonItNames_ToTheSearchWaitingAndAtOnce()
+        {
+            // #321: a Steam backend that can no longer use Steam names SteamNotRunning, the reason
+            // its own search answers then. This one is disposed under the stand-in, so it answers
+            // no search either, as a disposed Steam backend does.
+            Node node = CreatePlatformNode("A");
+            List<LobbySearchResult> answers = new List<LobbySearchResult>();
+            node.Manager.SearchLobbies(null, answers.Add);
+
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            node.Backend.Dispose();
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }), "the search still waiting, on the next update");
+
+            LobbySearchResult? atOnce = null;
+            node.Manager.SearchLobbies(null, r => atOnce = r);
+            Assert.That(atOnce?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
+
+        [TestCase(MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning)]
+        [TestCase(MultiplayerReason.None, MultiplayerReason.BackendError)]
+        public void JoinLobby_AConnectThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(MultiplayerReason named, MultiplayerReason expected)
+        {
+            // #320: the lobby took this player, and the backend went away at the connect to the
+            // host, as a Steam backend does when its Steam call fails there. The join ends with
+            // the reason the next update would end it with, rather than ConnectionFailed.
+            Node host = CreateHost("Host");
+            Node a = CreatePlatformNode("A");
+            a.Platform.GoesAtConnect = true;
+            a.Platform.GoneReason = named;
+
+            Assert.That(Join(a, host).Reason, Is.EqualTo(expected));
+            Assert.That(a.States.Select(change => change.ToString()), Is.EqualTo(new[] { "Offline -> Joining (None)", $"Joining -> Offline ({expected})" }));
+        }
+
+        [TestCase(true, TestName = "Send_AReliableSendThatFailsAsTheBackendIsGone_EndsTheClientsSessionAtOnce_WithTheReasonItNames(InAGame)")]
+        [TestCase(false, TestName = "Send_AReliableSendThatFailsAsTheBackendIsGone_EndsTheClientsSessionAtOnce_WithTheReasonItNames(InTheLobby)")]
+        public void Send_AReliableSendThatFailsAsTheBackendIsGone_EndsTheClientsSessionAtOnce_WithTheReasonItNames(bool inGame)
+        {
+            // #320: in a game that keeps slots, a reliable send that cannot leave took the client to
+            // Reconnecting first, and the next update ended the session with SteamNotRunning; in
+            // the lobby it ended with ConnectionLost. A backend that is gone leaves no host to
+            // come back to, so the session ends at once, once, with the reason it names.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = CreatePlatformNode("A");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            if (inGame)
+            {
+                Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+                Pump();
+                Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            }
+
+            int before = a.States.Count;
+            a.Platform.IsGone = true;
+            a.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+
+            Assert.That(a.Manager.Send(1, new byte[] { 1 }, MessageTarget.Host).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost), "the message could not leave");
+            string state = inGame ? "InGame" : "Lobby";
+            Assert.That(a.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"{state} -> Offline (SteamNotRunning)" }), "at once, without Reconnecting");
+
+            a.Manager.Update();
+            Assert.That(a.States.Count, Is.EqualTo(before + 1), "ended once");
+        }
+
+        [Test]
+        public void Send_TheHostsSendsThatFailAsTheBackendIsGone_EndTheSessionOnce_WithoutDroppingEachPlayer()
+        {
+            // #320: on a backend that is gone, the host's sends fail for every player. Dropping
+            // each with ConnectionLost raised a leave per player before the session's end; the
+            // host now keeps them, and its next update ends the session once.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(new SessionRules(4, requireReady: false)));
+            JoinNew("A", host);
+            JoinNew("B", host);
+            Pump();
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(3));
+            int before = host.States.Count;
+
+            host.Platform.IsGone = true;
+            host.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            host.Manager.Send(1, new byte[] { 1 }, MessageTarget.Others);
+            Assert.That(host.Left, Is.Empty, "no player dropped one by one");
+            Assert.That(host.Manager.Participants.Count, Is.EqualTo(3));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Lobby), "until the next update");
+
+            host.Manager.Update();
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (SteamNotRunning)" }));
+            Assert.That(host.Left, Is.Empty);
+        }
         #endregion
 
         #region Connection

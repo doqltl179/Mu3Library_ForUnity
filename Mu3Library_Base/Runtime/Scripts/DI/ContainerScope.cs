@@ -191,14 +191,40 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Register an already created instance, inject its members, and track its lifecycle.
+        /// When the injection throws, what this call added is undone before the exception reaches
+        /// the caller: its registrations are removed, so the instance does not resolve through
+        /// them, and the lifecycle tracking it started, during the injection included, stops. An
+        /// earlier registration of the same instance stays, and so does the tracking that one
+        /// started.
         /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
         {
+            int start = _container.DescriptorCount;
+            bool wasTracked = instance != null && _trackedInstances.Contains(instance);
             _container.RegisterInstance(instance, registerInterfaces, key);
+            int added = _container.DescriptorCount - start;
 
-            // Apply member injection to instances registered from outside the container.
-            InjectInto(instance);
+            // Apply member injection to instances registered from outside the container. The
+            // instance is registered first, so a service that one of its members resolves may
+            // depend on it, and resolving it there starts its lifecycle tracking. The caller gets
+            // an exception for an instance whose injection failed, so its registration is taken
+            // back rather than handed out, uninjected, by a later resolve. Only the descriptors
+            // this call added go: an earlier registration of the same instance stays.
+            try
+            {
+                InjectInto(instance);
+            }
+            catch
+            {
+                _container.RemoveDescriptors(start, added);
+                if (!wasTracked)
+                {
+                    UntrackLifecycle(instance);
+                }
+
+                throw;
+            }
 
             // Track lifecycle for pre-created instances
             TrackLifecycle(instance, ServiceLifetime.Singleton);
@@ -496,10 +522,11 @@ namespace Mu3Library.DI
 
             Type type = instance.GetType();
 
-            // A required readonly [Inject] field or [Inject] property without a setter can never be
-            // filled. Throwing before anything resolves, as for a required member whose service is
-            // missing, keeps it from staying null without a word; a warning would leave the object
-            // running until the member is first read, far from the cause.
+            // A required [Inject] field that is readonly or static, or a required [Inject] property
+            // that has no setter or is static, can never be filled. Throwing before anything
+            // resolves, as for a required member whose service is missing, keeps it from staying
+            // null without a word; a warning would leave the object running until the member is
+            // first read, far from the cause.
             foreach (FieldInfo field in InjectableMembers.GetReadOnlyFieldArray(type))
             {
                 if (field.GetCustomAttribute<InjectAttribute>().Required)
@@ -513,6 +540,24 @@ namespace Mu3Library.DI
                 if (property.GetCustomAttribute<InjectAttribute>().Required)
                 {
                     throw new InvalidOperationException($"Inject failed. property has no setter: {type.FullName}.{property.Name}");
+                }
+            }
+
+            // A static member belongs to the class, so injecting it would let each object overwrite
+            // the value every other object of the class reads.
+            foreach (FieldInfo field in InjectableMembers.GetStaticFieldArray(type))
+            {
+                if (field.GetCustomAttribute<InjectAttribute>().Required)
+                {
+                    throw new InvalidOperationException($"Inject failed. field is static: {type.FullName}.{field.Name}");
+                }
+            }
+
+            foreach (PropertyInfo property in InjectableMembers.GetStaticPropertyArray(type))
+            {
+                if (property.GetCustomAttribute<InjectAttribute>().Required)
+                {
+                    throw new InvalidOperationException($"Inject failed. property is static: {type.FullName}.{property.Name}");
                 }
             }
 
@@ -628,6 +673,36 @@ namespace Mu3Library.DI
             if (instance is IDisposable disposable)
             {
                 _disposables.Add(disposable);
+            }
+        }
+
+        // Undoes TrackLifecycle for an instance whose registration failed. An Initialize that
+        // already ran on it, which TrackLifecycle does once the scope has initialized, stays run.
+        private void UntrackLifecycle(object instance)
+        {
+            if (instance == null || !_trackedInstances.Remove(instance))
+            {
+                return;
+            }
+
+            if (instance is IInitializable initializable)
+            {
+                _initializables.Remove(initializable);
+            }
+
+            if (instance is IUpdatable updatable)
+            {
+                _updatables.Remove(updatable);
+            }
+
+            if (instance is ILateUpdatable lateUpdatable)
+            {
+                _lateUpdatables.Remove(lateUpdatable);
+            }
+
+            if (instance is IDisposable disposable)
+            {
+                _disposables.Remove(disposable);
             }
         }
 

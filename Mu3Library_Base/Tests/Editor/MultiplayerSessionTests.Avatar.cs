@@ -54,11 +54,14 @@ namespace Mu3Library.Tests
             /// <summary>
             /// Makes the backend unavailable, naming <see cref="GoneReason"/>, while the local
             /// backend under it goes on, as a Steam backend whose Steam went away still closes what
-            /// it can; it no longer starts listening either.
+            /// it can; it no longer starts listening, connects, or sends either.
             /// </summary>
             public bool IsGone;
 
             public MultiplayerReason GoneReason = MultiplayerReason.None;
+
+            /// <summary>Makes the backend gone at its next <see cref="Connect"/>, which fails, as a Steam backend whose Steam call fails there.</summary>
+            public bool GoesAtConnect;
 
             public string Name => "Platform";
             public bool IsAvailable => !IsGone && _inner.IsAvailable;
@@ -110,8 +113,13 @@ namespace Mu3Library.Tests
             public bool IsLobbyMember(LobbyId lobby, PlayerId player) => _inner.IsLobbyMember(lobby, player);
             public bool StartListening() => !IsGone && _inner.StartListening();
             public void StopListening() => _inner.StopListening();
-            public ConnectionId Connect(PlayerId host) => _inner.Connect(host);
-            public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode) => _inner.Send(connection, data, mode);
+            public ConnectionId Connect(PlayerId host)
+            {
+                IsGone |= GoesAtConnect;
+                return IsGone ? ConnectionId.None : _inner.Connect(host);
+            }
+
+            public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode) => !IsGone && _inner.Send(connection, data, mode);
             public void Disconnect(ConnectionId connection, int reasonCode) => _inner.Disconnect(connection, reasonCode);
             public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality) => _inner.TryGetConnectionQuality(connection, out quality);
 
@@ -410,6 +418,32 @@ namespace Mu3Library.Tests
             node.Platform.Update();
             node.Manager.Update();
             Assert.That(answers.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void LoadAvatar_ABackendThatIsGone_AnswersTheReasonItNames_ToTheRequestStillWaitingAndAtOnce()
+        {
+            // #318: a Steam backend that can no longer use Steam names SteamNotRunning, the reason
+            // its lobby requests answer then, so a game that asks the player to start Steam on it
+            // sees it for an avatar too. A backend that names none keeps BackendError (above).
+            Node node = CreatePlatformNode("A");
+            node.Platform.Avatars[(node.Id, AvatarSize.Small)] = (MultiplayerReason.None, StripedAvatar(2, 2));
+            node.Platform.HoldsAvatars = true;
+            List<AvatarResult> answers = new List<AvatarResult>();
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Small, answers.Add);
+            Pump();
+            Assert.That(answers, Is.Empty);
+
+            node.Platform.IsGone = true;
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }), "the request still waiting, on the next update");
+
+            AvatarResult? result = null;
+            node.Manager.LoadAvatar(node.Id, AvatarSize.Large, r => result = r);
+            Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+            Assert.That(result.Value.Texture == null, Is.True);
+            Assert.That(node.Platform.AvatarReads, Is.EqualTo(1));
         }
 
         [Test]
