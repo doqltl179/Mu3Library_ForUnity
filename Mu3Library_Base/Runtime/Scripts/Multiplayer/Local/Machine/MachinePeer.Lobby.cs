@@ -259,8 +259,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
         {
             MachineLobby lobby = FindOwnedLobby(lobbyId);
-            if (lobby == null || string.IsNullOrEmpty(key) || !MachineProtocol.IsWithinLimits(key, value))
+            if (lobby == null || string.IsNullOrEmpty(key))
             {
+                return false;
+            }
+
+            // The other processes would drop the lobby as malformed, so the entry is refused, as
+            // Steam refuses a key or a value too long for it, with the warning CreateLobby gives (#345).
+            if (!MachineProtocol.IsWithinLimits(key, value))
+            {
+                Debug.LogWarning($"[Multiplayer] The local network carries lobby data keys of at most {MachineProtocol.MaxDataKeyBytes} and values of at most {MachineProtocol.MaxDataValueBytes} UTF-8 bytes; key '{key}' was not set on lobby {lobbyId}.");
                 return false;
             }
 

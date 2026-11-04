@@ -1454,9 +1454,15 @@ namespace Mu3Library.Tests
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
             LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
 
+            // Each refusal warns, as the refused lobby below does (#345).
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"keys of at most {MachineProtocol.MaxDataKeyBytes} and values of at most {MachineProtocol.MaxDataValueBytes} UTF-8 bytes; key 'k{{{MachineProtocol.MaxDataKeyBytes + 1}}}' was not set on lobby {lobby}"));
             Assert.That(owner.SetLobbyData(lobby, longestKey + "k", "v"), Is.False);
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"UTF-8 bytes; key 'map' was not set on lobby {lobby}"));
             Assert.That(owner.SetLobbyData(lobby, "map", longestValue + "v"), Is.False);
             Assert.That(owner.SetLobbyData(lobby, longestKey, longestValue), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "map"), Is.Null);
 
             MultiplayerReason? created = null;
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("lobby was not created"));
