@@ -54,7 +54,8 @@ namespace Mu3Library.Tests
             /// <summary>
             /// Makes the backend unavailable, naming <see cref="GoneReason"/>, while the local
             /// backend under it goes on, as a Steam backend whose Steam went away still closes what
-            /// it can; it no longer starts listening, connects, or sends either.
+            /// it can; it no longer starts listening, connects, or sends either, and reads no lobby
+            /// data and no lobby owner, as such a Steam backend answers null and no player.
             /// </summary>
             public bool IsGone;
 
@@ -62,6 +63,12 @@ namespace Mu3Library.Tests
 
             /// <summary>Makes the backend gone at its next <see cref="Connect"/>, which fails, as a Steam backend whose Steam call fails there.</summary>
             public bool GoesAtConnect;
+
+            /// <summary>
+            /// Makes the backend gone at its next read of this lobby data key, which answers null,
+            /// as a Steam backend whose Steam call fails there; null makes no read go.
+            /// </summary>
+            public string GoesAtLobbyData;
 
             public string Name => "Platform";
             public bool IsAvailable => !IsGone && _inner.IsAvailable;
@@ -104,12 +111,17 @@ namespace Mu3Library.Tests
             public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted) => _inner.SearchLobbies(query, onCompleted);
             public void JoinLobby(LobbyId lobby, Action<MultiplayerReason> onCompleted) => _inner.JoinLobby(lobby, onCompleted);
             public void LeaveLobby(LobbyId lobby) => _inner.LeaveLobby(lobby);
-            public string GetLobbyData(LobbyId lobby, string key) => _inner.GetLobbyData(lobby, key);
+            public string GetLobbyData(LobbyId lobby, string key)
+            {
+                IsGone |= GoesAtLobbyData != null && key == GoesAtLobbyData;
+                return IsGone ? null : _inner.GetLobbyData(lobby, key);
+            }
+
             public bool SetLobbyData(LobbyId lobby, string key, string value) => _inner.SetLobbyData(lobby, key, value);
             public bool DeleteLobbyData(LobbyId lobby, string key) => _inner.DeleteLobbyData(lobby, key);
             public bool SetLobbyJoinable(LobbyId lobby, bool joinable) => _inner.SetLobbyJoinable(lobby, joinable);
             public bool SetLobbyCapacity(LobbyId lobby, int capacity) => _inner.SetLobbyCapacity(lobby, capacity);
-            public PlayerId GetLobbyOwner(LobbyId lobby) => _inner.GetLobbyOwner(lobby);
+            public PlayerId GetLobbyOwner(LobbyId lobby) => IsGone ? PlayerId.None : _inner.GetLobbyOwner(lobby);
             public bool IsLobbyMember(LobbyId lobby, PlayerId player) => _inner.IsLobbyMember(lobby, player);
             public bool StartListening() => !IsGone && _inner.StartListening();
             public void StopListening() => _inner.StopListening();

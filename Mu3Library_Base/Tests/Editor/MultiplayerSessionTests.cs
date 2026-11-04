@@ -848,6 +848,54 @@ namespace Mu3Library.Tests
             Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (SteamNotRunning)" }));
             Assert.That(host.Left, Is.Empty);
         }
+
+        [TestCase(LobbyDataKeys.GameId, MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning, TestName = "JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(VersionCheck,SteamNotRunning)")]
+        [TestCase(LobbyDataKeys.GameId, MultiplayerReason.None, MultiplayerReason.BackendError, TestName = "JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(VersionCheck,BackendError)")]
+        [TestCase(LobbyDataKeys.HostId, MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning, TestName = "JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(HostCheck,SteamNotRunning)")]
+        [TestCase(LobbyDataKeys.HostId, MultiplayerReason.None, MultiplayerReason.BackendError, TestName = "JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(HostCheck,BackendError)")]
+        public void JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(string key, MultiplayerReason named, MultiplayerReason expected)
+        {
+            // #338: a Steam backend whose Steam call fails as it reads the lobby answers no data,
+            // which made the join end as if the lobby named another version (VersionMismatch) or
+            // no host (LobbyNotFound).
+            Node host = CreateHost("Host");
+            Node a = CreatePlatformNode("A");
+            a.Platform.GoesAtLobbyData = key;
+            a.Platform.GoneReason = named;
+
+            Assert.That(Join(a, host).Reason, Is.EqualTo(expected));
+            Assert.That(a.States.Select(change => change.ToString()), Is.EqualTo(new[] { "Offline -> Joining (None)", $"Joining -> Offline ({expected})" }));
+        }
+
+        [TestCase(true, MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning, TestName = "JoinLobby_PastALobbyInAGame_AStepThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(LobbyRead,SteamNotRunning)")]
+        [TestCase(true, MultiplayerReason.None, MultiplayerReason.BackendError, TestName = "JoinLobby_PastALobbyInAGame_AStepThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(LobbyRead,BackendError)")]
+        [TestCase(false, MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning, TestName = "JoinLobby_PastALobbyInAGame_AStepThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(Connect,SteamNotRunning)")]
+        [TestCase(false, MultiplayerReason.None, MultiplayerReason.BackendError, TestName = "JoinLobby_PastALobbyInAGame_AStepThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(Connect,BackendError)")]
+        public void JoinLobby_PastALobbyInAGame_AStepThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(bool atLobbyRead, MultiplayerReason named, MultiplayerReason expected)
+        {
+            // #338: a lobby whose game refuses late joiners refuses the entry with GameInProgress,
+            // and this player tries the host past it in case the host keeps its slot (FR-21). When
+            // the backend went away as it read the lobby data or connected there, the lobby's
+            // refusal stood.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Pump();
+
+            Node a = CreatePlatformNode("A");
+            if (atLobbyRead)
+            {
+                a.Platform.GoesAtLobbyData = LobbyDataKeys.Closed;
+            }
+            else
+            {
+                a.Platform.GoesAtConnect = true;
+            }
+
+            a.Platform.GoneReason = named;
+
+            Assert.That(Join(a, host).Reason, Is.EqualTo(expected));
+            Assert.That(a.States.Select(change => change.ToString()), Is.EqualTo(new[] { "Offline -> Joining (None)", $"Joining -> Offline ({expected})" }));
+        }
         #endregion
 
         #region Connection

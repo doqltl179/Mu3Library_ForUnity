@@ -62,8 +62,9 @@ namespace Mu3Library.Multiplayer
         /// whose reliable send to it, fails on such a backend before then ends its session at
         /// once with the same reason, rather than with <see cref="MultiplayerReason.ConnectionFailed"/>
         /// or <see cref="MultiplayerReason.ConnectionLost"/>, and does not try to come back to its
-        /// slot; a host whose sends fail on it keeps its players until that update, which ends
-        /// the session once, rather than dropping each of them with
+        /// slot, and a join whose other steps fail there ends with the same reason too
+        /// (<see cref="JoinLobby"/>); a host whose sends fail on it keeps its players until
+        /// that update, which ends the session once, rather than dropping each of them with
         /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
@@ -124,6 +125,19 @@ namespace Mu3Library.Multiplayer
         /// refusal stands, as the lobby data tells the two apart.
         /// Until the host notices that the old connection broke, the host refuses the new start
         /// as <see cref="MultiplayerReason.DuplicateAccount"/>.
+        /// <para>
+        /// Once the lobby answers, this player reads the lobby's data and owner, which can refuse
+        /// the join with <see cref="MultiplayerReason.VersionMismatch"/> or
+        /// <see cref="MultiplayerReason.LobbyNotFound"/>, then connects to the host. When the
+        /// backend stops being available during any of these steps, or while this player tries
+        /// the host past a lobby that refused it with <see cref="MultiplayerReason.GameInProgress"/>,
+        /// the join ends with the reason the session would end with (see <see cref="Initialize"/>):
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer use
+        /// Steam, as a Steam call that failed there leaves no lobby data to read, and
+        /// <see cref="MultiplayerReason.BackendError"/> on any other backend, rather than with
+        /// <see cref="MultiplayerReason.VersionMismatch"/>, <see cref="MultiplayerReason.LobbyNotFound"/>,
+        /// <see cref="MultiplayerReason.GameInProgress"/>, or <see cref="MultiplayerReason.ConnectionFailed"/>.
+        /// </para>
         /// </remarks>
         public void JoinLobby(LobbyId lobby, Action<MultiplayerResult> callback = null);
 
