@@ -296,6 +296,28 @@ namespace Mu3Library.Tests
 
             Assert.That(mismatches, Is.Empty);
         }
+
+        [Test]
+        public void LobbySearch_SkipsAFilterWhoseKeyIsNullOrEmpty_AsTheSteamBackendDoes()
+        {
+            // FR-6, FR-38, #314: the Steam backend hands Steam no filter without a key, so a
+            // string or numeric filter with a null or empty key leaves out no lobby here either.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data[KeylessFilterLobbyKey] = KeylessFilterLobbyValue;
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in KeylessFilterChecks())
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
         #endregion
 
         #region String Comparisons
@@ -376,6 +398,37 @@ namespace Mu3Library.Tests
                         yield return (key, filter, comparison, false);
                     }
                 }
+            }
+        }
+
+        /// <summary>The one game key, and its value, of the lobby that <see cref="KeylessFilterChecks"/> search for.</summary>
+        internal const string KeylessFilterLobbyKey = "map";
+        internal const string KeylessFilterLobbyValue = "desert";
+
+        /// <summary>
+        /// Searches with a string or numeric filter whose key is null or empty, under every
+        /// comparison, and whether each keeps a lobby that holds only
+        /// <see cref="KeylessFilterLobbyKey"/>: the Steam backend skips such a filter rather than
+        /// hand Steam the key, so it keeps the lobby on every backend (#314), and a filter with a
+        /// key beside it still decides.
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> KeylessFilterChecks()
+        {
+            foreach (string key in new[] { null, string.Empty })
+            {
+                string name = key == null ? "null" : "empty";
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"a string filter with a {name} key, {comparison} 'x',", new LobbySearchQuery().AddStringFilter(key, "x", comparison), true);
+                    yield return ($"a numeric filter with a {name} key, {comparison} 0,", new LobbySearchQuery().AddNumericFilter(key, 0, comparison), true);
+                }
+
+                yield return ($"a string filter with a {name} key beside one the lobby passes", new LobbySearchQuery()
+                    .AddStringFilter(key, "x")
+                    .AddStringFilter(KeylessFilterLobbyKey, KeylessFilterLobbyValue), true);
+                yield return ($"a numeric filter with a {name} key beside one the lobby fails", new LobbySearchQuery()
+                    .AddNumericFilter(key, 0)
+                    .AddStringFilter(KeylessFilterLobbyKey, "forest"), false);
             }
         }
 

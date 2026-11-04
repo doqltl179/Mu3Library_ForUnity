@@ -29,7 +29,10 @@ namespace Mu3Library.Multiplayer.Data
         /// left out whatever the comparison on every backend, as Steam's search on AppID 480 left
         /// it out on 2026-11-01, since a Steam lobby keeps no key written with an empty value. So
         /// neither <c>NotEqual "ranked"</c> nor <c>Equal ""</c> finds a lobby that never wrote the
-        /// key or wrote it empty.
+        /// key or wrote it empty. A filter whose key is null or empty is skipped on every backend
+        /// and leaves out no lobby, as the Steam backend skips it rather than hand Steam such a
+        /// key, so a filter on a key the game has not chosen yet finds every lobby that the rest of
+        /// the search finds.
         /// </summary>
         /// <remarks>
         /// Every backend compares the values as Steam does, which Steam's search on AppID 480
@@ -51,7 +54,8 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Keeps the lobbies whose value under <paramref name="key"/> reads as a whole number that,
         /// compared with <paramref name="value"/>, gives <paramref name="comparison"/>. The key
-        /// matches in any case, as for <see cref="AddStringFilter"/>.
+        /// matches in any case, and a filter whose key is null or empty is skipped on every
+        /// backend and leaves out no lobby, as for <see cref="AddStringFilter"/>.
         /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)
         {

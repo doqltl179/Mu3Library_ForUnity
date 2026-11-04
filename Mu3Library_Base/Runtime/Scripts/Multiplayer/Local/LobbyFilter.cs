@@ -11,7 +11,9 @@ namespace Mu3Library.Multiplayer.Local
     /// (<see cref="CompareText"/>). A string filter drops a lobby that lacks its key, or holds it
     /// with an empty value, under every comparison, as Steam's search on AppID 480 did on
     /// 2026-11-01 (#286): a Steam lobby keeps no key written with an empty value, so neither
-    /// lobby has a value that a comparison could keep.
+    /// lobby has a value that a comparison could keep. A filter whose key is null or empty is
+    /// skipped and drops no lobby, as the Steam backend skips it rather than hand Steam such a
+    /// key (#314).
     /// </summary>
     internal static class LobbyFilter
     {
@@ -20,7 +22,12 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.StringFilters.Count; i++)
             {
                 LobbyStringFilter filter = query.StringFilters[i];
-                if (!data.TryGetValue(filter.Key ?? string.Empty, out string value)
+                if (string.IsNullOrEmpty(filter.Key))
+                {
+                    continue;
+                }
+
+                if (!data.TryGetValue(filter.Key, out string value)
                     || string.IsNullOrEmpty(value)
                     || !Satisfies(CompareText(value, filter.Value ?? string.Empty), filter.Comparison))
                 {
@@ -31,7 +38,12 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.NumericFilters.Count; i++)
             {
                 LobbyNumericFilter filter = query.NumericFilters[i];
-                if (!data.TryGetValue(filter.Key ?? string.Empty, out string text)
+                if (string.IsNullOrEmpty(filter.Key))
+                {
+                    continue;
+                }
+
+                if (!data.TryGetValue(filter.Key, out string text)
                     || !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
                     || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
                 {

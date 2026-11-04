@@ -64,7 +64,8 @@ namespace Mu3Library.Multiplayer.Backend
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted);
 
         /// <summary>
-        /// Searches public, joinable lobbies that have a free slot and pass every filter.
+        /// Searches public, joinable lobbies that have a free slot and pass every filter. A filter
+        /// whose key is null or empty is skipped, as the Steam backend skips it.
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted);
 
