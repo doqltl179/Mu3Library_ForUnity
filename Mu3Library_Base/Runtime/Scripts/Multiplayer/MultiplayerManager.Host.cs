@@ -86,7 +86,7 @@ namespace Mu3Library.Multiplayer
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
                 // An empty value writes no key, as SetLobbyData deletes one.
-                if (pair.Value.Length > 0)
+                if (!IsEmptyValue(pair.Value))
                 {
                     _lobbyData[pair.Key] = pair.Value;
                 }
@@ -148,7 +148,7 @@ namespace Mu3Library.Multiplayer
             Dictionary<string, string> data = new Dictionary<string, string>();
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                if (pair.Value.Length > 0)
+                if (!IsEmptyValue(pair.Value))
                 {
                     data[pair.Key] = pair.Value;
                 }
@@ -189,7 +189,7 @@ namespace Mu3Library.Multiplayer
                     return check;
                 }
 
-                bool isEmpty = pair.Value != null && pair.Value.Length == 0;
+                bool isEmpty = IsEmptyValue(pair.Value);
                 check = !isEmpty
                     ? CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize)
                     : IsValidDataKey(pair.Key) ? MultiplayerReason.None : MultiplayerReason.InvalidArgument;

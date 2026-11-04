@@ -28,6 +28,10 @@ namespace Mu3Library.Multiplayer.Local
                     continue;
                 }
 
+                // No manager writes an empty value since #313, so only a caller of the backend
+                // itself, or a lobby file another process wrote with an earlier version of the
+                // library, brings one here. It stays left out, as #286 made it, while whether the
+                // local backends follow Steam's own handling of such a value is open.
                 if (!data.TryGetValue(filter.Key, out string value)
                     || string.IsNullOrEmpty(value)
                     || !Satisfies(CompareText(value, filter.Value ?? string.Empty), filter.Comparison))

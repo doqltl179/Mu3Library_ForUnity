@@ -40,7 +40,7 @@ namespace Mu3Library.Multiplayer
             // set to an empty value, but writes none for a key it lacks (AppID 480, 2026-11-04,
             // #313), so the empty value would leave Steam's lobby, the local backends' lobbies,
             // and every player's copy holding different keys.
-            if (value != null && value.Length == 0)
+            if (IsEmptyValue(value))
             {
                 return DeleteLobbyData(key);
             }
@@ -447,6 +447,13 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Rules And Packets
+        /// <summary>
+        /// A lobby data value that writes no key: <see cref="SetLobbyData"/> deletes the key
+        /// instead, and a lobby is created without it. A null value is no value at all and is
+        /// refused, so it is not empty here.
+        /// </summary>
+        private static bool IsEmptyValue(string value) => value != null && value.Length == 0;
+
         private static bool IsValidDataKey(string key)
         {
             return !string.IsNullOrEmpty(key)
