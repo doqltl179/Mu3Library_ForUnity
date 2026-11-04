@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mu3Library.DI;
 using Mu3Library.Editor.Window.Drawer;
@@ -37,6 +38,24 @@ namespace Mu3Library.Tests
             [Inject(required: false)] private readonly IService _service = null;
 
             public IService Service => _service;
+        }
+
+        private sealed class RequiredStatic
+        {
+            [Inject] private static IService _field = null;
+
+            [Inject] public static IService Property { get; set; }
+
+            public static IService Field => _field;
+        }
+
+        private sealed class OptionalStatic
+        {
+            [Inject(required: false)] private static IService _field = null;
+
+            [Inject(required: false)] public static IService Property { get; set; }
+
+            public static IService Field => _field;
         }
 
         private sealed class PlainCore : CoreBase { }
@@ -99,6 +118,55 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void StaticMembers_RequiredStaticFieldAndProperty_AreReported()
+        {
+            List<string> issues = new();
+
+            DIValidatorDrawer.ValidateStaticMembers(typeof(RequiredStatic), issues);
+
+            Assert.AreEqual(2, issues.Count, string.Join("\n", issues));
+            StringAssert.Contains($"{nameof(RequiredStatic)}._field", issues[0]);
+            StringAssert.Contains("static", issues[0]);
+            StringAssert.Contains($"{nameof(RequiredStatic)}.{nameof(RequiredStatic.Property)}", issues[1]);
+            StringAssert.Contains("static", issues[1]);
+        }
+
+        [Test]
+        public void StaticMembers_OptionalStaticMembers_AreNotReported()
+        {
+            List<string> issues = new();
+
+            DIValidatorDrawer.ValidateStaticMembers(typeof(OptionalStatic), issues);
+
+            CollectionAssert.IsEmpty(issues);
+        }
+
+        [Test]
+        public void ValidateCore_RegisteredClassWithRequiredStaticMembers_IsReported()
+        {
+            GameObject go = new(nameof(PlainCore));
+            try
+            {
+                PlainCore core = go.AddComponent<PlainCore>();
+                ServiceDescriptor[] descriptors =
+                {
+                    new ServiceDescriptor(typeof(RequiredStatic), typeof(RequiredStatic), ServiceLifetime.Singleton),
+                };
+                List<string> issues = new();
+
+                DIValidatorDrawer.ValidateCore(null, core, descriptors, issues);
+
+                Assert.AreEqual(2, issues.Count, string.Join("\n", issues));
+                StringAssert.Contains($"{nameof(RequiredStatic)}._field", issues[0]);
+                StringAssert.Contains($"{nameof(RequiredStatic)}.{nameof(RequiredStatic.Property)}", issues[1]);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void ValidateCore_RegisteredClassWithRequiredReadOnlyField_IsReported()
         {
             GameObject go = new(nameof(PlainCore));
@@ -124,32 +192,56 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void ValidateCore_RegisteredInstance_ReportsOnlyMembersTheContainerCannotFill()
+        public void ValidateCore_InstanceTheContainerRegistersWithoutInjecting_IsNotReported()
         {
             GameObject go = new(nameof(PlainCore));
+            Container container = new(null);
+            ContainerScope scope = container.CreateScope();
             try
             {
                 PlainCore core = go.AddComponent<PlainCore>();
-                ServiceDescriptor[] descriptors =
-                {
-                    new ServiceDescriptor(typeof(RequiredGetOnly), new RequiredGetOnly()),
-                    new ServiceDescriptor(typeof(RequiredReadOnly), new RequiredReadOnly()),
-                    // IService is not registered, but the checks that look up a registration
-                    // still cover only the classes the container creates.
-                    new ServiceDescriptor(typeof(RequiredPrivateSet), new RequiredPrivateSet()),
-                };
+                RequiredReadOnly readOnly = new();
+                container.RegisterInstance(new RequiredGetOnly());
+                container.RegisterInstance(readOnly);
+                container.RegisterInstance(new RequiredStatic());
+                // IService is not registered, but the checks that look up a registration cover
+                // only the classes the container creates.
+                container.RegisterInstance(new RequiredPrivateSet());
                 List<string> issues = new();
 
-                DIValidatorDrawer.ValidateCore(null, core, descriptors, issues);
+                DIValidatorDrawer.ValidateCore(null, core, container.GetAllDescriptors(), issues);
 
-                Assert.AreEqual(2, issues.Count, string.Join("\n", issues));
-                StringAssert.Contains($"{nameof(RequiredGetOnly)}.{nameof(RequiredGetOnly.Service)}", issues[0]);
-                StringAssert.Contains("no setter", issues[0]);
-                StringAssert.Contains($"{nameof(RequiredReadOnly)}._service", issues[1]);
-                StringAssert.Contains("readonly", issues[1]);
+                CollectionAssert.IsEmpty(issues, string.Join("\n", issues));
+                // The container hands the instance out without injecting it, so nothing throws.
+                Assert.AreSame(readOnly, scope.Resolve<RequiredReadOnly>());
             }
             finally
             {
+                scope.Dispose();
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void ValidateCore_InstanceWhoseInjectingRegistrationFailed_LeavesNothingToReport()
+        {
+            GameObject go = new(nameof(PlainCore));
+            Container container = new(null);
+            ContainerScope scope = container.CreateScope();
+            try
+            {
+                PlainCore core = go.AddComponent<PlainCore>();
+                List<string> issues = new();
+
+                Assert.Throws<InvalidOperationException>(() => scope.RegisterInstance(new RequiredReadOnly()));
+                DIValidatorDrawer.ValidateCore(null, core, container.GetAllDescriptors(), issues);
+
+                Assert.AreEqual(0, container.GetAllDescriptors().Count);
+                CollectionAssert.IsEmpty(issues, string.Join("\n", issues));
+            }
+            finally
+            {
+                scope.Dispose();
                 UnityEngine.Object.DestroyImmediate(go);
             }
         }
