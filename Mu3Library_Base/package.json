@@ -57,7 +57,7 @@
         },
         {
             "displayName": "Multiplayer",
-            "description": "A player-hosted session with buttons: create, search, and join a lobby by its lobby ID, invite friends on Steam, get ready, start, exchange a message, set and delete lobby data and your own participant data, and kick. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. Without Steamworks.NET, or without a running Steam client, it plays on the local backend, where an editor and player builds on the same computer meet; with Steamworks.NET it builds for the editor and 64-bit standalone players only. Its buttons are IMGUI, so it responds to input with or without the Input System package and needs no TextMesh Pro resources. Command-line options run the whole flow unattended; the sample's README lists them.",
+            "description": "A player-hosted session with buttons: create, search, and join a lobby by its lobby ID, invite friends on Steam, get ready, start, exchange a message, set and delete lobby data as the host and your own participant data as any player, and kick. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. Without Steamworks.NET, or without a running Steam client, it plays on the local backend, where an editor and player builds on the same computer meet; with Steamworks.NET it builds for the editor and 64-bit standalone players only. Its buttons are IMGUI, so it responds to input with or without the Input System package and needs no TextMesh Pro resources. Command-line options run the whole flow unattended; the sample's README lists them.",
             "path": "Samples~/Multiplayer"
         }
     ]
