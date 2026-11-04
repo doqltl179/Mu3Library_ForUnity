@@ -181,7 +181,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// <summary>
         /// Deletes the rich presence keys the backend set when <paramref name="steamRuns"/>, in
         /// the order <see cref="SetPresence"/> keeps, inside the guard, so a call that fails ends
-        /// only this step; then forgets them, so a later call deletes nothing twice.
+        /// only this step. Once the deletion gets through, Steam having taken or refused each key,
+        /// the backend forgets them all, so a later call deletes none of them again; a Steam call
+        /// that throws stops it before then, and a later call, such as the one disposing makes,
+        /// tries the keys it still holds once more.
         /// </summary>
         private void ClearPresence(bool steamRuns)
         {
