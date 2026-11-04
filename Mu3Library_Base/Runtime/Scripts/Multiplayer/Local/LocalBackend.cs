@@ -461,12 +461,17 @@ namespace Mu3Library.Multiplayer.Local
                 return;
             }
 
-            Dictionary<string, string> snapshot = new Dictionary<string, string>();
+            // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
+            // lobby lacks, as a Steam lobby writes none (#343); keys in any case, as the lobby keeps them.
+            Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    snapshot[pair.Key] = pair.Value;
+                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(pair.Key))
+                    {
+                        snapshot[pair.Key] = pair.Value ?? string.Empty;
+                    }
                 }
             }
 
@@ -579,8 +584,9 @@ namespace Mu3Library.Multiplayer.Local
                 return _machine.GetLobbyData(lobbyId, key);
             }
 
+            // An empty value reads as none, as the Steam backend reads it (#343).
             LocalLobby lobby = _network.FindLobby(lobbyId);
-            return lobby != null && key != null && lobby.Data.TryGetValue(key, out string value) ? value : null;
+            return lobby != null && key != null && lobby.Data.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value) ? value : null;
         }
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
@@ -594,6 +600,13 @@ namespace Mu3Library.Multiplayer.Local
             if (lobby == null || string.IsNullOrEmpty(key))
             {
                 return false;
+            }
+
+            // An empty value writes no key the lobby lacks and answers true, and leaves a key it
+            // holds with the empty value, as a Steam lobby did (#343).
+            if (string.IsNullOrEmpty(value) && !lobby.Data.ContainsKey(key))
+            {
+                return true;
             }
 
             lobby.Data[key] = value ?? string.Empty;
@@ -613,8 +626,8 @@ namespace Mu3Library.Multiplayer.Local
                 return false;
             }
 
-            lobby.Data.Remove(key);
-            return true;
+            // False for a key the lobby lacks, as Steam answers (#343).
+            return lobby.Data.Remove(key);
         }
 
         public bool SetLobbyJoinable(LobbyId lobbyId, bool joinable)

@@ -475,8 +475,8 @@ namespace Mu3Library.Tests
             // FR-11, FR-38, #313 on Steam itself: the manager deletes a key written with an empty
             // value, so the key leaves the owner's lobby, what search returns, and every copy, and
             // a lobby created with one starts without it, as the local backends' tests hold them
-            // to. Steam alone keeps a key it holds when the key is set empty, which the test logs
-            // through the backend itself.
+            // to. What the backend itself does with an empty value, which the manager keeps from
+            // happening, is the next test's.
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
@@ -504,24 +504,58 @@ namespace Mu3Library.Tests
                 Assert.That(after.Data.Count, Is.EqualTo(1), $"search returns the keys '{string.Join("', '", after.Data.Keys)}'");
                 Assert.That(after.Data["Map"], Is.EqualTo("desert"));
 
-                // What the manager keeps from happening, and why: the backend itself sets a key
-                // that Steam's search already lists to an empty value.
-                Assert.That(_backend.SetLobbyData(lobby, "raw", "v"), Is.True);
-                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("raw", "v"), lobby), Is.Not.Null,
-                    "the lobby never showed up in a search filtered by the key set through the backend");
-                Assert.That(_backend.SetLobbyData(lobby, "raw", string.Empty), Is.True);
-                LobbyInfo listed = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
-                    info => info != null && info.Data.TryGetValue("raw", out string value) && value.Length == 0, 15);
-                string listedRaw = listed == null ? "no lobby" : listed.Data.TryGetValue("raw", out string rawValue) ? $"'{rawValue}'" : "no key";
-                bool isFoundByEmpty = SearchUntil(manager, () => Worldwide().AddStringFilter("raw", string.Empty), lobby, seconds: 10) != null;
-                bool isMissingDeleted = _backend.DeleteLobbyData(lobby, "never");
-                TestContext.WriteLine($"Set empty through the backend, the owner's lobby holds the game keys '{string.Join("', '", OwnLobbyGameKeys(lobby))}', "
-                    + $"search returns the key as {listedRaw}, a filter for the empty value {(isFoundByEmpty ? "finds" : "does not find")} the lobby, "
-                    + $"and deleting a key Steam lacks answers {isMissingDeleted}.");
-                Assert.That(listedRaw, Is.EqualTo("''"), "Steam's search returns the key a lobby held with the empty value it was set to");
-                Assert.That(isFoundByEmpty, Is.True, "a filter for the empty value finds the lobby on Steam");
-                Assert.That(isMissingDeleted, Is.False, "Steam refuses to delete a key the lobby lacks");
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
 
+        [Test]
+        public void SteamLobby_KeepsOnlyAKeyItHoldsSetEmptyThroughTheBackend_AndFiltersIt_AsTheLocalBackendsDo()
+        {
+            // #343 on Steam itself: the backend called directly with an empty value, which the
+            // manager never does (#313). Steam writes no key the lobby lacks, keeps a key it holds
+            // with the empty value, which search returns, and every filter on that value gives
+            // what the local backends' tests hold them to.
+            string key = MultiplayerSessionTests.EmptyValueKey;
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(_backend.SetLobbyData(lobby, key, "v"), Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter(key, "v"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key set through the backend");
+
+                Assert.That(_backend.SetLobbyData(lobby, "never", string.Empty), Is.True, "an empty value for a key the lobby lacks");
+                Assert.That(_backend.SetLobbyData(lobby, key, string.Empty), Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, key), Is.Null, "the backend reads an empty value as none");
+                Assert.That(_backend.DeleteLobbyData(lobby, "never"), Is.False, "Steam refuses to delete a key the lobby lacks");
+                List<string> owned = OwnLobbyGameKeys(lobby);
+                Assert.That(owned.Select(name => name.ToLowerInvariant()), Is.EquivalentTo(new[] { "map", key }),
+                    $"the owner's lobby holds the game keys '{string.Join("', '", owned)}'");
+
+                LobbyInfo listed = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && info.Data.TryGetValue(key, out string value) && value.Length == 0, 15);
+                Assert.That(listed, Is.Not.Null, "Steam's search never returned the key with the empty value it was set to");
+
+                // The value reached search's filters above, so a filter that drops the lobby drops
+                // it at once, and one that keeps it is asked a little longer.
+                List<string> results = new List<string>();
+                List<string> mismatches = new List<string>();
+                foreach ((string description, Func<LobbySearchQuery, LobbySearchQuery> addTo, bool isKept) in MultiplayerSessionTests.EmptyValueFilterChecks())
+                {
+                    bool isFound = SearchUntil(manager, () => addTo(Worldwide()), lobby, seconds: isKept ? 10 : 0) != null;
+                    results.Add($"{description} {(isFound ? "keeps" : "drops")}");
+                    if (isFound != isKept)
+                    {
+                        mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+
+                TestContext.WriteLine("Filters on a key Steam holds with an empty value: " + string.Join("; ", results) + ".");
+                Assert.That(mismatches, Is.Empty);
                 manager.Leave();
             }
             finally

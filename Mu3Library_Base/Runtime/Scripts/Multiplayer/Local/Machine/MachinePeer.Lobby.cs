@@ -90,13 +90,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted)
         {
             // Keys in any case, as the lobby keeps them, so it counts the entries the lobby gets.
+            // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
+            // lobby lacks, as a Steam lobby writes none (#343).
             Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             bool isWithinLimits = true;
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    snapshot[pair.Key] = pair.Value ?? string.Empty;
+                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(pair.Key))
+                    {
+                        snapshot[pair.Key] = pair.Value ?? string.Empty;
+                    }
+
                     isWithinLimits &= MachineProtocol.IsWithinLimits(pair.Key, pair.Value);
                 }
             }
@@ -269,7 +275,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
             IReadOnlyDictionary<string, string> data = _lobbies.TryGetValue(lobbyId, out MachineLobby lobby)
                 ? lobby.Data
                 : lobbyId == _refusedLobby ? _refusedLobbyData : null;
-            return data != null && key != null && data.TryGetValue(key, out string value) ? value : null;
+
+            // An empty value reads as none, as the Steam backend reads it (#343).
+            return data != null && key != null && data.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value) ? value : null;
         }
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
@@ -288,9 +296,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
+            // An empty value writes no key the lobby lacks and answers true, and leaves a key it
+            // holds with the empty value, as a Steam lobby did (#343).
+            bool holds = lobby.Data.TryGetValue(key, out string current);
+            if (string.IsNullOrEmpty(value) && !holds)
+            {
+                return true;
+            }
+
             // Past the entries a lobby file lists and a frame carries, the lobby would leave search
             // and joins by its ID, and its members would drop the frames that bring it (#309).
-            bool holds = lobby.Data.TryGetValue(key, out string current);
             if (lobby.Data.Count >= MachineDirectory.MaxLobbyDataEntries && !holds)
             {
                 Debug.LogWarning($"[Multiplayer] A lobby on the local network holds at most {MachineDirectory.MaxLobbyDataEntries} data entries; key '{key}' was not set on lobby {lobbyId}.");
@@ -322,12 +337,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
-            // The members and the lobby file take the whole data again, so the key leaves both.
-            if (lobby.Data.Remove(key))
+            // False for a key the lobby lacks, as Steam answers (#343).
+            if (!lobby.Data.Remove(key))
             {
-                lobby.IsDirty = true;
+                return false;
             }
 
+            // The members and the lobby file take the whole data again, so the key leaves both.
+            lobby.IsDirty = true;
             return true;
         }
 

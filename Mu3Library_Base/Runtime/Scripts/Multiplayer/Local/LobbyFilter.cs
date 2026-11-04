@@ -9,12 +9,16 @@ namespace Mu3Library.Multiplayer.Local
     /// finds its key in any case, as Steam does, since the local backends keep lobby data in
     /// dictionaries that ignore case, and compares a string value as Steam compares it
     /// (<see cref="CompareText"/>). A string filter drops a lobby that lacks its key under every
-    /// comparison, as Steam's search on AppID 480 did on 2026-11-01 (#286), and one that holds
-    /// it with an empty value too, which the manager never writes since it deletes such a key
-    /// (#313); a Steam lobby that holds a key with an empty value, which only a caller of the
-    /// backend itself can bring about, passes a comparison that the empty value passes, as it
-    /// did on 2026-11-04. A filter whose key is null or empty is skipped and drops no lobby, as
-    /// the Steam backend skips it rather than hand Steam such a key (#314).
+    /// comparison, as Steam's search on AppID 480 did on 2026-11-01 (#286). A lobby that holds
+    /// the key with an empty value, which the manager never writes since it deletes such a key
+    /// (#313) but a caller of a backend itself or a lobby file another process wrote with an
+    /// earlier version of the library brings here, is compared as Steam's search compared one on
+    /// 2026-11-04 (#343): a string filter takes the empty value as an empty string, so
+    /// <c>Equal ""</c> and <c>NotEqual "x"</c> keep the lobby, and a numeric filter reads it as
+    /// 0. A numeric filter drops a lobby that lacks its key or holds a value that is not a whole
+    /// number; Steam's numeric filters read a key the lobby lacked as 0 too that day, which the
+    /// local backends do not follow. A filter whose key is null or empty is skipped and drops no
+    /// lobby, as the Steam backend skips it rather than hand Steam such a key (#314).
     /// </summary>
     internal static class LobbyFilter
     {
@@ -28,13 +32,8 @@ namespace Mu3Library.Multiplayer.Local
                     continue;
                 }
 
-                // No manager writes an empty value since #313, so only a caller of the backend
-                // itself, or a lobby file another process wrote with an earlier version of the
-                // library, brings one here. It stays left out, as #286 made it, while whether the
-                // local backends follow Steam's own handling of such a value is open.
                 if (!data.TryGetValue(filter.Key, out string value)
-                    || string.IsNullOrEmpty(value)
-                    || !Satisfies(CompareText(value, filter.Value ?? string.Empty), filter.Comparison))
+                    || !Satisfies(CompareText(value ?? string.Empty, filter.Value ?? string.Empty), filter.Comparison))
                 {
                     return false;
                 }
@@ -49,7 +48,7 @@ namespace Mu3Library.Multiplayer.Local
                 }
 
                 if (!data.TryGetValue(filter.Key, out string text)
-                    || !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                    || !TryReadNumber(text, out int value)
                     || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
                 {
                     return false;
@@ -57,6 +56,21 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// A lobby value as a numeric filter reads it: a whole number, and an empty value as 0, as
+        /// Steam's numeric filters read it on AppID 480 on 2026-11-04 (#343).
+        /// </summary>
+        private static bool TryReadNumber(string text, out int value)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                value = 0;
+                return true;
+            }
+
+            return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
         }
 
         /// <summary>

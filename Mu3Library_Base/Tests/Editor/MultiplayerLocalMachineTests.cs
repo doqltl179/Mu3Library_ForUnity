@@ -350,6 +350,63 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Backend_WritingAnEmptyValue_KeepsOnlyAKeyTheLobbyHolds_InEveryProcess_AndSearchFiltersItAsSteamDoes()
+        {
+            // #343 between "processes": the backend itself, which the manager never hands an empty
+            // value (#313), takes one as a Steam lobby took it on AppID 480 on 2026-11-04, in the
+            // owner's lobby, a member's copy, and the lobby file.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            Dictionary<string, string> data = new Dictionary<string, string>
+            {
+                ["map"] = "desert",
+                ["e1"] = string.Empty,
+                ["n1"] = null,
+                [MultiplayerSessionTests.EmptyValueKey] = "v",
+            };
+            (MultiplayerReason reason, LobbyId lobby) = CreateLobbies(owner, 1, data).Single();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(MachineDirectory.Read(_folder).Single().Data.Keys, Is.EquivalentTo(new[] { "map", MultiplayerSessionTests.EmptyValueKey }),
+                "an empty value at creation writes no key");
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(member.GetLobbyData(lobby, MultiplayerSessionTests.EmptyValueKey), Is.EqualTo("v"));
+
+            // An empty value writes no key the lobby lacks, answering true, and leaves one it holds empty.
+            Assert.That(owner.SetLobbyData(lobby, "never", string.Empty), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "never", null), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, MultiplayerSessionTests.EmptyValueKey.ToUpperInvariant(), string.Empty), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, MultiplayerSessionTests.EmptyValueKey), Is.Null, "the Steam backend reads an empty value as none");
+            Assert.That(owner.DeleteLobbyData(lobby, "never"), Is.False, "Steam refuses to delete a key the lobby lacks");
+            PumpUntil(() => member.GetLobbyData(lobby, MultiplayerSessionTests.EmptyValueKey) == null, "the member's copy to read the empty value as none");
+            PumpUntil(() => ListedData(lobby, MultiplayerSessionTests.EmptyValueKey) == string.Empty, "the lobby file to list the key with the empty value");
+            Assert.That(MachineDirectory.Read(_folder).Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", [MultiplayerSessionTests.EmptyValueKey] = string.Empty }));
+            Assert.That(member.GetLobbyData(lobby, "map"), Is.EqualTo("desert"));
+
+            // From another process, which reads the lobby file, and from the owner's own, which
+            // reads its lobby as it is, filters compare the empty value as Steam's did.
+            List<string> mismatches = new List<string>();
+            foreach (LocalBackend searcher in new[] { seeker, owner })
+            {
+                foreach ((string description, Func<LobbySearchQuery, LobbySearchQuery> addTo, bool isKept) in MultiplayerSessionTests.EmptyValueFilterChecks())
+                {
+                    IReadOnlyList<BackendLobby> found = null;
+                    searcher.SearchLobbies(addTo(new LobbySearchQuery()), (r, lobbies) => found = lobbies);
+                    PumpUntil(() => found != null, "the search");
+                    if (found.Any(candidate => candidate.Id == lobby) != isKept)
+                    {
+                        mismatches.Add($"{searcher.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            Assert.That(owner.DeleteLobbyData(lobby, MultiplayerSessionTests.EmptyValueKey), Is.True);
+            PumpUntil(() => !MachineDirectory.Read(_folder).Single().Data.ContainsKey(MultiplayerSessionTests.EmptyValueKey), "the lobby file to drop the key");
+        }
+
+        [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
             // FR-6, FR-38, #239, #286: every comparison of a string filter, from another process,
@@ -1520,7 +1577,9 @@ namespace Mu3Library.Tests
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
             LobbyId lobby = CreateLobbies(owner, 1, NumberedData(MachineDirectory.MaxLobbyDataEntries - 1)).Single().Lobby;
 
-            // The 4,096th key, which counts with an empty value as with any other.
+            // The 4,096th key, which counts with an empty value as with any other once the lobby
+            // holds it; an empty value alone writes no key the lobby lacks (#343).
+            Assert.That(owner.SetLobbyData(lobby, "last", "v"), Is.True);
             Assert.That(owner.SetLobbyData(lobby, "last", string.Empty), Is.True);
 
             // The 4,097th key.
