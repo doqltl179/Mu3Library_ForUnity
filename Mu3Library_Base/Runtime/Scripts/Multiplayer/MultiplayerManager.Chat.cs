@@ -40,8 +40,9 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostBroadcastChat(LocalPlayerId, text);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // This player hears its own message when the host passes it back, as everyone else

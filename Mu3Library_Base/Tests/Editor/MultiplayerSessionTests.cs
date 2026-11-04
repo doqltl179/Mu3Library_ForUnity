@@ -890,6 +890,49 @@ namespace Mu3Library.Tests
             Assert.That(a.States.Skip(before).Select(change => change.Reason), Is.EqualTo(new[] { MultiplayerReason.ConnectionLost }));
         }
 
+        [Test]
+        public void HostBoundRequest_ThatCannotLeaveAfterTheLobbySaidTheHostLeft_AnswersHostLeft([ValueSource(nameof(HostBoundRequests))] string request)
+        {
+            // #339: once the lobby said the host left, a send that cannot leave ends the session
+            // with HostLeft rather than starting a reconnect (FR-27, NFR-4), while the request
+            // answered ConnectionLost.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            JoinNew("B", host);
+            PrepareHostBoundRequest(host, a, request);
+            SessionState state = a.Manager.State;
+            host.Backend.LeaveLobby(host.Manager.CurrentLobbyId);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(state), "waiting for the host's close");
+            int before = a.States.Count;
+
+            a.Backend.FailingSends = 1;
+
+            Assert.That(MakeHostBoundRequest(a, request).Reason, Is.EqualTo(MultiplayerReason.HostLeft));
+            Assert.That(a.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"{state} -> Offline (HostLeft)" }));
+        }
+
+        [TestCase(MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning)]
+        [TestCase(MultiplayerReason.None, MultiplayerReason.BackendError)]
+        public void Send_AClientsUnreliableMessageThatCannotLeaveAsTheBackendIsGone_AnswersTheReasonTheNextUpdateEndsTheSessionWith(MultiplayerReason named, MultiplayerReason expected)
+        {
+            // #339: an unreliable message that cannot leave ends no session by itself; the next
+            // update ends it once the backend is gone (#272), with the reason the message answered.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = CreatePlatformNode("A");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            int before = a.States.Count;
+
+            a.Platform.IsGone = true;
+            a.Platform.GoneReason = named;
+
+            Assert.That(a.Manager.Send(1, new byte[] { 1 }, MessageTarget.Host, DeliveryMode.Unreliable).Reason, Is.EqualTo(expected));
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby), "until the next update");
+
+            a.Manager.Update();
+            Assert.That(a.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"Lobby -> Offline ({expected})" }));
+        }
+
         [TestCase(MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning)]
         [TestCase(MultiplayerReason.None, MultiplayerReason.BackendError)]
         public void Send_TheHostsMessageToOnePlayerThatCannotLeaveAsTheBackendIsGone_AnswersTheReasonTheSessionEndsWith(MultiplayerReason named, MultiplayerReason expected)
@@ -903,6 +946,7 @@ namespace Mu3Library.Tests
             host.Platform.IsGone = true;
             host.Platform.GoneReason = named;
 
+            Assert.That(host.Manager.Send(1, new byte[] { 1 }, MessageTarget.To(a.Id), DeliveryMode.Unreliable).IsSuccess, Is.True, "an unreliable message may be lost anyway");
             Assert.That(host.Manager.Send(1, new byte[] { 1 }, MessageTarget.To(a.Id)).Reason, Is.EqualTo(expected));
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Lobby), "until the next update");
 

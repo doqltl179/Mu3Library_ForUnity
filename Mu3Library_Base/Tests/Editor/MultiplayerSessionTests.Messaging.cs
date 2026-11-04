@@ -525,13 +525,13 @@ namespace Mu3Library.Tests
         public void AHandlerThatLeavesWhileAPlayerIsDropped_GetsNoMessageAfterward()
         {
             // The drop raises events before the host's own copy is handled; a session that ended
-            // there handles nothing more.
+            // there handles nothing more, and the message answers the reason it ended with (#340).
             (Node host, Node[] clients) = CreateSession(2);
             Inbox inbox = Listen(host, Chat);
             host.Manager.OnParticipantLeft += (participant, reason) => host.Manager.Leave();
 
             host.Backend.FailingSends = 1;
-            Assert.That(host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.All).IsSuccess, Is.True);
+            Assert.That(host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.All).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
 
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
             Assert.That(inbox.Received, Is.Empty);
@@ -649,6 +649,47 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void HostRequest_AHandlerThatEndsTheSessionWhileItsMessageGoesOut_AnswersTheReasonTheSessionEndedWith(
+            [ValueSource(nameof(HostRequestsThatSend))] string request)
+        {
+            // #340: these requests already raised no event of their own after such a drop, but
+            // answered success, and the host's message to one player answered ConnectionLost
+            // although the session ended with LeftNormally. Without a reservation the dropped
+            // player leaves at once, also in a game.
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false, reconnectReservationSeconds: 0f));
+            Inbox inbox = Listen(host, Chat);
+            PrepareHostRequest(host, request);
+            int before = host.States.Count;
+            int events = CountOwnEvents(host, inbox, request);
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(MakeHostRequest(host, request).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.States.Skip(before).Select(change => change.Current), Is.EqualTo(new[] { SessionState.Offline }));
+            Assert.That(CountOwnEvents(host, inbox, request), Is.EqualTo(events), "no event of its own after the session ended");
+        }
+
+        [Test]
+        public void HostRequest_AHandlerOfItsOwnEventThatEndsTheSession_AnswersTheReasonTheSessionEndedWith(
+            [ValueSource(nameof(HostRequestsWithOwnEvents))] string request)
+        {
+            // #340: the change went out and the request's event ran, but the session it changed
+            // ended there, so success would claim a change that no longer stands, as CreateLobby
+            // and JoinLobby answer the reason too. StartGame answered success when a handler of
+            // its change to InGame left, though OnGameStarted never came.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, reconnectReservationSeconds: 0f));
+            JoinNew("A", host);
+            JoinNew("B", host);
+            PrepareHostRequest(host, request);
+            LeaveFromOwnEvent(host, request);
+            int before = host.States.Count;
+
+            Assert.That(MakeHostRequest(host, request).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.States.Skip(before).Last().ToString(), Does.EndWith("-> Offline (LeftNormally)"));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+        }
+
+        [Test]
         public void SendingToAConnectionTheOtherSideClosed_KeepsTheReasonItGave()
         {
             // FR-27, FR-22, FR-28: a message sent while the close is on its way does not turn a
@@ -707,6 +748,145 @@ namespace Mu3Library.Tests
             };
 
             return host;
+        }
+
+        /// <summary>
+        /// The host's requests that send to the players, besides StartGame, EndGame, UpdateRules,
+        /// SetReady, and Kick, which tests of their own cover; the host's own data and loading
+        /// report among them. "SendToAll" sends <see cref="Chat"/> to everyone, "SendToOne" to the
+        /// first client.
+        /// </summary>
+        private static readonly string[] HostRequestsThatSend =
+        {
+            "ReportLoaded", "SendChat", "SetLobbyData", "DeleteLobbyData", "SetParticipantData", "DeleteParticipantData", "SendToAll", "SendToOne",
+        };
+
+        /// <summary>The host's requests that raise an event of their own on the host, or hand it its own copy.</summary>
+        private static readonly string[] HostRequestsWithOwnEvents =
+        {
+            "StartGame", "EndGame", "UpdateRules", "SetReady", "Kick",
+            "ReportLoaded", "SendChat", "SetLobbyData", "DeleteLobbyData", "SetParticipantData", "DeleteParticipantData", "SendToAll",
+        };
+
+        /// <summary>Takes a host with two clients in the lobby where it may make <paramref name="request"/>.</summary>
+        private void PrepareHostRequest(Node host, string request)
+        {
+            switch (request)
+            {
+                case "EndGame":
+                case "ReportLoaded":
+                    Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+                    break;
+
+                case "DeleteLobbyData":
+                    Assert.That(host.Manager.SetLobbyData("map", "forest").IsSuccess, Is.True);
+                    break;
+
+                case "DeleteParticipantData":
+                    Assert.That(host.Manager.SetParticipantData("color", "red").IsSuccess, Is.True);
+                    break;
+            }
+
+            Pump();
+        }
+
+        private static MultiplayerResult MakeHostRequest(Node host, string request)
+        {
+            switch (request)
+            {
+                case "StartGame": return new MultiplayerResult(host.Manager.StartGame().Reason);
+                case "EndGame": return host.Manager.EndGame();
+                case "UpdateRules": return host.Manager.UpdateRules(host.Manager.Rules.WithCapacity(3));
+                case "SetReady": return host.Manager.SetReady(true);
+                case "Kick": return host.Manager.Kick(host.Manager.Participants[1].Id);
+                case "ReportLoaded": return host.Manager.ReportLoaded();
+                case "SendChat": return host.Manager.SendChat("Hello");
+                case "SetLobbyData": return host.Manager.SetLobbyData("map", "forest");
+                case "DeleteLobbyData": return host.Manager.DeleteLobbyData("map");
+                case "SetParticipantData": return host.Manager.SetParticipantData("color", "blue");
+                case "DeleteParticipantData": return host.Manager.DeleteParticipantData("color");
+                case "SendToAll": return host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.All);
+                case "SendToOne": return host.Manager.Send(Chat, new byte[] { 1 }, MessageTarget.To(host.Manager.Participants[1].Id));
+                default: throw new ArgumentOutOfRangeException(nameof(request), request, null);
+            }
+        }
+
+        /// <summary>How many times the host heard the event of its own that <paramref name="request"/> raises.</summary>
+        private static int CountOwnEvents(Node host, Inbox inbox, string request)
+        {
+            switch (request)
+            {
+                case "ReportLoaded": return host.Changed.Count;
+                case "SendChat": return host.Chats.Count;
+                case "SetLobbyData":
+                case "DeleteLobbyData": return host.LobbyDataChanges.Count;
+                case "SetParticipantData":
+                case "DeleteParticipantData": return host.DataChanges.Count;
+                case "SendToAll":
+                case "SendToOne": return inbox.Received.Count;
+                default: throw new ArgumentOutOfRangeException(nameof(request), request, null);
+            }
+        }
+
+        /// <summary>Has the host leave the session from a handler of the event of its own that <paramref name="request"/> raises.</summary>
+        private static void LeaveFromOwnEvent(Node host, string request)
+        {
+            switch (request)
+            {
+                case "StartGame":
+                    host.Manager.OnStateChanged += change =>
+                    {
+                        if (change.Current == SessionState.InGame)
+                        {
+                            host.Manager.Leave();
+                        }
+                    };
+                    break;
+
+                case "EndGame":
+                    host.Manager.OnStateChanged += change =>
+                    {
+                        if (change.Current == SessionState.Lobby)
+                        {
+                            host.Manager.Leave();
+                        }
+                    };
+                    break;
+
+                case "UpdateRules":
+                    host.Manager.OnRulesChanged += rules => host.Manager.Leave();
+                    break;
+
+                case "SetReady":
+                case "ReportLoaded":
+                    host.Manager.OnParticipantChanged += participant => host.Manager.Leave();
+                    break;
+
+                case "Kick":
+                    host.Manager.OnParticipantLeft += (participant, reason) => host.Manager.Leave();
+                    break;
+
+                case "SendChat":
+                    host.Manager.OnChatReceived += (sender, text) => host.Manager.Leave();
+                    break;
+
+                case "SetLobbyData":
+                case "DeleteLobbyData":
+                    host.Manager.OnLobbyDataChanged += (key, value) => host.Manager.Leave();
+                    break;
+
+                case "SetParticipantData":
+                case "DeleteParticipantData":
+                    host.Manager.OnParticipantDataChanged += (participant, key) => host.Manager.Leave();
+                    break;
+
+                case "SendToAll":
+                    Assert.That(host.Manager.RegisterMessage(Chat, (context, payload) => host.Manager.Leave()).IsSuccess, Is.True);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request), request, null);
+            }
         }
 
         private static Inbox Listen(Node node, ushort messageType, MessagePolicy policy = MessagePolicy.Default)

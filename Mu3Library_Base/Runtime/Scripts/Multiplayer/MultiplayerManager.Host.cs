@@ -252,9 +252,9 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
-                return HostApplyReady(LocalPlayerId, isReady)
-                    ? MultiplayerResult.Success
-                    : MultiplayerResult.Failure(_lastEndReason);
+                int generation = _sessionGeneration;
+                HostApplyReady(LocalPlayerId, isReady);
+                return ResultSince(generation);
             }
 
             // The host decides; this player's own flag changes when the host reports it back.
@@ -280,6 +280,7 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
             }
 
+            int generation = _sessionGeneration;
             if (rules.ReconnectReservationSeconds < _rules.ReconnectReservationSeconds)
             {
                 ShortenReservations(rules.ReconnectReservationSeconds);
@@ -291,15 +292,13 @@ namespace Mu3Library.Multiplayer
             WriteRules(_writer, rules);
 
             // A handler of a player dropped on the way may have ended the session (#340).
-            int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
-            if (generation != _sessionGeneration)
+            if (generation == _sessionGeneration)
             {
-                return MultiplayerResult.Failure(_lastEndReason);
+                Raise(_onRulesChanged, rules);
             }
 
-            Raise(_onRulesChanged, rules);
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         public MultiplayerResult Kick(PlayerId player)
@@ -315,25 +314,23 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
-            return KickPlayer(player, MultiplayerReason.Kicked)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(_lastEndReason);
+            int generation = _sessionGeneration;
+            KickPlayer(player, MultiplayerReason.Kicked);
+            return ResultSince(generation);
         }
 
         /// <summary>
         /// Bans the player for the rest of the session, closes their connection with the reason,
         /// and tells everyone they left for it.
         /// </summary>
-        /// <returns>False when an event handler raised while the news went out ended the session (see <see cref="RemoveParticipant"/>).</returns>
-        private bool KickPlayer(PlayerId player, MultiplayerReason reason)
+        private void KickPlayer(PlayerId player, MultiplayerReason reason)
         {
             _bannedPlayers.Add(player);
-            return DisconnectPlayer(player, reason);
+            DisconnectPlayer(player, reason);
         }
 
         /// <summary>Closes the player's connection with the reason and tells everyone they left for it.</summary>
-        /// <returns>False when an event handler raised while the news went out ended the session (see <see cref="RemoveParticipant"/>).</returns>
-        private bool DisconnectPlayer(PlayerId player, MultiplayerReason reason)
+        private void DisconnectPlayer(PlayerId player, MultiplayerReason reason)
         {
             PeerConnection peer = FindWelcomedPeer(player);
             if (peer != null)
@@ -342,7 +339,7 @@ namespace Mu3Library.Multiplayer
                 _backend.Disconnect(peer.Connection, ReasonCodes.ToWire(reason));
             }
 
-            return RemoveParticipant(player, reason);
+            RemoveParticipant(player, reason);
         }
 
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default)
@@ -383,6 +380,7 @@ namespace Mu3Library.Multiplayer
                 }
             }
 
+            int generation = _sessionGeneration;
             _startData = startData.ToArray();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateInGame);
@@ -401,20 +399,19 @@ namespace Mu3Library.Multiplayer
 
             // A handler of a player dropped on the way may have ended the session, or ended it and
             // started another, which the change to InGame would overwrite (#340).
-            int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
-            if (generation != _sessionGeneration)
-            {
-                return new StartGameResult(_lastEndReason, null);
-            }
-
-            SetState(SessionState.InGame, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
+                SetState(SessionState.InGame, MultiplayerReason.None);
+
+                // So may a handler of the change.
+                if (generation == _sessionGeneration)
+                {
+                    Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
+                }
             }
 
-            return new StartGameResult(MultiplayerReason.None, null);
+            return new StartGameResult(ResultSince(generation).Reason, null);
         }
 
         public MultiplayerResult EndGame()
@@ -425,6 +422,7 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(check);
             }
 
+            int generation = _sessionGeneration;
             ReturnRosterToLobby();
             EndLoadWait();
 
@@ -439,20 +437,17 @@ namespace Mu3Library.Multiplayer
             _writer.Begin(PacketKind.ReturnedToLobby);
 
             // As in StartGame (#340).
-            int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
-            if (generation != _sessionGeneration)
-            {
-                return MultiplayerResult.Failure(_lastEndReason);
-            }
-
-            SetState(SessionState.Lobby, MultiplayerReason.None);
             if (generation == _sessionGeneration)
             {
-                Raise(_onReturnedToLobby);
+                SetState(SessionState.Lobby, MultiplayerReason.None);
+                if (generation == _sessionGeneration)
+                {
+                    Raise(_onReturnedToLobby);
+                }
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         /// <summary>
@@ -800,37 +795,30 @@ namespace Mu3Library.Multiplayer
             return _backend.Send(peer.Connection, _writer.Written, DeliveryMode.Reliable);
         }
 
-        /// <returns>
-        /// False when an event handler raised while the change went out, as for a player the host
-        /// dropped because it could not reach them, ended the session; the change then raises no
-        /// event (#340).
-        /// </returns>
-        private bool HostApplyReady(PlayerId player, bool isReady)
+        private void HostApplyReady(PlayerId player, bool isReady)
         {
             if (_state != SessionState.Lobby)
             {
-                return true;
+                return;
             }
 
             int index = IndexOfParticipant(player);
             if (index < 0 || _participants[index].IsReady == isReady)
             {
-                return true;
+                return;
             }
 
             Participant updated = _participants[index].WithReady(isReady);
             _participants[index] = updated;
 
+            // A handler of a player dropped on the way may have ended the session (#340).
             WriteParticipantUpdated(updated);
             int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
-            if (generation != _sessionGeneration)
+            if (generation == _sessionGeneration)
             {
-                return false;
+                Raise(_onParticipantChanged, updated);
             }
-
-            Raise(_onParticipantChanged, updated);
-            return true;
         }
 
         private void WriteParticipantUpdated(Participant participant)
@@ -842,17 +830,12 @@ namespace Mu3Library.Multiplayer
             _writer.WriteBool(participant.IsLoaded);
         }
 
-        /// <returns>
-        /// False when an event handler raised while the news went out, as for another player the
-        /// host dropped because it could not reach them, ended the session; the player's leave
-        /// then raises no event (#340).
-        /// </returns>
-        private bool RemoveParticipant(PlayerId player, MultiplayerReason reason)
+        private void RemoveParticipant(PlayerId player, MultiplayerReason reason)
         {
             int index = IndexOfParticipant(player);
             if (index < 0)
             {
-                return true;
+                return;
             }
 
             Participant removed = _participants[index];
@@ -864,11 +847,12 @@ namespace Mu3Library.Multiplayer
             _writer.WriteULong(player.Value);
             _writer.WriteInt((int)reason);
 
+            // A handler of another player dropped on the way may have ended the session (#340).
             int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
             if (generation != _sessionGeneration)
             {
-                return false;
+                return;
             }
 
             Raise(_onParticipantLeft, removed, reason);
@@ -878,8 +862,6 @@ namespace Mu3Library.Multiplayer
                 _loadStartedWith.Remove(player);
                 StopWaitingFor(player);
             }
-
-            return true;
         }
 
         /// <summary>

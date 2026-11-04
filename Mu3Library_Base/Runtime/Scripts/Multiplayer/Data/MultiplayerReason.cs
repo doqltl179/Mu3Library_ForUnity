@@ -101,7 +101,11 @@ namespace Mu3Library.Multiplayer.Data
         /// </summary>
         Timeout = 27,
 
-        /// <summary>The player left on their own.</summary>
+        /// <summary>
+        /// The player left on their own. A request answers it when an event handler left the
+        /// session while the request ran, as every request that changes the session answers the
+        /// reason the session ended with then.
+        /// </summary>
         LeftNormally = 30,
         /// <summary>The host kicked the player.</summary>
         Kicked = 31,
@@ -109,8 +113,10 @@ namespace Mu3Library.Multiplayer.Data
         HostLeft = 32,
         /// <summary>
         /// The connection dropped and did not come back. A request whose message cannot leave
-        /// answers it too, unless the backend is no longer available, when it answers the reason
-        /// the session ends with (<see cref="SteamNotRunning"/> or <see cref="BackendError"/>).
+        /// answers it too, unless the session ends with another reason then, as
+        /// <see cref="HostLeft"/> once the lobby said the host left, or the backend is no longer
+        /// available, when it answers the reason the session ends with (<see cref="SteamNotRunning"/>
+        /// or <see cref="BackendError"/>).
         /// </summary>
         ConnectionLost = 33,
 

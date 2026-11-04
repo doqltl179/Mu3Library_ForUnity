@@ -86,7 +86,7 @@ namespace Mu3Library.Multiplayer
                 Raise(_onLobbyDataChanged, key, value);
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         public MultiplayerResult DeleteLobbyData(string key)
@@ -129,7 +129,7 @@ namespace Mu3Library.Multiplayer
                 Raise(_onLobbyDataChanged, key, (string)null);
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         public MultiplayerResult SetParticipantData(string key, string value)
@@ -150,8 +150,9 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostApplyParticipantData(LocalPlayerId, key, value);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // The host decides; this player's own data changes when the host reports it back.
@@ -184,8 +185,9 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostApplyParticipantDataDeletion(LocalPlayerId, key);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // The host will hold the key exactly when this player's own requests leave it there.
