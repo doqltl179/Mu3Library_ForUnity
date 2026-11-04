@@ -1076,7 +1076,8 @@ namespace Mu3Library.Tests
             owner.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "desert") });
             try
             {
-                MachineDirectory.DeleteIfUnchanged(file, stale);
+                // False, so the read reads the new file instead.
+                Assert.That(MachineDirectory.DeleteIfUnchanged(file, stale), Is.False);
 
                 Assert.That(Directory.GetFiles(_folder).Select(Path.GetFileName), Is.EqualTo(new[] { "peer-1.lobbies" }), "The new file is gone, or something was left beside it.");
                 Assert.That(ListedData(new LobbyId(1), "map"), Is.EqualTo("desert"));
@@ -1088,8 +1089,37 @@ namespace Mu3Library.Tests
 
             // The file the read found stale, still in place, is deleted.
             File.WriteAllBytes(file, bytes);
-            MachineDirectory.DeleteIfUnchanged(file, stale);
+            Assert.That(MachineDirectory.DeleteIfUnchanged(file, stale), Is.True);
             Assert.That(Directory.GetFiles(_folder), Is.Empty);
+        }
+
+        [Test]
+        public void Directory_ReadOfAStaleLobbyFileItCannotTakeAside_ReadsItOnceMore_AndLeavesIt()
+        {
+            // Only Windows refuses to move a file another handle opened without FileShare.Delete.
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Assert.Ignore("Needs Windows file sharing to keep the file from moving.");
+            }
+
+            MachineDirectory ended = new MachineDirectory(_folder, 1);
+            ended.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            ended.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+            byte[] bytes = File.ReadAllBytes(file);
+            BitConverter.GetBytes(DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0).Ticks).CopyTo(bytes, 8);
+            File.WriteAllBytes(file, bytes);
+
+            // Another program holds the file: the read takes the path for one that may hold
+            // another file now, reads it once more, finds it stale again, and goes on.
+            using (new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                Stopwatch read = Stopwatch.StartNew();
+                Assert.That(MachineDirectory.Read(_folder), Is.Empty);
+                Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds), "The read waited for a stale file it could not delete.");
+            }
+
+            Assert.That(Directory.GetFiles(_folder).Select(Path.GetFileName), Is.EqualTo(new[] { "peer-1.lobbies" }));
         }
 
         [Test]

@@ -557,14 +557,27 @@ namespace Mu3Library.Multiplayer.Local.Machine
             for (int i = 0; i < ports.Count; i++)
             {
                 string file = PathOf(folder, ports[i]);
+                bool isReadAgain = false;
                 while (true)
                 {
                     FileRead read = ReadFile(file, staleBefore, entries, out long written);
                     if (read == FileRead.Stale)
                     {
-                        DeleteIfUnchanged(file, written);
-                        RemoveLeftovers(files, ports[i], staleBefore);
-                        break;
+                        if (DeleteIfUnchanged(file, written))
+                        {
+                            RemoveLeftovers(files, ports[i], staleBefore);
+                            break;
+                        }
+
+                        // Not the file this read found stale any more, as when its owner put a
+                        // new one in its place since: what the path holds now is read instead, once.
+                        if (isReadAgain)
+                        {
+                            break;
+                        }
+
+                        isReadAgain = true;
+                        continue;
                     }
 
                     if (read == FileRead.Done)
@@ -887,6 +900,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// written at <paramref name="written"/>, and leaves a file that replaced it since: an
         /// owner whose main thread stalled for longer than <see cref="StaleSeconds"/>, as under a
         /// debugger or a long load, can replace its file between that read and this delete.
+        /// True when it deleted that file; false when the path may hold another file, which a
+        /// read then reads instead: one that went back or took the place, or one it could not
+        /// take aside, being held, as in the middle of a replacement, or gone.
         /// </summary>
         /// <remarks>
         /// A delete by path would take whatever file is there, and a check of the file before it
@@ -899,7 +915,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// (<see cref="IsReplacing"/>). A reader that ends between the move and the delete leaves
         /// a stale file beside the lobby file, which <see cref="RemoveLeftovers"/> deletes.
         /// </remarks>
-        internal static void DeleteIfUnchanged(string file, long written)
+        internal static bool DeleteIfUnchanged(string file, long written)
         {
             string aside = file + AsideMark + Guid.NewGuid().ToString("N") + TemporaryExtension;
             try
@@ -909,13 +925,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
                 // Gone already, or held, as in the middle of a replacement.
-                return;
+                return false;
             }
 
             if (TryReadHeader(aside, out long asideWritten, out _, out _) && asideWritten == written)
             {
                 TryDelete(aside);
-                return;
+                return true;
             }
 
             try
@@ -927,6 +943,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 // A newer file took the place.
                 TryDelete(aside);
             }
+
+            return false;
         }
 
         /// <summary>The time written, the port, and the owner that a lobby file of this version starts with.</summary>
