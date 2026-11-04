@@ -536,6 +536,118 @@ namespace Mu3Library.Tests
             Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
             Assert.That(inbox.Received, Is.Empty);
         }
+
+        [TestCase(false, TestName = "StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(Leaves)")]
+        [TestCase(true, TestName = "StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(LeavesAndCreatesAnother)")]
+        public void StartGame_AHandlerThatEndsTheSessionWhileTheStartGoesOut_KeepsTheGameFromStarting(bool createsAnother)
+        {
+            // #340: the start could not reach a player, as with a full send buffer on Steam, so the
+            // host dropped that player, and the game's handler of the leave ended the session. The
+            // start then turned Offline into InGame, with no session behind it, and answered
+            // success; after a new CreateLobby it turned Creating into InGame.
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false), afterLeaving: node =>
+            {
+                if (createsAnother)
+                {
+                    node.Manager.CreateLobby(PublicOptions(SessionRules.Default));
+                }
+            });
+            int before = host.States.Count;
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(host.Manager.StartGame(new byte[] { 7 }).Reason, Is.EqualTo(MultiplayerReason.LeftNormally), "the reason the session ended with");
+            string[] expected = createsAnother
+                ? new[] { "Lobby -> Offline (LeftNormally)", "Offline -> Creating (None)" }
+                : new[] { "Lobby -> Offline (LeftNormally)" };
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(expected));
+            Assert.That(host.GameStarts, Is.Empty);
+        }
+
+        [Test]
+        public void EndGame_AHandlerThatEndsTheSessionWhileTheReturnGoesOut_KeepsTheSessionFromReturningToTheLobby()
+        {
+            // #340: without a reservation the dropped player leaves at once, which raises the leave.
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false, reconnectReservationSeconds: 0f));
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Pump();
+            int before = host.States.Count;
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(host.Manager.EndGame().Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "InGame -> Offline (LeftNormally)" }));
+            Assert.That(host.ReturnedToLobbyCount, Is.Zero);
+        }
+
+        [Test]
+        public void UpdateRules_AHandlerThatEndsTheSessionWhileTheRulesGoOut_RaisesNoRulesChange()
+        {
+            // #340
+            SessionRules rules = new SessionRules(4, requireReady: false);
+            Node host = CreateSessionEndedByTheNextDrop(rules);
+            List<SessionRules> changes = new List<SessionRules>();
+            host.Manager.OnRulesChanged += changes.Add;
+            int before = host.States.Count;
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(host.Manager.UpdateRules(rules.WithCapacity(3)).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (LeftNormally)" }));
+            Assert.That(changes, Is.Empty);
+        }
+
+        [Test]
+        public void Join_AHandlerThatEndsTheSessionWhileTheJoinGoesOut_RaisesNoJoin()
+        {
+            // #340: the host welcomes the player, then tells the others; a send of that news fails.
+            // LocalBackend.FailingSends would fail the welcome, the first send, so the stand-in
+            // backend lets that one through.
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false), onPlatform: true);
+            int before = host.States.Count;
+            int joined = host.Joined.Count;
+
+            host.Platform.SendsBeforeFailure = 1;
+            Node c = CreateNode("C");
+            c.Manager.JoinLobby(host.Manager.CurrentLobbyId);
+            Pump();
+
+            Assert.That(host.Platform.SendsBeforeFailure, Is.EqualTo(-1), "the news failed after the welcome");
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (LeftNormally)" }));
+            Assert.That(host.Joined.Count, Is.EqualTo(joined), "no join after the session ended");
+        }
+
+        [Test]
+        public void SetReady_TheHostsOwn_AHandlerThatEndsTheSessionWhileTheChangeGoesOut_RaisesNoChange()
+        {
+            // #340
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false));
+            int before = host.States.Count;
+            int changed = host.Changed.Count;
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(host.Manager.SetReady(true).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (LeftNormally)" }));
+            Assert.That(host.Changed.Count, Is.EqualTo(changed));
+        }
+
+        [Test]
+        public void Kick_AHandlerThatEndsTheSessionWhileTheKickGoesOut_RaisesNoLeaveForTheKickedPlayer()
+        {
+            // #340: the news of the kick could not reach the other player, whose drop raised the
+            // leave whose handler ended the session; the kicked player's own leave came after it.
+            Node host = CreateSessionEndedByTheNextDrop(new SessionRules(4, requireReady: false));
+            PlayerId kicked = host.Manager.Participants[1].Id;
+            PlayerId dropped = host.Manager.Participants[2].Id;
+
+            host.Backend.FailingSends = 1;
+
+            Assert.That(host.Manager.Kick(kicked).Reason, Is.EqualTo(MultiplayerReason.LeftNormally));
+            Assert.That(host.Left.Select(left => left.Participant.Id), Is.EqualTo(new[] { dropped }));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+        }
+
         [Test]
         public void SendingToAConnectionTheOtherSideClosed_KeepsTheReasonItGave()
         {
@@ -572,6 +684,29 @@ namespace Mu3Library.Tests
             }
 
             return (host, clients);
+        }
+
+        /// <summary>
+        /// A host and two clients in the lobby, whose host leaves the session from its handler of
+        /// a player's leave, as a game may, and then does what <paramref name="afterLeaving"/>
+        /// does. A test makes the host's next send fail while the connection stays open, as a full
+        /// send buffer on Steam does, so the request that sends next drops a player, and that
+        /// player's leave ends the session in the middle of the request (#340).
+        /// </summary>
+        private Node CreateSessionEndedByTheNextDrop(SessionRules rules, Action<Node> afterLeaving = null, bool onPlatform = false)
+        {
+            Node host = onPlatform
+                ? CreateHost(CreatePlatformNode("Host"), PublicOptions(rules))
+                : CreateHost("Host", rules: rules);
+            JoinNew("A", host);
+            JoinNew("B", host);
+            host.Manager.OnParticipantLeft += (participant, reason) =>
+            {
+                host.Manager.Leave();
+                afterLeaving?.Invoke(host);
+            };
+
+            return host;
         }
 
         private static Inbox Listen(Node node, ushort messageType, MessagePolicy policy = MessagePolicy.Default)

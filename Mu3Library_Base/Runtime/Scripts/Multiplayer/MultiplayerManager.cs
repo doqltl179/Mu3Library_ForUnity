@@ -67,6 +67,11 @@ namespace Mu3Library.Multiplayer
         // session, or code that ran after an event handler ended the session, can tell.
         private int _sessionGeneration = 0;
 
+        // The reason the latest session ended with. A host request answers it when an event
+        // handler raised during its send ended the session (#340), as what the request would have
+        // done after the send no longer applies.
+        private MultiplayerReason _lastEndReason = MultiplayerReason.None;
+
         // The callback of the CreateLobby or JoinLobby call still in flight. It is answered once,
         // with success or with the reason the session ended.
         private Action<MultiplayerResult> _pendingCallback = null;
@@ -732,6 +737,7 @@ namespace Mu3Library.Multiplayer
             }
 
             Action<MultiplayerResult> callback = _pendingCallback;
+            _lastEndReason = reason;
             ResetSession();
 
             if (!raiseEvents)

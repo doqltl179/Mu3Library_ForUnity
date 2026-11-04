@@ -18,7 +18,13 @@ namespace Mu3Library.Multiplayer
     /// it returns: <see cref="CreateLobby"/> and <see cref="JoinLobby"/> their first state change,
     /// <see cref="Leave"/> the change to Offline and the failed answer of a pending create or join,
     /// and the host's requests the events they cause. A handler may call back into the manager.
-    /// A request that fails its own checks answers at once and changes nothing.
+    /// A request that fails its own checks answers at once and changes nothing. When a host
+    /// request's message cannot reach a player, the host drops that player
+    /// (<see cref="IMultiplayerMessenger.Send"/>), which raises events before the request goes on;
+    /// a handler there that ends the session, or ends it and starts another, leaves the request
+    /// nothing more to do, so it changes no state, raises no event of its own, and answers the
+    /// reason the session ended with, as <see cref="StartGame"/>, <see cref="EndGame"/>,
+    /// <see cref="UpdateRules"/>, <see cref="SetReady"/>, and <see cref="Kick"/> state.
     /// </remarks>
     public partial interface IMultiplayerManager
     {
@@ -161,19 +167,28 @@ namespace Mu3Library.Multiplayer
         /// <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>. A client whose request
         /// cannot leave answers <see cref="MultiplayerReason.ConnectionLost"/>, or on a backend
         /// that is no longer available the reason its session ends with at once (see
-        /// <see cref="Initialize"/>).
+        /// <see cref="Initialize"/>). The host's own flag changes at once; when a handler raised
+        /// while the change goes out ends the session (see the remarks of this interface), the
+        /// host raises no <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/> and the
+        /// call answers the reason the session ended with.
         /// </summary>
         public MultiplayerResult SetReady(bool isReady);
 
         /// <summary>
         /// Host only, in the lobby. The capacity cannot drop below the current player count,
-        /// which counts the players whose slot the host keeps while they are away.
+        /// which counts the players whose slot the host keeps while they are away. When a handler
+        /// raised while the rules go out ends the session (see the remarks of this interface), the
+        /// host raises no <see cref="IMultiplayerManagerEventBus.OnRulesChanged"/> and the call
+        /// answers the reason the session ended with.
         /// </summary>
         public MultiplayerResult UpdateRules(SessionRules rules);
 
         /// <summary>
         /// Host only. The player cannot rejoin this session. A player whose slot the host keeps
-        /// while they are away can be kicked too, which frees the slot.
+        /// while they are away can be kicked too, which frees the slot. When a handler raised
+        /// while the kick goes out to the other players ends the session (see the remarks of this
+        /// interface), the host raises no <see cref="IMultiplayerManagerEventBus.OnParticipantLeft"/>
+        /// for the kicked player and the call answers the reason the session ended with.
         /// </summary>
         public MultiplayerResult Kick(PlayerId player);
 
@@ -346,12 +361,22 @@ namespace Mu3Library.Multiplayer
         /// as a map name or a random seed, once the rules' start conditions are met. Start data
         /// larger than <see cref="MultiplayerLimits.MaxStartDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. A player whose slot the host keeps
-        /// while they are away counts as a player who is not ready.
+        /// while they are away counts as a player who is not ready. When a handler raised while
+        /// the start goes out to the players ends the session, or ends it and starts another (see
+        /// the remarks of this interface), the game does not start here: the state does not
+        /// change to <see cref="SessionState.InGame"/>, the host raises no
+        /// <see cref="IMultiplayerManagerEventBus.OnGameStarted"/>, and the call answers the reason
+        /// the session ended with.
         /// </summary>
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default);
 
         /// <summary>
-        /// Host only, in a game. Returns everyone to the lobby and clears every ready flag.
+        /// Host only, in a game. Returns everyone to the lobby and clears every ready flag. When a
+        /// handler raised while the return goes out to the players ends the session, or ends it
+        /// and starts another (see the remarks of this interface), the state does not change to
+        /// <see cref="SessionState.Lobby"/>, the host raises no
+        /// <see cref="IMultiplayerManagerEventBus.OnReturnedToLobby"/>, and the call answers the
+        /// reason the session ended with.
         /// </summary>
         public MultiplayerResult EndGame();
 

@@ -70,6 +70,14 @@ namespace Mu3Library.Tests
             /// </summary>
             public string GoesAtLobbyData;
 
+            /// <summary>
+            /// Lets this many sends through and fails the one after, once, while the connection
+            /// stays open, as <see cref="LocalBackend.FailingSends"/> fails the next one; below 0
+            /// fails none. It reaches a send that follows another in one call, as the host's news
+            /// of a join follows the welcome it sends the player.
+            /// </summary>
+            public int SendsBeforeFailure = -1;
+
             public string Name => "Platform";
             public bool IsAvailable => !IsGone && _inner.IsAvailable;
             MultiplayerReason IUnavailableReasonBackend.UnavailableReason => GoneReason;
@@ -131,7 +139,16 @@ namespace Mu3Library.Tests
                 return IsGone ? ConnectionId.None : _inner.Connect(host);
             }
 
-            public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode) => !IsGone && _inner.Send(connection, data, mode);
+            public bool Send(ConnectionId connection, ReadOnlySpan<byte> data, DeliveryMode mode)
+            {
+                if (IsGone || (SendsBeforeFailure >= 0 && SendsBeforeFailure-- == 0))
+                {
+                    return false;
+                }
+
+                return _inner.Send(connection, data, mode);
+            }
+
             public void Disconnect(ConnectionId connection, int reasonCode) => _inner.Disconnect(connection, reasonCode);
             public bool TryGetConnectionQuality(ConnectionId connection, out ConnectionQuality quality) => _inner.TryGetConnectionQuality(connection, out quality);
 
