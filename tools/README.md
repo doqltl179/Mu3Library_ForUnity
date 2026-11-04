@@ -178,6 +178,8 @@ This section owns the harness's measurements; [unity-verification.md](../.ai/pro
 | 2026-11-04 | 6000.6.7f1 | Mono | High | no | 34 of 34 | imported | 28 s | none at the start | 7,428,608 | #329 |
 | 2026-11-04 | 6000.3.17f1 | Mono | Medium | no | 34 of 34 | new | 70 s | one at the start | 9,566,720 | #329 |
 | 2026-11-04 | 6000.3.17f1 | Mono | High | no | 34 of 34 | imported | 27 s | none at the start | 9,274,880 | #329 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | Medium | yes | 34 of 34 | new | 103 s, 72 in the build | none, sampled every 10 s | 22,826,496 | #335 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | High | yes | 34 of 34 | imported | 65 s, 53 in the build | none, sampled every 10 s | 21,649,408 | #335 |
 
 ## Environment
 
