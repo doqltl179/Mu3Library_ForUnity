@@ -14,6 +14,9 @@ namespace Mu3Library.Editor.FileUtil {
         /// <br/> 폴더는 <c>Assets</c>이거나 그 아래여야 한다. <c>Packages/...</c>처럼 <c>Assets</c> 밖의 경로는
         /// 임베디드·로컬 패키지처럼 쓸 수 있는 패키지의 경로라도 받지 않는다. 그런 경로를 받으면 받을 수 없는 경로를 적은
         /// 오류를 한 번 남기고 null을 돌려주며, 예외를 던지지 않는다.
+        /// <br/> <c>{directory}/{fileName}.asset</c>에 에셋이 이미 있으면 거절하거나 오류를 남기지 않고 그 에셋을 새 에셋으로 바꾼다.
+        /// 기존 에셋 객체는 파괴되고 그 설정은 사라지므로, 그 경로에 지켜야 할 에셋이 있을 수 있으면 부르기 전에
+        /// <c>AssetDatabase.LoadAssetAtPath</c>로 확인한다.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="directory"> Assets 폴더를 기준으로 한 상대 경로 (<c>Assets</c> 또는 <c>Assets/...</c>) </param>
