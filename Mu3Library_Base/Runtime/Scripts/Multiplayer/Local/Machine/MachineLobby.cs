@@ -12,6 +12,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
     {
         public LobbyId Id;
         public bool IsOwned;
+
+        /// <summary>
+        /// Owner: when this player came to own the lobby, by creating it or taking it over, as a
+        /// number that only grows.
+        /// </summary>
+        public long OwnedOrder;
+
         public PlayerId OwnerId;
         public int OwnerPort;
         public LobbyVisibility Visibility;

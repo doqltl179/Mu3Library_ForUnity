@@ -72,6 +72,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const string BackupMark = "~RF";
         private const string BackupExtension = ".TMP";
 
+        // What a reader names a lobby file it takes aside to delete: the file's name, this mark,
+        // a number of its own, and the temporary extension (DeleteIfUnchanged).
+        private const string AsideMark = "~del";
+
         /// <summary>
         /// How long one read waits at most, in all, for lobby files whose owners replace them; a
         /// replacement takes a few milliseconds.
@@ -99,8 +103,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>
         /// Most lobbies one file lists. Each backend writes a file of its own, and the backend of
         /// a <see cref="MultiplayerManager"/> owns one lobby at a time; the rest leaves room for a
-        /// test or a tool that creates lobbies through a <see cref="LocalBackend"/> itself. An
-        /// owner lists no more, so a file that declares more is malformed.
+        /// test or a tool that creates lobbies through a <see cref="LocalBackend"/> itself, whose
+        /// <see cref="LocalBackend.CreateLobby"/> creates no more. An owner lists no more, leaving
+        /// out the lobbies past it that taking lobbies over brings, so a file that declares more
+        /// is malformed.
         /// </summary>
         internal const int MaxListedLobbies = 64;
 
@@ -109,8 +115,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// its members carry. A <see cref="MultiplayerManager"/>'s lobby holds at most 2,119: its
         /// own data takes at most <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes of
         /// distinct keys and their values, at most 128 keys take a single byte and the others two
-        /// or more, and the library adds seven keys of its own. An owner leaves a lobby with more
-        /// out of its file.
+        /// or more, and the library adds seven keys of its own. A <see cref="LocalBackend"/>
+        /// refuses a lobby or a new key past it, and an owner would leave a lobby with more out of
+        /// its file.
         /// </summary>
         internal const int MaxLobbyDataEntries = MachineProtocol.MaxListLength;
 
@@ -550,14 +557,27 @@ namespace Mu3Library.Multiplayer.Local.Machine
             for (int i = 0; i < ports.Count; i++)
             {
                 string file = PathOf(folder, ports[i]);
+                bool isReadAgain = false;
                 while (true)
                 {
-                    FileRead read = ReadFile(file, staleBefore, entries);
+                    FileRead read = ReadFile(file, staleBefore, entries, out long written);
                     if (read == FileRead.Stale)
                     {
-                        TryDelete(file);
-                        RemoveLeftovers(files, ports[i], staleBefore);
-                        break;
+                        if (DeleteIfUnchanged(file, written))
+                        {
+                            RemoveLeftovers(files, ports[i], staleBefore);
+                            break;
+                        }
+
+                        // Not the file this read found stale any more, as when its owner put a
+                        // new one in its place since: what the path holds now is read instead, once.
+                        if (isReadAgain)
+                        {
+                            break;
+                        }
+
+                        isReadAgain = true;
+                        continue;
                     }
 
                     if (read == FileRead.Done)
@@ -635,17 +655,21 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// ended in the middle of a write or a replacement left, which nobody else deletes. An
         /// owner that runs writes its temporary file anew for every listing, and a backup carries
         /// the time of a lobby file it rewrites every few seconds, so its own are never that old.
+        /// So does a stale lobby file that a reader took aside to delete and did not, since it
+        /// ended first.
         /// </summary>
         private static void RemoveLeftovers(string[] files, int port, long staleBefore)
         {
             string name = FilePrefix + port.ToString(CultureInfo.InvariantCulture);
             string temporary = name + TemporaryExtension;
             string backup = name + Extension + BackupMark;
+            string aside = name + Extension + AsideMark;
             for (int i = 0; i < files.Length; i++)
             {
                 string file = Path.GetFileName(files[i]);
                 bool isLeftover = string.Equals(file, temporary, StringComparison.OrdinalIgnoreCase)
-                    || (file.StartsWith(backup, StringComparison.OrdinalIgnoreCase) && file.EndsWith(BackupExtension, StringComparison.OrdinalIgnoreCase));
+                    || (file.StartsWith(backup, StringComparison.OrdinalIgnoreCase) && file.EndsWith(BackupExtension, StringComparison.OrdinalIgnoreCase))
+                    || (file.StartsWith(aside, StringComparison.OrdinalIgnoreCase) && file.EndsWith(TemporaryExtension, StringComparison.OrdinalIgnoreCase));
 
                 if (!isLeftover)
                 {
@@ -704,10 +728,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <see cref="MaxFileBytes"/>, <see cref="MaxListedLobbies"/>, or
         /// <see cref="MaxLobbyDataEntries"/>, which is checked before anything it declares is
         /// read; a lobby with a key or a value longer than the frames carry is left out.
+        /// <paramref name="written"/> is the time written inside a file of this version, 0 for
+        /// any other.
         /// </summary>
-        private static FileRead ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries)
+        private static FileRead ReadFile(string file, long staleBefore, List<MachineDirectoryEntry> entries, out long written)
         {
             int firstEntry = entries.Count;
+            written = 0;
 
             try
             {
@@ -721,7 +748,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         return FileRead.Done;
                     }
 
-                    long written = reader.ReadInt64();
+                    written = reader.ReadInt64();
                     if (written < staleBefore)
                     {
                         return FileRead.Stale;
@@ -853,32 +880,98 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>
         /// Deletes the file of the process that listened on <paramref name="port"/> when the file
         /// still names <paramref name="owner"/>: that process ended or stalled, while a newer
-        /// process on the same port keeps its own file.
+        /// process on the same port keeps its own file, and so does the owner once it rewrote its
+        /// file after this read it (<see cref="DeleteIfUnchanged"/>).
         /// </summary>
         public static void RemoveEnded(string folder, int port, PlayerId owner)
         {
             string file = PathOf(folder, port);
-            bool isTheirs;
+            if (TryReadHeader(file, out long written, out int filePort, out PlayerId fileOwner)
+                && written != 0
+                && filePort == port
+                && fileOwner == owner)
+            {
+                DeleteIfUnchanged(file, written);
+            }
+        }
+
+        /// <summary>
+        /// Deletes the lobby file at <paramref name="file"/> when it is still the one a read found
+        /// written at <paramref name="written"/>, and leaves a file that replaced it since: an
+        /// owner whose main thread stalled for longer than <see cref="StaleSeconds"/>, as under a
+        /// debugger or a long load, can replace its file between that read and this delete.
+        /// True when it deleted that file; false when the path may hold another file, which a
+        /// read then reads instead: one that went back or took the place, or one it could not
+        /// take aside, being held, as in the middle of a replacement, or gone.
+        /// </summary>
+        /// <remarks>
+        /// A delete by path would take whatever file is there, and a check of the file before it
+        /// would leave the moment between them. So it first moves the file aside, a single step that
+        /// takes the file the path names at that moment, under a name that only this call uses;
+        /// what it reads and deletes then is the very file it took. A file written since goes
+        /// back, unless the owner wrote a newer one in the meantime, as it does when it finds its
+        /// file gone; until then a reader that misses the lobby file finds the file taken aside,
+        /// written as recently as the owner wrote it, and waits for it as for a replacement
+        /// (<see cref="IsReplacing"/>). A reader that ends between the move and the delete leaves
+        /// a stale file beside the lobby file, which <see cref="RemoveLeftovers"/> deletes.
+        /// </remarks>
+        internal static bool DeleteIfUnchanged(string file, long written)
+        {
+            string aside = file + AsideMark + Guid.NewGuid().ToString("N") + TemporaryExtension;
+            try
+            {
+                File.Move(file, aside);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // Gone already, or held, as in the middle of a replacement.
+                return false;
+            }
+
+            if (TryReadHeader(aside, out long asideWritten, out _, out _) && asideWritten == written)
+            {
+                TryDelete(aside);
+                return true;
+            }
+
+            try
+            {
+                File.Move(aside, file);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // A newer file took the place.
+                TryDelete(aside);
+            }
+
+            return false;
+        }
+
+        /// <summary>The time written, the port, and the owner that a lobby file of this version starts with.</summary>
+        private static bool TryReadHeader(string file, out long written, out int port, out PlayerId owner)
+        {
+            written = 0;
+            port = 0;
+            owner = PlayerId.None;
             try
             {
                 using (FileStream stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                 using (BinaryReader reader = new BinaryReader(stream, Encoding.UTF8))
                 {
-                    isTheirs = reader.ReadInt32() == FileMagic
-                        && reader.ReadInt32() == FileVersion
-                        && reader.ReadInt64() != 0
-                        && reader.ReadInt32() == port
-                        && reader.ReadUInt64() == owner.Value;
+                    if (reader.ReadInt32() != FileMagic || reader.ReadInt32() != FileVersion)
+                    {
+                        return false;
+                    }
+
+                    written = reader.ReadInt64();
+                    port = reader.ReadInt32();
+                    owner = new PlayerId(reader.ReadUInt64());
+                    return true;
                 }
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException)
             {
-                return;
-            }
-
-            if (isTheirs)
-            {
-                TryDelete(file);
+                return false;
             }
         }
 

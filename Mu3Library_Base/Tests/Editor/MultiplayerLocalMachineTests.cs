@@ -31,6 +31,9 @@ namespace Mu3Library.Tests
         private const ushort Chat = 1;
         private const double WaitSeconds = 10.0;
 
+        // How long a pump yields between updates before it sleeps (PauseBetweenUpdates).
+        private const double YieldMilliseconds = 20.0;
+
         private sealed class Node
         {
             public LocalNetwork Network;
@@ -1017,6 +1020,9 @@ namespace Mu3Library.Tests
             string endedBackup = WriteFile("peer-5.lobbies~RF1a2b3c.TMP", stale);
             string unknown = WriteFile("peer-5.other", stale);
 
+            // A stale lobby file of port 5 that a reader took aside to delete, and ended first.
+            string endedAside = WriteFile("peer-5.lobbies~del0123456789abcdef.tmp", stale);
+
             // Port 6: a process that ended long ago in the middle of a write, whose lobby file went stale.
             MachineDirectory ended = new MachineDirectory(_folder, 6);
             ended.Publish(new PlayerId(6), 6, new List<MachineLobby> { ListedLobby(6, "map", "forest") });
@@ -1042,13 +1048,94 @@ namespace Mu3Library.Tests
 
                 Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(8) }));
 
-                Assert.That(new[] { endedTemporary, endedBackup, staleFile, staleTemporary }.Where(File.Exists), Is.Empty);
+                Assert.That(new[] { endedTemporary, endedBackup, endedAside, staleFile, staleTemporary }.Where(File.Exists), Is.Empty);
                 Assert.That(new[] { unknown, freshTemporary, freshBackup, oldTemporary }.Where(path => !File.Exists(path)), Is.Empty);
             }
             finally
             {
                 running.Remove();
             }
+        }
+
+        [Test]
+        public void Directory_DeletingAStaleLobbyFile_LeavesANewFileThatReplacedItAfterTheRead()
+        {
+            // The lobby file of an owner whose main thread stalled for longer than a file stays fresh.
+            MachineDirectory stalled = new MachineDirectory(_folder, 1);
+            stalled.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            stalled.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+            long stale = DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0).Ticks;
+            byte[] bytes = File.ReadAllBytes(file);
+            BitConverter.GetBytes(stale).CopyTo(bytes, 8);
+            File.WriteAllBytes(file, bytes);
+
+            // Back from the stall, the owner replaces the file after a read found it stale and
+            // before the read deletes what it read.
+            MachineDirectory owner = new MachineDirectory(_folder, 1);
+            owner.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "desert") });
+            try
+            {
+                // False, so the read reads the new file instead.
+                Assert.That(MachineDirectory.DeleteIfUnchanged(file, stale), Is.False);
+
+                Assert.That(Directory.GetFiles(_folder).Select(Path.GetFileName), Is.EqualTo(new[] { "peer-1.lobbies" }), "The new file is gone, or something was left beside it.");
+                Assert.That(ListedData(new LobbyId(1), "map"), Is.EqualTo("desert"));
+            }
+            finally
+            {
+                owner.Remove();
+            }
+
+            // The file the read found stale, still in place, is deleted.
+            File.WriteAllBytes(file, bytes);
+            Assert.That(MachineDirectory.DeleteIfUnchanged(file, stale), Is.True);
+            Assert.That(Directory.GetFiles(_folder), Is.Empty);
+        }
+
+        [Test]
+        public void Directory_ReadOfAStaleLobbyFileItCannotTakeAside_ReadsItOnceMore_AndLeavesIt()
+        {
+            // Only Windows refuses to move a file another handle opened without FileShare.Delete.
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Assert.Ignore("Needs Windows file sharing to keep the file from moving.");
+            }
+
+            MachineDirectory ended = new MachineDirectory(_folder, 1);
+            ended.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            ended.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+            byte[] bytes = File.ReadAllBytes(file);
+            BitConverter.GetBytes(DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0).Ticks).CopyTo(bytes, 8);
+            File.WriteAllBytes(file, bytes);
+
+            // Another program holds the file: the read takes the path for one that may hold
+            // another file now, reads it once more, finds it stale again, and goes on.
+            using (new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                Stopwatch read = Stopwatch.StartNew();
+                Assert.That(MachineDirectory.Read(_folder), Is.Empty);
+                Assert.That(read.Elapsed.TotalSeconds, Is.LessThan(MachineDirectory.ReplaceWaitSeconds), "The read waited for a stale file it could not delete.");
+            }
+
+            Assert.That(Directory.GetFiles(_folder).Select(Path.GetFileName), Is.EqualTo(new[] { "peer-1.lobbies" }));
+        }
+
+        [Test]
+        public void RemoveEnded_DeletesTheLobbyFileThatNamesTheOwner_AndLeavesAnotherOwnersFile()
+        {
+            MachineDirectory ended = new MachineDirectory(_folder, 1);
+            ended.Publish(new PlayerId(2), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            ended.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+
+            // A newer process on the same port.
+            MachineDirectory.RemoveEnded(_folder, 1, new PlayerId(3));
+            Assert.That(File.Exists(file), Is.True);
+
+            MachineDirectory.RemoveEnded(_folder, 1, new PlayerId(2));
+            Assert.That(Directory.GetFiles(_folder), Is.Empty);
         }
 
         [Test]
@@ -1381,6 +1468,102 @@ namespace Mu3Library.Tests
             Assert.That(SearchedData(member, lobby, data => data.TryGetValue(longestKey, out string value) && value == longestValue), Is.Not.Null);
             Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
             Assert.That(member.GetLobbyData(lobby, longestKey), Is.EqualTo(longestValue));
+        }
+
+        [Test]
+        public void CreateLobby_PastTheLobbiesALobbyFileLists_IsRefused_UntilOneEnds()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+
+            // Asked in one update, the 64th lobby is created and the 65th refused.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
+            List<(MultiplayerReason Reason, LobbyId Lobby)> answers = CreateLobbies(owner, MachineDirectory.MaxListedLobbies + 1, null);
+            Assert.That(answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Reason), Is.All.EqualTo(MultiplayerReason.None));
+            Assert.That(answers.Last(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+
+            // The file lists every lobby created, which another process finds.
+            List<LobbyId> created = answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Lobby).ToList();
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created));
+
+            // A lobby that ends makes room for one more.
+            owner.LeaveLobby(created[0]);
+            Assert.That(CreateLobbies(owner, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.None));
+        }
+
+        [Test]
+        public void CreateLobby_WithMoreDataEntriesThanALobbyFileLists_IsRefused()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+
+            // As many keys as a lobby holds, and one that differs from one of them in case only,
+            // which the lobby takes as the same key.
+            Dictionary<string, string> most = NumberedData(MachineDirectory.MaxLobbyDataEntries);
+            most["K0"] = "v";
+            (MultiplayerReason Reason, LobbyId Lobby) created = CreateLobbies(owner, 1, most).Single();
+            Assert.That(created.Reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(MachineDirectory.Read(_folder).Single().Data, Has.Count.EqualTo(MachineDirectory.MaxLobbyDataEntries));
+
+            // One key more.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("holds at most 4096 data entries; the lobby was not created"));
+            Assert.That(CreateLobbies(owner, 1, NumberedData(MachineDirectory.MaxLobbyDataEntries + 1)).Single(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+        }
+
+        [Test]
+        public void SetLobbyData_ANewKeyPastTheDataEntriesALobbyFileLists_IsRefused_AndAKeyTheLobbyHoldsStillChanges()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobbies(owner, 1, NumberedData(MachineDirectory.MaxLobbyDataEntries - 1)).Single().Lobby;
+
+            // The 4,096th key, which counts with an empty value as with any other.
+            Assert.That(owner.SetLobbyData(lobby, "last", string.Empty), Is.True);
+
+            // The 4,097th key.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("holds at most 4096 data entries; key 'extra' was not set on lobby"));
+            Assert.That(owner.SetLobbyData(lobby, "extra", "v"), Is.False);
+            Assert.That(owner.GetLobbyData(lobby, "extra"), Is.Null);
+
+            // Keys the lobby holds, in any case, still change, and a deleted key makes room.
+            Assert.That(owner.SetLobbyData(lobby, "k0", "changed"), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "LAST", "set"), Is.True);
+            Assert.That(owner.DeleteLobbyData(lobby, "k1"), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "extra", "v"), Is.True);
+
+            PumpUntil(() => ListedData(lobby, "extra") == "v", "the last change to reach the lobby file");
+            MachineDirectoryEntry listed = MachineDirectory.Read(_folder).Single();
+            Assert.That(listed.Data, Has.Count.EqualTo(MachineDirectory.MaxLobbyDataEntries));
+            Assert.That(listed.Data["k0"], Is.EqualTo("changed"));
+            Assert.That(listed.Data["last"], Is.EqualTo("set"));
+        }
+
+        [Test]
+        public void Lobby_PassingToABackendThatOwnsAsManyAsALobbyFileLists_IsTakenOver_AndLeftOutOfTheFileUntilOneEnds()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId passed = CreateLobby(owner, LobbyVisibility.Public, 4);
+            Peer next = CreatePeer("Next");
+            Assert.That(Join(next.Backend, passed), Is.EqualTo(MultiplayerReason.None));
+            List<LobbyId> created = CreateLobbies(next.Backend, MachineDirectory.MaxListedLobbies, null).Select(answer => answer.Lobby).ToList();
+
+            // The lobby passes on all the same, and its members keep it.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex($"lobby {passed} is left out of search"));
+            owner.LeaveLobby(passed);
+            PumpUntil(() => next.Events.OwnerChanges.Count == 1, "the member to hear that it owns the lobby");
+            Assert.That(next.Backend.GetLobbyOwner(passed), Is.EqualTo(next.Id));
+            Assert.That(next.Backend.SetLobbyData(passed, "map", "forest"), Is.True);
+
+            // The file goes on listing the lobbies the backend owned before and leaves out the
+            // one it took over; the owner that left deleted its own file.
+            PumpUntil(() => !File.Exists(Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies")), "the owner that left to delete its file");
+            PumpFor(0.5);
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created));
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
+            Assert.That(CreateLobbies(next.Backend, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.BackendError));
+
+            // Once one of the others ends, the file lists it.
+            next.Backend.LeaveLobby(created[0]);
+            PumpUntil(() => ListedData(passed, "map") == "forest", "the lobby taken over to reach the file");
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created.Skip(1).Append(passed)));
         }
         #endregion
 
@@ -2284,6 +2467,34 @@ namespace Mu3Library.Tests
             return lobby;
         }
 
+        /// <summary>
+        /// Asks <paramref name="owner"/> for <paramref name="count"/> public lobbies with
+        /// <paramref name="data"/> at once, so one update answers them all, and returns each answer.
+        /// </summary>
+        private List<(MultiplayerReason Reason, LobbyId Lobby)> CreateLobbies(LocalBackend owner, int count, IReadOnlyDictionary<string, string> data)
+        {
+            List<(MultiplayerReason Reason, LobbyId Lobby)> answers = new List<(MultiplayerReason, LobbyId)>();
+            for (int i = 0; i < count; i++)
+            {
+                owner.CreateLobby(LobbyVisibility.Public, 4, data, (reason, id) => answers.Add((reason, id)));
+            }
+
+            PumpUntil(() => answers.Count == count, "the lobbies");
+            return answers;
+        }
+
+        /// <summary>Lobby data with <paramref name="count"/> keys, k0 and on.</summary>
+        private static Dictionary<string, string> NumberedData(int count)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < count; i++)
+            {
+                data["k" + i.ToString(CultureInfo.InvariantCulture)] = "v";
+            }
+
+            return data;
+        }
+
         private MultiplayerReason Join(LocalBackend backend, LobbyId lobby)
         {
             MultiplayerReason? reason = null;
@@ -2477,7 +2688,7 @@ namespace Mu3Library.Tests
             while (waited.Elapsed.TotalSeconds < seconds)
             {
                 UpdateAll();
-                Thread.Sleep(2);
+                PauseBetweenUpdates(waited);
             }
         }
 
@@ -2493,8 +2704,27 @@ namespace Mu3Library.Tests
                     Assert.Fail($"Timed out after {seconds} s waiting for {what}.");
                 }
 
-                Thread.Sleep(2);
+                PauseBetweenUpdates(waited);
                 UpdateAll();
+            }
+        }
+
+        /// <summary>
+        /// Waits between two updates of a pump that has run for <paramref name="waited"/>: it only
+        /// yields for the first <see cref="YieldMilliseconds"/>, then sleeps. A search or a join by
+        /// lobby ID answers in the first update after its read of the lobby files, which takes a
+        /// few milliseconds on a thread of the pool, while a sleep takes about 16 ms in batch mode
+        /// on Windows, so a pump that slept from the start waited one sleep more for each answer (#310).
+        /// </summary>
+        private static void PauseBetweenUpdates(Stopwatch waited)
+        {
+            if (waited.Elapsed.TotalMilliseconds < YieldMilliseconds)
+            {
+                Thread.Yield();
+            }
+            else
+            {
+                Thread.Sleep(2);
             }
         }
 
