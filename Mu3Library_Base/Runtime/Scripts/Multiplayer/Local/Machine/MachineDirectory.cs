@@ -99,8 +99,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// <summary>
         /// Most lobbies one file lists. Each backend writes a file of its own, and the backend of
         /// a <see cref="MultiplayerManager"/> owns one lobby at a time; the rest leaves room for a
-        /// test or a tool that creates lobbies through a <see cref="LocalBackend"/> itself. An
-        /// owner lists no more, so a file that declares more is malformed.
+        /// test or a tool that creates lobbies through a <see cref="LocalBackend"/> itself, whose
+        /// <see cref="LocalBackend.CreateLobby"/> creates no more. An owner lists no more, leaving
+        /// out the lobbies past it that taking lobbies over brings, so a file that declares more
+        /// is malformed.
         /// </summary>
         internal const int MaxListedLobbies = 64;
 
@@ -109,8 +111,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// its members carry. A <see cref="MultiplayerManager"/>'s lobby holds at most 2,119: its
         /// own data takes at most <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes of
         /// distinct keys and their values, at most 128 keys take a single byte and the others two
-        /// or more, and the library adds seven keys of its own. An owner leaves a lobby with more
-        /// out of its file.
+        /// or more, and the library adds seven keys of its own. A <see cref="LocalBackend"/>
+        /// refuses a lobby or a new key past it, and an owner would leave a lobby with more out of
+        /// its file.
         /// </summary>
         internal const int MaxLobbyDataEntries = MachineProtocol.MaxListLength;
 

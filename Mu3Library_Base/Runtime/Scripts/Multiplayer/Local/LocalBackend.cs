@@ -57,6 +57,22 @@ namespace Mu3Library.Multiplayer.Local
     /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
     /// as Steam refuses a key or a value too long for it.
     /// </para>
+    /// <para>
+    /// On a machine-wide network a backend's lobby file lists at most 64 lobbies, each with at
+    /// most 4,096 data entries, every key it holds counting as one whatever its value, and a frame
+    /// brings a lobby to its members with no more entries. So <see cref="CreateLobby"/> answers
+    /// <see cref="MultiplayerReason.BackendError"/> when the backend already owns 64 lobbies or
+    /// the data holds more than 4,096 keys, and <see cref="SetLobbyData"/> refuses with false a
+    /// new key that would make a lobby hold more than 4,096, each with a warning; a key the lobby
+    /// holds can still change. A <see cref="MultiplayerManager"/>, which owns one lobby at a time
+    /// and bounds its lobby data by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well
+    /// within both. A lobby that passes to a backend that already owns 64 is still taken over,
+    /// since refusing it would end the lobby for its members; its lobby file then lists the 64
+    /// lobbies the backend has owned longest and leaves out the one taken over, with a warning the
+    /// first time, so that lobby is missing from the other processes' search and joins by its ID
+    /// until the backend owns fewer, while its members keep it. The lobby taken over brings no
+    /// more than 4,096 entries, as many as a frame carries.
+    /// </para>
     /// </remarks>
     public sealed class LocalBackend : IMultiplayerBackend
     {

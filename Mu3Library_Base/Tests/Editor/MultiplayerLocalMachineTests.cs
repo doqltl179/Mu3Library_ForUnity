@@ -1386,6 +1386,101 @@ namespace Mu3Library.Tests
             Assert.That(member.GetLobbyData(lobby, longestKey), Is.EqualTo(longestValue));
         }
 
+        [Test]
+        public void CreateLobby_PastTheLobbiesALobbyFileLists_IsRefused_UntilOneEnds()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+
+            // Asked in one update, the 64th lobby is created and the 65th refused.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
+            List<(MultiplayerReason Reason, LobbyId Lobby)> answers = CreateLobbies(owner, MachineDirectory.MaxListedLobbies + 1, null);
+            Assert.That(answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Reason), Is.All.EqualTo(MultiplayerReason.None));
+            Assert.That(answers.Last(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+
+            // The file lists every lobby created, which another process finds.
+            List<LobbyId> created = answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Lobby).ToList();
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created));
+
+            // A lobby that ends makes room for one more.
+            owner.LeaveLobby(created[0]);
+            Assert.That(CreateLobbies(owner, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.None));
+        }
+
+        [Test]
+        public void CreateLobby_WithMoreDataEntriesThanALobbyFileLists_IsRefused()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+
+            // As many keys as a lobby holds, and one that differs from one of them in case only,
+            // which the lobby takes as the same key.
+            Dictionary<string, string> most = NumberedData(MachineDirectory.MaxLobbyDataEntries);
+            most["K0"] = "v";
+            (MultiplayerReason Reason, LobbyId Lobby) created = CreateLobbies(owner, 1, most).Single();
+            Assert.That(created.Reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(MachineDirectory.Read(_folder).Single().Data, Has.Count.EqualTo(MachineDirectory.MaxLobbyDataEntries));
+
+            // One key more.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("holds at most 4096 data entries; the lobby was not created"));
+            Assert.That(CreateLobbies(owner, 1, NumberedData(MachineDirectory.MaxLobbyDataEntries + 1)).Single(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+        }
+
+        [Test]
+        public void SetLobbyData_ANewKeyPastTheDataEntriesALobbyFileLists_IsRefused_AndAKeyTheLobbyHoldsStillChanges()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobbies(owner, 1, NumberedData(MachineDirectory.MaxLobbyDataEntries - 1)).Single().Lobby;
+
+            // The 4,096th key, which counts with an empty value as with any other.
+            Assert.That(owner.SetLobbyData(lobby, "last", string.Empty), Is.True);
+
+            // The 4,097th key.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("holds at most 4096 data entries; key 'extra' was not set on lobby"));
+            Assert.That(owner.SetLobbyData(lobby, "extra", "v"), Is.False);
+            Assert.That(owner.GetLobbyData(lobby, "extra"), Is.Null);
+
+            // Keys the lobby holds, in any case, still change, and a deleted key makes room.
+            Assert.That(owner.SetLobbyData(lobby, "k0", "changed"), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "LAST", "set"), Is.True);
+            Assert.That(owner.DeleteLobbyData(lobby, "k1"), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "extra", "v"), Is.True);
+
+            PumpUntil(() => ListedData(lobby, "extra") == "v", "the last change to reach the lobby file");
+            MachineDirectoryEntry listed = MachineDirectory.Read(_folder).Single();
+            Assert.That(listed.Data, Has.Count.EqualTo(MachineDirectory.MaxLobbyDataEntries));
+            Assert.That(listed.Data["k0"], Is.EqualTo("changed"));
+            Assert.That(listed.Data["last"], Is.EqualTo("set"));
+        }
+
+        [Test]
+        public void Lobby_PassingToABackendThatOwnsAsManyAsALobbyFileLists_IsTakenOver_AndLeftOutOfTheFileUntilOneEnds()
+        {
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId passed = CreateLobby(owner, LobbyVisibility.Public, 4);
+            Peer next = CreatePeer("Next");
+            Assert.That(Join(next.Backend, passed), Is.EqualTo(MultiplayerReason.None));
+            List<LobbyId> created = CreateLobbies(next.Backend, MachineDirectory.MaxListedLobbies, null).Select(answer => answer.Lobby).ToList();
+
+            // The lobby passes on all the same, and its members keep it.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex($"lobby {passed} is left out of search"));
+            owner.LeaveLobby(passed);
+            PumpUntil(() => next.Events.OwnerChanges.Count == 1, "the member to hear that it owns the lobby");
+            Assert.That(next.Backend.GetLobbyOwner(passed), Is.EqualTo(next.Id));
+            Assert.That(next.Backend.SetLobbyData(passed, "map", "forest"), Is.True);
+
+            // The file goes on listing the lobbies the backend owned before and leaves out the
+            // one it took over; the owner that left deleted its own file.
+            PumpUntil(() => !File.Exists(Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies")), "the owner that left to delete its file");
+            PumpFor(0.5);
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created));
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
+            Assert.That(CreateLobbies(next.Backend, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.BackendError));
+
+            // Once one of the others ends, the file lists it.
+            next.Backend.LeaveLobby(created[0]);
+            PumpUntil(() => ListedData(passed, "map") == "forest", "the lobby taken over to reach the file");
+            Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created.Skip(1).Append(passed)));
+        }
         #endregion
 
         #region Lobby file cost
@@ -2286,6 +2381,34 @@ namespace Mu3Library.Tests
             PumpUntil(() => reason.HasValue, "the lobby");
             Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
             return lobby;
+        }
+
+        /// <summary>
+        /// Asks <paramref name="owner"/> for <paramref name="count"/> public lobbies with
+        /// <paramref name="data"/> at once, so one update answers them all, and returns each answer.
+        /// </summary>
+        private List<(MultiplayerReason Reason, LobbyId Lobby)> CreateLobbies(LocalBackend owner, int count, IReadOnlyDictionary<string, string> data)
+        {
+            List<(MultiplayerReason Reason, LobbyId Lobby)> answers = new List<(MultiplayerReason, LobbyId)>();
+            for (int i = 0; i < count; i++)
+            {
+                owner.CreateLobby(LobbyVisibility.Public, 4, data, (reason, id) => answers.Add((reason, id)));
+            }
+
+            PumpUntil(() => answers.Count == count, "the lobbies");
+            return answers;
+        }
+
+        /// <summary>Lobby data with <paramref name="count"/> keys, k0 and on.</summary>
+        private static Dictionary<string, string> NumberedData(int count)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < count; i++)
+            {
+                data["k" + i.ToString(CultureInfo.InvariantCulture)] = "v";
+            }
+
+            return data;
         }
 
         private MultiplayerReason Join(LocalBackend backend, LobbyId lobby)

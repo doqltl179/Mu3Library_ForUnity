@@ -35,6 +35,10 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private IReadOnlyDictionary<string, string> _refusedLobbyData = null;
 
         private readonly List<MachineLobby> _lobbyScratch = new List<MachineLobby>();
+
+        // The MachineLobby.OwnedOrder of the lobby this player came to own last.
+        private long _lastOwnedOrder = 0;
+
         private bool _isDirectoryDirty = false;
         private double _nextPublish = 0.0;
         private double _nextPublishAttempt = 0.0;
@@ -80,7 +84,8 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted)
         {
-            Dictionary<string, string> snapshot = new Dictionary<string, string>();
+            // Keys in any case, as the lobby keeps them, so it counts the entries the lobby gets.
+            Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             bool isWithinLimits = true;
             if (data != null)
             {
@@ -102,10 +107,27 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     return;
                 }
 
+                // A lobby file lists no more data entries for a lobby, nor more lobbies, so the
+                // other processes would not find the lobby; it fails here as well (#309).
+                if (snapshot.Count > MachineDirectory.MaxLobbyDataEntries)
+                {
+                    Debug.LogWarning($"[Multiplayer] A lobby on the local network holds at most {MachineDirectory.MaxLobbyDataEntries} data entries; the lobby was not created.");
+                    onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None);
+                    return;
+                }
+
+                if (CountOwnedLobbies() >= MachineDirectory.MaxListedLobbies)
+                {
+                    Debug.LogWarning($"[Multiplayer] A backend on the local network owns at most {MachineDirectory.MaxListedLobbies} lobbies at a time; the lobby was not created.");
+                    onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None);
+                    return;
+                }
+
                 MachineLobby lobby = new MachineLobby
                 {
                     Id = new LobbyId(NewId(0xFFFFFFFFFFFFUL)),
                     IsOwned = true,
+                    OwnedOrder = ++_lastOwnedOrder,
                     OwnerId = LocalPlayerId,
                     OwnerPort = Port,
                     Visibility = visibility,
@@ -242,6 +264,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
+            // Past the entries a lobby file lists and a frame carries, the lobby would leave search
+            // and joins by its ID, and its members would drop the frames that bring it (#309).
+            if (lobby.Data.Count >= MachineDirectory.MaxLobbyDataEntries && !lobby.Data.ContainsKey(key))
+            {
+                Debug.LogWarning($"[Multiplayer] A lobby on the local network holds at most {MachineDirectory.MaxLobbyDataEntries} data entries; key '{key}' was not set on lobby {lobbyId}.");
+                return false;
+            }
+
             lobby.Data[key] = value ?? string.Empty;
             lobby.IsDirty = true;
             return true;
@@ -303,6 +333,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private MachineLobby FindOwnedLobby(LobbyId lobbyId)
         {
             return !_isDisposed && _lobbies.TryGetValue(lobbyId, out MachineLobby lobby) && lobby.IsOwned ? lobby : null;
+        }
+
+        private int CountOwnedLobbies()
+        {
+            int count = 0;
+            foreach (MachineLobby lobby in _lobbies.Values)
+            {
+                if (lobby.IsOwned)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static bool IsSearchable(LobbyVisibility visibility, bool isJoinable, int memberCount, int capacity)
@@ -750,9 +794,16 @@ namespace Mu3Library.Multiplayer.Local.Machine
             Defer(() => _listener?.OnLobbyOwnerChanged(lobbyId, ownerId));
         }
 
+        /// <summary>
+        /// This player becomes the owner. It takes the lobby over also when it already owns as
+        /// many lobbies as a lobby file lists, since refusing would end the lobby for its members;
+        /// the file then leaves out the lobby taken over last (<see cref="PublishDirectory"/>).
+        /// The lobby brings no more data entries than a file lists, as many as a frame carries.
+        /// </summary>
         private void TakeOver(MachineLobby lobby, double now)
         {
             lobby.IsOwned = true;
+            lobby.OwnedOrder = ++_lastOwnedOrder;
             lobby.OwnerLink = null;
             if (lobby.RejoinLink != null)
             {
@@ -934,11 +985,34 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return;
             }
 
+            // Past the lobbies a file lists, which only a lobby taken over brings, the file lists
+            // those owned longest and leaves out the newest, so a lobby in search stays there.
+            if (_lobbyScratch.Count > MachineDirectory.MaxListedLobbies)
+            {
+                SortByOwnedOrder(_lobbyScratch);
+            }
+
             // Unless it adds a lobby, the file is written in the background, so this frame does not wait for it.
             _directory.Publish(LocalPlayerId, Port, _lobbyScratch);
             _isDirectoryDirty = false;
             _nextPublish = now + PublishIntervalSeconds;
             _nextPublishAttempt = now + PublishMinIntervalSeconds;
+        }
+
+        /// <summary>An insertion sort, which allocates nothing, by <see cref="MachineLobby.OwnedOrder"/>.</summary>
+        private static void SortByOwnedOrder(List<MachineLobby> lobbies)
+        {
+            for (int i = 1; i < lobbies.Count; i++)
+            {
+                MachineLobby lobby = lobbies[i];
+                int j = i - 1;
+                for (; j >= 0 && lobbies[j].OwnedOrder > lobby.OwnedOrder; j--)
+                {
+                    lobbies[j + 1] = lobbies[j];
+                }
+
+                lobbies[j + 1] = lobby;
+            }
         }
         #endregion
     }
