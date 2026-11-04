@@ -215,11 +215,12 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryCopyAndLobbySearch_OnEveryBackend()
+        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryCopyAndLobbySearch()
         {
-            // FR-11, FR-38, #313: a Steam lobby keeps a key it holds when the key is set empty but
-            // writes none it lacks, so an empty value deletes the key, and a lobby created with one
-            // starts without it; neither takes room toward the limit.
+            // FR-11, FR-38, #313 in this process: a Steam lobby keeps a key it holds when the key
+            // is set empty but writes none it lacks, so an empty value deletes the key, and a lobby
+            // created with one starts without it; neither takes room toward the limit. The test of
+            // the machine-wide network and Steam's integration test check the same.
             LobbyCreateOptions options = PublicOptions(new SessionRules(4));
             options.Data["map"] = "desert";
             options.Data["e1"] = string.Empty;

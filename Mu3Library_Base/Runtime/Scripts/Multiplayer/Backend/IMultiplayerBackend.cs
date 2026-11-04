@@ -89,12 +89,18 @@ namespace Mu3Library.Multiplayer.Backend
         public string GetLobbyData(LobbyId lobby, string key);
 
         /// <summary>
-        /// Owner only; false otherwise. The manager never writes an empty value here, neither when
-        /// it creates a lobby nor later, and deletes the key instead
-        /// (<see cref="IMultiplayerManager.SetLobbyData"/>): on AppID 480 on 2026-11-04 a Steam
+        /// Owner only; false otherwise. The manager never writes an empty value here and deletes
+        /// the key instead (<see cref="IMultiplayerManager.SetLobbyData"/>), and it leaves a key
+        /// with an empty value out of the data it hands <see cref="CreateLobby"/>, since the
+        /// backends treat such a value differently (#313). On AppID 480 on 2026-11-04 a Steam
         /// lobby kept a key it held when the key was set to an empty value, which search then
-        /// returned and filters matched as an empty value, but wrote no key it lacked, and
-        /// <see cref="DeleteLobbyData"/> answered false for such a key (#313).
+        /// returned with the empty value and a filter for the empty value matched, but wrote no
+        /// key it lacked, and <see cref="DeleteLobbyData"/> answered false for a key the lobby
+        /// lacked. The local backends keep every key written with an empty value, at creation
+        /// too: <see cref="GetLobbyData"/> answers the empty value where the Steam backend answers
+        /// null, their search returns the key and its filters leave out a lobby that holds it
+        /// whatever the comparison, and <see cref="DeleteLobbyData"/> answers true for a key the
+        /// lobby lacks.
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 

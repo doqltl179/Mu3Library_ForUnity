@@ -504,9 +504,23 @@ namespace Mu3Library.Tests
                 Assert.That(after.Data.Count, Is.EqualTo(1), $"search returns the keys '{string.Join("', '", after.Data.Keys)}'");
                 Assert.That(after.Data["Map"], Is.EqualTo("desert"));
 
-                // What the manager keeps from happening: the backend itself sets a key Steam holds empty.
-                Assert.That(_backend.SetLobbyData(lobby, "raw", "v") && _backend.SetLobbyData(lobby, "raw", string.Empty), Is.True);
-                TestContext.WriteLine($"Set empty through the backend, the lobby holds the game keys '{string.Join("', '", OwnLobbyGameKeys(lobby))}'; deleting a key Steam lacks answers {_backend.DeleteLobbyData(lobby, "never")}.");
+                // What the manager keeps from happening, and why: the backend itself sets a key
+                // that Steam's search already lists to an empty value.
+                Assert.That(_backend.SetLobbyData(lobby, "raw", "v"), Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("raw", "v"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key set through the backend");
+                Assert.That(_backend.SetLobbyData(lobby, "raw", string.Empty), Is.True);
+                LobbyInfo listed = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && info.Data.TryGetValue("raw", out string value) && value.Length == 0, 15);
+                string listedRaw = listed == null ? "no lobby" : listed.Data.TryGetValue("raw", out string rawValue) ? $"'{rawValue}'" : "no key";
+                bool isFoundByEmpty = SearchUntil(manager, () => Worldwide().AddStringFilter("raw", string.Empty), lobby, seconds: 10) != null;
+                bool isMissingDeleted = _backend.DeleteLobbyData(lobby, "never");
+                TestContext.WriteLine($"Set empty through the backend, the owner's lobby holds the game keys '{string.Join("', '", OwnLobbyGameKeys(lobby))}', "
+                    + $"search returns the key as {listedRaw}, a filter for the empty value {(isFoundByEmpty ? "finds" : "does not find")} the lobby, "
+                    + $"and deleting a key Steam lacks answers {isMissingDeleted}.");
+                Assert.That(listedRaw, Is.EqualTo("''"), "Steam's search returns the key a lobby held with the empty value it was set to");
+                Assert.That(isFoundByEmpty, Is.True, "a filter for the empty value finds the lobby on Steam");
+                Assert.That(isMissingDeleted, Is.False, "Steam refuses to delete a key the lobby lacks");
 
                 manager.Leave();
             }
