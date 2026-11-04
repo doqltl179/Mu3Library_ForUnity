@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Mu3Library.Editor.FileUtil;
 using Mu3Library.Editor.Window.Drawer;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -10,6 +11,37 @@ namespace Mu3Library.Tests
 {
     public class FileCreatorTests
     {
+        /// <summary>
+        /// A test that creates assets creates them in a folder under <c>Assets</c> named with this prefix and a unique
+        /// suffix. The TearDown deletes it, and the next run deletes any that an interrupted run left.
+        /// </summary>
+        private const string TempFolderPrefix = nameof(FileCreatorTests) + "_";
+
+        private string _tempFolder;
+
+        [SetUp]
+        public void SetUp()
+        {
+            foreach (string folder in AssetDatabase.GetSubFolders("Assets"))
+            {
+                if (folder.Substring(folder.LastIndexOf('/') + 1).StartsWith(TempFolderPrefix))
+                {
+                    AssetDatabase.DeleteAsset(folder);
+                }
+            }
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (!string.IsNullOrEmpty(_tempFolder))
+            {
+                AssetDatabase.DeleteAsset(_tempFolder);
+            }
+
+            _tempFolder = null;
+        }
+
         private static string Lines(params string[] lines)
         {
             return string.Join(Environment.NewLine, lines) + Environment.NewLine;
@@ -77,6 +109,34 @@ namespace Mu3Library.Tests
 
             Assert.IsNull(created);
             LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void CreateScriptableObject_AssetAlreadyAtThePath_ReplacesItAndItsSettings()
+        {
+            string folder = CreateTempFolder();
+            string assetPath = $"{folder}/List.asset";
+            DrawerListDrawer existing = ScriptableObject.CreateInstance<DrawerListDrawer>();
+            existing.WindowTypeName = typeof(FileCreatorTests).FullName;
+            AssetDatabase.CreateAsset(existing, assetPath);
+
+            DrawerListDrawer created = FileCreator.CreateScriptableObject<DrawerListDrawer>(folder, "List");
+
+            Assert.IsTrue(existing == null, "The asset that sat at the path was not destroyed.");
+            Assert.IsNotNull(created);
+            Assert.AreSame(created, AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(assetPath));
+            Assert.AreEqual("", created.WindowTypeName);
+            Assert.AreEqual(1, AssetDatabase.FindAssets("", new[] { folder }).Length);
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        private string CreateTempFolder()
+        {
+            string name = TempFolderPrefix + Guid.NewGuid().ToString("N").Substring(0, 8);
+            _tempFolder = AssetDatabase.GUIDToAssetPath(AssetDatabase.CreateFolder("Assets", name));
+            Assert.AreEqual($"Assets/{name}", _tempFolder);
+
+            return _tempFolder;
         }
     }
 }
