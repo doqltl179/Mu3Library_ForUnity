@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-04
+
+### Fixed
+- `mu3-cli repo check` reads every file it lists, including one whose path holds a character outside ASCII, such as `Café.cs`. It read `git ls-files` line by line, and with its default `core.quotepath` Git quotes such a path and escapes the character's bytes, so the path ended in a quote, matched no suffix the check reads, and was passed over while the check reported success. It now lists the paths with `-z`, which prints each one as it is named. No path in the repository held such a character.
+
 ## 2026-11-01
 
 ### Added
