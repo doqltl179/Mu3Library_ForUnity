@@ -947,6 +947,26 @@ namespace Mu3Library.Tests
             Assert.AreSame(instance, _scope.Resolve<FailingInjectRecordingService>());
             Assert.IsFalse(_container.IsRegistered(typeof(IServiceA)));
         }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsForAnInstanceAlreadyTracked_KeepsItsLifecycle()
+        {
+            FailingInjectRecordingService instance = new();
+            _container.RegisterInstance(instance, registerInterfaces: false);
+            // The resolve through the earlier registration starts the tracking.
+            Assert.AreSame(instance, _scope.Resolve<FailingInjectRecordingService>());
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            _scope.Initialize();
+            _scope.Update();
+            _scope.LateUpdate();
+            _scope.Dispose();
+
+            Assert.AreEqual(1, instance.InitializeCount);
+            Assert.AreEqual(1, instance.UpdateCount);
+            Assert.AreEqual(1, instance.LateUpdateCount);
+            Assert.AreEqual(1, instance.DisposeCount);
+        }
         #endregion
 
         #region Instance identity

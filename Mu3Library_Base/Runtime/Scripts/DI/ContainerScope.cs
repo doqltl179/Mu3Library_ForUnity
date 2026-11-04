@@ -191,8 +191,11 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Register an already created instance, inject its members, and track its lifecycle.
-        /// When the injection throws, the registration is undone before the exception reaches the
-        /// caller: the instance does not resolve, and its lifecycle is not tracked.
+        /// When the injection throws, what this call added is undone before the exception reaches
+        /// the caller: its registrations are removed, so the instance does not resolve through
+        /// them, and the lifecycle tracking it started, during the injection included, stops. An
+        /// earlier registration of the same instance stays, and so does the tracking that one
+        /// started.
         /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
