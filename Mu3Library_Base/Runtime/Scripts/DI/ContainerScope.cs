@@ -191,14 +191,37 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Register an already created instance, inject its members, and track its lifecycle.
+        /// When the injection throws, the registration is undone before the exception reaches the
+        /// caller: the instance does not resolve, and its lifecycle is not tracked.
         /// </summary>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
         {
+            int start = _container.DescriptorCount;
+            bool wasTracked = instance != null && _trackedInstances.Contains(instance);
             _container.RegisterInstance(instance, registerInterfaces, key);
+            int added = _container.DescriptorCount - start;
 
-            // Apply member injection to instances registered from outside the container.
-            InjectInto(instance);
+            // Apply member injection to instances registered from outside the container. The
+            // instance is registered first, so a service that one of its members resolves may
+            // depend on it, and resolving it there starts its lifecycle tracking. The caller gets
+            // an exception for an instance whose injection failed, so its registration is taken
+            // back rather than handed out, uninjected, by a later resolve. Only the descriptors
+            // this call added go: an earlier registration of the same instance stays.
+            try
+            {
+                InjectInto(instance);
+            }
+            catch
+            {
+                _container.RemoveDescriptors(start, added);
+                if (!wasTracked)
+                {
+                    UntrackLifecycle(instance);
+                }
+
+                throw;
+            }
 
             // Track lifecycle for pre-created instances
             TrackLifecycle(instance, ServiceLifetime.Singleton);
@@ -647,6 +670,36 @@ namespace Mu3Library.DI
             if (instance is IDisposable disposable)
             {
                 _disposables.Add(disposable);
+            }
+        }
+
+        // Undoes TrackLifecycle for an instance whose registration failed. An Initialize that
+        // already ran on it, which TrackLifecycle does once the scope has initialized, stays run.
+        private void UntrackLifecycle(object instance)
+        {
+            if (instance == null || !_trackedInstances.Remove(instance))
+            {
+                return;
+            }
+
+            if (instance is IInitializable initializable)
+            {
+                _initializables.Remove(initializable);
+            }
+
+            if (instance is IUpdatable updatable)
+            {
+                _updatables.Remove(updatable);
+            }
+
+            if (instance is ILateUpdatable lateUpdatable)
+            {
+                _lateUpdatables.Remove(lateUpdatable);
+            }
+
+            if (instance is IDisposable disposable)
+            {
+                _disposables.Remove(disposable);
             }
         }
 

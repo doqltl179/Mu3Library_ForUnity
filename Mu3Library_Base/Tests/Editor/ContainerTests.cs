@@ -267,6 +267,35 @@ namespace Mu3Library.Tests
             public void Dispose() => throw new InvalidOperationException("dispose boom");
         }
 
+        // Registered instances whose injection fails: no service is registered for this one.
+        private interface IUnregisteredService { }
+
+        private interface IRollbackTarget { }
+
+        private sealed class FailingInjectRecordingService : RecordingService, IServiceA
+        {
+            [Inject] public IUnregisteredService Missing { get; set; }
+        }
+
+        private sealed class DependsOnRollbackTarget
+        {
+            public DependsOnRollbackTarget(IRollbackTarget target) => Target = target;
+
+            public IRollbackTarget Target { get; }
+        }
+
+        // The field resolves a service whose constructor resolves this instance through its
+        // registration, which starts its lifecycle tracking; then the property fails, since
+        // fields are injected before properties.
+        private sealed class SelfResolvingFailingInjectService : RecordingService, IRollbackTarget
+        {
+            [Inject(required: false)] private DependsOnRollbackTarget _dependent = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public DependsOnRollbackTarget Dependent => _dependent;
+        }
+
         private Container _container;
         private ContainerScope _scope;
 
@@ -824,6 +853,99 @@ namespace Mu3Library.Tests
             Assert.AreEqual(0, InjectableMembers.GetUnwritableProperties(typeof(StaticPropertyInjectTarget)).Count);
             Assert.AreEqual(0, InjectableMembers.GetStaticFields(typeof(InjectLeaf)).Count);
             Assert.AreEqual(0, InjectableMembers.GetStaticProperties(typeof(InjectLeaf)).Count);
+        }
+        #endregion
+
+        #region Failed instance registration
+        [Test]
+        public void RegisterInstance_InjectionFails_InstanceDoesNotResolve()
+        {
+            FailingInjectRecordingService instance = new();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            StringAssert.Contains($"{typeof(FailingInjectRecordingService).FullName}.{nameof(FailingInjectRecordingService.Missing)}", exception.Message);
+            Assert.IsFalse(_container.IsRegistered(typeof(FailingInjectRecordingService)));
+            Assert.IsFalse(_container.IsRegistered(typeof(IServiceA)));
+            Assert.IsFalse(_scope.TryResolve(out FailingInjectRecordingService _));
+            Assert.IsFalse(_scope.TryResolve(out IServiceA _));
+            Assert.AreEqual(0, _scope.ResolveAll<IServiceA>().Count());
+            Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(instance));
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_LifecycleIsNotTracked()
+        {
+            FailingInjectRecordingService instance = new();
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            // A resolve started the tracking that the registration skipped.
+            _scope.TryResolve(out FailingInjectRecordingService _);
+            _scope.Initialize();
+            _scope.Update();
+            _scope.LateUpdate();
+            _scope.Dispose();
+
+            Assert.AreEqual(0, instance.InitializeCount);
+            Assert.AreEqual(0, instance.UpdateCount);
+            Assert.AreEqual(0, instance.LateUpdateCount);
+            Assert.AreEqual(0, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsAfterTheInstanceResolved_LifecycleIsNotTracked()
+        {
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Transient);
+            SelfResolvingFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            _scope.Initialize();
+            _scope.Update();
+            _scope.LateUpdate();
+            _scope.Dispose();
+
+            Assert.AreSame(instance, instance.Dependent.Target);
+            Assert.IsFalse(_container.IsRegistered(typeof(IRollbackTarget)));
+            Assert.AreEqual(0, instance.InitializeCount);
+            Assert.AreEqual(0, instance.UpdateCount);
+            Assert.AreEqual(0, instance.LateUpdateCount);
+            Assert.AreEqual(0, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_UnfillableRequiredMember_UndoesTheRegistration()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(new ReadOnlyInjectTarget()));
+
+            Assert.IsFalse(_container.IsRegistered(typeof(ReadOnlyInjectTarget)));
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_KeepsTheOtherRegistrations()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            ServiceA registered = _scope.Resolve<ServiceA>();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(new FailingInjectRecordingService()));
+            _scope.Register<ServiceB>(ServiceLifetime.Transient);
+
+            Assert.AreSame(registered, _scope.Resolve<IServiceA>());
+            Assert.AreEqual(1, _scope.ResolveAll<IServiceA>().Count());
+            Assert.AreSame(registered, _scope.Resolve<ServiceB>().A);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsForAnInstanceRegisteredBefore_KeepsTheEarlierRegistration()
+        {
+            FailingInjectRecordingService instance = new();
+            _container.RegisterInstance(instance, registerInterfaces: false);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            Assert.AreSame(instance, _scope.Resolve<FailingInjectRecordingService>());
+            Assert.IsFalse(_container.IsRegistered(typeof(IServiceA)));
         }
         #endregion
 
