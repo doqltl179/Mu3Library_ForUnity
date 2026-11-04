@@ -77,9 +77,14 @@ namespace Mu3Library.Multiplayer.Local
     /// player who joins grows it by up to 208 bytes (its ID, port, and name with the name's
     /// length), so the owner refuses a join that would take the lobby past it, with a warning,
     /// and the joining player's <see cref="JoinLobby"/> answers
-    /// <see cref="MultiplayerReason.BackendError"/>; a lobby with less room left than that for
-    /// each free slot can so take fewer players than its capacity, while its members keep it.
-    /// The file lists no names, so a join does not grow it. A
+    /// <see cref="MultiplayerReason.SessionFull"/>, as a full lobby answers, while its members
+    /// keep the lobby. A lobby with less room left than that for each free slot can so take
+    /// fewer players than its capacity, and <see cref="SearchLobbies"/> shows it with only the
+    /// free slots that room holds at 208 bytes each, its capacity cut to its members and those
+    /// slots: one with less than 208 bytes left shows as full and is left out, so a player that
+    /// search shows a free slot takes it whatever its name, though one with a shorter name can
+    /// still join a lobby left out by its ID. The file lists no names, so a join does not grow
+    /// it. A
     /// <see cref="MultiplayerManager"/>, which owns one lobby at a time and bounds its lobby data
     /// by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well within all of these. A
     /// lobby that passes to a backend that already owns 64 is still taken over,

@@ -38,6 +38,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const int MemberFixedBytes = sizeof(ulong) + sizeof(int);
 
         /// <summary>
+        /// The most bytes one member takes in what <see cref="WriteSnapshot"/> writes
+        /// (<see cref="MemberBytes"/>): its ID, its port, and the longest name with its length,
+        /// 208 in all. Search counts a lobby's free slots by it (<see cref="MachineDirectory.ListedCapacity"/>).
+        /// </summary>
+        public const int MaxMemberBytes = MemberFixedBytes + sizeof(int) + MaxNameBytes;
+
+        /// <summary>
         /// A <see cref="MachineFrameKind.LobbyReply"/> that asks a returning member to try again in
         /// a moment: the player it reached has not noticed yet that the lobby passed to it.
         /// </summary>

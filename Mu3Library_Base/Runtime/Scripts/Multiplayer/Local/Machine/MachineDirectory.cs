@@ -251,7 +251,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     long start = _listing.Position;
                     writer.Write(lobby.Id.Value);
                     writer.Write((byte)lobby.Visibility);
-                    writer.Write(lobby.Capacity);
+                    writer.Write(ListedCapacity(lobby));
                     writer.Write(lobby.Members.Count);
                     writer.Write(lobby.IsJoinable);
                     writer.Write(lobby.Data.Count);
@@ -332,6 +332,29 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
         /// <summary>The bytes one lobby data entry takes in what <see cref="Publish"/> writes.</summary>
         internal static int ListedEntryBytes(string key, string value) => StringBytes(key) + StringBytes(value);
+
+        /// <summary>
+        /// The capacity <see cref="Publish"/> lists for the lobby, which search shows (#368): the
+        /// lobby's own, cut to its members and as many more players as the frames can still carry
+        /// it with whatever their names, <see cref="MachineProtocol.MaxMemberBytes"/> each, when
+        /// that is less. So a lobby whose owner could refuse the next player for the frame's sake
+        /// lists as full and leaves search, as a full lobby does, and a player that search shows
+        /// a free slot fits in it whatever its name.
+        /// </summary>
+        internal static int ListedCapacity(MachineLobby lobby)
+        {
+            int free = lobby.Capacity - lobby.Members.Count;
+            if (free <= 0)
+            {
+                return lobby.Capacity;
+            }
+
+            // Counted as the owner counts a join (MachinePeer.AcceptJoin), without allocating;
+            // a lobby taken over past a frame has no room at all.
+            int room = MachineProtocol.MaxSnapshotBytes - MachineProtocol.SnapshotBytes(lobby);
+            int fits = room > 0 ? room / MachineProtocol.MaxMemberBytes : 0;
+            return fits < free ? lobby.Members.Count + fits : lobby.Capacity;
+        }
 
         /// <summary>
         /// What <see cref="BinaryWriter.Write(string)"/> writes: the count of UTF-8 bytes as a
