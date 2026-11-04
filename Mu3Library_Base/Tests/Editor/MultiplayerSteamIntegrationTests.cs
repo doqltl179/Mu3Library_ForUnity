@@ -430,6 +430,53 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_ReadsAValueThatIsNotAWholeNumber_InNumericFilters_AsTheLocalBackendsDo()
+        {
+            // FR-6, FR-38, #362: numeric filters on values that are not whole numbers on Steam
+            // itself, against the numbers the local backends' tests hold every backend to read.
+            // A value with an unpaired surrogate, which the manager refuses, goes through the
+            // backend itself.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager,
+                    MultiplayerSessionTests.NumericReadingData(MultiplayerSessionTests.SteamNumericReadings, MultiplayerSessionTests.NumericReadingKey));
+                foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.NumericReadingData(MultiplayerSessionTests.UnpairedSurrogateReadings, MultiplayerSessionTests.UnpairedSurrogateKey))
+                {
+                    Assert.That(_backend.SetLobbyData(lobby, pair.Key, pair.Value), Is.True, pair.Key);
+                }
+
+                // Each Equal, which keeps the lobby once its value reaches search's filters, is
+                // asked a little longer, and the NotEqual on the same key after it, which drops
+                // the lobby, at once.
+                List<string> mismatches = new List<string>();
+                foreach (((string Lobby, int Read)[] readings, string keyPrefix) in new[]
+                {
+                    (MultiplayerSessionTests.SteamNumericReadings, MultiplayerSessionTests.NumericReadingKey),
+                    (MultiplayerSessionTests.UnpairedSurrogateReadings, MultiplayerSessionTests.UnpairedSurrogateKey),
+                })
+                {
+                    foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.NumericReadingChecks(readings, keyPrefix))
+                    {
+                        query.Distance = LobbyDistance.Worldwide;
+                        bool isFound = SearchUntil(manager, () => query, lobby, seconds: isKept ? 10 : 0) != null;
+                        if (isFound != isKept)
+                        {
+                            mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                        }
+                    }
+                }
+
+                Assert.That(mismatches, Is.Empty);
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
         {
             // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is

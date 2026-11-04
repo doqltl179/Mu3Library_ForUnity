@@ -56,8 +56,8 @@ namespace Mu3Library.Multiplayer.Data
         }
 
         /// <summary>
-        /// Keeps the lobbies whose value under <paramref name="key"/> reads as a whole number that,
-        /// compared with <paramref name="value"/>, gives <paramref name="comparison"/>. The key
+        /// Keeps the lobbies whose value under <paramref name="key"/>, read as a number, compared
+        /// with <paramref name="value"/>, gives <paramref name="comparison"/>. The key
         /// matches in any case, and a filter whose key is null or empty is skipped on every
         /// backend and leaves out no lobby, as for <see cref="AddStringFilter"/>. Unlike a string
         /// filter, a numeric filter reads a key the lobby lacks as 0 on every backend, as Steam's
@@ -65,9 +65,20 @@ namespace Mu3Library.Multiplayer.Data
         /// empty value, which the manager deletes: <c>Equal</c>, <c>EqualOrLessThan</c>, and
         /// <c>EqualOrGreaterThan</c> 0 find a lobby that never wrote the key or wrote it empty,
         /// and <c>NotEqual</c>, <c>LessThan</c>, and <c>GreaterThan</c> 0 do not. An
-        /// empty value, which only a caller of a backend itself writes, reads as 0 too. The local
-        /// backends leave out a lobby that holds a value that is not a whole number, such as
-        /// <c>"5.5"</c> or <c>"abc"</c>, which Steam's search read otherwise that day.
+        /// empty value, which only a caller of a backend itself writes, reads as 0 too.
+        /// <para>
+        /// Every backend reads every value as Steam's search read 64 values on AppID 480 on
+        /// 2026-11-04, so a value that is not a whole number leaves no lobby out by itself. From
+        /// the first character, without skipping white space, it takes one <c>+</c> or <c>-</c>, then
+        /// the hexadecimal digits after <c>0x</c> or <c>0X</c>, the character after a <c>'</c>
+        /// as the first byte of its UTF-8 form taken as a signed byte, or else the decimal digits,
+        /// each up to the first character that is not one, so a value without any reads as 0. A
+        /// number past the range of <see cref="int"/> keeps the low 32 bits of a sum in 64 bits
+        /// that wraps around: <c>"12abc"</c> reads as 12, <c>"5.5"</c> as 5, <c>"abc"</c> and
+        /// <c>" 7"</c> as 0, <c>"010"</c> as 10, <c>"0x10"</c> as 16, <c>"'A"</c> as 65, and
+        /// <c>"2147483648"</c> as -2147483648. A whole number written in decimal within the range
+        /// of <see cref="int"/>, with no space before it, reads as written.
+        /// </para>
         /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)
         {
