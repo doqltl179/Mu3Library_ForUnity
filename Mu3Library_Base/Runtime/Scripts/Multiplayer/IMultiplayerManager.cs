@@ -58,7 +58,13 @@ namespace Mu3Library.Multiplayer
         /// use Steam, because the game shut Steam down or a Steam call failed in its native
         /// library, and <see cref="MultiplayerReason.BackendError"/> for any other backend, such
         /// as one disposed before the manager. Such a backend reports nothing more, so the session
-        /// would otherwise stay as it is with no event.
+        /// would otherwise stay as it is with no event. A client whose connection to the host, or
+        /// whose reliable send to it, fails on such a backend before then ends its session at
+        /// once with the same reason, rather than with <see cref="MultiplayerReason.ConnectionFailed"/>
+        /// or <see cref="MultiplayerReason.ConnectionLost"/>, and does not try to come back to its
+        /// slot; a host whose sends fail on it keeps its players until that update, which ends
+        /// the session once, rather than dropping each of them with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 

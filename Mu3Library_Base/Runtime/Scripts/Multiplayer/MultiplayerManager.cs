@@ -660,6 +660,18 @@ namespace Mu3Library.Multiplayer
         private MultiplayerReason GoneBackendReason => UnavailableReason(MultiplayerReason.BackendError);
 
         /// <summary>
+        /// The reason a join or a session ends with when a connection or a send to the host fails:
+        /// <paramref name="otherwise"/> while the backend is available, and once it is not, as a
+        /// Steam backend whose Steam call failed there, <see cref="GoneBackendReason"/>, the
+        /// reason the next update would end the session with, so the game hears one reason
+        /// whichever path noticed first (#320).
+        /// </summary>
+        private MultiplayerReason FailureReason(MultiplayerReason otherwise)
+        {
+            return _backend.IsAvailable ? otherwise : GoneBackendReason;
+        }
+
+        /// <summary>
         /// The reason the backend names for not being available
         /// (<see cref="IUnavailableReasonBackend"/>), as the Steam backend names
         /// <see cref="MultiplayerReason.SteamNotRunning"/> once Steam cannot be used, or

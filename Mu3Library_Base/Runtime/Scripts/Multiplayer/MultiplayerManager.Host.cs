@@ -804,7 +804,9 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Sends what the writer holds to every accepted player except <paramref name="except"/>.
         /// A player the packet cannot reach is dropped from the session, since from then on its
-        /// view of the session would silently differ from everyone else's.
+        /// view of the session would silently differ from everyone else's; on a backend that is
+        /// no longer available the session ends on the next update instead (see
+        /// <see cref="DropUnreachablePeers"/>).
         /// </summary>
         private void BroadcastToWelcomed(ConnectionId except)
         {
