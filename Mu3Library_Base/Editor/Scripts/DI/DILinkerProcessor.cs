@@ -44,6 +44,16 @@ namespace Mu3Library.Editor.DI
     /// not listed. An entry for a member the player lacks is ignored.
     /// </para>
     /// <para>
+    /// A required static [Inject] field or property is listed too. The container never writes
+    /// one, but it must find one to throw, as it does in the editor, when it injects an object
+    /// of that class (see <see cref="InjectableMembers.GetStaticFields"/>); a member that no code
+    /// reads would otherwise leave the player without it, and the player would skip the exception.
+    /// A class that declares such a field keeps all its fields (<c>preserve="fields"</c>), since
+    /// the linker keeps the [Inject] attribute of a field listed by name only when code reads the
+    /// field. An optional static [Inject] member is not listed: the container skips it whether
+    /// the player has it or not.
+    /// </para>
+    /// <para>
     /// Every entry is conditional (<c>required="0"</c>, <c>ignoreIfUnreferenced="1"</c>): a class
     /// or assembly the build drops because nothing uses it stays dropped, and a class something
     /// else keeps also keeps its constructors and [Inject] members.
@@ -52,7 +62,7 @@ namespace Mu3Library.Editor.DI
     internal sealed class DILinkerProcessor : IUnityLinkerProcessor
     {
         private const BindingFlags DeclaredMemberFlags =
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
         public int callbackOrder => 0;
 
@@ -198,22 +208,29 @@ namespace Mu3Library.Editor.DI
                 return null;
             }
 
-            List<string> fields = type.GetFields(DeclaredMemberFlags)
-                .Where(field => field.IsDefined(typeof(InjectAttribute), false))
-                .Select(field => field.Name)
+            List<FieldInfo> keptFields = type.GetFields(DeclaredMemberFlags)
+                .Where(field => IsKept(field, field.IsStatic))
                 .ToList();
             List<string> properties = type.GetProperties(DeclaredMemberFlags)
-                .Where(property => property.IsDefined(typeof(InjectAttribute), false))
+                .Where(property => IsKept(property, IsStatic(property)))
                 .Select(property => property.Name)
                 .ToList();
 
-            if (fields.Count == 0 && properties.Count == 0)
+            if (keptFields.Count == 0 && properties.Count == 0)
             {
                 return null;
             }
 
+            // A field entry keeps the field but not its [Inject] attribute, which the container
+            // finds it by; the DI stripping harness shows this. An instance [Inject] field keeps the
+            // attribute anyway once code reads the field, which is what it is injected for, but a
+            // static one is never filled and so read by nothing: preserve="fields" keeps the
+            // attribute, at the cost of the class's other fields.
+            string preserve = keptFields.Any(field => field.IsStatic) ? "fields" : "nothing";
+
             StringBuilder entry = new StringBuilder();
-            entry.AppendLine($"    <type fullname=\"{SecurityElement.Escape(type.FullName.Replace('+', '/'))}\" preserve=\"nothing\" required=\"0\">");
+            entry.AppendLine($"    <type fullname=\"{SecurityElement.Escape(type.FullName.Replace('+', '/'))}\" preserve=\"{preserve}\" required=\"0\">");
+            List<string> fields = keptFields.Select(field => field.Name).ToList();
             foreach (string field in fields)
             {
                 entry.AppendLine($"      <field name=\"{SecurityElement.Escape(field)}\" />");
@@ -224,6 +241,19 @@ namespace Mu3Library.Editor.DI
             }
             entry.AppendLine("    </type>");
             return entry.ToString();
+        }
+
+        // Every instance [Inject] member, and a static one only when it is required.
+        private static bool IsKept(MemberInfo member, bool isStatic)
+        {
+            InjectAttribute attribute = member.GetCustomAttribute<InjectAttribute>(false);
+            return attribute != null && (!isStatic || attribute.Required);
+        }
+
+        private static bool IsStatic(PropertyInfo property)
+        {
+            MethodInfo accessor = property.GetGetMethod(true) ?? property.GetSetMethod(true);
+            return accessor != null && accessor.IsStatic;
         }
 
         private static IReadOnlyCollection<string> GetReferencedNames(Assembly assembly)

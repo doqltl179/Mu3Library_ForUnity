@@ -51,6 +51,41 @@ namespace Mu3Library.Tests
             public WithoutInject(IDependency dependency) { }
         }
 
+        private sealed class StaticInject
+        {
+            [Inject] private static IDependency _requiredField = null;
+            [Inject(required: false)] private static IDependency _optionalField = null;
+            [Inject(required: false)] private IDependency _instanceField = null;
+
+            [Inject] public static IDependency RequiredProperty { get; set; }
+            [Inject(required: false)] public static IDependency OptionalProperty { get; set; }
+
+            public static IDependency RequiredField => _requiredField;
+            public static IDependency OptionalField => _optionalField;
+            public IDependency InstanceField => _instanceField;
+        }
+
+        private abstract class StaticInjectBase
+        {
+            [Inject] private static readonly IDependency _baseField = null;
+
+            public static IDependency BaseField => _baseField;
+        }
+
+        private sealed class StaticInjectLeaf : StaticInjectBase { }
+
+        private sealed class OptionalStaticInjectOnly
+        {
+            [Inject(required: false)] private static IDependency _field = null;
+
+            public static IDependency Field => _field;
+        }
+
+        private sealed class RequiredStaticPropertyOnly
+        {
+            [Inject] public static IDependency Property { get; set; }
+        }
+
 
 
         private static XDocument BuildForTestAssembly()
@@ -138,6 +173,41 @@ namespace Mu3Library.Tests
             XElement type = FindType(BuildForTestAssembly(), nameof(BackingFieldInject));
 
             CollectionAssert.AreEqual(new[] { "<Property>k__BackingField" }, Names(type, "field"));
+        }
+
+        [Test]
+        public void BuildLinkXml_RequiredStaticInjectMembers_AreListedAndOptionalOnesAreNot()
+        {
+            XDocument document = BuildForTestAssembly();
+            XElement type = FindType(document, nameof(StaticInject));
+
+            CollectionAssert.AreEquivalent(new[] { "_requiredField", "_instanceField" }, Names(type, "field"));
+            CollectionAssert.AreEqual(new[] { "RequiredProperty" }, Names(type, "property"));
+            Assert.IsNull(FindType(document, nameof(OptionalStaticInjectOnly)));
+        }
+
+        [Test]
+        public void BuildLinkXml_ClassWithARequiredStaticInjectField_KeepsAllItsFields()
+        {
+            XDocument document = BuildForTestAssembly();
+            XElement property = FindType(document, nameof(RequiredStaticPropertyOnly));
+
+            Assert.AreEqual("fields", (string)FindType(document, nameof(StaticInject)).Attribute("preserve"));
+            Assert.AreEqual("0", (string)FindType(document, nameof(StaticInject)).Attribute("required"));
+            Assert.AreEqual("nothing", (string)property.Attribute("preserve"));
+            CollectionAssert.AreEqual(new[] { "Property" }, Names(property, "property"));
+            Assert.AreEqual("nothing", (string)FindType(document, nameof(InjectLeaf)).Attribute("preserve"));
+        }
+
+        [Test]
+        public void BuildLinkXml_RequiredStaticInjectFieldOfABaseClass_IsListedOnTheBaseClass()
+        {
+            XDocument document = BuildForTestAssembly();
+            XElement baseType = FindType(document, nameof(StaticInjectBase));
+
+            CollectionAssert.AreEqual(new[] { "_baseField" }, Names(baseType, "field"));
+            Assert.AreEqual("fields", (string)baseType.Attribute("preserve"));
+            Assert.IsNull(FindType(document, nameof(StaticInjectLeaf)));
         }
 
         [Test]
