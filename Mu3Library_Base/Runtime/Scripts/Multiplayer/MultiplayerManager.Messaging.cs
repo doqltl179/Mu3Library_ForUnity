@@ -328,7 +328,8 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Sends what the writer holds. A reliable message that does not go out, for example
         /// because the player's send buffer is full, marks the player unreachable: its game
-        /// would silently miss a message the others got.
+        /// would silently miss a message the others got. On a backend that is no longer
+        /// available, <see cref="DropUnreachablePeers"/> keeps every player for the session's end.
         /// </summary>
         private void SendToPeer(PeerConnection peer, DeliveryMode deliveryMode)
         {
@@ -344,6 +345,17 @@ namespace Mu3Library.Multiplayer
             // handlers may send again and so use this list too.
             while (_unreachablePeers.Count > 0)
             {
+                // A backend that is no longer available, as a Steam backend whose Steam is gone,
+                // reaches no player. Rather than dropping each player with ConnectionLost, the
+                // host keeps them, and its next update ends the session once with the reason the
+                // backend names (EndSessionIfBackendIsGone). Ending it here would leave the code
+                // around the send, such as StartGame's change to InGame, to run on after Offline.
+                if (!_backend.IsAvailable)
+                {
+                    _unreachablePeers.Clear();
+                    return;
+                }
+
                 int last = _unreachablePeers.Count - 1;
                 PeerConnection peer = _unreachablePeers[last];
                 _unreachablePeers.RemoveAt(last);
@@ -409,7 +421,10 @@ namespace Mu3Library.Multiplayer
         /// Sends what the writer holds to the host. A reliable packet that does not go out loses
         /// the connection, since the host would go on without it: in a game this player starts
         /// coming back to its slot, and otherwise the session ends with
-        /// <see cref="MultiplayerReason.ConnectionLost"/>. An unreliable one is only reported.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>. On a backend that is no longer
+        /// available, as a Steam backend whose Steam is gone, there is no host to come back to,
+        /// so the session ends at once with the reason the next update would end it with
+        /// (<see cref="GoneBackendReason"/>). An unreliable one is only reported.
         /// </summary>
         private bool SendToHost(DeliveryMode deliveryMode)
         {
@@ -420,7 +435,14 @@ namespace Mu3Library.Multiplayer
 
             if (deliveryMode == DeliveryMode.Reliable)
             {
-                LoseHost(MultiplayerReason.ConnectionLost);
+                if (_backend.IsAvailable)
+                {
+                    LoseHost(MultiplayerReason.ConnectionLost);
+                }
+                else
+                {
+                    EndSession(GoneBackendReason, raiseEvents: true);
+                }
             }
 
             return false;

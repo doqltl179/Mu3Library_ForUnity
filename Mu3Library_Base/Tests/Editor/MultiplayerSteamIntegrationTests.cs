@@ -544,10 +544,10 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void SteamAvatar_OnceSteamShutsDown_AnswersBackendError_ToTheRequestWaitingAndToANewOne()
+        public void SteamAvatar_OnceSteamShutsDown_AnswersSteamNotRunning_ToTheRequestWaitingAndToANewOne()
         {
-            // FR-4: one reason for an avatar once Steam is gone, the one the manager answers itself
-            // then. An account this client is unlikely to know makes Steam download it first.
+            // FR-4, #318: an avatar answers the reason the lobby requests answer once Steam is gone,
+            // the one the manager answers itself then. An account this client is unlikely to know makes Steam download it first.
             // No update runs before Steam shuts down, since Steam can download an avatar within one.
             PlayerId stranger = new PlayerId(76561197960265728UL + (ulong)new System.Random().Next(1 << 20, int.MaxValue));
             MultiplayerReason? waiting = null;
@@ -565,8 +565,8 @@ namespace Mu3Library.Tests
             _backend.LoadAvatar(stranger, AvatarSize.Medium, (reason, avatar) => later = reason);
             _backend.Update();
 
-            Assert.That(waiting, Is.EqualTo(MultiplayerReason.BackendError), "the request that waited");
-            Assert.That(later, Is.EqualTo(MultiplayerReason.BackendError), "the request made after Steam shut down");
+            Assert.That(waiting, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the request that waited");
+            Assert.That(later, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the request made after Steam shut down");
             Assert.That(_backend.PendingAvatarCount, Is.Zero);
         }
 
@@ -728,6 +728,53 @@ namespace Mu3Library.Tests
             finally
             {
                 manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamPresence_IsDeleted_WhenASteamCallFails()
+        {
+            // #319: Steam's client still runs after such a failure, so the backend deletes the keys
+            // it set right then, as disposing it does; the friends list would otherwise show this
+            // player's status and session group until the backend is disposed.
+            Assert.That(_backend.SetPresence("Mu3 test: failure", new LobbyId(109775241000000001UL), 2), Is.True);
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test: failure"));
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("109775241000000001"));
+
+            LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+            _backend.Break(new EntryPointNotFoundException("simulated"));
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        [Test]
+        public void SteamBackend_AfterSteamShutsDownAndStartsAgain_StaysUnavailable_AndLeavesTheNewSteamRunning()
+        {
+            // #322: Steamworks.NET let go of the backend's callbacks when Steam shut down, and its
+            // sockets and lobbies belonged to that Steam, so the backend from before does not come
+            // back with the new Steam. Disposing it touches nothing of the new Steam, which it
+            // would otherwise shut down when it started the one before.
+            Steamworks.SteamAPI.Shutdown();
+            Assert.That(_backend.IsAvailable, Is.False);
+
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480 }, out SteamBackend again);
+            try
+            {
+                Assert.That(created.IsSuccess, Is.True, created.ToString());
+                Assert.That(Steamworks.CallbackDispatcher.IsInitialized, Is.True, "Steam runs again");
+                Assert.That(_backend.IsAvailable, Is.False, "the backend from before stays unavailable");
+                Assert.That(_backend.InviteFriend(new LobbyId(109775241000000001UL), new PlayerId(PublicAccountId)).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+
+                _backend.Dispose();
+                Assert.That(Steamworks.CallbackDispatcher.IsInitialized, Is.True, "the new Steam still runs");
+                Assert.That(again.IsAvailable, Is.True);
+                Assert.That(again.GetPlayerName(again.LocalPlayerId), Is.Not.Empty, "the new backend uses the new Steam");
+            }
+            finally
+            {
+                again?.Dispose();
             }
         }
 

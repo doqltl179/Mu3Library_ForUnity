@@ -56,9 +56,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// while it still hands out no image, which tells whether the player has none. The answer
         /// arrives from <see cref="Update"/> in any case:
         /// <see cref="MultiplayerReason.BackendError"/> when Steam knows the player but has no
-        /// image, and also once the game shut Steam down or a Steam call failed in its native
-        /// library, for a request made then and for one still waiting, and
-        /// <see cref="MultiplayerReason.Timeout"/> when it has none within 10 seconds.
+        /// image, <see cref="MultiplayerReason.Timeout"/> when it has none within 10 seconds, and
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> once the game shut Steam down or a
+        /// Steam call failed in its native library, for a request made then and for one still
+        /// waiting, as the lobby requests answer then.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -79,18 +80,19 @@ namespace Mu3Library.Multiplayer.Steam
         /// in place (see <see cref="IMultiplayerManager.LoadAvatar"/>).
         /// </para>
         /// <para>
-        /// An avatar answers <see cref="MultiplayerReason.BackendError"/> once Steam is gone, not
-        /// the <see cref="MultiplayerReason.SteamNotRunning"/> a lobby search answers then, so the
-        /// game sees one reason for it whatever made the backend unavailable: the manager answers
-        /// <see cref="MultiplayerReason.BackendError"/> itself while a backend is not available,
-        /// since a disposed backend answers nothing.
+        /// An avatar answers <see cref="MultiplayerReason.SteamNotRunning"/> once Steam is gone,
+        /// as a lobby search does then, so a game that asks the player to start Steam on that
+        /// reason sees it here too; the manager answers the same reason itself on such a backend.
+        /// A disposed backend answers nothing, and the manager answers
+        /// <see cref="MultiplayerReason.BackendError"/> for it (see
+        /// <see cref="IMultiplayerManager.LoadAvatar"/>).
         /// </para>
         /// </remarks>
         public void LoadAvatar(PlayerId player, AvatarSize size, Action<MultiplayerReason, BackendAvatar> onCompleted)
         {
             if (!IsAvailable || !player.IsValid || size < AvatarSize.Small || size > AvatarSize.Large)
             {
-                MultiplayerReason failure = IsAvailable ? MultiplayerReason.InvalidArgument : MultiplayerReason.BackendError;
+                MultiplayerReason failure = UnavailableOr(MultiplayerReason.InvalidArgument);
                 EnqueueCallback(() => onCompleted?.Invoke(failure, default));
                 return;
             }
@@ -192,7 +194,7 @@ namespace Mu3Library.Multiplayer.Steam
 
         /// <summary>
         /// Answers the request when Steam has the image or cannot have one, or when a Steam call
-        /// failed (<see cref="MultiplayerReason.BackendError"/>); false while Steam still downloads.
+        /// failed (<see cref="MultiplayerReason.SteamNotRunning"/>); false while Steam still downloads.
         /// </summary>
         private bool TryAnswerAvatar(PendingAvatar pending)
         {
@@ -204,7 +206,7 @@ namespace Mu3Library.Multiplayer.Steam
             {
                 // Each Steam call comes before the answer, so this answers the request once.
                 Break(cause);
-                AnswerAvatar(pending, MultiplayerReason.BackendError, default);
+                AnswerAvatar(pending, MultiplayerReason.SteamNotRunning, default);
                 return true;
             }
         }

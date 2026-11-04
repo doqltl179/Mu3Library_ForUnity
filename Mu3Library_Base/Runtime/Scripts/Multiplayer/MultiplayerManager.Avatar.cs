@@ -103,7 +103,7 @@ namespace Mu3Library.Multiplayer
             if (!_backend.IsAvailable)
             {
                 FailAvatarWaiters();
-                Invoke(callback, new AvatarResult(MultiplayerReason.BackendError, player, size, null));
+                Invoke(callback, new AvatarResult(GoneBackendReason, player, size, null));
                 return;
             }
 
@@ -183,7 +183,8 @@ namespace Mu3Library.Multiplayer
         }
 
         /// <summary>
-        /// Answers every request that waits for the backend with <see cref="MultiplayerReason.BackendError"/>,
+        /// Answers every request that waits for the backend with the reason the backend names for
+        /// being gone, or <see cref="MultiplayerReason.BackendError"/> (<see cref="GoneBackendReason"/>),
         /// as a backend that is no longer available never answers them, so no game callback stays
         /// held until the manager is disposed. A backend that answers after all finds nothing waiting.
         /// </summary>
@@ -200,10 +201,11 @@ namespace Mu3Library.Multiplayer
                 new List<KeyValuePair<(PlayerId Player, AvatarSize Size), List<Action<AvatarResult>>>>(_avatarWaiters);
             _avatarWaiters.Clear();
 
+            MultiplayerReason reason = GoneBackendReason;
             for (int i = 0; i < failing.Count && !_isDisposed; i++)
             {
                 (PlayerId player, AvatarSize size) = failing[i].Key;
-                AvatarResult result = new AvatarResult(MultiplayerReason.BackendError, player, size, null);
+                AvatarResult result = new AvatarResult(reason, player, size, null);
                 List<Action<AvatarResult>> waiters = failing[i].Value;
                 for (int w = 0; w < waiters.Count && !_isDisposed; w++)
                 {

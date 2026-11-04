@@ -58,7 +58,13 @@ namespace Mu3Library.Multiplayer
         /// use Steam, because the game shut Steam down or a Steam call failed in its native
         /// library, and <see cref="MultiplayerReason.BackendError"/> for any other backend, such
         /// as one disposed before the manager. Such a backend reports nothing more, so the session
-        /// would otherwise stay as it is with no event.
+        /// would otherwise stay as it is with no event. A client whose connection to the host, or
+        /// whose reliable send to it, fails on such a backend before then ends its session at
+        /// once with the same reason, rather than with <see cref="MultiplayerReason.ConnectionFailed"/>
+        /// or <see cref="MultiplayerReason.ConnectionLost"/>, and does not try to come back to its
+        /// slot; a host whose sends fail on it keeps its players until that update, which ends
+        /// the session once, rather than dropping each of them with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>.
         /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 
@@ -87,6 +93,15 @@ namespace Mu3Library.Multiplayer
         /// back to its slot, though the lobby then takes joins, Steam's own search lists it, and
         /// Steam's friends list may offer to join it (FR-19, FR-20).
         /// </summary>
+        /// <remarks>
+        /// While the backend is no longer available, the search answers at once, and a search
+        /// still waiting for the backend when it stops being available answers on the next
+        /// request or the next <c>Update</c> at the latest, once, so no callback stays held until
+        /// the manager is disposed: with <see cref="MultiplayerReason.SteamNotRunning"/> on a
+        /// Steam backend that can no longer use Steam, as its own search answers then, and with
+        /// <see cref="MultiplayerReason.BackendError"/> for any other backend, such as one
+        /// disposed before the manager, which answers no search it still holds.
+        /// </remarks>
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback);
 
         /// <summary>
@@ -334,16 +349,18 @@ namespace Mu3Library.Multiplayer
         /// downloads. A failure answers a null texture and the reason:
         /// <see cref="MultiplayerReason.NotSupported"/> on a backend without avatars, such as the
         /// local backend, <see cref="MultiplayerReason.InvalidArgument"/> for an invalid player or
-        /// size, <see cref="MultiplayerReason.BackendError"/> at once when the backend is no
-        /// longer available, for example once it is disposed or the game shut Steam down, and
-        /// <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10 seconds. The
-        /// requests that still wait when the backend stops being available answer
-        /// <see cref="MultiplayerReason.BackendError"/> too, from the next request or the next
-        /// <c>Update</c> at the latest, so no callback stays held until the manager is disposed.
-        /// The Steam backend answers <see cref="MultiplayerReason.BackendError"/> as well for a
-        /// request it still holds when Steam shuts down, rather than the
-        /// <see cref="MultiplayerReason.SteamNotRunning"/> of a lobby search then, so an avatar
-        /// answers one reason whatever made the backend unavailable.
+        /// size, <see cref="MultiplayerReason.Timeout"/> when Steam has no image within 10
+        /// seconds, and at once when the backend is no longer available
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer
+        /// use Steam, because the game shut Steam down or a Steam call failed in its native
+        /// library, as its lobby requests answer then, and
+        /// <see cref="MultiplayerReason.BackendError"/> for any other backend, such as one
+        /// disposed before the manager. The requests that still wait when the backend stops being
+        /// available answer the same reason, from the next request or the next <c>Update</c> at
+        /// the latest, so no callback stays held until the manager is disposed; the Steam backend
+        /// answers <see cref="MultiplayerReason.SteamNotRunning"/> as well for a request it still
+        /// holds when Steam goes away, so a game that asks the player to start Steam on that
+        /// reason sees it for an avatar too.
         /// Several requests for the same avatar while it loads share one answer, and a request that
         /// failed is tried again the next time. When the backend tells that a player's avatar
         /// changed, as Steam does when the player picks a new picture, the manager reads again
