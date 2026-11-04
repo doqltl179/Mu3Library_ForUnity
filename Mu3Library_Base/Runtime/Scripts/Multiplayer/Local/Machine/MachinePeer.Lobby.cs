@@ -531,6 +531,17 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     {
                         code = (int)MultiplayerReason.SessionFull;
                     }
+                    else if (MachineProtocol.SnapshotBytes(lobby) + MachineProtocol.MemberBytes(name) > MachineProtocol.MaxSnapshotBytes)
+                    {
+                        // The answer to this join, the largest frame there is, would carry the
+                        // lobby past what a frame carries, so the player would drop it; a few bytes
+                        // more, and every member would drop the next frame that brings the lobby,
+                        // losing its link to this player (#352). The join is refused as CreateLobby
+                        // and SetLobbyData refuse such a lobby (#346); the lobby file lists no
+                        // members, so a join never grows it.
+                        Debug.LogWarning($"[Multiplayer] A lobby on the local network takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members; player {player} was not let into lobby {lobbyId}, which it would take past them.");
+                        code = (int)MultiplayerReason.BackendError;
+                    }
                     else
                     {
                         member = new MachineMember { Id = player, Port = port, Name = name };

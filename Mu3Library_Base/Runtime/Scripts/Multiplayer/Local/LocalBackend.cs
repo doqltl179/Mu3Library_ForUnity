@@ -73,8 +73,12 @@ namespace Mu3Library.Multiplayer.Local
     /// lobby that a frame cannot carry or that would take the file past 1 MiB beside the other
     /// lobbies the backend owns, and <see cref="SetLobbyData"/> refuses with false a change that
     /// would grow a lobby past either, each with a warning; a change that does not grow it still
-    /// goes through. The frame is counted with the members the lobby has at the time, so a lobby
-    /// within a few hundred bytes of the limit can still grow past it as players join. A
+    /// goes through. The frame is counted with the members the lobby has at the time, and each
+    /// player who joins grows it by up to 208 bytes (its ID, port, and name), so the owner
+    /// refuses a join that would take the lobby past it, with a warning, and the joining player's
+    /// <see cref="JoinLobby"/> answers <see cref="MultiplayerReason.BackendError"/>; a lobby
+    /// within a few hundred bytes of the limit can so take fewer players than its capacity,
+    /// while its members keep it. The file lists no names, so a join does not grow it. A
     /// <see cref="MultiplayerManager"/>, which owns one lobby at a time and bounds its lobby data
     /// by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well within all of these. A
     /// lobby that passes to a backend that already owns 64 is still taken over,

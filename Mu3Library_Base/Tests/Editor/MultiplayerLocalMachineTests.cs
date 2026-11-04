@@ -1737,6 +1737,70 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Join_ThatWouldGrowALobbyPastAFrame_IsRefusedWithBackendError_ToTheByte_EvenPastItsCapacity()
+        {
+            // #352: the owner counts the joining player in the lobby before taking it, so a join
+            // that would carry the lobby a byte past what a frame carries is refused, and one that
+            // fills a frame to the byte goes through, past the lobby's capacity as well.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(network => network.IgnoreLobbyCapacity = true), "Owner");
+            Peer member = CreatePeer("Member");
+            LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes, d => SnapshotBytesOf(d, "Owner", "Member", "Joiner"));
+            MultiplayerReason? created = null;
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 2, WithLast(data, last + 1), (reason, id) =>
+            {
+                created = reason;
+                lobby = id;
+            });
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(Join(member.Backend, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members; player {joiner.LocalPlayerId} was not let into lobby {lobby}"));
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.BackendError));
+            Assert.That(owner.IsLobbyMember(lobby, joiner.LocalPlayerId), Is.False);
+
+            // A byte less, and the join fills a frame to the byte, past the capacity of 2.
+            Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', last)), Is.True);
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(joiner.GetLobbyData(lobby, LastKey).Length, Is.EqualTo(last));
+            PumpUntil(() => member.Backend.IsLobbyMember(lobby, joiner.LocalPlayerId), "the member to see the player join");
+            Assert.That(member.Events.OwnerChanges, Is.Empty);
+        }
+
+        [Test]
+        public void Join_ThatWouldGrowALobbyFarPastAFrame_IsRefused_AndTheMembersKeepTheirOwnerAndTheLobbyFile()
+        {
+            // #352: a player with the longest name joining a lobby that fills a frame would take
+            // it 208 bytes past one, so the members would drop the next frame that brings the
+            // lobby and with it the link to their owner, whose lobby file the next one could
+            // delete. The owner refuses the join instead, and nothing changes for the members.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            Peer member = CreatePeer("Member");
+            LocalBackend longName = CreateRawBackend(CreateNetwork(), new string('가', MultiplayerLimits.MaxPlayerNameLength));
+            Assert.That(MachineProtocol.MemberBytes(longName.PlayerName), Is.EqualTo(208), "a member with the longest name");
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes, d => SnapshotBytesOf(d, "Owner", "Member"));
+            LobbyId lobby = CreateLobbies(owner, 1, WithLast(data, last)).Single().Lobby;
+            Assert.That(Join(member.Backend, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"player {longName.LocalPlayerId} was not let into lobby {lobby}"));
+            Assert.That(Join(longName, lobby), Is.EqualTo(MultiplayerReason.BackendError));
+
+            // The member still hears from its owner: a change that keeps the size reaches it.
+            string changed = new string('w', last);
+            Assert.That(owner.SetLobbyData(lobby, LastKey, changed), Is.True);
+            PumpUntil(() => member.Backend.GetLobbyData(lobby, LastKey) == changed, "the member to receive the change from its owner");
+            PumpUntil(() => ListedData(lobby, LastKey) == changed, "the lobby file to list the change");
+            Assert.That(member.Events.OwnerChanges, Is.Empty);
+            Assert.That(member.Backend.GetLobbyOwner(lobby), Is.EqualTo(owner.LocalPlayerId));
+            Assert.That(owner.IsLobbyMember(lobby, longName.LocalPlayerId), Is.False);
+            Assert.That(File.Exists(Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies")), Is.True);
+        }
+
+        [Test]
         public void Lobby_PassingToABackendThatOwnsAsManyAsALobbyFileLists_IsTakenOver_AndLeftOutOfTheFileUntilOneEnds()
         {
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
