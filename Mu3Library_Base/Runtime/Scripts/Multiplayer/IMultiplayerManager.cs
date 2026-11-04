@@ -87,6 +87,15 @@ namespace Mu3Library.Multiplayer
         /// back to its slot, though the lobby then takes joins, Steam's own search lists it, and
         /// Steam's friends list may offer to join it (FR-19, FR-20).
         /// </summary>
+        /// <remarks>
+        /// While the backend is no longer available, the search answers at once, and a search
+        /// still waiting for the backend when it stops being available answers on the next
+        /// request or the next <c>Update</c> at the latest, once, so no callback stays held until
+        /// the manager is disposed: with <see cref="MultiplayerReason.SteamNotRunning"/> on a
+        /// Steam backend that can no longer use Steam, as its own search answers then, and with
+        /// <see cref="MultiplayerReason.BackendError"/> for any other backend, such as one
+        /// disposed before the manager, which answers no search it still holds.
+        /// </remarks>
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback);
 
         /// <summary>

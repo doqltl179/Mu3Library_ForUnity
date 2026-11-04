@@ -187,6 +187,7 @@ namespace Mu3Library.Multiplayer
 
             _backend.Update();
             EndSessionIfBackendIsGone();
+            UpdatePendingSearches();
             UpdateAvatarWaiters();
             UpdateAvatarRefreshes();
 
@@ -206,8 +207,8 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Leaves any session without raising events, then lets go of the backend. The backend
         /// itself belongs to whoever created it. Every avatar texture the manager handed out is
-        /// destroyed, the requests still waiting for one are never answered, and the presence the
-        /// session showed is removed.
+        /// destroyed, the requests still waiting for one and the lobby searches still waiting are
+        /// never answered, and the presence the session showed is removed.
         /// </summary>
         public void Dispose()
         {
@@ -224,6 +225,7 @@ namespace Mu3Library.Multiplayer
             }
 
             DisposeAvatars();
+            _pendingSearches.Clear();
             _isDisposed = true;
 
             _onStateChanged.Clear();
@@ -297,6 +299,16 @@ namespace Mu3Library.Multiplayer
         }
 
         #region Lobby Search
+        /// <summary>A search the backend has not answered yet, which the manager answers itself once the backend is gone.</summary>
+        private sealed class PendingSearch
+        {
+            public Action<LobbySearchResult> Callback;
+        }
+
+        // The searches the backend has not answered yet. A search belongs to no session, so the
+        // session's end does not answer it, and a backend that is gone may never do.
+        private readonly List<PendingSearch> _pendingSearches = new List<PendingSearch>();
+
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback)
         {
             if (callback == null)
@@ -311,6 +323,15 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            // A backend that is gone may never answer, as one disposed before the manager, so
+            // nothing may wait for it, and the searches that already do are answered first.
+            if (!_backend.IsAvailable)
+            {
+                FailPendingSearches();
+                Invoke(callback, new LobbySearchResult(GoneBackendReason, null));
+                return;
+            }
+
             LobbySearchQuery effective = query != null ? query.Clone() : new LobbySearchQuery();
             effective.MaxResults = Mathf.Clamp(effective.MaxResults, 1, LobbySearchQuery.MaxResultLimit);
             effective.AddStringFilter(LobbyDataKeys.GameId, _gameId);
@@ -318,16 +339,54 @@ namespace Mu3Library.Multiplayer
             effective.AddNumericFilter(LobbyDataKeys.WireVersion, WireProtocol.Version);
             effective.AddStringFilter(LobbyDataKeys.Closed, LobbyDataKeys.NotClosed);
 
-            _backend.SearchLobbies(effective, (reason, lobbies) => HandleSearchCompleted(callback, reason, lobbies));
+            // Added before the request, so a backend that answers inside it, against its contract, finds it.
+            PendingSearch search = new PendingSearch { Callback = callback };
+            _pendingSearches.Add(search);
+            _backend.SearchLobbies(effective, (reason, lobbies) => HandleSearchCompleted(search, reason, lobbies));
         }
 
-        private void HandleSearchCompleted(Action<LobbySearchResult> callback, MultiplayerReason reason, IReadOnlyList<BackendLobby> lobbies)
+        /// <summary>Answers the searches still waiting once the backend is no longer available.</summary>
+        private void UpdatePendingSearches()
         {
-            if (_isDisposed)
+            if (_pendingSearches.Count > 0 && !_backend.IsAvailable)
+            {
+                FailPendingSearches();
+            }
+        }
+
+        /// <summary>
+        /// Answers every search that waits for the backend, once, with the reason the backend
+        /// names for being gone, or <see cref="MultiplayerReason.BackendError"/>
+        /// (<see cref="GoneBackendReason"/>), as a backend that is no longer available may never
+        /// answer them, so no game callback stays held until the manager is disposed. A backend
+        /// that answers after all finds nothing waiting.
+        /// </summary>
+        private void FailPendingSearches()
+        {
+            if (_pendingSearches.Count == 0)
             {
                 return;
             }
 
+            // Emptied before any callback runs, so a callback that searches again is answered at once.
+            PendingSearch[] failing = _pendingSearches.ToArray();
+            _pendingSearches.Clear();
+
+            LobbySearchResult result = new LobbySearchResult(GoneBackendReason, null);
+            for (int i = 0; i < failing.Length && !_isDisposed; i++)
+            {
+                Invoke(failing[i].Callback, result);
+            }
+        }
+
+        private void HandleSearchCompleted(PendingSearch search, MultiplayerReason reason, IReadOnlyList<BackendLobby> lobbies)
+        {
+            if (_isDisposed || !_pendingSearches.Remove(search))
+            {
+                return;
+            }
+
+            Action<LobbySearchResult> callback = search.Callback;
             if (reason != MultiplayerReason.None || lobbies == null)
             {
                 Invoke(callback, new LobbySearchResult(reason == MultiplayerReason.None ? MultiplayerReason.BackendError : reason, null));

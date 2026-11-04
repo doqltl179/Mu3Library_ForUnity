@@ -725,6 +725,58 @@ namespace Mu3Library.Tests
             Pump();
             Assert.That(answers.Count, Is.EqualTo(1), "answered once");
         }
+
+        [Test]
+        public void SearchLobbies_OnABackendDisposedBeforeTheManager_AnswersBackendError_ToTheSearchWaitingAndAtOnce()
+        {
+            // #321: a disposed backend answers no search it still holds, and a search belongs to
+            // no session whose end would answer it, so the manager answers it itself, once.
+            CreateHost("Host");
+            Node node = CreateNode("A");
+            List<LobbySearchResult> answers = new List<LobbySearchResult>();
+            LobbySearchResult? askedAgain = null;
+            node.Manager.SearchLobbies(null, answer =>
+            {
+                answers.Add(answer);
+                node.Manager.SearchLobbies(null, r => askedAgain = r);
+            });
+
+            node.Backend.Dispose();
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.BackendError }), "the search still waiting, on the next update");
+            Assert.That(answers[0].Lobbies, Is.Empty);
+            Assert.That(askedAgain?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "a callback that searches again is answered at once");
+
+            LobbySearchResult? atOnce = null;
+            node.Manager.SearchLobbies(null, r => atOnce = r);
+            Assert.That(atOnce?.Reason, Is.EqualTo(MultiplayerReason.BackendError), "at once");
+
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
+
+        [Test]
+        public void SearchLobbies_OnABackendThatIsGone_AnswersTheReasonItNames_ToTheSearchWaitingAndAtOnce()
+        {
+            // #321: a Steam backend that can no longer use Steam names SteamNotRunning, the reason
+            // its own search answers then. This one is disposed under the stand-in, so it answers
+            // no search either, as a disposed Steam backend does.
+            Node node = CreatePlatformNode("A");
+            List<LobbySearchResult> answers = new List<LobbySearchResult>();
+            node.Manager.SearchLobbies(null, answers.Add);
+
+            node.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
+            node.Backend.Dispose();
+            node.Manager.Update();
+            Assert.That(answers.Select(answer => answer.Reason), Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }), "the search still waiting, on the next update");
+
+            LobbySearchResult? atOnce = null;
+            node.Manager.SearchLobbies(null, r => atOnce = r);
+            Assert.That(atOnce?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "at once");
+
+            Pump();
+            Assert.That(answers.Count, Is.EqualTo(1), "answered once");
+        }
         #endregion
 
         #region Connection

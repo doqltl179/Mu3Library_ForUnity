@@ -70,8 +70,8 @@ namespace Mu3Library.Multiplayer.Steam
     /// A <see cref="MultiplayerManager"/> on this backend ends its session on its next update
     /// once the backend is not available because Steam cannot be used, after a failure as once
     /// the game shut Steam down, with <see cref="MultiplayerReason.SteamNotRunning"/>, and
-    /// answers the same reason at once to <see cref="MultiplayerManager.CreateLobby"/> and
-    /// <see cref="MultiplayerManager.LoadAvatar"/>.
+    /// answers the same reason at once to <see cref="MultiplayerManager.CreateLobby"/>,
+    /// <see cref="MultiplayerManager.SearchLobbies"/>, and <see cref="MultiplayerManager.LoadAvatar"/>.
     /// </para>
     /// <para>
     /// Once the backend finds Steam not running, at its update or at any call, it stays
