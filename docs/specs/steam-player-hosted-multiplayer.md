@@ -140,7 +140,7 @@ InGame (클라이언트) ──끊김, 예약 시간 안──▶ Reconnecting �
 - Given Steam 클라이언트가 실행 중이 아님, When 초기화, Then 실패 이벤트가 사유 코드 `SteamNotRunning`과 함께 발생하고 예외가 게임 코드로 전파되지 않는다.
 - Given 게임 코드가 이미 Steam을 초기화함, When 라이브러리 초기화, Then 중복 초기화 없이 준비 완료가 되고, 라이브러리 해제 시 Steam을 종료하지 않는다.
 - Given 만든 Steam 백엔드, When 그 뒤의 Steam 호출이 네이티브 라이브러리 예외를 던짐 (예: 나중의 호출만 쓰는 함수가 빠진 오래된 `steam_api64`의 `EntryPointNotFoundException`), Then 예외가 게임 코드로 전파되지 않고, 백엔드는 쓸 수 없게 되며 (경고 한 번), 그 뒤의 로비 요청 (매니저의 로비 생성 포함, #273)과 Steam이 아직 답하지 않은 로비 요청은 `SteamNotRunning`으로 답한다.
-- Given Steam 백엔드로 진행 중인 세션, When 게임이 Steam을 종료하거나 Steam 호출이 네이티브 라이브러리에서 실패, Then 매니저의 다음 업데이트에서 세션이 사유 코드 `SteamNotRunning`과 함께 Offline이 된다. 네이티브 라이브러리 실패라면 Steam 클라이언트는 계속 돌므로, 백엔드는 실패한 그때 해제할 때처럼 열린 연결을 닫고 로비에서 나가며, 다른 참가자는 이 플레이어의 게임이 멈춘 것처럼 끊김을 알아챈다. 그 뒤에 Steam이 늦게 보낸 콜백은 Steam을 부르지 않으며, 그 콜백이 답하는 로비 요청도 `SteamNotRunning`으로 답한다 (#272).
+- Given Steam 백엔드로 진행 중인 세션, When 게임이 Steam을 종료하거나 Steam 호출이 네이티브 라이브러리에서 실패, Then 매니저의 다음 업데이트에서 세션이 사유 코드 `SteamNotRunning`과 함께 Offline이 된다. 네이티브 라이브러리 실패라면 Steam 클라이언트는 계속 돌므로, 백엔드는 실패한 그때 해제할 때처럼, 그와 같은 순서로 열린 연결을 닫고 로비에서 나가고 자신이 설정한 리치 프레즌스 키를 지우며 (#319), 다른 참가자는 이 플레이어의 게임이 멈춘 것처럼 끊김을 알아챈다. 그 뒤에 Steam이 늦게 보낸 콜백은 Steam을 부르지 않으며, 그 콜백이 답하는 로비 요청도 `SteamNotRunning`으로 답한다 (#272).
 
 **FR-2 [M] Steam 이벤트 처리**
 라이브러리가 Steam을 초기화한 경우, 게임 코드가 따로 호출하지 않아도 Steam 이벤트가 매 프레임 처리되어야 한다.

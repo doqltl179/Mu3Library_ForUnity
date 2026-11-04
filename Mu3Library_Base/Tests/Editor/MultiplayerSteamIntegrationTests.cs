@@ -732,6 +732,24 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamPresence_IsDeleted_WhenASteamCallFails()
+        {
+            // #319: Steam's client still runs after such a failure, so the backend deletes the keys
+            // it set right then, as disposing it does; the friends list would otherwise show this
+            // player's status and session group until the backend is disposed.
+            Assert.That(_backend.SetPresence("Mu3 test: failure", new LobbyId(109775241000000001UL), 2), Is.True);
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.EqualTo("Mu3 test: failure"));
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.EqualTo("109775241000000001"));
+
+            LogAssert.Expect(UnityEngine.LogType.Warning, new Regex(@"a Steam call failed \(EntryPointNotFoundException\): simulated"));
+            _backend.Break(new EntryPointNotFoundException("simulated"));
+
+            Assert.That(OwnPresence(SteamBackend.StatusKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupKey), Is.Empty);
+            Assert.That(OwnPresence(SteamBackend.GroupSizeKey), Is.Empty);
+        }
+
+        [Test]
         public void SteamBackend_AfterSteamShutsDownAndStartsAgain_StaysUnavailable_AndLeavesTheNewSteamRunning()
         {
             // #322: Steamworks.NET let go of the backend's callbacks when Steam shut down, and its

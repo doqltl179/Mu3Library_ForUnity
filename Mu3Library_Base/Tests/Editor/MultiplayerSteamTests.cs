@@ -332,6 +332,39 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ABackendWhoseSteamCallFailed_DeletesTheRichPresenceItSet_AsDisposeDoes()
+        {
+            // #319: Steam's client still runs after such a failure, so the friends list would show
+            // this player's status and session group until the backend is disposed. The keys go
+            // out at the failure, in the order disposing deletes them, and disposing deletes
+            // nothing twice. The stand-in writes the keys in place of Steam.
+            AssumeSteamCallsFail();
+            List<string> writes = new List<string>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                backend.WritePresenceForTests("#Status", (key, value) =>
+                {
+                    writes.Add(key + "=" + value);
+                    return true;
+                });
+                Assert.That(backend.SetPresence("Waiting", new LobbyId(5), 2), Is.True);
+                writes.Clear();
+
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                Assert.That(backend.GetLobbyData(SomeLobby, "key"), Is.Null);
+
+                Assert.That(backend.IsAvailable, Is.False);
+                Assert.That(writes, Is.EqualTo(new[] { "steam_display=", "status=", "steam_player_group=", "steam_player_group_size=" }));
+
+                writes.Clear();
+                backend.Dispose();
+                Assert.That(writes, Is.Empty, "deleted once, at the failure");
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
         public void Dispose_WhereSteamCallsFail_LetsGoOfWhatTheBackendHolds_WithoutAnException()
         {
             // The guards of the dispose path: closing the connection and leaving the lobby both

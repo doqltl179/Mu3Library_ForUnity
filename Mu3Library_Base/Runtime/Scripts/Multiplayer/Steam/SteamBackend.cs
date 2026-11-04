@@ -56,10 +56,11 @@ namespace Mu3Library.Multiplayer.Steam
     /// <para>
     /// Steam's client still runs after such a failure, so the backend's connections and lobbies
     /// would stay open on Steam's side, and the other players would hear nothing until this
-    /// backend is disposed. So the backend closes every connection and leaves every lobby at the
-    /// failure, as <see cref="Dispose"/> does, and a Steam call that fails there fails as
-    /// quietly: the other players see the connection drop and the lobby pass on, as when this
-    /// player's game stops. A Steam callback dispatched after the failure, later in the same run
+    /// backend is disposed. So the backend closes every connection, leaves every lobby, and
+    /// deletes the rich presence keys it set at the failure, as <see cref="Dispose"/> does and
+    /// in its order, and a Steam call that fails there fails as quietly: the other players see
+    /// the connection drop and the lobby pass on, as when this player's game stops, and their
+    /// friends lists no longer show this player's status or session group. A Steam callback dispatched after the failure, later in the same run
     /// of callbacks or in the game's own run of them, calls Steam no more: a lobby creation or
     /// entry it answers answers <see cref="MultiplayerReason.SteamNotRunning"/>, and a connection
     /// it reports is neither taken nor reported. A lobby that Steam creates or enters for such a
@@ -371,9 +372,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// <summary>
         /// Makes the backend unavailable after a Steam call threw what
         /// <see cref="IsSteamUnavailable"/> tells, as the remarks on the class describe, logs
-        /// the first such call, and closes the connections and leaves the lobbies that Steam,
-        /// whose client still runs, would otherwise keep open. The requests waiting on Steam
-        /// answer on the next <see cref="Update"/>.
+        /// the first such call, closes the connections and leaves the lobbies that Steam, whose
+        /// client still runs, would otherwise keep open, and deletes the rich presence keys the
+        /// backend set, which the friends list would otherwise show. The requests waiting on
+        /// Steam answer on the next <see cref="Update"/>.
         /// </summary>
         internal void Break(Exception cause)
         {
@@ -385,12 +387,13 @@ namespace Mu3Library.Multiplayer.Steam
             _isBroken = true;
             Debug.LogWarning($"[Multiplayer] The Steam backend is no longer available: a Steam call failed ({cause.GetType().Name}): {cause.Message}");
 
-            // As Dispose does, each step inside the guard, so a call that fails here only ends that
-            // step; a backend being disposed does it itself.
+            // As Dispose does, in its order, each step inside the guard, so a call that fails here
+            // only ends that step; a backend being disposed does it itself.
             if (!_isDisposed && SteamRuns)
             {
                 CloseConnections(steamRuns: true);
                 LeaveLobbies(steamRuns: true);
+                ClearPresence(steamRuns: true);
             }
         }
 
@@ -655,8 +658,9 @@ namespace Mu3Library.Multiplayer.Steam
         /// itself shuts down only if this backend started it. When the game shut Steam down first,
         /// also when it started Steam again since, only the backend's own resources are released,
         /// as the remarks on the class describe. A backend that a failed Steam call made
-        /// unavailable closed its connections and left its lobbies at that failure already; it
-        /// still tries the rest, and releases its own resources either way.
+        /// unavailable closed its connections, left its lobbies, and deleted its rich presence
+        /// keys at that failure already; it still tries the rest, and releases its own resources
+        /// either way.
         /// </summary>
         public void Dispose()
         {
@@ -676,7 +680,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             ShutdownConnections(steamRuns);
             ShutdownLobbies(steamRuns);
-            ShutdownPresence(steamRuns);
+            ClearPresence(steamRuns);
 
             if (_ownsSteam && steamRuns)
             {

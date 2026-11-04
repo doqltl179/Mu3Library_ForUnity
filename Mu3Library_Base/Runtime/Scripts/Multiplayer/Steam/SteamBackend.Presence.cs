@@ -114,6 +114,16 @@ namespace Mu3Library.Multiplayer.Steam
             _presence = new PresenceKeys(options.PresenceDisplayToken, SteamFriends.SetRichPresence);
         }
 
+        /// <summary>
+        /// Test hook: writes the rich presence keys through a stand-in instead of Steam, so a
+        /// backend made without Steam (<see cref="CreateWithoutSteam"/>) shows which keys it sets
+        /// and deletes, and in which order.
+        /// </summary>
+        internal void WritePresenceForTests(string displayToken, Func<string, string, bool> write)
+        {
+            _presence = new PresenceKeys(displayToken, write);
+        }
+
         internal static bool IsValidDisplayToken(string token)
         {
             return string.IsNullOrEmpty(token)
@@ -149,7 +159,10 @@ namespace Mu3Library.Multiplayer.Steam
         /// <para>
         /// The backend sets no <c>connect</c> key: joining from the friends list goes through the
         /// Steam lobby, which raises <see cref="IMultiplayerManagerEventBus.OnJoinRequested"/>.
-        /// Disposing the backend deletes the keys it set, in the same order.
+        /// Disposing the backend deletes the keys it set, in the same order, and so does a Steam
+        /// call that fails in Steam's native library and makes the backend unavailable, since
+        /// Steam's client still runs then and the friends list would otherwise show them until
+        /// the backend is disposed.
         /// </para>
         /// </remarks>
         public bool SetPresence(string status, LobbyId group, int groupSize)
@@ -165,7 +178,12 @@ namespace Mu3Library.Multiplayer.Steam
             }
         }
 
-        private void ShutdownPresence(bool steamRuns)
+        /// <summary>
+        /// Deletes the rich presence keys the backend set when <paramref name="steamRuns"/>, in
+        /// the order <see cref="SetPresence"/> keeps, inside the guard, so a call that fails ends
+        /// only this step; then forgets them, so a later call deletes nothing twice.
+        /// </summary>
+        private void ClearPresence(bool steamRuns)
         {
             try
             {
