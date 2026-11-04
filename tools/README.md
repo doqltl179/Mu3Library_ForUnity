@@ -161,25 +161,27 @@ The command exits 0 only when the player built, exited 0 within `--player-timeou
 
 ### Measured Runs
 
-This section owns the harness's measurements; [unity-verification.md](../.ai/project/wiki/unity-verification.md#di-stripping-harness) links here instead of repeating them. Every run was on the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300), which has had Visual Studio 2022 Build Tools (MSVC 14.44) for IL2CPP since 2026-11-01. A run on a new mirror imports it first, so it takes longest; later runs on that mirror keep its `Library/`. Time is the whole command, with the build's share where it was recorded. Load is how many other Unity processes ran beside it. Size is the total of the managed DLLs for Mono and `GameAssembly.dll` for IL2CPP. A check count is out of the checks the harness had on that date.
+Every run was on the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300), which has had Visual Studio 2022 Build Tools (MSVC 14.44) for IL2CPP since 2026-11-01. A run on a new mirror imports it first, so it takes longest; later runs on that mirror keep its `Library/`. Exit is the command's exit code, which passes only at 0. A check count is out of the checks the harness had on that date. Time is the whole command, with the build's share where it was recorded. Load is how many other Unity processes ran beside it. Size is the total of the managed DLLs for Mono and `GameAssembly.dll` for IL2CPP.
 
-| Date | Editor | Backend | Level | UniTask | Checks | Mirror | Time | Load | Size (bytes) | Source |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-01 | 6000.6.7f1 | Mono | High | no | 31 of 31 | new | about 80 s | none | not recorded | #232 |
-| 2026-11-01 | 6000.6.7f1 | Mono | High | no | 31 of 31 | imported | about 34 s | none | not recorded | #232 |
-| 2026-11-01 | 6000.6.7f1 | IL2CPP | Medium | no | 31 of 31 | imported | 76 s | two Unity batch runs | 9,581,056 | #231 |
-| 2026-11-01 | 6000.6.7f1 | IL2CPP | High | no | 31 of 31 | imported | 52 s | two Unity batch runs | 8,512,000 | #231 |
-| 2026-11-01 | 6000.6.7f1 | Mono | Medium | no | 31 of 31 | imported | not recorded | not recorded | not recorded | #231, #281 |
-| 2026-11-01 | 6000.3.17f1 | Mono | Medium | no | 31 of 31 | new | about 72 s | no Unity batch run | not recorded | #281 |
-| 2026-11-01 | 6000.3.17f1 | Mono | High | no | 31 of 31 | imported | about 24 s | no Unity batch run | not recorded | #281 |
-| 2026-11-04 | 6000.3.17f1 | IL2CPP | Medium | no | 31 of 31 | new | about 106 s, 78 in the build | none before, between, or after the two runs | 22,208,000 | #299 |
-| 2026-11-04 | 6000.3.17f1 | IL2CPP | High | no | 31 of 31 | imported | about 69 s, 55 in the build | none before, between, or after the two runs | 21,022,720 | #299 |
-| 2026-11-04 | 6000.6.7f1 | Mono | Medium | no | 34 of 34 | imported | 25 s | none at the start | 7,717,376 | #329 |
-| 2026-11-04 | 6000.6.7f1 | Mono | High | no | 34 of 34 | imported | 28 s | none at the start | 7,428,608 | #329 |
-| 2026-11-04 | 6000.3.17f1 | Mono | Medium | no | 34 of 34 | new | 70 s | one at the start | 9,566,720 | #329 |
-| 2026-11-04 | 6000.3.17f1 | Mono | High | no | 34 of 34 | imported | 27 s | none at the start | 9,274,880 | #329 |
-| 2026-11-04 | 6000.3.17f1 | IL2CPP | Medium | yes | 34 of 34 | new | 103 s, 72 in the build | none, sampled every 10 s | 22,826,496 | #335 |
-| 2026-11-04 | 6000.3.17f1 | IL2CPP | High | yes | 34 of 34 | imported | 65 s, 53 in the build | none, sampled every 10 s | 21,649,408 | #335 |
+| Date | Editor | Backend | Level | UniTask | Exit | Checks | Mirror | Time | Load | Size (bytes) | Source |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-01 | 6000.6.7f1 | Mono | High | no | not recorded | 31 of 31 | new | about 80 s | none | not recorded | #232 |
+| 2026-11-01 | 6000.6.7f1 | Mono | High | no | not recorded | 31 of 31 | imported | about 34 s | none | not recorded | #232 |
+| 2026-11-01 | 6000.6.7f1 | IL2CPP | Medium | no | not recorded | 31 of 31 | imported | 76 s | two other Unity batch runs | 9,581,056 | #231 |
+| 2026-11-01 | 6000.6.7f1 | IL2CPP | High | no | not recorded | 31 of 31 | imported | 52 s | two other Unity batch runs | 8,512,000 | #231 |
+| 2026-11-01 | 6000.6.7f1 | Mono | Medium | no | not recorded | 31 of 31 | imported | not recorded | two other Unity batch runs | not recorded | #231 |
+| 2026-11-01 | 6000.6.7f1 | Mono | High | no | not recorded | 31 of 31 | imported | not recorded | two other Unity batch runs | not recorded | #231 |
+| 2026-11-01 | 6000.6.7f1 | Mono | Medium | no | not recorded | 31 of 31 | not recorded | not recorded | not recorded | not recorded | #281 |
+| 2026-11-01 | 6000.3.17f1 | Mono | Medium | no | not recorded | 31 of 31 | new | about 72 s | no other Unity batch run | not recorded | #281 |
+| 2026-11-01 | 6000.3.17f1 | Mono | High | no | not recorded | 31 of 31 | imported | about 24 s | no other Unity batch run | not recorded | #281 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | Medium | no | 0 | 31 of 31 | new | about 106 s, 78 in the build | none before, between, or after the two runs | 22,208,000 | #299 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | High | no | 0 | 31 of 31 | imported | about 69 s, 55 in the build | none before, between, or after the two runs | 21,022,720 | #299 |
+| 2026-11-04 | 6000.6.7f1 | Mono | Medium | no | 0 | 34 of 34 | imported | 25 s | none at the start | 7,717,376 | PR #357 |
+| 2026-11-04 | 6000.6.7f1 | Mono | High | no | 0 | 34 of 34 | imported | 28 s | none at the start | 7,428,608 | PR #357 |
+| 2026-11-04 | 6000.3.17f1 | Mono | Medium | no | 0 | 34 of 34 | new | 70 s | one at the start | 9,566,720 | PR #357 |
+| 2026-11-04 | 6000.3.17f1 | Mono | High | no | 0 | 34 of 34 | imported | 27 s | none at the start | 9,274,880 | PR #357 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | Medium | yes | 0 | 34 of 34 | new | 103 s, 72 in the build | none, sampled every 10 s | 22,826,496 | #335 |
+| 2026-11-04 | 6000.3.17f1 | IL2CPP | High | yes | 0 | 34 of 34 | imported | 65 s, 53 in the build | none, sampled every 10 s | 21,649,408 | #335 |
 
 ## Environment
 
