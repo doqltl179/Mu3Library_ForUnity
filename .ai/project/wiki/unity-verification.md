@@ -51,12 +51,13 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## DI Stripping Harness
 
-- Passing tests do not show that injection survives managed code stripping; only a player the harness builds does.
+- Do not offer passing tests as evidence that injection survives managed code stripping; only the harness's player is that evidence.
 - Run it when a change touches how the container reaches constructors or `[Inject]` members by reflection, or `DILinkerProcessor`: `PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping Medium`, then `--stripping High`. Add `--with-unitask` when the change touches core preparation, and `--backend il2cpp` when it touches generics or reflection that IL2CPP compiles ahead of time.
-- When the change can behave differently on the lowest supported Editor, such as code behind a `UNITY_6000_x_OR_NEWER` branch, also run Medium and High with `--editor-version` set to an installed release of the [floor](#lowest-supported-editor). When such a run warns about `UNITY_EDITOR`, read its result as that of the Editor that built it, not the one requested.
+- When the change can behave differently on the lowest supported Editor, such as code behind a `UNITY_6000_x_OR_NEWER` branch, also run Medium and High with `--editor-version` set to an installed release of the [floor](#lowest-supported-editor).
 - [tools/README.md](../../../tools/README.md#di-stripping-harness) owns why only a player shows stripping, what the harness builds and where, its checks and how many there are, its options, the Editor modules and toolchain each backend needs, how `--editor-version` retargets the mirror, which work folders it accepts, why `--work-dir` must stay short, and what each exit code means.
-- Do not read exit 3 as a DI regression.
+- Exit 3 is no result, neither a pass nor a DI regression: fix the cause the run reports, which can be the change under test, and run again.
 - Pass a short `--work-dir` from a deep worktree.
+- When a run warns that the explicit `UNITY_EDITOR` override will be used, report the Editor that built it, not the one requested.
 - Player builds are memory-heavy: run one at a time. [tools/README.md](../../../tools/README.md#measured-runs) owns the measured runs: how long a run took on a new or an imported mirror and under what load, the sizes it built, and which combinations passed on which date.
 - Report the backend, the stripping level, whether UniTask was in, the Editor version, the exit code, and the passed and failed check counts.
 
