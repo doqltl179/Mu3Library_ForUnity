@@ -428,6 +428,28 @@ namespace Mu3Library.Tests
 
             Assert.That(mismatches, Is.Empty);
         }
+
+        [Test]
+        public void LobbySearch_ReadsAKeyTheLobbyLacks_AsZero_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #353: Steam's numeric filters read a key the lobby lacks as 0, so
+            // Equal, EqualOrLessThan, and EqualOrGreaterThan 0 keep the lobby here too.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data[KeylessFilterLobbyKey] = KeylessFilterLobbyValue;
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in MissingKeyNumericFilterChecks())
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
         #endregion
 
         #region String Comparisons
@@ -577,6 +599,32 @@ namespace Mu3Library.Tests
                 yield return ($"a numeric filter with a {name} key beside one the lobby fails", new LobbySearchQuery()
                     .AddNumericFilter(key, 0)
                     .AddStringFilter(KeylessFilterLobbyKey, "forest"), false);
+            }
+        }
+
+        /// <summary>
+        /// A key that the lobby <see cref="MissingKeyNumericFilterChecks"/> search for lacks: it
+        /// holds only <see cref="KeylessFilterLobbyKey"/>.
+        /// </summary>
+        internal const string MissingNumericKey = "level";
+
+        /// <summary>
+        /// Each numeric filter on <see cref="MissingNumericKey"/>, which the lobby lacks, and
+        /// whether it keeps the lobby: Steam's numeric filters read such a key as 0 on AppID 480
+        /// on 2026-11-04 (#353), unlike its string filters, which drop the lobby (#286). Every
+        /// backend gives these results; <c>MultiplayerSteamIntegrationTests</c> checks Steam
+        /// against them.
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> MissingKeyNumericFilterChecks()
+        {
+            foreach (int number in new[] { 0, 1, -1 })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"a key the lobby lacks {comparison} the number {number}",
+                        new LobbySearchQuery().AddNumericFilter(MissingNumericKey, number, comparison),
+                        IsKeptBy(0.CompareTo(number), comparison));
+                }
             }
         }
 

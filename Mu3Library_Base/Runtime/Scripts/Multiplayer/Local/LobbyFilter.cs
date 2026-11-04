@@ -15,10 +15,12 @@ namespace Mu3Library.Multiplayer.Local
     /// earlier version of the library brings here, is compared as Steam's search compared one on
     /// 2026-11-04 (#343): a string filter takes the empty value as an empty string, so
     /// <c>Equal ""</c> and <c>NotEqual "x"</c> keep the lobby, and a numeric filter reads it as
-    /// 0. A numeric filter drops a lobby that lacks its key or holds a value that is not a whole
-    /// number; Steam's numeric filters read a key the lobby lacked as 0 too that day, which the
-    /// local backends do not follow. A filter whose key is null or empty is skipped and drops no
-    /// lobby, as the Steam backend skips it rather than hand Steam such a key (#314).
+    /// 0. A numeric filter reads a key the lobby lacks as 0 too, as Steam's numeric filters read
+    /// it that day (#353), so <c>Equal 0</c>, <c>EqualOrLessThan 0</c>, and
+    /// <c>EqualOrGreaterThan 0</c> keep such a lobby, unlike a string filter. A numeric filter
+    /// drops a lobby that holds a value that is not a whole number, which Steam reads otherwise
+    /// (#362). A filter whose key is null or empty is skipped and drops no lobby, as the Steam
+    /// backend skips it rather than hand Steam such a key (#314).
     /// </summary>
     internal static class LobbyFilter
     {
@@ -47,8 +49,9 @@ namespace Mu3Library.Multiplayer.Local
                     continue;
                 }
 
-                if (!data.TryGetValue(filter.Key, out string text)
-                    || !TryReadNumber(text, out int value)
+                // A key the lobby lacks leaves the text null, which reads as 0.
+                data.TryGetValue(filter.Key, out string text);
+                if (!TryReadNumber(text, out int value)
                     || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
                 {
                     return false;
@@ -59,8 +62,9 @@ namespace Mu3Library.Multiplayer.Local
         }
 
         /// <summary>
-        /// A lobby value as a numeric filter reads it: a whole number, and an empty value as 0, as
-        /// Steam's numeric filters read it on AppID 480 on 2026-11-04 (#343).
+        /// A lobby value as a numeric filter reads it: a whole number, and a key the lobby lacks
+        /// (null) or holds with an empty value as 0, as Steam's numeric filters read both on
+        /// AppID 480 on 2026-11-04 (#343, #353).
         /// </summary>
         private static bool TryReadNumber(string text, out int value)
         {

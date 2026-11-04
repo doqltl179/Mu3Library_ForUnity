@@ -110,7 +110,8 @@ namespace Mu3Library.Multiplayer.Backend
         /// <summary>
         /// Owner only; false otherwise, and false for a key the lobby lacks, as Steam answers
         /// (#343). Removes the key from the lobby, so lobby search no longer returns it or finds
-        /// the lobby by it. The manager asks only for a key the lobby holds.
+        /// the lobby by it, except that a numeric filter reads a key the lobby lacks as 0, as
+        /// Steam's search did (#353). The manager asks only for a key the lobby holds.
         /// </summary>
         public bool DeleteLobbyData(LobbyId lobby, string key);
 

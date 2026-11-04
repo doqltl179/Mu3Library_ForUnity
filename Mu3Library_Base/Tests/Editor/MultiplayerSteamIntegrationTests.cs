@@ -391,6 +391,45 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_ReadsAKeyTheLobbyLacks_AsZero_InNumericFilters_AsTheLocalBackendsDo()
+        {
+            // FR-6, FR-38, #353: numeric filters on a key the lobby lacks on Steam itself, against
+            // the results the local backends' tests hold every backend to.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, MultiplayerSessionTests.KeylessFilterLobbyKey, MultiplayerSessionTests.KeylessFilterLobbyValue);
+                LobbyInfo listed = SearchUntil(manager,
+                    () => Worldwide().AddStringFilter(MultiplayerSessionTests.KeylessFilterLobbyKey, MultiplayerSessionTests.KeylessFilterLobbyValue), lobby);
+                Assert.That(listed, Is.Not.Null, "the lobby never showed up in a search filtered by its key");
+                Assert.That(listed.Data.ContainsKey(MultiplayerSessionTests.MissingNumericKey), Is.False);
+
+                // The lobby reached search's filters above, so a filter that drops the lobby
+                // drops it at once, and one that keeps it is asked a little longer.
+                List<string> results = new List<string>();
+                List<string> mismatches = new List<string>();
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.MissingKeyNumericFilterChecks())
+                {
+                    query.Distance = LobbyDistance.Worldwide;
+                    bool isFound = SearchUntil(manager, () => query, lobby, seconds: isKept ? 10 : 0) != null;
+                    results.Add($"{description} {(isFound ? "keeps" : "drops")}");
+                    if (isFound != isKept)
+                    {
+                        mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+
+                TestContext.WriteLine("Numeric filters on a key the lobby lacks: " + string.Join("; ", results) + ".");
+                Assert.That(mismatches, Is.Empty);
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
         {
             // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is

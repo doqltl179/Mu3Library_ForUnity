@@ -473,6 +473,39 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbySearch_ReadsAKeyTheLobbyLacks_AsZero_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #353: Steam's numeric filters read a key the lobby lacks as 0, from
+            // another process, which reads the lobby file, and from the owner's own process,
+            // which reads its lobby as it is.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
+            options.Data[MultiplayerSessionTests.KeylessFilterLobbyKey] = MultiplayerSessionTests.KeylessFilterLobbyValue;
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+
+            List<string> mismatches = new List<string>();
+            foreach (Node seeker in new[] { CreateNode("Seeker"), host })
+            {
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.MissingKeyNumericFilterChecks())
+                {
+                    LobbySearchResult? found = null;
+                    seeker.Manager.SearchLobbies(query, r => found = r);
+                    PumpUntil(() => found.HasValue, "the search");
+                    if ((found.Value.Lobbies.Count == 1) != isKept)
+                    {
+                        mismatches.Add($"{seeker.Backend.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
         public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
         {
             // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again
