@@ -258,9 +258,11 @@ namespace Mu3Library.Multiplayer
         /// An empty value deletes the key, as <see cref="DeleteLobbyData"/> does: the key is found
         /// in any case, every player hears of it with a null value, it no longer counts toward
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, and search neither returns it nor
-        /// finds the lobby by it; a key the lobby data does not hold changes nothing. A lobby
-        /// created with an empty value in <see cref="LobbyCreateOptions.Data"/> starts without
-        /// that key. The lobby would otherwise keep or drop the key by whether it held it: on
+        /// finds the lobby by it, except that a numeric filter reads a key the lobby lacks as 0
+        /// (<see cref="LobbySearchQuery.AddNumericFilter"/>); a key the lobby data does not hold
+        /// changes nothing. A lobby created with an empty value in
+        /// <see cref="LobbyCreateOptions.Data"/> starts without that key. The lobby would
+        /// otherwise keep or drop the key by whether it held it: on
         /// AppID 480 on 2026-11-04 a Steam lobby kept a key it held as a key with an empty value,
         /// which search returned and a filter for the empty value matched, but wrote no key it
         /// lacked, and the local backends' lobbies do the same
@@ -273,8 +275,10 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// Host only, in the lobby or in a game; a client answers <see cref="MultiplayerReason.NotHost"/>.
         /// Deletes one key of the lobby data, from the lobby that search reads too, so search no
-        /// longer returns it or finds the lobby by it, and reports it to every player through
-        /// <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/> with a null value. The key
+        /// longer returns it or finds the lobby by it, except that a numeric filter reads a key
+        /// the lobby lacks as 0 (<see cref="LobbySearchQuery.AddNumericFilter"/>), and reports it
+        /// to every player through <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>
+        /// with a null value. The key
         /// and its value no longer count toward <see cref="MultiplayerLimits.MaxLobbyDataSize"/>,
         /// so a long session that keeps changing its keys deletes the old ones to make room. The
         /// key is found in any case, as reading and Steam find it, and the event names it as the

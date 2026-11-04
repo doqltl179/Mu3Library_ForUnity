@@ -59,11 +59,15 @@ namespace Mu3Library.Multiplayer.Data
         /// Keeps the lobbies whose value under <paramref name="key"/> reads as a whole number that,
         /// compared with <paramref name="value"/>, gives <paramref name="comparison"/>. The key
         /// matches in any case, and a filter whose key is null or empty is skipped on every
-        /// backend and leaves out no lobby, as for <see cref="AddStringFilter"/>. An empty value,
-        /// which only a caller of a backend itself writes, reads as 0 on every backend, as Steam's
-        /// search read it on AppID 480 on 2026-11-04. The local backends leave out a lobby that
-        /// lacks the key or holds a value that is not a whole number, while Steam's search read a
-        /// key the lobby lacked as 0 too.
+        /// backend and leaves out no lobby, as for <see cref="AddStringFilter"/>. Unlike a string
+        /// filter, a numeric filter reads a key the lobby lacks as 0 on every backend, as Steam's
+        /// search read it on AppID 480 on 2026-11-04, and so also a key the host wrote with an
+        /// empty value, which the manager deletes: <c>Equal</c>, <c>EqualOrLessThan</c>, and
+        /// <c>EqualOrGreaterThan</c> 0 find a lobby that never wrote the key or wrote it empty,
+        /// and <c>NotEqual</c>, <c>LessThan</c>, and <c>GreaterThan</c> 0 do not. An
+        /// empty value, which only a caller of a backend itself writes, reads as 0 too. The local
+        /// backends leave out a lobby that holds a value that is not a whole number, such as
+        /// <c>"5.5"</c> or <c>"abc"</c>, which Steam's search read otherwise that day.
         /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)
         {
