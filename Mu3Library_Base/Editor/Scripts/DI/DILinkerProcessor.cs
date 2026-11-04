@@ -44,14 +44,19 @@ namespace Mu3Library.Editor.DI
     /// not listed. An entry for a member the player lacks is ignored.
     /// </para>
     /// <para>
+    /// A class that declares a listed [Inject] field keeps all its fields
+    /// (<c>preserve="fields"</c>), since the linker keeps the [Inject] attribute of a field listed
+    /// by name only when code reads the field, and the container finds the field by that
+    /// attribute: an instance [Inject] field that is there only so that the container creates a
+    /// service, and that no code reads, would otherwise stay empty in the player.
+    /// </para>
+    /// <para>
     /// A required static [Inject] field or property is listed too. The container never writes
     /// one, but it must find one to throw, as it does in the editor, when it injects an object
     /// of that class (see <see cref="InjectableMembers.GetStaticFields"/>); a member that no code
     /// reads would otherwise leave the player without it, and the player would skip the exception.
-    /// A class that declares such a field keeps all its fields (<c>preserve="fields"</c>), since
-    /// the linker keeps the [Inject] attribute of a field listed by name only when code reads the
-    /// field. An optional static [Inject] member is not listed: the container skips it whether
-    /// the player has it or not.
+    /// An optional static [Inject] member is not listed: the container skips it whether the
+    /// player has it or not.
     /// </para>
     /// <para>
     /// Every entry is conditional (<c>required="0"</c>, <c>ignoreIfUnreferenced="1"</c>): a class
@@ -222,11 +227,12 @@ namespace Mu3Library.Editor.DI
             }
 
             // A field entry keeps the field but not its [Inject] attribute, which the container
-            // finds it by; the DI stripping harness shows this. An instance [Inject] field keeps the
-            // attribute anyway once code reads the field, which is what it is injected for, but a
-            // static one is never filled and so read by nothing: preserve="fields" keeps the
-            // attribute, at the cost of the class's other fields.
-            string preserve = keptFields.Any(field => field.IsStatic) ? "fields" : "nothing";
+            // finds it by; the DI stripping harness shows this. The attribute stays only when code
+            // reads the field, and no code needs to read a static [Inject] field, which the
+            // container never fills, or an instance one that is there only so that the container
+            // creates a service: preserve="fields" keeps the attribute, at the cost of the class's
+            // other fields. A property entry keeps its attribute on its own.
+            string preserve = keptFields.Count > 0 ? "fields" : "nothing";
 
             StringBuilder entry = new StringBuilder();
             entry.AppendLine($"    <type fullname=\"{SecurityElement.Escape(type.FullName.Replace('+', '/'))}\" preserve=\"{preserve}\" required=\"0\">");
