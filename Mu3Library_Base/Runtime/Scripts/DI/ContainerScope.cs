@@ -519,11 +519,11 @@ namespace Mu3Library.DI
 
             Type type = instance.GetType();
 
-            // A required readonly or static [Inject] field, or a required [Inject] property without
-            // a setter or static, can never be filled. Throwing before anything resolves, as for a
-            // required member whose service is missing, keeps it from staying null without a word;
-            // a warning would leave the object running until the member is first read, far from the
-            // cause.
+            // A required [Inject] field that is readonly or static, or a required [Inject] property
+            // that has no setter or is static, can never be filled. Throwing before anything
+            // resolves, as for a required member whose service is missing, keeps it from staying
+            // null without a word; a warning would leave the object running until the member is
+            // first read, far from the cause.
             foreach (FieldInfo field in InjectableMembers.GetReadOnlyFieldArray(type))
             {
                 if (field.GetCustomAttribute<InjectAttribute>().Required)
