@@ -31,6 +31,9 @@ namespace Mu3Library.Tests
         private const ushort Chat = 1;
         private const double WaitSeconds = 10.0;
 
+        // How long a pump yields between updates before it sleeps (PauseBetweenUpdates).
+        private const double YieldMilliseconds = 20.0;
+
         private sealed class Node
         {
             public LocalNetwork Network;
@@ -1382,6 +1385,7 @@ namespace Mu3Library.Tests
             Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
             Assert.That(member.GetLobbyData(lobby, longestKey), Is.EqualTo(longestValue));
         }
+
         #endregion
 
         #region Lobby file cost
@@ -2477,7 +2481,7 @@ namespace Mu3Library.Tests
             while (waited.Elapsed.TotalSeconds < seconds)
             {
                 UpdateAll();
-                Thread.Sleep(2);
+                PauseBetweenUpdates(waited);
             }
         }
 
@@ -2493,8 +2497,27 @@ namespace Mu3Library.Tests
                     Assert.Fail($"Timed out after {seconds} s waiting for {what}.");
                 }
 
-                Thread.Sleep(2);
+                PauseBetweenUpdates(waited);
                 UpdateAll();
+            }
+        }
+
+        /// <summary>
+        /// Waits between two updates of a pump that has run for <paramref name="waited"/>: it only
+        /// yields for the first <see cref="YieldMilliseconds"/>, then sleeps. A search or a join by
+        /// lobby ID answers in the first update after its read of the lobby files, which takes a
+        /// few milliseconds on a thread of the pool, while a sleep takes about 16 ms in batch mode
+        /// on Windows, so a pump that slept from the start waited one sleep more for each answer (#310).
+        /// </summary>
+        private static void PauseBetweenUpdates(Stopwatch waited)
+        {
+            if (waited.Elapsed.TotalMilliseconds < YieldMilliseconds)
+            {
+                Thread.Yield();
+            }
+            else
+            {
+                Thread.Sleep(2);
             }
         }
 
