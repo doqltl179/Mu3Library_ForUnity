@@ -67,6 +67,10 @@ namespace Mu3Library.Multiplayer
         // session, or code that ran after an event handler ended the session, can tell.
         private int _sessionGeneration = 0;
 
+        // The reason the latest session ended with, which a request answers when the session ended
+        // while it ran (see ResultSince).
+        private MultiplayerReason _lastEndReason = MultiplayerReason.None;
+
         // The callback of the CreateLobby or JoinLobby call still in flight. It is answered once,
         // with success or with the reason the session ended.
         private Action<MultiplayerResult> _pendingCallback = null;
@@ -660,11 +664,13 @@ namespace Mu3Library.Multiplayer
         private MultiplayerReason GoneBackendReason => UnavailableReason(MultiplayerReason.BackendError);
 
         /// <summary>
-        /// The reason a join or a session ends with when a connection or a send to the host fails:
+        /// The reason a join or a session ends with, and the request that made the call answers,
+        /// when a call to the backend fails on the way: a connection or a send to the host, a
+        /// send to one player, or a join's reading of the lobby (#320, #338, #339). It is
         /// <paramref name="otherwise"/> while the backend is available, and once it is not, as a
         /// Steam backend whose Steam call failed there, <see cref="GoneBackendReason"/>, the
         /// reason the next update would end the session with, so the game hears one reason
-        /// whichever path noticed first (#320).
+        /// whichever path noticed first.
         /// </summary>
         private MultiplayerReason FailureReason(MultiplayerReason otherwise)
         {
@@ -681,6 +687,22 @@ namespace Mu3Library.Multiplayer
         {
             MultiplayerReason named = _backend is IUnavailableReasonBackend backend ? backend.UnavailableReason : MultiplayerReason.None;
             return named != MultiplayerReason.None ? named : otherwise;
+        }
+
+        /// <summary>
+        /// What a request that changes the session answers once it is done: success while the
+        /// session of <paramref name="generation"/>, taken as the request began its change, still
+        /// runs, and otherwise the reason that session ended with. An event handler that the
+        /// request raised ended it then, its own or one of a player the host dropped because the
+        /// request's message could not reach them, or a send that could not leave did, so success
+        /// would claim a change that no longer stands (#339, #340). A pending create or join is
+        /// answered the same way by <see cref="EndSession"/>.
+        /// </summary>
+        private MultiplayerResult ResultSince(int generation)
+        {
+            return generation == _sessionGeneration
+                ? MultiplayerResult.Success
+                : MultiplayerResult.Failure(_lastEndReason);
         }
 
         private void SetState(SessionState next, MultiplayerReason reason)
@@ -730,6 +752,7 @@ namespace Mu3Library.Multiplayer
             }
 
             Action<MultiplayerResult> callback = _pendingCallback;
+            _lastEndReason = reason;
             ResetSession();
 
             if (!raiseEvents)

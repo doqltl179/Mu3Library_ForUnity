@@ -135,16 +135,21 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
             }
 
+            int generation = _sessionGeneration;
             MultiplayerResult result = _isHost
                 ? HostSendMessage(messageType, payload, target, deliveryMode)
                 : ClientSendMessage(messageType, payload, target, deliveryMode);
 
+            // Counted by whether the message went out, as its receivers count it, before the
+            // answer below can turn into the reason the session ended with.
             if (result.IsSuccess && _messages.TryGetValue(messageType, out MessageRegistration registration))
             {
                 registration.Sent++;
             }
 
-            return result;
+            // A handler of a player dropped on the way, or of this player's own copy, may end the
+            // session, and so may a send to the host that cannot leave (#339, #340).
+            return generation == _sessionGeneration ? result : ResultSince(generation);
         }
 
         public void GetMessageCounts(List<MessageCounts> results)
@@ -227,8 +232,10 @@ namespace Mu3Library.Multiplayer
                 SendToPeer(peer, deliveryMode);
             }
 
+            // On a backend that is gone, the one player it is for keeps their place until the next
+            // update ends the session, with the reason the message answers (#339).
             MultiplayerResult result = target.Kind == MessageTargetKind.Player && _unreachablePeers.Count > unreachableBefore
-                ? MultiplayerResult.Failure(MultiplayerReason.ConnectionLost)
+                ? MultiplayerResult.Failure(FailureReason(MultiplayerReason.ConnectionLost))
                 : MultiplayerResult.Success;
 
             int generation = _sessionGeneration;
@@ -403,9 +410,10 @@ namespace Mu3Library.Multiplayer
                 _writer.WriteUShort(messageType);
                 _writer.WriteRemaining(payload);
 
-                if (!SendToHost(deliveryMode))
+                MultiplayerReason failure = SendToHost(deliveryMode);
+                if (failure != MultiplayerReason.None)
                 {
-                    return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                    return MultiplayerResult.Failure(failure);
                 }
             }
 
@@ -426,13 +434,24 @@ namespace Mu3Library.Multiplayer
         /// so the session ends at once with the reason the next update would end it with
         /// (<see cref="GoneBackendReason"/>). An unreliable one is only reported.
         /// </summary>
-        private bool SendToHost(DeliveryMode deliveryMode)
+        /// <returns>
+        /// <see cref="MultiplayerReason.None"/> when the packet went out; otherwise what the
+        /// request that sent it answers, so the request and the session's end tell the game one
+        /// reason (#339): the reason the session ended with when it ended here, as with
+        /// <see cref="MultiplayerReason.HostLeft"/> once the lobby said the host left; and
+        /// otherwise <see cref="MultiplayerReason.ConnectionLost"/>, as when this player starts
+        /// coming back to its slot, or on a backend that is no longer available the reason the
+        /// next update ends the session with.
+        /// </returns>
+        private MultiplayerReason SendToHost(DeliveryMode deliveryMode)
         {
             if (_backend.Send(_hostConnection, _writer.Written, deliveryMode))
             {
-                return true;
+                return MultiplayerReason.None;
             }
 
+            int generation = _sessionGeneration;
+            MultiplayerReason failure = FailureReason(MultiplayerReason.ConnectionLost);
             if (deliveryMode == DeliveryMode.Reliable)
             {
                 if (_backend.IsAvailable)
@@ -441,11 +460,11 @@ namespace Mu3Library.Multiplayer
                 }
                 else
                 {
-                    EndSession(GoneBackendReason, raiseEvents: true);
+                    EndSession(failure, raiseEvents: true);
                 }
             }
 
-            return false;
+            return generation == _sessionGeneration ? failure : _lastEndReason;
         }
 
         private bool ReachesAnotherClient(MessageTarget target, PlayerId self)

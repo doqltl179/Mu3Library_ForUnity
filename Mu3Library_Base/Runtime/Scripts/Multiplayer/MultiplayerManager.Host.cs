@@ -252,15 +252,14 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostApplyReady(LocalPlayerId, isReady);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // The host decides; this player's own flag changes when the host reports it back.
             _writer.Begin(PacketKind.SetReady).WriteBool(isReady);
-            return SendToHost(DeliveryMode.Reliable)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            return new MultiplayerResult(SendToHost(DeliveryMode.Reliable));
         }
 
         public MultiplayerResult UpdateRules(SessionRules rules)
@@ -281,6 +280,7 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.BackendError);
             }
 
+            int generation = _sessionGeneration;
             if (rules.ReconnectReservationSeconds < _rules.ReconnectReservationSeconds)
             {
                 ShortenReservations(rules.ReconnectReservationSeconds);
@@ -290,10 +290,15 @@ namespace Mu3Library.Multiplayer
 
             _writer.Begin(PacketKind.RulesChanged);
             WriteRules(_writer, rules);
-            BroadcastToWelcomed(ConnectionId.None);
 
-            Raise(_onRulesChanged, rules);
-            return MultiplayerResult.Success;
+            // A handler of a player dropped on the way may have ended the session (#340).
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onRulesChanged, rules);
+            }
+
+            return ResultSince(generation);
         }
 
         public MultiplayerResult Kick(PlayerId player)
@@ -309,8 +314,9 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            int generation = _sessionGeneration;
             KickPlayer(player, MultiplayerReason.Kicked);
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         /// <summary>
@@ -374,6 +380,7 @@ namespace Mu3Library.Multiplayer
                 }
             }
 
+            int generation = _sessionGeneration;
             _startData = startData.ToArray();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateInGame);
@@ -389,16 +396,22 @@ namespace Mu3Library.Multiplayer
             BeginLoadWait();
             _writer.Begin(PacketKind.GameStarted).WriteInt(_gameNumber);
             _writer.WriteBytes(_startData);
-            BroadcastToWelcomed(ConnectionId.None);
 
-            int generation = _sessionGeneration;
-            SetState(SessionState.InGame, MultiplayerReason.None);
+            // A handler of a player dropped on the way may have ended the session, or ended it and
+            // started another, which the change to InGame would overwrite (#340).
+            BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
+                SetState(SessionState.InGame, MultiplayerReason.None);
+
+                // So may a handler of the change.
+                if (generation == _sessionGeneration)
+                {
+                    Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
+                }
             }
 
-            return new StartGameResult(MultiplayerReason.None, null);
+            return new StartGameResult(ResultSince(generation).Reason, null);
         }
 
         public MultiplayerResult EndGame()
@@ -409,6 +422,7 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(check);
             }
 
+            int generation = _sessionGeneration;
             ReturnRosterToLobby();
             EndLoadWait();
 
@@ -421,16 +435,19 @@ namespace Mu3Library.Multiplayer
             _backend.SetLobbyJoinable(_lobbyId, true);
 
             _writer.Begin(PacketKind.ReturnedToLobby);
-            BroadcastToWelcomed(ConnectionId.None);
 
-            int generation = _sessionGeneration;
-            SetState(SessionState.Lobby, MultiplayerReason.None);
+            // As in StartGame (#340).
+            BroadcastToWelcomed(ConnectionId.None);
             if (generation == _sessionGeneration)
             {
-                Raise(_onReturnedToLobby);
+                SetState(SessionState.Lobby, MultiplayerReason.None);
+                if (generation == _sessionGeneration)
+                {
+                    Raise(_onReturnedToLobby);
+                }
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         /// <summary>
@@ -748,9 +765,14 @@ namespace Mu3Library.Multiplayer
 
             _writer.Begin(PacketKind.ParticipantJoined);
             WriteParticipant(_writer, joined);
-            BroadcastToWelcomed(peer.Connection);
 
-            Raise(_onParticipantJoined, joined);
+            // A handler of a player dropped on the way may have ended the session (#340).
+            int generation = _sessionGeneration;
+            BroadcastToWelcomed(peer.Connection);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onParticipantJoined, joined);
+            }
         }
 
         /// <summary>Sends the player the session as it stands: state, rules, data, and the roster.</summary>
@@ -789,10 +811,14 @@ namespace Mu3Library.Multiplayer
             Participant updated = _participants[index].WithReady(isReady);
             _participants[index] = updated;
 
+            // A handler of a player dropped on the way may have ended the session (#340).
             WriteParticipantUpdated(updated);
+            int generation = _sessionGeneration;
             BroadcastToWelcomed(ConnectionId.None);
-
-            Raise(_onParticipantChanged, updated);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onParticipantChanged, updated);
+            }
         }
 
         private void WriteParticipantUpdated(Participant participant)
@@ -820,9 +846,15 @@ namespace Mu3Library.Multiplayer
             _writer.Begin(PacketKind.ParticipantLeft);
             _writer.WriteULong(player.Value);
             _writer.WriteInt((int)reason);
-            BroadcastToWelcomed(ConnectionId.None);
 
+            // A handler of another player dropped on the way may have ended the session (#340).
             int generation = _sessionGeneration;
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation != _sessionGeneration)
+            {
+                return;
+            }
+
             Raise(_onParticipantLeft, removed, reason);
             if (generation == _sessionGeneration)
             {

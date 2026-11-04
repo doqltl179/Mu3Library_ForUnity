@@ -86,7 +86,7 @@ namespace Mu3Library.Multiplayer
                 Raise(_onLobbyDataChanged, key, value);
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         public MultiplayerResult DeleteLobbyData(string key)
@@ -129,7 +129,7 @@ namespace Mu3Library.Multiplayer
                 Raise(_onLobbyDataChanged, key, (string)null);
             }
 
-            return MultiplayerResult.Success;
+            return ResultSince(generation);
         }
 
         public MultiplayerResult SetParticipantData(string key, string value)
@@ -150,17 +150,19 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostApplyParticipantData(LocalPlayerId, key, value);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // The host decides; this player's own data changes when the host reports it back.
             _writer.Begin(PacketKind.SetParticipantData);
             _writer.WriteString(key);
             _writer.WriteString(value);
-            if (!SendToHost(DeliveryMode.Reliable))
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                return MultiplayerResult.Failure(failure);
             }
 
             _requestedData[key] = value;
@@ -183,8 +185,9 @@ namespace Mu3Library.Multiplayer
 
             if (_isHost)
             {
+                int generation = _sessionGeneration;
                 HostApplyParticipantDataDeletion(LocalPlayerId, key);
-                return MultiplayerResult.Success;
+                return ResultSince(generation);
             }
 
             // The host will hold the key exactly when this player's own requests leave it there.
@@ -195,9 +198,10 @@ namespace Mu3Library.Multiplayer
 
             _writer.Begin(PacketKind.DeleteParticipantData);
             _writer.WriteString(key);
-            if (!SendToHost(DeliveryMode.Reliable))
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                return MultiplayerResult.Failure(failure);
             }
 
             _requestedData.Remove(key);

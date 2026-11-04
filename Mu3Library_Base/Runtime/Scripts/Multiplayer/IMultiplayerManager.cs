@@ -19,6 +19,19 @@ namespace Mu3Library.Multiplayer
     /// <see cref="Leave"/> the change to Offline and the failed answer of a pending create or join,
     /// and the host's requests the events they cause. A handler may call back into the manager.
     /// A request that fails its own checks answers at once and changes nothing.
+    /// <para>
+    /// A request that changes the session succeeds only when the session still runs once the
+    /// request is done, with the change applied and the request's events raised. When the session
+    /// ends during the request, or ends and another starts, the request answers the reason the
+    /// session ended with, as <see cref="CreateLobby"/> and <see cref="JoinLobby"/> answer their
+    /// callback: for example <see cref="MultiplayerReason.LeftNormally"/> when a handler called
+    /// <see cref="Leave"/>. The handler may be one of the request's own events, such as the state
+    /// change of <see cref="StartGame"/>, or one of a player the host drops because the request's
+    /// message cannot reach them (<see cref="IMultiplayerMessenger.Send"/>), which runs before the
+    /// request goes on; after such a drop the request changes no state and raises no event of its
+    /// own. A client's request that cannot leave answers as
+    /// <see cref="IMultiplayerMessenger.Send"/> states.
+    /// </para>
     /// </remarks>
     public partial interface IMultiplayerManager
     {
@@ -62,9 +75,14 @@ namespace Mu3Library.Multiplayer
         /// whose reliable send to it, fails on such a backend before then ends its session at
         /// once with the same reason, rather than with <see cref="MultiplayerReason.ConnectionFailed"/>
         /// or <see cref="MultiplayerReason.ConnectionLost"/>, and does not try to come back to its
-        /// slot; a host whose sends fail on it keeps its players until that update, which ends
-        /// the session once, rather than dropping each of them with
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// slot; the request that made the send answers the same reason too
+        /// (<see cref="IMultiplayerMessenger.Send"/>, <see cref="SendChat"/>, <see cref="SetReady"/>,
+        /// <see cref="ReportLoaded"/>, <see cref="SetParticipantData"/>, and
+        /// <see cref="DeleteParticipantData"/>), and so does a join whose other steps fail there
+        /// (<see cref="JoinLobby"/>). A host whose sends fail on it keeps its players until that
+        /// update, which ends the session once, rather than dropping each of them with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>; its reliable message to one player that
+        /// cannot leave answers the same reason.
         /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 
@@ -124,6 +142,19 @@ namespace Mu3Library.Multiplayer
         /// refusal stands, as the lobby data tells the two apart.
         /// Until the host notices that the old connection broke, the host refuses the new start
         /// as <see cref="MultiplayerReason.DuplicateAccount"/>.
+        /// <para>
+        /// Once the lobby answers, this player reads the lobby's data and owner, which can refuse
+        /// the join with <see cref="MultiplayerReason.VersionMismatch"/> or
+        /// <see cref="MultiplayerReason.LobbyNotFound"/>, then connects to the host. When the
+        /// backend stops being available during any of these steps, or while this player tries
+        /// the host past a lobby that refused it with <see cref="MultiplayerReason.GameInProgress"/>,
+        /// the join ends with the reason the session would end with (see <see cref="Initialize"/>):
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer use
+        /// Steam, as a Steam call that failed there leaves no lobby data to read, and
+        /// <see cref="MultiplayerReason.BackendError"/> on any other backend, rather than with
+        /// <see cref="MultiplayerReason.VersionMismatch"/>, <see cref="MultiplayerReason.LobbyNotFound"/>,
+        /// <see cref="MultiplayerReason.GameInProgress"/>, or <see cref="MultiplayerReason.ConnectionFailed"/>.
+        /// </para>
         /// </remarks>
         public void JoinLobby(LobbyId lobby, Action<MultiplayerResult> callback = null);
 
@@ -140,19 +171,26 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// In the lobby only. For a client, success means the request went to the host; the flag
         /// changes when the host reports it back through
-        /// <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>.
+        /// <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>, and a request that cannot
+        /// leave answers as <see cref="IMultiplayerMessenger.Send"/> states. The host's own flag
+        /// changes at once. When the session ends during the call, the call answers the reason it
+        /// ended with (see the remarks of this interface).
         /// </summary>
         public MultiplayerResult SetReady(bool isReady);
 
         /// <summary>
         /// Host only, in the lobby. The capacity cannot drop below the current player count,
-        /// which counts the players whose slot the host keeps while they are away.
+        /// which counts the players whose slot the host keeps while they are away. When the
+        /// session ends during the call, the call answers the reason it ended with (see the
+        /// remarks of this interface).
         /// </summary>
         public MultiplayerResult UpdateRules(SessionRules rules);
 
         /// <summary>
         /// Host only. The player cannot rejoin this session. A player whose slot the host keeps
-        /// while they are away can be kicked too, which frees the slot.
+        /// while they are away can be kicked too, which frees the slot. When the session ends
+        /// during the call, the call answers the reason it ended with (see the remarks of this
+        /// interface).
         /// </summary>
         public MultiplayerResult Kick(PlayerId player);
 
@@ -201,7 +239,8 @@ namespace Mu3Library.Multiplayer
         /// surrogate answers <see cref="MultiplayerReason.InvalidArgument"/>, and lobby data that would grow past
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. Setting the value a key already has
-        /// changes nothing.
+        /// changes nothing. When the session ends during the call, the call answers the reason it
+        /// ended with (see the remarks of this interface).
         /// <para>
         /// Steam does not tell lobby data keys apart by case, and every backend follows it. A key
         /// that differs from one the lobby data already holds only by case, such as <c>map</c>
@@ -243,7 +282,8 @@ namespace Mu3Library.Multiplayer
         /// than <see cref="MultiplayerLimits.MaxDataKeyLength"/>, one that holds a NUL character or
         /// an unpaired UTF-16 surrogate, and the library's own <c>mu3.</c> keys in any case answer
         /// <see cref="MultiplayerReason.InvalidArgument"/>, and deleting a key the lobby data does
-        /// not hold changes nothing.
+        /// not hold changes nothing. When the session ends during the call, the call answers the
+        /// reason it ended with (see the remarks of this interface).
         /// <para>
         /// Steam's search takes a moment to follow a deletion, and its filters follow later than
         /// the data it returns: on AppID 480 on 2026-11-01, over eight deletions, the lobby a
@@ -272,6 +312,9 @@ namespace Mu3Library.Multiplayer
         /// their slot included. While this player is <see cref="SessionState.Reconnecting"/> it
         /// answers <see cref="MultiplayerReason.ConnectionLost"/>, and a request still on its way
         /// when the connection dropped is lost: the returning player takes the data the host holds.
+        /// A client's request that cannot leave answers as <see cref="IMultiplayerMessenger.Send"/>
+        /// states. When the session ends during the call, the call answers the reason it ended
+        /// with (see the remarks of this interface).
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
 
@@ -287,7 +330,8 @@ namespace Mu3Library.Multiplayer
         /// <see cref="SetParticipantData"/> calls count the room the deletion frees at once, before
         /// the host reports it back, and the rate limits count the deletion as a participant data
         /// request. While this player is <see cref="SessionState.Reconnecting"/> it answers
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>, and a client's request that cannot leave
+        /// or a session that ends during the call answers as for <see cref="SetParticipantData"/>.
         /// </summary>
         public MultiplayerResult DeleteParticipantData(string key);
         #endregion
@@ -308,7 +352,11 @@ namespace Mu3Library.Multiplayer
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
         /// The host's own message is handled before the call returns, and a client's, its own copy
         /// included, once the host passed it on, so every player hears the messages in the same
-        /// order. The host drops a client's message that arrives after the game started.
+        /// order. The host drops a client's message that arrives after the game started. A
+        /// client's message that cannot leave answers as <see cref="IMultiplayerMessenger.Send"/>
+        /// states. When the session ends during the call, as when a handler of the host's own
+        /// message leaves, the call answers the reason it ended with (see the remarks of this
+        /// interface).
         /// </summary>
         public MultiplayerResult SendChat(string text);
         #endregion
@@ -319,12 +367,23 @@ namespace Mu3Library.Multiplayer
         /// as a map name or a random seed, once the rules' start conditions are met. Start data
         /// larger than <see cref="MultiplayerLimits.MaxStartDataSize"/> answers
         /// <see cref="MultiplayerReason.MessageTooLarge"/>. A player whose slot the host keeps
-        /// while they are away counts as a player who is not ready.
+        /// while they are away counts as a player who is not ready. When the session ends during
+        /// the call, or ends and another starts, the call answers the reason it ended with (see
+        /// the remarks of this interface), also when a handler of the change to
+        /// <see cref="SessionState.InGame"/> or of <see cref="IMultiplayerManagerEventBus.OnGameStarted"/>
+        /// ended it. When a handler ends it while the start goes out to the players, the game does
+        /// not start here: the state does not change to <see cref="SessionState.InGame"/> and the
+        /// host raises no <see cref="IMultiplayerManagerEventBus.OnGameStarted"/>.
         /// </summary>
         public StartGameResult StartGame(ReadOnlySpan<byte> startData = default);
 
         /// <summary>
-        /// Host only, in a game. Returns everyone to the lobby and clears every ready flag.
+        /// Host only, in a game. Returns everyone to the lobby and clears every ready flag. When
+        /// the session ends during the call, or ends and another starts, the call answers the
+        /// reason it ended with (see the remarks of this interface). When a handler ends it while
+        /// the return goes out to the players, the state does not change to
+        /// <see cref="SessionState.Lobby"/> and the host raises no
+        /// <see cref="IMultiplayerManagerEventBus.OnReturnedToLobby"/>.
         /// </summary>
         public MultiplayerResult EndGame();
 
@@ -347,7 +406,10 @@ namespace Mu3Library.Multiplayer
         /// the host. Reporting again changes nothing.
         /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
         /// player is <see cref="SessionState.Reconnecting"/>,
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>. A client's report that cannot leave
+        /// answers as <see cref="IMultiplayerMessenger.Send"/> states. When the session ends
+        /// during the host's own report, the call answers the reason it ended with (see the
+        /// remarks of this interface).
         /// </summary>
         public MultiplayerResult ReportLoaded();
         #endregion

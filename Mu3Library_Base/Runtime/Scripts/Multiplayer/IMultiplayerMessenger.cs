@@ -73,6 +73,27 @@ namespace Mu3Library.Multiplayer
         /// for several players does not reach the ones who are away and succeeds all the same;
         /// <see cref="MultiplayerReason.InvalidState"/> outside a session; and
         /// <see cref="MultiplayerReason.NotInitialized"/> before initialization.
+        /// <para>
+        /// When the session ends during the call, the call answers the reason it ended with, so
+        /// the answer and the change to <see cref="SessionState.Offline"/> name the same reason. A
+        /// client's reliable message that cannot leave ends the session there: with
+        /// <see cref="MultiplayerReason.ConnectionLost"/> outside a game that keeps slots (in one,
+        /// this player starts coming back to its slot and the call answers
+        /// <see cref="MultiplayerReason.ConnectionLost"/>), with <see cref="MultiplayerReason.HostLeft"/>
+        /// once the lobby said the host left, and on a backend that is no longer available with
+        /// the reason below. An event handler may end it too, one of a player the host drops on
+        /// the way or one of this player's own copy (see <see cref="IMultiplayerManager"/>).
+        /// </para>
+        /// <para>
+        /// A message that cannot leave because the backend is no longer available answers the
+        /// reason the session ends with then (see <see cref="IMultiplayerManager.Initialize"/>):
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer
+        /// use Steam, and <see cref="MultiplayerReason.BackendError"/> on any other backend, such
+        /// as one disposed before the manager. A client's reliable message ends the session at
+        /// once; a client's unreliable message, and a host's reliable message to one player, leave
+        /// that to the next <c>Update</c>. A host's unreliable message that cannot reach a player
+        /// succeeds, as an unreliable message may be lost anyway.
+        /// </para>
         /// </returns>
         public MultiplayerResult Send(ushort messageType, ReadOnlySpan<byte> payload, MessageTarget target, DeliveryMode deliveryMode = DeliveryMode.Reliable);
 

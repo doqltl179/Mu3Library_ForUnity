@@ -79,9 +79,15 @@ namespace Mu3Library.Multiplayer
 
             if (reason != MultiplayerReason.None)
             {
-                if (reason != MultiplayerReason.GameInProgress || !TryJoinPastLobby(lobby))
+                if (reason != MultiplayerReason.GameInProgress)
                 {
                     EndSession(reason, raiseEvents: true);
+                }
+                else if (!TryJoinPastLobby(lobby))
+                {
+                    // Reading the lobby data or connecting to the host past the lobby may have
+                    // failed because the backend went away there (#338).
+                    EndSession(FailureReason(reason), raiseEvents: true);
                 }
 
                 return;
@@ -90,13 +96,16 @@ namespace Mu3Library.Multiplayer
             _lobbyId = lobby;
 
             // The lobby data answers before any connection exists, so a version mismatch never
-            // reaches the host.
+            // reaches the host. A backend that went away as it read the data, as a Steam backend
+            // whose Steam call failed there, answers no data and no owner, which would read as
+            // another version or a lobby without its host, so the join then ends with the reason
+            // the session ends with (#338).
             string gameId = _backend.GetLobbyData(lobby, LobbyDataKeys.GameId);
             string protocolVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.ProtocolVersion);
             string wireVersion = _backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion);
             if (!IsCompatible(gameId, protocolVersion, wireVersion))
             {
-                EndSession(MultiplayerReason.VersionMismatch, raiseEvents: true);
+                EndSession(FailureReason(MultiplayerReason.VersionMismatch), raiseEvents: true);
                 return;
             }
 
@@ -105,7 +114,7 @@ namespace Mu3Library.Multiplayer
             if (!host.IsValid || host == LocalPlayerId || (owner.IsValid && owner != host))
             {
                 // Without its host the lobby no longer runs a session, even if members remain.
-                EndSession(MultiplayerReason.LobbyNotFound, raiseEvents: true);
+                EndSession(FailureReason(MultiplayerReason.LobbyNotFound), raiseEvents: true);
                 return;
             }
 
@@ -130,7 +139,9 @@ namespace Mu3Library.Multiplayer
         /// invite; such a game's host would wait for a membership that never comes, so the
         /// refusal stands there. False, and the refusal stands, also when the lobby data, which a
         /// backend lets a player read after such a refusal, names no host of a compatible session,
-        /// or names another player than the lobby's owner, when the owner is known.
+        /// or names another player than the lobby's owner, when the owner is known, and when the
+        /// connection cannot be made; on a backend that went away on the way, the caller ends the
+        /// join with the reason the session ends with instead of the refusal (#338).
         /// </summary>
         private bool TryJoinPastLobby(LobbyId lobby)
         {

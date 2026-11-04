@@ -29,7 +29,10 @@ namespace Mu3Library.Multiplayer.Data
         /// can no longer use Steam, the manager answers it at once to <c>CreateLobby</c>, which
         /// cannot start taking connections then, <c>SearchLobbies</c>, and <c>LoadAvatar</c>, and
         /// ends a session with it on its next <c>Update</c>, or at once for a client whose
-        /// connection to the host or reliable send to it fails there.
+        /// connection to the host or reliable send to it fails there. The request that made such
+        /// a send answers it too, as does a host's message to one player that cannot leave there,
+        /// and a join ends with it when reading the lobby's data or owner, or trying the host past
+        /// a lobby that refused it, fails there.
         /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
@@ -38,7 +41,8 @@ namespace Mu3Library.Multiplayer.Data
         /// The backend refused or failed the request for a reason it does not name. The manager
         /// also ends a session with it, and answers it to a lobby search and an avatar request,
         /// once its backend stops being available for a reason the backend does not name, as one
-        /// disposed before the manager.
+        /// disposed before the manager; there it stands for <see cref="SteamNotRunning"/> wherever
+        /// a Steam backend answers that, a failed send or join step included.
         /// </summary>
         BackendError = 4,
         /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>
@@ -60,6 +64,9 @@ namespace Mu3Library.Multiplayer.Data
         /// whose owner is not its host, a connection that a host running no session closed, and
         /// a Steam lobby that refused the entry (Steam's <c>NotAllowed</c>) while its lobby data
         /// does not show a game running, such as an invite-only lobby entered without an invite.
+        /// A join whose backend stops being available as it reads the lobby ends with the reason
+        /// the session ends with instead (<see cref="SteamNotRunning"/> or <see cref="BackendError"/>),
+        /// as it does for <see cref="GameInProgress"/> and <see cref="VersionMismatch"/>.
         /// </summary>
         LobbyNotFound = 20,
         /// <summary>The session is full.</summary>
@@ -94,13 +101,23 @@ namespace Mu3Library.Multiplayer.Data
         /// </summary>
         Timeout = 27,
 
-        /// <summary>The player left on their own.</summary>
+        /// <summary>
+        /// The player left on their own. A request answers it when an event handler left the
+        /// session while the request ran, as every request that changes the session answers the
+        /// reason the session ended with then.
+        /// </summary>
         LeftNormally = 30,
         /// <summary>The host kicked the player.</summary>
         Kicked = 31,
         /// <summary>The host left, lost its connection, or stopped.</summary>
         HostLeft = 32,
-        /// <summary>The connection dropped and did not come back.</summary>
+        /// <summary>
+        /// The connection dropped and did not come back. A request whose message cannot leave
+        /// answers it too, unless the session ends with another reason then, as
+        /// <see cref="HostLeft"/> once the lobby said the host left, or the backend is no longer
+        /// available, when it answers the reason the session ends with (<see cref="SteamNotRunning"/>
+        /// or <see cref="BackendError"/>).
+        /// </summary>
         ConnectionLost = 33,
 
         /// <summary>A message exceeds the size limit.</summary>
