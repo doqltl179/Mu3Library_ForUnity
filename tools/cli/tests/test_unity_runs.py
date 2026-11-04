@@ -11,7 +11,7 @@ from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
 from shell_harness import bash_or_skip
-from test_compile_selection import CAN_CHECK_LOCK_HOLDERS
+from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
 
@@ -816,6 +816,14 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         project = mirror / "ProjLeaf"
         [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
         self.assertIn(mirror.name, ran)
+        # The manifest was written with CRLF, as a core.autocrlf checkout holds it, and every line
+        # the retargeting writes back has dropped the CR.
+        self.assertNotIn(b"\r", (project / "Packages" / "manifest.json").read_bytes())
+        # The mirror holds the packages that manifest references, and no other.
+        self.assertEqual(
+            ["PkgLayered", "PkgLeaf", "PkgShared", "ProjLeaf"],
+            sorted(path.name for path in mirror.iterdir() if path.is_dir()),
+        )
         self.assertEqual(
             f"m_EditorVersion: {FLOOR_VERSION}\n",
             (project / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
@@ -910,8 +918,15 @@ HUB_EXECUTABLE = {"Windows": "Editor/Unity.exe", "Darwin": "Unity.app/Contents/M
 
 
 class CrlfCheckoutTests(FixtureRepositoryTestCase):
-    """A checkout with core.autocrlf holds a project's ProjectVersion.txt with CRLF, and the Editor
-    it names must not carry the CR."""
+    """A checkout with core.autocrlf holds each project's ProjectVersion.txt and Packages/manifest.json
+    with CRLF, and every line the entry points read from them must drop the CR.
+
+    A CR left on a line would change the Editor version the scripts look for. The manifest readers
+    match part of a line, which a trailing CR cannot change, so these tests check their results.
+    EditorVersionTests retargets a mirror from a manifest written with CRLF.
+    """
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
 
     def setUp(self) -> None:
         super().setUp()
@@ -920,6 +935,12 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         version_file.write_bytes(
             b"m_EditorVersion: 6000.6.7f1\r\nm_EditorVersionWithRevision: 6000.6.7f1 (0123456789ab)\r\n"
         )
+        # As bytes, so that every manifest holds CRLF on every OS.
+        for _, _, project in MAPPING:
+            manifest = self.root / project / "Packages" / "manifest.json"
+            content = manifest.read_bytes()
+            self.addCleanup(manifest.write_bytes, content)
+            manifest.write_bytes(content.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
 
     def hub_editor(self) -> tuple[Path, Path]:
         """A Unity Hub folder holding a fake of the Editor the fixture asks for, and its executable."""
@@ -952,6 +973,39 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
         self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+
+    def test_each_package_compiles_in_the_projects_whose_manifest_references_it(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'load_package_config\nload_package_consumers\nprintf "%s\\n" "${PACKAGE_CONSUMER_TARGETS[@]}"',
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(["shared layered leaf", "layered leaf", "leaf", "extra", "orphan"], completed.stdout.splitlines())
+
+    def test_only_the_manifest_that_lists_testables_has_tests_to_run(self) -> None:
+        completed = self.run_entry_point("test-unity.sh", "all", "--dry-run")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        plan = run_plan(completed.stdout)
+        self.assertEqual("in place", plan["leaf"])
+        for key, _, project in MAPPING:
+            if key != "leaf":
+                self.assertEqual(f"skipped, {project}/Packages/manifest.json lists no testables", plan[key])
+
+    def test_the_hub_editor_tests_the_project_without_an_override(self) -> None:
+        hub, _ = self.hub_editor()
+        environment = self.unity_environment(UNITY_HUB_EDITOR_ROOT=str(hub), FAKE_UNITY_RESULTS=nunit_results())
+        del environment["UNITY_EDITOR"]
+
+        completed = self.run_entry_point("test-unity.sh", "leaf", environment=environment)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
+        self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
+        self.assertIn(
+            "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout.splitlines()
+        )
 
     def test_an_override_that_is_the_hub_editor_does_not_warn(self) -> None:
         _, executable = self.hub_editor()
