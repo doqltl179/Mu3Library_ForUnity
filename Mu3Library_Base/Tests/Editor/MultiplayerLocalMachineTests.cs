@@ -304,6 +304,49 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryProcess_TheLobbyFile_AndSearch()
+        {
+            // FR-11, FR-38, #313 between "processes": an empty value deletes the key, so neither
+            // the owner's lobby, a member's copy, nor the lobby file holds it, and a lobby created
+            // with one starts without it.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4, requireReady: false) };
+            options.Data["map"] = "desert";
+            options.Data["e1"] = string.Empty;
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            MultiplayerResult? joined = null;
+            a.Manager.JoinLobby(lobby, r => joined = r);
+            PumpUntil(() => joined.HasValue, "A to join");
+            Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+
+            Node[] everyone = { host, a };
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            PumpUntil(() => a.Manager.LobbyData.ContainsKey("mode") && a.Backend.GetLobbyData(lobby, "mode") == "coop", "A to see the value");
+            Assert.That(SearchedData(seeker, lobby, data => data.ContainsKey("mode")), Is.Not.Null, "the lobby file never listed the key");
+
+            Assert.That(host.Manager.SetLobbyData("mode", string.Empty).IsSuccess, Is.True);
+            PumpUntil(() => everyone.All(node => !node.Manager.LobbyData.ContainsKey("mode") && node.Backend.GetLobbyData(lobby, "mode") == null),
+                "every player and lobby copy to lose the key");
+            IReadOnlyDictionary<string, string> seen = SearchedData(seeker, lobby, data => !data.ContainsKey("mode"));
+            Assert.That(seen, Is.Not.Null, "the lobby file kept the key written empty");
+            Assert.That(seen.Keys.Where(key => !LobbyDataKeys.IsReserved(key)), Is.EquivalentTo(new[] { "map" }), "another process's search");
+            Assert.That(ListedData(lobby, "e1"), Is.Null, "the lobby file listed the key the lobby was created with empty");
+
+            foreach (Node node in everyone)
+            {
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), node.Backend.PlayerName);
+                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, node.Backend.PlayerName);
+            }
+        }
+
+        [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
             // FR-6, FR-38, #239, #286: every comparison of a string filter, from another process,
@@ -611,52 +654,6 @@ namespace Mu3Library.Tests
 
             member.LeaveLobby(lobby);
             PumpUntil(() => !owner.IsLobbyMember(lobby, member.LocalPlayerId), "the owner to drop the member");
-        }
-
-        [Test]
-        public void LobbyData_WrittenEmpty_LeavesTheLobby_TheMembersCopies_TheLobbyFile_AndSearch_AsOnSteam()
-        {
-            // FR-11, FR-38, #313: a Steam lobby keeps no key written with an empty value, when the
-            // lobby is created or later (AppID 480, 2026-11-01), so a machine-wide lobby keeps none
-            // either, nor do the members' copies and the lobby file that the other processes read.
-            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
-            MultiplayerReason? reason = null;
-            LobbyId lobby = LobbyId.None;
-            Dictionary<string, string> data = new Dictionary<string, string> { ["map"] = "desert", ["e1"] = string.Empty, ["e2"] = null };
-            owner.CreateLobby(LobbyVisibility.Public, 4, data, (r, id) =>
-            {
-                reason = r;
-                lobby = id;
-            });
-            PumpUntil(() => reason.HasValue, "the lobby");
-            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
-
-            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
-            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
-            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
-            Assert.That(owner.SetLobbyData(lobby, "mode", "coop"), Is.True);
-            PumpUntil(() => member.GetLobbyData(lobby, "mode") == "coop", "the member to see the value");
-            Assert.That(SearchedData(seeker, lobby, listed => listed.TryGetValue("mode", out string mode) && mode == "coop"), Is.Not.Null,
-                "the lobby file never listed the value");
-
-            Assert.That(owner.SetLobbyData(lobby, "mode", string.Empty), Is.True, "Steam takes an empty value");
-            PumpUntil(() => member.GetLobbyData(lobby, "mode") == null, "the member to let go of the key");
-            IReadOnlyDictionary<string, string> seen = SearchedData(seeker, lobby, listed => !listed.ContainsKey("mode"));
-            Assert.That(seen, Is.Not.Null, "the lobby file kept the key written empty");
-            Assert.That(seen.Keys, Is.EquivalentTo(new[] { "map" }), "another process's search");
-
-            foreach (LocalBackend backend in new[] { owner, member })
-            {
-                foreach (string key in new[] { "e1", "e2", "mode" })
-                {
-                    Assert.That(backend.GetLobbyData(lobby, key), Is.Null, $"{backend.PlayerName} reads '{key}'");
-                }
-
-                Assert.That(backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"), backend.PlayerName);
-            }
-
-            Assert.That(Search(owner).Single(found => found.Id == lobby).Data.Keys, Is.EquivalentTo(new[] { "map" }), "the owner's own search");
-            Assert.That(MachineDirectory.Read(_folder).Single(entry => entry.Lobby == lobby).Data.Keys, Is.EquivalentTo(new[] { "map" }), "the lobby file");
         }
 
         [Test]

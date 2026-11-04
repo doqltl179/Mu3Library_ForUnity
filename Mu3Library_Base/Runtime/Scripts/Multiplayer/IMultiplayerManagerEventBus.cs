@@ -100,8 +100,9 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Raised on every player, the host included, when the host sets a value of the lobby data,
-        /// with the key and the new value, or deletes a key (<see cref="IMultiplayerManager.DeleteLobbyData"/>),
-        /// with the key and a null value. A joining player reads the data set before it joined
+        /// with the key and the new value, or deletes a key (<see cref="IMultiplayerManager.DeleteLobbyData"/>,
+        /// or <see cref="IMultiplayerManager.SetLobbyData"/> with an empty value), with the key and
+        /// a null value. A joining player reads the data set before it joined
         /// from <see cref="IMultiplayerManager.LobbyData"/> instead.
         /// </summary>
         public event Action<string, string> OnLobbyDataChanged;

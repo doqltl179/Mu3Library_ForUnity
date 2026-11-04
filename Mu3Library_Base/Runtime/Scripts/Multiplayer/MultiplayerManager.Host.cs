@@ -85,7 +85,11 @@ namespace Mu3Library.Multiplayer
             _pendingCallback = callback;
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                _lobbyData[pair.Key] = pair.Value;
+                // An empty value writes no key, as SetLobbyData deletes one.
+                if (pair.Value.Length > 0)
+                {
+                    _lobbyData[pair.Key] = pair.Value;
+                }
             }
 
             Dictionary<string, string> data = BuildLobbyData(options);
@@ -134,14 +138,31 @@ namespace Mu3Library.Multiplayer
             }
         }
 
+        /// <summary>
+        /// The lobby's data: the game's own and the library's. The lobby gets no key with an
+        /// empty value, as SetLobbyData writes none, so every backend's lobby holds the same keys;
+        /// a lobby without a name lacks its key.
+        /// </summary>
         private Dictionary<string, string> BuildLobbyData(LobbyCreateOptions options)
         {
-            Dictionary<string, string> data = new Dictionary<string, string>(options.Data);
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, string> pair in options.Data)
+            {
+                if (pair.Value.Length > 0)
+                {
+                    data[pair.Key] = pair.Value;
+                }
+            }
+
             data[LobbyDataKeys.GameId] = _gameId;
             data[LobbyDataKeys.ProtocolVersion] = _protocolVersionText;
             data[LobbyDataKeys.WireVersion] = WireProtocol.VersionText;
             data[LobbyDataKeys.HostId] = LocalPlayerId.Value.ToString(CultureInfo.InvariantCulture);
-            data[LobbyDataKeys.Name] = options.Name ?? string.Empty;
+            if (!string.IsNullOrEmpty(options.Name))
+            {
+                data[LobbyDataKeys.Name] = options.Name;
+            }
+
             data[LobbyDataKeys.State] = LobbyDataKeys.StateLobby;
             data[LobbyDataKeys.Closed] = LobbyDataKeys.NotClosed;
             return data;
@@ -155,24 +176,34 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
-            // Checked entry by entry, as SetLobbyData later checks each change.
+            // Checked entry by entry, as SetLobbyData later checks each change. An empty value
+            // writes no key, as SetLobbyData deletes one, so only its key is checked, and it
+            // takes no room.
+            Dictionary<string, string> named = new Dictionary<string, string>(options.Data.Count);
             Dictionary<string, string> accepted = new Dictionary<string, string>(options.Data.Count);
             foreach (KeyValuePair<string, string> pair in options.Data)
             {
-                MultiplayerReason check = CheckLobbyKeyCase(pair.Key, accepted);
+                MultiplayerReason check = CheckLobbyKeyCase(pair.Key, named);
                 if (check != MultiplayerReason.None)
                 {
                     return check;
                 }
 
-                check = CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize);
+                bool isEmpty = pair.Value != null && pair.Value.Length == 0;
+                check = !isEmpty
+                    ? CheckDataEntry(pair.Key, pair.Value, accepted, MultiplayerLimits.MaxLobbyDataSize)
+                    : IsValidDataKey(pair.Key) ? MultiplayerReason.None : MultiplayerReason.InvalidArgument;
                 WarnIfInvalid(check, pair.Key);
                 if (check != MultiplayerReason.None)
                 {
                     return check;
                 }
 
-                accepted.Add(pair.Key, pair.Value);
+                named.Add(pair.Key, pair.Value);
+                if (!isEmpty)
+                {
+                    accepted.Add(pair.Key, pair.Value);
+                }
             }
 
             return MultiplayerReason.None;

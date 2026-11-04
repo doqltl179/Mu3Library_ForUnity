@@ -58,10 +58,8 @@ namespace Mu3Library.Multiplayer.Backend
 
         #region Lobby
         /// <summary>
-        /// Creates a lobby owned by this player with the given lobby data, without the keys whose
-        /// value is null or empty, which a Steam lobby does not keep (see <see cref="SetLobbyData"/>).
-        /// The callback answers with <see cref="MultiplayerReason.None"/> and the new lobby, or a
-        /// failure reason.
+        /// Creates a lobby owned by this player with the given lobby data. The callback answers
+        /// with <see cref="MultiplayerReason.None"/> and the new lobby, or a failure reason.
         /// </summary>
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted);
 
@@ -84,19 +82,19 @@ namespace Mu3Library.Multiplayer.Backend
         public void LeaveLobby(LobbyId lobby);
 
         /// <summary>
-        /// Null when the lobby or the key is unknown to this player, a key written with an empty
-        /// value included (see <see cref="SetLobbyData"/>). Lobby data keys are told apart
+        /// Null when the lobby or the key is unknown to this player. Lobby data keys are told apart
         /// without regard to case, as Steam tells them apart, so a key is found in any case here, in
         /// the data a search returns, and by the search filters.
         /// </summary>
         public string GetLobbyData(LobbyId lobby, string key);
 
         /// <summary>
-        /// Owner only; false otherwise. A null or empty value removes the key from the lobby, as
-        /// Steamworks resets a key set to an empty value: on AppID 480 on 2026-11-01 a Steam lobby
-        /// kept no such key, neither in the owner's lobby data nor in what search returned (#313).
-        /// So <see cref="GetLobbyData"/> answers null for it, and lobby search neither returns
-        /// the key nor finds the lobby by it, on every backend.
+        /// Owner only; false otherwise. The manager never writes an empty value here, neither when
+        /// it creates a lobby nor later, and deletes the key instead
+        /// (<see cref="IMultiplayerManager.SetLobbyData"/>): on AppID 480 on 2026-11-04 a Steam
+        /// lobby kept a key it held when the key was set to an empty value, which search then
+        /// returned and filters matched as an empty value, but wrote no key it lacked, and
+        /// <see cref="DeleteLobbyData"/> answered false for such a key (#313).
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 

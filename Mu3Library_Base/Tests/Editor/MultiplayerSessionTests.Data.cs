@@ -90,11 +90,11 @@ namespace Mu3Library.Tests
 
             string longest = new string('k', MultiplayerLimits.MaxDataKeyLength);
             Assert.That(host.Manager.SetLobbyData(longest, new string('v', MultiplayerLimits.MaxLobbyDataSize - longest.Length)).IsSuccess, Is.True);
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
 
             // A new value takes the place of the old one in the count.
             Assert.That(host.Manager.SetLobbyData(longest, "short").IsSuccess, Is.True);
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
             Assert.That(host.Manager.SetLobbyData("emoji \U0001F3AE", "\U0001F3AE").IsSuccess, Is.True, "a surrogate pair is fine");
             Assert.That(host.LobbyDataChanges.Select(change => change.Key), Is.EqualTo(new[] { longest, longest, "x", "emoji \U0001F3AE" }));
         }
@@ -203,9 +203,9 @@ namespace Mu3Library.Tests
             // The key and value it held leave the count.
             string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "fill".Length - "mode".Length - "coop".Length);
             Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
             Assert.That(host.Manager.DeleteLobbyData("mode").IsSuccess, Is.True);
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
             Pump();
 
             // A player who joins later never hears of the deleted keys.
@@ -215,12 +215,11 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void LobbyData_WrittenEmpty_LeavesTheLobbyThatSearchReads_AsOnSteam_ButStaysInEveryPlayersCopy()
+        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryCopyAndLobbySearch_OnEveryBackend()
         {
-            // FR-11, FR-38, #313: a Steam lobby keeps no key written with an empty value, when the
-            // lobby is created or later, so neither does a local lobby: search returns no such key
-            // and the backend reads it as null. The session copy, which the host's connections
-            // carry, keeps it empty on every player, and the key counts toward the limit there.
+            // FR-11, FR-38, #313: a Steam lobby keeps a key it holds when the key is set empty but
+            // writes none it lacks, so an empty value deletes the key, and a lobby created with one
+            // starts without it; neither takes room toward the limit.
             LobbyCreateOptions options = PublicOptions(new SessionRules(4));
             options.Data["map"] = "desert";
             options.Data["e1"] = string.Empty;
@@ -228,39 +227,48 @@ namespace Mu3Library.Tests
             Node a = JoinNew("A", host);
             LobbyId lobby = host.Manager.CurrentLobbyId;
             Node seeker = CreateNode("Seeker");
+            Assert.That(a.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), "the lobby starts without the key written empty");
 
             Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
             Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies.Count, Is.EqualTo(1));
-            Assert.That(host.Manager.SetLobbyData("mode", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("MODE", string.Empty).IsSuccess, Is.True, "the key is found in any case, as a deletion finds it");
+            Assert.That(host.Manager.SetLobbyData("never", string.Empty).IsSuccess, Is.True, "a key the lobby data does not hold changes nothing");
+            Assert.That(a.Manager.SetLobbyData("map", string.Empty).Reason, Is.EqualTo(MultiplayerReason.NotHost));
             Pump();
 
             foreach (Node node in new[] { host, a })
             {
                 string name = node.Backend.PlayerName;
-                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", ["e1"] = string.Empty, ["mode"] = string.Empty }), name);
-                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("mode", "coop"), ("mode", string.Empty) }), name);
-                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, name);
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), name);
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("mode", "coop"), ("mode", (string)null) }), name);
                 Assert.That(node.Backend.GetLobbyData(lobby, "mode"), Is.Null, name);
-                Assert.That(node.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"), name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, name);
             }
 
             Assert.That(_network.FindLobby(lobby).Data.Keys.Where(key => !LobbyDataKeys.IsReserved(key)), Is.EquivalentTo(new[] { "map" }));
             Assert.That(Search(seeker).Lobbies.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }));
             Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies, Is.Empty);
 
-            // A value comes back as any other.
-            Assert.That(host.Manager.SetLobbyData("e1", "back").IsSuccess, Is.True);
-            Assert.That(host.Backend.GetLobbyData(lobby, "E1"), Is.EqualTo("back"));
-            Assert.That(Search(seeker).Lobbies.Single().Data["e1"], Is.EqualTo("back"));
-
-            // The key written empty counts toward the limit, as the session copy holds it.
-            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "map".Length - "desert".Length - "e1".Length - "back".Length - "mode".Length - "fill".Length);
+            // The key written empty takes no room; a deleted one frees its own.
+            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "map".Length - "desert".Length - "fill".Length);
             Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
-            Assert.That(host.Manager.DeleteLobbyData("mode").IsSuccess, Is.True, "a key written empty is deleted as any other");
-            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True, "and its room is free again");
-            Pump();
-            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map", "e1", "fill", "x" }));
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("fill", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
+
+            // So does a lobby's data at creation, whose keys still may not differ only by case.
+            Node other = CreateNode("Other");
+            LobbyCreateOptions clash = PublicOptions(SessionRules.Default);
+            clash.Data["Map"] = "desert";
+            clash.Data["map"] = string.Empty;
+            LogAssert.Expect(LogType.Warning, new Regex("differs from the key '(Map|map)' only by case"));
+            Assert.That(CreateLobby(other, clash).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            LobbyCreateOptions full = PublicOptions(SessionRules.Default);
+            full.Data["fill"] = new string('v', MultiplayerLimits.MaxLobbyDataSize - "fill".Length);
+            full.Data["empty"] = string.Empty;
+            Assert.That(CreateLobby(other, full).IsSuccess, Is.True);
+            Assert.That(other.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill" }));
         }
 
         [Test]
@@ -399,7 +407,8 @@ namespace Mu3Library.Tests
         /// <summary>
         /// A key that <see cref="StringComparisonData"/> lacks, and one it holds with an empty
         /// value. Steam's string filters dropped a lobby under all six comparisons on AppID 480 on
-        /// 2026-11-01 for both (#286): a Steam lobby keeps no key written with an empty value.
+        /// 2026-11-01 for both (#286): a lobby created with a key written empty keeps no such key, on
+        /// Steam as on every backend, since the manager leaves the key out (#313).
         /// </summary>
         internal const string MissingStringKey = "missing";
         internal const string EmptyStringKey = "empty";
@@ -743,8 +752,9 @@ namespace Mu3Library.Tests
         {
             // FR-11, FR-24: the welcome carries the start data, the lobby data, and every
             // player's data at once, so it has to fit in one send at every limit together. The
-            // data uses the shortest keys there are, whose length fields cost the most.
-            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize, keysIgnoreCase: true);
+            // data uses the shortest keys there are, whose length fields cost the most, and the
+            // lobby data the shortest values it keeps, since an empty value deletes its key (#313).
+            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize, isLobbyData: true);
             LobbyCreateOptions options = PublicOptions(new SessionRules(MultiplayerLimits.MaxCapacity, requireReady: false, allowLateJoin: true));
             foreach (KeyValuePair<string, string> pair in lobbyData)
             {
@@ -833,39 +843,41 @@ namespace Mu3Library.Tests
 
         /// <summary>
         /// Data whose keys and values take exactly <paramref name="size"/> UTF-8 bytes in as many
-        /// entries as distinct keys allow: every one-character key, then two-character keys. With
-        /// <paramref name="keysIgnoreCase"/>, as lobby data needs, no two keys differ only by case.
+        /// entries as distinct keys allow: every one-character key, then two-character keys. As
+        /// <paramref name="isLobbyData"/>, no two keys differ only by case and every value holds a
+        /// character, since lobby data keeps no empty value.
         /// </summary>
-        private static Dictionary<string, string> DataOfSize(int size, bool keysIgnoreCase = false)
+        private static Dictionary<string, string> DataOfSize(int size, bool isLobbyData = false)
         {
             Dictionary<string, string> data = new Dictionary<string, string>();
-            HashSet<string> taken = new HashSet<string>(keysIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            HashSet<string> taken = new HashSet<string>(isLobbyData ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            string value = isLobbyData ? "v" : string.Empty;
             int left = size;
-            for (char c = '!'; c <= '~' && left > 0; c++)
+            for (char c = '!'; c <= '~' && left >= 1 + value.Length; c++)
             {
                 if (taken.Add(c.ToString()))
                 {
-                    data.Add(c.ToString(), string.Empty);
-                    left--;
+                    data.Add(c.ToString(), value);
+                    left -= 1 + value.Length;
                 }
             }
 
-            for (char first = '!'; first <= '~' && left >= 2; first++)
+            for (char first = '!'; first <= '~' && left >= 2 + value.Length; first++)
             {
-                for (char second = '!'; second <= '~' && left >= 2; second++)
+                for (char second = '!'; second <= '~' && left >= 2 + value.Length; second++)
                 {
                     string key = new string(new[] { first, second });
                     if (taken.Add(key))
                     {
-                        data.Add(key, string.Empty);
-                        left -= 2;
+                        data.Add(key, value);
+                        left -= 2 + value.Length;
                     }
                 }
             }
 
             if (left > 0)
             {
-                data["!"] = new string('v', left);
+                data["!"] += new string('v', left);
             }
 
             return data;

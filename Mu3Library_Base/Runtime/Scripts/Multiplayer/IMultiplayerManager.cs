@@ -201,15 +201,16 @@ namespace Mu3Library.Multiplayer
         /// the case of a key, delete it with <see cref="DeleteLobbyData"/> first.
         /// </para>
         /// <para>
-        /// An empty value stays a value in the session: <see cref="LobbyData"/> keeps the key with
-        /// the empty value on every player, <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>
-        /// reports the empty value rather than the null of a deletion, and the key counts toward
-        /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, since the host's connections carry it
-        /// to every player, those who join later included. The lobby that search reads keeps no
-        /// such key on any backend, as a Steam lobby keeps none (AppID 480, 2026-11-01): a
-        /// search's <see cref="LobbyInfo.Data"/> lacks it and a filter on it leaves the lobby out,
-        /// on Steam and on both local backends alike. To take the key out of
-        /// <see cref="LobbyData"/> too, delete it with <see cref="DeleteLobbyData"/>.
+        /// An empty value deletes the key, as <see cref="DeleteLobbyData"/> does: the key is found
+        /// in any case, every player hears of it with a null value, it no longer counts toward
+        /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, and search neither returns it nor
+        /// finds the lobby by it; a key the lobby data does not hold changes nothing. A lobby
+        /// created with an empty value in <see cref="LobbyCreateOptions.Data"/> starts without
+        /// that key. Steam would otherwise keep or drop the key by whether its lobby held it: on
+        /// AppID 480 on 2026-11-04 a Steam lobby kept a key it held as a key with an empty value,
+        /// which search returned and a filter for the empty value matched, but wrote no key it
+        /// lacked, so <see cref="LobbyData"/>, search, and the local backends would have held
+        /// different keys.
         /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);

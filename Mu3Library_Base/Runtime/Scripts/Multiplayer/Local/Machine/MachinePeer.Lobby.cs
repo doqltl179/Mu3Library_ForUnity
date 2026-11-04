@@ -86,12 +86,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    // A Steam lobby keeps no key written with an empty value (SetLobbyData).
-                    if (!string.IsNullOrEmpty(pair.Value))
-                    {
-                        snapshot[pair.Key] = pair.Value;
-                    }
-
+                    snapshot[pair.Key] = pair.Value ?? string.Empty;
                     isWithinLimits &= MachineProtocol.IsWithinLimits(pair.Key, pair.Value);
                 }
             }
@@ -247,19 +242,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 return false;
             }
 
-            // A Steam lobby keeps no key written with an empty value, so the lobby lets go of it,
-            // and with it the members and the lobby file, which take the whole data again (#313).
-            if (string.IsNullOrEmpty(value))
-            {
-                if (lobby.Data.Remove(key))
-                {
-                    lobby.IsDirty = true;
-                }
-
-                return true;
-            }
-
-            lobby.Data[key] = value;
+            lobby.Data[key] = value ?? string.Empty;
             lobby.IsDirty = true;
             return true;
         }
