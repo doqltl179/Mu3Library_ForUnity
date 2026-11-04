@@ -500,7 +500,7 @@ namespace Mu3Library.Multiplayer
                 && TryGetParticipant(LocalPlayerId, out Participant returning) && !returning.IsLoaded)
             {
                 _writer.Begin(PacketKind.ReportLoaded).WriteInt(_gameNumber);
-                if (!SendToHost(DeliveryMode.Reliable) || generation != _sessionGeneration || _state != state)
+                if (SendToHost(DeliveryMode.Reliable) != MultiplayerReason.None || generation != _sessionGeneration || _state != state)
                 {
                     return;
                 }

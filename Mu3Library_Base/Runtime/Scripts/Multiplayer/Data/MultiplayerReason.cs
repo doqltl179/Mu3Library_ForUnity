@@ -29,9 +29,10 @@ namespace Mu3Library.Multiplayer.Data
         /// can no longer use Steam, the manager answers it at once to <c>CreateLobby</c>, which
         /// cannot start taking connections then, <c>SearchLobbies</c>, and <c>LoadAvatar</c>, and
         /// ends a session with it on its next <c>Update</c>, or at once for a client whose
-        /// connection to the host or reliable send to it fails there. A join ends with it too when
-        /// reading the lobby's data or owner, or trying the host past a lobby that refused it,
-        /// fails there.
+        /// connection to the host or reliable send to it fails there. The request that made such
+        /// a send answers it too, as does a host's message to one player that cannot leave there,
+        /// and a join ends with it when reading the lobby's data or owner, or trying the host past
+        /// a lobby that refused it, fails there.
         /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
@@ -41,7 +42,7 @@ namespace Mu3Library.Multiplayer.Data
         /// also ends a session with it, and answers it to a lobby search and an avatar request,
         /// once its backend stops being available for a reason the backend does not name, as one
         /// disposed before the manager; there it stands for <see cref="SteamNotRunning"/> wherever
-        /// a Steam backend answers that, a failed join step included.
+        /// a Steam backend answers that, a failed send or join step included.
         /// </summary>
         BackendError = 4,
         /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>
@@ -106,7 +107,11 @@ namespace Mu3Library.Multiplayer.Data
         Kicked = 31,
         /// <summary>The host left, lost its connection, or stopped.</summary>
         HostLeft = 32,
-        /// <summary>The connection dropped and did not come back.</summary>
+        /// <summary>
+        /// The connection dropped and did not come back. A request whose message cannot leave
+        /// answers it too, unless the backend is no longer available, when it answers the reason
+        /// the session ends with (<see cref="SteamNotRunning"/> or <see cref="BackendError"/>).
+        /// </summary>
         ConnectionLost = 33,
 
         /// <summary>A message exceeds the size limit.</summary>

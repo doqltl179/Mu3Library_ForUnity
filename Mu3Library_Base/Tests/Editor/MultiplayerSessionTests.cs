@@ -801,7 +801,8 @@ namespace Mu3Library.Tests
             // #320: in a game that keeps slots, a reliable send that cannot leave took the client to
             // Reconnecting first, and the next update ended the session with SteamNotRunning; in
             // the lobby it ended with ConnectionLost. A backend that is gone leaves no host to
-            // come back to, so the session ends at once, once, with the reason it names.
+            // come back to, so the session ends at once, once, with the reason it names. #339:
+            // the message answers that reason too, rather than ConnectionLost.
             Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
             Node a = CreatePlatformNode("A");
             Assert.That(Join(a, host).IsSuccess, Is.True);
@@ -816,7 +817,7 @@ namespace Mu3Library.Tests
             a.Platform.IsGone = true;
             a.Platform.GoneReason = MultiplayerReason.SteamNotRunning;
 
-            Assert.That(a.Manager.Send(1, new byte[] { 1 }, MessageTarget.Host).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost), "the message could not leave");
+            Assert.That(a.Manager.Send(1, new byte[] { 1 }, MessageTarget.Host).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the message could not leave");
             string state = inGame ? "InGame" : "Lobby";
             Assert.That(a.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"{state} -> Offline (SteamNotRunning)" }), "at once, without Reconnecting");
 
@@ -847,6 +848,66 @@ namespace Mu3Library.Tests
             host.Manager.Update();
             Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { "Lobby -> Offline (SteamNotRunning)" }));
             Assert.That(host.Left, Is.Empty);
+        }
+
+        [Test]
+        public void HostBoundRequest_ThatCannotLeaveAsTheBackendIsGone_AnswersTheReasonTheSessionEndsWith(
+            [ValueSource(nameof(HostBoundRequests))] string request,
+            [Values(MultiplayerReason.SteamNotRunning, MultiplayerReason.None)] MultiplayerReason named)
+        {
+            // #339: the client's session ended with the reason the backend names (#320), while the
+            // request that could not leave answered ConnectionLost.
+            MultiplayerReason expected = named != MultiplayerReason.None ? named : MultiplayerReason.BackendError;
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = CreatePlatformNode("A");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+            PrepareHostBoundRequest(host, a, request);
+            SessionState state = a.Manager.State;
+            int before = a.States.Count;
+
+            a.Platform.IsGone = true;
+            a.Platform.GoneReason = named;
+
+            Assert.That(MakeHostBoundRequest(a, request).Reason, Is.EqualTo(expected));
+            Assert.That(a.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"{state} -> Offline ({expected})" }), "the session ended at once with the same reason");
+        }
+
+        [Test]
+        public void HostBoundRequest_ThatCannotLeaveWhileTheBackendIsAvailable_AnswersConnectionLost([ValueSource(nameof(HostBoundRequests))] string request)
+        {
+            // #339: only a backend that is gone changes the answer. A send that fails on an
+            // available backend, as Steam's does when its send buffer is full, loses the host as
+            // before (FR-32): in the lobby the session ends, and in a game that keeps slots this
+            // player starts coming back, both with ConnectionLost.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            PrepareHostBoundRequest(host, a, request);
+            int before = a.States.Count;
+
+            a.Backend.FailingSends = 1;
+
+            Assert.That(MakeHostBoundRequest(a, request).Reason, Is.EqualTo(MultiplayerReason.ConnectionLost));
+            Assert.That(a.States.Skip(before).Select(change => change.Reason), Is.EqualTo(new[] { MultiplayerReason.ConnectionLost }));
+        }
+
+        [TestCase(MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning)]
+        [TestCase(MultiplayerReason.None, MultiplayerReason.BackendError)]
+        public void Send_TheHostsMessageToOnePlayerThatCannotLeaveAsTheBackendIsGone_AnswersTheReasonTheSessionEndsWith(MultiplayerReason named, MultiplayerReason expected)
+        {
+            // #339: the host keeps the player until its next update ends the session (#320), and
+            // the message answers the reason that update ends it with, rather than ConnectionLost.
+            Node host = CreateHost(CreatePlatformNode("Host"), PublicOptions(new SessionRules(4, requireReady: false)));
+            Node a = JoinNew("A", host);
+            int before = host.States.Count;
+
+            host.Platform.IsGone = true;
+            host.Platform.GoneReason = named;
+
+            Assert.That(host.Manager.Send(1, new byte[] { 1 }, MessageTarget.To(a.Id)).Reason, Is.EqualTo(expected));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Lobby), "until the next update");
+
+            host.Manager.Update();
+            Assert.That(host.States.Skip(before).Select(change => change.ToString()), Is.EqualTo(new[] { $"Lobby -> Offline ({expected})" }));
         }
 
         [TestCase(LobbyDataKeys.GameId, MultiplayerReason.SteamNotRunning, MultiplayerReason.SteamNotRunning, TestName = "JoinLobby_ALobbyReadThatFailsAsTheBackendGoes_EndsTheJoinWithTheReasonTheSessionEndsWith(VersionCheck,SteamNotRunning)")]
@@ -1575,6 +1636,40 @@ namespace Mu3Library.Tests
                 {
                     _rawBackends[i].Update();
                 }
+            }
+        }
+
+        /// <summary>The requests a client sends to the host, each answering as <see cref="MultiplayerManager.Send"/> does when its send fails.</summary>
+        private static readonly string[] HostBoundRequests = { "Send", "SendChat", "SetReady", "ReportLoaded", "SetParticipantData", "DeleteParticipantData" };
+
+        /// <summary>Takes the client where it may send <paramref name="request"/> to the host.</summary>
+        private void PrepareHostBoundRequest(Node host, Node client, string request)
+        {
+            if (request == "ReportLoaded")
+            {
+                Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+                Pump();
+                Assert.That(client.Manager.State, Is.EqualTo(SessionState.InGame));
+            }
+            else if (request == "DeleteParticipantData")
+            {
+                // A client sends a deletion only for a key its own requests set.
+                Assert.That(client.Manager.SetParticipantData("color", "red").IsSuccess, Is.True);
+                Pump();
+            }
+        }
+
+        private static MultiplayerResult MakeHostBoundRequest(Node client, string request)
+        {
+            switch (request)
+            {
+                case "Send": return client.Manager.Send(1, new byte[] { 1 }, MessageTarget.Host);
+                case "SendChat": return client.Manager.SendChat("Hello");
+                case "SetReady": return client.Manager.SetReady(true);
+                case "ReportLoaded": return client.Manager.ReportLoaded();
+                case "SetParticipantData": return client.Manager.SetParticipantData("color", "blue");
+                case "DeleteParticipantData": return client.Manager.DeleteParticipantData("color");
+                default: throw new ArgumentOutOfRangeException(nameof(request), request, null);
             }
         }
         #endregion

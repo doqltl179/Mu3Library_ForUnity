@@ -45,9 +45,10 @@ namespace Mu3Library.Multiplayer
 
             // The host decides; this player's own flag changes when the host reports it back.
             _writer.Begin(PacketKind.ReportLoaded).WriteInt(_gameNumber);
-            if (!SendToHost(DeliveryMode.Reliable))
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                return MultiplayerResult.Failure(failure);
             }
 
             _reportedLoadedGame = _gameNumber;

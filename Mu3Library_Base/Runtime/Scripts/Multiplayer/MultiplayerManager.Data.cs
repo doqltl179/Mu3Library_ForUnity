@@ -158,9 +158,10 @@ namespace Mu3Library.Multiplayer
             _writer.Begin(PacketKind.SetParticipantData);
             _writer.WriteString(key);
             _writer.WriteString(value);
-            if (!SendToHost(DeliveryMode.Reliable))
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                return MultiplayerResult.Failure(failure);
             }
 
             _requestedData[key] = value;
@@ -195,9 +196,10 @@ namespace Mu3Library.Multiplayer
 
             _writer.Begin(PacketKind.DeleteParticipantData);
             _writer.WriteString(key);
-            if (!SendToHost(DeliveryMode.Reliable))
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
             {
-                return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                return MultiplayerResult.Failure(failure);
             }
 
             _requestedData.Remove(key);

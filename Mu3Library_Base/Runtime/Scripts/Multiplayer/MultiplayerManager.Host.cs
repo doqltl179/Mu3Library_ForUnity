@@ -258,9 +258,7 @@ namespace Mu3Library.Multiplayer
 
             // The host decides; this player's own flag changes when the host reports it back.
             _writer.Begin(PacketKind.SetReady).WriteBool(isReady);
-            return SendToHost(DeliveryMode.Reliable)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            return new MultiplayerResult(SendToHost(DeliveryMode.Reliable));
         }
 
         public MultiplayerResult UpdateRules(SessionRules rules)

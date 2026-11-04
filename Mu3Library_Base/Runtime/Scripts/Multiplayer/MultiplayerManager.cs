@@ -660,8 +660,9 @@ namespace Mu3Library.Multiplayer
         private MultiplayerReason GoneBackendReason => UnavailableReason(MultiplayerReason.BackendError);
 
         /// <summary>
-        /// The reason a join or a session ends with when a call to the backend fails on the way:
-        /// a connection or a send to the host, or a join's reading of the lobby (#320, #338). It is
+        /// The reason a join or a session ends with, and the request that made the call answers,
+        /// when a call to the backend fails on the way: a connection or a send to the host, a
+        /// send to one player, or a join's reading of the lobby (#320, #338, #339). It is
         /// <paramref name="otherwise"/> while the backend is available, and once it is not, as a
         /// Steam backend whose Steam call failed there, <see cref="GoneBackendReason"/>, the
         /// reason the next update would end the session with, so the game hears one reason

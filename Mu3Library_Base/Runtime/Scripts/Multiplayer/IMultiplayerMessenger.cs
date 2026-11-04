@@ -71,6 +71,14 @@ namespace Mu3Library.Multiplayer
         /// is away while the host keeps their slot (<see cref="Participant.IsConnected"/> false),
         /// or when that player is dropped because a reliable message cannot reach them; a message
         /// for several players does not reach the ones who are away and succeeds all the same;
+        /// when the message cannot leave, or cannot reach the one player it is for, because the
+        /// backend is no longer available, the reason the session ends with instead:
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> on a Steam backend that can no longer
+        /// use Steam, and <see cref="MultiplayerReason.BackendError"/> on any other backend, such
+        /// as one disposed before the manager. A client's session then ends at once with that
+        /// reason, and a host's on its next <c>Update</c>, so the answer and the change to
+        /// <see cref="SessionState.Offline"/> name the same reason (see
+        /// <see cref="IMultiplayerManager.Initialize"/>);
         /// <see cref="MultiplayerReason.InvalidState"/> outside a session; and
         /// <see cref="MultiplayerReason.NotInitialized"/> before initialization.
         /// </returns>

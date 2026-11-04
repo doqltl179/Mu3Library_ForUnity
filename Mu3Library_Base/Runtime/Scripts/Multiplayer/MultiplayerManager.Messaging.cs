@@ -227,8 +227,10 @@ namespace Mu3Library.Multiplayer
                 SendToPeer(peer, deliveryMode);
             }
 
+            // On a backend that is gone, the one player it is for keeps their place until the next
+            // update ends the session, with the reason the message answers (#339).
             MultiplayerResult result = target.Kind == MessageTargetKind.Player && _unreachablePeers.Count > unreachableBefore
-                ? MultiplayerResult.Failure(MultiplayerReason.ConnectionLost)
+                ? MultiplayerResult.Failure(FailureReason(MultiplayerReason.ConnectionLost))
                 : MultiplayerResult.Success;
 
             int generation = _sessionGeneration;
@@ -403,9 +405,10 @@ namespace Mu3Library.Multiplayer
                 _writer.WriteUShort(messageType);
                 _writer.WriteRemaining(payload);
 
-                if (!SendToHost(deliveryMode))
+                MultiplayerReason failure = SendToHost(deliveryMode);
+                if (failure != MultiplayerReason.None)
                 {
-                    return MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+                    return MultiplayerResult.Failure(failure);
                 }
             }
 
@@ -426,13 +429,21 @@ namespace Mu3Library.Multiplayer
         /// so the session ends at once with the reason the next update would end it with
         /// (<see cref="GoneBackendReason"/>). An unreliable one is only reported.
         /// </summary>
-        private bool SendToHost(DeliveryMode deliveryMode)
+        /// <returns>
+        /// <see cref="MultiplayerReason.None"/> when the packet went out; otherwise what the
+        /// request that sent it answers: <see cref="MultiplayerReason.ConnectionLost"/>, or on a
+        /// backend that is no longer available the reason the session ends with, so the request
+        /// and the session's end tell the game one reason (#339).
+        /// </returns>
+        private MultiplayerReason SendToHost(DeliveryMode deliveryMode)
         {
             if (_backend.Send(_hostConnection, _writer.Written, deliveryMode))
             {
-                return true;
+                return MultiplayerReason.None;
             }
 
+            // Taken before the session ends, as the session's end runs handlers.
+            MultiplayerReason failure = FailureReason(MultiplayerReason.ConnectionLost);
             if (deliveryMode == DeliveryMode.Reliable)
             {
                 if (_backend.IsAvailable)
@@ -441,11 +452,11 @@ namespace Mu3Library.Multiplayer
                 }
                 else
                 {
-                    EndSession(GoneBackendReason, raiseEvents: true);
+                    EndSession(failure, raiseEvents: true);
                 }
             }
 
-            return false;
+            return failure;
         }
 
         private bool ReachesAnotherClient(MessageTarget target, PlayerId self)

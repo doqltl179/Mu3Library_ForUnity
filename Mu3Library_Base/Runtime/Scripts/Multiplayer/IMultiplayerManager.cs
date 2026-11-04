@@ -62,10 +62,14 @@ namespace Mu3Library.Multiplayer
         /// whose reliable send to it, fails on such a backend before then ends its session at
         /// once with the same reason, rather than with <see cref="MultiplayerReason.ConnectionFailed"/>
         /// or <see cref="MultiplayerReason.ConnectionLost"/>, and does not try to come back to its
-        /// slot, and a join whose other steps fail there ends with the same reason too
-        /// (<see cref="JoinLobby"/>); a host whose sends fail on it keeps its players until
-        /// that update, which ends the session once, rather than dropping each of them with
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// slot; the request that made the send answers the same reason too
+        /// (<see cref="IMultiplayerMessenger.Send"/>, <see cref="SendChat"/>, <see cref="SetReady"/>,
+        /// <see cref="ReportLoaded"/>, <see cref="SetParticipantData"/>, and
+        /// <see cref="DeleteParticipantData"/>), and so does a join whose other steps fail there
+        /// (<see cref="JoinLobby"/>). A host whose sends fail on it keeps its players until that
+        /// update, which ends the session once, rather than dropping each of them with
+        /// <see cref="MultiplayerReason.ConnectionLost"/>; its message to one player that cannot
+        /// leave answers the same reason.
         /// </remarks>
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config);
 
@@ -154,7 +158,10 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// In the lobby only. For a client, success means the request went to the host; the flag
         /// changes when the host reports it back through
-        /// <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>.
+        /// <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>. A client whose request
+        /// cannot leave answers <see cref="MultiplayerReason.ConnectionLost"/>, or on a backend
+        /// that is no longer available the reason its session ends with at once (see
+        /// <see cref="Initialize"/>).
         /// </summary>
         public MultiplayerResult SetReady(bool isReady);
 
@@ -285,6 +292,9 @@ namespace Mu3Library.Multiplayer
         /// their slot included. While this player is <see cref="SessionState.Reconnecting"/> it
         /// answers <see cref="MultiplayerReason.ConnectionLost"/>, and a request still on its way
         /// when the connection dropped is lost: the returning player takes the data the host holds.
+        /// A client's request that cannot leave answers <see cref="MultiplayerReason.ConnectionLost"/>,
+        /// or on a backend that is no longer available the reason its session ends with at once
+        /// (see <see cref="Initialize"/>).
         /// </summary>
         public MultiplayerResult SetParticipantData(string key, string value);
 
@@ -300,7 +310,8 @@ namespace Mu3Library.Multiplayer
         /// <see cref="SetParticipantData"/> calls count the room the deletion frees at once, before
         /// the host reports it back, and the rate limits count the deletion as a participant data
         /// request. While this player is <see cref="SessionState.Reconnecting"/> it answers
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>, and a client's request that cannot leave
+        /// answers as for <see cref="SetParticipantData"/>.
         /// </summary>
         public MultiplayerResult DeleteParticipantData(string key);
         #endregion
@@ -321,7 +332,10 @@ namespace Mu3Library.Multiplayer
         /// apart from <see cref="MultiplayerConfig.MaxMessageSize"/>, which caps game messages only.
         /// The host's own message is handled before the call returns, and a client's, its own copy
         /// included, once the host passed it on, so every player hears the messages in the same
-        /// order. The host drops a client's message that arrives after the game started.
+        /// order. The host drops a client's message that arrives after the game started. A
+        /// client's message that cannot leave answers <see cref="MultiplayerReason.ConnectionLost"/>,
+        /// or on a backend that is no longer available the reason its session ends with at once
+        /// (see <see cref="Initialize"/>).
         /// </summary>
         public MultiplayerResult SendChat(string text);
         #endregion
@@ -360,7 +374,9 @@ namespace Mu3Library.Multiplayer
         /// the host. Reporting again changes nothing.
         /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
         /// player is <see cref="SessionState.Reconnecting"/>,
-        /// <see cref="MultiplayerReason.ConnectionLost"/>.
+        /// <see cref="MultiplayerReason.ConnectionLost"/>. A client's report that cannot leave
+        /// answers <see cref="MultiplayerReason.ConnectionLost"/>, or on a backend that is no
+        /// longer available the reason its session ends with at once (see <see cref="Initialize"/>).
         /// </summary>
         public MultiplayerResult ReportLoaded();
         #endregion

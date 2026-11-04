@@ -48,9 +48,7 @@ namespace Mu3Library.Multiplayer
             // does, so every player hears the messages in the order the host passed them on.
             _writer.Begin(PacketKind.ChatToHost);
             _writer.WriteString(text);
-            return SendToHost(DeliveryMode.Reliable)
-                ? MultiplayerResult.Success
-                : MultiplayerResult.Failure(MultiplayerReason.ConnectionLost);
+            return new MultiplayerResult(SendToHost(DeliveryMode.Reliable));
         }
 
         private void HostHandleChat(PeerConnection sender, ref PacketReader reader)
