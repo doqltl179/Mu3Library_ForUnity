@@ -470,6 +470,49 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_KeepsNoKeyWrittenEmpty_InTheLobbyOrWhatSearchReturns_AsTheLocalBackendsDo()
+        {
+            // FR-11, FR-38, #313 on Steam itself: a key written with an empty value, when the lobby
+            // is created or later, is missing from the owner's lobby, from what search returns, and
+            // from GetLobbyData, as the local backends' tests hold them to, while the session copy
+            // keeps it empty.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, new Dictionary<string, string> { ["Map"] = "desert", ["e1"] = string.Empty });
+                Assert.That(manager.SetLobbyData("Mode", "coop").IsSuccess, Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Mode", "coop"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key");
+
+                Assert.That(manager.SetLobbyData("Mode", string.Empty).IsSuccess, Is.True, "Steam takes an empty value");
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "desert", ["e1"] = string.Empty, ["Mode"] = string.Empty }),
+                    "the session copy keeps the keys written empty");
+                Assert.That(_backend.GetLobbyData(lobby, "e1"), Is.Null);
+                Assert.That(_backend.GetLobbyData(lobby, "Mode"), Is.Null);
+
+                Pump(manager, () => OwnLobbyGameKeys(lobby).Count == 1, 10);
+                List<string> owned = OwnLobbyGameKeys(lobby);
+                TestContext.WriteLine($"The owner's lobby holds the game keys '{string.Join("', '", owned)}'.");
+                Assert.That(owned.Select(key => key.ToLowerInvariant()), Is.EquivalentTo(new[] { "map" }), "the owner's lobby keeps no key written empty");
+
+                LobbyInfo after = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && !info.Data.ContainsKey("Mode"), 30);
+                Assert.That(after, Is.Not.Null, "search never dropped the key written empty");
+                Assert.That(after.Data.Count, Is.EqualTo(1), $"search returns the keys '{string.Join("', '", after.Data.Keys)}'");
+                Assert.That(after.Data["Map"], Is.EqualTo("desert"));
+
+                Assert.That(manager.DeleteLobbyData("Mode").IsSuccess, Is.True, "a key written empty is deleted as any other");
+                Assert.That(manager.LobbyData.ContainsKey("Mode"), Is.False);
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfThisAccount_ArrivesAsATextureOfSteamsSize_TheRightWayUp()
         {
             // FR-4 on Steam itself, with this account's own avatar; another account's follows.
@@ -986,6 +1029,24 @@ namespace Mu3Library.Tests
             }
 
             return false;
+        }
+
+        /// <summary>The game's own keys of the lobby as Steam lists them to its owner, without the library's.</summary>
+        private static List<string> OwnLobbyGameKeys(LobbyId lobby)
+        {
+            Steamworks.CSteamID steamLobby = new Steamworks.CSteamID(lobby.Value);
+            List<string> keys = new List<string>();
+            int count = Steamworks.SteamMatchmaking.GetLobbyDataCount(steamLobby);
+            for (int i = 0; i < count; i++)
+            {
+                if (Steamworks.SteamMatchmaking.GetLobbyDataByIndex(steamLobby, i, out string key, Steamworks.Constants.k_nMaxLobbyKeyLength, out _, Steamworks.Constants.k_cubChatMetadataMax)
+                    && !LobbyDataKeys.IsReserved(key))
+                {
+                    keys.Add(key);
+                }
+            }
+
+            return keys;
         }
 
         /// <summary>Whether this account's own rich presence lists the key.</summary>

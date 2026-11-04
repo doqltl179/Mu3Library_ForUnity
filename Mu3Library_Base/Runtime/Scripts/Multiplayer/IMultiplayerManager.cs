@@ -200,6 +200,17 @@ namespace Mu3Library.Multiplayer
         /// it back in another case, so a game looks keys up rather than compare them. To change
         /// the case of a key, delete it with <see cref="DeleteLobbyData"/> first.
         /// </para>
+        /// <para>
+        /// An empty value stays a value in the session: <see cref="LobbyData"/> keeps the key with
+        /// the empty value on every player, <see cref="IMultiplayerManagerEventBus.OnLobbyDataChanged"/>
+        /// reports the empty value rather than the null of a deletion, and the key counts toward
+        /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, since the host's connections carry it
+        /// to every player, those who join later included. The lobby that search reads keeps no
+        /// such key on any backend, as a Steam lobby keeps none (AppID 480, 2026-11-01): a
+        /// search's <see cref="LobbyInfo.Data"/> lacks it and a filter on it leaves the lobby out,
+        /// on Steam and on both local backends alike. To take the key out of
+        /// <see cref="LobbyData"/> too, delete it with <see cref="DeleteLobbyData"/>.
+        /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);
 

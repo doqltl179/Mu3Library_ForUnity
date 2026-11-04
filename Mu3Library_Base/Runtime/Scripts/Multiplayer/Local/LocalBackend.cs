@@ -440,7 +440,11 @@ namespace Mu3Library.Multiplayer.Local
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    snapshot[pair.Key] = pair.Value;
+                    // A Steam lobby keeps no key written with an empty value (SetLobbyData).
+                    if (!string.IsNullOrEmpty(pair.Value))
+                    {
+                        snapshot[pair.Key] = pair.Value;
+                    }
                 }
             }
 
@@ -570,7 +574,17 @@ namespace Mu3Library.Multiplayer.Local
                 return false;
             }
 
-            lobby.Data[key] = value ?? string.Empty;
+            // A Steam lobby keeps no key written with an empty value, so the lobby lets go of it
+            // and search returns it no more, as on Steam (#313).
+            if (string.IsNullOrEmpty(value))
+            {
+                lobby.Data.Remove(key);
+            }
+            else
+            {
+                lobby.Data[key] = value;
+            }
+
             return true;
         }
 

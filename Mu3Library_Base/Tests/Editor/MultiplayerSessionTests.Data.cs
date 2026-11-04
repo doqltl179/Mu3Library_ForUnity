@@ -215,6 +215,55 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbyData_WrittenEmpty_LeavesTheLobbyThatSearchReads_AsOnSteam_ButStaysInEveryPlayersCopy()
+        {
+            // FR-11, FR-38, #313: a Steam lobby keeps no key written with an empty value, when the
+            // lobby is created or later, so neither does a local lobby: search returns no such key
+            // and the backend reads it as null. The session copy, which the host's connections
+            // carry, keeps it empty on every player, and the key counts toward the limit there.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["map"] = "desert";
+            options.Data["e1"] = string.Empty;
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Node seeker = CreateNode("Seeker");
+
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(host.Manager.SetLobbyData("mode", string.Empty).IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", ["e1"] = string.Empty, ["mode"] = string.Empty }), name);
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("mode", "coop"), ("mode", string.Empty) }), name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "mode"), Is.Null, name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("desert"), name);
+            }
+
+            Assert.That(_network.FindLobby(lobby).Data.Keys.Where(key => !LobbyDataKeys.IsReserved(key)), Is.EquivalentTo(new[] { "map" }));
+            Assert.That(Search(seeker).Lobbies.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies, Is.Empty);
+
+            // A value comes back as any other.
+            Assert.That(host.Manager.SetLobbyData("e1", "back").IsSuccess, Is.True);
+            Assert.That(host.Backend.GetLobbyData(lobby, "E1"), Is.EqualTo("back"));
+            Assert.That(Search(seeker).Lobbies.Single().Data["e1"], Is.EqualTo("back"));
+
+            // The key written empty counts toward the limit, as the session copy holds it.
+            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "map".Length - "desert".Length - "e1".Length - "back".Length - "mode".Length - "fill".Length);
+            Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.DeleteLobbyData("mode").IsSuccess, Is.True, "a key written empty is deleted as any other");
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True, "and its room is free again");
+            Pump();
+            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map", "e1", "fill", "x" }));
+        }
+
+        [Test]
         public void LobbyData_DeletionFromAClient_IsRefusedWithNotHost_AndTheLibrarysKeysStay()
         {
             // FR-11: deleting follows the rules of setting.

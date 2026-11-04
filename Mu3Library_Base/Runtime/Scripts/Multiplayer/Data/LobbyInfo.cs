@@ -17,7 +17,10 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// The game-defined lobby data. The library's own <c>mu3.</c> keys are left out. It finds
         /// a key in any case on every backend, since Steam's search can hand a key back in another
-        /// case than the host wrote it in, as <c>MAP</c> for <c>Map</c>.
+        /// case than the host wrote it in, as <c>MAP</c> for <c>Map</c>. It lacks a key the host
+        /// wrote with an empty value on every backend, since a Steam lobby keeps no such key,
+        /// though <see cref="IMultiplayerManager.LobbyData"/> of the session holds it empty (see
+        /// <see cref="IMultiplayerManager.SetLobbyData"/>).
         /// </summary>
         public IReadOnlyDictionary<string, string> Data { get; }
 
