@@ -1855,7 +1855,12 @@ namespace Mu3Library.Tests
             {
                 Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', length)), Is.True);
                 Assert.That(Search(owner).Single(found => found.Id == lobby).Capacity, Is.EqualTo(capacity), $"the owner's own search with {length} bytes under the last key");
-                PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 1 && found.Capacity == capacity),
+
+                // The lobby file of this step, not one an earlier step left, since two steps show
+                // the same capacity.
+                PumpUntil(() => Search(seeker).Any(found => found.Id == lobby
+                        && found.Data.TryGetValue(LastKey, out string listed) && listed.Length == length
+                        && found.MemberCount == 1 && found.Capacity == capacity),
                     $"the search to show a capacity of {capacity} with {length} bytes under the last key");
             }
 
