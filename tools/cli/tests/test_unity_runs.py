@@ -1004,5 +1004,69 @@ class OverrideWarningTests(FixtureRepositoryTestCase):
                 self.assertLess(warnings[-1], runs_of_unity[0], completed.stdout)
 
 
+class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
+    """Each entry point finds the repository from its own path, never from the working directory, so
+    it runs the fixture's targets from a folder outside it, by every absolute spelling of that path.
+
+    A script that cut its own folder wrong would fall back to the working directory, which the other
+    tests keep at the fixture's root, where the result would look the same."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+
+    def setUp(self) -> None:
+        super().setUp()
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        self.outside = Path(outside.name)
+
+    def spellings(self, entry_point: str) -> dict[str, str]:
+        """The absolute spellings of an entry point's path that callers on this host use."""
+        path = self.root / entry_point
+        spellings = {"native": str(path)}
+        if platform.system() == "Windows":
+            # The native spelling is the Windows one, with backslashes.
+            spellings["Windows with forward slashes"] = path.as_posix()
+            spellings["POSIX"] = f"/{path.drive[0].lower()}{path.as_posix()[len(path.drive):]}"
+        return spellings
+
+    def test_both_entry_points_run_the_fixture_targets_from_outside_the_repository(self) -> None:
+        runs = (
+            ("compile-unity.sh", "Unity compilation succeeded: leaf", self.root / "log" / "unity-compile" / "leaf.log"),
+            ("test-unity.sh", "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped",
+             self.root / "log" / "unity-tests" / "leaf-editmode.xml"),
+        )
+        for entry_point, success, kept in runs:
+            for spelling, script in self.spellings(entry_point).items():
+                with self.subTest(entry_point=entry_point, spelling=spelling):
+                    shutil.rmtree(self.root / "log", ignore_errors=True)
+
+                    completed = self.run_entry_point(
+                        entry_point,
+                        "leaf",
+                        environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                        cwd=self.outside,
+                        script=script,
+                    )
+
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    self.assertIn(success, completed.stdout.splitlines())
+                    [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
+                    self.assertTrue(ran.endswith("/repository/ProjLeaf"), ran)
+                    self.assertTrue(kept.is_file(), completed.stdout)
+                    self.assertEqual([], list(self.outside.iterdir()))
+
+    def test_sourced_entry_points_find_the_repository_from_outside_it(self) -> None:
+        body = 'load_package_config\nprintf "root %s\\ntargets %s\\n" "$REPO_ROOT" "${TARGET_KEYS[*]}"'
+        for entry_point in ("compile-unity.sh", "test-unity.sh"):
+            for spelling, script in self.spellings(entry_point).items():
+                with self.subTest(entry_point=entry_point, spelling=spelling):
+                    completed = self.run_functions(entry_point, body, cwd=self.outside, script=script)
+
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    root, targets = completed.stdout.splitlines()
+                    self.assertTrue(root.endswith("/repository"), root)
+                    self.assertEqual(f"targets {' '.join(key for key, _, _ in MAPPING)}", targets)
+
+
 if __name__ == "__main__":
     unittest.main()
