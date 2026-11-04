@@ -186,6 +186,24 @@ namespace StripHarness
     }
 #pragma warning restore CS0169
 
+    public interface IUnreadPropertyService
+    {
+    }
+
+    // Created only to fill UnreadPropertyHolder's property, so its constructor counts the injections.
+    public sealed class UnreadPropertyService : IUnreadPropertyService
+    {
+        public UnreadPropertyService() => Probe.Hit("UnreadPropertyService.ctor");
+    }
+
+    // The same for an instance [Inject] auto-property with a private setter. No code calls its
+    // getter or setter, so nothing but the link.xml keeps the property, its setter, and its
+    // [Inject] attribute in a stripped player. Its name appears nowhere else.
+    public sealed class UnreadPropertyHolder
+    {
+        [Inject] public IUnreadPropertyService InjectedButUnreadProperty { get; private set; }
+    }
+
     // Registers through the ContainerScope a constructor receives. RegisterClass<T>() needs the
     // default constructor, and the container must call Installer(ContainerScope).
     public sealed class Installer
@@ -210,6 +228,7 @@ namespace StripHarness
             scope.Register<IPluginService, PluginService>();
             scope.Register<INested, Outer.NestedService>();
             scope.Register<IUnreadFieldService, UnreadFieldService>(ServiceLifetime.Transient);
+            scope.Register<IUnreadPropertyService, UnreadPropertyService>(ServiceLifetime.Transient);
 #if !UNITY_EDITOR
             scope.Register<IPlayerOnly, PlayerOnlyService>();
 #endif
