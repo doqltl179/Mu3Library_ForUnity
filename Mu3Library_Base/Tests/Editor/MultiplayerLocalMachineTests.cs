@@ -1020,6 +1020,9 @@ namespace Mu3Library.Tests
             string endedBackup = WriteFile("peer-5.lobbies~RF1a2b3c.TMP", stale);
             string unknown = WriteFile("peer-5.other", stale);
 
+            // A stale lobby file of port 5 that a reader took aside to delete, and ended first.
+            string endedAside = WriteFile("peer-5.lobbies~del0123456789abcdef.tmp", stale);
+
             // Port 6: a process that ended long ago in the middle of a write, whose lobby file went stale.
             MachineDirectory ended = new MachineDirectory(_folder, 6);
             ended.Publish(new PlayerId(6), 6, new List<MachineLobby> { ListedLobby(6, "map", "forest") });
@@ -1045,13 +1048,64 @@ namespace Mu3Library.Tests
 
                 Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EqualTo(new[] { new LobbyId(8) }));
 
-                Assert.That(new[] { endedTemporary, endedBackup, staleFile, staleTemporary }.Where(File.Exists), Is.Empty);
+                Assert.That(new[] { endedTemporary, endedBackup, endedAside, staleFile, staleTemporary }.Where(File.Exists), Is.Empty);
                 Assert.That(new[] { unknown, freshTemporary, freshBackup, oldTemporary }.Where(path => !File.Exists(path)), Is.Empty);
             }
             finally
             {
                 running.Remove();
             }
+        }
+
+        [Test]
+        public void Directory_DeletingAStaleLobbyFile_LeavesANewFileThatReplacedItAfterTheRead()
+        {
+            // The lobby file of an owner whose main thread stalled for longer than a file stays fresh.
+            MachineDirectory stalled = new MachineDirectory(_folder, 1);
+            stalled.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            stalled.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+            long stale = DateTime.UtcNow.AddSeconds(-MachineDirectory.StaleSeconds - 1.0).Ticks;
+            byte[] bytes = File.ReadAllBytes(file);
+            BitConverter.GetBytes(stale).CopyTo(bytes, 8);
+            File.WriteAllBytes(file, bytes);
+
+            // Back from the stall, the owner replaces the file after a read found it stale and
+            // before the read deletes what it read.
+            MachineDirectory owner = new MachineDirectory(_folder, 1);
+            owner.Publish(new PlayerId(1), 1, new List<MachineLobby> { ListedLobby(1, "map", "desert") });
+            try
+            {
+                MachineDirectory.DeleteIfUnchanged(file, stale);
+
+                Assert.That(Directory.GetFiles(_folder).Select(Path.GetFileName), Is.EqualTo(new[] { "peer-1.lobbies" }), "The new file is gone, or something was left beside it.");
+                Assert.That(ListedData(new LobbyId(1), "map"), Is.EqualTo("desert"));
+            }
+            finally
+            {
+                owner.Remove();
+            }
+
+            // The file the read found stale, still in place, is deleted.
+            File.WriteAllBytes(file, bytes);
+            MachineDirectory.DeleteIfUnchanged(file, stale);
+            Assert.That(Directory.GetFiles(_folder), Is.Empty);
+        }
+
+        [Test]
+        public void RemoveEnded_DeletesTheLobbyFileThatNamesTheOwner_AndLeavesAnotherOwnersFile()
+        {
+            MachineDirectory ended = new MachineDirectory(_folder, 1);
+            ended.Publish(new PlayerId(2), 1, new List<MachineLobby> { ListedLobby(1, "map", "forest") });
+            ended.Abandon();
+            string file = Path.Combine(_folder, "peer-1.lobbies");
+
+            // A newer process on the same port.
+            MachineDirectory.RemoveEnded(_folder, 1, new PlayerId(3));
+            Assert.That(File.Exists(file), Is.True);
+
+            MachineDirectory.RemoveEnded(_folder, 1, new PlayerId(2));
+            Assert.That(Directory.GetFiles(_folder), Is.Empty);
         }
 
         [Test]
