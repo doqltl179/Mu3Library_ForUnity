@@ -165,6 +165,27 @@ namespace StripHarness
     {
     }
 
+    public interface IUnreadFieldService
+    {
+    }
+
+    // Created only to fill UnreadFieldHolder's field, so its constructor counts the injections.
+    public sealed class UnreadFieldService : IUnreadFieldService
+    {
+        public UnreadFieldService() => Probe.Hit("UnreadFieldService.ctor");
+    }
+
+    // An instance [Inject] field that no code reads, such as one that only makes the container
+    // create a service and start its lifecycle. The linker keeps the [Inject] attribute of a
+    // field that code reads, so no code reads or writes this one, and it has no initializer: only
+    // the link.xml keeps its attribute in a stripped player. Its name appears nowhere else.
+#pragma warning disable CS0169 // never used: only reflection reaches it
+    public sealed class UnreadFieldHolder
+    {
+        [Inject] private IUnreadFieldService _injectedButUnread;
+    }
+#pragma warning restore CS0169
+
     // Registers through the ContainerScope a constructor receives. RegisterClass<T>() needs the
     // default constructor, and the container must call Installer(ContainerScope).
     public sealed class Installer
@@ -188,6 +209,7 @@ namespace StripHarness
             scope.Register<IPluginRepo, PluginRepo>();
             scope.Register<IPluginService, PluginService>();
             scope.Register<INested, Outer.NestedService>();
+            scope.Register<IUnreadFieldService, UnreadFieldService>(ServiceLifetime.Transient);
 #if !UNITY_EDITOR
             scope.Register<IPlayerOnly, PlayerOnlyService>();
 #endif
