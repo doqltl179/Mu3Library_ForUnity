@@ -36,6 +36,15 @@ namespace Mu3Library.Multiplayer
         #region Requests
         public MultiplayerResult SetLobbyData(string key, string value)
         {
+            // An empty value deletes the key. A Steam lobby keeps a key it holds when the key is
+            // set to an empty value, but writes none for a key it lacks (AppID 480, 2026-11-04,
+            // #313), so the empty value would leave Steam's lobby, the local backends' lobbies,
+            // and every player's copy holding different keys.
+            if (IsEmptyValue(value))
+            {
+                return DeleteLobbyData(key);
+            }
+
             MultiplayerReason check = CheckHostRequest(null);
             if (check == MultiplayerReason.None)
             {
@@ -438,6 +447,13 @@ namespace Mu3Library.Multiplayer
         #endregion
 
         #region Rules And Packets
+        /// <summary>
+        /// A lobby data value that writes no key: <see cref="SetLobbyData"/> deletes the key
+        /// instead, and a lobby is created without it. A null value is no value at all and is
+        /// refused, so it is not empty here.
+        /// </summary>
+        private static bool IsEmptyValue(string value) => value != null && value.Length == 0;
+
         private static bool IsValidDataKey(string key)
         {
             return !string.IsNullOrEmpty(key)

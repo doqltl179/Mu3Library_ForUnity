@@ -8,10 +8,13 @@ namespace Mu3Library.Multiplayer.Local
     /// The search filters as Steam applies them, for the lobbies of a local network. A filter
     /// finds its key in any case, as Steam does, since the local backends keep lobby data in
     /// dictionaries that ignore case, and compares a string value as Steam compares it
-    /// (<see cref="CompareText"/>). A string filter drops a lobby that lacks its key, or holds it
-    /// with an empty value, under every comparison, as Steam's search on AppID 480 did on
-    /// 2026-11-01 (#286): a Steam lobby keeps no key written with an empty value, so neither
-    /// lobby has a value that a comparison could keep.
+    /// (<see cref="CompareText"/>). A string filter drops a lobby that lacks its key under every
+    /// comparison, as Steam's search on AppID 480 did on 2026-11-01 (#286), and one that holds
+    /// it with an empty value too, which the manager never writes since it deletes such a key
+    /// (#313); a Steam lobby that holds a key with an empty value, which only a caller of the
+    /// backend itself can bring about, passes a comparison that the empty value passes, as it
+    /// did on 2026-11-04. A filter whose key is null or empty is skipped and drops no lobby, as
+    /// the Steam backend skips it rather than hand Steam such a key (#314).
     /// </summary>
     internal static class LobbyFilter
     {
@@ -20,7 +23,16 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.StringFilters.Count; i++)
             {
                 LobbyStringFilter filter = query.StringFilters[i];
-                if (!data.TryGetValue(filter.Key ?? string.Empty, out string value)
+                if (string.IsNullOrEmpty(filter.Key))
+                {
+                    continue;
+                }
+
+                // No manager writes an empty value since #313, so only a caller of the backend
+                // itself, or a lobby file another process wrote with an earlier version of the
+                // library, brings one here. It stays left out, as #286 made it, while whether the
+                // local backends follow Steam's own handling of such a value is open.
+                if (!data.TryGetValue(filter.Key, out string value)
                     || string.IsNullOrEmpty(value)
                     || !Satisfies(CompareText(value, filter.Value ?? string.Empty), filter.Comparison))
                 {
@@ -31,7 +43,12 @@ namespace Mu3Library.Multiplayer.Local
             for (int i = 0; i < query.NumericFilters.Count; i++)
             {
                 LobbyNumericFilter filter = query.NumericFilters[i];
-                if (!data.TryGetValue(filter.Key ?? string.Empty, out string text)
+                if (string.IsNullOrEmpty(filter.Key))
+                {
+                    continue;
+                }
+
+                if (!data.TryGetValue(filter.Key, out string text)
                     || !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
                     || !Satisfies(value.CompareTo(filter.Value), filter.Comparison))
                 {

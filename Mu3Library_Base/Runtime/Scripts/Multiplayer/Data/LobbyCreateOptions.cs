@@ -15,7 +15,8 @@ namespace Mu3Library.Multiplayer.Data
         /// Game-defined lobby data that lobby search returns and filters on. Keys starting with
         /// <c>mu3.</c>, in any case, belong to the library and are refused; keys and values follow the rules of
         /// <see cref="IMultiplayerManager.SetLobbyData"/>, which changes them during the session,
-        /// so two keys that differ only by case, such as <c>map</c> and <c>Map</c>, are refused too.
+        /// so two keys that differ only by case, such as <c>map</c> and <c>Map</c>, are refused too,
+        /// and a key with an empty value is left out of the lobby, as that method deletes it.
         /// </summary>
         public Dictionary<string, string> Data { get; } = new Dictionary<string, string>();
 

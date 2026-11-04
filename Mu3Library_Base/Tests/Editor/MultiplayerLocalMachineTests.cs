@@ -304,6 +304,49 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryProcess_TheLobbyFile_AndSearch()
+        {
+            // FR-11, FR-38, #313 between "processes": an empty value deletes the key, so neither
+            // the owner's lobby, a member's copy, nor the lobby file holds it, and a lobby created
+            // with one starts without it.
+            Node host = CreateNode("Host");
+            Node a = CreateNode("A");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4, requireReady: false) };
+            options.Data["map"] = "desert";
+            options.Data["e1"] = string.Empty;
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            MultiplayerResult? joined = null;
+            a.Manager.JoinLobby(lobby, r => joined = r);
+            PumpUntil(() => joined.HasValue, "A to join");
+            Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+
+            Node[] everyone = { host, a };
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            PumpUntil(() => a.Manager.LobbyData.ContainsKey("mode") && a.Backend.GetLobbyData(lobby, "mode") == "coop", "A to see the value");
+            Assert.That(SearchedData(seeker, lobby, data => data.ContainsKey("mode")), Is.Not.Null, "the lobby file never listed the key");
+
+            Assert.That(host.Manager.SetLobbyData("mode", string.Empty).IsSuccess, Is.True);
+            PumpUntil(() => everyone.All(node => !node.Manager.LobbyData.ContainsKey("mode") && node.Backend.GetLobbyData(lobby, "mode") == null),
+                "every player and lobby copy to lose the key");
+            IReadOnlyDictionary<string, string> seen = SearchedData(seeker, lobby, data => !data.ContainsKey("mode"));
+            Assert.That(seen, Is.Not.Null, "the lobby file kept the key written empty");
+            Assert.That(seen.Keys.Where(key => !LobbyDataKeys.IsReserved(key)), Is.EquivalentTo(new[] { "map" }), "another process's search");
+            Assert.That(ListedData(lobby, "e1"), Is.Null, "the lobby file listed the key the lobby was created with empty");
+
+            foreach (Node node in everyone)
+            {
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), node.Backend.PlayerName);
+                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, node.Backend.PlayerName);
+            }
+        }
+
+        [Test]
         public void LobbySearch_ComparesStringValues_AsSteamDoes()
         {
             // FR-6, FR-38, #239, #286: every comparison of a string filter, from another process,
@@ -330,6 +373,39 @@ namespace Mu3Library.Tests
                 if ((found.Value.Lobbies.Count == 1) != isKept)
                 {
                     mismatches.Add(MultiplayerSessionTests.DescribeStringComparison(key, filter, comparison, isKept));
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_SkipsAFilterWhoseKeyIsNullOrEmpty_AsTheSteamBackendDoes()
+        {
+            // FR-6, FR-38, #314: a string or numeric filter with a null or empty key leaves out no
+            // lobby, from another process, which reads the lobby file, and from the owner's own
+            // process, which reads its lobby as it is.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) };
+            options.Data[MultiplayerSessionTests.KeylessFilterLobbyKey] = MultiplayerSessionTests.KeylessFilterLobbyValue;
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(options, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+
+            List<string> mismatches = new List<string>();
+            foreach (Node seeker in new[] { CreateNode("Seeker"), host })
+            {
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.KeylessFilterChecks())
+                {
+                    LobbySearchResult? found = null;
+                    seeker.Manager.SearchLobbies(query, r => found = r);
+                    PumpUntil(() => found.HasValue, "the search");
+                    if ((found.Value.Lobbies.Count == 1) != isKept)
+                    {
+                        mismatches.Add($"{seeker.Backend.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
                 }
             }
 

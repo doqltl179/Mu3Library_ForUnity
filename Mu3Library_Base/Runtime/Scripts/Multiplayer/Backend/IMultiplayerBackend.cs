@@ -65,7 +65,8 @@ namespace Mu3Library.Multiplayer.Backend
         public void CreateLobby(LobbyVisibility visibility, int capacity, IReadOnlyDictionary<string, string> data, Action<MultiplayerReason, LobbyId> onCompleted);
 
         /// <summary>
-        /// Searches public, joinable lobbies that have a free slot and pass every filter.
+        /// Searches public, joinable lobbies that have a free slot and pass every filter. A filter
+        /// whose key is null or empty is skipped, as the Steam backend skips it.
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted);
 
@@ -88,7 +89,20 @@ namespace Mu3Library.Multiplayer.Backend
         /// </summary>
         public string GetLobbyData(LobbyId lobby, string key);
 
-        /// <summary>Owner only; false otherwise.</summary>
+        /// <summary>
+        /// Owner only; false otherwise. The manager never writes an empty value here and deletes
+        /// the key instead (<see cref="IMultiplayerManager.SetLobbyData"/>), and it leaves a key
+        /// with an empty value out of the data it hands <see cref="CreateLobby"/>, since the
+        /// backends treat such a value differently (#313). On AppID 480 on 2026-11-04 a Steam
+        /// lobby kept a key it held when the key was set to an empty value, which search then
+        /// returned with the empty value and a filter for the empty value matched, but wrote no
+        /// key it lacked, and <see cref="DeleteLobbyData"/> answered false for a key the lobby
+        /// lacked. The local backends keep every key written with an empty value, at creation
+        /// too: <see cref="GetLobbyData"/> answers the empty value where the Steam backend answers
+        /// null, their search returns the key and its filters leave out a lobby that holds it
+        /// whatever the comparison, and <see cref="DeleteLobbyData"/> answers true for a key the
+        /// lobby lacks.
+        /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 
         /// <summary>

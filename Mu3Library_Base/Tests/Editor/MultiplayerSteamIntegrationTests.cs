@@ -367,7 +367,7 @@ namespace Mu3Library.Tests
                 }
 
                 Assert.That(found.Data.ContainsKey(MultiplayerSessionTests.EmptyStringKey), Is.False,
-                    "a Steam lobby keeps no key written with an empty value, so no filter can keep the lobby by it");
+                    "a lobby created with a key written empty keeps no such key, so no filter can keep the lobby by it");
 
                 // Every value reached search's filters above, so a filter that drops the lobby
                 // drops it at once, and one that keeps it is asked a little longer.
@@ -460,6 +460,67 @@ namespace Mu3Library.Tests
                 Assert.That(manager.DeleteParticipantData("character").IsSuccess, Is.True);
                 Assert.That(manager.Participants.Single().Data, Is.Empty);
                 Assert.That(dataChanges.Select(change => change.Key), Is.EqualTo(new[] { "character", "character" }));
+
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_LosesAKeyWrittenEmpty_FromTheLobbyAndSearch_AsTheLocalBackendsDo()
+        {
+            // FR-11, FR-38, #313 on Steam itself: the manager deletes a key written with an empty
+            // value, so the key leaves the owner's lobby, what search returns, and every copy, and
+            // a lobby created with one starts without it, as the local backends' tests hold them
+            // to. Steam alone keeps a key it holds when the key is set empty, which the test logs
+            // through the backend itself.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                List<(string Key, string Value)> lobbyChanges = new List<(string, string)>();
+                manager.OnLobbyDataChanged += (key, value) => lobbyChanges.Add((key, value));
+                LobbyId lobby = CreatePublicLobby(manager, new Dictionary<string, string> { ["Map"] = "desert", ["e1"] = string.Empty });
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "desert" }), "the lobby starts without the key written empty");
+                Assert.That(manager.SetLobbyData("Mode", "coop").IsSuccess, Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Mode", "coop"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key");
+
+                Assert.That(manager.SetLobbyData("Mode", string.Empty).IsSuccess, Is.True);
+                Assert.That(manager.SetLobbyData("never", string.Empty).IsSuccess, Is.True, "a key the lobby data does not hold changes nothing");
+                Assert.That(lobbyChanges.Last(), Is.EqualTo(("Mode", (string)null)));
+                Assert.That(manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "desert" }));
+                Assert.That(_backend.GetLobbyData(lobby, "Mode"), Is.Null);
+                Pump(manager, () => OwnLobbyGameKeys(lobby).Count == 1, 10);
+                List<string> owned = OwnLobbyGameKeys(lobby);
+                TestContext.WriteLine($"The owner's lobby holds the game keys '{string.Join("', '", owned)}'.");
+                Assert.That(owned.Select(key => key.ToLowerInvariant()), Is.EquivalentTo(new[] { "map" }), "the owner's lobby keeps neither key written empty");
+
+                LobbyInfo after = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && !info.Data.ContainsKey("Mode"), 30);
+                Assert.That(after, Is.Not.Null, "search never dropped the key written empty");
+                Assert.That(after.Data.Count, Is.EqualTo(1), $"search returns the keys '{string.Join("', '", after.Data.Keys)}'");
+                Assert.That(after.Data["Map"], Is.EqualTo("desert"));
+
+                // What the manager keeps from happening, and why: the backend itself sets a key
+                // that Steam's search already lists to an empty value.
+                Assert.That(_backend.SetLobbyData(lobby, "raw", "v"), Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("raw", "v"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the key set through the backend");
+                Assert.That(_backend.SetLobbyData(lobby, "raw", string.Empty), Is.True);
+                LobbyInfo listed = SearchUntil(manager, Worldwide, result => result.Lobbies.FirstOrDefault(info => info.Id == lobby),
+                    info => info != null && info.Data.TryGetValue("raw", out string value) && value.Length == 0, 15);
+                string listedRaw = listed == null ? "no lobby" : listed.Data.TryGetValue("raw", out string rawValue) ? $"'{rawValue}'" : "no key";
+                bool isFoundByEmpty = SearchUntil(manager, () => Worldwide().AddStringFilter("raw", string.Empty), lobby, seconds: 10) != null;
+                bool isMissingDeleted = _backend.DeleteLobbyData(lobby, "never");
+                TestContext.WriteLine($"Set empty through the backend, the owner's lobby holds the game keys '{string.Join("', '", OwnLobbyGameKeys(lobby))}', "
+                    + $"search returns the key as {listedRaw}, a filter for the empty value {(isFoundByEmpty ? "finds" : "does not find")} the lobby, "
+                    + $"and deleting a key Steam lacks answers {isMissingDeleted}.");
+                Assert.That(listedRaw, Is.EqualTo("''"), "Steam's search returns the key a lobby held with the empty value it was set to");
+                Assert.That(isFoundByEmpty, Is.True, "a filter for the empty value finds the lobby on Steam");
+                Assert.That(isMissingDeleted, Is.False, "Steam refuses to delete a key the lobby lacks");
 
                 manager.Leave();
             }
@@ -1033,6 +1094,24 @@ namespace Mu3Library.Tests
             }
 
             return false;
+        }
+
+        /// <summary>The game's own keys of the lobby as Steam lists them to its owner, without the library's.</summary>
+        private static List<string> OwnLobbyGameKeys(LobbyId lobby)
+        {
+            Steamworks.CSteamID steamLobby = new Steamworks.CSteamID(lobby.Value);
+            List<string> keys = new List<string>();
+            int count = Steamworks.SteamMatchmaking.GetLobbyDataCount(steamLobby);
+            for (int i = 0; i < count; i++)
+            {
+                if (Steamworks.SteamMatchmaking.GetLobbyDataByIndex(steamLobby, i, out string key, Steamworks.Constants.k_nMaxLobbyKeyLength, out _, Steamworks.Constants.k_cubChatMetadataMax)
+                    && !LobbyDataKeys.IsReserved(key))
+                {
+                    keys.Add(key);
+                }
+            }
+
+            return keys;
         }
 
         /// <summary>Whether this account's own rich presence lists the key.</summary>
