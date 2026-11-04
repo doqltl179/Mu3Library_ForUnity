@@ -47,8 +47,8 @@ namespace Mu3Library.Multiplayer.Steam
     /// (<see cref="IsAvailable"/>): from then on it answers as when the game shut Steam down under
     /// it. A lobby creation, entry, or search and an avatar answer
     /// <see cref="MultiplayerReason.SteamNotRunning"/>, the ones Steam had not answered yet
-    /// included, and so does an invite request;
-    /// the calls that answer at once return false, <see cref="ConnectionId.None"/>,
+    /// included, and so does an invite request; the calls that answer at once return false,
+    /// <see cref="ConnectionId.None"/>,
     /// <see cref="PlayerId.None"/>, or null; and an open connection carries nothing more. The
     /// reason is <see cref="MultiplayerReason.SteamNotRunning"/> for the reason
     /// <see cref="TryCreate"/> gives it: for the game, Steam no longer works in this process.
@@ -60,8 +60,9 @@ namespace Mu3Library.Multiplayer.Steam
     /// deletes the rich presence keys it set at the failure, as <see cref="Dispose"/> does and
     /// in its order, and a Steam call that fails there fails as quietly: the other players see
     /// the connection drop and the lobby pass on, as when this player's game stops, and their
-    /// friends lists no longer show this player's status or session group. A Steam callback dispatched after the failure, later in the same run
-    /// of callbacks or in the game's own run of them, calls Steam no more: a lobby creation or
+    /// friends lists no longer show this player's status or session group. A Steam callback
+    /// dispatched after the failure, later in the same run of callbacks or in the game's own run
+    /// of them, calls Steam no more: a lobby creation or
     /// entry it answers answers <see cref="MultiplayerReason.SteamNotRunning"/>, and a connection
     /// it reports is neither taken nor reported. A lobby that Steam creates or enters for such a
     /// late answer stays until Steam shuts down, since leaving it would call Steam again.
