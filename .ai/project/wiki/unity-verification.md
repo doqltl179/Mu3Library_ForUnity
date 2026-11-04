@@ -1,7 +1,7 @@
 ---
 owns: "How package changes are verified in this repository: the Unity compile entry point and its targets, what each kind of package change must show, where the tests live, and what the report states"
 volatility: evolving
-reviewed: 2026-11-01
+reviewed: 2026-11-04
 ---
 
 # Unity Verification
@@ -51,12 +51,13 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 
 ## DI Stripping Harness
 
-- Managed code stripping shows only in a player: the Editor and the EditMode and PlayMode tests never strip, so a constructor or `[Inject]` setter that the linker removes passes every test and breaks injection in a Medium or High build.
+- Passing tests do not show that injection survives managed code stripping; only a player the harness builds does.
 - Run it when a change touches how the container reaches constructors or `[Inject]` members by reflection, or `DILinkerProcessor`: `PYTHONPATH=tools/cli/src python -m mu3_cli unity di-strip-harness --stripping Medium`, then `--stripping High`. Add `--with-unitask` when the change touches core preparation, and `--backend il2cpp` when it touches generics or reflection that IL2CPP compiles ahead of time.
-- When the change can behave differently on the lowest supported Editor, such as code behind a `UNITY_6000_x_OR_NEWER` branch (`DILinkerProcessor` finds the loaded assemblies through `AppDomain` before 6000.5), also run Medium and High with `--editor-version` set to an installed 6000.3 release, for example `--stripping Medium --editor-version 6000.3.17f1 --work-dir C:/mu3h`. That Editor gets its own mirror, `project-<version>/`, retargeted to the Unity packages it bundles; it needs Windows Build Support (Mono), and Windows Build Support (IL2CPP) for `--backend il2cpp`. With `UNITY_EDITOR` set to another Editor the run warns and builds with that one; read such a result as that Editor's.
-- It builds a Windows x64 player of a mirror project in `--work-dir`, never a tracked project, runs it with `-batchmode -nographics`, and prints `PASS` or `FAIL` for each of its 34 checks. It passes only with exit 0: every check passed, the player counted as many checks as it logged and logged no error or exception. Exit 1 means only that the player ran and a check failed or it did not report; exit 3, with one `error:` line instead of a traceback, means the run stopped around the player: a refused work folder, a mirror or cleanup failure (a held file, a missing permission, a malformed manifest), a failed build, or a player that could not start. Do not read exit 3 as a DI regression. [tools/README.md](../../../tools/README.md#di-stripping-harness) lists the checks, the mirror, and the options.
-- Pass a short `--work-dir` from a deep worktree; the Windows path limit otherwise breaks Unity's `Library/` and the IL2CPP build. The harness writes and deletes files only in a work folder that is new, empty, or carries its `.mu3-di-strip-harness` marker, and refuses any other; a work folder from before the marker is refused too, so delete it or pass another.
-- IL2CPP also needs Visual Studio's C++ workload. Player builds are memory-heavy: run one at a time. [tools/README.md](../../../tools/README.md#measured-runs) owns the measured runs: how long a run took on a new or an imported mirror and under what load, the sizes it built, and which combinations passed on which date.
+- When the change can behave differently on the lowest supported Editor, such as code behind a `UNITY_6000_x_OR_NEWER` branch, also run Medium and High with `--editor-version` set to an installed release of the [floor](#lowest-supported-editor). When such a run warns about `UNITY_EDITOR`, read its result as that of the Editor that built it, not the one requested.
+- [tools/README.md](../../../tools/README.md#di-stripping-harness) owns why only a player shows stripping, what the harness builds and where, its checks and how many there are, its options, the Editor modules and toolchain each backend needs, how `--editor-version` retargets the mirror, which work folders it accepts, why `--work-dir` must stay short, and what each exit code means.
+- Do not read exit 3 as a DI regression.
+- Pass a short `--work-dir` from a deep worktree.
+- Player builds are memory-heavy: run one at a time. [tools/README.md](../../../tools/README.md#measured-runs) owns the measured runs: how long a run took on a new or an imported mirror and under what load, the sizes it built, and which combinations passed on which date.
 - Report the backend, the stripping level, whether UniTask was in, the Editor version, the exit code, and the passed and failed check counts.
 
 ## Tests
