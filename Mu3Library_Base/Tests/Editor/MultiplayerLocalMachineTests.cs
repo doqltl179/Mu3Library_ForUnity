@@ -1542,6 +1542,142 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void LobbySizes_ThatTheLimitsCount_AreTheBytesTheFramesAndTheLobbyFileHold()
+        {
+            // #346: the backend counts a lobby's bytes without writing it, so the count has to
+            // follow the writers: names past what a frame carries, multi-byte and replaced
+            // characters, and lengths that take one, two, and three bytes in a lobby file.
+            MachineLobby lobby = new MachineLobby
+            {
+                Id = new LobbyId(0x123456UL),
+                IsOwned = true,
+                OwnerId = new PlayerId(7),
+                OwnerPort = 5000,
+                Visibility = LobbyVisibility.Public,
+                Capacity = 8,
+            };
+            lobby.Members.Add(new MachineMember { Id = new PlayerId(7), Port = 5000, Name = "Owner" });
+            lobby.Members.Add(new MachineMember { Id = new PlayerId(8), Port = 5001, Name = new string('가', 100) });
+            lobby.Members.Add(new MachineMember { Id = new PlayerId(9), Port = 5002, Name = null });
+            lobby.Data["map"] = "desert";
+            lobby.Data["empty"] = string.Empty;
+            lobby.Data["모드"] = "\U0001F3AE game";
+            lobby.Data["lone"] = "a\uD800b";
+            lobby.Data["v127"] = new string('v', 127);
+            lobby.Data["v128"] = new string('v', 128);
+            lobby.Data["v16384"] = new string('v', 16384);
+
+            PacketWriter writer = new PacketWriter();
+            MachineProtocol.WriteSnapshot(writer, lobby);
+            Assert.That(MachineProtocol.SnapshotBytes(lobby), Is.EqualTo(writer.Written.Length), "the bytes of a frame's lobby");
+
+            MachineLobby other = ListedLobby(2, "map", "forest");
+            MachineDirectory directory = new MachineDirectory(_folder, 1);
+            directory.Publish(new PlayerId(9), 1, new List<MachineLobby> { lobby, other });
+            try
+            {
+                long counted = MachineDirectory.ListingFixedBytes + MachineDirectory.ListedBytes(lobby) + MachineDirectory.ListedBytes(other);
+                Assert.That(new FileInfo(Path.Combine(_folder, "peer-1.lobbies")).Length, Is.EqualTo(counted), "the bytes of the lobby file");
+            }
+            finally
+            {
+                directory.Remove();
+            }
+
+            // What one entry adds, which a change is counted by.
+            int snapshotWith = MachineProtocol.SnapshotBytes(lobby);
+            int listedWith = MachineDirectory.ListedBytes(lobby);
+            lobby.Data.Remove("v16384");
+            Assert.That(snapshotWith - MachineProtocol.SnapshotBytes(lobby), Is.EqualTo(MachineProtocol.DataEntryBytes("v16384", new string('v', 16384))));
+            Assert.That(listedWith - MachineDirectory.ListedBytes(lobby), Is.EqualTo(MachineDirectory.ListedEntryBytes("v16384", new string('v', 16384))));
+        }
+
+        [Test]
+        public void CreateLobby_ThatAFrameCannotCarryOrTheLobbyFileCannotHold_IsRefused_ToTheByte()
+        {
+            // #346: as large as a frame carries with its owner the only member, and a byte more.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes, d => SnapshotBytesOf(d, "Owner"));
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames .* at most {MachineDirectory.MaxFileBytes} bytes in its lobby file; the lobby was not created"));
+            Assert.That(CreateLobbies(owner, 1, WithLast(data, last + 1)).Single(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+            (MultiplayerReason Reason, LobbyId Lobby) largest = CreateLobbies(owner, 1, WithLast(data, last)).Single();
+            Assert.That(largest.Reason, Is.EqualTo(MultiplayerReason.None));
+            MachineDirectoryEntry listed = MachineDirectory.Read(_folder).Single(entry => entry.Lobby == largest.Lobby);
+            Assert.That(listed.Data[LastKey].Length, Is.EqualTo(last), "the lobby file lists a lobby as large as a frame carries");
+
+            // Beside a large lobby of the same backend, a second one as large as the file holds
+            // with both listed, and a byte more.
+            LocalBackend other = CreateRawBackend(CreateNetwork(), "Other");
+            Dictionary<string, string> first = FilledData(320);
+            LobbyId firstLobby = CreateLobbies(other, 1, first).Single().Lobby;
+            int room = MachineDirectory.MaxFileBytes - MachineDirectory.ListingFixedBytes - ListedBytesOf(first);
+            (Dictionary<string, string> second, int secondLast) = DataOfSize(room, ListedBytesOf);
+            Assert.That(SnapshotBytesOf(WithLast(second, secondLast + 1), "Other"), Is.LessThan(MachineProtocol.MaxSnapshotBytes), "a frame carries the second lobby");
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("in its lobby file; the lobby was not created"));
+            Assert.That(CreateLobbies(other, 1, WithLast(second, secondLast + 1)).Single(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+            LobbyId secondLobby = CreateLobbies(other, 1, WithLast(second, secondLast)).Single().Lobby;
+            Assert.That(secondLobby.IsValid, Is.True);
+
+            string file = Path.Combine(_folder, "peer-" + other.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+            Assert.That(new FileInfo(file).Length, Is.EqualTo(MachineDirectory.MaxFileBytes));
+            Assert.That(ListedData(firstLobby, "k0"), Is.EqualTo(first["k0"]));
+            Assert.That(ListedData(secondLobby, LastKey).Length, Is.EqualTo(secondLast), "the lobby file lists both lobbies in full");
+        }
+
+        [Test]
+        public void SetLobbyData_ThatWouldGrowALobbyPastAFrameOrTheLobbyFile_IsRefused_ToTheByte_AndAChangeThatDoesNotGrowItGoesThrough()
+        {
+            // #346: a lobby with a member grows as far as a frame carries it, and a byte more.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes, d => SnapshotBytesOf(d, "Owner", "Member"));
+            LobbyId lobby = CreateLobbies(owner, 1, data).Single().Lobby;
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames .* in its lobby file; key '{LastKey}' was not set on lobby {lobby}"));
+            Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', last + 1)), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', last)), Is.True);
+            PumpUntil(() => member.GetLobbyData(lobby, LastKey)?.Length == last, "the member to receive the lobby as large as a frame carries");
+
+            // The answer to a join, the largest frame there is, holds a code beside the lobby.
+            member.LeaveLobby(lobby);
+            PumpUntil(() => !owner.IsLobbyMember(lobby, member.LocalPlayerId), "the owner to see the member leave");
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(member.GetLobbyData(lobby, LastKey).Length, Is.EqualTo(last));
+
+            // A key the lobby holds may not grow past it either; a change that keeps the size or
+            // shrinks the lobby goes through, and what it frees makes room again.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex($"key 'k0' was not set on lobby {lobby}"));
+            Assert.That(owner.SetLobbyData(lobby, "k0", new string('w', FillBytes + 1)), Is.False);
+            Assert.That(owner.SetLobbyData(lobby, "K0", new string('w', FillBytes)), Is.True, "a change that keeps the size, in another case");
+            Assert.That(owner.SetLobbyData(lobby, "k0", new string('w', FillBytes - 1)), Is.True, "a change that shrinks the lobby");
+            Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', last + 1)), Is.True, "the byte freed makes room");
+            PumpUntil(() => member.GetLobbyData(lobby, LastKey)?.Length == last + 1 && member.GetLobbyData(lobby, "k0") == new string('w', FillBytes - 1),
+                "the member to receive the changes");
+
+            // A second lobby of a backend grows as far as the lobby file holds it beside the first,
+            // whose growth that also bounds.
+            LocalBackend other = CreateRawBackend(CreateNetwork(), "Other");
+            Dictionary<string, string> first = FilledData(320);
+            LobbyId firstLobby = CreateLobbies(other, 1, first).Single().Lobby;
+            int room = MachineDirectory.MaxFileBytes - MachineDirectory.ListingFixedBytes - ListedBytesOf(first);
+            (Dictionary<string, string> second, int secondLast) = DataOfSize(room, ListedBytesOf);
+            LobbyId secondLobby = CreateLobbies(other, 1, second).Single().Lobby;
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex($"in its lobby file; key '{LastKey}' was not set on lobby {secondLobby}"));
+            Assert.That(other.SetLobbyData(secondLobby, LastKey, new string('v', secondLast + 1)), Is.False);
+            Assert.That(other.SetLobbyData(secondLobby, LastKey, new string('v', secondLast)), Is.True);
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex($"in its lobby file; key 'k0' was not set on lobby {firstLobby}"));
+            Assert.That(other.SetLobbyData(firstLobby, "k0", new string('w', FillBytes + 1)), Is.False);
+
+            PumpUntil(() => ListedData(secondLobby, LastKey)?.Length == secondLast, "the lobby file to list the second lobby in full");
+            string file = Path.Combine(_folder, "peer-" + other.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+            Assert.That(new FileInfo(file).Length, Is.EqualTo(MachineDirectory.MaxFileBytes));
+            Assert.That(ListedData(firstLobby, "k0"), Is.EqualTo(first["k0"]));
+        }
+
+        [Test]
         public void Lobby_PassingToABackendThatOwnsAsManyAsALobbyFileLists_IsTakenOver_AndLeftOutOfTheFileUntilOneEnds()
         {
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
@@ -2499,6 +2635,87 @@ namespace Mu3Library.Tests
             }
 
             return data;
+        }
+
+        // The key whose value DataOfSize sizes, and the length of the values it fills the rest with.
+        private const string LastKey = "last";
+        private const int FillBytes = 2048;
+
+        /// <summary>Lobby data with <paramref name="count"/> keys, k0 and on, each with a value of <see cref="FillBytes"/> bytes.</summary>
+        private static Dictionary<string, string> FilledData(int count)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            string value = new string('v', FillBytes);
+            for (int i = 0; i < count; i++)
+            {
+                data["k" + i.ToString(CultureInfo.InvariantCulture)] = value;
+            }
+
+            return data;
+        }
+
+        /// <summary>The data with a value of <paramref name="length"/> bytes under <see cref="LastKey"/>.</summary>
+        private static Dictionary<string, string> WithLast(Dictionary<string, string> data, int length)
+        {
+            return new Dictionary<string, string>(data) { [LastKey] = new string('v', length) };
+        }
+
+        /// <summary>
+        /// The most <see cref="FilledData"/> that leaves room for a value under
+        /// <see cref="LastKey"/>, and the length of that value that brings
+        /// <paramref name="measure"/> of both to exactly <paramref name="target"/> bytes. The value
+        /// takes 128 to 4,096 bytes, whose count takes two bytes in a lobby file, so each byte more
+        /// of it is a byte more of the lobby in a frame and in the file.
+        /// </summary>
+        private static (Dictionary<string, string> Data, int LastLength) DataOfSize(int target, Func<Dictionary<string, string>, int> measure)
+        {
+            const int ShortestLast = 128;
+            int low = 0;
+            int high = MachineDirectory.MaxLobbyDataEntries - 1;
+            while (low < high)
+            {
+                int middle = (low + high + 1) / 2;
+                if (measure(WithLast(FilledData(middle), ShortestLast)) <= target)
+                {
+                    low = middle;
+                }
+                else
+                {
+                    high = middle - 1;
+                }
+            }
+
+            Dictionary<string, string> data = FilledData(low);
+            int last = ShortestLast + target - measure(WithLast(data, ShortestLast));
+            Assert.That(last, Is.InRange(ShortestLast, MachineProtocol.MaxDataValueBytes));
+            Assert.That(measure(WithLast(data, last)), Is.EqualTo(target));
+            return (data, last);
+        }
+
+        /// <summary>The bytes a frame takes for a lobby with the data and members of these names.</summary>
+        private static int SnapshotBytesOf(IReadOnlyDictionary<string, string> data, params string[] memberNames)
+        {
+            MachineLobby lobby = LobbyWith(data);
+            foreach (string name in memberNames)
+            {
+                lobby.Members.Add(new MachineMember { Name = name });
+            }
+
+            return MachineProtocol.SnapshotBytes(lobby);
+        }
+
+        /// <summary>The bytes a lobby file takes for a lobby with the data.</summary>
+        private static int ListedBytesOf(IReadOnlyDictionary<string, string> data) => MachineDirectory.ListedBytes(LobbyWith(data));
+
+        private static MachineLobby LobbyWith(IReadOnlyDictionary<string, string> data)
+        {
+            MachineLobby lobby = new MachineLobby { Id = new LobbyId(1), Capacity = 4 };
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                lobby.Data[pair.Key] = pair.Value;
+            }
+
+            return lobby;
         }
 
         private MultiplayerReason Join(LocalBackend backend, LobbyId lobby)

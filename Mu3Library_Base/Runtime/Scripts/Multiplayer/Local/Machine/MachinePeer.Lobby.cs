@@ -23,6 +23,11 @@ namespace Mu3Library.Multiplayer.Local.Machine
         private const double RejoinGraceSeconds = 5.0;
         private const double RejoinRetrySeconds = 0.1;
 
+        // The start of the warning for a lobby or a change that would not fit a frame or the lobby file (#346).
+        private static readonly string SizeWarning =
+            $"[Multiplayer] A lobby on the local network takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members, "
+            + $"and a backend's lobbies at most {MachineDirectory.MaxFileBytes} bytes in its lobby file; ";
+
         private readonly Dictionary<LobbyId, MachineLobby> _lobbies = new Dictionary<LobbyId, MachineLobby>();
 
         // Joins waiting for the owner's answer; a second join of the same lobby waits with the first.
@@ -127,7 +132,6 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 {
                     Id = new LobbyId(NewId(0xFFFFFFFFFFFFUL)),
                     IsOwned = true,
-                    OwnedOrder = ++_lastOwnedOrder,
                     OwnerId = LocalPlayerId,
                     OwnerPort = Port,
                     Visibility = visibility,
@@ -140,6 +144,18 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     lobby.Data[pair.Key] = pair.Value;
                 }
 
+                // Its members would drop the frames that bring a lobby too large for them, and the
+                // lobby file leaves out what does not fit beside this player's other lobbies, so
+                // the other processes would not find it either; it fails here as well (#346).
+                if (MachineProtocol.SnapshotBytes(lobby) > MachineProtocol.MaxSnapshotBytes
+                    || OwnedListingBytes() + MachineDirectory.ListedBytes(lobby) > MachineDirectory.MaxFileBytes)
+                {
+                    Debug.LogWarning(SizeWarning + "the lobby was not created.");
+                    onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None);
+                    return;
+                }
+
+                lobby.OwnedOrder = ++_lastOwnedOrder;
                 _lobbies.Add(lobby.Id, lobby);
                 onCompleted?.Invoke(MultiplayerReason.None, lobby.Id);
             });
@@ -274,9 +290,22 @@ namespace Mu3Library.Multiplayer.Local.Machine
 
             // Past the entries a lobby file lists and a frame carries, the lobby would leave search
             // and joins by its ID, and its members would drop the frames that bring it (#309).
-            if (lobby.Data.Count >= MachineDirectory.MaxLobbyDataEntries && !lobby.Data.ContainsKey(key))
+            bool holds = lobby.Data.TryGetValue(key, out string current);
+            if (lobby.Data.Count >= MachineDirectory.MaxLobbyDataEntries && !holds)
             {
                 Debug.LogWarning($"[Multiplayer] A lobby on the local network holds at most {MachineDirectory.MaxLobbyDataEntries} data entries; key '{key}' was not set on lobby {lobbyId}.");
+                return false;
+            }
+
+            // Past the bytes a frame carries or the lobby file holds, the same (#346). A change
+            // that does not grow the lobby goes through, so one taken over past them can shrink.
+            // A key the lobby holds keeps the spelling it has, so its own bytes cancel out.
+            int frameGrowth = MachineProtocol.DataEntryBytes(key, value) - (holds ? MachineProtocol.DataEntryBytes(key, current) : 0);
+            int fileGrowth = MachineDirectory.ListedEntryBytes(key, value) - (holds ? MachineDirectory.ListedEntryBytes(key, current) : 0);
+            if ((frameGrowth > 0 && MachineProtocol.SnapshotBytes(lobby) + frameGrowth > MachineProtocol.MaxSnapshotBytes)
+                || (fileGrowth > 0 && OwnedListingBytes() + fileGrowth > MachineDirectory.MaxFileBytes))
+            {
+                Debug.LogWarning(SizeWarning + $"key '{key}' was not set on lobby {lobbyId}.");
                 return false;
             }
 
@@ -355,6 +384,24 @@ namespace Mu3Library.Multiplayer.Local.Machine
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// The bytes of this player's lobby file with every lobby it owns listed, also those that
+        /// taking lobbies over brings past <see cref="MachineDirectory.MaxListedLobbies"/>.
+        /// </summary>
+        private int OwnedListingBytes()
+        {
+            int bytes = MachineDirectory.ListingFixedBytes;
+            foreach (MachineLobby lobby in _lobbies.Values)
+            {
+                if (lobby.IsOwned)
+                {
+                    bytes += MachineDirectory.ListedBytes(lobby);
+                }
+            }
+
+            return bytes;
         }
 
         private static bool IsSearchable(LobbyVisibility visibility, bool isJoinable, int memberCount, int capacity)

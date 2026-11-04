@@ -65,9 +65,18 @@ namespace Mu3Library.Multiplayer.Local
     /// <see cref="MultiplayerReason.BackendError"/> when the backend already owns 64 lobbies or
     /// the data holds more than 4,096 keys, and <see cref="SetLobbyData"/> refuses with false a
     /// new key that would make a lobby hold more than 4,096, each with a warning; a key the lobby
-    /// holds can still change. A <see cref="MultiplayerManager"/>, which owns one lobby at a time
-    /// and bounds its lobby data by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well
-    /// within both. A lobby that passes to a backend that already owns 64 is still taken over,
+    /// holds can still change. The file also takes at most 1 MiB, and a frame a lobby of at most
+    /// 1 MiB less 4 bytes, counted as each writes it: the frame with the members' names and
+    /// 4-byte lengths, the file without the names and with shorter lengths. So
+    /// <see cref="CreateLobby"/> also answers <see cref="MultiplayerReason.BackendError"/> for a
+    /// lobby that a frame cannot carry or that would take the file past 1 MiB beside the other
+    /// lobbies the backend owns, and <see cref="SetLobbyData"/> refuses with false a change that
+    /// would grow a lobby past either, each with a warning; a change that does not grow it still
+    /// goes through. The frame is counted with the members the lobby has at the time, so a lobby
+    /// within a few hundred bytes of the limit can still grow past it as players join. A
+    /// <see cref="MultiplayerManager"/>, which owns one lobby at a time and bounds its lobby data
+    /// by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well within all of these. A
+    /// lobby that passes to a backend that already owns 64 is still taken over,
     /// since refusing it would end the lobby for its members; its lobby file then lists the 64
     /// lobbies the backend has owned longest and leaves out the one taken over, with a warning the
     /// first time, so that lobby is missing from the other processes' search and joins by its ID
