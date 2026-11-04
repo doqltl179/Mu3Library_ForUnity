@@ -140,6 +140,31 @@ namespace StripHarness
         [Inject] public IClock Clock { get; set; }
     }
 
+    // Required static [Inject] members, which the container never fills: it throws for each
+    // before it injects anything, but only when it finds the member. No code reads or writes
+    // them, and the fields have no initializer, so nothing but the link.xml keeps them in a
+    // stripped player. Their names appear nowhere else but in the messages the boot expects.
+#pragma warning disable CS0169 // never used: only reflection reaches them
+    public sealed class StaticFieldHolder
+    {
+        [Inject] private static IClock _strippedStaticClock;
+    }
+
+    public sealed class StaticPropertyHolder
+    {
+        [Inject] public static IClock StrippedStaticClock { get; set; }
+    }
+
+    public abstract class StaticFieldHolderBase
+    {
+        [Inject] private static IClock _strippedBaseStaticClock;
+    }
+#pragma warning restore CS0169
+
+    public sealed class DerivedStaticFieldHolder : StaticFieldHolderBase
+    {
+    }
+
     // Registers through the ContainerScope a constructor receives. RegisterClass<T>() needs the
     // default constructor, and the container must call Installer(ContainerScope).
     public sealed class Installer

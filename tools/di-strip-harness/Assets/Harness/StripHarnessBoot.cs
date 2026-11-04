@@ -138,6 +138,18 @@ namespace StripHarness
                 return manual.Clock != null;
             }, () => $"injector={consumer?.Injector}");
 
+            // A required static [Inject] member makes the injection throw before it fills anything,
+            // as in the Editor, only if the player still has the member for the container to find.
+            string staticField = StaticInjectFailure(consumer?.Injector, new StaticFieldHolder(),
+                "field is static: StripHarness.StaticFieldHolder._strippedStaticClock");
+            Check("inject.required-static-field-throws", () => staticField == null, () => staticField);
+            string staticProperty = StaticInjectFailure(consumer?.Injector, new StaticPropertyHolder(),
+                "property is static: StripHarness.StaticPropertyHolder.StrippedStaticClock");
+            Check("inject.required-static-property-throws", () => staticProperty == null, () => staticProperty);
+            string baseStaticField = StaticInjectFailure(consumer?.Injector, new DerivedStaticFieldHolder(),
+                "field is static: StripHarness.DerivedStaticFieldHolder._strippedBaseStaticClock");
+            Check("inject.required-static-base-field-throws", () => baseStaticField == null, () => baseStaticField);
+
 #if !UNITY_EDITOR
             Check("inject.player-only-member-with-preserve", () => consumer?.PlayerOnlyPreserved != null, () => $"{consumer?.PlayerOnlyPreserved}");
             Debug.Log($"HARNESS INFO player-only member without [Preserve] injected={consumer?.PlayerOnlyUnpreserved != null}");
@@ -208,6 +220,31 @@ namespace StripHarness
             {
                 Debug.Log($"HARNESS EXCEPTION {ex.GetType().Name}: {ex.Message}");
                 return null;
+            }
+        }
+
+        // Null when injecting target threw the exception whose message holds expected; otherwise
+        // what happened instead.
+        private static string StaticInjectFailure(IObjectInjector injector, object target, string expected)
+        {
+            if (injector == null)
+            {
+                return "no injector";
+            }
+
+            try
+            {
+                injector.Inject(target);
+                Type type = target.GetType();
+                return $"no exception (static [Inject] fields found={InjectableMembers.GetStaticFields(type).Count} properties found={InjectableMembers.GetStaticProperties(type).Count})";
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains(expected))
+            {
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return $"{ex.GetType().Name}: {ex.Message}";
             }
         }
 
