@@ -27,6 +27,14 @@ namespace Mu3Library.DI
         private bool _initialized = false;
         private bool _disposed = false;
 
+        // Set while RegisterInstance injects an instance, the innermost call first, so that a
+        // failed injection can undo what it left in this scope.
+        private RegistrationRollback _rollback;
+        // How deep GetInstance calls are nested while a rollback is set: the call at depth d hands
+        // what it resolves to the call at depth d - 1, or, at the depth where an injection began,
+        // to the instance being injected.
+        private int _resolveDepth;
+
 
 
         internal ContainerScope(Container container)
@@ -127,20 +135,7 @@ namespace Mu3Library.DI
 
             for (int i = _disposables.Count - 1; i >= 0; i--)
             {
-                IDisposable disposable = _disposables[i];
-                if (disposable == null)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    disposable.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    LogLifecycleException(ex);
-                }
+                DisposeTracked(_disposables[i]);
             }
 
             _scopedInstances.Clear();
@@ -161,6 +156,23 @@ namespace Mu3Library.DI
             try
             {
                 initializable.Initialize();
+            }
+            catch (Exception ex)
+            {
+                LogLifecycleException(ex);
+            }
+        }
+
+        private void DisposeTracked(IDisposable disposable)
+        {
+            if (disposable == null)
+            {
+                return;
+            }
+
+            try
+            {
+                disposable.Dispose();
             }
             catch (Exception ex)
             {
@@ -191,12 +203,34 @@ namespace Mu3Library.DI
 
         /// <summary>
         /// Register an already created instance, inject its members, and track its lifecycle.
-        /// When the injection throws, what this call added is undone before the exception reaches
-        /// the caller: its registrations are removed, so the instance does not resolve through
-        /// them, and the lifecycle tracking it started, during the injection included, stops. An
-        /// earlier registration of the same instance stays, and so does the tracking that one
-        /// started.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// When the injection throws, what this call left in the scope is undone before the
+        /// exception reaches the caller:
+        /// </para>
+        /// <list type="bullet">
+        /// <item><description>Its registrations are removed, so the instance does not resolve
+        /// through them, and the registration log (<c>[DI Registration]</c>) logs each removal
+        /// as rolled back.</description></item>
+        /// <item><description>A singleton or scoped service that the injection created and that
+        /// received the instance from the container, directly or through another such service,
+        /// leaves the cache, so the next resolve creates it again. The scope stops tracking it and
+        /// calls its <see cref="IDisposable.Dispose"/>, as its own <see cref="Dispose"/> would. A
+        /// service the injection created that did not receive the instance stays.</description></item>
+        /// <item><description>The lifecycle tracking this call started for the instance, during the
+        /// injection included, stops. When the scope has already run the instance's
+        /// <see cref="IInitializable.Initialize"/>, the instance gets
+        /// <see cref="IDisposable.Dispose"/> to pair with it; one the scope did not initialize is
+        /// not disposed, since the caller still owns it.</description></item>
+        /// </list>
+        /// <para>
+        /// An earlier registration of the same instance stays, and so does the instance's
+        /// tracking, since the instance still resolves through that registration. The container
+        /// knows only what it resolved: a service that holds the instance some other way, such as
+        /// through a factory that closes over it, stays cached.
+        /// </para>
+        /// </remarks>
         public void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
             where TService : class
         {
@@ -209,25 +243,72 @@ namespace Mu3Library.DI
             // instance is registered first, so a service that one of its members resolves may
             // depend on it, and resolving it there starts its lifecycle tracking. The caller gets
             // an exception for an instance whose injection failed, so its registration is taken
-            // back rather than handed out, uninjected, by a later resolve. Only the descriptors
-            // this call added go: an earlier registration of the same instance stays.
+            // back rather than handed out, uninjected, by a later resolve, and so are the services
+            // that received it meanwhile.
+            RegistrationRollback rollback = new(instance, _resolveDepth, _rollback);
+            _rollback = rollback;
             try
             {
                 InjectInto(instance);
             }
             catch
             {
-                _container.RemoveDescriptors(start, added);
-                if (!wasTracked)
-                {
-                    UntrackLifecycle(instance);
-                }
-
+                _rollback = rollback.Outer;
+                UndoRegistration(rollback, start, added, wasTracked);
                 throw;
             }
 
+            _rollback = rollback.Outer;
+
             // Track lifecycle for pre-created instances
             TrackLifecycle(instance, ServiceLifetime.Singleton);
+        }
+
+        // Undoes what a RegisterInstance call whose injection threw left in this scope; the
+        // remarks on RegisterInstance describe the result. Only the descriptors the call added go.
+        private void UndoRegistration(RegistrationRollback rollback, int start, int added, bool wasTracked)
+        {
+            _container.RemoveDescriptors(start, added);
+
+            // The services that received the uninjected instance leave the caches before any of
+            // them is disposed, so none resolves while it is, and they go newest first, as the
+            // scope's own Dispose goes.
+            List<CachedHolder> cached = rollback.Cached;
+            for (int i = cached.Count - 1; i >= 0; i--)
+            {
+                CachedHolder holder = cached[i];
+                if (holder.Descriptor.Lifetime == ServiceLifetime.Scoped)
+                {
+                    _scopedInstances.Remove(holder.Descriptor, holder.Instance);
+                }
+                else
+                {
+                    _container.RemoveSingleton(holder.Descriptor, holder.Instance);
+                }
+            }
+
+            for (int i = cached.Count - 1; i >= 0; i--)
+            {
+                CachedHolder holder = cached[i];
+                if (holder.StartedTracking && UntrackLifecycle(holder.Instance) && holder.Instance is IDisposable disposable)
+                {
+                    DisposeTracked(disposable);
+                }
+            }
+
+            object instance = rollback.Instance;
+            if (wasTracked || _container.HoldsInstance(instance))
+            {
+                return;
+            }
+
+            // A tracked instance has had its Initialize once the scope has initialized: at the
+            // resolve that started the tracking, or in Initialize if the tracking came first.
+            if (UntrackLifecycle(instance) && _initialized &&
+                instance is IInitializable && instance is IDisposable instanceDisposable)
+            {
+                DisposeTracked(instanceDisposable);
+            }
         }
 
         /// <summary>
@@ -368,6 +449,37 @@ namespace Mu3Library.DI
 
         private object GetInstance(ServiceDescriptor descriptor, HashSet<Type> chain)
         {
+            if (_rollback == null)
+            {
+                return GetInstanceCore(descriptor, chain, out _, out _);
+            }
+
+            // RegisterInstance is injecting an instance: note which of the services this resolve
+            // creates receive it, so that a failed injection can take them back.
+            int depth = _resolveDepth++;
+            object instance = null;
+            bool cached = false;
+            bool startedTracking = false;
+            try
+            {
+                instance = GetInstanceCore(descriptor, chain, out cached, out startedTracking);
+            }
+            finally
+            {
+                _resolveDepth--;
+                EndRecordedResolve(depth, descriptor, instance, cached, startedTracking);
+            }
+
+            NoteReceived(instance, depth - 1);
+            return instance;
+        }
+
+        // cached: the instance was created by this call and put into the singleton or scoped
+        // cache. startedTracking: this call started its lifecycle tracking.
+        private object GetInstanceCore(ServiceDescriptor descriptor, HashSet<Type> chain, out bool cached, out bool startedTracking)
+        {
+            cached = false;
+            startedTracking = false;
             object instance;
 
             if (descriptor.Instance != null)
@@ -376,7 +488,13 @@ namespace Mu3Library.DI
             }
             else if (descriptor.Lifetime == ServiceLifetime.Singleton)
             {
-                instance = _container.GetOrCreateSingleton(descriptor, () => CreateInstance(descriptor, chain));
+                bool created = false;
+                instance = _container.GetOrCreateSingleton(descriptor, () =>
+                {
+                    created = true;
+                    return CreateInstance(descriptor, chain);
+                });
+                cached = created;
             }
             else if (descriptor.Lifetime == ServiceLifetime.Scoped)
             {
@@ -387,14 +505,54 @@ namespace Mu3Library.DI
 
                 instance = CreateInstance(descriptor, chain);
                 _scopedInstances.Set(descriptor, instance);
+                cached = true;
             }
             else // Transient
             {
                 return CreateInstance(descriptor, chain);
             }
 
-            TrackLifecycle(instance, descriptor.Lifetime);
+            startedTracking = TrackLifecycle(instance, descriptor.Lifetime);
             return instance;
+        }
+
+        // Ends the recorded resolve at depth: when what it ran received an instance being
+        // registered, or a service that holds one, the instance it resolved holds it too.
+        private void EndRecordedResolve(int depth, ServiceDescriptor descriptor, object instance, bool cached, bool startedTracking)
+        {
+            for (RegistrationRollback rollback = _rollback; rollback != null; rollback = rollback.Outer)
+            {
+                if (!rollback.HoldingDepths.Remove(depth) || instance == null)
+                {
+                    continue;
+                }
+
+                rollback.Holders.Add(instance);
+                if (cached)
+                {
+                    rollback.Cached.Add(new CachedHolder(descriptor, instance, startedTracking));
+                }
+            }
+        }
+
+        // Notes that the resolve at depth received an object: the instance a RegisterInstance
+        // call is injecting, or a service that holds it, makes that resolve a holder. A depth
+        // below where the injection began is the instance itself receiving its members.
+        private void NoteReceived(object received, int depth)
+        {
+            if (received == null)
+            {
+                return;
+            }
+
+            for (RegistrationRollback rollback = _rollback; rollback != null; rollback = rollback.Outer)
+            {
+                if (depth >= rollback.Depth &&
+                    (ReferenceEquals(received, rollback.Instance) || rollback.Holders.Contains(received)))
+                {
+                    rollback.HoldingDepths.Add(depth);
+                }
+            }
         }
 
         private object CreateInstance(ServiceDescriptor descriptor, HashSet<Type> chain)
@@ -636,16 +794,17 @@ namespace Mu3Library.DI
             return CoreRoot.Instance?.GetClass(coreType, serviceType, key);
         }
 
-        private void TrackLifecycle(object instance, ServiceLifetime lifetime)
+        // Returns whether this call started the tracking.
+        private bool TrackLifecycle(object instance, ServiceLifetime lifetime)
         {
             if (instance == null || lifetime == ServiceLifetime.Transient)
             {
-                return;
+                return false;
             }
 
             if (!_trackedInstances.Add(instance))
             {
-                return;
+                return false;
             }
 
             if (instance is IInitializable initializable)
@@ -674,15 +833,18 @@ namespace Mu3Library.DI
             {
                 _disposables.Add(disposable);
             }
+
+            return true;
         }
 
-        // Undoes TrackLifecycle for an instance whose registration failed. An Initialize that
-        // already ran on it, which TrackLifecycle does once the scope has initialized, stays run.
-        private void UntrackLifecycle(object instance)
+        // Undoes TrackLifecycle for an instance a failed registration takes back, and returns
+        // whether the instance was tracked. It calls nothing on the instance: the caller decides
+        // whether it gets Dispose.
+        private bool UntrackLifecycle(object instance)
         {
             if (instance == null || !_trackedInstances.Remove(instance))
             {
-                return;
+                return false;
             }
 
             if (instance is IInitializable initializable)
@@ -704,6 +866,8 @@ namespace Mu3Library.DI
             {
                 _disposables.Remove(disposable);
             }
+
+            return true;
         }
 
         private object CreateEnumerable(Type elementType, string key)
@@ -744,5 +908,53 @@ namespace Mu3Library.DI
             return new Lazy<T>(() => Resolve<T>(key));
         }
         #endregion
+
+        // What one RegisterInstance call's injection leaves in the scope that a failure undoes.
+        private sealed class RegistrationRollback
+        {
+            internal RegistrationRollback(object instance, int depth, RegistrationRollback outer)
+            {
+                Instance = instance;
+                Depth = depth;
+                Outer = outer;
+            }
+
+            // The instance being registered and injected.
+            internal object Instance { get; }
+
+            // The resolve depth at which the injection began.
+            internal int Depth { get; }
+
+            // The RegisterInstance call whose injection this call runs inside, if any.
+            internal RegistrationRollback Outer { get; }
+
+            // What the injection resolved that received the instance, directly or through
+            // another of them.
+            internal HashSet<object> Holders { get; } = new();
+
+            // The depths of the resolves still running that have received the instance or one
+            // of the holders.
+            internal HashSet<int> HoldingDepths { get; } = new();
+
+            // The holders the injection created into the singleton or scoped cache, oldest first.
+            internal List<CachedHolder> Cached { get; } = new();
+        }
+
+        private readonly struct CachedHolder
+        {
+            internal CachedHolder(ServiceDescriptor descriptor, object instance, bool startedTracking)
+            {
+                Descriptor = descriptor;
+                Instance = instance;
+                StartedTracking = startedTracking;
+            }
+
+            internal ServiceDescriptor Descriptor { get; }
+
+            internal object Instance { get; }
+
+            // Whether the resolve that created it started its lifecycle tracking.
+            internal bool StartedTracking { get; }
+        }
     }
 }

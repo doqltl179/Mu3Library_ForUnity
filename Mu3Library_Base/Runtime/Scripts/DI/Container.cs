@@ -181,13 +181,22 @@ namespace Mu3Library.DI
         /// <summary>
         /// Remove the <paramref name="count"/> descriptors from <paramref name="start"/> on, which
         /// one registration appended, and rebuild the lookup index over the ones that remain, so
-        /// the registration is undone and every other one resolves as before.
+        /// the registration is undone and every other one resolves as before. Where the
+        /// registration was logged, each removal is logged as rolled back.
         /// </summary>
         internal void RemoveDescriptors(int start, int count)
         {
             if (count <= 0)
             {
                 return;
+            }
+
+            if (_logsRegistrations)
+            {
+                for (int i = start; i < start + count; i++)
+                {
+                    Debug.Log($"[DI Registration] Rolled back | {DescribeRegistration(_descriptors[i])}");
+                }
             }
 
             _descriptors.RemoveRange(start, count);
@@ -267,6 +276,36 @@ namespace Mu3Library.DI
             instance = factory();
             _singletons.Set(descriptor, instance);
             return instance;
+        }
+
+        /// <summary>
+        /// Drop the singleton instance of a registration when it is still
+        /// <paramref name="instance"/>, so the next resolve creates a new one.
+        /// </summary>
+        internal void RemoveSingleton(ServiceDescriptor descriptor, object instance)
+        {
+            _singletons.Remove(descriptor, instance);
+        }
+
+        /// <summary>
+        /// Whether a registration of <paramref name="instance"/> itself remains.
+        /// </summary>
+        internal bool HoldsInstance(object instance)
+        {
+            if (instance == null)
+            {
+                return false;
+            }
+
+            foreach (ServiceDescriptor descriptor in _descriptors)
+            {
+                if (ReferenceEquals(descriptor.Instance, instance))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void RegisterSelfAndInterfaces(Type implementationType, ServiceLifetime lifetime, string key)
@@ -352,11 +391,16 @@ namespace Mu3Library.DI
             // Log registration (optional, can be disabled for production)
             if (_logsRegistrations)
             {
-                string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
-                string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
-                string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
-                Debug.Log($"[DI Registration] Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}");
+                Debug.Log($"[DI Registration] {DescribeRegistration(descriptor)}");
             }
+        }
+
+        private string DescribeRegistration(ServiceDescriptor descriptor)
+        {
+            string coreName = _owner != null ? _owner.GetType().Name : "Unknown Core";
+            string implType = descriptor.ImplementationType != null ? descriptor.ImplementationType.Name : "Instance";
+            string keyInfo = string.IsNullOrEmpty(descriptor.Key) ? "" : $" (Key: {descriptor.Key})";
+            return $"Core: {coreName} | Service: {descriptor.ServiceType.Name} | Implementation: {implType} | Lifetime: {descriptor.Lifetime}{keyInfo}";
         }
     }
 }

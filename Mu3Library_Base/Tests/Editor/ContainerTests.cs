@@ -296,6 +296,60 @@ namespace Mu3Library.Tests
             public DependsOnRollbackTarget Dependent => _dependent;
         }
 
+        private sealed class ValidRollbackTarget : IRollbackTarget { }
+
+        private sealed class DependsOnDependent
+        {
+            public DependsOnDependent(DependsOnRollbackTarget dependent) => Dependent = dependent;
+
+            public DependsOnRollbackTarget Dependent { get; }
+        }
+
+        // Receives a service that has nothing to do with it, then one that holds it through
+        // another service, and then fails.
+        private sealed class PartlyInjectedFailingInjectService : IRollbackTarget
+        {
+            [Inject(required: false)] private ServiceA _independent = null;
+            [Inject(required: false)] private DependsOnDependent _transitive = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public ServiceA Independent => _independent;
+            public DependsOnDependent Transitive => _transitive;
+        }
+
+        private sealed class RecordingRollbackDependent : RecordingService
+        {
+            public RecordingRollbackDependent(IRollbackTarget target) => Target = target;
+
+            public IRollbackTarget Target { get; }
+        }
+
+        private sealed class RecordingDependentFailingInjectService : RecordingService, IRollbackTarget
+        {
+            [Inject(required: false)] private RecordingRollbackDependent _dependent = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public RecordingRollbackDependent Dependent => _dependent;
+        }
+
+        private sealed class ThrowsOnDisposeRollbackDependent : IDisposable
+        {
+            public ThrowsOnDisposeRollbackDependent(IRollbackTarget target) { }
+
+            public void Dispose() => throw new InvalidOperationException("rollback dispose boom");
+        }
+
+        private sealed class ThrowingDependentFailingInjectService : IRollbackTarget
+        {
+            [Inject(required: false)] private ThrowsOnDisposeRollbackDependent _dependent = null;
+
+            [Inject] public IUnregisteredService Missing { get; set; }
+
+            public ThrowsOnDisposeRollbackDependent Dependent => _dependent;
+        }
+
         private Container _container;
         private ContainerScope _scope;
 
@@ -966,6 +1020,169 @@ namespace Mu3Library.Tests
             Assert.AreEqual(1, instance.UpdateCount);
             Assert.AreEqual(1, instance.LateUpdateCount);
             Assert.AreEqual(1, instance.DisposeCount);
+        }
+
+        [TestCase(ServiceLifetime.Singleton)]
+        [TestCase(ServiceLifetime.Scoped)]
+        public void RegisterInstance_InjectionFails_EvictsTheServiceThatReceivedTheInstance(ServiceLifetime lifetime)
+        {
+            _scope.Register<DependsOnRollbackTarget>(lifetime);
+            SelfResolvingFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            ValidRollbackTarget replacement = new();
+            _scope.RegisterInstance<IRollbackTarget>(replacement);
+            DependsOnRollbackTarget resolved = _scope.Resolve<DependsOnRollbackTarget>();
+
+            Assert.AreSame(instance, instance.Dependent.Target);
+            Assert.AreNotSame(instance.Dependent, resolved);
+            Assert.AreSame(replacement, resolved.Target);
+            Assert.IsFalse(_container.GetActiveSingletonInstances().Contains(instance.Dependent));
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_EvictsWhatHoldsTheInstanceThroughAnotherService()
+        {
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnDependent>(ServiceLifetime.Singleton);
+            PartlyInjectedFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            _scope.RegisterInstance<IRollbackTarget>(new ValidRollbackTarget());
+            DependsOnDependent resolved = _scope.Resolve<DependsOnDependent>();
+
+            Assert.AreSame(instance, instance.Transitive.Dependent.Target);
+            Assert.AreNotSame(instance.Transitive, resolved);
+            Assert.AreNotSame(instance.Transitive.Dependent, resolved.Dependent);
+            Assert.IsInstanceOf<ValidRollbackTarget>(resolved.Dependent.Target);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_KeepsTheServicesThatDidNotReceiveTheInstance()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Singleton);
+            _scope.Register<DependsOnDependent>(ServiceLifetime.Singleton);
+            PartlyInjectedFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+
+            Assert.IsNotNull(instance.Independent);
+            Assert.AreSame(instance.Independent, _scope.Resolve<ServiceA>());
+            Assert.IsTrue(_container.GetActiveSingletonInstances().Contains(instance.Independent));
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_DisposesTheEvictedServiceAndEndsItsLifecycle()
+        {
+            _scope.Register<RecordingRollbackDependent>(ServiceLifetime.Singleton);
+            _scope.Initialize();
+            RecordingDependentFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            RecordingRollbackDependent dependent = instance.Dependent;
+            Assert.AreEqual(1, dependent.InitializeCount);
+            Assert.AreEqual(1, dependent.DisposeCount);
+
+            _scope.Update();
+            _scope.LateUpdate();
+            _scope.Dispose();
+
+            Assert.AreEqual(0, dependent.UpdateCount);
+            Assert.AreEqual(0, dependent.LateUpdateCount);
+            Assert.AreEqual(1, dependent.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsBeforeTheScopeInitializes_DisposesTheEvictedServiceButNotTheInstance()
+        {
+            _scope.Register<RecordingRollbackDependent>(ServiceLifetime.Singleton);
+            RecordingDependentFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            RecordingRollbackDependent dependent = instance.Dependent;
+            Assert.AreEqual(1, dependent.DisposeCount);
+
+            _scope.Initialize();
+            _scope.Dispose();
+
+            Assert.AreEqual(0, dependent.InitializeCount);
+            Assert.AreEqual(1, dependent.DisposeCount);
+            Assert.AreEqual(0, instance.InitializeCount);
+            Assert.AreEqual(0, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsAfterTheScopeInitialized_DisposesTheInstanceItInitialized()
+        {
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Transient);
+            _scope.Initialize();
+            SelfResolvingFailingInjectService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            Assert.AreEqual(1, instance.InitializeCount);
+            Assert.AreEqual(1, instance.DisposeCount);
+
+            _scope.Update();
+            _scope.LateUpdate();
+            _scope.Dispose();
+
+            Assert.AreEqual(0, instance.UpdateCount);
+            Assert.AreEqual(0, instance.LateUpdateCount);
+            Assert.AreEqual(1, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsAfterTheScopeInitialized_DoesNotDisposeAnInstanceItDidNotInitialize()
+        {
+            _scope.Initialize();
+            FailingInjectRecordingService instance = new();
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            _scope.Dispose();
+
+            Assert.AreEqual(0, instance.InitializeCount);
+            Assert.AreEqual(0, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFailsForAnInstanceRegisteredBefore_KeepsTheTrackingItStarted()
+        {
+            SelfResolvingFailingInjectService instance = new();
+            _container.RegisterInstance(instance, registerInterfaces: false);
+            _scope.Register<DependsOnRollbackTarget>(ServiceLifetime.Transient);
+            _scope.Initialize();
+
+            // The failed call's own IRollbackTarget registration hands the instance to the
+            // dependent, which starts its tracking and runs its Initialize.
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(instance));
+            Assert.AreSame(instance, _scope.Resolve<SelfResolvingFailingInjectService>());
+            _scope.Update();
+            _scope.Dispose();
+
+            Assert.AreEqual(1, instance.InitializeCount);
+            Assert.AreEqual(1, instance.UpdateCount);
+            Assert.AreEqual(1, instance.DisposeCount);
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_LogsEachRegistrationAsRolledBack()
+        {
+            LogAssert.Expect(LogType.Log, "[DI Registration] Rolled back | Core: Unknown Core | Service: IServiceA | Implementation: FailingInjectRecordingService | Lifetime: Singleton");
+            LogAssert.Expect(LogType.Log, "[DI Registration] Rolled back | Core: Unknown Core | Service: FailingInjectRecordingService | Implementation: FailingInjectRecordingService | Lifetime: Singleton");
+
+            Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(new FailingInjectRecordingService()));
+        }
+
+        [Test]
+        public void RegisterInstance_InjectionFails_DisposeThatThrowsIsLoggedAndTheFailureStillReachesTheCaller()
+        {
+            _scope.Register<ThrowsOnDisposeRollbackDependent>(ServiceLifetime.Singleton);
+            LogAssert.Expect(LogType.Exception, new Regex("rollback dispose boom"));
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _scope.RegisterInstance(new ThrowingDependentFailingInjectService()));
+
+            StringAssert.Contains($"{typeof(ThrowingDependentFailingInjectService).FullName}.{nameof(ThrowingDependentFailingInjectService.Missing)}", exception.Message);
         }
         #endregion
 
