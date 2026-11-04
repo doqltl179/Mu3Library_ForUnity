@@ -11,6 +11,7 @@ Package release notes remain in:
 
 ### Fixed
 - `mu3-cli repo check` reads every file it lists, including one whose path holds a character outside ASCII, such as `Café.cs`. It read `git ls-files` line by line, and with its default `core.quotepath` Git quotes such a path and escapes the character's bytes, so the path ended in a quote, matched no suffix the check reads, and was passed over while the check reported success. It now lists the paths with `-z`, which prints each one as it is named. No path in the repository held such a character.
+- `compile-unity.sh` and `test-unity.sh` warn once for each target, instead of twice, when `UNITY_EDITOR` or `UNITY` names an Editor other than the one the target asks for. The preflight warns for every target before the first Unity starts, so a run with the wrong Editor can be stopped before it spends minutes; the run of each target no longer repeats the warning and still prints the `Unity:` path it runs.
 
 ## 2026-11-01
 

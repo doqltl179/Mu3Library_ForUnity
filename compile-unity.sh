@@ -735,9 +735,13 @@ hub_editor_suffix() {
 }
 
 # Sets FOUND_UNITY_PATH to the Unity executable for a target, or prints why
-# there is none and returns 1.
+# there is none and returns 1. It warns when an explicit override is not the
+# Editor the target asks for, unless the second argument is quiet: the
+# preflight warns once for each target, before any Unity starts, so the run
+# that follows passes quiet.
 unity_executable() {
     local target_key="$1"
+    local warn_about_override=1
     local project_path
     local required_version
     local override_path="${UNITY_EDITOR:-${UNITY:-}}"
@@ -745,6 +749,9 @@ unity_executable() {
     # Who asks for the version, as the messages below name it.
     local requester
 
+    if [[ "${2:-}" == "quiet" ]]; then
+        warn_about_override=0
+    fi
     FOUND_UNITY_PATH=""
     find_target "$target_key" || return 1
     project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
@@ -772,7 +779,7 @@ unity_executable() {
         fi
 
         hub_editor_suffix "$required_version"
-        if [[ "$candidate" != *"$HUB_EDITOR_SUFFIX" ]]; then
+        if [[ "$warn_about_override" -eq 1 && "$candidate" != *"$HUB_EDITOR_SUFFIX" ]]; then
             printf 'warning: %s requires Unity %s but the explicit override will be used: %s\n' \
                 "$requester" "$required_version" "$candidate" >&2
         fi
@@ -1331,7 +1338,7 @@ run_unity_for_target() {
     find_target "$target_key" || return 1
     project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     run_project_path="$REPO_ROOT/$project_path"
-    unity_executable "$target_key"
+    unity_executable "$target_key" quiet
     unity_path="$FOUND_UNITY_PATH"
 
     if ! decide_run_location "$target_key"; then
@@ -1455,7 +1462,8 @@ select_requested_targets() {
 
 # Checks every selected target before Unity starts, so that a missing Editor
 # or sample link does not surface only after earlier targets have spent
-# minutes running.
+# minutes running. It is also the one place that warns about an explicit
+# Editor that a target does not ask for.
 preflight_selected_targets() {
     local target_key
     local preflight_failed=0

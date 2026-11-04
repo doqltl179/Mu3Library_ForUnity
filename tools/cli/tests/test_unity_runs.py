@@ -965,5 +965,44 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
 
+class OverrideWarningTests(FixtureRepositoryTestCase):
+    """An explicit Editor that is not the one a target asks for is warned about once per target, by
+    the preflight, before any Unity starts; the run of the target does not repeat it."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+
+    def test_each_target_is_warned_about_once_before_unity_starts(self) -> None:
+        runs = (
+            ("compile-unity.sh", "compile_main", [project for _, _, project in MAPPING]),
+            ("test-unity.sh", "test_main", ["ProjShared", "ProjLeaf"]),
+        )
+        for entry_point, main, projects in runs:
+            with self.subTest(entry_point=entry_point):
+                # One stream keeps the warnings in order with the runs they come before.
+                completed = self.run_functions(
+                    entry_point,
+                    f'{main} "$@" 2>&1',
+                    "all",
+                    environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                )
+
+                self.assertEqual(0, completed.returncode, completed.stdout)
+                lines = completed.stdout.splitlines()
+                warnings = [
+                    index for index, line in enumerate(lines) if "but the explicit override will be used" in line
+                ]
+                self.assertEqual(
+                    [
+                        f"warning: {project} requires Unity 6000.6.7f1 but the explicit override will be used: "
+                        f"{self.fake_unity}"
+                        for project in projects
+                    ],
+                    [lines[index] for index in warnings],
+                )
+                runs_of_unity = [index for index, line in enumerate(lines) if line.startswith("fake unity ran ")]
+                self.assertEqual(len(projects), len(runs_of_unity), completed.stdout)
+                self.assertLess(warnings[-1], runs_of_unity[0], completed.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
