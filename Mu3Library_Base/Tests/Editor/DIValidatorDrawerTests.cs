@@ -39,6 +39,24 @@ namespace Mu3Library.Tests
             public IService Service => _service;
         }
 
+        private sealed class RequiredStatic
+        {
+            [Inject] private static IService _field = null;
+
+            [Inject] public static IService Property { get; set; }
+
+            public static IService Field => _field;
+        }
+
+        private sealed class OptionalStatic
+        {
+            [Inject(required: false)] private static IService _field = null;
+
+            [Inject(required: false)] public static IService Property { get; set; }
+
+            public static IService Field => _field;
+        }
+
         private sealed class PlainCore : CoreBase { }
 
         // The container injects a core in Start, so the validator checks the core's own members too.
@@ -96,6 +114,55 @@ namespace Mu3Library.Tests
             DIValidatorDrawer.ValidateReadOnlyFields(typeof(OptionalReadOnly), issues);
 
             CollectionAssert.IsEmpty(issues);
+        }
+
+        [Test]
+        public void StaticMembers_RequiredStaticFieldAndProperty_AreReported()
+        {
+            List<string> issues = new();
+
+            DIValidatorDrawer.ValidateStaticMembers(typeof(RequiredStatic), issues);
+
+            Assert.AreEqual(2, issues.Count, string.Join("\n", issues));
+            StringAssert.Contains($"{nameof(RequiredStatic)}._field", issues[0]);
+            StringAssert.Contains("static", issues[0]);
+            StringAssert.Contains($"{nameof(RequiredStatic)}.{nameof(RequiredStatic.Property)}", issues[1]);
+            StringAssert.Contains("static", issues[1]);
+        }
+
+        [Test]
+        public void StaticMembers_OptionalStaticMembers_AreNotReported()
+        {
+            List<string> issues = new();
+
+            DIValidatorDrawer.ValidateStaticMembers(typeof(OptionalStatic), issues);
+
+            CollectionAssert.IsEmpty(issues);
+        }
+
+        [Test]
+        public void ValidateCore_RegisteredClassWithRequiredStaticMembers_IsReported()
+        {
+            GameObject go = new(nameof(PlainCore));
+            try
+            {
+                PlainCore core = go.AddComponent<PlainCore>();
+                ServiceDescriptor[] descriptors =
+                {
+                    new ServiceDescriptor(typeof(RequiredStatic), typeof(RequiredStatic), ServiceLifetime.Singleton),
+                };
+                List<string> issues = new();
+
+                DIValidatorDrawer.ValidateCore(null, core, descriptors, issues);
+
+                Assert.AreEqual(2, issues.Count, string.Join("\n", issues));
+                StringAssert.Contains($"{nameof(RequiredStatic)}._field", issues[0]);
+                StringAssert.Contains($"{nameof(RequiredStatic)}.{nameof(RequiredStatic.Property)}", issues[1]);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
         }
 
         [Test]

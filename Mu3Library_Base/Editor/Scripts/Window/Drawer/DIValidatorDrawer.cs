@@ -11,8 +11,9 @@ namespace Mu3Library.Editor.Window.Drawer
     /// Validates the DI registrations of every registered core while the game runs: a
     /// registered implementation whose constructor or required [Inject] members cannot be
     /// resolved, and a registered implementation, registered instance, or core that has a required
-    /// [Inject] property without a setter or a required readonly [Inject] field, is reported here
-    /// before the first resolve or injection throws at some later moment.
+    /// [Inject] property without a setter, a required readonly [Inject] field, or a required static
+    /// [Inject] member, is reported here before the first resolve or injection throws at some
+    /// later moment.
     /// Reading the registrations resolves nothing, so the check has no side effects.
     /// </summary>
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
@@ -189,6 +190,7 @@ namespace Mu3Library.Editor.Window.Drawer
         {
             ValidateReadOnlyFields(type, issues);
             ValidateUnwritableProperties(type, issues);
+            ValidateStaticMembers(type, issues);
         }
 
         /// <summary>
@@ -219,6 +221,32 @@ namespace Mu3Library.Editor.Window.Drawer
                 if (attribute != null && attribute.Required)
                 {
                     issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] property has no setter, so the container cannot inject it.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reports each required static [Inject] field and property of
+        /// <paramref name="implementationType"/>, which the container throws for whether or not its
+        /// service is registered.
+        /// </summary>
+        internal static void ValidateStaticMembers(Type implementationType, List<string> issues)
+        {
+            foreach (FieldInfo field in InjectableMembers.GetStaticFields(implementationType))
+            {
+                InjectAttribute attribute = field.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{field.Name}: required [Inject] field is static, so the container cannot inject it.");
+                }
+            }
+
+            foreach (PropertyInfo property in InjectableMembers.GetStaticProperties(implementationType))
+            {
+                InjectAttribute attribute = property.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] property is static, so the container cannot inject it.");
                 }
             }
         }

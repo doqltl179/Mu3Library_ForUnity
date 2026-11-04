@@ -496,10 +496,11 @@ namespace Mu3Library.DI
 
             Type type = instance.GetType();
 
-            // A required readonly [Inject] field or [Inject] property without a setter can never be
-            // filled. Throwing before anything resolves, as for a required member whose service is
-            // missing, keeps it from staying null without a word; a warning would leave the object
-            // running until the member is first read, far from the cause.
+            // A required readonly or static [Inject] field, or a required [Inject] property without
+            // a setter or static, can never be filled. Throwing before anything resolves, as for a
+            // required member whose service is missing, keeps it from staying null without a word;
+            // a warning would leave the object running until the member is first read, far from the
+            // cause.
             foreach (FieldInfo field in InjectableMembers.GetReadOnlyFieldArray(type))
             {
                 if (field.GetCustomAttribute<InjectAttribute>().Required)
@@ -513,6 +514,24 @@ namespace Mu3Library.DI
                 if (property.GetCustomAttribute<InjectAttribute>().Required)
                 {
                     throw new InvalidOperationException($"Inject failed. property has no setter: {type.FullName}.{property.Name}");
+                }
+            }
+
+            // A static member belongs to the class, so injecting it would let each object overwrite
+            // the value every other object of the class reads.
+            foreach (FieldInfo field in InjectableMembers.GetStaticFieldArray(type))
+            {
+                if (field.GetCustomAttribute<InjectAttribute>().Required)
+                {
+                    throw new InvalidOperationException($"Inject failed. field is static: {type.FullName}.{field.Name}");
+                }
+            }
+
+            foreach (PropertyInfo property in InjectableMembers.GetStaticPropertyArray(type))
+            {
+                if (property.GetCustomAttribute<InjectAttribute>().Required)
+                {
+                    throw new InvalidOperationException($"Inject failed. property is static: {type.FullName}.{property.Name}");
                 }
             }
 

@@ -183,6 +183,39 @@ namespace Mu3Library.Tests
             public IServiceA Service => _service;
         }
 
+        // Required static [Inject] members: a static belongs to the class, not to the injected object.
+        private class StaticFieldInjectTarget
+        {
+            [Inject(required: false)] private IServiceA _writable = null;
+            [Inject] private static IServiceA _service = null;
+
+            public IServiceA Writable => _writable;
+            public static IServiceA Service => _service;
+        }
+
+        private class StaticPropertyInjectTarget
+        {
+            [Inject] public static IServiceA Service { get; set; }
+        }
+
+        private abstract class StaticReadOnlyInjectBase
+        {
+            [Inject] private static readonly IServiceA _baseService = null;
+
+            public static IServiceA BaseService => _baseService;
+        }
+
+        private class StaticReadOnlyInjectLeaf : StaticReadOnlyInjectBase { }
+
+        private class OptionalStaticInjectTarget
+        {
+            [Inject(required: false)] private static IServiceA _field = null;
+
+            [Inject(required: false)] public static IServiceA Property { get; set; }
+
+            public static IServiceA Field => _field;
+        }
+
         private abstract class GameCoreBase : CoreBase
         {
             [Inject(required: false)] private IServiceA _service = null;
@@ -709,6 +742,88 @@ namespace Mu3Library.Tests
             CollectionAssert.AreEqual(
                 new[] { "_writable" },
                 InjectableMembers.GetFields(typeof(ReadOnlyInjectTarget)).Select(field => field.Name).ToArray());
+        }
+        #endregion
+
+        #region Static [Inject] members
+        [Test]
+        public void InjectInto_RequiredStaticField_ThrowsBeforeInjectingAnyMember()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            StaticFieldInjectTarget target = new();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => _scope.InjectInto(target));
+
+            StringAssert.Contains($"{typeof(StaticFieldInjectTarget).FullName}._service", exception.Message);
+            StringAssert.Contains("static", exception.Message);
+            Assert.IsNull(target.Writable);
+            Assert.IsNull(StaticFieldInjectTarget.Service);
+        }
+
+        [Test]
+        public void InjectInto_RequiredStaticProperty_ThrowsEvenWhenItsServiceIsRegistered()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => _scope.InjectInto(new StaticPropertyInjectTarget()));
+
+            StringAssert.Contains($"{typeof(StaticPropertyInjectTarget).FullName}.{nameof(StaticPropertyInjectTarget.Service)}", exception.Message);
+            StringAssert.Contains("static", exception.Message);
+            Assert.IsNull(StaticPropertyInjectTarget.Service);
+        }
+
+        [Test]
+        public void InjectInto_RequiredStaticReadOnlyBaseClassField_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => _scope.InjectInto(new StaticReadOnlyInjectLeaf()));
+
+            StringAssert.Contains("._baseService", exception.Message);
+            StringAssert.Contains("static", exception.Message);
+        }
+
+        [Test]
+        public void Resolve_ServiceWithRequiredStaticMember_Throws()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+            _scope.Register<StaticPropertyInjectTarget>(ServiceLifetime.Transient);
+
+            Assert.Throws<InvalidOperationException>(() => _scope.Resolve<StaticPropertyInjectTarget>());
+        }
+
+        [Test]
+        public void InjectInto_OptionalStaticMembers_AreSkipped()
+        {
+            _scope.Register<ServiceA>(ServiceLifetime.Singleton);
+
+            Assert.DoesNotThrow(() => _scope.InjectInto(new OptionalStaticInjectTarget()));
+            Assert.IsNull(OptionalStaticInjectTarget.Field);
+            Assert.IsNull(OptionalStaticInjectTarget.Property);
+        }
+
+        [Test]
+        public void InjectableMembers_StaticMembers_ListsStaticMembersOnly()
+        {
+            CollectionAssert.AreEqual(
+                new[] { "_service" },
+                InjectableMembers.GetStaticFields(typeof(StaticFieldInjectTarget)).Select(field => field.Name).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "_baseService" },
+                InjectableMembers.GetStaticFields(typeof(StaticReadOnlyInjectLeaf)).Select(field => field.Name).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { nameof(StaticPropertyInjectTarget.Service) },
+                InjectableMembers.GetStaticProperties(typeof(StaticPropertyInjectTarget)).Select(property => property.Name).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "_writable" },
+                InjectableMembers.GetFields(typeof(StaticFieldInjectTarget)).Select(field => field.Name).ToArray());
+            Assert.AreEqual(0, InjectableMembers.GetReadOnlyFields(typeof(StaticReadOnlyInjectLeaf)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetProperties(typeof(StaticPropertyInjectTarget)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetUnwritableProperties(typeof(StaticPropertyInjectTarget)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetStaticFields(typeof(InjectLeaf)).Count);
+            Assert.AreEqual(0, InjectableMembers.GetStaticProperties(typeof(InjectLeaf)).Count);
         }
         #endregion
 
