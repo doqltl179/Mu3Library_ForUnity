@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Mu3Library.Editor.FileUtil;
@@ -24,15 +25,27 @@ namespace Mu3Library.Tests
     /// never read the list of another window, and never replace an asset where they create their list. The tests that
     /// need Base to be a local or embedded package are ignored where it is installed read-only. Each test deletes the
     /// assets and folders it created; its temporary folders carry <see cref="TempFolderPrefix"/> and a unique suffix,
-    /// the next run deletes any that an interrupted run left, and Git ignores those inside the Base package. An error
-    /// that Unity logs because it could not write the .meta file of an asset the test created, such as the one in
-    /// #341, does not fail the test: the window never writes .meta files itself, and the test still checks what the
-    /// window did. Every other log that the Test Framework counts as failing still fails the test. Each test turns this
-    /// on with the first helper it calls, <see cref="CreateTempFolder"/> or <see cref="TrackProjectList"/>.
+    /// the next run deletes any that an interrupted run left, and Git ignores those inside the Base package. A test
+    /// fails when a path it created is still there after its TearDown, such as a folder whose .meta file another
+    /// process holds open without <see cref="FileShare.Delete"/> (#355), and records the path in the project's Library
+    /// folder; the next test deletes what is recorded once it can, unless an asset with a .meta file of its own took its
+    /// place or a folder now holds anything else. An error that Unity logs because it could not write the .meta file of
+    /// an asset the test created, such as the one in #341, does not fail the test: the window never writes .meta files
+    /// itself, and the test still checks what the window did. Every other log that the Test Framework counts as failing
+    /// still fails the test. Each test turns this on with the first helper it calls, <see cref="CreateTempFolder"/> or
+    /// <see cref="TrackProjectList"/>.
     /// </summary>
     public class Mu3WindowTests
     {
         private const string TempFolderPrefix = nameof(Mu3WindowTests) + "_";
+
+        /// <summary>
+        /// The paths a TearDown could not delete, each line the GUID in the path's .meta file, a tab, and the path. It
+        /// lies in the Library folder, which outlives the Editor and which Git ignores.
+        /// </summary>
+        private static string LeftPathRecord => Path.Combine(
+            Path.GetDirectoryName(Application.dataPath), "Library", "Mu3Library",
+            nameof(Mu3WindowTests) + ".LeftPaths.txt");
 
         /// <summary>
         /// The errors Unity logs when it cannot write the .meta file of an asset, which name the asset path.
@@ -55,6 +68,8 @@ namespace Mu3Library.Tests
                 DeleteTempFolders(basePackage.assetPath);
             }
 
+            DeleteLeftPaths();
+
             // A log that reached the callback of the previous test after its TearDown took the logs.
             lock (_failingLogs)
             {
@@ -75,13 +90,10 @@ namespace Mu3Library.Tests
             }
 
             List<(LogType Type, string Message, string StackTrace)> unexpectedLogs;
+            List<string> leftPaths;
             try
             {
-                // DeleteAsset also deletes a folder whose .meta file Unity could not write.
-                for (int i = _createdPaths.Count - 1; i >= 0; i--)
-                {
-                    AssetDatabase.DeleteAsset(_createdPaths[i]);
-                }
+                leftPaths = DeleteCreatedPaths();
             }
             finally
             {
@@ -97,10 +109,25 @@ namespace Mu3Library.Tests
                 _createdPaths.Clear();
             }
 
+            List<string> failures = new();
             if (unexpectedLogs.Count > 0)
             {
                 string messages = string.Join(" | ", unexpectedLogs.Select(log => $"[{log.Type}] {log.Message}"));
-                Assert.Fail($"Unhandled log message: {messages}\nStack trace of the first:\n{unexpectedLogs[0].StackTrace}");
+                failures.Add(
+                    $"Unhandled log message: {messages}\nStack trace of the first:\n{unexpectedLogs[0].StackTrace}");
+            }
+
+            if (leftPaths.Count > 0)
+            {
+                failures.Add(
+                    $"The test could not delete {string.Join(", ", leftPaths)}, which it created; another process " +
+                    $"may hold a file there open. The next test of {nameof(Mu3WindowTests)} deletes what is left " +
+                    "once it can.");
+            }
+
+            if (failures.Count > 0)
+            {
+                Assert.Fail(string.Join("\n", failures));
             }
         }
 
@@ -463,6 +490,84 @@ namespace Mu3Library.Tests
             }
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void DeleteCreatedPaths_ProjectListFolderWhoseMetaFileAnotherHandleHolds_ReportsItAndTheNextTestDeletesIt(
+            bool holdsTheListFolder)
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            string topFolder = GetProjectListTopFolderToCreate();
+            TrackProjectList(typeof(Mu3WindowTests));
+            Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            string heldFolder = holdsTheListFolder ? Mu3Window.ProjectDrawerListFolder : topFolder;
+
+            List<string> leftPaths;
+            using (HoldMetaFile(heldFolder))
+            {
+                leftPaths = DeleteCreatedPaths();
+            }
+
+            Assert.IsTrue(AssetDatabase.IsValidFolder(heldFolder), $"Unity deleted {heldFolder}.");
+            CollectionAssert.Contains(leftPaths, heldFolder);
+
+            // What the SetUp of the next test does.
+            DeleteLeftPaths();
+
+            Assert.IsFalse(AssetDatabase.IsValidFolder(topFolder));
+            Assert.IsFalse(Directory.Exists(topFolder));
+            Assert.IsFalse(File.Exists($"{topFolder}.meta"));
+        }
+
+        [Test]
+        public void DeleteLeftPaths_LeftFolderThatNowHoldsAnotherFolder_KeepsIt()
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            string topFolder = GetProjectListTopFolderToCreate();
+            TrackProjectList(typeof(Mu3WindowTests));
+            Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            using (HoldMetaFile(topFolder))
+            {
+                CollectionAssert.Contains(DeleteCreatedPaths(), topFolder);
+            }
+
+            // A window of the user's created its list in the left folder before the next test.
+            TrackProjectList(typeof(Mu3WindowTestWindow));
+            DrawerListDrawer otherList = Mu3Window.LoadDrawerList(typeof(Mu3WindowTestWindow), scriptPath);
+
+            DeleteLeftPaths();
+
+            Assert.AreSame(
+                otherList,
+                AssetDatabase.LoadAssetAtPath<DrawerListDrawer>(
+                    Mu3Window.GetProjectDrawerListPath(typeof(Mu3WindowTestWindow))));
+        }
+
+        [Test]
+        public void DeleteLeftPaths_LeftFolderReplacedByAFolderWithAMetaFileOfItsOwn_KeepsTheReplacement()
+        {
+            string scriptPath = GetReadOnlyPackageScriptPath();
+            string topFolder = GetProjectListTopFolderToCreate();
+            TrackProjectList(typeof(Mu3WindowTests));
+            Mu3Window.LoadDrawerList(typeof(Mu3WindowTests), scriptPath);
+            using (HoldMetaFile(topFolder))
+            {
+                CollectionAssert.Contains(DeleteCreatedPaths(), topFolder);
+            }
+
+            // Before the next test, an empty folder with a .meta file of its own took the place of the left one, as
+            // when version control brings it.
+            Assert.IsTrue(AssetDatabase.DeleteAsset(topFolder));
+            string replacingFolder = CreateTempFolder("Assets");
+            string replacingFolderGuid = AssetDatabase.AssetPathToGUID(replacingFolder);
+            Assert.IsEmpty(AssetDatabase.MoveAsset(replacingFolder, topFolder));
+
+            DeleteLeftPaths();
+
+            Assert.AreEqual(
+                replacingFolderGuid,
+                AssetDatabase.AssetPathToGUID(topFolder, AssetPathToGUIDOptions.OnlyExistingAssets));
+        }
+
         private static bool IsWritable(PackageInfo package)
         {
             return package != null &&
@@ -503,6 +608,38 @@ namespace Mu3Library.Tests
             AssetDatabase.CreateAsset(list, assetPath);
 
             return list;
+        }
+
+        /// <summary>
+        /// The top folder of <see cref="Mu3Window.ProjectDrawerListFolder"/>, which the test is to create. Ignores the
+        /// test where the project already has it, or where a handle without <see cref="FileShare.Delete"/> does not
+        /// keep a file from being deleted, as off Windows.
+        /// </summary>
+        private static string GetProjectListTopFolderToCreate()
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor)
+            {
+                Assert.Ignore(
+                    "Only Windows keeps a file that a handle holds without FileShare.Delete from being deleted.");
+            }
+
+            string folder = Mu3Window.ProjectDrawerListFolder.Substring(
+                0, Mu3Window.ProjectDrawerListFolder.IndexOf('/', "Assets/".Length));
+            if (AssetDatabase.IsValidFolder(folder))
+            {
+                Assert.Ignore($"{folder} already exists in this project.");
+            }
+
+            return folder;
+        }
+
+        /// <summary>
+        /// Opens the .meta file of an asset as the other handle in #355 did: to read and write, sharing both, but not
+        /// deletion.
+        /// </summary>
+        private static FileStream HoldMetaFile(string assetPath)
+        {
+            return new FileStream($"{assetPath}.meta", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         }
 
         private static void IgnoreIfProjectListExists(Type windowType)
@@ -619,6 +756,204 @@ namespace Mu3Library.Tests
                     AssetDatabase.DeleteAsset(folder);
                 }
             }
+        }
+
+        /// <summary>
+        /// Deletes the paths this test created, the last first, and returns and records those still there. A handle
+        /// that holds a .meta file open without <see cref="FileShare.Delete"/> keeps it, and the folders above it,
+        /// although DeleteAsset returns true for the asset of that .meta file, and Unity creates a folder again from its
+        /// .meta file with no more than a warning (#355). Calling DeleteAsset again does not help while the handle is
+        /// open.
+        /// </summary>
+        private List<string> DeleteCreatedPaths()
+        {
+            List<string> leftPaths = new();
+            for (int i = _createdPaths.Count - 1; i >= 0; i--)
+            {
+                // DeleteAsset also deletes a folder whose .meta file Unity could not write.
+                AssetDatabase.DeleteAsset(_createdPaths[i]);
+                if (Exists(_createdPaths[i]) && !leftPaths.Contains(_createdPaths[i]))
+                {
+                    leftPaths.Add(_createdPaths[i]);
+                }
+            }
+
+            if (leftPaths.Count > 0)
+            {
+                Dictionary<string, string> record = ReadLeftPathRecord();
+                foreach (string path in leftPaths)
+                {
+                    record[path] = ReadMetaGuid(path);
+                }
+
+                WriteLeftPathRecord(record);
+            }
+
+            return leftPaths;
+        }
+
+        /// <summary>
+        /// Deletes the paths that a TearDown recorded as left. It deletes a path only while its .meta file carries the
+        /// recorded GUID, so it never deletes an asset that came with a .meta file of its own, such as one that version
+        /// control brought, and a folder only once it holds nothing but other recorded paths that are still left, so it
+        /// never deletes anything put into a left folder. Unity gives a folder created again at a path the GUID that
+        /// the path had, so it deletes an empty folder created again where a left one was. A path that is still held
+        /// stays recorded for the next test.
+        /// </summary>
+        private static void DeleteLeftPaths()
+        {
+            Dictionary<string, string> record = ReadLeftPathRecord();
+            if (record.Count == 0)
+            {
+                return;
+            }
+
+            // Unity deletes the .meta file left of a deleted asset, and creates a folder again from its .meta file.
+            AssetDatabase.Refresh();
+
+            Dictionary<string, string> stillLeft = new();
+            // A path comes after the folders above it in ordinal order, so it is visited before them.
+            foreach (KeyValuePair<string, string> entry in record.OrderByDescending(
+                left => left.Key, StringComparer.Ordinal))
+            {
+                string path = entry.Key;
+                if (!Exists(path))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(entry.Value) || ReadMetaGuid(path) != entry.Value)
+                {
+                    Debug.LogWarning(
+                        $"{nameof(Mu3WindowTests)} keeps {path}, since its .meta file does not carry the GUID recorded " +
+                        "when a test left it.");
+                    continue;
+                }
+
+                string physicalPath = GetPhysicalPath(path);
+                List<string> contents = Directory.Exists(physicalPath) ?
+                    Directory.EnumerateFileSystemEntries(physicalPath)
+                        .Select(content => $"{path}/{WithoutMetaExtension(Path.GetFileName(content))}")
+                        .Distinct()
+                        .ToList() :
+                    new List<string>();
+                List<string> others = contents.Where(content => !stillLeft.ContainsKey(content)).ToList();
+                if (others.Count > 0)
+                {
+                    Debug.LogWarning(
+                        $"{nameof(Mu3WindowTests)} keeps {path}, which a test left, since it now holds " +
+                        $"{string.Join(", ", others)}.");
+                    continue;
+                }
+
+                if (contents.Count == 0)
+                {
+                    AssetDatabase.DeleteAsset(path);
+                    if (!Exists(path))
+                    {
+                        continue;
+                    }
+
+                    Debug.LogWarning(
+                        $"{nameof(Mu3WindowTests)} could not delete {path}, which a test left; the next test tries " +
+                        "again.");
+                }
+
+                stillLeft[path] = entry.Value;
+            }
+
+            WriteLeftPathRecord(stillLeft);
+        }
+
+        /// <summary>
+        /// Whether anything of an asset is left: the asset in the AssetDatabase, or its file, folder, or .meta file.
+        /// </summary>
+        private static bool Exists(string assetPath)
+        {
+            string physicalPath = GetPhysicalPath(assetPath);
+
+            return !string.IsNullOrEmpty(
+                    AssetDatabase.AssetPathToGUID(assetPath, AssetPathToGUIDOptions.OnlyExistingAssets)) ||
+                File.Exists(physicalPath) || Directory.Exists(physicalPath) || File.Exists($"{physicalPath}.meta");
+        }
+
+        /// <summary>
+        /// The GUID in the .meta file of an asset, or an empty string when it cannot be read. Another process may hold
+        /// the file open to write it.
+        /// </summary>
+        private static string ReadMetaGuid(string assetPath)
+        {
+            const string guidKey = "guid: ";
+            try
+            {
+                using FileStream stream = new(
+                    $"{GetPhysicalPath(assetPath)}.meta", FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+                using StreamReader reader = new(stream);
+                for (string line = reader.ReadLine(); line != null; line = reader.ReadLine())
+                {
+                    if (line.StartsWith(guidKey, StringComparison.Ordinal))
+                    {
+                        return line.Substring(guidKey.Length).Trim();
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return "";
+        }
+
+        private static string GetPhysicalPath(string assetPath)
+        {
+            return Path.GetFullPath(FileUtil.GetPhysicalPath(assetPath));
+        }
+
+        private static string WithoutMetaExtension(string fileName)
+        {
+            return fileName.EndsWith(".meta", StringComparison.Ordinal) ?
+                fileName.Substring(0, fileName.Length - ".meta".Length) :
+                fileName;
+        }
+
+        private static Dictionary<string, string> ReadLeftPathRecord()
+        {
+            Dictionary<string, string> record = new();
+            if (!File.Exists(LeftPathRecord))
+            {
+                return record;
+            }
+
+            foreach (string line in File.ReadAllLines(LeftPathRecord))
+            {
+                int tab = line.IndexOf('\t');
+                if (tab >= 0)
+                {
+                    record[line.Substring(tab + 1)] = line.Substring(0, tab);
+                }
+            }
+
+            return record;
+        }
+
+        private static void WriteLeftPathRecord(Dictionary<string, string> record)
+        {
+            if (record.Count == 0)
+            {
+                if (File.Exists(LeftPathRecord))
+                {
+                    File.Delete(LeftPathRecord);
+                }
+
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(LeftPathRecord));
+            File.WriteAllLines(LeftPathRecord, record.Select(entry => $"{entry.Value}\t{entry.Key}"));
         }
 
         private string CreateTempFolder(string parentFolder)
