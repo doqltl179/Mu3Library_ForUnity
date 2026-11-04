@@ -86,6 +86,11 @@ namespace Mu3Library.Tests
             [Inject] public static IDependency Property { get; set; }
         }
 
+        private sealed class InstancePropertyOnly
+        {
+            [Inject(required: false)] public IDependency Property { get; private set; }
+        }
+
 
 
         private static XDocument BuildForTestAssembly()
@@ -196,7 +201,22 @@ namespace Mu3Library.Tests
             Assert.AreEqual("0", (string)FindType(document, nameof(StaticInject)).Attribute("required"));
             Assert.AreEqual("nothing", (string)property.Attribute("preserve"));
             CollectionAssert.AreEqual(new[] { "Property" }, Names(property, "property"));
-            Assert.AreEqual("nothing", (string)FindType(document, nameof(InjectLeaf)).Attribute("preserve"));
+        }
+
+        [Test]
+        public void BuildLinkXml_ClassWithAnInstanceInjectField_KeepsAllItsFields()
+        {
+            XDocument document = BuildForTestAssembly();
+            XElement propertyOnly = FindType(document, nameof(InstancePropertyOnly));
+
+            Assert.AreEqual("fields", (string)FindType(document, nameof(InjectLeaf)).Attribute("preserve"));
+            Assert.AreEqual("0", (string)FindType(document, nameof(InjectLeaf)).Attribute("required"));
+            Assert.AreEqual("fields", (string)FindType(document, nameof(InjectBase)).Attribute("preserve"));
+            Assert.AreEqual("fields", (string)FindType(document, nameof(BackingFieldInject)).Attribute("preserve"));
+            Assert.AreEqual("fields", (string)FindType(document, nameof(InjectedComponent)).Attribute("preserve"));
+            Assert.AreEqual("nothing", (string)propertyOnly.Attribute("preserve"));
+            CollectionAssert.AreEqual(new[] { "Property" }, Names(propertyOnly, "property"));
+            Assert.IsEmpty(Names(propertyOnly, "field"));
         }
 
         [Test]

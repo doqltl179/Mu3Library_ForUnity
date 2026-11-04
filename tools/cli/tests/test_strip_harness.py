@@ -249,6 +249,21 @@ class StripHarnessTemplateTests(unittest.TestCase):
             self.assertEqual(1, boot.count(name + '"'), name)
             self.assertEqual(boot.count(name), boot.count(name + '"'), name)
 
+    def test_repository_template_reaches_the_unread_instance_inject_field_only_by_reflection(self) -> None:
+        # The linker keeps the [Inject] attribute of a field that code reads, so the check shows
+        # what the link.xml keeps only while the field's declaration is its only mention.
+        harness = template_dir(repo_root()) / "Assets" / "Harness"
+        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
+        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
+
+        self.assertEqual(1, services.count("_injectedButUnread"))
+        self.assertEqual(0, boot.count("_injectedButUnread"))
+        self.assertIn("[Inject] private IUnreadFieldService _injectedButUnread;", services)
+        # Reflection on the class itself, such as typeof(...).GetField, can make the linker keep
+        # the field too, so the boot only creates it.
+        self.assertEqual(1, boot.count("UnreadFieldHolder"))
+        self.assertIn("new UnreadFieldHolder()", boot)
+
 
 class StripHarnessLogTests(unittest.TestCase):
     def test_parser_reads_checks_result_and_notes_among_unity_lines(self) -> None:

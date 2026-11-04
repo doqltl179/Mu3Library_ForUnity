@@ -150,6 +150,11 @@ namespace StripHarness
                 "field is static: StripHarness.DerivedStaticFieldHolder._strippedBaseStaticClock");
             Check("inject.required-static-base-field-throws", () => baseStaticField == null, () => baseStaticField);
 
+            // An instance [Inject] field that no code reads is filled only if the player kept its
+            // attribute for the container to find; filling it creates one transient service.
+            string unreadField = UnreadFieldInjectFailure(consumer?.Injector, new UnreadFieldHolder());
+            Check("inject.unread-instance-field", () => unreadField == null, () => unreadField);
+
 #if !UNITY_EDITOR
             Check("inject.player-only-member-with-preserve", () => consumer?.PlayerOnlyPreserved != null, () => $"{consumer?.PlayerOnlyPreserved}");
             Debug.Log($"HARNESS INFO player-only member without [Preserve] injected={consumer?.PlayerOnlyUnpreserved != null}");
@@ -246,6 +251,31 @@ namespace StripHarness
             {
                 return $"{ex.GetType().Name}: {ex.Message}";
             }
+        }
+
+        // Null when injecting target created exactly one UnreadFieldService; otherwise what
+        // happened instead. Reads the type through the object, as StaticInjectFailure does.
+        private static string UnreadFieldInjectFailure(IObjectInjector injector, object target)
+        {
+            if (injector == null)
+            {
+                return "no injector";
+            }
+
+            int before = Probe.Count("UnreadFieldService.ctor");
+            try
+            {
+                injector.Inject(target);
+            }
+            catch (Exception ex)
+            {
+                return $"{ex.GetType().Name}: {ex.Message}";
+            }
+
+            int created = Probe.Count("UnreadFieldService.ctor") - before;
+            return created == 1
+                ? null
+                : $"services created={created} ([Inject] fields found={InjectableMembers.GetFields(target.GetType()).Count})";
         }
 
         private static string SafeDescribe(Func<object> get)
