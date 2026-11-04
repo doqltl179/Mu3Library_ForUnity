@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,15 +8,19 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
+from fixture_repository import FixtureRepositoryTestCase
 from mu3_cli import repository
 from mu3_cli.cli import app
 from mu3_cli.repository import (
+    STALE_AGENT_REFERENCE_PARTS,
     agentkit_cli_path,
     is_generated_tool_artifact,
     package_code_issues,
     package_code_paths,
     repo_root,
     repository_hygiene_issues,
+    repository_text_paths,
+    tracked_tool_paths,
 )
 from mu3_cli.unity import create_directory_link, remove_directory_link
 
@@ -101,6 +106,68 @@ class PackageCodeCharacterTests(unittest.TestCase):
 
         self.assertIn("Mu3Library_Base/Runtime/Scripts/Multiplayer/Local/LobbyFilter.cs", paths)
         self.assertTrue(all(path.startswith("Mu3Library_") and path.endswith(".cs") for path in paths), paths)
+
+
+# Caf\u00e9, a name with a character outside ASCII.
+NON_ASCII_NAME = "Caf\u00e9"
+
+
+class NonAsciiPathTests(FixtureRepositoryTestCase):
+    """Git quotes a path that holds a character outside ASCII, and escapes that character's bytes,
+    unless it is told not to. Read that way, the path ends in a quote, so its suffix no longer
+    matches, and repo check would pass over the file without a word."""
+
+    # A package file Git tracks and one it does not, which git ls-files lists in separate passes.
+    PACKAGE_CODE = {
+        f"Mu3Library_X/Runtime/{NON_ASCII_NAME}.cs": True,
+        f"Mu3Library_X/Editor/{NON_ASCII_NAME}.cs": False,
+    }
+    REPOSITORY_TEXT = f"docs/{NON_ASCII_NAME}.md"
+    TOOL_ARTIFACT = f"tools/obj/{NON_ASCII_NAME}.json"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        # Git's default, set in the fixture itself so that no configuration of the user's turns it off.
+        cls._git("config", "core.quotepath", "true")
+        for relative_path in cls.PACKAGE_CODE:
+            cls.write(relative_path, "// fixture\nchar c = '\u200b';\n")
+        cls.write(cls.REPOSITORY_TEXT, f"See {STALE_AGENT_REFERENCE_PARTS[0]}.\n")
+        cls.write(cls.TOOL_ARTIFACT, "{}\n")
+        tracked = [path for path, is_tracked in cls.PACKAGE_CODE.items() if is_tracked]
+        cls._git("add", "--", *tracked, cls.TOOL_ARTIFACT)
+
+    @classmethod
+    def write(cls, relative_path: str, text: str) -> None:
+        path = cls.root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+
+    def setUp(self) -> None:
+        super().setUp()
+        # The listings run git in this process's environment, for which the fixture's stands in.
+        environment = mock.patch.dict(os.environ, self._environment(), clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def test_every_listing_names_the_file_as_it_is_spelled(self) -> None:
+        package_code = package_code_paths(self.root)
+        for relative_path in self.PACKAGE_CODE:
+            self.assertIn(relative_path, package_code)
+        self.assertIn(self.REPOSITORY_TEXT, repository_text_paths(self.root))
+        self.assertIn(self.TOOL_ARTIFACT, tracked_tool_paths(self.root))
+
+    def test_repo_check_inspects_each_listed_file(self) -> None:
+        issues = repository_hygiene_issues(self.root)
+
+        for relative_path in self.PACKAGE_CODE:
+            self.assertIn(
+                "invisible or private-use character U+200B in package code, "
+                f"write it as a \\u escape: {Path(relative_path)}:2",
+                issues,
+            )
+        self.assertIn(f"stale AI-agent routing reference: {Path(self.REPOSITORY_TEXT)}:1", issues)
+        self.assertIn(f"generated tooling artifact is tracked: {self.TOOL_ARTIFACT}", issues)
 
 
 class RepositoryRootSpellingTests(unittest.TestCase):

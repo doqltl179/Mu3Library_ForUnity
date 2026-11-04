@@ -22,21 +22,23 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Steam cannot be used. <c>SteamBackend.TryCreate</c> answers it when the Steam client is
         /// missing, Steam could not start, or Steam's native library could not be loaded (FR-1,
-        /// FR-39). A Steam backend answers it for a lobby creation, entry, or search and for an
-        /// invite request once the game shut Steam down or a Steam call failed in its native
-        /// library (FR-1), the lobby requests that Steam had not answered yet included, and for a
+        /// FR-39). A Steam backend answers it for a lobby creation, entry, or search, an avatar,
+        /// and an invite request once the game shut Steam down or a Steam call failed in its
+        /// native library (FR-1), the requests that Steam had not answered yet included, and for a
         /// lobby creation that failed because Steam had no connection. Once its Steam backend
         /// can no longer use Steam, the manager answers it at once to <c>CreateLobby</c>, which
-        /// cannot start taking connections then, and ends a session with it on its next
-        /// <c>Update</c>.
+        /// cannot start taking connections then, <c>SearchLobbies</c>, and <c>LoadAvatar</c>, and
+        /// ends a session with it on its next <c>Update</c>, or at once for a client whose
+        /// connection to the host or reliable send to it fails there.
         /// </summary>
         SteamNotRunning = 2,
         /// <summary>The Steam overlay is turned off or unavailable.</summary>
         OverlayUnavailable = 3,
         /// <summary>
         /// The backend refused or failed the request for a reason it does not name. The manager
-        /// also ends a session with it once its backend stops being available for a reason the
-        /// backend does not name, as one disposed before the manager.
+        /// also ends a session with it, and answers it to a lobby search and an avatar request,
+        /// once its backend stops being available for a reason the backend does not name, as one
+        /// disposed before the manager.
         /// </summary>
         BackendError = 4,
         /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>
@@ -74,8 +76,10 @@ namespace Mu3Library.Multiplayer.Data
         /// A connection could not be made: the client could not connect to the host, could not
         /// send its hello, or its connection closed during the join without a reason from the
         /// library; and the host could not start listening for connections when it created a
-        /// lobby (FR-29), unless its backend was a Steam backend that can no longer use Steam,
-        /// which answers <see cref="SteamNotRunning"/>.
+        /// lobby (FR-29). On a Steam backend that can no longer use Steam the lobby creation
+        /// answers <see cref="SteamNotRunning"/> instead, and so does a join whose connection or
+        /// hello fails there; on another backend that is no longer available such a join ends
+        /// with <see cref="BackendError"/>, as the session's end then does.
         /// </summary>
         ConnectionFailed = 26,
         /// <summary>

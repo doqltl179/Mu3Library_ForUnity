@@ -26,7 +26,8 @@ namespace Mu3Library.Multiplayer.Backend
     /// These promises hold while <see cref="IsAvailable"/> is true. Once it turns false, a backend
     /// need not report its connections closed, and one that is disposed answers nothing more: the
     /// manager ends its session on its next <see cref="MultiplayerManager.Update"/> instead, which
-    /// also answers a lobby creation or entry still pending (see <see cref="IsAvailable"/>). So a
+    /// also answers a lobby creation or entry still pending (see <see cref="IsAvailable"/>), and
+    /// answers the lobby searches and avatar requests still waiting itself. So a
     /// backend turns <see cref="IsAvailable"/> false only when it can no longer carry the
     /// session, never for an outage it may recover from, which it reports through its
     /// connections as above.

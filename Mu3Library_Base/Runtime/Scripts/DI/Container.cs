@@ -173,6 +173,42 @@ namespace Mu3Library.DI
         #endregion
 
         /// <summary>
+        /// How many descriptors this container holds. A registration only appends descriptors, so
+        /// the count before it marks where the descriptors it adds start.
+        /// </summary>
+        internal int DescriptorCount => _descriptors.Count;
+
+        /// <summary>
+        /// Remove the <paramref name="count"/> descriptors from <paramref name="start"/> on, which
+        /// one registration appended, and rebuild the lookup index over the ones that remain, so
+        /// the registration is undone and every other one resolves as before.
+        /// </summary>
+        internal void RemoveDescriptors(int start, int count)
+        {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            _descriptors.RemoveRange(start, count);
+
+            _descriptorIndex.Clear();
+            for (int i = 0; i < _descriptors.Count; i++)
+            {
+                ServiceDescriptor descriptor = _descriptors[i];
+                var indexKey = (descriptor.ServiceType, descriptor.Key);
+                if (_descriptorIndex.TryGetValue(indexKey, out List<int> indices))
+                {
+                    indices.Add(i);
+                }
+                else
+                {
+                    _descriptorIndex[indexKey] = new List<int> { i };
+                }
+            }
+        }
+
+        /// <summary>
         /// Get the last-registered descriptor for a service/key pair.
         /// </summary>
         internal ServiceDescriptor GetDescriptor(Type serviceType, string key)

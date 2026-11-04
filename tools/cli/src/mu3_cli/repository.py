@@ -83,53 +83,39 @@ def is_generated_tool_artifact(relative_path: str) -> bool:
     return any(part in {"bin", "obj"} or part.endswith(".egg-info") for part in parts)
 
 
-def tracked_tool_paths(root: Path) -> list[str]:
-    """List tracked files under tools without relying on shell-specific pipelines."""
+def _listed_paths(root: Path, *arguments: str) -> list[str]:
+    """Return the paths `git ls-files` lists with the arguments, each spelled as its file is named.
+
+    Without -z, Git quotes a path that holds a character outside ASCII and escapes that character's
+    bytes, as core.quotepath does by default, so the path ends in a quote and its suffix no longer
+    matches. With -z it prints every path as it is and ends each with NUL.
+    """
     result = subprocess.run(
-        ["git", "ls-files", "--", "tools"],
+        ["git", "ls-files", "-z", *arguments],
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
         encoding="utf-8",
     )
-    return [line for line in result.stdout.splitlines() if line]
+    return [path for path in result.stdout.split("\0") if path]
+
+
+def tracked_tool_paths(root: Path) -> list[str]:
+    """List tracked files under tools without relying on shell-specific pipelines."""
+    return _listed_paths(root, "--", "tools")
 
 
 def repository_text_paths(root: Path) -> list[str]:
     """List tracked and untracked, non-ignored repository text candidates."""
-    result = subprocess.run(
-        [
-            "git",
-            "ls-files",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            ".github",
-            "docs",
-            "tools",
-        ],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return [line for line in result.stdout.splitlines() if Path(line).suffix in REPOSITORY_TEXT_SUFFIXES]
+    paths = _listed_paths(root, "--cached", "--others", "--exclude-standard", "--", ".github", "docs", "tools")
+    return [path for path in paths if Path(path).suffix in REPOSITORY_TEXT_SUFFIXES]
 
 
 def package_code_paths(root: Path) -> list[str]:
     """List tracked and untracked, non-ignored package code files."""
-    result = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", PACKAGE_CODE_PATHSPEC],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return [line for line in result.stdout.splitlines() if Path(line).suffix in PACKAGE_CODE_SUFFIXES]
+    paths = _listed_paths(root, "--cached", "--others", "--exclude-standard", "--", PACKAGE_CODE_PATHSPEC)
+    return [path for path in paths if Path(path).suffix in PACKAGE_CODE_SUFFIXES]
 
 
 def hidden_characters(line: str) -> list[str]:
