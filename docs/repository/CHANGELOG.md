@@ -9,6 +9,9 @@ Package release notes remain in:
 
 ## 2026-11-04
 
+### Added
+- The DI stripping harness checks three required `static` `[Inject]` members that no code reads, a field, a property, and a field on a base class: injecting each class through `IObjectInjector` must throw the exception that names the member, which the container finds in a stripped player only when the link.xml keeps the member and its attribute (#329). It now has 34 checks. With the link.xml from before #329, a Mono High player on Unity 6000.6.7f1 failed all three; with the fields listed by name, the two field checks still failed at Medium and High, since the linker kept the fields but dropped their `[Inject]` attribute; with `preserve="fields"` on the classes that declare them, Mono Medium and High pass all 34 checks on Unity 6000.6.7f1 and 6000.3.17f1. A test of the tooling checks that the members' names appear in the harness only at their declarations and in the messages the boot expects, since any reference would keep them without the link.xml.
+
 ### Fixed
 - `mu3-cli repo check` reads every file it lists, including one whose path holds a character outside ASCII, such as `Café.cs`. It read `git ls-files` line by line, and with its default `core.quotepath` Git quotes such a path and escapes the character's bytes, so the path ended in a quote, matched no suffix the check reads, and was passed over while the check reported success. It now lists the paths with `-z`, which prints each one as it is named. No path in the repository held such a character.
 - `compile-unity.sh` and `test-unity.sh` warn once for each target, instead of twice, when `UNITY_EDITOR` or `UNITY` names an Editor other than the one the target asks for. The preflight warns for every target before the first Unity starts, so a run with the wrong Editor can be stopped before it spends minutes; the run of each target no longer repeats the warning and still prints the `Unity:` path it runs.

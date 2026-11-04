@@ -237,6 +237,18 @@ class StripHarnessTemplateTests(unittest.TestCase):
         self.assertEqual([], asmdef["references"])
         self.assertNotIn("Mu3Library", (template / "Plugin" / "HarnessPlugin.cs").read_text(encoding="utf-8").split("namespace")[1])
 
+    def test_repository_template_reaches_the_static_inject_members_only_by_reflection(self) -> None:
+        # The static-member checks show what the link.xml keeps only while no code reads or
+        # writes those members: any reference would keep them in the player without it.
+        harness = template_dir(repo_root()) / "Assets" / "Harness"
+        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
+        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
+
+        for name in ("_strippedStaticClock", "StrippedStaticClock", "_strippedBaseStaticClock"):
+            self.assertEqual(1, services.count(name), name)
+            self.assertEqual(1, boot.count(name + '"'), name)
+            self.assertEqual(boot.count(name), boot.count(name + '"'), name)
+
 
 class StripHarnessLogTests(unittest.TestCase):
     def test_parser_reads_checks_result_and_notes_among_unity_lines(self) -> None:
