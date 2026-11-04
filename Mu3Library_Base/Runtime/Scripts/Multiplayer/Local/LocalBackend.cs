@@ -55,7 +55,7 @@ namespace Mu3Library.Multiplayer.Local
     /// So the player name travels cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
     /// characters, as the roster cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
     /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
-    /// as Steam refuses a key or a value too long for it.
+    /// each with a warning, as Steam refuses a key or a value too long for it.
     /// </para>
     /// <para>
     /// On a machine-wide network a backend's lobby file lists at most 64 lobbies, each with at
@@ -63,11 +63,21 @@ namespace Mu3Library.Multiplayer.Local
     /// that differ only in case as one, since the lobby keeps them as one key; and a frame brings
     /// a lobby to its members with no more entries. So <see cref="CreateLobby"/> answers
     /// <see cref="MultiplayerReason.BackendError"/> when the backend already owns 64 lobbies or
-    /// the data holds more than 4,096 keys, and <see cref="SetLobbyData"/> refuses with false a
+    /// the lobby would hold more than 4,096 keys, an entry with an empty value making none, and
+    /// <see cref="SetLobbyData"/> refuses with false a
     /// new key that would make a lobby hold more than 4,096, each with a warning; a key the lobby
-    /// holds can still change. A <see cref="MultiplayerManager"/>, which owns one lobby at a time
-    /// and bounds its lobby data by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well
-    /// within both. A lobby that passes to a backend that already owns 64 is still taken over,
+    /// holds can still change. The file also takes at most 1 MiB, and a frame a lobby of at most
+    /// 1 MiB less 4 bytes, counted as each writes it: the frame with the members' names and
+    /// 4-byte lengths, the file without the names and with shorter lengths. So
+    /// <see cref="CreateLobby"/> also answers <see cref="MultiplayerReason.BackendError"/> for a
+    /// lobby that a frame cannot carry or that would take the file past 1 MiB beside the other
+    /// lobbies the backend owns, and <see cref="SetLobbyData"/> refuses with false a change that
+    /// would grow a lobby past either, each with a warning; a change that does not grow it still
+    /// goes through. The frame is counted with the members the lobby has at the time, so a lobby
+    /// within a few hundred bytes of the limit can still grow past it as players join. A
+    /// <see cref="MultiplayerManager"/>, which owns one lobby at a time and bounds its lobby data
+    /// by <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, stays well within all of these. A
+    /// lobby that passes to a backend that already owns 64 is still taken over,
     /// since refusing it would end the lobby for its members; its lobby file then lists the 64
     /// lobbies the backend has owned longest and leaves out the one taken over, with a warning the
     /// first time, so that lobby is missing from the other processes' search and joins by its ID
@@ -452,12 +462,17 @@ namespace Mu3Library.Multiplayer.Local
                 return;
             }
 
-            Dictionary<string, string> snapshot = new Dictionary<string, string>();
+            // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
+            // lobby lacks, as a Steam lobby writes none (#343); keys in any case, as the lobby keeps them.
+            Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    snapshot[pair.Key] = pair.Value;
+                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(pair.Key))
+                    {
+                        snapshot[pair.Key] = pair.Value ?? string.Empty;
+                    }
                 }
             }
 
@@ -570,8 +585,9 @@ namespace Mu3Library.Multiplayer.Local
                 return _machine.GetLobbyData(lobbyId, key);
             }
 
+            // An empty value reads as none, as the Steam backend reads it (#343).
             LocalLobby lobby = _network.FindLobby(lobbyId);
-            return lobby != null && key != null && lobby.Data.TryGetValue(key, out string value) ? value : null;
+            return lobby != null && key != null && lobby.Data.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value) ? value : null;
         }
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
@@ -585,6 +601,13 @@ namespace Mu3Library.Multiplayer.Local
             if (lobby == null || string.IsNullOrEmpty(key))
             {
                 return false;
+            }
+
+            // An empty value writes no key the lobby lacks and answers true, and leaves a key it
+            // holds with the empty value, as a Steam lobby did (#343).
+            if (string.IsNullOrEmpty(value) && !lobby.Data.ContainsKey(key))
+            {
+                return true;
             }
 
             lobby.Data[key] = value ?? string.Empty;
@@ -604,8 +627,8 @@ namespace Mu3Library.Multiplayer.Local
                 return false;
             }
 
-            lobby.Data.Remove(key);
-            return true;
+            // False for a key the lobby lacks, as Steam answers (#343).
+            return lobby.Data.Remove(key);
         }
 
         public bool SetLobbyJoinable(LobbyId lobbyId, bool joinable)

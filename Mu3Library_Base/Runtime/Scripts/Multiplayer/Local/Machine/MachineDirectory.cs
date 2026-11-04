@@ -126,9 +126,22 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// of it with the length of each string, so <see cref="MaxListedLobbies"/> of them fit,
         /// and so does any one lobby that can reach its members: the frame that carries a lobby
         /// (<see cref="MachineProtocol.MaxFrameBytes"/>) takes more bytes for it than the file
-        /// does. An owner leaves a lobby that does not fit out of its file.
+        /// does. A <see cref="LocalBackend"/> refuses a lobby or a change that would take its file
+        /// past it with every lobby it owns listed (<see cref="ListingFixedBytes"/>,
+        /// <see cref="ListedBytes"/>), and an owner leaves a lobby that does not fit, which only
+        /// taking lobbies over brings, out of its file.
         /// </summary>
         internal const int MaxFileBytes = 1024 * 1024;
+
+        /// <summary>
+        /// What <see cref="Publish"/> writes before the lobbies: the file's mark and version, the
+        /// time written, the owner's port and ID, and the lobby count.
+        /// </summary>
+        internal const int ListingFixedBytes = sizeof(int) + sizeof(int) + sizeof(long) + sizeof(int) + sizeof(ulong) + sizeof(int);
+
+        // What Publish writes for a lobby before its data: the lobby ID, the visibility, the
+        // capacity, the member count, whether it is joinable, and the data count.
+        private const int ListedLobbyFixedBytes = sizeof(ulong) + 1 + sizeof(int) + sizeof(int) + 1 + sizeof(int);
 
         private enum FileRead
         {
@@ -299,6 +312,41 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 _hasPending = true;
                 Monitor.Pulse(_gate);
             }
+        }
+
+        /// <summary>
+        /// The bytes <see cref="Publish"/> writes for the lobby, counted field by field as it
+        /// writes them, without writing; a file takes <see cref="ListingFixedBytes"/> more. Change
+        /// it with <see cref="Publish"/>: <c>MultiplayerLocalMachineTests</c> compare the two.
+        /// </summary>
+        internal static int ListedBytes(MachineLobby lobby)
+        {
+            int bytes = ListedLobbyFixedBytes;
+            foreach (KeyValuePair<string, string> pair in lobby.Data)
+            {
+                bytes += ListedEntryBytes(pair.Key, pair.Value);
+            }
+
+            return bytes;
+        }
+
+        /// <summary>The bytes one lobby data entry takes in what <see cref="Publish"/> writes.</summary>
+        internal static int ListedEntryBytes(string key, string value) => StringBytes(key) + StringBytes(value);
+
+        /// <summary>
+        /// What <see cref="BinaryWriter.Write(string)"/> writes: the count of UTF-8 bytes as a
+        /// 7-bit encoded number, seven bits to a byte, then the bytes.
+        /// </summary>
+        private static int StringBytes(string value)
+        {
+            int length = Encoding.UTF8.GetByteCount(value ?? string.Empty);
+            int prefix = 1;
+            for (int rest = length >> 7; rest != 0; rest >>= 7)
+            {
+                prefix++;
+            }
+
+            return prefix + length;
         }
 
         /// <summary>True once after a listing could not be written.</summary>

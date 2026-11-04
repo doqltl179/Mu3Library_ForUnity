@@ -38,8 +38,8 @@ namespace Mu3Library.Multiplayer
         {
             // An empty value deletes the key. A Steam lobby keeps a key it holds when the key is
             // set to an empty value, but writes none for a key it lacks (AppID 480, 2026-11-04,
-            // #313), so the empty value would leave Steam's lobby, the local backends' lobbies,
-            // and every player's copy holding different keys.
+            // #313), and the local backends do the same (#343), so the empty value would leave
+            // the lobby and every player's copy holding different keys.
             if (IsEmptyValue(value))
             {
                 return DeleteLobbyData(key);

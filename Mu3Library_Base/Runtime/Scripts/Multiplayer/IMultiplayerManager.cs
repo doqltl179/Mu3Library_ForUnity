@@ -221,11 +221,12 @@ namespace Mu3Library.Multiplayer
         /// <see cref="MultiplayerLimits.MaxLobbyDataSize"/>, and search neither returns it nor
         /// finds the lobby by it; a key the lobby data does not hold changes nothing. A lobby
         /// created with an empty value in <see cref="LobbyCreateOptions.Data"/> starts without
-        /// that key. Steam would otherwise keep or drop the key by whether its lobby held it: on
+        /// that key. The lobby would otherwise keep or drop the key by whether it held it: on
         /// AppID 480 on 2026-11-04 a Steam lobby kept a key it held as a key with an empty value,
         /// which search returned and a filter for the empty value matched, but wrote no key it
-        /// lacked, so <see cref="LobbyData"/>, search, and the local backends would have held
-        /// different keys.
+        /// lacked, and the local backends' lobbies do the same
+        /// (<see cref="IMultiplayerBackend.SetLobbyData"/>), so <see cref="LobbyData"/>
+        /// and search would have held different keys.
         /// </para>
         /// </summary>
         public MultiplayerResult SetLobbyData(string key, string value);

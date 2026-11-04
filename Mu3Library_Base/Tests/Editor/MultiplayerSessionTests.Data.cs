@@ -273,6 +273,58 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Backend_WritingAnEmptyValue_KeepsOnlyAKeyTheLobbyHolds_AndSearchFiltersItAsSteamDoes()
+        {
+            // #343 in this process: the backend itself, which the manager never hands an empty
+            // value (#313), takes one as a Steam lobby took it on AppID 480 on 2026-11-04.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            Dictionary<string, string> data = new Dictionary<string, string>
+            {
+                ["map"] = "desert",
+                ["e1"] = string.Empty,
+                ["n1"] = null,
+                [EmptyValueKey] = "v",
+            };
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, data, (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+            Assert.That(_network.FindLobby(lobby).Data.Keys, Is.EquivalentTo(new[] { "map", EmptyValueKey }), "an empty value at creation writes no key");
+
+            // An empty value writes no key the lobby lacks, answering true, and leaves one it holds empty.
+            Assert.That(owner.SetLobbyData(lobby, "never", string.Empty), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "never", null), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, EmptyValueKey.ToUpperInvariant(), string.Empty), Is.True);
+            Assert.That(_network.FindLobby(lobby).Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", [EmptyValueKey] = string.Empty }));
+            Assert.That(owner.GetLobbyData(lobby, EmptyValueKey), Is.Null, "the Steam backend reads an empty value as none");
+            Assert.That(owner.DeleteLobbyData(lobby, "never"), Is.False, "Steam refuses to delete a key the lobby lacks");
+
+            // Search returns the key with the empty value, and filters compare it as Steam's did.
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            Assert.That(all.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", [EmptyValueKey] = string.Empty }));
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, Func<LobbySearchQuery, LobbySearchQuery> addTo, bool isKept) in EmptyValueFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(addTo(new LobbySearchQuery()), (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            Assert.That(owner.DeleteLobbyData(lobby, EmptyValueKey), Is.True);
+            Assert.That(_network.FindLobby(lobby).Data.Keys, Is.EquivalentTo(new[] { "map" }));
+        }
+
+        [Test]
         public void LobbyData_DeletionFromAClient_IsRefusedWithNotHost_AndTheLibrarysKeysStay()
         {
             // FR-11: deleting follows the rules of setting.
@@ -456,6 +508,43 @@ namespace Mu3Library.Tests
                     {
                         yield return (key, filter, comparison, false);
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The key that <see cref="EmptyValueFilterChecks"/> search a lobby by, which the lobby
+        /// holds with an empty value: only a caller of a backend itself writes one, since the
+        /// manager deletes a key written empty (#313).
+        /// </summary>
+        internal const string EmptyValueKey = "raw";
+
+        /// <summary>
+        /// Each filter to search with on <see cref="EmptyValueKey"/>, held with an empty value, and
+        /// whether it keeps the lobby: what Steam's search on AppID 480 gave for all six
+        /// comparisons of each on 2026-11-04 (#343). A string filter compares the empty value as an
+        /// empty string, and a numeric filter reads it as 0. Every backend gives these results;
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        internal static IEnumerable<(string Description, Func<LobbySearchQuery, LobbySearchQuery> AddTo, bool IsKept)> EmptyValueFilterChecks()
+        {
+            foreach (string filter in new[] { string.Empty, "x" })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"the empty value {comparison} '{filter}'",
+                        query => query.AddStringFilter(EmptyValueKey, filter, comparison),
+                        IsKeptBy(filter.Length == 0 ? 0 : -1, comparison));
+                }
+            }
+
+            foreach (int number in new[] { 0, 1, -1 })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"the empty value {comparison} the number {number}",
+                        query => query.AddNumericFilter(EmptyValueKey, number, comparison),
+                        IsKeptBy(0.CompareTo(number), comparison));
                 }
             }
         }
