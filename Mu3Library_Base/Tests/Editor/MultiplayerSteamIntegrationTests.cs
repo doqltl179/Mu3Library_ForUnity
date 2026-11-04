@@ -732,6 +732,35 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamBackend_AfterSteamShutsDownAndStartsAgain_StaysUnavailable_AndLeavesTheNewSteamRunning()
+        {
+            // #322: Steamworks.NET let go of the backend's callbacks when Steam shut down, and its
+            // sockets and lobbies belonged to that Steam, so the backend from before does not come
+            // back with the new Steam. Disposing it touches nothing of the new Steam, which it
+            // would otherwise shut down when it started the one before.
+            Steamworks.SteamAPI.Shutdown();
+            Assert.That(_backend.IsAvailable, Is.False);
+
+            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480 }, out SteamBackend again);
+            try
+            {
+                Assert.That(created.IsSuccess, Is.True, created.ToString());
+                Assert.That(Steamworks.CallbackDispatcher.IsInitialized, Is.True, "Steam runs again");
+                Assert.That(_backend.IsAvailable, Is.False, "the backend from before stays unavailable");
+                Assert.That(_backend.InviteFriend(new LobbyId(109775241000000001UL), new PlayerId(PublicAccountId)).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+
+                _backend.Dispose();
+                Assert.That(Steamworks.CallbackDispatcher.IsInitialized, Is.True, "the new Steam still runs");
+                Assert.That(again.IsAvailable, Is.True);
+                Assert.That(again.GetPlayerName(again.LocalPlayerId), Is.Not.Empty, "the new backend uses the new Steam");
+            }
+            finally
+            {
+                again?.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamAvatar_OfAPublicAccountThatIsNoFriend_IsDownloaded_AfterAskingSteamOnce()
         {
             // FR-4 through the path that downloads an avatar first: an account this one is no

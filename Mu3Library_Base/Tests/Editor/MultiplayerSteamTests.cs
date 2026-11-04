@@ -350,6 +350,48 @@ namespace Mu3Library.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
+        [Test]
+        public void ABackendThatFoundSteamStopped_StaysUnavailable_AfterSteamStartsAgain()
+        {
+            // #322: Steamworks.NET lets go of the backend's callbacks when Steam shuts down, and its
+            // sockets and lobbies belonged to that Steam, so the backend uses no Steam started
+            // again. Here every Steam call would fail and warn, so the quiet run shows that the
+            // backend calls Steam no more, its update and its dispose included.
+            AssumeSteamCallsFail();
+            SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions { RunSteamCallbacks = true });
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig("tests.steam", 1)).IsSuccess, Is.True);
+                backend.HoldForTests(new ConnectionId(7), SomeAccount, SomeLobby);
+
+                backend.SetSteamRunsForTests(false);
+                manager.Update();
+                Assert.That(backend.IsAvailable, Is.False, "Steam shut down");
+
+                backend.SetSteamRunsForTests(true);
+                Assert.That(backend.IsAvailable, Is.False, "Steam started again");
+                manager.Update();
+
+                MultiplayerResult? created = null;
+                manager.CreateLobby(new LobbyCreateOptions(), result => created = result);
+                Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning), "the reason the backend names while it cannot use Steam");
+                Assert.That(backend.InviteFriend(SomeLobby, SomeAccount).Reason, Is.EqualTo(MultiplayerReason.SteamNotRunning));
+
+                manager.Dispose();
+                backend.Dispose();
+                Assert.That(backend.HeldConnectionCount, Is.Zero);
+                Assert.That(backend.HeldLobbyCount, Is.Zero);
+            }
+            finally
+            {
+                manager.Dispose();
+                backend.Dispose();
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
         private static readonly LobbyId SomeLobby = new LobbyId(109775241000000001UL);
         private static readonly PlayerId SomeAccount = new PlayerId(76561197960435530UL);
         private static readonly Regex FailedCallWarning = new Regex(@"The Steam backend is no longer available: a Steam call failed \(\w+\)");
