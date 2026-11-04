@@ -177,15 +177,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
             {
                 List<BackendLobby> results = new List<BackendLobby>();
 
-                // This player's own lobbies as they are now, the others as their owners last listed them.
+                // This player's own lobbies as they are now, the others as their owners last listed
+                // them, each with the capacity its lobby file lists (#368).
                 foreach (MachineLobby lobby in _lobbies.Values)
                 {
-                    if (results.Count < snapshot.MaxResults
-                        && lobby.IsOwned
-                        && IsSearchable(lobby.Visibility, lobby.IsJoinable, lobby.Members.Count, lobby.Capacity)
+                    if (results.Count >= snapshot.MaxResults || !lobby.IsOwned)
+                    {
+                        continue;
+                    }
+
+                    int capacity = MachineDirectory.ListedCapacity(lobby);
+                    if (IsSearchable(lobby.Visibility, lobby.IsJoinable, lobby.Members.Count, capacity)
                         && LobbyFilter.Matches(lobby.Data, snapshot))
                     {
-                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, lobby.Capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
+                        results.Add(new BackendLobby(lobby.Id, lobby.Members.Count, capacity, new Dictionary<string, string>(lobby.Data, StringComparer.OrdinalIgnoreCase)));
                     }
                 }
 
@@ -539,10 +544,13 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         // lobby past what a frame carries, so the player would drop it; a few bytes
                         // more, and every member would drop the next frame that brings the lobby,
                         // losing its link to this player (#352). The join is refused as CreateLobby
-                        // and SetLobbyData refuse such a lobby (#346); the lobby file lists no
-                        // members, so a join never grows it.
+                        // and SetLobbyData refuse such a lobby (#346), with the reason a full lobby
+                        // gives, since the lobby has no room left for this player: its lobby file
+                        // lists it as full by now (MachineDirectory.ListedCapacity), so only a join
+                        // by its ID or one that read an older file comes here (#368). The lobby
+                        // file lists no members, so a join never grows it.
                         Debug.LogWarning(FrameSizeWarning + $"; player {player} was not let into lobby {lobbyId}, which it would take past them.");
-                        code = (int)MultiplayerReason.BackendError;
+                        code = (int)MultiplayerReason.SessionFull;
                     }
                     else
                     {
