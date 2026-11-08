@@ -1468,13 +1468,16 @@ class UnreadableLongPathTests(FixtureRepositoryTestCase):
 
     The lines take the forms of a first import from a deep worktree with Unity 6000.6.7f1 (#382)."""
 
-    def warning(self, *lines: str) -> str:
+    def warning(self, *lines: str, host: str = "windows") -> str:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.log = Path(directory.name) / "unity.log"
         self.log.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
         completed = self.run_functions(
-            "compile-unity.sh", 'find_unreadable_long_paths "$1"\nprintf %s "$UNREADABLE_PATHS_WARNING"', str(self.log)
+            "compile-unity.sh",
+            'HOST_PLATFORM="$2"\nfind_unreadable_long_paths "$1"\nprintf %s "$UNREADABLE_PATHS_WARNING"',
+            str(self.log),
+            host,
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
         return completed.stdout
@@ -1516,6 +1519,14 @@ class UnreadableLongPathTests(FixtureRepositoryTestCase):
     def test_a_log_without_such_a_file_gives_no_warning(self) -> None:
         self.assertEqual("", self.warning("Loading", utp_error(unreadable(package_cache_path(280, "Window.uss")))))
         self.assertEqual("", self.warning(unreadable("C:\\Project\\Assets\\Missing.txt")))
+
+    def test_another_host_is_not_warned(self) -> None:
+        # Only Windows has the limit, so a long path missing elsewhere has another cause.
+        line = unreadable(package_cache_path(280, "Window.uss"), asset="Packages/com.unity.example/Window.uxml")
+
+        self.assertTrue(self.warning(line).startswith("Unity could not read 1 file(s) "))
+        self.assertEqual("", self.warning(line, host="linux"))
+        self.assertEqual("", self.warning(line, host="macos"))
 
 
 class ProjectPathLengthTests(FixtureRepositoryTestCase):
@@ -1564,6 +1575,7 @@ class ProjectPathLengthTests(FixtureRepositoryTestCase):
         self.assertEqual("", self.warning(200, host="macos"))
 
 
+@unittest.skipUnless(platform.system() == "Windows", "only Windows limits the paths Unity's asset import reads")
 class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
     """Both entry points warn when Unity's log names a file it could not read past the path limit."""
 
@@ -1594,6 +1606,25 @@ class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
                     self.assertEqual(warnings, lines[-len(keys):])
                 else:
                     self.assertEqual(1, lines.count(warnings[0]), completed.stdout)
+
+    def test_a_failed_compile_ends_the_run_after_its_own_warning_without_repeating_it(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'compile_main "$@" 2>&1',
+            "all",
+            environment=self.unity_environment(FAKE_UNITY_LOG=self.LOG, FAKE_UNITY_STATUS="3"),
+        )
+
+        self.assertEqual(3, completed.returncode, completed.stdout)
+        lines = completed.stdout.splitlines()
+        warning = (
+            "warning: shared: Unity could not read 1 file(s) whose paths have 260 characters or more; "
+            "see log/unity-compile/shared.log"
+        )
+        self.assertEqual(
+            [warning, "error: Unity compilation failed for shared (exit 3)"], lines[-2:], completed.stdout
+        )
+        self.assertEqual(1, lines.count(warning), completed.stdout)
 
     def test_test_summary_gives_the_warning_under_its_target(self) -> None:
         warning = (

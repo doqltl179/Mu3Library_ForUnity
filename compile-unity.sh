@@ -72,7 +72,8 @@ readonly LONGEST_PROJECT_FILE_PATH=161
 # run_unity_for_target leaves its warnings about that limit for the target it
 # ran last here: about the project folder, before Unity starts, and about the
 # files Unity's log says it could not read, after it exits. COMPILE_WARNINGS
-# keeps every one of a compile run, which compile_main repeats at its end.
+# keeps every one of a compile run, which compile_main repeats once every target
+# has compiled; a failed compile ends the run right after its own warnings.
 PATH_LIMIT_WARNING=""
 UNREADABLE_PATHS_WARNING=""
 COMPILE_WARNINGS=()
@@ -295,9 +296,10 @@ On Windows Unity cannot import a package file whose path has 260 characters or
 more, and the run does not fail for it. Before Unity starts, the script warns
 when the project folder Unity opens, in place or in a mirror, has 98 characters
 or more; after Unity exits, it warns when the log names files Unity could not
-read for that reason. A run of several targets repeats the warnings at its end.
-Run from a shorter path, such as a drive letter that subst maps to the
-checkout; see tools/README.md.
+read for that reason. Once every target of a run of several has compiled, the
+script repeats the warnings; a failed compile ends the run at once, right after
+its own warnings and error. Run from a shorter path, such as a drive letter
+that subst maps to the checkout; see tools/README.md.
 
 Changed mode includes staged, unstaged, and untracked files. With --base it
 also includes committed changes from the requested ref through HEAD. Package
@@ -1013,7 +1015,8 @@ copy_tree_contents() {
 # Unity opens as the project, in place or in a mirror as the location says: on
 # Windows, when the longest path measured below a project reaches
 # WINDOWS_PATH_LIMIT there. Unity also clones git-URL package dependencies into
-# Library/PackageCache, which a path this long can break as well.
+# Library/PackageCache, which a path this long can break as well. Bash counts
+# the folder's length by the locale, as find_unreadable_long_paths says of awk.
 check_project_path_length() {
     local project_folder="$1"
     local location="$2"
@@ -1041,8 +1044,15 @@ check_project_path_length() {
 
 # Sets UNREADABLE_PATHS_WARNING to a warning, or to nothing, about the files that
 # Unity's log says it could not find at paths of WINDOWS_PATH_LIMIT characters or
-# more, and the asset imports that failed on them, naming each DLL among them. With -automated Unity logs each error again in a ##utp: line,
-# which is left out, and a file or an asset that fails twice counts once.
+# more, and the asset imports that failed on them, naming each DLL among them:
+# on Windows only, the one host with that limit. With -automated Unity logs each
+# error again in a ##utp: line, which is left out, and a file or an asset that
+# fails twice counts once.
+# awk counts length() in characters under a UTF-8 locale and in bytes otherwise,
+# as the gawk 5.0.0 of Git Bash does without LANG. Bytes never fall short of the
+# UTF-16 units that Windows counts, so a non-ASCII path can only be over-counted
+# and warned about early; characters match those units except outside the Basic
+# Multilingual Plane.
 find_unreadable_long_paths() {
     local log_file="$1"
     local files=""
@@ -1050,6 +1060,8 @@ find_unreadable_long_paths() {
     local dlls=""
 
     UNREADABLE_PATHS_WARNING=""
+    detect_host_platform
+    [[ "$HOST_PLATFORM" == "windows" ]] || return 0
     [[ -f "$log_file" ]] || return 0
 
     {
