@@ -51,6 +51,8 @@ HARNESS CHECK inject.field PASS
 HARNESS INFO player-only member without [Preserve] injected=False
 HARNESS RESULT PASS checks=2 failures=0 errorLogs=0
 """
+HARNESS_BOOT = "Assets/Harness/StripHarnessBoot.cs"
+HARNESS_SERVICES = "Assets/Harness/StripHarnessServices.cs"
 
 
 def temporary_root(test: unittest.TestCase) -> Path:
@@ -239,64 +241,98 @@ class StripHarnessTemplateTests(unittest.TestCase):
 
     def test_repository_template_reaches_the_static_inject_members_only_by_reflection(self) -> None:
         # The static-member checks show what the link.xml keeps only while no code reads or
-        # writes those members: any reference would keep them in the player without it.
-        harness = template_dir(repo_root()) / "Assets" / "Harness"
-        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
-        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
+        # writes those members: any reference would keep them in the player without it. The
+        # boot names each member and its class once more, in the message it expects.
+        field = '"field is static: StripHarness.StaticFieldHolder._strippedStaticClock"'
+        prop = '"property is static: StripHarness.StaticPropertyHolder.StrippedStaticClock"'
+        base_field = '"field is static: StripHarness.DerivedStaticFieldHolder._strippedBaseStaticClock"'
 
-        for name in ("_strippedStaticClock", "StrippedStaticClock", "_strippedBaseStaticClock"):
-            self.assertEqual(1, services.count(name), name)
-            self.assertEqual(1, boot.count(name + '"'), name)
-            self.assertEqual(boot.count(name), boot.count(name + '"'), name)
+        self.assert_named_only_at(
+            "_strippedStaticClock",
+            (HARNESS_BOOT, field),
+            (HARNESS_SERVICES, "[Inject] private static IClock _strippedStaticClock;"),
+        )
+        self.assert_named_only_at(
+            "StrippedStaticClock",
+            (HARNESS_BOOT, prop),
+            (HARNESS_SERVICES, "[Inject] public static IClock StrippedStaticClock { get; set; }"),
+        )
+        self.assert_named_only_at(
+            "_strippedBaseStaticClock",
+            (HARNESS_BOOT, base_field),
+            (HARNESS_SERVICES, "[Inject] private static IClock _strippedBaseStaticClock;"),
+        )
+        self.assert_named_only_at(
+            "StaticFieldHolder",
+            (HARNESS_BOOT, "new StaticFieldHolder()"),
+            (HARNESS_BOOT, field),
+            (HARNESS_SERVICES, "public sealed class StaticFieldHolder"),
+        )
+        self.assert_named_only_at(
+            "StaticPropertyHolder",
+            (HARNESS_BOOT, "new StaticPropertyHolder()"),
+            (HARNESS_BOOT, prop),
+            (HARNESS_SERVICES, "public sealed class StaticPropertyHolder"),
+        )
+        self.assert_named_only_at(
+            "DerivedStaticFieldHolder",
+            (HARNESS_BOOT, "new DerivedStaticFieldHolder()"),
+            (HARNESS_BOOT, base_field),
+            (HARNESS_SERVICES, "public sealed class DerivedStaticFieldHolder : StaticFieldHolderBase"),
+        )
+        self.assert_named_only_at(
+            "StaticFieldHolderBase",
+            (HARNESS_SERVICES, "public abstract class StaticFieldHolderBase"),
+            (HARNESS_SERVICES, "public sealed class DerivedStaticFieldHolder : StaticFieldHolderBase"),
+        )
 
     def test_repository_template_reaches_the_unread_instance_inject_field_only_by_reflection(self) -> None:
         # The linker keeps the [Inject] attribute of a field that code reads, so the check shows
         # what the link.xml keeps only while the field's declaration is its only mention.
-        harness = template_dir(repo_root()) / "Assets" / "Harness"
-        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
-        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
-
-        self.assertEqual(1, services.count("_injectedButUnread"))
-        self.assertEqual(0, boot.count("_injectedButUnread"))
-        self.assertIn("[Inject] private IUnreadFieldService _injectedButUnread;", services)
-        self.assert_class_is_only_declared_and_created("UnreadFieldHolder")
+        self.assert_named_only_at(
+            "_injectedButUnread", (HARNESS_SERVICES, "[Inject] private IUnreadFieldService _injectedButUnread;")
+        )
+        self.assert_named_only_at(
+            "UnreadFieldHolder",
+            (HARNESS_BOOT, "new UnreadFieldHolder()"),
+            (HARNESS_SERVICES, "public sealed class UnreadFieldHolder"),
+        )
 
     def test_repository_template_reaches_the_unread_instance_inject_property_only_by_reflection(self) -> None:
         # A call to the property's getter or setter would keep it in the player without the
         # link.xml, so the check shows what the link.xml keeps only while the property's
         # declaration is its only mention.
-        harness = template_dir(repo_root()) / "Assets" / "Harness"
-        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
-        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
-
-        self.assertEqual(1, services.count("InjectedButUnreadProperty"))
-        self.assertEqual(0, boot.count("InjectedButUnreadProperty"))
-        self.assertIn(
-            "[Inject] public IUnreadPropertyService InjectedButUnreadProperty { get; private set; }", services
+        self.assert_named_only_at(
+            "InjectedButUnreadProperty",
+            (HARNESS_SERVICES, "[Inject] public IUnreadPropertyService InjectedButUnreadProperty { get; private set; }"),
         )
-        self.assert_class_is_only_declared_and_created("UnreadPropertyHolder")
+        self.assert_named_only_at(
+            "UnreadPropertyHolder",
+            (HARNESS_BOOT, "new UnreadPropertyHolder()"),
+            (HARNESS_SERVICES, "public sealed class UnreadPropertyHolder"),
+        )
 
-    def assert_class_is_only_declared_and_created(self, holder: str) -> None:
-        # Reflection on the class itself, such as typeof(...).GetField, can make the linker keep
-        # its member too, so outside whole-line comments the harness's assets name the class only
-        # in its declaration and where the boot creates it.
-        assets = template_dir(repo_root()) / "Assets"
-        name = re.compile(rf"\b{holder}\b")
+    def assert_named_only_at(self, name: str, *places: tuple[str, str]) -> None:
+        # Reflection on a member or on its class, such as typeof(...).GetField or
+        # Type.GetType("..."), can make the linker keep the member too, so outside whole-line
+        # comments the code a harness player is built from, every file under Assets/ and Plugin/,
+        # names it only on the lines given, in file order: each holds its text, which names it once.
+        template = template_dir(repo_root())
+        pattern = re.compile(rf"\b{re.escape(name)}\b")
         mentions = [
-            (path.relative_to(assets).as_posix(), line.strip())
-            for path in sorted(assets.rglob("*"))
+            (path.relative_to(template).as_posix(), line.strip())
+            for folder in ("Assets", "Plugin")
+            for path in sorted((template / folder).rglob("*"))
             if path.is_file()
             for line in path.read_text(encoding="utf-8").splitlines()
-            if name.search(line) and not line.lstrip().startswith("//")
+            if pattern.search(line) and not line.lstrip().startswith("//")
         ]
 
-        self.assertEqual(
-            ["Harness/StripHarnessBoot.cs", "Harness/StripHarnessServices.cs"], [path for path, _ in mentions], mentions
-        )
-        (_, creation), (_, declaration) = mentions
-        self.assertEqual(1, len(name.findall(creation)), creation)
-        self.assertIn(f"new {holder}()", creation)
-        self.assertEqual(f"public sealed class {holder}", declaration)
+        self.assertEqual([path for path, _ in places], [path for path, _ in mentions], mentions)
+        for (_, text), (_, line) in zip(places, mentions):
+            self.assertEqual(1, len(pattern.findall(text)), text)
+            self.assertIn(text, line, mentions)
+            self.assertEqual(1, len(pattern.findall(line)), mentions)
 
 
 class StripHarnessLogTests(unittest.TestCase):

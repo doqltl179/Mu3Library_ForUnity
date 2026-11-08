@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-08
+
+### Fixed
+- The tooling tests that keep the DI stripping harness's checks of `[Inject]` members that no code reads meaningful read every file under `tools/di-strip-harness/Assets/` and `Plugin/`, the code a harness player is built from, and skip whole-line comments. Each member's name may appear only in its declaration and, for a static member, in the message the boot expects; each class that declares one, and the static field's base class, only in its declaration, where the boot creates it, that message, and the derived class's declaration. The tests counted the members' names only in the harness's services and boot files, checked the two instance members' classes only under `Assets/`, and did not check the static members' classes at all, though the 2026-11-04 entries said the names appeared in the harness only at their declarations. Reflection in another harness file, such as `GetField("_injectedButUnread")` or `typeof(StaticFieldHolder)`, can keep the member in the player without the link.xml, so the check would pass whatever the link.xml holds (#380).
+
 ## 2026-11-04
 
 ### Added
