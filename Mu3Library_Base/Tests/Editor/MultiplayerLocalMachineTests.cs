@@ -1211,7 +1211,8 @@ namespace Mu3Library.Tests
                 }
             });
 
-            Assume.That(movedIn - readStart, Is.LessThan(waitTicks), "This thread was held up past the read's wait before the new file moved in, which the read then rightly gave up on.");
+            Assert.That(first, Is.Not.Null, "The read never looked at a lobby file of the owners in the middle of a replacement.");
+            Assume.That(movedIn - readStart, Is.LessThan(waitTicks), "This thread was held up past the read's wait before it moved the new file in, so the case of a replacement that finished in time was not exercised.");
             string other = lobbies.Keys.Single(file => file != first);
             Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(new[] { lobbies[first] }), "The read gave up on a lobby file that moved in within its wait.");
             Assert.That(looks[first], Is.EqualTo(2), "The read did not look at the file it waited for once, and only once, after its wait ran out.");
