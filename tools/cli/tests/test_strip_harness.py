@@ -259,15 +259,12 @@ class StripHarnessTemplateTests(unittest.TestCase):
         self.assertEqual(1, services.count("_injectedButUnread"))
         self.assertEqual(0, boot.count("_injectedButUnread"))
         self.assertIn("[Inject] private IUnreadFieldService _injectedButUnread;", services)
-        # Reflection on the class itself, such as typeof(...).GetField, can make the linker keep
-        # the field too, so the boot only creates it.
-        self.assertEqual(1, boot.count("UnreadFieldHolder"))
-        self.assertIn("new UnreadFieldHolder()", boot)
+        self.assert_class_is_only_declared_and_created("UnreadFieldHolder")
 
     def test_repository_template_reaches_the_unread_instance_inject_property_only_by_reflection(self) -> None:
         # A call to the property's getter or setter would keep it in the player without the
         # link.xml, so the check shows what the link.xml keeps only while the property's
-        # declaration is its only mention, and the boot only creates its class.
+        # declaration is its only mention.
         harness = template_dir(repo_root()) / "Assets" / "Harness"
         services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
         boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
@@ -277,8 +274,29 @@ class StripHarnessTemplateTests(unittest.TestCase):
         self.assertIn(
             "[Inject] public IUnreadPropertyService InjectedButUnreadProperty { get; private set; }", services
         )
-        self.assertEqual(1, boot.count("UnreadPropertyHolder"))
-        self.assertIn("new UnreadPropertyHolder()", boot)
+        self.assert_class_is_only_declared_and_created("UnreadPropertyHolder")
+
+    def assert_class_is_only_declared_and_created(self, holder: str) -> None:
+        # Reflection on the class itself, such as typeof(...).GetField, can make the linker keep
+        # its member too, so outside whole-line comments the harness's assets name the class only
+        # in its declaration and where the boot creates it.
+        assets = template_dir(repo_root()) / "Assets"
+        name = re.compile(rf"\b{holder}\b")
+        mentions = [
+            (path.relative_to(assets).as_posix(), line.strip())
+            for path in sorted(assets.rglob("*"))
+            if path.is_file()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if name.search(line) and not line.lstrip().startswith("//")
+        ]
+
+        self.assertEqual(
+            ["Harness/StripHarnessBoot.cs", "Harness/StripHarnessServices.cs"], [path for path, _ in mentions], mentions
+        )
+        (_, creation), (_, declaration) = mentions
+        self.assertEqual(1, len(name.findall(creation)), creation)
+        self.assertIn(f"new {holder}()", creation)
+        self.assertEqual(f"public sealed class {holder}", declaration)
 
 
 class StripHarnessLogTests(unittest.TestCase):
