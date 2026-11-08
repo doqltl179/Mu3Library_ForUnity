@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from mu3_cli import fixed_load
 from mu3_cli.fixed_load import ProcessEntry, Record, TestLog, count_other_processes, descendants
@@ -54,6 +55,31 @@ class ProcessTreeTests(unittest.TestCase):
         self.assertEqual(2, count_other_processes(self.PROCESSES, 10, "Unity.exe"))
         self.assertEqual(3, count_other_processes(self.PROCESSES, 10, "Unity.exe", {13: 130, 30: 50}.get))
         self.assertEqual(5, count_other_processes(self.PROCESSES, 99, "Unity.exe"))
+
+    def test_each_count_reads_the_creation_times_afresh(self) -> None:
+        # A short-lived child of the root, created between the root and its Unity, ends, and its
+        # ID passes to a new import worker of that Unity. A creation time kept from the first
+        # count would make the worker older than its parent and leave it out of the tree.
+        times = {10: 100, 11: 110, 13: 105}
+        first = [ProcessEntry(10, 1, "bash.exe"), ProcessEntry(11, 10, "Unity.exe"), ProcessEntry(13, 10, "bash.exe")]
+        second = [ProcessEntry(10, 1, "bash.exe"), ProcessEntry(11, 10, "Unity.exe"), ProcessEntry(13, 11, "Unity.exe")]
+
+        def reader():
+            cache: dict[int, int | None] = {}
+
+            def created(pid: int) -> int | None:
+                if pid not in cache:
+                    cache[pid] = times.get(pid)
+                return cache[pid]
+
+            return created
+
+        with mock.patch.object(fixed_load, "list_processes", side_effect=[first, second]), mock.patch.object(
+            fixed_load, "creation_time_reader", side_effect=reader
+        ):
+            self.assertEqual(0, fixed_load.count_other_unity_processes(10, "Unity.exe"))
+            times[13] = 200
+            self.assertEqual(0, fixed_load.count_other_unity_processes(10, "Unity.exe"))
 
     def test_a_process_that_names_itself_as_its_parent_ends_the_walk(self) -> None:
         processes = [ProcessEntry(0, 0, "System Idle Process"), ProcessEntry(5, 0, "Unity.exe")]
@@ -109,11 +135,34 @@ class TestLogTests(unittest.TestCase):
         log = TestLog(self.path)
         log.read()
 
-        self.assertEqual((2, 1794134506677, 1), (log.planned, log.first_test_time, log.ended))
+        self.assertEqual(({"A.One", "A.Two"}, 1794134506677, 1), (log.planned, log.first_test_time, log.ended))
         self.assertFalse(log.all_planned_ended())
         self.append('##utp:{"type":"TestStatus","phase":"End","time":1794134507300,"name":"A.Two"}\n')
         log.read()
         self.assertTrue(log.all_planned_ended())
+
+    def test_a_test_that_runs_again_does_not_stand_in_for_one_that_has_not_ended(self) -> None:
+        # Under [Retry], [Repeat], or -repeat a test begins and ends once each time it runs.
+        self.append(
+            '##utp:{"type":"TestPlan","tests":["A.One","A.Two"]}\n'
+            + "\n".join(utp(phase, "A.One") for phase in ("Begin", "End", "Begin", "End", "Begin", "End"))
+            + "\n"
+        )
+        log = TestLog(self.path)
+        log.read()
+
+        self.assertEqual(3, log.ended)
+        self.assertFalse(log.all_planned_ended())
+        self.append(utp("Begin", "A.Two") + "\n" + utp("End", "A.Two") + "\n")
+        log.read()
+        self.assertTrue(log.all_planned_ended())
+
+    def test_an_empty_plan_never_counts_as_ended(self) -> None:
+        self.append('##utp:{"type":"TestPlan","tests":[]}\n' + utp("End") + "\n")
+        log = TestLog(self.path)
+        log.read()
+
+        self.assertFalse(log.all_planned_ended())
 
     def test_a_run_without_a_plan_never_counts_as_ended(self) -> None:
         self.append(utp("Begin") + "\n" + utp("End") + "\n")

@@ -1023,7 +1023,7 @@ def unity_test(
     load_spinners: int | None = typer.Option(
         None,
         "--load-spinners",
-        help="Spin this many CPU cores, one Python process each, from the first test of each run until Unity exits.",
+        help="Spin this many CPU cores, one Python process each, from the first test of each run to its last.",
     ),
     repeat: int | None = typer.Option(
         None, "--repeat", help="Run each target this many times, starting Unity anew, and total the runs' results."

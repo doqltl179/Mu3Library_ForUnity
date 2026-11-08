@@ -203,7 +203,8 @@ def list_processes() -> list[ProcessEntry]:
 
 def creation_time_reader() -> Callable[[int], int | None] | None:
     """What descendants needs to tell a stale parent ID, on Windows; other hosts never reuse one
-    while it is a parent's, since an orphan takes a new parent there."""
+    while it is a parent's, since an orphan takes a new parent there. Its cache holds for one
+    count only, since Windows can give the ID of a process that ended to a new one between two."""
     if sys.platform != "win32":
         return None
     cache: dict[int, int | None] = {}
@@ -247,6 +248,11 @@ class ProcessWatch:
             self._handle = None
 
 
+def count_other_unity_processes(root_pid: int, name: str) -> int:
+    """How many processes of that name run outside the tree of the root, as of now."""
+    return count_other_processes(list_processes(), root_pid, name, creation_time_reader())
+
+
 def process_running(pid: int) -> bool:
     watch = ProcessWatch(pid)
     try:
@@ -256,17 +262,20 @@ def process_running(pid: int) -> bool:
 
 
 class TestLog:
-    """Reads the lines a Unity log gains, keeping how many tests the run's plan names, the first
-    test that began and when, in milliseconds since the epoch, and how many tests ended."""
+    """Reads the lines a Unity log gains, keeping the tests the run's plan names, the first test
+    that began and when, in milliseconds since the epoch, and the tests that ended, by count and
+    by name. A test that the Unity Test Framework runs again, under [Retry], [Repeat], or -repeat,
+    begins and ends once each time."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._offset = 0
         self._partial = b""
-        self.planned: int | None = None
+        self.planned: set[str] | None = None
         self.first_test: str | None = None
         self.first_test_time: int | None = None
         self.ended = 0
+        self.ended_names: set[str] = set()
 
     def read(self) -> None:
         try:
@@ -291,7 +300,7 @@ class TestLog:
         if not isinstance(message, dict):
             return
         if message.get("type") == "TestPlan" and isinstance(message.get("tests"), list):
-            self.planned = len(message["tests"])
+            self.planned = {str(name) for name in message["tests"]}
         if message.get("type") != "TestStatus":
             return
         if message.get("phase") == "Begin" and self.first_test is None:
@@ -300,9 +309,11 @@ class TestLog:
             self.first_test_time = began if isinstance(began, int) else None
         elif message.get("phase") == "End":
             self.ended += 1
+            self.ended_names.add(str(message.get("name", "")))
 
     def all_planned_ended(self) -> bool:
-        return self.planned is not None and self.planned > 0 and self.ended >= self.planned
+        """Whether every test the plan names has ended at least once."""
+        return bool(self.planned) and self.planned <= self.ended_names
 
 
 @dataclass
@@ -310,6 +321,8 @@ class Record:
     """What one supervised run writes to its record file."""
 
     spinners: int
+    root_pid: int = 0
+    helper_pid: int = field(default_factory=os.getpid)
     cpus: int = field(default_factory=lambda: os.cpu_count() or 0)
     load: str = "none"
     first_test: str = ""
@@ -331,6 +344,8 @@ class Record:
     def lines(self) -> list[str]:
         values: dict[str, object] = {
             "spinners": self.spinners,
+            "root_pid": self.root_pid,
+            "helper_pid": self.helper_pid,
             "cpus": self.cpus,
             "load": self.load,
             "first_test": self.first_test,
@@ -448,9 +463,8 @@ def supervise(
     record_path: Path,
     idle: bool = False,
 ) -> Record:
-    record = Record(spinners=spinner_count)
+    record = Record(spinners=spinner_count, root_pid=root_pid)
     name = default_unity_process_name()
-    created = creation_time_reader()
     root = ProcessWatch(root_pid)
     test_log = TestLog(log)
     spinners: list[subprocess.Popen[bytes]] = []
@@ -459,7 +473,7 @@ def supervise(
 
     def count_others() -> int | None:
         try:
-            return count_other_processes(list_processes(), root_pid, name, created)
+            return count_other_unity_processes(root_pid, name)
         except (OSError, subprocess.SubprocessError) as error:
             record.count_error = f"could not list the processes: {error}"
             return None
