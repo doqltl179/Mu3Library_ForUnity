@@ -20,8 +20,35 @@ namespace Mu3Library.Multiplayer.Data
         /// </summary>
         public const int MaxStartDataSize = 64 * 1024;
 
-        /// <summary>Longest player name, in characters, that the roster carries; longer names are cut.</summary>
+        /// <summary>
+        /// Longest player name, in characters, that the roster carries; longer names are cut to
+        /// it, or to one character fewer when the cut would split a surrogate pair, such as an
+        /// emoji, so a cut name never ends in half of one.
+        /// </summary>
         public const int MaxPlayerNameLength = 64;
+
+        /// <summary>
+        /// <paramref name="name"/> cut as the roster cuts it: to <see cref="MaxPlayerNameLength"/>
+        /// characters, or before a surrogate pair that the cut would split, so to one fewer. It
+        /// is the same instance, without allocating, when it is no longer than that, so a name
+        /// cut once is never cut again. The manager's roster, and the frames of a machine-wide
+        /// local network as a process sends a name and as it reads one, all cut with it, so every
+        /// player keeps the same name. Half of a pair would reach the other processes through
+        /// UTF-8 as U+FFFD while its own process kept the lone surrogate (#384). A surrogate the
+        /// name already held without its pair stays as it is.
+        /// </summary>
+        internal static string CutPlayerName(string name)
+        {
+            if (name.Length <= MaxPlayerNameLength)
+            {
+                return name;
+            }
+
+            int length = char.IsSurrogatePair(name[MaxPlayerNameLength - 1], name[MaxPlayerNameLength])
+                ? MaxPlayerNameLength - 1
+                : MaxPlayerNameLength;
+            return name.Substring(0, length);
+        }
 
         /// <summary>Longest key of lobby data or participant data, in characters.</summary>
         public const int MaxDataKeyLength = 64;

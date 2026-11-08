@@ -1861,28 +1861,89 @@ namespace Mu3Library.Tests
         }
 
         [TestCase("ascii")]
-        [TestCase("pair")]
+        [TestCase("pair across the cut")]
+        [TestCase("pair before the cut")]
         public void ReadName_OfANameLongerThanTheRosterTakes_CutsItAsTheSenderDoes(string shape)
         {
-            // A name past 64 characters, whole, as a process of another version sends it; "pair"
-            // puts a surrogate pair across the 64th character, which the cut splits as a sender
-            // of this version splits it. The kept name then ends in a lone high surrogate, where
-            // the same name from a sender of this version arrives ending in U+FFFD; the two
-            // strings differ, but written again they make the same bytes.
-            string sent = shape == "pair"
-                ? new string('n', MultiplayerLimits.MaxPlayerNameLength - 1) + "\U0001F600" + "tail"
-                : new string('n', 100);
+            // A name past 64 characters, whole, as a process of another version sends it. A
+            // surrogate pair across the 64th and 65th characters is cut off whole, as a sender of
+            // this version cuts it, so the kept name has 63 characters and no half of the pair,
+            // which a sender would have carried as U+FFFD (#384); a pair that ends at the 64th stays.
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            (string sent, string expected) = shape switch
+            {
+                "ascii" => (new string('n', 100), new string('n', max)),
+                "pair across the cut" => (new string('n', max - 1) + "\U0001F600" + "tail", new string('n', max - 1)),
+                _ => (new string('n', max - 2) + "\U0001F600" + "tail", new string('n', max - 2) + "\U0001F600"),
+            };
             PacketWriter writer = new PacketWriter();
             writer.WriteString(sent);
 
             PacketReader reader = new PacketReader(writer.Written);
             string kept = MachineProtocol.ReadName(ref reader);
 
-            Assert.That(kept, Is.EqualTo(MachineProtocol.ToWireName(sent)));
-            Assert.That(kept.Length, Is.EqualTo(MultiplayerLimits.MaxPlayerNameLength));
+            Assert.That(kept, Is.EqualTo(expected));
+            Assert.That(MachineProtocol.ToWireName(sent), Is.EqualTo(expected), "as a sender of this version cuts it");
 
             // Written again, it is not cut again.
             Assert.That(MachineProtocol.ToWireName(kept), Is.SameAs(kept));
+        }
+
+        [Test]
+        public void ToWireName_OfANameWithASurrogateWithoutItsPairAtTheCut_KeepsIt_AsTheRosterCutsIt()
+        {
+            // #384: the cut keeps a surrogate pair whole, and nothing more. A high surrogate the
+            // name already held without its pair as the 64th character is no pair the cut would
+            // split, so the name is cut to 64 and keeps it, as the roster cuts it; the frames then
+            // carry it as UTF-8 does, as U+FFFD, and a local backend takes it so from the start.
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            string name = new string('n', max - 1) + "\uD800" + "tail";
+
+            string cut = MachineProtocol.ToWireName(name);
+
+            Assert.That(cut, Is.EqualTo(new string('n', max - 1) + "\uD800"));
+            Assert.That(MultiplayerLimits.CutPlayerName(name), Is.EqualTo(cut), "as the roster cuts it");
+        }
+
+        [Test]
+        public void PlayerNames_PastTheCutOrWithASurrogateWithoutItsPair_AreTheSameStringOnEverySide()
+        {
+            // FR-38, #384: the host's name is longer than the roster takes, with a surrogate pair
+            // across its 64th and 65th characters. The roster, the frames the host's process
+            // sends, and the client's process as it reads them all cut it before the pair, so the
+            // host's roster, the client's, and the client's backend hold the same 63 characters,
+            // rather than one ending in half of the pair and the others in U+FFFD. The client's
+            // name holds a surrogate without its pair, which its backend takes as U+FFFD, as the
+            // frames carry it to the host's process, so its own process reads the same name too.
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            string hostName = new string('h', max - 1) + "\U0001F600" + "tail";
+            string hostCut = new string('h', max - 1);
+            string clientCarried = "lone\uFFFDclient";
+            Node host = CreateNode(hostName);
+            Node client = CreateNode("lone\uD800client");
+
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4) }, r => created = r);
+            PumpUntil(() => created.HasValue, "the lobby");
+            Assert.That(created.Value.IsSuccess, Is.True);
+
+            MultiplayerResult? joined = null;
+            client.Manager.JoinLobby(host.Manager.CurrentLobbyId, r => joined = r);
+            PumpUntil(() => joined.HasValue, "the client to join");
+            Assert.That(joined.Value.IsSuccess, Is.True, joined.Value.Reason.ToString());
+            PumpUntil(() => host.Manager.Participants.Count == 2 && client.Manager.Participants.Count == 2, "both rosters to list two players");
+
+            foreach ((string side, Node node) in new[] { ("host", host), ("client", client) })
+            {
+                Assert.That(node.Manager.Participants.Single(participant => participant.Id == host.Id).Name, Is.EqualTo(hostCut), side);
+                Assert.That(node.Manager.Participants.Single(participant => participant.Id == client.Id).Name, Is.EqualTo(clientCarried), side);
+            }
+
+            // The names the lobby's frames brought each process, and each one's own, which it keeps whole.
+            Assert.That(client.Backend.GetPlayerName(host.Id), Is.EqualTo(hostCut));
+            Assert.That(host.Backend.GetPlayerName(client.Id), Is.EqualTo(clientCarried));
+            Assert.That(host.Backend.GetPlayerName(host.Id), Is.EqualTo(hostName));
+            Assert.That(client.Backend.GetPlayerName(client.Id), Is.EqualTo(clientCarried));
         }
 
         [Test]

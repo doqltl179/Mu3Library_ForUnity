@@ -215,6 +215,33 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void JoinLobby_WithANamePastTheCutOrWithASurrogateWithoutItsPair_ReachesTheSameRosterEverywhere()
+        {
+            // FR-9, #384: the host's name is longer than the roster takes, with a surrogate pair
+            // across its 64th and 65th characters, which the roster cuts off whole. So the host's
+            // roster holds the same 63 characters as the client reads from the host's packets,
+            // rather than half of the pair where the client reads U+FFFD. The client's name holds
+            // a surrogate without its pair, which the backend takes as U+FFFD, as UTF-8 carries it
+            // to Steam and in the host's packets, so every backend and every roster read it alike.
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            string hostName = new string('h', max - 1) + "\U0001F600" + "tail";
+            string hostCut = new string('h', max - 1);
+            string clientCarried = "lone\uFFFDclient";
+            Node host = CreateHost(hostName);
+            Node a = CreateNode("lone\uD800client");
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+
+            foreach ((string side, Node node) in new[] { ("host", host), ("client", a) })
+            {
+                Assert.That(node.Manager.Participants.Select(participant => participant.Name), Is.EqualTo(new[] { hostCut, clientCarried }), side);
+
+                // A backend inside one process keeps each name whole, as UTF-8 carries it.
+                Assert.That(node.Backend.GetPlayerName(host.Id), Is.EqualTo(hostName), side);
+                Assert.That(node.Backend.GetPlayerName(a.Id), Is.EqualTo(clientCarried), side);
+            }
+        }
+
+        [Test]
         public void JoinRequest_FromOutsideTheGame_JoinsLikeJoinLobby_AndLeavesTheCurrentSession()
         {
             // FR-7

@@ -88,15 +88,12 @@ namespace Mu3Library.Multiplayer.Local.Machine
         }
 
         /// <summary>
-        /// A player's name as the frames carry it: cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
-        /// characters, as the roster cuts it.
+        /// A player's name as the frames carry it: cut as the roster cuts it
+        /// (<see cref="MultiplayerLimits.CutPlayerName"/>), to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
+        /// characters or one fewer, never splitting a surrogate pair. A cut name takes at most
+        /// <see cref="MaxNameBytes"/>.
         /// </summary>
-        public static string ToWireName(string name)
-        {
-            return name.Length <= MultiplayerLimits.MaxPlayerNameLength
-                ? name
-                : name.Substring(0, MultiplayerLimits.MaxPlayerNameLength);
-        }
+        public static string ToWireName(string name) => MultiplayerLimits.CutPlayerName(name);
 
         public static void WriteName(PacketWriter writer, string name)
         {

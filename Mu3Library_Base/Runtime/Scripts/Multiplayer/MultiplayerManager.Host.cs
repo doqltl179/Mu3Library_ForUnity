@@ -886,14 +886,13 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// The player's name as the backend reports it, cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
-        /// so the roster always fits in one packet.
+        /// so the roster always fits in one packet, and before a surrogate pair the cut would
+        /// split, so the host's roster holds the same name as the clients read from its packets
+        /// (<see cref="MultiplayerLimits.CutPlayerName"/>).
         /// </summary>
         private string GetParticipantName(PlayerId player)
         {
-            string name = _backend.GetPlayerName(player) ?? string.Empty;
-            return name.Length <= MultiplayerLimits.MaxPlayerNameLength
-                ? name
-                : name.Substring(0, MultiplayerLimits.MaxPlayerNameLength);
+            return MultiplayerLimits.CutPlayerName(_backend.GetPlayerName(player) ?? string.Empty);
         }
 
         /// <summary>The connections of the account that the host has not welcomed yet.</summary>

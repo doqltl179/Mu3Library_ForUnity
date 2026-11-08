@@ -9,7 +9,8 @@ namespace Mu3Library.Multiplayer.Local
     /// backend itself can hand it over. So the local backends take lobby data keys and values,
     /// and the keys and string values of search filters, as UTF-8 carries them (#372): every
     /// backend then reads the same text, in this process and in the owner's own on a
-    /// machine-wide network.
+    /// machine-wide network. They take the player name they are created with the same way, as
+    /// Steam's names arrive through UTF-8 (#384).
     /// </summary>
     internal static class Utf8Text
     {

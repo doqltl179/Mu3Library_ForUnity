@@ -36,6 +36,15 @@ namespace Mu3Library.Multiplayer.Local
     /// visibility, since the local network has no friends or invites.
     /// </para>
     /// <para>
+    /// The backend takes the player name it is created with as UTF-8 carries it, as a Steam name
+    /// arrives: each UTF-16 surrogate without its pair becomes U+FFFD, while a pair stays. So
+    /// <see cref="PlayerName"/> and <see cref="GetPlayerName"/> read such a name in its own
+    /// process as the other processes of a machine-wide network read it, and the roster of a
+    /// <see cref="MultiplayerManager"/>, whose packets carry the name as UTF-8, holds the same
+    /// name on the host as on its clients (#384). The name keeps its length: only the roster,
+    /// and on a machine-wide network the frames, cut a longer one.
+    /// </para>
+    /// <para>
     /// On a machine-wide network each backend listens on a port of the loopback address, and the
     /// process that owns a lobby answers the joins to it. A lobby takes a moment to show up in
     /// another process's search. A search or a join by lobby ID reads the lobby files on a thread
@@ -53,7 +62,8 @@ namespace Mu3Library.Multiplayer.Local
     /// longer one: a frame ends the connection it came on, and a listed lobby leaves search and
     /// joins by its ID.
     /// So the player name travels cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
-    /// characters, as the roster cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
+    /// characters, or to one fewer where the cut would split a surrogate pair, as the roster
+    /// cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
     /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
     /// each with a warning, as Steam refuses a key or a value too long for it. A longer name that
     /// another process sends within those bytes is cut the same way as it arrives, so
@@ -271,6 +281,10 @@ namespace Mu3Library.Multiplayer.Local
         public LocalBackend(LocalNetwork network, string playerName, PlayerId playerId)
         {
             _network = network ?? throw new ArgumentNullException(nameof(network));
+
+            // As UTF-8 carries it, as a Steam name arrives, so this process reads the same name
+            // as the others, and the host's roster the same as its clients (#384).
+            playerName = Utf8Text.AsCarried(playerName);
             if (network.IsMachineWide)
             {
                 _machine = new MachinePeer(network, playerName, playerId);
