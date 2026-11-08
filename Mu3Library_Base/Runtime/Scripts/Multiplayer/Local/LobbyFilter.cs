@@ -20,7 +20,9 @@ namespace Mu3Library.Multiplayer.Local
     /// reads every other value as a number too, as Steam's numeric filters read it
     /// (<see cref="ReadNumber"/>, #362), so it drops no lobby for a value that is not a whole
     /// number. A filter whose key is null or empty is skipped and drops no lobby, as the Steam
-    /// backend skips it rather than hand Steam such a key (#314).
+    /// backend skips it rather than hand Steam such a key (#314). A filter's key and a string
+    /// filter's value are taken as UTF-8 carries them to Steam, a surrogate without its pair as
+    /// U+FFFD (<see cref="Utf8Text"/>, #372), as the local backends take the lobby data itself.
     /// </summary>
     internal static class LobbyFilter
     {
@@ -34,8 +36,8 @@ namespace Mu3Library.Multiplayer.Local
                     continue;
                 }
 
-                if (!data.TryGetValue(filter.Key, out string value)
-                    || !Satisfies(CompareText(value ?? string.Empty, filter.Value ?? string.Empty), filter.Comparison))
+                if (!data.TryGetValue(Utf8Text.AsCarried(filter.Key), out string value)
+                    || !Satisfies(CompareText(value ?? string.Empty, Utf8Text.AsCarried(filter.Value) ?? string.Empty), filter.Comparison))
                 {
                     return false;
                 }
@@ -50,7 +52,7 @@ namespace Mu3Library.Multiplayer.Local
                 }
 
                 // A key the lobby lacks leaves the text null, which reads as 0.
-                data.TryGetValue(filter.Key, out string text);
+                data.TryGetValue(Utf8Text.AsCarried(filter.Key), out string text);
                 if (!Satisfies(ReadNumber(text).CompareTo(filter.Value), filter.Comparison))
                 {
                     return false;

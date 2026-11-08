@@ -93,16 +93,19 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             // Keys in any case, as the lobby keeps them, so it counts the entries the lobby gets.
             // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
-            // lobby lacks, as a Steam lobby writes none (#343).
+            // lobby lacks, as a Steam lobby writes none (#343), and its key and value are taken as
+            // UTF-8 carries them to Steam and to the other processes, so this process reads them
+            // as they do (#372).
             Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             bool isWithinLimits = true;
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(pair.Key))
+                    string key = Utf8Text.AsCarried(pair.Key);
+                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(key))
                     {
-                        snapshot[pair.Key] = pair.Value ?? string.Empty;
+                        snapshot[key] = Utf8Text.AsCarried(pair.Value) ?? string.Empty;
                     }
 
                     isWithinLimits &= MachineProtocol.IsWithinLimits(pair.Key, pair.Value);

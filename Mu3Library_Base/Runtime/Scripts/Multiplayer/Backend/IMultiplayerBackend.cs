@@ -68,7 +68,9 @@ namespace Mu3Library.Multiplayer.Backend
 
         /// <summary>
         /// Searches public, joinable lobbies that have a free slot and pass every filter. A filter
-        /// whose key is null or empty is skipped, as the Steam backend skips it.
+        /// whose key is null or empty is skipped, as the Steam backend skips it. A filter's key and
+        /// a string filter's value are taken as <see cref="SetLobbyData"/> takes lobby data, a
+        /// surrogate without its pair as U+FFFD.
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted);
 
@@ -104,6 +106,19 @@ namespace Mu3Library.Multiplayer.Backend
         /// leaves a key with an empty value out of the data it hands <see cref="CreateLobby"/>,
         /// so its <see cref="IMultiplayerManager.LobbyData"/> and the lobby that search reads hold
         /// the same keys (#313).
+        /// <para>
+        /// Every backend also takes a UTF-16 surrogate without its pair, in the key or the value,
+        /// as UTF-8 carries it to Steam: as U+FFFD. So <see cref="GetLobbyData"/>, the data a
+        /// search returns, and the search filters, which take their keys and values the same way,
+        /// read U+FFFD in its place for every player, the owner included, and keys that differ
+        /// only in such surrogates are one key, as on Steam (#372). The manager refuses such text
+        /// in the lobby data a game sets (<see cref="MultiplayerReason.InvalidArgument"/>), though
+        /// not in the game ID (<see cref="MultiplayerConfig.GameId"/>) or the lobby name
+        /// (<see cref="LobbyCreateOptions.Name"/>) it writes itself, which read as U+FFFD too. So
+        /// a game ID with such a surrogate never matches the lobby data that names it, on any
+        /// backend: search leaves its lobbies out, and a join to one ends with
+        /// <see cref="MultiplayerReason.VersionMismatch"/>.
+        /// </para>
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
 
