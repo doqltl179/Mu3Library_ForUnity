@@ -1836,11 +1836,12 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void Join_ThatWouldGrowALobbyPastAFrame_IsRefusedWithBackendError_ToTheByte_EvenPastItsCapacity()
+        public void Join_ThatWouldGrowALobbyPastAFrame_IsRefusedAsFull_ToTheByte_EvenPastItsCapacity()
         {
             // #352: the owner counts the joining player in the lobby before taking it, so a join
-            // that would carry the lobby a byte past what a frame carries is refused, and one that
-            // fills a frame to the byte goes through, past the lobby's capacity as well.
+            // that would carry the lobby a byte past what a frame carries is refused, as a full
+            // lobby refuses one (#368), and one that fills a frame to the byte goes through, past
+            // the lobby's capacity as well.
             LocalBackend owner = CreateRawBackend(CreateNetwork(network => network.IgnoreLobbyCapacity = true), "Owner");
             Peer member = CreatePeer("Member");
             LocalBackend joiner = CreateRawBackend(CreateNetwork(), "Joiner");
@@ -1858,7 +1859,7 @@ namespace Mu3Library.Tests
 
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
                 $"takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members; player {joiner.LocalPlayerId} was not let into lobby {lobby}"));
-            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.BackendError));
+            Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.SessionFull));
             Assert.That(owner.IsLobbyMember(lobby, joiner.LocalPlayerId), Is.False);
 
             // A byte less, and the join fills a frame to the byte, past the capacity of 2.
@@ -1886,7 +1887,7 @@ namespace Mu3Library.Tests
 
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
                 $"player {longName.LocalPlayerId} was not let into lobby {lobby}"));
-            Assert.That(Join(longName, lobby), Is.EqualTo(MultiplayerReason.BackendError));
+            Assert.That(Join(longName, lobby), Is.EqualTo(MultiplayerReason.SessionFull));
 
             // The member still hears from its owner: a change that keeps the size reaches it.
             string changed = new string('w', last);
@@ -1897,6 +1898,71 @@ namespace Mu3Library.Tests
             Assert.That(member.Backend.GetLobbyOwner(lobby), Is.EqualTo(owner.LocalPlayerId));
             Assert.That(owner.IsLobbyMember(lobby, longName.LocalPlayerId), Is.False);
             Assert.That(File.Exists(Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies")), Is.True);
+        }
+
+        [Test]
+        public void Search_OfALobbyNearAFrame_ShowsOnlyTheSlotsAPlayerOfAnyNameCanTake_ToTheByte()
+        {
+            // #368: search shows a lobby with as many free slots as the frames can still carry
+            // players of the longest name, 208 bytes each, in another process's search and in the
+            // owner's own, so a lobby of capacity 4 with room for two such players shows a
+            // capacity of 3, a byte less down to room for one a capacity of 2, and a byte less
+            // than that shows as full and leaves search.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            int longest = MachineProtocol.MemberBytes(new string('가', MultiplayerLimits.MaxPlayerNameLength));
+            Assert.That(longest, Is.EqualTo(208), "a member with the longest name");
+            Assert.That(MachineProtocol.MaxMemberBytes, Is.EqualTo(longest), "the most a member takes, by which search counts free slots");
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes - 2 * longest, d => SnapshotBytesOf(d, "Owner"));
+            LobbyId lobby = CreateLobbies(owner, 1, WithLast(data, last)).Single().Lobby;
+
+            (int Last, int Capacity)[] steps = { (last, 3), (last + 1, 2), (last + longest, 2) };
+            foreach ((int length, int capacity) in steps)
+            {
+                Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', length)), Is.True);
+                Assert.That(Search(owner).Single(found => found.Id == lobby).Capacity, Is.EqualTo(capacity), $"the owner's own search with {length} bytes under the last key");
+
+                // The lobby file of this step, not one an earlier step left, since two steps show
+                // the same capacity.
+                PumpUntil(() => Search(seeker).Any(found => found.Id == lobby
+                        && found.Data.TryGetValue(LastKey, out string listed) && listed.Length == length
+                        && found.MemberCount == 1 && found.Capacity == capacity),
+                    $"the search to show a capacity of {capacity} with {length} bytes under the last key");
+            }
+
+            Assert.That(owner.SetLobbyData(lobby, LastKey, new string('v', last + longest + 1)), Is.True);
+            Assert.That(Search(owner).Any(found => found.Id == lobby), Is.False, "the owner's own search");
+            PumpUntil(() => Search(seeker).All(found => found.Id != lobby), "the lobby with no room for a player of the longest name to leave search");
+
+            // Search keeps to the longest name, so a player with a shorter one still fits by the
+            // lobby's ID.
+            Assert.That(Join(seeker, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(seeker.GetLobbyData(lobby, LastKey).Length, Is.EqualTo(last + longest + 1));
+        }
+
+        [Test]
+        public void Join_OfTheLastSlotSearchShowsNearAFrame_FillsTheFrame_AndTheNextIsRefusedAsFull_AsSearchShowsIt()
+        {
+            // #368: a lobby with room for one more player of the longest name shows one free slot,
+            // which that player's join takes, filling a frame to the byte; search then shows the
+            // lobby full, and a join by its ID, even of a player with a short name, is refused
+            // with SessionFull, as a full lobby refuses one.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LocalBackend longName = CreateRawBackend(CreateNetwork(), new string('가', MultiplayerLimits.MaxPlayerNameLength));
+            (Dictionary<string, string> data, int last) = DataOfSize(MachineProtocol.MaxSnapshotBytes, d => SnapshotBytesOf(d, "Owner", longName.PlayerName));
+            LobbyId lobby = CreateLobbies(owner, 1, WithLast(data, last)).Single().Lobby;
+            PumpUntil(() => Search(seeker).Any(found => found.Id == lobby && found.MemberCount == 1 && found.Capacity == 2), "the search to show one free slot");
+
+            Assert.That(Join(longName, lobby), Is.EqualTo(MultiplayerReason.None));
+            Assert.That(longName.GetLobbyData(lobby, LastKey).Length, Is.EqualTo(last));
+            PumpUntil(() => Search(seeker).All(found => found.Id != lobby), "the lobby that fills a frame to leave search");
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex(
+                $"takes at most {MachineProtocol.MaxSnapshotBytes} bytes in the frames that bring it to its members; player {seeker.LocalPlayerId} was not let into lobby {lobby}"));
+            Assert.That(Join(seeker, lobby), Is.EqualTo(MultiplayerReason.SessionFull));
+            Assert.That(owner.IsLobbyMember(lobby, seeker.LocalPlayerId), Is.False);
+            Assert.That(owner.IsLobbyMember(lobby, longName.LocalPlayerId), Is.True);
         }
 
         [Test]
