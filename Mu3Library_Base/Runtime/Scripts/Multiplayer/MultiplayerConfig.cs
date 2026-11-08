@@ -13,7 +13,14 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Tells this game's lobbies apart from other games on the same app ID, such as every
-        /// game developed on Steam's test app 480.
+        /// game developed on Steam's test app 480. It holds 1 to <see cref="MaxGameIdLength"/>
+        /// characters, and neither a NUL character nor an unpaired UTF-16 surrogate, or
+        /// <see cref="MultiplayerManager.Initialize"/> answers
+        /// <see cref="Data.MultiplayerReason.InvalidArgument"/>: the manager writes the ID into the
+        /// lobby data and searches by it, and Steam ends the ID it holds at a NUL, as it did on
+        /// AppID 480 on 2026-11-08, while every backend reads such a surrogate as U+FFFD, so the
+        /// lobby would name another game than this one and search would leave out every lobby of
+        /// this game.
         /// </summary>
         public string GameId { get; }
         public int ProtocolVersion { get; }

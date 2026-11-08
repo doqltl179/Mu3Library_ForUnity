@@ -490,16 +490,17 @@ namespace Mu3Library.Multiplayer.Local
 
             // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
             // lobby lacks, as a Steam lobby writes none (#343), and its key and value are taken as
-            // UTF-8 carries them to Steam (#372); keys in any case, as the lobby keeps them.
+            // Steamworks.NET hands them to Steam (#372, #387); keys in any case, as the lobby keeps them.
             Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    string key = Utf8Text.AsCarried(pair.Key);
-                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(key))
+                    string key = Utf8Text.AsLobbyText(pair.Key);
+                    string value = Utf8Text.AsLobbyText(pair.Value);
+                    if (key.Length > 0 && (!string.IsNullOrEmpty(value) || snapshot.ContainsKey(key)))
                     {
-                        snapshot[key] = Utf8Text.AsCarried(pair.Value) ?? string.Empty;
+                        snapshot[key] = value ?? string.Empty;
                     }
                 }
             }
@@ -608,8 +609,8 @@ namespace Mu3Library.Multiplayer.Local
 
         public string GetLobbyData(LobbyId lobbyId, string key)
         {
-            // The key as UTF-8 carries it to Steam, as the lobby keeps its keys (#372).
-            key = Utf8Text.AsCarried(key);
+            // The key as Steamworks.NET hands it to Steam, as the lobby keeps its keys (#372, #387).
+            key = Utf8Text.AsLobbyText(key);
             if (_machine != null)
             {
                 return _machine.GetLobbyData(lobbyId, key);
@@ -622,10 +623,20 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
         {
-            // As UTF-8 carries both to Steam, so a surrogate without its pair reads as U+FFFD on
-            // every backend, in this process and in the owner's own (#372).
-            key = Utf8Text.AsCarried(key);
-            value = Utf8Text.AsCarried(value);
+            // As Steamworks.NET hands both to Steam, so a surrogate without its pair reads as U+FFFD
+            // and text ends at its first NUL on every backend, in this process and in the owner's
+            // own (#372, #387). A key with nothing before its first NUL reaches Steam as an empty
+            // key, which Steam answered true for on AppID 480 on 2026-11-08 though its lobby kept
+            // no such key once Steam's servers answered, so the owner writes none and answers
+            // true, as for an empty value (#343).
+            bool isKeyGiven = !string.IsNullOrEmpty(key);
+            key = Utf8Text.AsLobbyText(key);
+            value = Utf8Text.AsLobbyText(value);
+            if (isKeyGiven && key.Length == 0)
+            {
+                return _machine != null ? _machine.IsOwnedLobby(lobbyId) : FindOwnedLobby(lobbyId) != null;
+            }
+
             if (_machine != null)
             {
                 return _machine.SetLobbyData(lobbyId, key, value);
@@ -650,8 +661,8 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool DeleteLobbyData(LobbyId lobbyId, string key)
         {
-            // As SetLobbyData takes it (#372).
-            key = Utf8Text.AsCarried(key);
+            // As SetLobbyData takes it (#372, #387).
+            key = Utf8Text.AsLobbyText(key);
             if (_machine != null)
             {
                 return _machine.DeleteLobbyData(lobbyId, key);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
@@ -119,6 +120,92 @@ namespace Mu3Library.Tests
             Assert.That(CreateLobby(host, unclean).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
             Assert.That(CreateLobby(host, large).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
             Assert.That(_network.Lobbies, Is.Empty);
+        }
+
+        [Test]
+        public void CreateLobby_RefusesALobbyNameWithANulOrAnUnpairedSurrogate()
+        {
+            // FR-5, FR-11, #387: the manager writes the name into the lobby data, so it follows the
+            // rules of the lobby data a game sets: Steam cut a name at its NUL on AppID 480 on
+            // 2026-11-08, and every backend reads an unpaired surrogate as U+FFFD, so search
+            // would show another name.
+            Node host = CreateNode("Host");
+            foreach (string text in UncleanTexts)
+            {
+                LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+                options.Name = "Room " + text;
+                Assert.That(CreateLobby(host, options).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+            }
+
+            Assert.That(_network.Lobbies, Is.Empty);
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+
+            LobbyCreateOptions paired = PublicOptions(SessionRules.Default);
+            paired.Name = "Room \U0001F3AE";
+            Assert.That(CreateLobby(host, paired).IsSuccess, Is.True, "a surrogate pair is fine");
+            Assert.That(Search(CreateNode("Seeker")).Lobbies.Single().Name, Is.EqualTo("Room \U0001F3AE"));
+        }
+
+        [Test]
+        public void Initialize_RefusesAGameIdWithANulOrAnUnpairedSurrogate()
+        {
+            // FR-6, FR-30, #387: the manager writes the game ID into the lobby data and searches by
+            // it. Steam cut the ID it held at the NUL on AppID 480 on 2026-11-08, so the game found
+            // none of its own lobbies there, and every backend reads an unpaired surrogate as
+            // U+FFFD, which matches the game's own ID on none.
+            LocalBackend backend = CreateRawBackend("Player");
+            foreach (string text in UncleanTexts)
+            {
+                using MultiplayerManager manager = new MultiplayerManager();
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig("game " + text, 1)).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(manager.IsInitialized, Is.False, Escape(text));
+            }
+
+            using MultiplayerManager paired = new MultiplayerManager();
+            Assert.That(paired.Initialize(backend, new MultiplayerConfig("game \U0001F3AE", 1)).IsSuccess, Is.True, "a surrogate pair is fine");
+        }
+
+        [Test]
+        public void SearchLobbies_RefusesAFilterWithANulOrAnUnpairedSurrogate_AtOnce()
+        {
+            // FR-6, #387: every backend compares a filter as Steam does, up to its first NUL and
+            // with U+FFFD for an unpaired surrogate, so such a filter would find lobbies by other
+            // text than it holds, and the lobby data a game sets refuses such text as well.
+            LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+            options.Data["map"] = "desert";
+            options.Data["emoji \U0001F3AE"] = "\U0001F3AE";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+            foreach (string text in UncleanTexts)
+            {
+                (string Description, LobbySearchQuery Query)[] queries =
+                {
+                    ("a string filter's key", new LobbySearchQuery().AddStringFilter("map" + text, "desert")),
+                    ("a string filter's value", new LobbySearchQuery().AddStringFilter("map", "desert" + text)),
+                    ("a numeric filter's key", new LobbySearchQuery().AddNumericFilter("map" + text, 0)),
+                    ("a later filter's value", new LobbySearchQuery().AddStringFilter("map", "desert").AddStringFilter("mode", text, LobbyComparison.NotEqual)),
+                    ("a skipped filter's value", new LobbySearchQuery().AddStringFilter(null, text)),
+                };
+
+                foreach ((string description, LobbySearchQuery query) in queries)
+                {
+                    LobbySearchResult? result = null;
+                    seeker.Manager.SearchLobbies(query, answer => result = answer);
+                    Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), $"{description} with {Escape(text)} is refused at once");
+                    Assert.That(result?.Lobbies, Is.Empty);
+                }
+            }
+
+            // A null key or value holds neither, and a surrogate pair is fine.
+            LobbySearchQuery clean = new LobbySearchQuery()
+                .AddStringFilter("map", "desert")
+                .AddStringFilter("map", null, LobbyComparison.NotEqual)
+                .AddStringFilter(null, null)
+                .AddNumericFilter(null, 0)
+                .AddStringFilter("EMOJI \U0001F3AE", "\U0001F3AE");
+            LobbySearchResult found = Search(seeker, clean);
+            Assert.That(found.IsSuccess, Is.True);
+            Assert.That(found.Lobbies.Single().Id, Is.EqualTo(host.Manager.CurrentLobbyId));
         }
 
         [Test]
@@ -508,8 +595,8 @@ namespace Mu3Library.Tests
         [Test]
         public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThemToSteam_InReadsSearchResultsAndFilters()
         {
-            // FR-11, FR-38, #372: the manager refuses such text in the lobby data a game sets
-            // (#194), though not in the game ID or the lobby name it writes itself, so the test
+            // FR-11, FR-38, #372: the manager refuses such text in every lobby text, the lobby
+            // data a game sets (#194) among them (#387), so the test
             // writes it through the backend itself. The backend takes each such surrogate in a key,
             // a value, or a filter as the U+FFFD that UTF-8 carries to Steam in its place, so
             // GetLobbyData, the data search returns, and the filters read what they read on Steam.
@@ -546,6 +633,54 @@ namespace Mu3Library.Tests
             Assert.That(_network.FindLobby(lobby).Data.Count, Is.EqualTo(UnpairedSurrogateData.Length));
             Assert.That(owner.DeleteLobbyData(lobby, "half\uDC00key"), Is.True);
             Assert.That(owner.GetLobbyData(lobby, "half\uD800key"), Is.Null);
+        }
+
+        [Test]
+        public void Backend_TakesTextUpToItsFirstNul_AsSteamworksHandsItToSteam_InReadsSearchResultsAndFilters()
+        {
+            // FR-11, FR-38, #387: the manager refuses a NUL in every lobby text, so the test writes
+            // it through the backend itself. Steamworks.NET hands Steam each text as a C string,
+            // which ends at its first NUL, and Steam took keys, values, the keys it read them by,
+            // and filters so on AppID 480 on 2026-11-08; the backend takes them the same way, so
+            // GetLobbyData, the data search returns, and the filters read what they read on Steam.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, NulLobbyData(), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = NulLookupMismatches("owner", key => owner.GetLobbyData(lobby, key)).ToList();
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            mismatches.AddRange(NulDataMismatches("seeker", all.Single().Data));
+
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NulFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            // SetLobbyData and DeleteLobbyData take the key the same way. A key with nothing before
+            // its first NUL writes no key and answers true for the owner, as Steam answered for
+            // the empty key it reached Steam as, while a key empty to begin with answers false.
+            Assert.That(owner.SetLobbyData(lobby, "NUL.KEY\0other", "w\0tail"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "nul.key\0more"), Is.EqualTo("w"));
+            Assert.That(owner.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+            Assert.That(seeker.SetLobbyData(lobby, "\0lead", "v"), Is.False, "only the owner writes lobby data");
+            Assert.That(owner.SetLobbyData(lobby, string.Empty, "v"), Is.False);
+            Assert.That(_network.FindLobby(lobby).Data.Count, Is.EqualTo(NulData.Length));
+            Assert.That(owner.DeleteLobbyData(lobby, "nul.key\0y"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "nul.key"), Is.Null);
+            Assert.That(owner.DeleteLobbyData(lobby, "\0lead"), Is.False, "no lobby holds the empty key");
         }
         #endregion
 
@@ -803,7 +938,7 @@ namespace Mu3Library.Tests
         /// <summary>
         /// Lobby data with UTF-16 surrogates without their pair in its values and keys, which a
         /// test writes through a backend itself, since the manager refuses such text in the lobby
-        /// data a game sets (#194), though not in the game ID or the lobby name it writes itself,
+        /// data a game sets (#194) and in every other lobby text (#387),
         /// and the data as every backend holds it: UTF-8 carries such a surrogate to Steam, and to
         /// the other processes of a machine-wide network, as U+FFFD, and the local backends take it
         /// so in every process (#372), while a pair stays as it is.
@@ -903,6 +1038,157 @@ namespace Mu3Library.Tests
             yield return ("number [half\\uDFFFnumber] Equal 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7), true);
             yield return ("number [half\\uDFFFnumber] NotEqual 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7, LobbyComparison.NotEqual), false);
         }
+
+        /// <summary>The prefix of every key of <see cref="NulData"/> and <see cref="NulDataWithoutAKey"/> but one.</summary>
+        internal const string NulDataKey = "nul";
+
+        /// <summary>
+        /// Lobby data with NUL characters in its keys and values, which a test writes through a
+        /// backend itself, since the manager refuses a NUL in every lobby text (#194, #387), and
+        /// the data as every backend holds it: Steamworks.NET hands Steam each text as a C string,
+        /// which ends at its first NUL, as Steam took it on AppID 480 on 2026-11-08, and the local
+        /// backends take it so in every process (#387), while a surrogate without its pair before
+        /// the NUL still reads as U+FFFD (#372). <c>MultiplayerSteamIntegrationTests</c> checks
+        /// Steam against these.
+        /// </summary>
+        internal static readonly (string Key, string Value, string CarriedKey, string CarriedValue)[] NulData =
+        {
+            ("nul.value", "ab\0cd", "nul.value", "ab"),
+            ("nul.key\0tail", "v", "nul.key", "v"),
+            ("nul.half", "a\uD800\0b", "nul.half", "a\uFFFD"),
+            ("nul.number", "7\0tail", "nul.number", "7"),
+        };
+
+        /// <summary>
+        /// Lobby data beside <see cref="NulData"/> that no backend keeps: a key with nothing before
+        /// its first NUL, which reaches Steam as the empty key, which Steam's lobby kept no more
+        /// than a moment and its search never returned on AppID 480 on 2026-11-08, and a value
+        /// with nothing before its first NUL under a key the lobby lacks, an empty value, for which
+        /// a lobby writes no key (#343).
+        /// </summary>
+        internal static readonly (string Key, string Value)[] NulDataWithoutAKey =
+        {
+            ("\0lead", "v"),
+            ("nul.lead", "\0tail"),
+        };
+
+        /// <summary>Lobby data that holds each entry of <see cref="NulData"/> and <see cref="NulDataWithoutAKey"/> as written.</summary>
+        internal static Dictionary<string, string> NulLobbyData()
+        {
+            Dictionary<string, string> data = NulData.ToDictionary(entry => entry.Key, entry => entry.Value);
+            foreach ((string key, string value) in NulDataWithoutAKey)
+            {
+                data.Add(key, value);
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// Keys to read the lobby of <see cref="NulLobbyData"/> by, and what every backend's
+        /// <c>GetLobbyData</c> answers for each: the key counts up to its first NUL too, so keys
+        /// that differ only after a NUL are one key, found in any case.
+        /// </summary>
+        internal static readonly (string Key, string Value)[] NulLookups =
+        {
+            ("nul.value", "ab"),
+            ("nul.value\0cd", "ab"),
+            ("NUL.KEY", "v"),
+            ("nul.key\0other", "v"),
+            ("nul.half", "a\uFFFD"),
+            ("nul.number", "7"),
+            ("nul.lead", null),
+        };
+
+        /// <summary>Each read of <see cref="NulLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
+        internal static IEnumerable<string> NulLookupMismatches(string reader, Func<string, string> read)
+        {
+            foreach ((string key, string value) in NulLookups)
+            {
+                string answer = read(key);
+                if (answer != value)
+                {
+                    yield return $"{reader}: GetLobbyData [{DescribeText(key)}] should answer {DescribeAnswer(value)}, not {DescribeAnswer(answer)}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// What in <paramref name="data"/>, the data a search returned for the lobby of
+        /// <see cref="NulLobbyData"/>, differs from that data as every backend holds it: the
+        /// entries of <see cref="NulData"/> up to their first NUL, and no other key.
+        /// </summary>
+        internal static IEnumerable<string> NulDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        {
+            foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in NulData)
+            {
+                if (!data.TryGetValue(entry.CarriedKey, out string held) || held != entry.CarriedValue)
+                {
+                    yield return $"{reader}: search should return [{DescribeText(entry.CarriedKey)}] with [{DescribeText(entry.CarriedValue)}], not {(held == null ? "nothing" : $"[{DescribeText(held)}]")}";
+                }
+            }
+
+            int count = data.Keys.Count(name => name.StartsWith(NulDataKey, StringComparison.OrdinalIgnoreCase));
+            if (count != NulData.Length)
+            {
+                yield return $"{reader}: search should return {NulData.Length} keys that start with '{NulDataKey}', not {count}";
+            }
+
+            foreach (string name in data.Keys.Where(name => name.Length == 0 || name.IndexOf('\0') >= 0))
+            {
+                yield return $"{reader}: search should return no key [{DescribeText(name)}]";
+            }
+        }
+
+        /// <summary>
+        /// Filters with NUL characters in their keys and values, on the lobby of
+        /// <see cref="NulLobbyData"/>, and whether each keeps the lobby: every backend takes a
+        /// filter's key and value up to their first NUL, as Steam's search took them on AppID 480
+        /// on 2026-11-08, so a value compares as the text before its NUL, and a key with nothing
+        /// before it is the empty key, which no lobby holds, though a string filter on it compares
+        /// an empty value, unlike a key the lobby lacks (#286), and a numeric filter reads it as 0
+        /// (#353).
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NulFilterChecks()
+        {
+            (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
+            {
+                ("nul.value", "ab", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0cd", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0zz", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0zz", LobbyComparison.NotEqual, false),
+                ("nul.value", "ab\0zz", LobbyComparison.LessThan, false),
+                ("nul.value", "\0ab", LobbyComparison.Equal, false),
+                ("nul.value", "\0ab", LobbyComparison.NotEqual, true),
+                ("nul.key\0junk", "v", LobbyComparison.Equal, true),
+                ("NUL.HALF", "a\uDBFF\0z", LobbyComparison.Equal, true),
+                ("\0nul.value", "ab", LobbyComparison.Equal, false),
+                ("\0nul.value", "ab", LobbyComparison.NotEqual, true),
+                ("\0nul.value", "ab", LobbyComparison.LessThan, true),
+                ("\0nul.value", "", LobbyComparison.Equal, true),
+            };
+
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in checks)
+            {
+                yield return ($"[{DescribeText(key)}] {comparison} [{DescribeText(filter)}]", new LobbySearchQuery().AddStringFilter(key, filter, comparison), isKept);
+            }
+
+            (string Key, int Value, LobbyComparison Comparison, bool IsKept)[] numbers =
+            {
+                ("nul.number\0junk", 7, LobbyComparison.Equal, true),
+                ("nul.number\0junk", 7, LobbyComparison.NotEqual, false),
+                ("\0nul.number", 0, LobbyComparison.Equal, true),
+                ("\0nul.number", 7, LobbyComparison.Equal, false),
+            };
+
+            foreach ((string key, int value, LobbyComparison comparison, bool isKept) in numbers)
+            {
+                yield return ($"number [{DescribeText(key)}] {comparison} {value}", new LobbySearchQuery().AddNumericFilter(key, value, comparison), isKept);
+            }
+        }
+
+        /// <summary>An answer of <c>GetLobbyData</c> for a failure message.</summary>
+        private static string DescribeAnswer(string answer) => answer == null ? "null" : $"[{DescribeText(answer)}]";
 
         /// <summary>Text with every character outside printable ASCII written as its escape, for a failure message.</summary>
         private static string DescribeText(string text)
@@ -1270,7 +1556,7 @@ namespace Mu3Library.Tests
 
         #region Data Helpers
         // A NUL, where Steam ends a string, and surrogates without their pair, which UTF-8 replaces.
-        private static readonly string[] UncleanTexts = { "a\0b", "a\uD800", "\uDC00a", "\uDBFF" };
+        internal static readonly string[] UncleanTexts = { "a\0b", "a\uD800", "\uDC00a", "\uDBFF" };
 
         private static string Escape(string text) => string.Concat(text.Select(c => c < 0x20 || char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
 

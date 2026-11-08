@@ -176,6 +176,15 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerReason.InvalidArgument;
             }
 
+            // The name is lobby data the manager writes itself, so it follows the rules of the
+            // lobby data a game sets: Steam would cut it at a NUL, and every backend reads an
+            // unpaired surrogate as U+FFFD, so search would show another name (#387).
+            if (options.Name != null && !IsCleanText(options.Name))
+            {
+                Debug.LogWarning("[Multiplayer] A lobby name may not hold a NUL character or an unpaired UTF-16 surrogate.");
+                return MultiplayerReason.InvalidArgument;
+            }
+
             // Checked entry by entry, as SetLobbyData later checks each change. An empty value
             // writes no key, as SetLobbyData deletes one, so only its key is checked, and it
             // takes no room.

@@ -112,6 +112,10 @@ namespace Mu3Library.Multiplayer
         /// Steam's friends list may offer to join it (FR-19, FR-20).
         /// </summary>
         /// <remarks>
+        /// A query with a filter whose key or string value holds a NUL character or an unpaired
+        /// UTF-16 surrogate answers <see cref="MultiplayerReason.InvalidArgument"/> at once, as
+        /// lobby data refuses such text (<see cref="LobbySearchQuery.AddStringFilter"/>).
+        /// <para>
         /// While the backend is no longer available, the search answers at once, and a search
         /// still waiting for the backend when it stops being available answers on the next
         /// request or the next <c>Update</c> at the latest, once, so no callback stays held until
@@ -119,6 +123,7 @@ namespace Mu3Library.Multiplayer
         /// Steam backend that can no longer use Steam, as its own search answers then, and with
         /// <see cref="MultiplayerReason.BackendError"/> for any other backend, such as one
         /// disposed before the manager, which answers no search it still holds.
+        /// </para>
         /// </remarks>
         public void SearchLobbies(LobbySearchQuery query, Action<LobbySearchResult> callback);
 

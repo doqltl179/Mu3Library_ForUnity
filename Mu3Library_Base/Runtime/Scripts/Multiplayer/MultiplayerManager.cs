@@ -141,6 +141,16 @@ namespace Mu3Library.Multiplayer
                 return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
             }
 
+            // The manager writes the game ID into the lobby data and filters search by it, so it
+            // follows the rules of the lobby data a game sets: every backend would hold another ID
+            // than this game's, cut at a NUL as Steam cuts it or with U+FFFD for an unpaired
+            // surrogate, and this game would then find none of its own lobbies (#387).
+            if (!IsCleanText(config.GameId))
+            {
+                Debug.LogWarning("[Multiplayer] The game ID may not hold a NUL character or an unpaired UTF-16 surrogate.");
+                return MultiplayerResult.Failure(MultiplayerReason.InvalidArgument);
+            }
+
             if (!(config.JoinTimeoutSeconds > 0f) || !(config.HandshakeTimeoutSeconds > 0f))
             {
                 Debug.LogWarning("[Multiplayer] Timeouts must be greater than zero.");
@@ -327,6 +337,13 @@ namespace Mu3Library.Multiplayer
                 return;
             }
 
+            if (query != null && !IsCleanQuery(query))
+            {
+                Debug.LogWarning("[Multiplayer] A search filter's key or value may not hold a NUL character or an unpaired UTF-16 surrogate.");
+                Invoke(callback, new LobbySearchResult(MultiplayerReason.InvalidArgument, null));
+                return;
+            }
+
             // A backend that is gone may never answer, as one disposed before the manager, so
             // nothing may wait for it, and the searches that already do are answered first.
             if (!_backend.IsAvailable)
@@ -347,6 +364,36 @@ namespace Mu3Library.Multiplayer
             PendingSearch search = new PendingSearch { Callback = callback };
             _pendingSearches.Add(search);
             _backend.SearchLobbies(effective, (reason, lobbies) => HandleSearchCompleted(search, reason, lobbies));
+        }
+
+        /// <summary>
+        /// False for a query with a NUL character or an unpaired UTF-16 surrogate in the key of a
+        /// filter or the value of a string filter, which lobby data refuses
+        /// (<see cref="IsCleanText"/>): every backend compares such a filter as Steam does, up to
+        /// its first NUL and with U+FFFD for such a surrogate (#372, #387), so it would find
+        /// lobbies by other text than it holds. A null key or value holds neither.
+        /// </summary>
+        private static bool IsCleanQuery(LobbySearchQuery query)
+        {
+            for (int i = 0; i < query.StringFilters.Count; i++)
+            {
+                LobbyStringFilter filter = query.StringFilters[i];
+                if ((filter.Key != null && !IsCleanText(filter.Key)) || (filter.Value != null && !IsCleanText(filter.Value)))
+                {
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < query.NumericFilters.Count; i++)
+            {
+                string key = query.NumericFilters[i].Key;
+                if (key != null && !IsCleanText(key))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>Answers the searches still waiting once the backend is no longer available.</summary>

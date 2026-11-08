@@ -6,7 +6,14 @@ namespace Mu3Library.Multiplayer.Data
     {
         public LobbyVisibility Visibility { get; set; } = LobbyVisibility.FriendsOnly;
 
-        /// <summary>The name lobby search shows. At most <see cref="MaxNameLength"/> characters.</summary>
+        /// <summary>
+        /// The name lobby search shows. At most <see cref="MaxNameLength"/> characters. The manager
+        /// writes it into the lobby data, so it follows the rules of the lobby data a game sets
+        /// (<see cref="IMultiplayerManager.SetLobbyData"/>): a name that holds a NUL character, where
+        /// Steam ends the name, or an unpaired UTF-16 surrogate, which every backend reads as
+        /// U+FFFD, answers <see cref="MultiplayerReason.InvalidArgument"/>, since search would show
+        /// another name.
+        /// </summary>
         public string Name { get; set; } = string.Empty;
 
         public SessionRules Rules { get; set; } = SessionRules.Default;

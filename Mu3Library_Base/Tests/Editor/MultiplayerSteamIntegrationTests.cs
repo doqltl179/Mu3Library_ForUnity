@@ -482,7 +482,7 @@ namespace Mu3Library.Tests
             // FR-11, FR-38, #372: keys, values, and filters with surrogates without their pair on
             // Steam itself, against the results the local backends' tests hold every backend to.
             // Such data goes through the backend itself, since the manager refuses it in the lobby
-            // data a game sets.
+            // data a game sets, and so do the filters with it, which the manager refuses too (#387).
             MultiplayerManager manager = new MultiplayerManager();
             try
             {
@@ -502,7 +502,7 @@ namespace Mu3Library.Tests
                 foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.UnpairedSurrogateFilterChecks())
                 {
                     query.Distance = LobbyDistance.Worldwide;
-                    bool isFound = SearchUntil(manager, () => query, lobby, seconds: isKept ? 10 : 0) != null;
+                    bool isFound = BackendFindsUntil(manager, query, lobby, seconds: isKept ? 10 : 0);
                     if (isFound != isKept)
                     {
                         mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
@@ -510,6 +510,59 @@ namespace Mu3Library.Tests
                 }
 
                 Assert.That(mismatches, Is.Empty);
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_TakesTextUpToItsFirstNul_AsTheLocalBackendsDo()
+        {
+            // FR-11, FR-38, #387: keys, values, and filters with NUL characters on Steam itself,
+            // against the results the local backends' tests hold every backend to. Such data goes
+            // through the backend itself, and so do the filters with it, since the manager refuses
+            // a NUL in every lobby text and search filter.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.NulLobbyData())
+                {
+                    Assert.That(_backend.SetLobbyData(lobby, pair.Key, pair.Value), Is.True, "Steam refused one of the keys");
+                }
+
+                // Steam publishes the data a moment after it is set, so the first search waits for it.
+                LobbyInfo found = SearchUntil(manager, () => Worldwide().AddStringFilter("nul.number", "7"), lobby);
+                Assert.That(found, Is.Not.Null, "the lobby never showed up in a search filtered by its data");
+                List<string> mismatches = MultiplayerSessionTests.NulLookupMismatches("Steam", key => _backend.GetLobbyData(lobby, key)).ToList();
+                mismatches.AddRange(MultiplayerSessionTests.NulDataMismatches("Steam", found.Data));
+
+                // Each filter that keeps the lobby is asked a little longer, and one that drops it at once.
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.NulFilterChecks())
+                {
+                    query.Distance = LobbyDistance.Worldwide;
+                    bool isFound = BackendFindsUntil(manager, query, lobby, seconds: isKept ? 10 : 0);
+                    if (isFound != isKept)
+                    {
+                        mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+
+                Assert.That(mismatches, Is.Empty);
+
+                // The empty key that a key with nothing before its first NUL reached Steam as is
+                // gone from the owner's lobby once Steam's servers answered.
+                List<string> owned = OwnLobbyGameKeys(lobby);
+                Assert.That(owned.Where(key => key.Length == 0), Is.Empty, $"the owner's lobby holds the game keys '{string.Join("', '", owned)}'");
+
+                // SetLobbyData and DeleteLobbyData take the key the same way.
+                Assert.That(_backend.SetLobbyData(lobby, "NUL.KEY\0other", "w\0tail"), Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, "nul.key\0more"), Is.EqualTo("w"));
+                Assert.That(_backend.DeleteLobbyData(lobby, "nul.key\0junk"), Is.True);
+                Assert.That(_backend.GetLobbyData(lobby, "nul.key"), Is.Null);
                 manager.Leave();
             }
             finally
@@ -1369,6 +1422,41 @@ namespace Mu3Library.Tests
                 if (done(picked) || watch.Elapsed.TotalSeconds >= seconds)
                 {
                     return picked;
+                }
+
+                Pump(manager, () => false, 2);
+            }
+        }
+
+        /// <summary>
+        /// Asks Steam's own search, filtered by the lobby's game ID and by <paramref name="query"/>,
+        /// again and again until it lists the lobby, at least once even when
+        /// <paramref name="seconds"/> is 0; false when it never does. For a filter the manager
+        /// refuses, one with a NUL character or an unpaired surrogate (#387).
+        /// </summary>
+        private bool BackendFindsUntil(MultiplayerManager manager, LobbySearchQuery query, LobbyId lobby, int seconds)
+        {
+            query.AddStringFilter(LobbyDataKeys.GameId, _backend.GetLobbyData(lobby, LobbyDataKeys.GameId));
+            Stopwatch watch = Stopwatch.StartNew();
+            while (true)
+            {
+                IReadOnlyList<BackendLobby> lobbies = null;
+                MultiplayerReason? answer = null;
+                _backend.SearchLobbies(query, (reason, found) =>
+                {
+                    answer = reason;
+                    lobbies = found;
+                });
+                Pump(manager, () => answer.HasValue, 25);
+                Assert.That(answer, Is.EqualTo(MultiplayerReason.None), "Steam's search did not answer, or failed");
+                if (lobbies.Any(found => found.Id == lobby))
+                {
+                    return true;
+                }
+
+                if (watch.Elapsed.TotalSeconds >= seconds)
+                {
+                    return false;
                 }
 
                 Pump(manager, () => false, 2);
