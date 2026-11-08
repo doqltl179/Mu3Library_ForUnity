@@ -575,6 +575,49 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThem_InTheOwnersProcess_AMembers_AndAnothers()
+        {
+            // FR-11, FR-38, #372: the manager refuses such text in the lobby data a game sets,
+            // though not in the game ID or the lobby name it writes itself, so the test writes it
+            // through the backend itself. The frames carry each such surrogate to a member, and the
+            // lobby file to another process, as U+FFFD, as UTF-8 carries it to Steam, so the owner,
+            // which reads its lobby as it is, takes it as U+FFFD too, and all three read the same.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            (MultiplayerReason reason, LobbyId lobby) = CreateLobbies(owner, 1, MultiplayerSessionTests.UnpairedSurrogateLobbyData()).Single();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            List<string> mismatches = new List<string>();
+            foreach (LocalBackend reader in new[] { owner, member })
+            {
+                mismatches.AddRange(MultiplayerSessionTests.UnpairedSurrogateLookupMismatches(reader.PlayerName, key => reader.GetLobbyData(lobby, key)));
+            }
+
+            // From another process, which reads the lobby file, and from the owner's own.
+            foreach (LocalBackend searcher in new[] { seeker, owner })
+            {
+                BackendLobby[] listed = Search(searcher).Where(candidate => candidate.Id == lobby).ToArray();
+                Assert.That(listed, Has.Length.EqualTo(1), searcher.PlayerName);
+                mismatches.AddRange(MultiplayerSessionTests.UnpairedSurrogateDataMismatches(searcher.PlayerName, listed[0].Data));
+
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.UnpairedSurrogateFilterChecks())
+                {
+                    IReadOnlyList<BackendLobby> found = null;
+                    searcher.SearchLobbies(query, (r, lobbies) => found = lobbies);
+                    PumpUntil(() => found != null, "the search");
+                    if (found.Any(candidate => candidate.Id == lobby) != isKept)
+                    {
+                        mismatches.Add($"{searcher.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
         public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
         {
             // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again
@@ -1168,6 +1211,61 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Directory_ReadWhoseThreadIsHeldUpPastTheWait_FindsAReplacementThatFinishedInTime_AndLooksOnceAtTheOthers()
+        {
+            // Two owners in the middle of a replacement, whose new files are not yet in place. The
+            // read's thread loses its core right after its first look, which finds a lobby file
+            // missing: that owner's new file moves in meanwhile, well within the read's wait, and
+            // the thread comes back only once the wait has run out (#376). The other owner's
+            // replacement does not finish, and the wait that ran out is the one every file shares.
+            long waitTicks = (long)(MachineDirectory.ReplaceWaitSeconds * Stopwatch.Frequency);
+            Dictionary<string, string> temporaries = new Dictionary<string, string>();
+            Dictionary<string, LobbyId> lobbies = new Dictionary<string, LobbyId>();
+            foreach (int port in new[] { 7, 8 })
+            {
+                MachineDirectory directory = new MachineDirectory(_folder, port);
+                directory.Publish(new PlayerId((ulong)port), port, new List<MachineLobby> { ListedLobby((ulong)port, "map", "forest") });
+                directory.Abandon();
+                string file = Path.Combine(_folder, "peer-" + port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+                string temporary = Path.ChangeExtension(file, ".tmp");
+                File.Move(file, temporary);
+                File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+                temporaries.Add(file, temporary);
+                lobbies.Add(file, new LobbyId((ulong)port));
+            }
+
+            Dictionary<string, int> looks = new Dictionary<string, int>();
+            string first = null;
+            long movedIn = 0;
+            long readStart = Stopwatch.GetTimestamp();
+            List<MachineDirectoryEntry> entries = MachineDirectory.ReadForTests(_folder, file =>
+            {
+                looks[file] = looks.TryGetValue(file, out int count) ? count + 1 : 1;
+                if (first != null)
+                {
+                    return;
+                }
+
+                first = file;
+                File.Move(temporaries[file], file);
+                movedIn = Stopwatch.GetTimestamp();
+
+                // The read's wait started before this look, so it has run out by the end of this.
+                while (Stopwatch.GetTimestamp() - movedIn <= waitTicks)
+                {
+                    Thread.Sleep(1);
+                }
+            });
+
+            Assert.That(first, Is.Not.Null, "The read never looked at a lobby file of the owners in the middle of a replacement.");
+            Assume.That(movedIn - readStart, Is.LessThan(waitTicks), "This thread was held up past the read's wait before it moved the new file in, so the case of a replacement that finished in time was not exercised.");
+            string other = lobbies.Keys.Single(file => file != first);
+            Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(new[] { lobbies[first] }), "The read gave up on a lobby file that moved in within its wait.");
+            Assert.That(looks[first], Is.EqualTo(2), "The read did not look at the file it waited for once, and only once, after its wait ran out.");
+            Assert.That(looks.TryGetValue(other, out int otherLooks) ? otherLooks : 0, Is.EqualTo(1), "The read did not look at a file it reached once its wait had run out, or waited for it anew.");
+        }
+
+        [Test]
         public void Directory_DeletesTheTemporaryFileAndBackupsThatAProcessThatEndedLeft_AndKeepsTheOthers()
         {
             Directory.CreateDirectory(_folder);
@@ -1425,9 +1523,8 @@ namespace Mu3Library.Tests
             // file in can wait for a core past the read's wait, and so can an update. Such a round
             // is played again with new players; an update that waited for the replacement would
             // miss every round. Anything else fails at once. That includes a miss of a new file that
-            // moved in within the read's wait, which the load could still cause by holding the
-            // read's thread between its last look at the folder and its deadline; the measurements
-            // for #367 saw none.
+            // moved in within the read's wait, which the load cannot cause by holding the read's
+            // thread past its deadline: the read looks at the file once more after it (#376).
             const int Rounds = 5;
             List<string> missed = new List<string>();
             for (int round = 0; round < Rounds; round++)
@@ -1501,6 +1598,19 @@ namespace Mu3Library.Tests
             Assert.That(unfinished.IsFound, Is.False);
             Assert.That(unfinished.Answer, Is.GreaterThan(wait * 0.8), "The read did not wait for the replacement.");
 
+            // A join by the lobby's ID meeting a replacement that does not finish in time: its read
+            // waits it out on its own thread, as the search's did, and finds no lobby. Only here
+            // would a join's update that read the files itself be held for the whole wait; below,
+            // such a read meets the new file about a sleep in, which mostly stays under the bound
+            // (#377). The owner gets no update, so it writes no new file in the meantime.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+            MultiplayerReason? unfinishedReason = null;
+            (double Slowest, double Answer, double Updates, double MovedIn) unfinishedJoin = TimeUpdates(seeker, () => seeker.JoinLobby(lobby, r => unfinishedReason = r), () => unfinishedReason.HasValue, null, 0.0);
+            File.Move(temporary, file);
+            Assert.That(unfinishedReason, Is.EqualTo(MultiplayerReason.LobbyNotFound));
+            Assert.That(unfinishedJoin.Answer, Is.GreaterThan(wait * 0.8), "The join's read did not wait for the replacement.");
+
             // A join by the lobby's ID, whose owner answers it, meeting the replacement as the search did.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
@@ -1523,9 +1633,10 @@ namespace Mu3Library.Tests
                 missed.Add("an update of the search took " + Milliseconds(searchSlowest));
             }
 
-            if (joined.Slowest >= bound)
+            double joinSlowest = Math.Max(unfinishedJoin.Slowest, joined.Slowest);
+            if (joinSlowest >= bound)
             {
-                missed.Add("an update of the join took " + Milliseconds(joined.Slowest));
+                missed.Add("an update of the join took " + Milliseconds(joinSlowest));
             }
 
             return missed.Count > 0 ? string.Join(", ", missed) : null;

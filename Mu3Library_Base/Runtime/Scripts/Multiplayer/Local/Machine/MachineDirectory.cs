@@ -590,9 +590,20 @@ namespace Mu3Library.Multiplayer.Local.Machine
         /// </summary>
         /// <remarks>
         /// It sleeps while an owner replaces its file, up to <see cref="ReplaceWaitSeconds"/> and
-        /// one sleep more in all, so call it off the main thread.
+        /// one sleep more in all, so call it off the main thread. It looks at a file it waits for
+        /// once more after that time, so it finds a replacement that finished in time even when
+        /// its thread lost its core until past it.
         /// </remarks>
-        public static List<MachineDirectoryEntry> Read(string folder)
+        public static List<MachineDirectoryEntry> Read(string folder) => ReadFiles(folder, null);
+
+        /// <summary>
+        /// Test hook: <see cref="Read"/>, calling <paramref name="afterEachLook"/> on the reading
+        /// thread with the path of a lobby file after each look at it, before the read decides on
+        /// what it found, so a test can stand in for the thread losing its core there.
+        /// </summary>
+        internal static List<MachineDirectoryEntry> ReadForTests(string folder, Action<string> afterEachLook) => ReadFiles(folder, afterEachLook);
+
+        private static List<MachineDirectoryEntry> ReadFiles(string folder, Action<string> afterEachLook)
         {
             List<MachineDirectoryEntry> entries = new List<MachineDirectoryEntry>();
 
@@ -631,7 +642,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
                 bool isReadAgain = false;
                 while (true)
                 {
+                    // Whether the wait is over is taken before the look, not after it: a thread
+                    // that lost its core between a look and the deadline, while the replacement
+                    // finished in time, would give up on a file already in place (#376). So the
+                    // last look at a file comes after the deadline, and a port that the read
+                    // reaches once the wait has run out is still looked at once, as before.
+                    bool isLastLook = Stopwatch.GetTimestamp() >= waitUntil;
                     FileRead read = ReadFile(file, staleBefore, entries, out long written);
+                    afterEachLook?.Invoke(file);
                     if (read == FileRead.Stale)
                     {
                         if (DeleteIfUnchanged(file, written))
@@ -667,7 +685,7 @@ namespace Mu3Library.Multiplayer.Local.Machine
                         break;
                     }
 
-                    if (Stopwatch.GetTimestamp() >= waitUntil)
+                    if (isLastLook)
                     {
                         break;
                     }

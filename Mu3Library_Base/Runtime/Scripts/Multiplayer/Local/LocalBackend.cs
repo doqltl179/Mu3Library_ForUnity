@@ -475,15 +475,17 @@ namespace Mu3Library.Multiplayer.Local
             }
 
             // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
-            // lobby lacks, as a Steam lobby writes none (#343); keys in any case, as the lobby keeps them.
+            // lobby lacks, as a Steam lobby writes none (#343), and its key and value are taken as
+            // UTF-8 carries them to Steam (#372); keys in any case, as the lobby keeps them.
             Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(pair.Key))
+                    string key = Utf8Text.AsCarried(pair.Key);
+                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(key))
                     {
-                        snapshot[pair.Key] = pair.Value ?? string.Empty;
+                        snapshot[key] = Utf8Text.AsCarried(pair.Value) ?? string.Empty;
                     }
                 }
             }
@@ -592,6 +594,8 @@ namespace Mu3Library.Multiplayer.Local
 
         public string GetLobbyData(LobbyId lobbyId, string key)
         {
+            // The key as UTF-8 carries it to Steam, as the lobby keeps its keys (#372).
+            key = Utf8Text.AsCarried(key);
             if (_machine != null)
             {
                 return _machine.GetLobbyData(lobbyId, key);
@@ -604,6 +608,10 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool SetLobbyData(LobbyId lobbyId, string key, string value)
         {
+            // As UTF-8 carries both to Steam, so a surrogate without its pair reads as U+FFFD on
+            // every backend, in this process and in the owner's own (#372).
+            key = Utf8Text.AsCarried(key);
+            value = Utf8Text.AsCarried(value);
             if (_machine != null)
             {
                 return _machine.SetLobbyData(lobbyId, key, value);
@@ -628,6 +636,8 @@ namespace Mu3Library.Multiplayer.Local
 
         public bool DeleteLobbyData(LobbyId lobbyId, string key)
         {
+            // As SetLobbyData takes it (#372).
+            key = Utf8Text.AsCarried(key);
             if (_machine != null)
             {
                 return _machine.DeleteLobbyData(lobbyId, key);
