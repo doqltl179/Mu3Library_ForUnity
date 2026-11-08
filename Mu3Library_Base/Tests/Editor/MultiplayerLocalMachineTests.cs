@@ -16,6 +16,9 @@ using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Local.Machine;
 using Mu3Library.Multiplayer.Protocol;
 using NUnit.Framework;
+using UnityEngine.TestTools.Constraints;
+// Unity's Is extends NUnit's with AllocatingGCMemory.
+using Is = UnityEngine.TestTools.Constraints.Is;
 
 namespace Mu3Library.Tests
 {
@@ -1674,6 +1677,99 @@ namespace Mu3Library.Tests
             Assert.That(Join(joiner, lobby), Is.EqualTo(MultiplayerReason.None));
             Assert.That(joiner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name));
             Assert.That(owner.GetPlayerName(joiner.LocalPlayerId), Is.EqualTo(name.Substring(0, MultiplayerLimits.MaxPlayerNameLength)));
+        }
+
+        [Test]
+        public void Join_WithANameLongerThanTheRosterTakes_KeepsItCut_SoTheLobbyIsWrittenWithoutAllocating()
+        {
+            // 100 UTF-8 bytes, within what a frame carries, but longer than the roster takes: a
+            // process of another version sends it whole (#374).
+            string name = new string('n', 100);
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
+            PlayerId other = new PlayerId(0x1234567UL);
+
+            PacketWriter join = new PacketWriter();
+            join.WriteInt(MachineProtocol.Magic);
+            join.WriteInt(MachineProtocol.Version);
+            join.WriteULong(lobby.Value);
+            join.WriteULong(other.Value);
+            join.WriteInt(1);
+            join.WriteString(name);
+            join.WriteBool(false);
+
+            string kept;
+            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                socket.Connect(new IPEndPoint(IPAddress.Loopback, owner.Port));
+                socket.Send(Frame(MachineFrameKind.LobbyJoin, join.Written));
+                PumpUntil(() => owner.IsLobbyMember(lobby, other), "the owner to let the player in");
+
+                // The name the owner's lobby keeps for the member, the same string.
+                kept = owner.GetPlayerName(other);
+            }
+
+            Assert.That(kept, Is.EqualTo(name.Substring(0, MultiplayerLimits.MaxPlayerNameLength)));
+
+            // A lobby with that member, written as its owner writes it each time the lobby goes to
+            // its members, and listed as the owner lists it about every 2 seconds, which counts its
+            // free slots by the same bytes: none of them cuts the kept name again.
+            MachineLobby written = ListedLobby(0x123456UL, "map", "forest");
+            written.Members.Add(new MachineMember { Id = owner.LocalPlayerId, Port = owner.Port, Name = "Owner" });
+            written.Members.Add(new MachineMember { Id = other, Port = 1, Name = kept });
+            List<MachineLobby> listed = new List<MachineLobby> { written };
+            PacketWriter snapshot = new PacketWriter();
+            MachineDirectory directory = new MachineDirectory(Path.Combine(_folder, "written"), 1);
+            int bytes = 0;
+            void WriteLobby()
+            {
+                bytes = MachineProtocol.SnapshotBytes(written);
+                snapshot.Clear();
+                MachineProtocol.WriteSnapshot(snapshot, written);
+                directory.Publish(new PlayerId(9), 1, listed);
+            }
+
+            try
+            {
+                // The first listing creates the file and starts the thread that writes the later ones.
+                for (int i = 0; i < 3; i++)
+                {
+                    WriteLobby();
+                }
+
+                Assert.That(WriteLobby, Is.Not.AllocatingGCMemory());
+                Assert.That(snapshot.Written.Length, Is.EqualTo(bytes));
+
+                // Not full, so the listing counted the lobby's bytes for its free slots.
+                Assert.That(MachineDirectory.ListedCapacity(written), Is.EqualTo(written.Capacity));
+            }
+            finally
+            {
+                directory.Remove();
+            }
+        }
+
+        [TestCase("ascii")]
+        [TestCase("pair")]
+        public void ReadName_OfANameLongerThanTheRosterTakes_CutsItAsTheSenderDoes(string shape)
+        {
+            // A name past 64 characters, whole, as a process of another version sends it; "pair"
+            // puts a surrogate pair across the 64th character, which the cut splits as a sender
+            // of this version splits it, so the kept name is the name such a sender sends.
+            string sent = shape == "pair"
+                ? new string('n', MultiplayerLimits.MaxPlayerNameLength - 1) + "\U0001F600" + "tail"
+                : new string('n', 100);
+            PacketWriter writer = new PacketWriter();
+            writer.WriteString(sent);
+
+            PacketReader reader = new PacketReader(writer.Written);
+            string kept = MachineProtocol.ReadName(ref reader);
+
+            Assert.That(kept, Is.EqualTo(MachineProtocol.ToWireName(sent)));
+            Assert.That(kept.Length, Is.EqualTo(MultiplayerLimits.MaxPlayerNameLength));
+
+            // Written again, it is not cut again.
+            Assert.That(MachineProtocol.ToWireName(kept), Is.SameAs(kept));
         }
 
         [Test]
