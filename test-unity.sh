@@ -98,8 +98,9 @@ closes the run; a target that cannot start, such as an open project under
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), how --editor-version retargets the mirror, the sample-link
-check, and the environment variables work as in compile-unity.sh; see
-./compile-unity.sh --help.
+check, the warnings about the Windows path limit, which the summary gives again
+under each target, and the environment variables work as in compile-unity.sh;
+see ./compile-unity.sh --help.
 EOF
 }
 
@@ -375,6 +376,19 @@ test_target() {
     fi
 }
 
+# Adds the warnings that run_unity_for_target gave about the Windows path limit
+# for the target it ran last under that target's summary entry, since Unity's
+# log follows them and the run passes regardless.
+add_path_limit_warnings_to_summary() {
+    local warning
+
+    for warning in "$PATH_LIMIT_WARNING" "$UNREADABLE_PATHS_WARNING"; do
+        if [[ -n "$warning" ]]; then
+            SUMMARY_LINES+=("  warning: $warning")
+        fi
+    done
+}
+
 print_summary() {
     local line
 
@@ -427,6 +441,7 @@ test_main() {
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
         test_target "$target_key"
+        add_path_limit_warnings_to_summary
     done
 
     print_summary

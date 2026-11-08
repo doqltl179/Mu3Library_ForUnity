@@ -60,6 +60,22 @@ UNITY_LOG_POLL_SECONDS="${UNITY_LOG_POLL_SECONDS:-1}"
 # time between them may be.
 UNITY_CLOCK=0
 UNITY_CLOCK_SLACK=0
+# On Windows Unity's asset import cannot read a file whose full path has
+# WINDOWS_PATH_LIMIT characters or more, even with long paths enabled, and the
+# run still succeeds. LONGEST_PROJECT_FILE_PATH is the longest path below a
+# project folder that Unity could not read in the measured deep runs
+# (tools/README.md), Library\PackageCache\com.unity.render-pipelines.core@...
+# \RenderPipelineConverterVisualElementListFilter.uxml, so a project folder
+# whose path reaches the limit with it loses package files.
+readonly WINDOWS_PATH_LIMIT=260
+readonly LONGEST_PROJECT_FILE_PATH=161
+# run_unity_for_target leaves its warnings about that limit for the target it
+# ran last here: about the project folder, before Unity starts, and about the
+# files Unity's log says it could not read, after it exits. COMPILE_WARNINGS
+# keeps every one of a compile run, which compile_main repeats at its end.
+PATH_LIMIT_WARNING=""
+UNREADABLE_PATHS_WARNING=""
+COMPILE_WARNINGS=()
 
 SKIP_SAMPLES=0
 readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -274,6 +290,14 @@ Environment:
       ~/Unity/Hub/Editor). mu3-cli unity doctor reads the same variable.
   TMPDIR
       Where isolated mirrors are created. Keep it short on Windows.
+
+On Windows Unity cannot import a package file whose path has 260 characters or
+more, and the run does not fail for it. Before Unity starts, the script warns
+when the project folder Unity opens, in place or in a mirror, has 98 characters
+or more; after Unity exits, it warns when the log names files Unity could not
+read for that reason. A run of several targets repeats the warnings at its end.
+Run from a shorter path, such as a drive letter that subst maps to the
+checkout; see tools/README.md.
 
 Changed mode includes staged, unstaged, and untracked files. With --base it
 also includes committed changes from the requested ref through HEAD. Package
@@ -985,25 +1009,101 @@ copy_tree_contents() {
     cp -RL "$source_dir/." "$destination_dir/"
 }
 
-# Unity clones git-URL package dependencies into Library/PackageCache, which adds
-# roughly 130 characters to the project path. On Windows a long staging root
-# pushes that clone past MAX_PATH and package resolution fails before compiling.
-warn_long_staging_path() {
-    local staging_project="$1"
+# Sets PATH_LIMIT_WARNING to a warning, or to nothing, about the folder that
+# Unity opens as the project, in place or in a mirror as the location says: on
+# Windows, when the longest path measured below a project reaches
+# WINDOWS_PATH_LIMIT there. Unity also clones git-URL package dependencies into
+# Library/PackageCache, which a path this long can break as well.
+check_project_path_length() {
+    local project_folder="$1"
+    local location="$2"
     local windows_path
-    local path_length
+    local longest_path
+    # A file path holds the folder, a separator, and the path below it.
+    local longest_folder=$((WINDOWS_PATH_LIMIT - 2 - LONGEST_PROJECT_FILE_PATH))
+    local subject="project path"
+    local remedy="run from a project path of at most $longest_folder characters, such as on a drive letter that subst maps to the checkout"
 
+    PATH_LIMIT_WARNING=""
     detect_host_platform
     [[ "$HOST_PLATFORM" == "windows" ]] || return 0
 
-    windows_path="$(to_windows_path "$staging_project")"
-    path_length="${#windows_path}"
+    windows_path="$(to_windows_path "$project_folder")"
+    longest_path=$((${#windows_path} + 1 + LONGEST_PROJECT_FILE_PATH))
+    [[ "$longest_path" -ge "$WINDOWS_PATH_LIMIT" ]] || return 0
 
-    if [[ "$path_length" -gt 120 ]]; then
-        printf 'warning: staging project path is %d characters, so Unity may fail to clone git package dependencies: %s\n' \
-            "$path_length" "$windows_path" >&2
-        printf 'warning: set TMPDIR to a shorter directory to stay inside the Windows path limit.\n' >&2
+    if [[ "$location" == "isolated" ]]; then
+        subject="mirror path"
+        remedy="set TMPDIR so that the mirror path has at most $longest_folder characters"
     fi
+    PATH_LIMIT_WARNING="the $subject $windows_path is ${#windows_path} characters, so the longest package file path measured below a project reaches $longest_path there, and Unity cannot import a file whose path has $WINDOWS_PATH_LIMIT characters or more on Windows; $remedy (tools/README.md)"
+}
+
+# Sets UNREADABLE_PATHS_WARNING to a warning, or to nothing, about the files that
+# Unity's log says it could not find at paths of WINDOWS_PATH_LIMIT characters or
+# more, and the asset imports that failed on them, naming each DLL among them. With -automated Unity logs each error again in a ##utp: line,
+# which is left out, and a file or an asset that fails twice counts once.
+find_unreadable_long_paths() {
+    local log_file="$1"
+    local files=""
+    local imports=""
+    local dlls=""
+
+    UNREADABLE_PATHS_WARNING=""
+    [[ -f "$log_file" ]] || return 0
+
+    {
+        read -r files imports || true
+        IFS= read -r dlls || true
+    } < <(awk -v limit="$WINDOWS_PATH_LIMIT" '
+        BEGIN {
+            marker = "DirectoryNotFoundException: Could not find a part of the path \""
+            import_marker = "Asset import failed, \""
+        }
+        /^##utp:/ { next }
+        {
+            start = index($0, marker)
+            if (start == 0) {
+                next
+            }
+            rest = substr($0, start + length(marker))
+            end = index(rest, "\"")
+            if (end == 0) {
+                next
+            }
+            path = substr(rest, 1, end - 1)
+            if (length(path) < limit) {
+                next
+            }
+            if (!(path in seen_files)) {
+                seen_files[path] = 1
+                file_count++
+                name = path
+                sub(/.*\\/, "", name)
+                if (tolower(name) ~ /\.dll$/) {
+                    dlls = dlls (dlls == "" ? "" : ", ") name
+                }
+            }
+            if (index($0, import_marker) == 1) {
+                asset = substr($0, length(import_marker) + 1)
+                asset = substr(asset, 1, index(asset, "\"") - 1)
+                if (!(asset in seen_assets)) {
+                    seen_assets[asset] = 1
+                    import_count++
+                }
+            }
+        }
+        END {
+            print file_count + 0, import_count + 0
+            print dlls
+        }' "$log_file" 2>/dev/null || true)
+
+    [[ "${files:-0}" -gt 0 ]] || return 0
+    UNREADABLE_PATHS_WARNING="Unity could not read $files file(s) whose paths have $WINDOWS_PATH_LIMIT characters or more${dlls:+, among them $dlls}"
+    if [[ "${imports:-0}" -gt 0 ]]; then
+        UNREADABLE_PATHS_WARNING+=", and $imports asset import(s) failed on them"
+    fi
+    UNREADABLE_PATHS_WARNING+="; see ${log_file#"$REPO_ROOT"/}"
 }
 
 # Prints the folder in which an Editor keeps the packages it bundles: beside the
@@ -1177,8 +1277,6 @@ prepare_isolated_project() {
             copy_tree_contents "$REPO_ROOT/$package_path" "$STAGING_ROOT/$package_path"
         fi
     done
-
-    warn_long_staging_path "$staging_project"
 
     if [[ -n "$EDITOR_VERSION" ]]; then
         retarget_isolated_project "$staging_project" "$unity_path"
@@ -1358,6 +1456,10 @@ run_unity_for_target() {
 
     printf 'Unity: %s\n' "$unity_path"
     printf 'Project: %s\n' "$run_project_path"
+    check_project_path_length "$run_project_path" "$RUN_LOCATION"
+    if [[ -n "$PATH_LIMIT_WARNING" ]]; then
+        printf 'warning: %s: %s\n' "$target_key" "$PATH_LIMIT_WARNING" >&2
+    fi
 
     unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
     UNITY_STALLED=0
@@ -1366,15 +1468,26 @@ run_unity_for_target() {
     UNITY_STATUS=$?
     set -e
 
+    find_unreadable_long_paths "$UNITY_LOG_FILE"
+    if [[ -n "$UNREADABLE_PATHS_WARNING" ]]; then
+        printf 'warning: %s: %s\n' "$target_key" "$UNREADABLE_PATHS_WARNING" >&2
+    fi
+
     cleanup_staging
 }
 
 compile_target() {
     local target_key="$1"
+    local warning
 
     mkdir -p "$COMPILE_LOG_DIR"
     UNITY_LOG_FILE="$COMPILE_LOG_DIR/$target_key.log"
     run_unity_for_target "$target_key" "Compiling" -quit
+    for warning in "$PATH_LIMIT_WARNING" "$UNREADABLE_PATHS_WARNING"; do
+        if [[ -n "$warning" ]]; then
+            COMPILE_WARNINGS+=("$target_key: $warning")
+        fi
+    done
 
     if [[ "$UNITY_STALLED" -eq 1 ]]; then
         printf 'error: Unity compilation failed for %s: Unity wrote nothing to its log for %s s, so the script stopped it; see %s\n' \
@@ -1511,6 +1624,12 @@ compile_main() {
     for target_key in "${SELECTED_TARGETS[@]}"; do
         compile_target "$target_key"
     done
+
+    # Each later target's Unity log follows a target's warnings, so a run of
+    # several targets gives them all again once the last one has compiled.
+    if [[ "${#SELECTED_TARGETS[@]}" -gt 1 && "${#COMPILE_WARNINGS[@]}" -gt 0 ]]; then
+        printf 'warning: %s\n' "${COMPILE_WARNINGS[@]}" >&2
+    fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
