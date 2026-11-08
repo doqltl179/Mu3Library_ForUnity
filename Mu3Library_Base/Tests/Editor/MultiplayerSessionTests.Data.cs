@@ -508,9 +508,10 @@ namespace Mu3Library.Tests
         [Test]
         public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThemToSteam_InReadsSearchResultsAndFilters()
         {
-            // FR-11, FR-38, #372: only a caller of a backend itself writes such lobby data, since
-            // the manager refuses it (#194). The backend takes each such surrogate in a key, a
-            // value, or a filter as the U+FFFD that UTF-8 carries to Steam in its place, so
+            // FR-11, FR-38, #372: the manager refuses such text in the lobby data a game sets
+            // (#194), though not in the game ID or the lobby name it writes itself, so the test
+            // writes it through the backend itself. The backend takes each such surrogate in a key,
+            // a value, or a filter as the U+FFFD that UTF-8 carries to Steam in its place, so
             // GetLobbyData, the data search returns, and the filters read what they read on Steam.
             LocalBackend owner = CreateRawBackend("Owner");
             LocalBackend seeker = CreateRawBackend("Seeker");
@@ -800,10 +801,11 @@ namespace Mu3Library.Tests
         internal const string UnpairedSurrogateDataKey = "half";
 
         /// <summary>
-        /// Lobby data with UTF-16 surrogates without their pair in its values and keys, which only
-        /// a caller of a backend itself writes, since the manager refuses such text (#194), and
-        /// the data as every backend holds it: UTF-8 carries such a surrogate to Steam, and to the
-        /// other processes of a machine-wide network, as U+FFFD, and the local backends take it
+        /// Lobby data with UTF-16 surrogates without their pair in its values and keys, which a
+        /// test writes through a backend itself, since the manager refuses such text in the lobby
+        /// data a game sets (#194), though not in the game ID or the lobby name it writes itself,
+        /// and the data as every backend holds it: UTF-8 carries such a surrogate to Steam, and to
+        /// the other processes of a machine-wide network, as U+FFFD, and the local backends take it
         /// so in every process (#372), while a pair stays as it is.
         /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against these.
         /// </summary>

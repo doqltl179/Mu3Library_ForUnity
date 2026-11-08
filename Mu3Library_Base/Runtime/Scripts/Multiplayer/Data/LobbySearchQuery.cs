@@ -53,7 +53,8 @@ namespace Mu3Library.Multiplayer.Data
         /// data, counts as U+FFFD on every backend, since UTF-8 carries it to Steam as U+FFFD
         /// (<see cref="Backend.IMultiplayerBackend.SetLobbyData"/>): <c>"a\uD800"</c> equals
         /// <c>"a\uDC00"</c> and <c>"a\uFFFD"</c>, and sorts where <c>"a\uFFFD"</c> sorts. The
-        /// manager refuses such text in lobby data, but not in a filter.
+        /// manager refuses such text in the lobby data a game sets, but not in a filter, nor in
+        /// the game ID or the lobby name it writes itself.
         /// </para>
         /// </remarks>
         public LobbySearchQuery AddStringFilter(string key, string value, LobbyComparison comparison = LobbyComparison.Equal)

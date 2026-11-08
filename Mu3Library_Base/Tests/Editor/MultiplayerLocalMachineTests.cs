@@ -574,10 +574,11 @@ namespace Mu3Library.Tests
         [Test]
         public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThem_InTheOwnersProcess_AMembers_AndAnothers()
         {
-            // FR-11, FR-38, #372: only a caller of a backend itself writes such lobby data. The
-            // frames carry each such surrogate to a member, and the lobby file to another process,
-            // as U+FFFD, as UTF-8 carries it to Steam, so the owner, which reads its lobby as it
-            // is, takes it as U+FFFD too, and all three read the same.
+            // FR-11, FR-38, #372: the manager refuses such text in the lobby data a game sets,
+            // though not in the game ID or the lobby name it writes itself, so the test writes it
+            // through the backend itself. The frames carry each such surrogate to a member, and the
+            // lobby file to another process, as U+FFFD, as UTF-8 carries it to Steam, so the owner,
+            // which reads its lobby as it is, takes it as U+FFFD too, and all three read the same.
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
             LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
             LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");

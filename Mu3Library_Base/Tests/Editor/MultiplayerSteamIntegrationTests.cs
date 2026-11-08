@@ -481,7 +481,8 @@ namespace Mu3Library.Tests
         {
             // FR-11, FR-38, #372: keys, values, and filters with surrogates without their pair on
             // Steam itself, against the results the local backends' tests hold every backend to.
-            // Such data goes through the backend itself, since the manager refuses it.
+            // Such data goes through the backend itself, since the manager refuses it in the lobby
+            // data a game sets.
             MultiplayerManager manager = new MultiplayerManager();
             try
             {

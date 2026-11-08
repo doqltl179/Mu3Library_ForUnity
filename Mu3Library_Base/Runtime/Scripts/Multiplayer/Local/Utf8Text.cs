@@ -4,10 +4,12 @@ namespace Mu3Library.Multiplayer.Local
     /// Text as UTF-8 carries it: to Steam, through Steamworks.NET, and to the other processes of
     /// a machine-wide network, through the lobby files and frames. UTF-8 cannot carry a UTF-16
     /// surrogate without its pair, so <see cref="System.Text.Encoding.UTF8"/> writes U+FFFD in its
-    /// place. The manager refuses such text in lobby data (#194), but a caller of a backend itself
-    /// can hand it over, so the local backends take lobby data keys and values, and the keys and
-    /// string values of search filters, as UTF-8 carries them (#372): every backend then reads
-    /// the same text, in this process and in the owner's own on a machine-wide network.
+    /// place. The manager refuses such text in the lobby data a game sets (#194), though not in
+    /// the game ID or the lobby name it writes itself or in search filters, and a caller of a
+    /// backend itself can hand it over. So the local backends take lobby data keys and values,
+    /// and the keys and string values of search filters, as UTF-8 carries them (#372): every
+    /// backend then reads the same text, in this process and in the owner's own on a
+    /// machine-wide network.
     /// </summary>
     internal static class Utf8Text
     {

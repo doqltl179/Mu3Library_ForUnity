@@ -112,8 +112,12 @@ namespace Mu3Library.Multiplayer.Backend
         /// search returns, and the search filters, which take their keys and values the same way,
         /// read U+FFFD in its place for every player, the owner included, and keys that differ
         /// only in such surrogates are one key, as on Steam (#372). The manager refuses such text
-        /// in lobby data (<see cref="MultiplayerReason.InvalidArgument"/>), so only a caller of a
-        /// backend itself writes it.
+        /// in the lobby data a game sets (<see cref="MultiplayerReason.InvalidArgument"/>), though
+        /// not in the game ID (<see cref="MultiplayerConfig.GameId"/>) or the lobby name
+        /// (<see cref="LobbyCreateOptions.Name"/>) it writes itself, which read as U+FFFD too. So
+        /// a game ID with such a surrogate never matches the lobby data that names it, on any
+        /// backend: search leaves its lobbies out, and a join to one ends with
+        /// <see cref="MultiplayerReason.VersionMismatch"/>.
         /// </para>
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);
