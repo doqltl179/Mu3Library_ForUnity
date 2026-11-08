@@ -70,7 +70,11 @@ namespace Mu3Library.Multiplayer.Backend
         /// Searches public, joinable lobbies that have a free slot and pass every filter. A filter
         /// whose key is null or empty is skipped, as the Steam backend skips it. A filter's key and
         /// a string filter's value are taken as <see cref="SetLobbyData"/> takes lobby data, a
-        /// surrogate without its pair as U+FFFD.
+        /// surrogate without its pair as U+FFFD and up to the first NUL, so a key with nothing
+        /// before its first NUL is the empty key, which a string filter compares as an empty value
+        /// and a numeric filter reads as 0, as Steam's search did, and is not skipped. The
+        /// manager hands a backend no filter with a NUL or such a surrogate
+        /// (<see cref="LobbySearchQuery.AddStringFilter"/>).
         /// </summary>
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted);
 
@@ -111,13 +115,29 @@ namespace Mu3Library.Multiplayer.Backend
         /// as UTF-8 carries it to Steam: as U+FFFD. So <see cref="GetLobbyData"/>, the data a
         /// search returns, and the search filters, which take their keys and values the same way,
         /// read U+FFFD in its place for every player, the owner included, and keys that differ
-        /// only in such surrogates are one key, as on Steam (#372). The manager refuses such text
-        /// in the lobby data a game sets (<see cref="MultiplayerReason.InvalidArgument"/>), though
-        /// not in the game ID (<see cref="MultiplayerConfig.GameId"/>) or the lobby name
-        /// (<see cref="LobbyCreateOptions.Name"/>) it writes itself, which read as U+FFFD too. So
-        /// a game ID with such a surrogate never matches the lobby data that names it, on any
-        /// backend: search leaves its lobbies out, and a join to one ends with
-        /// <see cref="MultiplayerReason.VersionMismatch"/>.
+        /// only in such surrogates are one key, as on Steam (#372).
+        /// </para>
+        /// <para>
+        /// Every backend takes the key and the value up to their first NUL character as well, as
+        /// Steamworks.NET hands Steam text as a C string that ends there, and as Steam took such
+        /// text on AppID 480 on 2026-11-08 (#387): <see cref="GetLobbyData"/>, which reads its key
+        /// the same way, the data a search returns, and the search filters read only the text
+        /// before the NUL, and keys that differ only after a NUL are one key. A value with nothing
+        /// before its first NUL is an empty value, as above. A key with nothing before its first
+        /// NUL reaches Steam as an empty key: Steam answered true for it, and the owner read the
+        /// value back at once, but its lobby kept no such key once Steam's servers answered and
+        /// search never returned it, so the local backends write no key and answer true for the
+        /// owner, while a key that is null or empty to begin with answers false on every backend.
+        /// </para>
+        /// <para>
+        /// The manager refuses a NUL character and an unpaired surrogate in every text it writes
+        /// into the lobby data or searches by: the lobby data a game sets, the game ID
+        /// (<see cref="MultiplayerConfig.GameId"/>), the lobby name
+        /// (<see cref="LobbyCreateOptions.Name"/>), and search filters
+        /// (<see cref="LobbySearchQuery.AddStringFilter"/>), with
+        /// <see cref="MultiplayerReason.InvalidArgument"/>, since the lobby would otherwise hold,
+        /// or search compare, other text than the game wrote. Only a caller of a backend itself
+        /// writes such text.
         /// </para>
         /// </summary>
         public bool SetLobbyData(LobbyId lobby, string key, string value);

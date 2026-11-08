@@ -94,21 +94,23 @@ namespace Mu3Library.Multiplayer.Local.Machine
             // Keys in any case, as the lobby keeps them, so it counts the entries the lobby gets.
             // Each entry is written as SetLobbyData writes it, so an empty value writes no key the
             // lobby lacks, as a Steam lobby writes none (#343), and its key and value are taken as
-            // UTF-8 carries them to Steam and to the other processes, so this process reads them
-            // as they do (#372).
+            // Steamworks.NET hands them to Steam, and UTF-8 to the other processes, so this
+            // process reads them as they do (#372, #387); the limits count them so taken, as
+            // Steam's count what reaches Steam.
             Dictionary<string, string> snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             bool isWithinLimits = true;
             if (data != null)
             {
                 foreach (KeyValuePair<string, string> pair in data)
                 {
-                    string key = Utf8Text.AsCarried(pair.Key);
-                    if (!string.IsNullOrEmpty(pair.Value) || snapshot.ContainsKey(key))
+                    string key = Utf8Text.AsLobbyText(pair.Key);
+                    string value = Utf8Text.AsLobbyText(pair.Value);
+                    if (key.Length > 0 && (!string.IsNullOrEmpty(value) || snapshot.ContainsKey(key)))
                     {
-                        snapshot[key] = Utf8Text.AsCarried(pair.Value) ?? string.Empty;
+                        snapshot[key] = value ?? string.Empty;
                     }
 
-                    isWithinLimits &= MachineProtocol.IsWithinLimits(pair.Key, pair.Value);
+                    isWithinLimits &= MachineProtocol.IsWithinLimits(key, value);
                 }
             }
 
@@ -393,6 +395,9 @@ namespace Mu3Library.Multiplayer.Local.Machine
         {
             return _lobbies.TryGetValue(lobbyId, out MachineLobby lobby) && lobby.HasMember(player);
         }
+
+        /// <summary>Whether this peer owns the lobby, so it may write the lobby's data.</summary>
+        public bool IsOwnedLobby(LobbyId lobbyId) => FindOwnedLobby(lobbyId) != null;
 
         private MachineLobby FindOwnedLobby(LobbyId lobbyId)
         {

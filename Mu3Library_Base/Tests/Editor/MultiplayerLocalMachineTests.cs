@@ -577,8 +577,8 @@ namespace Mu3Library.Tests
         [Test]
         public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThem_InTheOwnersProcess_AMembers_AndAnothers()
         {
-            // FR-11, FR-38, #372: the manager refuses such text in the lobby data a game sets,
-            // though not in the game ID or the lobby name it writes itself, so the test writes it
+            // FR-11, FR-38, #372: the manager refuses such text in every lobby text, the lobby
+            // data a game sets among them (#387), so the test writes it
             // through the backend itself. The frames carry each such surrogate to a member, and the
             // lobby file to another process, as U+FFFD, as UTF-8 carries it to Steam, so the owner,
             // which reads its lobby as it is, takes it as U+FFFD too, and all three read the same.
@@ -615,6 +615,89 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void Backend_TakesTextUpToItsFirstNul_InTheOwnersProcess_AMembers_AndAnothers()
+        {
+            // FR-11, FR-38, #387: the manager refuses a NUL in every lobby text, so the test writes
+            // it through the backend itself. The owner takes each text up to its first NUL, as
+            // Steamworks.NET hands it to Steam, so the frames carry it so to a member and the lobby
+            // file to another process, and all three read the same, as on Steam.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            (MultiplayerReason reason, LobbyId lobby) = CreateLobbies(owner, 1, MultiplayerSessionTests.NulLobbyData()).Single();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            List<string> mismatches = new List<string>();
+            foreach (LocalBackend reader in new[] { owner, member })
+            {
+                mismatches.AddRange(MultiplayerSessionTests.NulLookupMismatches(reader.PlayerName, key => reader.GetLobbyData(lobby, key)));
+            }
+
+            // From another process, which reads the lobby file, and from the owner's own.
+            foreach (LocalBackend searcher in new[] { seeker, owner })
+            {
+                BackendLobby[] listed = Search(searcher).Where(candidate => candidate.Id == lobby).ToArray();
+                Assert.That(listed, Has.Length.EqualTo(1), searcher.PlayerName);
+                mismatches.AddRange(MultiplayerSessionTests.NulDataMismatches(searcher.PlayerName, listed[0].Data));
+
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.NulFilterChecks())
+                {
+                    IReadOnlyList<BackendLobby> found = null;
+                    searcher.SearchLobbies(query, (r, lobbies) => found = lobbies);
+                    PumpUntil(() => found != null, "the search");
+                    if (found.Any(candidate => candidate.Id == lobby) != isKept)
+                    {
+                        mismatches.Add($"{searcher.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            // A change takes its key and value the same way on its way to the member and the lobby
+            // file, and a key with nothing before its first NUL writes nothing and answers true
+            // for the owner, as Steam answered for the empty key it reached Steam as.
+            Assert.That(owner.SetLobbyData(lobby, "NUL.VALUE\0other", "changed\0tail"), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+            Assert.That(member.SetLobbyData(lobby, "\0lead", "v"), Is.False, "only the owner writes lobby data");
+            PumpUntil(() => member.GetLobbyData(lobby, "nul.value") == "changed" && ListedData(lobby, "nul.value") == "changed",
+                "the change to reach the member and the lobby file");
+            Assert.That(ListedData(lobby, string.Empty), Is.Null, "the lobby file lists no empty key");
+            Assert.That(owner.DeleteLobbyData(lobby, "nul.value\0junk"), Is.True);
+            PumpUntil(() => member.GetLobbyData(lobby, "nul.value") == null && ListedData(lobby, "nul.value") == null,
+                "the deletion to reach the member and the lobby file");
+        }
+
+        [Test]
+        public void Manager_RefusesANulOrAnUnpairedSurrogate_InTheGameIdTheLobbyNameAndSearchFilters()
+        {
+            // FR-5, FR-6, FR-11, #387: the manager's own rules, the same on the machine-wide
+            // network as in one process; each refusal answers at once.
+            LocalBackend backend = CreateRawBackend(CreateNetwork(), "Player");
+            Node host = CreateNode("Host");
+            Node seeker = CreateNode("Seeker");
+            foreach (string text in MultiplayerSessionTests.UncleanTexts)
+            {
+                using (MultiplayerManager manager = new MultiplayerManager())
+                {
+                    Assert.That(manager.Initialize(backend, new MultiplayerConfig("game " + text, 1)).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+                }
+
+                MultiplayerResult? created = null;
+                host.Manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room " + text }, result => created = result);
+                Assert.That(created?.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+
+                LobbySearchResult? searched = null;
+                seeker.Manager.SearchLobbies(new LobbySearchQuery().AddStringFilter("map", "desert" + text), result => searched = result);
+                Assert.That(searched?.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            }
+
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(MachineDirectory.Read(_folder), Is.Empty, "no lobby was created");
         }
 
         [Test]

@@ -52,9 +52,24 @@ namespace Mu3Library.Multiplayer.Data
         /// A UTF-16 surrogate without its pair, in the filter's key or value or in the lobby's
         /// data, counts as U+FFFD on every backend, since UTF-8 carries it to Steam as U+FFFD
         /// (<see cref="Backend.IMultiplayerBackend.SetLobbyData"/>): <c>"a\uD800"</c> equals
-        /// <c>"a\uDC00"</c> and <c>"a\uFFFD"</c>, and sorts where <c>"a\uFFFD"</c> sorts. The
-        /// manager refuses such text in the lobby data a game sets, but not in a filter, nor in
-        /// the game ID or the lobby name it writes itself.
+        /// <c>"a\uDC00"</c> and <c>"a\uFFFD"</c>, and sorts where <c>"a\uFFFD"</c> sorts.
+        /// </para>
+        /// <para>
+        /// Every backend also takes the filter's key and value up to their first NUL character,
+        /// as Steamworks.NET hands Steam text that ends there and as Steam's search took it on
+        /// AppID 480 on 2026-11-08 (<see cref="Backend.IMultiplayerBackend.SetLobbyData"/>): a
+        /// value that holds a NUL compares as the text before it, so <c>"desert"</c> followed by a
+        /// NUL and more equals <c>"desert"</c>. A key that starts with one is the empty key, which
+        /// no lobby holds, though Steam's search compared a filter on it as an empty value, so the
+        /// filter is not skipped: <c>Equal "ab"</c> drops every lobby and <c>NotEqual "ab"</c>
+        /// keeps every one.
+        /// </para>
+        /// <para>
+        /// So <see cref="IMultiplayerManager.SearchLobbies"/> answers
+        /// <see cref="MultiplayerReason.InvalidArgument"/> for a filter whose key or value holds a
+        /// NUL character or an unpaired surrogate, as the lobby data a game sets refuses them
+        /// (<see cref="IMultiplayerManager.SetLobbyData"/>): the filter would find lobbies by other
+        /// text than it holds. Only a caller of a backend itself hands a backend such a filter.
         /// </para>
         /// </remarks>
         public LobbySearchQuery AddStringFilter(string key, string value, LobbyComparison comparison = LobbyComparison.Equal)
@@ -91,7 +106,9 @@ namespace Mu3Library.Multiplayer.Data
         /// A UTF-16 surrogate without its pair, in the filter's key or in the lobby's data, counts
         /// as U+FFFD on every backend, since UTF-8 carries it to Steam as U+FFFD, as for
         /// <see cref="AddStringFilter"/>: after a <c>'</c> it reads as the first byte of U+FFFD,
-        /// so <c>"'\uD800"</c> reads as -17.
+        /// so <c>"'\uD800"</c> reads as -17. Every backend also takes the key up to its first NUL
+        /// character, and the manager refuses a key that holds either, as for
+        /// <see cref="AddStringFilter"/>.
         /// </para>
         /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)

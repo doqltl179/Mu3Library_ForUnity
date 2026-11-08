@@ -21,8 +21,13 @@ namespace Mu3Library.Multiplayer.Local
     /// (<see cref="ReadNumber"/>, #362), so it drops no lobby for a value that is not a whole
     /// number. A filter whose key is null or empty is skipped and drops no lobby, as the Steam
     /// backend skips it rather than hand Steam such a key (#314). A filter's key and a string
-    /// filter's value are taken as UTF-8 carries them to Steam, a surrogate without its pair as
-    /// U+FFFD (<see cref="Utf8Text"/>, #372), as the local backends take the lobby data itself.
+    /// filter's value are taken as Steamworks.NET hands them to Steam, a surrogate without its
+    /// pair as U+FFFD and up to the first NUL (<see cref="Utf8Text.AsLobbyText"/>, #372, #387),
+    /// as the local backends take the lobby data itself. So a key with nothing before its first
+    /// NUL reaches Steam as the empty key and is not skipped: Steam's search on AppID 480 on
+    /// 2026-11-08 compared a string filter on it as an empty value, though no lobby holds such
+    /// a key, so <c>Equal "ab"</c> dropped the lobby and <c>NotEqual "ab"</c> kept it, and a
+    /// numeric filter reads it as 0, as a key the lobby lacks.
     /// </summary>
     internal static class LobbyFilter
     {
@@ -36,8 +41,12 @@ namespace Mu3Library.Multiplayer.Local
                     continue;
                 }
 
-                if (!data.TryGetValue(Utf8Text.AsCarried(filter.Key), out string value)
-                    || !Satisfies(CompareText(value ?? string.Empty, Utf8Text.AsCarried(filter.Value) ?? string.Empty), filter.Comparison))
+                // The empty key that a key with nothing before its first NUL reaches Steam as
+                // compares as an empty value, as Steam's search compared it (#387).
+                string key = Utf8Text.AsLobbyText(filter.Key);
+                string value = string.Empty;
+                if ((key.Length > 0 && !data.TryGetValue(key, out value))
+                    || !Satisfies(CompareText(value ?? string.Empty, Utf8Text.AsLobbyText(filter.Value) ?? string.Empty), filter.Comparison))
                 {
                     return false;
                 }
@@ -52,7 +61,7 @@ namespace Mu3Library.Multiplayer.Local
                 }
 
                 // A key the lobby lacks leaves the text null, which reads as 0.
-                data.TryGetValue(Utf8Text.AsCarried(filter.Key), out string text);
+                data.TryGetValue(Utf8Text.AsLobbyText(filter.Key), out string text);
                 if (!Satisfies(ReadNumber(text).CompareTo(filter.Value), filter.Comparison))
                 {
                     return false;
