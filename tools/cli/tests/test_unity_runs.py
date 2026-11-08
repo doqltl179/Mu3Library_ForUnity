@@ -190,17 +190,22 @@ class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
 
 
 def nunit_results(
-    passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 0, inconclusive: tuple[str, ...] = ()
+    passed: int = 3,
+    failed: tuple[str, ...] = (),
+    skipped: int = 0,
+    inconclusive: tuple[str, ...] = (),
+    messages: dict[str, str] | None = None,
 ) -> str:
     """An NUnit 3 result file of the shape the Unity Test Framework writes.
 
     The failed and inconclusive tests are named, in a fixture whose result NUnit takes from its tests:
     Failed when one failed, Passed when one passed, and Inconclusive when every one was inconclusive.
+    A failed test named in messages carries that failure message, as the framework writes it.
     """
     total = passed + len(failed) + len(inconclusive) + skipped
     result = "Failed" if failed else "Passed" if passed or not inconclusive else "Inconclusive"
     cases = "\n".join(
-        f'    <test-case id="{index}" name="{name}" fullname="Fixture.Tests.{name}" result="{case_result}" />'
+        test_case(index, name, case_result, (messages or {}).get(name))
         for index, (name, case_result) in enumerate(
             [(name, "Failed") for name in failed] + [(name, "Inconclusive") for name in inconclusive], start=1000
         )
@@ -213,6 +218,19 @@ def nunit_results(
         f"{cases}\n"
         "  </test-suite>\n"
         "</test-run>"
+    )
+
+
+def test_case(index: int, name: str, result: str, message: str | None) -> str:
+    attributes = f'id="{index}" name="{name}" fullname="Fixture.Tests.{name}" result="{result}"'
+    if message is None:
+        return f"    <test-case {attributes} />"
+    return (
+        f"    <test-case {attributes}>\n"
+        "      <failure>\n"
+        f"        <message><![CDATA[{message}]]></message>\n"
+        "      </failure>\n"
+        "    </test-case>"
     )
 
 
@@ -232,6 +250,16 @@ OTHER_UNITY_PROCESSES = r"^    other Unity processes: \d+ at the start, \d+( to 
 DATA_STORE_LOSS = (
     "Unity Data Store service (pid 13480) is no longer running. Artifacts will be read in process for the rest of "
     "this session, and the service will not be restarted."
+)
+# The failure messages of a test that failed on that error alone: as the Unity Test Framework writes
+# it, and as the TearDown of Mu3WindowTests did in #393, with the stack trace Unity logged, which ends
+# in a line break.
+FRAMEWORK_LOSS_FAILURE = f"Unhandled log message: '[Error] {DATA_STORE_LOSS}'. Use UnityEngine.TestTools.LogAssert.Expect"
+TEARDOWN_LOSS_FAILURE = (
+    f"TearDown : Unhandled log message: [Error] {DATA_STORE_LOSS}\n"
+    "Stack trace of the first:\n"
+    "UnityEditor.AssetDatabase:LoadAssetAtPath<Mu3Library.Editor.Window.Drawer.DrawerListDrawer> (string)\n"
+    "Mu3Library.Tests.Mu3WindowTests:DeleteCreatedPaths (bool) (at Mu3WindowTests.cs:502)\n"
 )
 
 
@@ -257,7 +285,7 @@ def data_store_loss_log(running: str | None) -> str:
         lines += [utp_status("Begin", "Fixture.Tests.After"), utp_status("End", "Fixture.Tests.After")]
     else:
         lines += [utp_status("Begin", running), DATA_STORE_LOSS, utp_error(DATA_STORE_LOSS)]
-        lines.append(utp_status("End", running, f"Unhandled log message: '[Error] {DATA_STORE_LOSS}'."))
+        lines.append(utp_status("End", running, FRAMEWORK_LOSS_FAILURE))
     return "\n".join(lines)
 
 
@@ -534,7 +562,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
     def test_a_target_whose_one_failure_the_end_of_the_data_store_service_caused_fails_on_the_environment(self) -> None:
         completed = self.run_tests(
             "leaf",
-            results=nunit_results(passed=2, failed=("Breaks",)),
+            results=nunit_results(passed=2, failed=("Breaks",), messages={"Breaks": FRAMEWORK_LOSS_FAILURE}),
             unity_status=2,
             log=data_store_loss_log("Fixture.Tests.Breaks"),
         )
@@ -567,10 +595,14 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             "    environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the "
             "error Unity logged for it failed that test, so the test reached no verdict; run the target again"
         )
+        breaks = {"Breaks": TEARDOWN_LOSS_FAILURE}
         for results, counts in (
-            (nunit_results(passed=1, failed=("Breaks", "Other")), "3 tests, 1 passed, 2 failed, 0 skipped, 0 inconclusive"),
             (
-                nunit_results(passed=1, failed=("Breaks",), inconclusive=("Waits",)),
+                nunit_results(passed=1, failed=("Breaks", "Other"), messages=breaks),
+                "3 tests, 1 passed, 2 failed, 0 skipped, 0 inconclusive",
+            ),
+            (
+                nunit_results(passed=1, failed=("Breaks",), inconclusive=("Waits",), messages=breaks),
                 "3 tests, 1 passed, 1 failed, 0 skipped, 1 inconclusive",
             ),
         ):
@@ -588,14 +620,30 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
 
     def test_an_end_of_the_data_store_service_that_failed_no_test_is_a_warning(self) -> None:
         after = "; Unity read the files it had imported in its own process from then on"
+        own_failure = {"Breaks": "Expected: 1\n  But was:  2\n"}
+        loss_failure = {"Breaks": FRAMEWORK_LOSS_FAILURE}
         for running, results, unity_status, warning in (
             # Between two tests, and during a test that let the error pass, the run passes.
             (None, nunit_results(passed=3), 0, "ended while no test ran"),
             ("Fixture.Tests.Passes", nunit_results(passed=3), 0, "ended while Fixture.Tests.Passes ran"),
             # A test that failed beside the one that was running failed on its own.
-            ("Fixture.Tests.Passes", nunit_results(passed=2, failed=("Breaks",)), 2, "ended while Fixture.Tests.Passes ran"),
+            (
+                "Fixture.Tests.Passes",
+                nunit_results(passed=2, failed=("Breaks",), messages=loss_failure),
+                2,
+                "ended while Fixture.Tests.Passes ran",
+            ),
+            # So did the test that was running when its failure message shows another failure, as
+            # in a test that lets failing logs pass with LogAssert.ignoreFailingMessages, or none.
+            (
+                "Fixture.Tests.Breaks",
+                nunit_results(passed=2, failed=("Breaks",), messages=own_failure),
+                2,
+                "ended while Fixture.Tests.Breaks ran",
+            ),
+            ("Fixture.Tests.Breaks", nunit_results(passed=2, failed=("Breaks",)), 2, "ended while Fixture.Tests.Breaks ran"),
         ):
-            with self.subTest(running=running, unity_status=unity_status):
+            with self.subTest(running=running, results=results):
                 completed = self.run_tests(
                     "leaf", results=results, unity_status=unity_status, log=data_store_loss_log(running)
                 )
@@ -967,7 +1015,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             "--repeat",
             "3",
             run_file=str(Path(run_directory.name) / "runs"),
-            results_1=breaks,
+            results_1=nunit_results(passed=1, failed=("Breaks",), messages={"Breaks": TEARDOWN_LOSS_FAILURE}),
             log_1=data_store_loss_log("Fixture.Tests.Breaks"),
             results_2=nunit_results(passed=2),
             log_2=data_store_loss_log(None),
@@ -1257,11 +1305,12 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
         log.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
         completed = self.run_functions(
             "test-unity.sh",
-            'find_data_store_loss "$1"\nprintf "%s|%s" "$DATA_STORE_LOSS_PID" "$DATA_STORE_LOSS_TEST"',
+            'find_data_store_loss "$1"\nprintf "%s|%s|%s" "$DATA_STORE_LOSS_PID" "$DATA_STORE_LOSS_TEST" "$DATA_STORE_LOSS_ERROR"',
             str(log),
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
-        pid, test = completed.stdout.split("|")
+        pid, test, error = completed.stdout.split("|")
+        self.assertEqual(DATA_STORE_LOSS.replace("13480", pid) if pid else "", error)
         return pid, test
 
     def test_names_the_service_and_the_test_that_had_begun_and_not_ended(self) -> None:
@@ -1284,6 +1333,72 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
         self.assertEqual(("", ""), self.loss(utp_status("Begin", "Fixture.Tests.Quotes"), ended))
         self.assertEqual(("", ""), self.loss("Unity Data Store running and initialised", UTP_BEGIN, UTP_END))
         self.assertEqual(("", ""), self.loss("Unity Data Store service (pid x) is no longer running."))
+
+
+class DataStoreLossFailureTests(FixtureRepositoryTestCase):
+    """failed_only_on_data_store_loss tells, from the failure message in a result file, whether the test
+    that was running as the Data Store service ended failed on that error alone."""
+
+    def failed_only_on_it(self, results: str, test: str = "Fixture.Tests.Breaks", line_end: str = "\n") -> bool:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "results.xml"
+        path.write_bytes(results.replace("\n", line_end).encode("utf-8"))
+        completed = self.run_functions(
+            "test-unity.sh",
+            'DATA_STORE_LOSS_TEST="$2"\nDATA_STORE_LOSS_ERROR="$3"\nfailed_only_on_data_store_loss "$1"',
+            str(path),
+            test,
+            DATA_STORE_LOSS,
+        )
+        self.assertIn(completed.returncode, (0, 1), completed.stderr)
+        return completed.returncode == 0
+
+    def results(self, message: str | None, name: str = "Breaks") -> str:
+        return nunit_results(passed=1, failed=(name,), messages=None if message is None else {name: message})
+
+    def test_a_message_of_that_error_alone_in_either_form_is_the_environment(self) -> None:
+        for message in (
+            FRAMEWORK_LOSS_FAILURE,
+            f"TearDown : {FRAMEWORK_LOSS_FAILURE}",
+            TEARDOWN_LOSS_FAILURE,
+            TEARDOWN_LOSS_FAILURE.rstrip("\n"),
+            # The error had no stack trace.
+            f"TearDown : Unhandled log message: [Error] {DATA_STORE_LOSS}\nStack trace of the first:\n",
+        ):
+            for line_end in ("\n", "\r\n"):
+                with self.subTest(message=message, line_end=line_end):
+                    self.assertTrue(self.failed_only_on_it(self.results(message), line_end=line_end))
+
+    def test_a_message_that_shows_another_failure_is_the_test_s_own(self) -> None:
+        for message in (
+            # An assertion, as in a test that let failing logs pass with LogAssert.ignoreFailingMessages.
+            "Expected: 1\n  But was:  2\n",
+            # An assertion first, and the error in the TearDown after it.
+            f"Expected: 1\n  But was:  2\nTearDown : {FRAMEWORK_LOSS_FAILURE}",
+            f"{FRAMEWORK_LOSS_FAILURE}\nTearDown : Expected: 1\n  But was:  2",
+            # Another failing log beside the error, and a failure the TearDown adds after the stack trace.
+            TEARDOWN_LOSS_FAILURE.replace(DATA_STORE_LOSS, f"{DATA_STORE_LOSS} | [Error] Something else broke", 1),
+            f"{TEARDOWN_LOSS_FAILURE}\nThe test could not delete Assets/Mu3Library, which it created.",
+            # The error of another service, and a message that only begins like the error.
+            FRAMEWORK_LOSS_FAILURE.replace("13480", "2"),
+            TEARDOWN_LOSS_FAILURE.replace("restarted.", "restarted. Then more"),
+        ):
+            with self.subTest(message=message):
+                self.assertFalse(self.failed_only_on_it(self.results(message)))
+
+    def test_a_test_without_a_message_or_that_did_not_fail_is_not_the_environment(self) -> None:
+        self.assertFalse(self.failed_only_on_it(self.results(None)))
+        self.assertFalse(self.failed_only_on_it(self.results(FRAMEWORK_LOSS_FAILURE, name="Other")))
+        self.assertFalse(self.failed_only_on_it(nunit_results(passed=3)))
+
+    def test_reads_the_name_of_a_string_argument_through_its_entities(self) -> None:
+        results = nunit_results(passed=1, failed=("Case(&quot;a &amp; b \\ c&quot;)",), messages={
+            "Case(&quot;a &amp; b \\ c&quot;)": FRAMEWORK_LOSS_FAILURE,
+        })
+
+        self.assertTrue(self.failed_only_on_it(results, test='Fixture.Tests.Case("a & b \\ c")'))
+        self.assertFalse(self.failed_only_on_it(results, test="Fixture.Tests.Case(&quot;a &amp; b \\ c&quot;)"))
 
 
 class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
