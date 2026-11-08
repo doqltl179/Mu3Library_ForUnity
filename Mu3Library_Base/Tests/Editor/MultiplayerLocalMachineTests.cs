@@ -1418,40 +1418,114 @@ namespace Mu3Library.Tests
         [Test]
         public void SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate()
         {
+            // Under CPU load a round can miss without a fault (#367): the thread that moves the new
+            // file in can wait for a core past the read's wait, and so can an update. Such a round
+            // is played again with new players; an update that waited for the replacement would
+            // miss every round. Anything else fails at once. That includes a miss of a new file that
+            // moved in within the read's wait, which the load could still cause by holding the
+            // read's thread between its last look at the folder and its deadline; the measurements
+            // for #367 saw none.
+            const int Rounds = 5;
+            List<string> missed = new List<string>();
+            for (int round = 0; round < Rounds; round++)
+            {
+                string miss = SearchAndJoinMeetingAReplacement();
+                if (miss == null)
+                {
+                    return;
+                }
+
+                missed.Add(miss);
+            }
+
+            Assert.Fail($"No round of {Rounds} held: " + string.Join("; ", missed));
+        }
+
+        /// <summary>
+        /// One round of <see cref="SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate"/>
+        /// with new players: null when it held, or what it missed in a way that CPU load explains.
+        /// </summary>
+        private string SearchAndJoinMeetingAReplacement()
+        {
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            try
+            {
+                return SearchAndJoinMeetingAReplacement(seeker, owner);
+            }
+            finally
+            {
+                // The next round's pumps would update both, and the owner's rewrites could meet that
+                // round's read. The seeker goes first, so the owner hands its lobby to nobody, and
+                // the owner deletes its file, which leaves the next owner's file alone in the folder.
+                seeker.Dispose();
+                owner.Dispose();
+            }
+        }
+
+        private string SearchAndJoinMeetingAReplacement(LocalBackend seeker, LocalBackend owner)
+        {
             // An update that read the files itself would hold the frame for the whole wait, at
             // least a sleep of about 16 ms in batch mode on Windows, and the full
             // ReplaceWaitSeconds for a replacement that does not finish in time.
-            double bound = MachineDirectory.ReplaceWaitSeconds * 1000.0 * 0.5;
-            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
-            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            double wait = MachineDirectory.ReplaceWaitSeconds * 1000.0;
+            double bound = wait * 0.5;
             LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
             string file = Directory.GetFiles(_folder, "*.lobbies").Single();
             string temporary = Path.ChangeExtension(file, ".tmp");
+            List<string> missed = new List<string>();
 
-            // The new file moves in 10 ms after the search's first update started.
+            // The new file moves in 10 ms after the search's first update started. The read waits
+            // for it from the search on, so one that the load held up past that wait ended a
+            // replacement that did not finish in time, which the read gives up on.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
-            (double Slowest, double Answer, double Updates, bool IsFound) moved = TimeSearch(seeker, lobby, () => File.Move(temporary, file), 10.0);
-            Assert.That(moved.IsFound, Is.True, "The search missed the lobby whose file its owner was replacing.");
-            Assert.That(moved.Slowest, Is.LessThan(bound), "An update of the search waited for the replacement.");
+            (double Slowest, double Answer, double Updates, double MovedIn, bool IsFound) moved = TimeSearch(seeker, lobby, () => File.Move(temporary, file), 10.0);
+            if (!moved.IsFound && moved.MovedIn >= wait)
+            {
+                missed.Add("the new file moved in " + Milliseconds(moved.MovedIn) + " after the search, which missed it");
+            }
+            else
+            {
+                Assert.That(moved.IsFound, Is.True, "The search missed the lobby whose file its owner was replacing; the new file moved in " + Milliseconds(moved.MovedIn) + " after the search.");
+            }
 
             // A replacement that does not finish in time: the read waits it out on its own thread.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
-            (double Slowest, double Answer, double Updates, bool IsFound) unfinished = TimeSearch(seeker, lobby, null, 0.0);
+            (double Slowest, double Answer, double Updates, double MovedIn, bool IsFound) unfinished = TimeSearch(seeker, lobby, null, 0.0);
             File.Move(temporary, file);
             Assert.That(unfinished.IsFound, Is.False);
-            Assert.That(unfinished.Slowest, Is.LessThan(bound), "An update of the search waited for the replacement.");
-            Assert.That(unfinished.Answer, Is.GreaterThan(MachineDirectory.ReplaceWaitSeconds * 1000.0 * 0.8), "The read did not wait for the replacement.");
+            Assert.That(unfinished.Answer, Is.GreaterThan(wait * 0.8), "The read did not wait for the replacement.");
 
-            // A join by the lobby's ID, whose owner answers it.
+            // A join by the lobby's ID, whose owner answers it, meeting the replacement as the search did.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
             MultiplayerReason? reason = null;
-            seeker.JoinLobby(lobby, r => reason = r);
-            (double Slowest, double Answer, double Updates) joined = TimeUpdates(seeker, () => reason.HasValue, () => File.Move(temporary, file), 10.0, owner);
-            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
-            Assert.That(joined.Slowest, Is.LessThan(bound), "An update of the join waited for the replacement.");
+            (double Slowest, double Answer, double Updates, double MovedIn) joined = TimeUpdates(seeker, () => seeker.JoinLobby(lobby, r => reason = r), () => reason.HasValue, () => File.Move(temporary, file), 10.0, owner);
+            if (reason == MultiplayerReason.LobbyNotFound && joined.MovedIn >= wait)
+            {
+                missed.Add("the new file moved in " + Milliseconds(joined.MovedIn) + " after the join, which found no lobby");
+            }
+            else
+            {
+                Assert.That(reason, Is.EqualTo(MultiplayerReason.None), $"The join answered {reason}; the new file moved in " + Milliseconds(joined.MovedIn) + " after the join.");
+            }
+
+            // One update past the bound cannot tell the load from a wait for the replacement; the
+            // next rounds can, since the load holds an update now and then, the replacement every time.
+            double searchSlowest = Math.Max(moved.Slowest, unfinished.Slowest);
+            if (searchSlowest >= bound)
+            {
+                missed.Add("an update of the search took " + Milliseconds(searchSlowest));
+            }
+
+            if (joined.Slowest >= bound)
+            {
+                missed.Add("an update of the join took " + Milliseconds(joined.Slowest));
+            }
+
+            return missed.Count > 0 ? string.Join(", ", missed) : null;
         }
 
         [Test]
@@ -2184,7 +2258,7 @@ namespace Mu3Library.Tests
             {
                 LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
                 LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
-                (inPlace[round], inPlaceAnswer[round], inPlaceUpdates[round], isFound) = TimeSearch(seeker, lobby, null, 0.0);
+                (inPlace[round], inPlaceAnswer[round], inPlaceUpdates[round], _, isFound) = TimeSearch(seeker, lobby, null, 0.0);
                 inPlaceFound += isFound ? 1 : 0;
                 owner.Dispose();
 
@@ -2196,7 +2270,7 @@ namespace Mu3Library.Tests
                 string temporary = Path.ChangeExtension(file, ".tmp");
                 File.Move(file, temporary);
                 File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
-                (replacing[round], replacingAnswer[round], replacingUpdates[round], isFound) = TimeSearch(seeker, lobby, () => File.Move(temporary, file), MoveInMilliseconds);
+                (replacing[round], replacingAnswer[round], replacingUpdates[round], _, isFound) = TimeSearch(seeker, lobby, () => File.Move(temporary, file), MoveInMilliseconds);
                 replacingFound += isFound ? 1 : 0;
                 owner.Dispose();
 
@@ -2207,7 +2281,7 @@ namespace Mu3Library.Tests
                 temporary = Path.ChangeExtension(file, ".tmp");
                 File.Move(file, temporary);
                 File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow.AddSeconds(-2.0));
-                (ended[round], endedAnswer[round], endedUpdates[round], isFound) = TimeSearch(seeker, lobby, null, 0.0);
+                (ended[round], endedAnswer[round], endedUpdates[round], _, isFound) = TimeSearch(seeker, lobby, null, 0.0);
                 endedFound += isFound ? 1 : 0;
                 File.Delete(temporary);
             }
@@ -2227,25 +2301,29 @@ namespace Mu3Library.Tests
         /// Searches from <paramref name="seeker"/>, as <see cref="TimeUpdates"/> times it, and
         /// whether the search listed <paramref name="lobby"/>.
         /// </summary>
-        private static (double Slowest, double Answer, double Updates, bool IsFound) TimeSearch(LocalBackend seeker, LobbyId lobby, Action moveIn, double moveInMilliseconds)
+        private static (double Slowest, double Answer, double Updates, double MovedIn, bool IsFound) TimeSearch(LocalBackend seeker, LobbyId lobby, Action moveIn, double moveInMilliseconds)
         {
             IReadOnlyList<BackendLobby> found = null;
-            seeker.SearchLobbies(new LobbySearchQuery(), (r, lobbies) => found = lobbies);
-            (double slowest, double answer, double updates) = TimeUpdates(seeker, () => found != null, moveIn, moveInMilliseconds);
-            return (slowest, answer, updates, found.Any(entry => entry.Id == lobby));
+            (double slowest, double answer, double updates, double movedIn) = TimeUpdates(seeker, () => seeker.SearchLobbies(new LobbySearchQuery(), (r, lobbies) => found = lobbies), () => found != null, moveIn, moveInMilliseconds);
+            return (slowest, answer, updates, movedIn, found.Any(entry => entry.Id == lobby));
         }
 
         /// <summary>
-        /// Updates <paramref name="backend"/> a millisecond's sleep apart until
-        /// <paramref name="isAnswered"/>, with <paramref name="other"/>, when given, updated
-        /// untimed in between: the slowest update in milliseconds, the milliseconds from the first
-        /// update to the answer, and the updates it took. <paramref name="moveIn"/>, when given,
-        /// runs on another thread <paramref name="moveInMilliseconds"/> after the first update
-        /// starts, as an owner's replacement would finish.
+        /// Makes <paramref name="request"/> and updates <paramref name="backend"/> a millisecond's
+        /// sleep apart until <paramref name="isAnswered"/>, with <paramref name="other"/>, when
+        /// given, updated untimed in between: the slowest update in milliseconds, the milliseconds
+        /// from the first update to the answer, the updates it took, and the milliseconds from
+        /// the request to the end of <paramref name="moveIn"/>, NaN without one.
+        /// <paramref name="moveIn"/>, when given, runs on another thread
+        /// <paramref name="moveInMilliseconds"/> after the first update starts, right after the
+        /// request, as an owner's replacement would finish. That thread starts before the
+        /// request: under CPU load its start can take tens of milliseconds, which would stretch
+        /// the replacement that the request's read already waits for (#367).
         /// </summary>
-        private static (double Slowest, double Answer, double Updates) TimeUpdates(LocalBackend backend, Func<bool> isAnswered, Action moveIn, double moveInMilliseconds, LocalBackend other = null)
+        private static (double Slowest, double Answer, double Updates, double MovedIn) TimeUpdates(LocalBackend backend, Action request, Func<bool> isAnswered, Action moveIn, double moveInMilliseconds, LocalBackend other = null)
         {
             long firstUpdate = 0;
+            long movedAt = 0;
             long moveInTicks = (long)(moveInMilliseconds * Stopwatch.Frequency / 1000.0);
             Exception moveFailure = null;
             Thread mover = null;
@@ -2267,6 +2345,7 @@ namespace Mu3Library.Tests
                     try
                     {
                         moveIn();
+                        Interlocked.Exchange(ref movedAt, Stopwatch.GetTimestamp());
                     }
                     catch (Exception e)
                     {
@@ -2278,9 +2357,12 @@ namespace Mu3Library.Tests
 
             double slowest = 0.0;
             int updates = 0;
-            long started = Stopwatch.GetTimestamp();
+            long requested = Stopwatch.GetTimestamp();
+            long started = requested;
             try
             {
+                request();
+                started = Stopwatch.GetTimestamp();
                 Interlocked.Exchange(ref firstUpdate, started);
                 while (!isAnswered())
                 {
@@ -2297,12 +2379,20 @@ namespace Mu3Library.Tests
             }
             finally
             {
+                // Lets the mover go when the request threw before the first update.
+                Interlocked.CompareExchange(ref firstUpdate, started, 0);
                 mover?.Join();
             }
 
             Assert.That(moveFailure, Is.Null, moveFailure?.ToString());
             double answer = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
-            return (slowest, answer, updates);
+            double movedIn = moveIn != null ? (movedAt - requested) * 1000.0 / Stopwatch.Frequency : double.NaN;
+            return (slowest, answer, updates, movedIn);
+        }
+
+        private static string Milliseconds(double milliseconds)
+        {
+            return milliseconds.ToString("0.0", CultureInfo.InvariantCulture) + " ms";
         }
 
         /// <summary>
