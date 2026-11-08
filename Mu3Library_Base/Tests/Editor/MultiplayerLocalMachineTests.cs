@@ -1973,6 +1973,22 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ToWireName_OfANameWithASurrogateWithoutItsPairAtTheCut_KeepsIt_AsTheRosterCutsIt()
+        {
+            // #384: the cut keeps a surrogate pair whole, and nothing more. A high surrogate the
+            // name already held without its pair as the 64th character is no pair the cut would
+            // split, so the name is cut to 64 and keeps it, as the roster cuts it; the frames then
+            // carry it as UTF-8 does, as U+FFFD, and a local backend takes it so from the start.
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            string name = new string('n', max - 1) + "\uD800" + "tail";
+
+            string cut = MachineProtocol.ToWireName(name);
+
+            Assert.That(cut, Is.EqualTo(new string('n', max - 1) + "\uD800"));
+            Assert.That(MultiplayerLimits.CutPlayerName(name), Is.EqualTo(cut), "as the roster cuts it");
+        }
+
+        [Test]
         public void PlayerNames_PastTheCutOrWithASurrogateWithoutItsPair_AreTheSameStringOnEverySide()
         {
             // FR-38, #384: the host's name is longer than the roster takes, with a surrogate pair
