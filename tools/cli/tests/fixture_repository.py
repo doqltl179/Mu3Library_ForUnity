@@ -38,7 +38,7 @@ LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_cli" / "fixed_load.py"
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
 # -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
 # it is given, prints as many ticks as it is given, FAKE_UNITY_TICK_SECONDS (1 unless given)
-# apart, then stays silent as long as it is told, in a child process whose PID it can write to
+# apart, and the log line it is given for after them, then stays silent as long as it is told, in a child process whose PID it can write to
 # a file, writes the test results it is given to the path after -testResults, and exits with
 # the status it is given. Given a file to count its runs in, run <n> writes
 # FAKE_UNITY_RESULTS_<n> instead when that is set, so that each run of --repeat can differ.
@@ -70,6 +70,9 @@ for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
     sleep "${FAKE_UNITY_TICK_SECONDS:-1}"
     printf 'fake unity tick %s\\n' "$tick"
 done
+if [[ -n "${FAKE_UNITY_LOG_AFTER_TICKS:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG_AFTER_TICKS"
+fi
 if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
     sleep "$FAKE_UNITY_SLEEP" &
     sleeper=$!
@@ -201,6 +204,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             "FAKE_UNITY_STATUS",
             "FAKE_UNITY_LOG",
             "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_LOG_AFTER_TICKS",
             "FAKE_UNITY_TICK_SECONDS",
             "FAKE_UNITY_SLEEP",
             "FAKE_UNITY_SLEEPER_FILE",

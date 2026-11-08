@@ -100,6 +100,29 @@ class TestLogTests(unittest.TestCase):
         self.assertEqual('Fixture.Tests.Case("two words")', log.first_test)
         self.assertEqual(0, log.ended)
 
+    def test_the_plan_and_the_time_the_first_test_began_are_kept(self) -> None:
+        self.append(
+            '##utp:{"type":"TestPlan","time":5,"tests":["A.One","A.Two"]}\n'
+            '##utp:{"type":"TestStatus","phase":"Begin","time":1794134506677,"name":"A.One"}\n'
+            '##utp:{"type":"TestStatus","phase":"End","time":1794134507074,"name":"A.One"}\n'
+        )
+        log = TestLog(self.path)
+        log.read()
+
+        self.assertEqual((2, 1794134506677, 1), (log.planned, log.first_test_time, log.ended))
+        self.assertFalse(log.all_planned_ended())
+        self.append('##utp:{"type":"TestStatus","phase":"End","time":1794134507300,"name":"A.Two"}\n')
+        log.read()
+        self.assertTrue(log.all_planned_ended())
+
+    def test_a_run_without_a_plan_never_counts_as_ended(self) -> None:
+        self.append(utp("Begin") + "\n" + utp("End") + "\n")
+        log = TestLog(self.path)
+        log.read()
+
+        self.assertIsNone(log.planned)
+        self.assertFalse(log.all_planned_ended())
+
     def test_the_tests_that_ended_are_counted_and_other_lines_are_left_out(self) -> None:
         self.append(
             "\n".join(
@@ -215,7 +238,9 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual("started", record["load"])
         self.assertEqual("Fixture.Tests.Times", record["first_test"])
         self.assertEqual("0", record["tests_ended_before_load"])
-        # The load lasted from the first test to the stop, not from the start.
+        # Without a plan in the log, the load lasted from the first test to the stop.
+        self.assertEqual("run-end", record["load_ended"])
+        self.assertEqual("", record["load_lag_ms"])
         self.assertGreaterEqual(float(record["load_seconds"]), 0.3)
         self.assertLess(float(record["load_seconds"]), 5.0)
         self.assertEqual(sorted(pids), sorted(map(int, record["spinner_pids"].split())))
@@ -223,6 +248,31 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual("", record["error"])
         self.assertEqual("yes", record["complete"])
         self.assert_gone(pids)
+
+    def test_the_spinners_stop_once_the_last_planned_test_ends(self) -> None:
+        began = round(time.time() * 1000)
+        self.log.write_text(
+            '##utp:{"type":"TestPlan","tests":["Fixture.Tests.Times"]}\n'
+            + utp("Begin").replace('"time":1,', f'"time":{began},')
+            + "\n",
+            encoding="utf-8",
+        )
+        helper = self.start(2)
+        pids = self.spinners_of(helper, 2)
+        time.sleep(0.3)
+        with self.log.open("a", encoding="utf-8") as log:
+            log.write(utp("End") + "\n")
+
+        # The spinners stop before the run does.
+        self.assert_gone(pids)
+        self.assertEqual("last-test", self.read_record()["load_ended"])
+        time.sleep(0.5)
+        record = self.stop_and_read(helper)
+
+        self.assertEqual(("started", "last-test", "yes"), (record["load"], record["load_ended"], record["complete"]))
+        self.assertLess(float(record["load_seconds"]), 0.8)
+        self.assertGreaterEqual(int(record["load_lag_ms"]), 0)
+        self.assertLess(int(record["load_lag_ms"]), 5000)
 
     def test_a_run_in_which_no_test_began_starts_no_load(self) -> None:
         helper = self.start(2)

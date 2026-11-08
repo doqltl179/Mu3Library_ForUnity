@@ -618,7 +618,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
 
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         lines = completed.stdout.splitlines()
-        self.assertIn("Load: 2 spinners, from the first test of each run until its Unity exits", lines)
+        self.assertIn("Load: 2 spinners, from the first test of each run until its last test ends", lines)
         self.assertIn("Repeat: 2 runs of each target", lines)
         started: list[int] = []
         for run in (1, 2):
@@ -636,9 +636,42 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertEqual(4, len(set(started)))
         loads = [line for line in self.summary(completed) if line.startswith("    load: ")]
         self.assertEqual(2, len(loads), completed.stdout)
+        # The fake's line dates the test to no time this clock can read, and names no plan.
         for line in loads:
-            self.assertRegex(line, r"^    load: 2 spinners on \d+ logical CPUs for \d+\.\d s, from the first test$")
+            self.assertRegex(
+                line, r"^    load: 2 spinners on \d+ logical CPUs for \d+\.\d s, from the first test until Unity exited$"
+            )
         self.assertEqual([], list(self.results_dir().glob("*.load-stop")))
+
+    def test_the_load_ends_with_the_last_test_the_plan_names(self) -> None:
+        began = round(time.time() * 1000)
+        plan = '##utp:{"type":"TestPlan","time":%d,"version":2,"phase":"Immediate","tests":["Fixture.Tests.Hangs"]}' % began
+        begin = UTP_BEGIN.replace('"time":1,', f'"time":{began},')
+        # The fake's only test lasts 0.6 s, after which its Unity takes 3 s more to exit.
+        completed = self.run_tests(
+            "leaf",
+            "--load-spinners",
+            "2",
+            results=nunit_results(passed=1),
+            log=f"{plan}\n{begin}",
+            ticks="3",
+            tick_seconds="0.2",
+            log_after_ticks=UTP_END,
+            sleep="3",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        record = read_record(self.results_dir() / "leaf-editmode.load")
+        self.assertEqual(("started", "last-test"), (record["load"], record["load_ended"]))
+        self.assertRegex(record["load_lag_ms"], r"^\d+$")
+        self.assertLess(float(record["load_seconds"]), 2.5)
+        self.assert_spinners_gone(record)
+        [line] = [line for line in self.summary(completed) if line.startswith("    load: ")]
+        self.assertRegex(
+            line,
+            r"^    load: 2 spinners on \d+ logical CPUs for \d+\.\d s, "
+            r"from \d+ ms after the first test began until the last test ended$",
+        )
 
     def test_a_run_whose_test_ended_before_the_load_started_fails(self) -> None:
         # The fake logs its only test as begun and ended at once, and exits.
@@ -726,7 +759,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         lines = completed.stdout.splitlines()
-        self.assertIn("Load: 16 spinners, from the first test of each run until its Unity exits", lines)
+        self.assertIn("Load: 16 spinners, from the first test of each run until its last test ends", lines)
         self.assertIn("Repeat: 3 runs of each target", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
 

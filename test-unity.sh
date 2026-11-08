@@ -39,7 +39,7 @@ UNFINISHED_TEST=""
 RESULT_TESTS=()
 
 # How many spinners --load-spinners asks for, each a Python process that spins
-# a CPU core from the first test of a run until its Unity exits, and how many
+# a CPU core from the first test of a run until its last test ends, and how many
 # times --repeat runs each target.
 LOAD_SPINNERS=0
 REPEAT_COUNT=1
@@ -58,6 +58,8 @@ LOAD_STATE=""
 LOAD_CPUS=""
 LOAD_ENDED_BEFORE=""
 LOAD_SECONDS=""
+LOAD_LAG_MS=""
+LOAD_ENDED=""
 LOAD_ERROR=""
 OTHERS_AT_START=""
 OTHERS_MIN=""
@@ -120,9 +122,10 @@ Options:
                     (default 600; 0 waits as long as Unity runs).
   --load-spinners <n>
                     Start <n> Python processes that each spin a CPU core as
-                    the first test of each run begins, and stop them when
-                    its Unity exits, so that timings are measured under a
-                    fixed load that does not slow the compile before it
+                    the first test of each run begins, and stop them as its
+                    last planned test ends, or else when its Unity exits, so
+                    that timings are measured under a fixed load that slows
+                    neither the compile before nor the shutdown after
                     (default 0, none). A run under which no test ran with
                     the load fails.
   --repeat <n>      Run each selected target <n> times, starting Unity anew
@@ -463,6 +466,8 @@ read_load_record() {
     LOAD_CPUS=""
     LOAD_ENDED_BEFORE=""
     LOAD_SECONDS=""
+    LOAD_LAG_MS=""
+    LOAD_ENDED=""
     LOAD_ERROR=""
     OTHERS_AT_START=""
     OTHERS_MIN=""
@@ -487,6 +492,8 @@ read_load_record() {
             cpus) LOAD_CPUS="$value" ;;
             tests_ended_before_load) LOAD_ENDED_BEFORE="$value" ;;
             load_seconds) LOAD_SECONDS="$value" ;;
+            load_lag_ms) LOAD_LAG_MS="$value" ;;
+            load_ended) LOAD_ENDED="$value" ;;
             error) LOAD_ERROR="$value" ;;
             others_at_start) OTHERS_AT_START="$value" ;;
             others_during_min) OTHERS_MIN="$value" ;;
@@ -528,14 +535,25 @@ find_load_problem() {
 add_load_to_summary() {
     local during
     local count
+    local start_phrase
+    local end_phrase="until Unity exited"
 
     if [[ "$LOAD_SPINNERS" -gt 0 ]]; then
+        if [[ "${LOAD_ENDED_BEFORE:-0}" -gt 0 ]]; then
+            start_phrase="started after $LOAD_ENDED_BEFORE test(s) had ended"
+        elif [[ -n "$LOAD_LAG_MS" ]]; then
+            start_phrase="from $LOAD_LAG_MS ms after the first test began"
+        else
+            start_phrase="from the first test"
+        fi
+        if [[ "$LOAD_ENDED" == last-test ]]; then
+            end_phrase="until the last test ended"
+        fi
+
         if [[ -n "$LOAD_ERROR" ]]; then
             SUMMARY_LINES+=("  load: failed, $LOAD_ERROR")
-        elif [[ "$LOAD_STATE" == started && "${LOAD_ENDED_BEFORE:-0}" -eq 0 ]]; then
-            SUMMARY_LINES+=("  load: $LOAD_SPINNERS spinners on $LOAD_CPUS logical CPUs for $LOAD_SECONDS s, from the first test")
         elif [[ "$LOAD_STATE" == started ]]; then
-            SUMMARY_LINES+=("  load: $LOAD_SPINNERS spinners on $LOAD_CPUS logical CPUs for $LOAD_SECONDS s, started after $LOAD_ENDED_BEFORE test(s) had ended")
+            SUMMARY_LINES+=("  load: $LOAD_SPINNERS spinners on $LOAD_CPUS logical CPUs for $LOAD_SECONDS s, $start_phrase $end_phrase")
         elif [[ "$LOAD_STATE" == missed ]]; then
             SUMMARY_LINES+=("  load: none, the run ended before it could start")
         else
@@ -823,7 +841,7 @@ test_main() {
         printf 'Test filter: %s\n' "$TEST_FILTER"
     fi
     if [[ "$LOAD_SPINNERS" -gt 0 ]]; then
-        printf 'Load: %s spinners, from the first test of each run until its Unity exits\n' "$LOAD_SPINNERS"
+        printf 'Load: %s spinners, from the first test of each run until its last test ends\n' "$LOAD_SPINNERS"
     fi
     if [[ "$REPEAT_COUNT" -gt 1 ]]; then
         printf 'Repeat: %s runs of each target\n' "$REPEAT_COUNT"

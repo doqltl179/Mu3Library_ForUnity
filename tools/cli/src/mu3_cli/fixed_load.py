@@ -9,9 +9,10 @@ of a target:
 It starts <n> spinners, Python processes that wait on their standard input, and lets them spin a
 CPU core each once Unity's log holds the line the Unity Test Framework writes, under -automated,
 as the first test begins, so that the load does not slow the compile and the project load before
-it. It stops them once the stop file appears or the process <pid>, the script, ends. A spinner
-also ends by itself once this process ends, since its standard input then closes, so none
-outlives the run. Meanwhile it counts the Unity processes that do not descend from <pid>, at the
+it. It stops them once every test that the run's test plan names has ended, so that the load does
+not slow Unity's shutdown after it either, or else once the stop file appears or the process
+<pid>, the script, ends. A spinner also ends by itself once this process ends, since its standard
+input then closes, so none outlives the run. Meanwhile it counts the Unity processes that do not descend from <pid>, at the
 start, every few seconds, and as it stops. It writes what happened to the record file as
 key=value lines once the spinners wait, once they spin, and once they have stopped, which alone
 says complete=yes.
@@ -255,13 +256,16 @@ def process_running(pid: int) -> bool:
 
 
 class TestLog:
-    """Reads the lines a Unity log gains, keeping the first test that began and how many ended."""
+    """Reads the lines a Unity log gains, keeping how many tests the run's plan names, the first
+    test that began and when, in milliseconds since the epoch, and how many tests ended."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._offset = 0
         self._partial = b""
+        self.planned: int | None = None
         self.first_test: str | None = None
+        self.first_test_time: int | None = None
         self.ended = 0
 
     def read(self) -> None:
@@ -284,12 +288,21 @@ class TestLog:
             message = json.loads(line[marker + len("##utp:") :])
         except ValueError:
             return
-        if not isinstance(message, dict) or message.get("type") != "TestStatus":
+        if not isinstance(message, dict):
+            return
+        if message.get("type") == "TestPlan" and isinstance(message.get("tests"), list):
+            self.planned = len(message["tests"])
+        if message.get("type") != "TestStatus":
             return
         if message.get("phase") == "Begin" and self.first_test is None:
             self.first_test = str(message.get("name", ""))
+            began = message.get("time")
+            self.first_test_time = began if isinstance(began, int) else None
         elif message.get("phase") == "End":
             self.ended += 1
+
+    def all_planned_ended(self) -> bool:
+        return self.planned is not None and self.planned > 0 and self.ended >= self.planned
 
 
 @dataclass
@@ -302,6 +315,10 @@ class Record:
     first_test: str = ""
     tests_ended_before_load: int = 0
     load_seconds: float = 0.0
+    # How long after the first test began the spinners were let spin, from the time in the log's
+    # line, and what ended the load: the last planned test, or the end of the run.
+    load_lag_ms: int | None = None
+    load_ended: str = ""
     others_at_start: int | None = None
     others_during: list[int] = field(default_factory=list)
     count_error: str = ""
@@ -319,6 +336,8 @@ class Record:
             "first_test": self.first_test,
             "tests_ended_before_load": self.tests_ended_before_load,
             "load_seconds": f"{self.load_seconds:.1f}",
+            "load_lag_ms": "" if self.load_lag_ms is None else self.load_lag_ms,
+            "load_ended": self.load_ended,
         }
         if self.others_at_start is not None:
             values["others_at_start"] = self.others_at_start
@@ -358,6 +377,15 @@ class Record:
             self.write(path)
         except OSError:
             pass
+
+
+def load_lag(first_test_time: int | None) -> int | None:
+    """Milliseconds from the first test's start, as its line in the log dates it, to now, or None
+    when the line gave no date this clock can read."""
+    if first_test_time is None:
+        return None
+    lag = round(time.time() * 1000) - first_test_time
+    return lag if 0 <= lag <= 600_000 else None
 
 
 def start_spinners(count: int, idle: bool) -> list[subprocess.Popen[bytes]]:
@@ -427,6 +455,7 @@ def supervise(
     test_log = TestLog(log)
     spinners: list[subprocess.Popen[bytes]] = []
     released_at: float | None = None
+    stopped_at: float | None = None
 
     def count_others() -> int | None:
         try:
@@ -456,14 +485,23 @@ def supervise(
                     record.load = "started"
                     record.first_test = test_log.first_test
                     record.tests_ended_before_load = test_log.ended
+                    record.load_lag_ms = load_lag(test_log.first_test_time)
                     if ended:
                         record.error = f"{len(ended)} spinner(s) ended before the load started"
                     record.write_while_running(record_path)
+            elif spinners and stopped_at is None:
+                test_log.read()
+            # The last planned test can end in the same read that lets the spinners spin.
+            if released_at is not None and stopped_at is None and test_log.all_planned_ended():
+                stopped_at = time.monotonic()
+                record.load_ended = "last-test"
+                record.spinners_left = stop_spinners(spinners)
+                record.write_while_running(record_path)
             if time.monotonic() >= next_sample:
                 others = count_others()
                 if others is not None:
                     record.others_during.append(others)
-                if released_at is not None and not record.error:
+                if released_at is not None and stopped_at is None and not record.error:
                     ended = [spinner.pid for spinner in spinners if spinner.poll() is not None]
                     if ended:
                         record.error = f"{len(ended)} spinner(s) ended while the run went on"
@@ -483,8 +521,10 @@ def supervise(
             record.load = "none" if test_log.first_test is None else "missed"
             record.first_test = test_log.first_test or ""
         if released_at is not None:
-            record.load_seconds = time.monotonic() - released_at
-        record.spinners_left = stop_spinners(spinners)
+            record.load_seconds = (stopped_at or time.monotonic()) - released_at
+            record.load_ended = record.load_ended or "run-end"
+        if stopped_at is None:
+            record.spinners_left = stop_spinners(spinners)
         if record.spinners_left and not record.error:
             record.error = f"{len(record.spinners_left)} spinner(s) could not be stopped"
         root.close()
