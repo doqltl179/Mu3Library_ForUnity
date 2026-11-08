@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
+import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-from fixture_repository import FAKE_UNITY, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from fixture_repository import FAKE_UNITY, LOAD_HELPER, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
 from shell_harness import bash_or_skip
 from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
+from mu3_cli import fixed_load
 from mu3_cli.repository import repo_root
-from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
+from mu3_cli.unity import bash_script_command, is_directory_link, link_samples, load_target_specs, remove_directory_link
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH.
 FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
@@ -221,6 +225,9 @@ UTP_END = (
     '##utp:{"type":"TestStatus","time":2,"version":2,"phase":"End","processId":1,'
     '"name":"Fixture.Tests.Hangs","state":4,"message":"","duration":1}'
 )
+# The summary line under each run that counts the Unity processes the run did not start; other
+# Unity processes may run on the machine while the tests do.
+OTHER_UNITY_PROCESSES = r"^    other Unity processes: \d+ at the start, \d+( to \d+)? while it ran \(\d+ look\(s\)\)$"
 
 
 class TestEntryPointTests(FixtureRepositoryTestCase):
@@ -468,7 +475,8 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                     ],
                     summary[:3],
                 )
-                self.assertTrue(summary[3].startswith("Results: "), summary)
+                self.assertRegex(summary[3], OTHER_UNITY_PROCESSES)
+                self.assertTrue(summary[4].startswith("Results: "), summary)
 
     def test_failed_and_inconclusive_tests_of_one_target_are_both_named(self) -> None:
         completed = self.run_tests(
@@ -555,6 +563,413 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertIn("  - shared: in place", lines)
         self.assertIn("  - layered: skipped, ProjLayered/Packages/manifest.json lists no testables", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
+
+
+def read_record(path: Path) -> dict[str, str]:
+    """The key=value lines that the fixed-load helper writes beside a run's results."""
+    return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines())
+
+
+class FixedLoadRunTests(FixtureRepositoryTestCase):
+    """Runs test-unity.sh with --load-spinners and --repeat; the fixture's spinners wait instead
+    of spinning a core."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    # The summary line that totals the other Unity processes of a target's runs.
+    OTHERS_OVER_RUNS = r"^    other Unity processes: \d+ (at every count of|to \d+ over) the \d+ runs$"
+
+    def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0, **fake: str):
+        """Run test-unity.sh; fake sets FAKE_UNITY_<NAME> variables, such as log, ticks, and run_file."""
+        return self.run_entry_point(
+            "test-unity.sh",
+            *arguments,
+            environment=self.unity_environment(
+                FAKE_UNITY_RESULTS=results,
+                FAKE_UNITY_STATUS=str(unity_status),
+                **{f"FAKE_UNITY_{name.upper()}": value for name, value in fake.items()},
+            ),
+        )
+
+    def results_dir(self) -> Path:
+        return self.root / "log" / "unity-tests"
+
+    def summary(self, completed: subprocess.CompletedProcess[str]) -> list[str]:
+        lines = completed.stdout.splitlines()
+        return lines[lines.index("EditMode test summary:") + 1 :]
+
+    def assert_spinners_gone(self, record: dict[str, str]) -> list[int]:
+        pids = [int(pid) for pid in record["spinner_pids"].split()]
+        alive = [pid for pid in pids if fixed_load.process_running(pid)]
+        self.assertEqual([], alive, "spinners outlived the run")
+        self.assertEqual("", record["spinners_left"])
+        return pids
+
+    def test_the_load_starts_at_the_first_test_of_each_run_and_ends_with_it(self) -> None:
+        # The fake logs the first test at once and keeps running for 0.6 s, the load's time.
+        completed = self.run_tests(
+            "leaf",
+            "--load-spinners",
+            "2",
+            "--repeat",
+            "2",
+            results=nunit_results(passed=1),
+            log=UTP_BEGIN,
+            ticks="3",
+            tick_seconds="0.2",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        lines = completed.stdout.splitlines()
+        self.assertIn("Load: 2 spinners, from the first test of each run until its last test ends", lines)
+        self.assertIn("Repeat: 2 runs of each target", lines)
+        started: list[int] = []
+        for run in (1, 2):
+            with self.subTest(run=run):
+                record = read_record(self.results_dir() / f"leaf-editmode-run{run}.load")
+                self.assertEqual("started", record["load"])
+                self.assertEqual("Fixture.Tests.Hangs", record["first_test"])
+                self.assertEqual("0", record["tests_ended_before_load"])
+                self.assertEqual("yes", record["complete"])
+                self.assertEqual("", record["error"])
+                pids = self.assert_spinners_gone(record)
+                self.assertEqual(2, len(pids))
+                started.extend(pids)
+        # Each run starts spinners of its own, which wait while its Unity starts.
+        self.assertEqual(4, len(set(started)))
+        loads = [line for line in self.summary(completed) if line.startswith("    load: ")]
+        self.assertEqual(2, len(loads), completed.stdout)
+        # The fake's line dates the test to no time this clock can read, and names no plan.
+        for line in loads:
+            self.assertRegex(
+                line, r"^    load: 2 spinners on \d+ logical CPUs for \d+\.\d s, from the first test until Unity exited$"
+            )
+        self.assertEqual([], list(self.results_dir().glob("*.load-stop")))
+
+    def test_the_load_ends_with_the_last_test_the_plan_names(self) -> None:
+        began = round(time.time() * 1000)
+        plan = '##utp:{"type":"TestPlan","time":%d,"version":2,"phase":"Immediate","tests":["Fixture.Tests.Hangs"]}' % began
+        begin = UTP_BEGIN.replace('"time":1,', f'"time":{began},')
+        # The fake's only test lasts 0.6 s, after which its Unity takes 3 s more to exit.
+        completed = self.run_tests(
+            "leaf",
+            "--load-spinners",
+            "2",
+            results=nunit_results(passed=1),
+            log=f"{plan}\n{begin}",
+            ticks="3",
+            tick_seconds="0.2",
+            log_after_ticks=UTP_END,
+            sleep="3",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        record = read_record(self.results_dir() / "leaf-editmode.load")
+        self.assertEqual(("started", "last-test"), (record["load"], record["load_ended"]))
+        self.assertRegex(record["load_lag_ms"], r"^\d+$")
+        self.assertLess(float(record["load_seconds"]), 2.5)
+        self.assert_spinners_gone(record)
+        [line] = [line for line in self.summary(completed) if line.startswith("    load: ")]
+        self.assertRegex(
+            line,
+            r"^    load: 2 spinners on \d+ logical CPUs for \d+\.\d s, "
+            r"from \d+ ms after the first test began until the last test ended$",
+        )
+
+    def test_a_run_whose_test_ended_before_the_load_started_fails(self) -> None:
+        # The fake logs its only test as begun and ended at once, and exits.
+        completed = self.run_tests(
+            "leaf", "--load-spinners", "1", results=nunit_results(passed=1), log=f"{UTP_BEGIN}\n{UTP_END}"
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertRegex(
+            completed.stderr,
+            r"error: leaf: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive, but "
+            r"(every test had ended before the load started|the run ended before the load could start)",
+        )
+        self.assert_spinners_gone(read_record(self.results_dir() / "leaf-editmode.load"))
+
+    def test_a_run_in_which_no_test_began_fails_under_the_load(self) -> None:
+        completed = self.run_tests("leaf", "--load-spinners", "1", results=nunit_results(passed=3))
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(
+            "error: leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive, "
+            "but no test began in Unity's log, so none ran with the load",
+            completed.stderr,
+        )
+        self.assertIn("    load: none, no test began in Unity's log", self.summary(completed))
+        record = read_record(self.results_dir() / "leaf-editmode.load")
+        self.assertEqual("none", record["load"])
+        self.assert_spinners_gone(record)
+
+    def test_every_run_counts_the_other_unity_processes_without_a_load(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = self.summary(completed)
+        self.assertEqual("  - leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive", summary[0])
+        self.assertRegex(summary[1], OTHER_UNITY_PROCESSES)
+        self.assertEqual(
+            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log "
+            "and load records as <target>-editmode.load",
+            summary[2],
+        )
+        self.assertNotIn("load: ", completed.stdout)
+        record = read_record(self.results_dir() / "leaf-editmode.load")
+        self.assertEqual(("0", "", "yes"), (record["spinners"], record["spinner_pids"], record["complete"]))
+
+    def test_without_the_helper_the_processes_go_uncounted_and_no_load_can_start(self) -> None:
+        helper = self.root / LOAD_HELPER
+        moved = helper.with_name("fixed_load.py.away")
+        helper.rename(moved)
+        self.addCleanup(moved.rename, helper)
+        missing = "tools/cli/src/mu3_cli/fixed_load.py is missing"
+
+        completed = self.run_tests("leaf", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(f"warning: other Unity processes will not be counted: {missing}", completed.stderr)
+        self.assertIn(f"    other Unity processes: not counted, {missing}", self.summary(completed))
+        self.assertNotIn("load records", completed.stdout)
+
+        completed = self.run_tests("leaf", "--load-spinners", "2", results=nunit_results())
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(f"error: --load-spinners needs its helper, but {missing}", completed.stderr)
+        self.assertIn("preflight failed; no tests were run", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_the_options_need_whole_numbers_and_stop_before_unity_runs(self) -> None:
+        for arguments, message in (
+            (("--load-spinners",), "--load-spinners expects a whole number of spinners"),
+            (("--load-spinners", "-1"), "--load-spinners expects a whole number of spinners"),
+            (("--load-spinners", "1.5"), "--load-spinners expects a whole number of spinners"),
+            (("--repeat", "0"), "--repeat expects a whole number of runs, 1 or more"),
+            (("--repeat", "twice"), "--repeat expects a whole number of runs, 1 or more"),
+            (("--repeat",), "--repeat expects a whole number of runs, 1 or more"),
+        ):
+            with self.subTest(arguments=arguments):
+                completed = self.run_tests("leaf", *arguments, results=nunit_results())
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn(message, completed.stderr)
+                self.assertNotIn("fake unity ran", completed.stdout)
+
+    def test_dry_run_names_the_load_and_the_repeats(self) -> None:
+        completed = self.run_tests("leaf", "--dry-run", "--load-spinners", "16", "--repeat", "3")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        lines = completed.stdout.splitlines()
+        self.assertIn("Load: 16 spinners, from the first test of each run until its last test ends", lines)
+        self.assertIn("Repeat: 3 runs of each target", lines)
+        self.assertNotIn("fake unity ran", completed.stdout)
+
+    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
+    def test_a_run_that_stops_the_script_before_unity_starts_still_stops_its_spinners(self) -> None:
+        lock_file = self.root / "ProjLeaf" / "Temp" / "UnityLockfile"
+        lock_file.parent.mkdir(parents=True)
+        lock_file.write_text("", encoding="utf-8")
+        self.addCleanup(shutil.rmtree, lock_file.parent)
+
+        with lock_file.open("rb"):
+            completed = self.run_tests("leaf", "--in-place", "--load-spinners", "2", results=nunit_results())
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("is open in Unity", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
+        record = read_record(self.results_dir() / "leaf-editmode.load")
+        self.assertEqual(("none", "yes"), (record["load"], record["complete"]))
+        self.assertEqual(2, len(self.assert_spinners_gone(record)))
+        self.assertEqual([], list(self.results_dir().glob("*.load-stop")))
+
+    def test_each_repeated_run_keeps_its_results_and_the_summary_totals_them(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "4",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results_1=nunit_results(passed=2),
+            results_2=nunit_results(passed=1, failed=("Breaks",)),
+            results_3=nunit_results(passed=1, failed=("Breaks",), inconclusive=("Waits",)),
+            # The fourth run writes no results.
+            results_4="",
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("EditMode tests failed in 3 of 4 runs", completed.stderr)
+        self.assertIn("error: leaf run 2 of 4: 2 tests, 1 passed, 1 failed, 0 skipped, 0 inconclusive", completed.stderr)
+        self.assertIn("Run 3 of 4 of leaf:", completed.stdout.splitlines())
+        summary = [
+            "<others>" if re.match(OTHER_UNITY_PROCESSES, line) else "<over runs>" if re.match(self.OTHERS_OVER_RUNS, line) else line
+            for line in self.summary(completed)
+        ]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 4: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                "<others>",
+                "  - leaf run 2 of 4: FAILED, 2 tests, 1 passed, 1 failed, 0 skipped, 0 inconclusive",
+                "<others>",
+                "  - leaf run 3 of 4: FAILED, 3 tests, 1 passed, 1 failed, 0 skipped, 1 inconclusive",
+                "    inconclusive: Fixture.Tests.Waits",
+                "<others>",
+                "  - leaf run 4 of 4: FAILED, Unity exited with 0 and wrote no test results; see its log above",
+                "<others>",
+                "  - leaf, 4 runs: 3 of 4 failed; 7 tests, 4 passed, 2 failed, 0 skipped, 1 inconclusive, "
+                "in the 3 runs that wrote results",
+                "    failed in 2 of 4 runs: Fixture.Tests.Breaks",
+                "    inconclusive in 1 of 4 runs: Fixture.Tests.Waits",
+                "<over runs>",
+                "Results: log/unity-tests/<target>-editmode-run<k>.xml, with Unity logs as <target>-editmode-run<k>.log "
+                "and load records as <target>-editmode-run<k>.load",
+            ],
+            summary,
+        )
+        for run in (1, 2, 3, 4):
+            self.assertEqual(run < 4, (self.results_dir() / f"leaf-editmode-run{run}.xml").is_file())
+            self.assertTrue((self.results_dir() / f"leaf-editmode-run{run}.log").is_file())
+            self.assertEqual("yes", read_record(self.results_dir() / f"leaf-editmode-run{run}.load")["complete"])
+        self.assertFalse((self.results_dir() / "leaf-editmode.xml").exists())
+
+    def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
+        results_dir = self.results_dir()
+        results_dir.mkdir(parents=True)
+        stale = [results_dir / f"leaf-editmode-run3.{suffix}" for suffix in ("xml", "log", "load")]
+        kept = [results_dir / "shared-editmode-run3.xml", results_dir / "leaf-editmode-run3.txt"]
+        for path in stale + kept:
+            path.write_text(nunit_results(), encoding="utf-8")
+
+        completed = self.run_tests("leaf", "--repeat", "2", results=nunit_results())
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual([], [path.name for path in stale if path.exists()])
+        self.assertEqual(kept, [path for path in kept if path.exists()])
+        self.assertTrue((results_dir / "leaf-editmode-run2.xml").is_file())
+        self.assertIn(
+            "  - leaf, 2 runs: 0 of 2 failed; 6 tests, 6 passed, 0 failed, 0 skipped, 0 inconclusive",
+            self.summary(completed),
+        )
+
+
+def msys_pid(windows_pid: int) -> str:
+    """The process ID Git Bash knows a Windows process by, which its kill takes."""
+    listing = subprocess.run([str(bash_or_skip()), "-c", "ps"], capture_output=True, text=True, check=True).stdout
+    for line in listing.splitlines()[1:]:
+        fields = line.split()
+        # Some lines start with a status letter before the PID, PPID, PGID, and WINPID.
+        if fields and not fields[0].isdigit():
+            fields = fields[1:]
+        if len(fields) > 3 and fields[3] == str(windows_pid):
+            return fields[0]
+    raise AssertionError(f"Git Bash lists no process with the Windows ID {windows_pid}")
+
+
+class InterruptedLoadRunTests(FixtureRepositoryTestCase):
+    """Interrupts test-unity.sh while a fake Unity runs a test under the load, whose spinners wait
+    instead of spinning a core, and checks that neither the helper nor a spinner outlives it."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+
+    def start_loaded_run(self) -> tuple[subprocess.Popen[str], dict[str, str], Path]:
+        """Starts a run whose fake Unity logs its first test and then stays silent for 60 s, and
+        returns it once the helper has let its spinners spin, with the helper's record."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        sleeper_file = self.sleeper_file = Path(directory.name) / "sleeper.pid"
+        output = (Path(directory.name) / "output.txt").open("w", encoding="utf-8")
+        self.addCleanup(output.close)
+        environment = self.unity_environment(
+            FAKE_UNITY_RESULTS=nunit_results(passed=1),
+            FAKE_UNITY_LOG=UTP_BEGIN,
+            FAKE_UNITY_SLEEP="60",
+            FAKE_UNITY_SLEEPER_FILE=str(sleeper_file),
+        )
+        script = subprocess.Popen(
+            bash_script_command(self.root / "test-unity.sh", ["leaf", "--load-spinners", "2"]),
+            cwd=self.root,
+            env=environment,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(self.end_fake_unity, sleeper_file)
+        self.addCleanup(self.end, script)
+
+        record_file = self.root / "log" / "unity-tests" / "leaf-editmode.load"
+        record: dict[str, str] = {}
+
+        def spinning() -> bool:
+            try:
+                record.update(read_record(record_file))
+            except (OSError, ValueError):
+                return False
+            return record.get("load") == "started"
+
+        deadline = time.monotonic() + 60
+        while not spinning() and script.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual("started", record.get("load"), "the helper never let its spinners spin")
+        return script, record, record_file
+
+    @staticmethod
+    def end(process: subprocess.Popen[str]) -> None:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+
+    @staticmethod
+    def end_fake_unity(sleeper_file: Path) -> None:
+        """Ends the fake Unity's silence, which a script killed outright leaves running."""
+        if sleeper_file.is_file():
+            sleeper = sleeper_file.read_text(encoding="utf-8").strip()
+            subprocess.run([str(bash_or_skip()), "-c", f"kill {sleeper} 2>/dev/null"], check=False)
+
+    def assert_helper_and_spinners_end(self, record: dict[str, str]) -> None:
+        pids = [int(record["helper_pid"]), *map(int, record["spinner_pids"].split())]
+        self.assertEqual(3, len(pids))
+        deadline = time.monotonic() + 30
+        while any(fixed_load.process_running(pid) for pid in pids) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual([], [pid for pid in pids if fixed_load.process_running(pid)], "outlived the script")
+
+    def test_a_terminated_script_stops_unity_the_helper_and_the_spinners(self) -> None:
+        script, record, record_file = self.start_loaded_run()
+        root_pid = int(record["root_pid"])
+
+        if platform.system() == "Windows":
+            # A Windows signal would end bash outright; Git Bash's kill delivers SIGTERM, which
+            # its trap handles.
+            subprocess.run([str(bash_or_skip()), "-c", f"kill -TERM {msys_pid(root_pid)}"], check=True)
+        else:
+            os.kill(root_pid, signal.SIGTERM)
+
+        # The trap that run_unity_logged sets stops Unity and exits with 130, and the exit stops the helper.
+        self.assertEqual(130, script.wait(timeout=60))
+        self.assert_helper_and_spinners_end(record)
+        final = read_record(record_file)
+        self.assertEqual(("yes", "run-end", ""), (final["complete"], final["load_ended"], final["error"]))
+        self.assertEqual([], list(record_file.parent.glob("*.load-stop")))
+        sleeper = self.sleeper_file.read_text(encoding="utf-8").strip()
+        alive = subprocess.run([str(bash_or_skip()), "-c", f"kill -0 {sleeper}"], capture_output=True, check=False)
+        self.assertNotEqual(0, alive.returncode, f"the fake Unity's sleep {sleeper} outlived the script")
+
+    def test_a_script_killed_outright_leaves_neither_the_helper_nor_a_spinner(self) -> None:
+        script, record, record_file = self.start_loaded_run()
+        root_pid = int(record["root_pid"])
+
+        # Neither a trap nor an exit runs: the helper sees the script end, and each spinner its
+        # input close as the helper ends.
+        if platform.system() == "Windows":
+            subprocess.run(["taskkill", "/F", "/PID", str(root_pid)], capture_output=True, check=True)
+        else:
+            os.kill(root_pid, signal.SIGKILL)
+        script.wait(timeout=60)
+
+        self.assert_helper_and_spinners_end(record)
+        final = read_record(record_file)
+        self.assertEqual(("yes", "the script ended before it stopped the load"), (final["complete"], final["error"]))
 
 
 class CompileLogTests(FixtureRepositoryTestCase):

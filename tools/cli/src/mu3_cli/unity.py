@@ -890,6 +890,20 @@ def stall_timeout_arguments(stall_timeout: int | None) -> list[str]:
     return ["--stall-timeout", str(stall_timeout)]
 
 
+def load_arguments(load_spinners: int | None, repeat: int | None) -> list[str]:
+    """The --load-spinners and --repeat options of test-unity.sh, each only when given."""
+    arguments: list[str] = []
+    if load_spinners is not None:
+        if load_spinners < 0:
+            raise ValueError("--load-spinners expects a whole number of spinners.")
+        arguments.extend(["--load-spinners", str(load_spinners)])
+    if repeat is not None:
+        if repeat < 1:
+            raise ValueError("--repeat expects a whole number of runs, 1 or more.")
+        arguments.extend(["--repeat", str(repeat)])
+    return arguments
+
+
 def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
     """Run compile-unity.sh or test-unity.sh, which take the same selection options."""
     if not script_path.is_file():
@@ -1006,13 +1020,25 @@ def unity_test(
         "--stall-timeout",
         help="Stop Unity and fail the target once its log has not grown for this many seconds (default 600; 0 never).",
     ),
+    load_spinners: int | None = typer.Option(
+        None,
+        "--load-spinners",
+        help="Spin this many CPU cores, one Python process each, from the first test of each run to its last.",
+    ),
+    repeat: int | None = typer.Option(
+        None, "--repeat", help="Run each target this many times, starting Unity anew, and total the runs' results."
+    ),
 ) -> None:
     """Run the EditMode or PlayMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
     try:
-        arguments = entry_point_arguments(
-            target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        ) + platform_arguments(test_platform) + filter_arguments(test_filter) + stall_timeout_arguments(stall_timeout)
+        arguments = (
+            entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version)
+            + platform_arguments(test_platform)
+            + filter_arguments(test_filter)
+            + stall_timeout_arguments(stall_timeout)
+            + load_arguments(load_spinners, repeat)
+        )
         return_code = run_entry_point(test_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error

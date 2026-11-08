@@ -32,13 +32,16 @@ PROJECT_PACKAGES = {
     "ProjOrphan": (),
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
+# The helper test-unity.sh runs beside each run, which the fixture keeps at its path.
+LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_cli" / "fixed_load.py"
 
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
 # -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
 # it is given, prints as many ticks as it is given, FAKE_UNITY_TICK_SECONDS (1 unless given)
-# apart, then stays silent as long as it is told, in a child process whose PID it can write to
+# apart, and the log line it is given for after them, then stays silent as long as it is told, in a child process whose PID it can write to
 # a file, writes the test results it is given to the path after -testResults, and exits with
-# the status it is given.
+# the status it is given. Given a file to count its runs in, run <n> writes
+# FAKE_UNITY_RESULTS_<n> instead when that is set, so that each run of --repeat can differ.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
@@ -67,6 +70,9 @@ for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
     sleep "${FAKE_UNITY_TICK_SECONDS:-1}"
     printf 'fake unity tick %s\\n' "$tick"
 done
+if [[ -n "${FAKE_UNITY_LOG_AFTER_TICKS:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG_AFTER_TICKS"
+fi
 if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
     sleep "$FAKE_UNITY_SLEEP" &
     sleeper=$!
@@ -74,6 +80,12 @@ if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
         printf '%s\\n' "$sleeper" > "$FAKE_UNITY_SLEEPER_FILE"
     fi
     wait "$sleeper"
+fi
+if [[ -n "${FAKE_UNITY_RUN_FILE:-}" ]]; then
+    run=$(( $(cat "$FAKE_UNITY_RUN_FILE" 2>/dev/null || printf 0) + 1 ))
+    printf '%s\\n' "$run" > "$FAKE_UNITY_RUN_FILE"
+    per_run="FAKE_UNITY_RESULTS_$run"
+    FAKE_UNITY_RESULTS="${!per_run-${FAKE_UNITY_RESULTS:-}}"
 fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
@@ -137,6 +149,8 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         for entry_point in ENTRY_POINTS:
             if (repo_root() / entry_point).is_file():
                 shutil.copy2(repo_root() / entry_point, cls.root / entry_point)
+        (cls.root / LOAD_HELPER).parent.mkdir(parents=True)
+        shutil.copy2(repo_root() / LOAD_HELPER, cls.root / LOAD_HELPER)
         (cls.root / "unity-cli-packages.tsv").write_text(
             "".join(
                 "\t".join([key, package, project, *([cls.SAMPLE_LINKS[key]] if key in cls.SAMPLE_LINKS else [])]) + "\n"
@@ -190,11 +204,14 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             "FAKE_UNITY_STATUS",
             "FAKE_UNITY_LOG",
             "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_LOG_AFTER_TICKS",
             "FAKE_UNITY_TICK_SECONDS",
             "FAKE_UNITY_SLEEP",
             "FAKE_UNITY_SLEEPER_FILE",
+            "FAKE_UNITY_RUN_FILE",
             "MSYS2_ARG_CONV_EXCL",
             "UNITY_LOG_POLL_SECONDS",
+            "UNITY_LOAD_SPINNERS_IDLE",
         ):
             environment.pop(name, None)
         environment.update(
@@ -228,7 +245,8 @@ class FixtureRepositoryTestCase(unittest.TestCase):
 
         The logs and results that a run with it writes under log/ go when the test ends. The
         scripts look at the fake's log every 0.02 s instead of every second, since the fake
-        exits at once and each run would otherwise wait out a whole second.
+        exits at once and each run would otherwise wait out a whole second, and the spinners
+        that --load-spinners starts wait instead of spinning a core each.
         """
         self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
         mirror_directory = tempfile.TemporaryDirectory()
@@ -239,6 +257,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             "UNITY_EDITOR": str(self.fake_unity),
             "TMPDIR": str(self.mirror_directory),
             "UNITY_LOG_POLL_SECONDS": "0.02",
+            "UNITY_LOAD_SPINNERS_IDLE": "1",
             **variables,
         }
 
