@@ -28,6 +28,7 @@ from mu3_cli.unity import (
     find_bash,
     find_windows_bash,
     link_samples,
+    load_arguments,
     load_target_specs,
     platform_arguments,
     project_editor_version,
@@ -177,6 +178,30 @@ class UnityToolingTests(unittest.TestCase):
             ],
             arguments,
         )
+
+    def test_load_and_repeat_reach_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], load_arguments(None, None))
+        self.assertEqual(["--load-spinners", "0"], load_arguments(0, None))
+        self.assertEqual(["--load-spinners", "16", "--repeat", "3"], load_arguments(16, 3))
+        with self.assertRaisesRegex(ValueError, "--load-spinners expects a whole number of spinners"):
+            load_arguments(-1, None)
+        with self.assertRaisesRegex(ValueError, "--repeat expects a whole number of runs, 1 or more"):
+            load_arguments(None, 0)
+
+    def test_test_command_hands_the_load_and_the_repeats_to_the_test_script(self) -> None:
+        calls: list[list[str]] = []
+
+        with mock.patch("mu3_cli.unity.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+            result = CliRunner().invoke(
+                app, ["unity", "test", "built-in", "--dry-run", "--load-spinners", "16", "--repeat", "3"]
+            )
+            refused = CliRunner().invoke(app, ["unity", "test", "built-in", "--repeat", "0"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            [["built-in", "--dry-run", "--platform", "editmode", "--load-spinners", "16", "--repeat", "3"]], calls
+        )
+        self.assertEqual(2, refused.exit_code, refused.output)
 
     def test_compile_command_hands_the_stall_timeout_to_the_compile_script(self) -> None:
         calls: list[tuple[Path, list[str]]] = []

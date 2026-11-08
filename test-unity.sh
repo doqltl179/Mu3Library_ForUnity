@@ -38,6 +38,51 @@ NO_TESTABLES_REASON=""
 UNFINISHED_TEST=""
 RESULT_TESTS=()
 
+# How many spinners --load-spinners asks for, each a Python process that spins
+# a CPU core from the first test of a run until its Unity exits, and how many
+# times --repeat runs each target.
+LOAD_SPINNERS=0
+REPEAT_COUNT=1
+# The helper that starts the spinners beside each run and counts the Unity
+# processes that are not the run's own, the Python that runs it, found by
+# find_load_python, or why there is none. The tool tests set
+# UNITY_LOAD_SPINNERS_IDLE=1 so that their spinners wait instead of spinning.
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_cli/fixed_load.py"
+LOAD_PYTHON=""
+LOAD_UNAVAILABLE=""
+LOAD_HELPER_PID=""
+LOAD_STOP_FILE=""
+# What the helper recorded for the run that test_target ran last, which
+# read_load_record reads.
+LOAD_STATE=""
+LOAD_CPUS=""
+LOAD_ENDED_BEFORE=""
+LOAD_SECONDS=""
+LOAD_ERROR=""
+OTHERS_AT_START=""
+OTHERS_MIN=""
+OTHERS_MAX=""
+OTHERS_LOOKS=""
+COUNT_ERROR=""
+LOAD_PROBLEM=""
+# How the summary and the file names tell a run of --repeat from the others,
+# such as " run 2 of 3" and "-run2", and the counts test_target read for it.
+RUN_LABEL=""
+RUN_FILE_SUFFIX=""
+RUN_COUNTS=()
+# The totals of the runs of one target under --repeat: the runs that failed and
+# that wrote counts, the sums of total, passed, failed, skipped, and
+# inconclusive, each failed or inconclusive test with the number of runs it
+# had that result in, and the fewest and most other Unity processes counted.
+REPEAT_FAILED_RUNS=0
+REPEAT_COUNTED_RUNS=0
+REPEAT_SUMS=()
+REPEAT_TEST_RESULTS=()
+REPEAT_TEST_NAMES=()
+REPEAT_TEST_RUNS=()
+REPEAT_OTHERS_LOW=""
+REPEAT_OTHERS_HIGH=""
+
 usage() {
     local i
 
@@ -73,6 +118,16 @@ Options:
                     Stop Unity and fail the target once its log has not
                     grown for this long, naming the test that was running
                     (default 600; 0 waits as long as Unity runs).
+  --load-spinners <n>
+                    Start <n> Python processes that each spin a CPU core as
+                    the first test of each run begins, and stop them when
+                    its Unity exits, so that timings are measured under a
+                    fixed load that does not slow the compile before it
+                    (default 0, none). A run under which no test ran with
+                    the load fails.
+  --repeat <n>      Run each selected target <n> times, starting Unity anew
+                    for each run, keep each run's results apart, and total
+                    them (default 1).
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
   --dry-run         Print the selection and where each target would run,
                     without Unity.
@@ -95,6 +150,17 @@ begins and ends, beside it as <target>-<platform>.log. A failed test or a
 stalled or failed Unity run does not stop the remaining targets, and a summary
 closes the run; a target that cannot start, such as an open project under
 --in-place or a mirror that cannot be copied, stops the script at once.
+
+Under each run the summary gives how many other Unity processes, those the run
+did not start, ran as it started and while it ran, and with --load-spinners
+when the load started and how long it lasted. A helper counts them and runs the
+spinners with python or python3 of version 3.10 or later from PATH; without
+one, the processes go uncounted and --load-spinners stops the script before
+Unity starts. Each run keeps that record beside its results as
+<target>-<platform>.load. With --repeat, run <k> writes
+<target>-<platform>-run<k>.xml, .log, and .load instead, and the summary closes
+each target with the totals of its runs and, for each failed or inconclusive
+test, the number of runs it had that result in.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), how --editor-version retargets the mirror, the sample-link
@@ -135,6 +201,17 @@ parse_test_arguments() {
                 [[ "$1" != /* ]] || fail "--filter cannot start with /, which Git Bash rewrites as a file path: $1"
                 [[ -z "$TEST_FILTER" ]] || fail "--filter can be given once; separate several patterns with ;"
                 TEST_FILTER="$1"
+                ;;
+            --load-spinners)
+                shift
+                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ ]] || fail "--load-spinners expects a whole number of spinners"
+                LOAD_SPINNERS="$((10#$1))"
+                ;;
+            --repeat)
+                shift
+                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ && "$((10#$1))" -ge 1 ]] \
+                    || fail "--repeat expects a whole number of runs, 1 or more"
+                REPEAT_COUNT="$((10#$1))"
                 ;;
             *)
                 COMPILE_ARGUMENTS+=("$1")
@@ -293,14 +370,330 @@ record_failure() {
     local target_key="$1"
     local reason="$2"
 
-    printf 'error: %s: %s\n' "$target_key" "$reason" >&2
-    SUMMARY_LINES+=("$target_key: FAILED, $reason")
+    printf 'error: %s%s: %s\n' "$target_key" "$RUN_LABEL" "$reason" >&2
+    SUMMARY_LINES+=("$target_key$RUN_LABEL: FAILED, $reason")
     FAILED_TARGET_COUNT=$((FAILED_TARGET_COUNT + 1))
+}
+
+# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
+# later, the version mu3-cli needs, or LOAD_UNAVAILABLE to why the helper cannot
+# run. python comes first: on Windows python3 is often the stand-in of the
+# Microsoft Store, which only says how to install Python.
+find_load_python() {
+    local candidate
+
+    LOAD_PYTHON=""
+    LOAD_UNAVAILABLE=""
+    if [[ ! -f "$LOAD_HELPER" ]]; then
+        LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
+        return 1
+    fi
+    for candidate in python python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+            LOAD_PYTHON="$candidate"
+            return 0
+        fi
+    done
+    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
+    return 1
+}
+
+# Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
+# record and stop files beside it. It counts the Unity processes that do not
+# descend from this script, whose Windows process ID it needs under Git Bash,
+# and starts the spinners waiting, to spin from the first test the log shows.
+start_load_helper() {
+    local base="$1"
+    local root_pid="$$"
+    local idle=()
+
+    LOAD_STOP_FILE="$base.load-stop"
+    rm -f -- "$base.load" "$LOAD_STOP_FILE"
+    [[ -n "$LOAD_PYTHON" ]] || return 0
+
+    if [[ -r "/proc/$$/winpid" ]]; then
+        read -r root_pid <"/proc/$$/winpid"
+    fi
+    if [[ "${UNITY_LOAD_SPINNERS_IDLE:-0}" == 1 ]]; then
+        idle=(--idle)
+    fi
+
+    "$LOAD_PYTHON" -I "$(to_windows_path "$LOAD_HELPER")" supervise \
+        --log "$(to_windows_path "$UNITY_LOG_FILE")" \
+        --spinners "$LOAD_SPINNERS" \
+        --root-pid "$root_pid" \
+        --stop "$(to_windows_path "$LOAD_STOP_FILE")" \
+        --record "$(to_windows_path "$base.load")" \
+        ${idle[@]+"${idle[@]}"} </dev/null &
+    LOAD_HELPER_PID=$!
+}
+
+# Tells the helper that the run ended, so that it stops the spinners and writes
+# its record, and waits for it; one that has not ended after 10 s is stopped
+# with every process it started. An exit, an interrupt included, calls it too.
+stop_load_helper() {
+    local helper_pid="$LOAD_HELPER_PID"
+    local look
+
+    LOAD_HELPER_PID=""
+    [[ -n "$helper_pid" ]] || return 0
+
+    : >"$LOAD_STOP_FILE" 2>/dev/null || true
+    for ((look = 0; look < 100; look++)); do
+        kill -0 "$helper_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if kill -0 "$helper_pid" 2>/dev/null; then
+        stop_process_tree "$helper_pid"
+    fi
+    wait "$helper_pid" 2>/dev/null || true
+    rm -f -- "$LOAD_STOP_FILE"
+}
+
+# Reads the key=value lines the helper wrote for a run into the LOAD_ and
+# OTHERS_ variables, which stay empty for what it did not record.
+read_load_record() {
+    local record_file="$1"
+    local key
+    local value
+    local complete=""
+
+    LOAD_STATE=""
+    LOAD_CPUS=""
+    LOAD_ENDED_BEFORE=""
+    LOAD_SECONDS=""
+    LOAD_ERROR=""
+    OTHERS_AT_START=""
+    OTHERS_MIN=""
+    OTHERS_MAX=""
+    OTHERS_LOOKS=""
+    COUNT_ERROR=""
+
+    if [[ -z "$LOAD_PYTHON" ]]; then
+        COUNT_ERROR="$LOAD_UNAVAILABLE"
+        return 0
+    fi
+    if [[ ! -f "$record_file" ]]; then
+        LOAD_ERROR="the helper wrote no record"
+        COUNT_ERROR="$LOAD_ERROR"
+        return 0
+    fi
+
+    while IFS='=' read -r key value || [[ -n "$key" ]]; do
+        value="${value%$'\r'}"
+        case "$key" in
+            load) LOAD_STATE="$value" ;;
+            cpus) LOAD_CPUS="$value" ;;
+            tests_ended_before_load) LOAD_ENDED_BEFORE="$value" ;;
+            load_seconds) LOAD_SECONDS="$value" ;;
+            error) LOAD_ERROR="$value" ;;
+            others_at_start) OTHERS_AT_START="$value" ;;
+            others_during_min) OTHERS_MIN="$value" ;;
+            others_during_max) OTHERS_MAX="$value" ;;
+            looks) OTHERS_LOOKS="$value" ;;
+            count_error) COUNT_ERROR="$value" ;;
+            complete) complete="$value" ;;
+        esac
+    done <"$record_file"
+
+    # The helper writes its record as the run goes on, and marks the last one.
+    if [[ "$complete" != yes ]]; then
+        LOAD_ERROR="${LOAD_ERROR:-the helper ended before it completed its record}"
+    fi
+}
+
+# Sets LOAD_PROBLEM to why a run whose tests passed does not count under
+# --load-spinners, given its number of tests: the load failed, or no test ran
+# with it.
+find_load_problem() {
+    local total="$1"
+
+    LOAD_PROBLEM=""
+    [[ "$LOAD_SPINNERS" -gt 0 ]] || return 0
+
+    if [[ -n "$LOAD_ERROR" ]]; then
+        LOAD_PROBLEM="the load failed: $LOAD_ERROR"
+    elif [[ "$LOAD_STATE" == missed ]]; then
+        LOAD_PROBLEM="the run ended before the load could start, so no test ran with it"
+    elif [[ "$LOAD_STATE" != started ]]; then
+        LOAD_PROBLEM="no test began in Unity's log, so none ran with the load"
+    elif [[ "${LOAD_ENDED_BEFORE:-0}" -ge "$total" ]]; then
+        LOAD_PROBLEM="every test had ended before the load started"
+    fi
+}
+
+# Adds what the helper recorded for the run that test_target ran last under its
+# summary entry: the load, and the other Unity processes.
+add_load_to_summary() {
+    local during
+    local count
+
+    if [[ "$LOAD_SPINNERS" -gt 0 ]]; then
+        if [[ -n "$LOAD_ERROR" ]]; then
+            SUMMARY_LINES+=("  load: failed, $LOAD_ERROR")
+        elif [[ "$LOAD_STATE" == started && "${LOAD_ENDED_BEFORE:-0}" -eq 0 ]]; then
+            SUMMARY_LINES+=("  load: $LOAD_SPINNERS spinners on $LOAD_CPUS logical CPUs for $LOAD_SECONDS s, from the first test")
+        elif [[ "$LOAD_STATE" == started ]]; then
+            SUMMARY_LINES+=("  load: $LOAD_SPINNERS spinners on $LOAD_CPUS logical CPUs for $LOAD_SECONDS s, started after $LOAD_ENDED_BEFORE test(s) had ended")
+        elif [[ "$LOAD_STATE" == missed ]]; then
+            SUMMARY_LINES+=("  load: none, the run ended before it could start")
+        else
+            SUMMARY_LINES+=("  load: none, no test began in Unity's log")
+        fi
+    fi
+
+    if [[ -z "$OTHERS_AT_START" || -z "$OTHERS_LOOKS" ]]; then
+        SUMMARY_LINES+=("  other Unity processes: not counted, ${COUNT_ERROR:-the helper recorded no count}")
+        return 0
+    fi
+    if [[ "$OTHERS_MIN" == "$OTHERS_MAX" ]]; then
+        during="$OTHERS_MIN"
+    else
+        during="$OTHERS_MIN to $OTHERS_MAX"
+    fi
+    SUMMARY_LINES+=("  other Unity processes: $OTHERS_AT_START at the start, $during while it ran ($OTHERS_LOOKS look(s))")
+
+    for count in "$OTHERS_AT_START" "$OTHERS_MIN" "$OTHERS_MAX"; do
+        if [[ -z "$REPEAT_OTHERS_LOW" || "$count" -lt "$REPEAT_OTHERS_LOW" ]]; then
+            REPEAT_OTHERS_LOW="$count"
+        fi
+        if [[ -z "$REPEAT_OTHERS_HIGH" || "$count" -gt "$REPEAT_OTHERS_HIGH" ]]; then
+            REPEAT_OTHERS_HIGH="$count"
+        fi
+    done
+}
+
+# Adds a test that had the result given, Failed or Inconclusive, in the run
+# that test_target ran last to the totals of the target's runs.
+tally_repeated_test() {
+    local result="$1"
+    local test_name="$2"
+    local i
+
+    for ((i = 0; i < ${#REPEAT_TEST_NAMES[@]}; i++)); do
+        if [[ "${REPEAT_TEST_RESULTS[$i]}" == "$result" && "${REPEAT_TEST_NAMES[$i]}" == "$test_name" ]]; then
+            REPEAT_TEST_RUNS[$i]=$((REPEAT_TEST_RUNS[$i] + 1))
+            return 0
+        fi
+    done
+    REPEAT_TEST_RESULTS+=("$result")
+    REPEAT_TEST_NAMES+=("$test_name")
+    REPEAT_TEST_RUNS+=(1)
+}
+
+# Adds the run that test_target ran last, whose results file is given and
+# which failed when the second argument is 1, to the totals of its target.
+add_run_to_repeat_totals() {
+    local results_file="$1"
+    local run_failed="$2"
+    local i
+    local result
+    local test_name
+
+    if [[ "$run_failed" -eq 1 ]]; then
+        REPEAT_FAILED_RUNS=$((REPEAT_FAILED_RUNS + 1))
+    fi
+    [[ "${#RUN_COUNTS[@]}" -eq 5 ]] || return 0
+
+    REPEAT_COUNTED_RUNS=$((REPEAT_COUNTED_RUNS + 1))
+    for ((i = 0; i < 5; i++)); do
+        REPEAT_SUMS[$i]=$((${REPEAT_SUMS[$i]:-0} + RUN_COUNTS[$i]))
+    done
+    for result in Failed Inconclusive; do
+        find_tests_with_result "$results_file" "$result"
+        for test_name in ${RESULT_TESTS[@]+"${RESULT_TESTS[@]}"}; do
+            tally_repeated_test "$result" "$test_name"
+        done
+    done
+}
+
+# Adds the totals of a target's runs to the summary: how many runs failed, the
+# sums of the counts of those that wrote results, the runs in which each test
+# failed or was inconclusive, and the fewest and most other Unity processes.
+add_repeat_totals_to_summary() {
+    local target_key="$1"
+    local counts="no run wrote results"
+    local i
+
+    if [[ "$REPEAT_COUNTED_RUNS" -gt 0 ]]; then
+        counts="${REPEAT_SUMS[0]} tests, ${REPEAT_SUMS[1]} passed, ${REPEAT_SUMS[2]} failed, ${REPEAT_SUMS[3]} skipped, ${REPEAT_SUMS[4]} inconclusive"
+        if [[ "$REPEAT_COUNTED_RUNS" -lt "$REPEAT_COUNT" ]]; then
+            counts="$counts, in the $REPEAT_COUNTED_RUNS runs that wrote results"
+        fi
+    fi
+    SUMMARY_LINES+=("$target_key, $REPEAT_COUNT runs: $REPEAT_FAILED_RUNS of $REPEAT_COUNT failed; $counts")
+
+    for ((i = 0; i < ${#REPEAT_TEST_NAMES[@]}; i++)); do
+        if [[ "${REPEAT_TEST_RESULTS[$i]}" == Failed ]]; then
+            SUMMARY_LINES+=("  failed in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
+        else
+            SUMMARY_LINES+=("  inconclusive in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
+        fi
+    done
+
+    if [[ -n "$REPEAT_OTHERS_LOW" && "$REPEAT_OTHERS_LOW" == "$REPEAT_OTHERS_HIGH" ]]; then
+        SUMMARY_LINES+=("  other Unity processes: $REPEAT_OTHERS_LOW at every count of the $REPEAT_COUNT runs")
+    elif [[ -n "$REPEAT_OTHERS_LOW" ]]; then
+        SUMMARY_LINES+=("  other Unity processes: $REPEAT_OTHERS_LOW to $REPEAT_OTHERS_HIGH over the $REPEAT_COUNT runs")
+    fi
+}
+
+# Removes the results that an earlier --repeat left for a target, so that runs
+# beyond this one's count are not read as its own.
+remove_repeat_results() {
+    local target_key="$1"
+    local stale
+
+    for stale in "$RESULTS_DIR/$target_key-$PLATFORM_KEY-run"[0-9]*; do
+        case "$stale" in
+            *.xml|*.log|*.load)
+                rm -f -- "$stale"
+                ;;
+        esac
+    done
+}
+
+# Runs a target REPEAT_COUNT times, each run with its own results, and adds the
+# totals of its runs to the summary.
+test_target_repeatedly() {
+    local target_key="$1"
+    local run
+    local run_number
+    local failed_before
+
+    remove_repeat_results "$target_key"
+    REPEAT_FAILED_RUNS=0
+    REPEAT_COUNTED_RUNS=0
+    REPEAT_SUMS=(0 0 0 0 0)
+    REPEAT_TEST_RESULTS=()
+    REPEAT_TEST_NAMES=()
+    REPEAT_TEST_RUNS=()
+    REPEAT_OTHERS_LOW=""
+    REPEAT_OTHERS_HIGH=""
+
+    for ((run = 1; run <= REPEAT_COUNT; run++)); do
+        # Numbers as wide as the count keep the files of the runs in order.
+        printf -v run_number '%0*d' "${#REPEAT_COUNT}" "$run"
+        RUN_LABEL=" run $run of $REPEAT_COUNT"
+        RUN_FILE_SUFFIX="-run$run_number"
+        printf 'Run %s of %s of %s:\n' "$run" "$REPEAT_COUNT" "$target_key"
+        failed_before="$FAILED_TARGET_COUNT"
+        test_target "$target_key"
+        add_path_limit_warnings_to_summary
+        add_load_to_summary
+        add_run_to_repeat_totals "$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.xml" \
+            "$((FAILED_TARGET_COUNT > failed_before ? 1 : 0))"
+    done
+    RUN_LABEL=""
+    RUN_FILE_SUFFIX=""
+
+    add_repeat_totals_to_summary "$target_key"
 }
 
 test_target() {
     local target_key="$1"
-    local results_file="$RESULTS_DIR/$target_key-$PLATFORM_KEY.xml"
+    local results_file="$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.xml"
     local total
     local passed
     local failed
@@ -320,7 +713,12 @@ test_target() {
     if [[ -e "$results_file" || -L "$results_file" ]]; then
         rm -f -- "$results_file"
     fi
-    UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY.log"
+    UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.log"
+    # The helper starts the load at the first test this run's Unity logs, so a
+    # log that an earlier run left must not be there for it to read.
+    rm -f -- "$UNITY_LOG_FILE"
+    RUN_COUNTS=()
+    start_load_helper "${results_file%.xml}"
 
     # -automated makes the Unity Test Framework log a line as each test begins
     # and ends, which names the test that a stalled or crashed run was in.
@@ -332,6 +730,8 @@ test_target() {
         "${unity_arguments[@]}" \
         -testResults "$(to_windows_path "$results_file")" \
         -automated
+    stop_load_helper
+    read_load_record "${results_file%.xml}.load"
     find_unfinished_test "$UNITY_LOG_FILE"
     unfinished="$UNFINISHED_TEST"
 
@@ -355,6 +755,8 @@ test_target() {
         return 0
     fi
     counts="$total tests, $passed passed, $failed failed, $skipped skipped, $inconclusive inconclusive"
+    RUN_COUNTS=("$total" "$passed" "$failed" "$skipped" "$inconclusive")
+    find_load_problem "$total"
 
     # An inconclusive test, one whose Assume did not hold or that called
     # Assert.Inconclusive, reached no verdict, so it fails the target as a
@@ -370,9 +772,11 @@ test_target() {
         record_failure "$target_key" "no tests ran although the project lists testables"
     elif [[ "$UNITY_STATUS" -ne 0 ]]; then
         record_failure "$target_key" "Unity exited with $UNITY_STATUS although no test failed ($counts)"
+    elif [[ -n "$LOAD_PROBLEM" ]]; then
+        record_failure "$target_key" "$counts, but $LOAD_PROBLEM"
     else
-        printf '%s tests passed for %s: %s\n' "$TEST_PLATFORM" "$target_key" "$counts"
-        SUMMARY_LINES+=("$target_key: $counts")
+        printf '%s tests passed for %s%s: %s\n' "$TEST_PLATFORM" "$target_key" "$RUN_LABEL" "$counts"
+        SUMMARY_LINES+=("$target_key$RUN_LABEL: $counts")
     fi
 }
 
@@ -407,6 +811,8 @@ print_summary() {
 
 test_main() {
     local target_key
+    local preflight_failed
+    local results_name
 
     load_package_config
     parse_test_arguments "$@"
@@ -415,6 +821,12 @@ test_main() {
     print_selection
     if [[ -n "$TEST_FILTER" ]]; then
         printf 'Test filter: %s\n' "$TEST_FILTER"
+    fi
+    if [[ "$LOAD_SPINNERS" -gt 0 ]]; then
+        printf 'Load: %s spinners, from the first test of each run until its Unity exits\n' "$LOAD_SPINNERS"
+    fi
+    if [[ "$REPEAT_COUNT" -gt 1 ]]; then
+        printf 'Repeat: %s runs of each target\n' "$REPEAT_COUNT"
     fi
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -435,19 +847,43 @@ test_main() {
         exit 0
     fi
 
-    trap cleanup_staging EXIT
+    # The helper that a run starts stops with the script, however it ends.
+    trap 'stop_load_helper; cleanup_staging' EXIT
 
-    preflight_selected_targets || fail "preflight failed; no tests were run"
+    preflight_failed=0
+    preflight_selected_targets || preflight_failed=1
+    if ! find_load_python; then
+        if [[ "$LOAD_SPINNERS" -gt 0 ]]; then
+            printf 'error: --load-spinners needs its helper, but %s\n' "$LOAD_UNAVAILABLE" >&2
+            preflight_failed=1
+        else
+            printf 'warning: other Unity processes will not be counted: %s\n' "$LOAD_UNAVAILABLE" >&2
+        fi
+    fi
+    [[ "$preflight_failed" -eq 0 ]] || fail "preflight failed; no tests were run"
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        test_target "$target_key"
-        add_path_limit_warnings_to_summary
+        if [[ "$REPEAT_COUNT" -gt 1 ]]; then
+            test_target_repeatedly "$target_key"
+        else
+            test_target "$target_key"
+            add_path_limit_warnings_to_summary
+            add_load_to_summary
+        fi
     done
 
     print_summary
-    printf 'Results: log/unity-tests/<target>-%s.xml, with Unity logs as <target>-%s.log\n' "$PLATFORM_KEY" "$PLATFORM_KEY"
+    if [[ "$REPEAT_COUNT" -gt 1 ]]; then
+        results_name="<target>-$PLATFORM_KEY-run<k>"
+    else
+        results_name="<target>-$PLATFORM_KEY"
+    fi
+    printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s\n' \
+        "$results_name" "$results_name" "${LOAD_PYTHON:+ and load records as $results_name.load}"
 
-    if [[ "$FAILED_TARGET_COUNT" -gt 0 ]]; then
+    if [[ "$FAILED_TARGET_COUNT" -gt 0 && "$REPEAT_COUNT" -gt 1 ]]; then
+        fail "$TEST_PLATFORM tests failed in $FAILED_TARGET_COUNT of $((${#SELECTED_TARGETS[@]} * REPEAT_COUNT)) runs"
+    elif [[ "$FAILED_TARGET_COUNT" -gt 0 ]]; then
         fail "$TEST_PLATFORM tests failed for $FAILED_TARGET_COUNT target(s)"
     fi
 }

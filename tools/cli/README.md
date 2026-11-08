@@ -13,7 +13,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
-- `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, and `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-test-entrypoint)).
+- `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails, `--load-spinners <n>` spins *n* CPU cores from the first test of each run until its Unity exits, and `--repeat <n>` runs each target *n* times and totals the runs (see [../README.md](../README.md#fixed-load-and-repeated-runs)).
 
 ## Compile Verification
 
