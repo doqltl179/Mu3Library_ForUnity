@@ -1354,8 +1354,11 @@ namespace Mu3Library.Tests
         {
             // Under CPU load a round can miss without a fault (#367): the thread that moves the new
             // file in can wait for a core past the read's wait, and so can an update. Such a round
-            // is played again with new players. An update that waited for the replacement would
-            // miss every round, and anything the load does not explain fails at once.
+            // is played again with new players; an update that waited for the replacement would
+            // miss every round. Anything else fails at once. That includes a miss of a new file that
+            // moved in within the read's wait, which the load could still cause by holding the
+            // read's thread between its last look at the folder and its deadline; the measurements
+            // for #367 saw none.
             const int Rounds = 5;
             List<string> missed = new List<string>();
             for (int round = 0; round < Rounds; round++)
@@ -1378,17 +1381,31 @@ namespace Mu3Library.Tests
         /// </summary>
         private string SearchAndJoinMeetingAReplacement()
         {
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            try
+            {
+                return SearchAndJoinMeetingAReplacement(seeker, owner);
+            }
+            finally
+            {
+                // The next round's pumps would update both, and the owner's rewrites could meet that
+                // round's read. The seeker goes first, so the owner hands its lobby to nobody, and
+                // the owner deletes its file, which leaves the next owner's file alone in the folder.
+                seeker.Dispose();
+                owner.Dispose();
+            }
+        }
+
+        private string SearchAndJoinMeetingAReplacement(LocalBackend seeker, LocalBackend owner)
+        {
             // An update that read the files itself would hold the frame for the whole wait, at
             // least a sleep of about 16 ms in batch mode on Windows, and the full
             // ReplaceWaitSeconds for a replacement that does not finish in time.
             double wait = MachineDirectory.ReplaceWaitSeconds * 1000.0;
             double bound = wait * 0.5;
-            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
-            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
             LobbyId lobby = CreateLobby(owner, LobbyVisibility.Public, 4);
-
-            // The owners of earlier rounds keep their files beside this one.
-            string file = Path.Combine(_folder, "peer-" + owner.Port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+            string file = Directory.GetFiles(_folder, "*.lobbies").Single();
             string temporary = Path.ChangeExtension(file, ".tmp");
             List<string> missed = new List<string>();
 
@@ -1404,7 +1421,7 @@ namespace Mu3Library.Tests
             }
             else
             {
-                Assert.That(moved.IsFound, Is.True, "The search missed the lobby whose file its owner was replacing.");
+                Assert.That(moved.IsFound, Is.True, "The search missed the lobby whose file its owner was replacing; the new file moved in " + Milliseconds(moved.MovedIn) + " after the search.");
             }
 
             // A replacement that does not finish in time: the read waits it out on its own thread.
@@ -1426,7 +1443,7 @@ namespace Mu3Library.Tests
             }
             else
             {
-                Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+                Assert.That(reason, Is.EqualTo(MultiplayerReason.None), $"The join answered {reason}; the new file moved in " + Milliseconds(joined.MovedIn) + " after the join.");
             }
 
             // One update past the bound cannot tell the load from a wait for the replacement; the
