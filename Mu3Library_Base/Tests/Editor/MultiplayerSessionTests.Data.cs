@@ -450,6 +450,60 @@ namespace Mu3Library.Tests
 
             Assert.That(mismatches, Is.Empty);
         }
+
+        [Test]
+        public void LobbySearch_ReadsAValueThatIsNotAWholeNumber_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #362: Steam's numeric filters read every value as a number, so a value
+            // such as "12abc", "0x10", or "2147483648" keeps the lobby under the number Steam
+            // reads, here too.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            foreach (KeyValuePair<string, string> pair in NumericReadingData(SteamNumericReadings, NumericReadingKey))
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NumericReadingChecks(SteamNumericReadings, NumericReadingKey))
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_ReadsAQuoteBeforeAnUnpairedSurrogate_AsUtf8CarriesIt_ThroughTheBackend()
+        {
+            // #362: only a caller of a backend itself writes such a value. The backend reads the
+            // surrogate as the U+FFFD that UTF-8 carries to Steam in its place.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, NumericReadingData(UnpairedSurrogateReadings, UnpairedSurrogateKey), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NumericReadingChecks(UnpairedSurrogateReadings, UnpairedSurrogateKey))
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
         #endregion
 
         #region String Comparisons
@@ -626,6 +680,97 @@ namespace Mu3Library.Tests
                         IsKeptBy(0.CompareTo(number), comparison));
                 }
             }
+        }
+
+        /// <summary>
+        /// Lobby values and the number Steam's numeric filters read each as: on AppID 480 on
+        /// 2026-11-04, <c>Equal</c> that number kept the lobby and <c>NotEqual</c> it dropped it
+        /// for every value here (#362). Every backend reads them by that rule
+        /// (<see cref="LobbySearchQuery.AddNumericFilter"/>);
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        internal static readonly (string Lobby, int Read)[] SteamNumericReadings =
+        {
+            // Decimal digits after one sign, up to the first other character, never octal.
+            ("-4", -4), ("+3", 3), ("-0", 0), ("7 ", 7), ("007", 7), ("010", 10), ("08", 8),
+            ("12abc", 12), ("5.5", 5), ("1e3", 1), ("1 2", 1), ("0b101", 0), ("1\uFF11", 1),
+            // No digit where one is due: white space is not skipped, one sign only, and only ASCII digits count.
+            ("abc", 0), ("x10", 0), (" 7", 0), ("\t7", 0), ("+ 3", 0), ("-", 0), ("+", 0), ("--1", 0), ("-+1", 0), ("\uFF11", 0),
+            // Hexadecimal digits in either case after 0x or 0X.
+            ("0x10", 16), ("-0x10", -16), ("0X10", 16), ("+0x10", 16), ("0xaBc", 2748), ("0x1g", 1), ("0x", 0), ("-0x", 0),
+            ("0x-1", 0), ("0x 10", 0), ("0x0x10", 0), ("00x10", 0), ("0x\uFF11", 0),
+            // The character after a quote as the first byte of its UTF-8 form, a signed byte.
+            ("'A", 65), ("-'A", -65), ("+'A", 65), ("'AB", 65), ("'7", 55), ("''A", 39), ("'", 0), ("0'A", 0),
+            ("'\u00E9", -61), ("-'\u00E9", 61), ("'\uD55C", -19), ("'\U0001F600", -16),
+            // Summed in 64 bits that wrap around, of which the low 32 count.
+            ("2147483648", -2147483648), ("-2147483649", 2147483647), ("4294967296", 0),
+            ("99999999999", 1215752191), ("-99999999999", -1215752191), ("0x7FFFFFFF", 2147483647), ("0xFFFFFFFF", -1),
+            ("0x80000000", -2147483648), ("0x123456789", 591751049), ("9223372036854775807", -1), ("9223372036854775808", 0),
+            ("-9223372036854775808", 0), ("-9223372036854775809", -1), ("18446744073709551617", 1),
+            ("99999999999999999999", 1661992959), ("0x10000000000000001", 1),
+        };
+
+        /// <summary>The key prefix of <see cref="SteamNumericReadings"/> in <see cref="NumericReadingData"/>.</summary>
+        internal const string NumericReadingKey = "num";
+
+        /// <summary>
+        /// A quote followed by an unpaired surrogate, which only a caller of a backend itself
+        /// writes, since the manager refuses such a value: UTF-8 cannot carry the surrogate, so
+        /// it reaches Steam and a lobby file as U+FFFD, whose first byte, 0xEF, reads -17.
+        /// </summary>
+        internal static readonly (string Lobby, int Read)[] UnpairedSurrogateReadings =
+        {
+            ("'\uD800", -17), ("'\uDC00", -17), ("-'\uD83Dx", 17),
+        };
+
+        /// <summary>The key prefix of <see cref="UnpairedSurrogateReadings"/> in <see cref="NumericReadingData"/>.</summary>
+        internal const string UnpairedSurrogateKey = "lone";
+
+        /// <summary>Lobby data that holds each value of <paramref name="readings"/> under <paramref name="keyPrefix"/> and its index.</summary>
+        internal static Dictionary<string, string> NumericReadingData((string Lobby, int Read)[] readings, string keyPrefix)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < readings.Length; i++)
+            {
+                data[keyPrefix + i] = readings[i].Lobby;
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// For each value of <paramref name="readings"/> in <see cref="NumericReadingData"/>, a
+        /// numeric filter <c>Equal</c> the number it reads, which keeps the lobby, then one
+        /// <c>NotEqual</c> it, which drops it.
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NumericReadingChecks((string Lobby, int Read)[] readings, string keyPrefix)
+        {
+            for (int i = 0; i < readings.Length; i++)
+            {
+                string value = DescribeText(readings[i].Lobby);
+                int read = readings[i].Read;
+                yield return ($"[{value}] Equal {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read), true);
+                yield return ($"[{value}] NotEqual {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read, LobbyComparison.NotEqual), false);
+            }
+        }
+
+        /// <summary>Text with every character outside printable ASCII written as its escape, for a failure message.</summary>
+        private static string DescribeText(string text)
+        {
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(text.Length);
+            foreach (char c in text)
+            {
+                if (c < 0x20 || c > 0x7E)
+                {
+                    builder.Append("\\u").Append(((int)c).ToString("X4", System.Globalization.CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    builder.Append(c);
+                }
+            }
+
+            return builder.ToString();
         }
 
         internal static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
