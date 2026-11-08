@@ -1552,6 +1552,19 @@ namespace Mu3Library.Tests
             Assert.That(unfinished.IsFound, Is.False);
             Assert.That(unfinished.Answer, Is.GreaterThan(wait * 0.8), "The read did not wait for the replacement.");
 
+            // A join by the lobby's ID meeting a replacement that does not finish in time: its read
+            // waits it out on its own thread, as the search's did, and finds no lobby. Only here
+            // would a join's update that read the files itself be held for the whole wait; the
+            // replacement below finishes about a sleep in, which mostly stays under the bound
+            // (#377). The owner gets no update, so it writes no new file in the meantime.
+            File.Move(file, temporary);
+            File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+            MultiplayerReason? unfinishedReason = null;
+            (double Slowest, double Answer, double Updates, double MovedIn) unfinishedJoin = TimeUpdates(seeker, () => seeker.JoinLobby(lobby, r => unfinishedReason = r), () => unfinishedReason.HasValue, null, 0.0);
+            File.Move(temporary, file);
+            Assert.That(unfinishedReason, Is.EqualTo(MultiplayerReason.LobbyNotFound));
+            Assert.That(unfinishedJoin.Answer, Is.GreaterThan(wait * 0.8), "The join's read did not wait for the replacement.");
+
             // A join by the lobby's ID, whose owner answers it, meeting the replacement as the search did.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
@@ -1574,9 +1587,10 @@ namespace Mu3Library.Tests
                 missed.Add("an update of the search took " + Milliseconds(searchSlowest));
             }
 
-            if (joined.Slowest >= bound)
+            double joinSlowest = Math.Max(unfinishedJoin.Slowest, joined.Slowest);
+            if (joinSlowest >= bound)
             {
-                missed.Add("an update of the join took " + Milliseconds(joined.Slowest));
+                missed.Add("an update of the join took " + Milliseconds(joinSlowest));
             }
 
             return missed.Count > 0 ? string.Join(", ", missed) : null;
