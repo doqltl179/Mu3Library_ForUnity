@@ -1554,8 +1554,8 @@ namespace Mu3Library.Tests
 
             // A join by the lobby's ID meeting a replacement that does not finish in time: its read
             // waits it out on its own thread, as the search's did, and finds no lobby. Only here
-            // would a join's update that read the files itself be held for the whole wait; the
-            // replacement below finishes about a sleep in, which mostly stays under the bound
+            // would a join's update that read the files itself be held for the whole wait; below,
+            // such a read meets the new file about a sleep in, which mostly stays under the bound
             // (#377). The owner gets no update, so it writes no new file in the meantime.
             File.Move(file, temporary);
             File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
