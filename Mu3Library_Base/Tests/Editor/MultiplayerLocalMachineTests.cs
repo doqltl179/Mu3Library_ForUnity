@@ -572,6 +572,48 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThem_InTheOwnersProcess_AMembers_AndAnothers()
+        {
+            // FR-11, FR-38, #372: only a caller of a backend itself writes such lobby data. The
+            // frames carry each such surrogate to a member, and the lobby file to another process,
+            // as U+FFFD, as UTF-8 carries it to Steam, so the owner, which reads its lobby as it
+            // is, takes it as U+FFFD too, and all three read the same.
+            LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
+            LocalBackend member = CreateRawBackend(CreateNetwork(), "Member");
+            LocalBackend seeker = CreateRawBackend(CreateNetwork(), "Seeker");
+            (MultiplayerReason reason, LobbyId lobby) = CreateLobbies(owner, 1, MultiplayerSessionTests.UnpairedSurrogateLobbyData()).Single();
+            Assert.That(reason, Is.EqualTo(MultiplayerReason.None));
+            Assert.That(Join(member, lobby), Is.EqualTo(MultiplayerReason.None));
+
+            List<string> mismatches = new List<string>();
+            foreach (LocalBackend reader in new[] { owner, member })
+            {
+                mismatches.AddRange(MultiplayerSessionTests.UnpairedSurrogateLookupMismatches(reader.PlayerName, key => reader.GetLobbyData(lobby, key)));
+            }
+
+            // From another process, which reads the lobby file, and from the owner's own.
+            foreach (LocalBackend searcher in new[] { seeker, owner })
+            {
+                BackendLobby[] listed = Search(searcher).Where(candidate => candidate.Id == lobby).ToArray();
+                Assert.That(listed, Has.Length.EqualTo(1), searcher.PlayerName);
+                mismatches.AddRange(MultiplayerSessionTests.UnpairedSurrogateDataMismatches(searcher.PlayerName, listed[0].Data));
+
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.UnpairedSurrogateFilterChecks())
+                {
+                    IReadOnlyList<BackendLobby> found = null;
+                    searcher.SearchLobbies(query, (r, lobbies) => found = lobbies);
+                    PumpUntil(() => found != null, "the search");
+                    if (found.Any(candidate => candidate.Id == lobby) != isKept)
+                    {
+                        mismatches.Add($"{searcher.PlayerName}: {description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
         public void Restart_OfAnAccountWhoseSlotTheHostKeeps_ComesBackPastTheClosedLobby_WhichSearchLeavesOut()
         {
             // FR-21, FR-20, FR-38, #252, #253: a crashed "process" of the client starts again

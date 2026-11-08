@@ -477,6 +477,47 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_TakesSurrogatesWithoutTheirPair_AsTheLocalBackendsDo()
+        {
+            // FR-11, FR-38, #372: keys, values, and filters with surrogates without their pair on
+            // Steam itself, against the results the local backends' tests hold every backend to.
+            // Such data goes through the backend itself, since the manager refuses it.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                foreach (KeyValuePair<string, string> pair in MultiplayerSessionTests.UnpairedSurrogateLobbyData())
+                {
+                    Assert.That(_backend.SetLobbyData(lobby, pair.Key, pair.Value), Is.True, "Steam refused one of the keys");
+                }
+
+                // Steam publishes the data a moment after it is set, so the first search waits for it.
+                LobbyInfo found = SearchUntil(manager, () => Worldwide().AddStringFilter("half.high", "a\uFFFDb"), lobby);
+                Assert.That(found, Is.Not.Null, "the lobby never showed up in a search filtered by its data");
+                List<string> mismatches = MultiplayerSessionTests.UnpairedSurrogateLookupMismatches("Steam", key => _backend.GetLobbyData(lobby, key)).ToList();
+                mismatches.AddRange(MultiplayerSessionTests.UnpairedSurrogateDataMismatches("Steam", found.Data));
+
+                // Each filter that keeps the lobby is asked a little longer, and one that drops it at once.
+                foreach ((string description, LobbySearchQuery query, bool isKept) in MultiplayerSessionTests.UnpairedSurrogateFilterChecks())
+                {
+                    query.Distance = LobbyDistance.Worldwide;
+                    bool isFound = SearchUntil(manager, () => query, lobby, seconds: isKept ? 10 : 0) != null;
+                    if (isFound != isKept)
+                    {
+                        mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                    }
+                }
+
+                Assert.That(mismatches, Is.Empty);
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
         {
             // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is

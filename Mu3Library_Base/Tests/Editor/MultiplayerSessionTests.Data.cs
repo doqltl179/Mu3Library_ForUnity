@@ -504,6 +504,48 @@ namespace Mu3Library.Tests
 
             Assert.That(mismatches, Is.Empty);
         }
+
+        [Test]
+        public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThemToSteam_InReadsSearchResultsAndFilters()
+        {
+            // FR-11, FR-38, #372: only a caller of a backend itself writes such lobby data, since
+            // the manager refuses it (#194). The backend takes each such surrogate in a key, a
+            // value, or a filter as the U+FFFD that UTF-8 carries to Steam in its place, so
+            // GetLobbyData, the data search returns, and the filters read what they read on Steam.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, UnpairedSurrogateLobbyData(), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = UnpairedSurrogateLookupMismatches("owner", key => owner.GetLobbyData(lobby, key)).ToList();
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            mismatches.AddRange(UnpairedSurrogateDataMismatches("seeker", all.Single().Data));
+
+            foreach ((string description, LobbySearchQuery query, bool isKept) in UnpairedSurrogateFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            // A key that differs from one the lobby holds only in such surrogates is that key, as
+            // on Steam, so SetLobbyData changes it and DeleteLobbyData deletes it.
+            Assert.That(owner.SetLobbyData(lobby, "HALF\uDFFFKEY", "w\uD800"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "half\uFFFDkey"), Is.EqualTo("w\uFFFD"));
+            Assert.That(_network.FindLobby(lobby).Data.Count, Is.EqualTo(UnpairedSurrogateData.Length));
+            Assert.That(owner.DeleteLobbyData(lobby, "half\uDC00key"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "half\uD800key"), Is.Null);
+        }
         #endregion
 
         #region String Comparisons
@@ -752,6 +794,112 @@ namespace Mu3Library.Tests
                 yield return ($"[{value}] Equal {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read), true);
                 yield return ($"[{value}] NotEqual {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read, LobbyComparison.NotEqual), false);
             }
+        }
+
+        /// <summary>The prefix of every key of <see cref="UnpairedSurrogateData"/>.</summary>
+        internal const string UnpairedSurrogateDataKey = "half";
+
+        /// <summary>
+        /// Lobby data with UTF-16 surrogates without their pair in its values and keys, which only
+        /// a caller of a backend itself writes, since the manager refuses such text (#194), and
+        /// the data as every backend holds it: UTF-8 carries such a surrogate to Steam, and to the
+        /// other processes of a machine-wide network, as U+FFFD, and the local backends take it
+        /// so in every process (#372), while a pair stays as it is.
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against these.
+        /// </summary>
+        internal static readonly (string Key, string Value, string CarriedKey, string CarriedValue)[] UnpairedSurrogateData =
+        {
+            ("half.high", "a\uD800b", "half.high", "a\uFFFDb"),
+            ("half.low", "\uDC00", "half.low", "\uFFFD"),
+            // A surrogate without its pair on each side of a pair, which stays.
+            ("half.pair", "\uD800\uD83D\uDE00\uDE00", "half.pair", "\uFFFD\uD83D\uDE00\uFFFD"),
+            ("half\uD800key", "v", "half\uFFFDkey", "v"),
+            ("half\uDC00number", "7", "half\uFFFDnumber", "7"),
+        };
+
+        /// <summary>Lobby data that holds each entry of <see cref="UnpairedSurrogateData"/> as written.</summary>
+        internal static Dictionary<string, string> UnpairedSurrogateLobbyData()
+        {
+            return UnpairedSurrogateData.ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
+
+        /// <summary>
+        /// Keys to read the lobby of <see cref="UnpairedSurrogateLobbyData"/> by, and what every
+        /// backend's <c>GetLobbyData</c> answers for each: a key with a surrogate without its pair
+        /// is found as written, as UTF-8 carries it, and with another such surrogate in its place,
+        /// in any case, since each reaches Steam as the same key.
+        /// </summary>
+        internal static readonly (string Key, string Value)[] UnpairedSurrogateLookups =
+        {
+            ("half.high", "a\uFFFDb"),
+            ("half.pair", "\uFFFD\uD83D\uDE00\uFFFD"),
+            ("half\uD800key", "v"),
+            ("half\uFFFDkey", "v"),
+            ("HALF\uDBFFKEY", "v"),
+        };
+
+        /// <summary>Each read of <see cref="UnpairedSurrogateLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
+        internal static IEnumerable<string> UnpairedSurrogateLookupMismatches(string reader, Func<string, string> read)
+        {
+            foreach ((string key, string value) in UnpairedSurrogateLookups)
+            {
+                string answer = read(key);
+                if (answer != value)
+                {
+                    yield return $"{reader}: GetLobbyData [{DescribeText(key)}] should answer [{DescribeText(value)}], not {(answer == null ? "null" : $"[{DescribeText(answer)}]")}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// What in <paramref name="data"/>, the data a search returned for the lobby of
+        /// <see cref="UnpairedSurrogateLobbyData"/>, differs from that data as every backend holds it.
+        /// </summary>
+        internal static IEnumerable<string> UnpairedSurrogateDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        {
+            foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in UnpairedSurrogateData)
+            {
+                if (!data.TryGetValue(entry.CarriedKey, out string held) || held != entry.CarriedValue)
+                {
+                    yield return $"{reader}: search should return [{DescribeText(entry.CarriedKey)}] with [{DescribeText(entry.CarriedValue)}], not {(held == null ? "nothing" : $"[{DescribeText(held)}]")}";
+                }
+            }
+
+            int count = data.Keys.Count(name => name.StartsWith(UnpairedSurrogateDataKey, StringComparison.OrdinalIgnoreCase));
+            if (count != UnpairedSurrogateData.Length)
+            {
+                yield return $"{reader}: search should return {UnpairedSurrogateData.Length} of these keys, not {count}";
+            }
+        }
+
+        /// <summary>
+        /// Filters with surrogates without their pair in their keys and values, on the lobby of
+        /// <see cref="UnpairedSurrogateLobbyData"/>, and whether each keeps the lobby: such a
+        /// surrogate counts as U+FFFD on both sides on every backend, as UTF-8 carries it to Steam,
+        /// so it equals U+FFFD and any other such surrogate, and sorts where U+FFFD sorts, before
+        /// a character beyond U+FFFF, which a low surrogate counted by itself would sort after.
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> UnpairedSurrogateFilterChecks()
+        {
+            (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
+            {
+                ("half.high", "a\uFFFDb", LobbyComparison.Equal, true),
+                ("half.high", "a\uD800b", LobbyComparison.Equal, true),
+                ("half.high", "a\uDFFFb", LobbyComparison.Equal, true),
+                ("half.high", "a\uDFFFb", LobbyComparison.NotEqual, false),
+                ("half.low", "\U0001F600", LobbyComparison.LessThan, true),
+                ("half.pair", "\uDBFF\uD83D\uDE00\uDC00", LobbyComparison.Equal, true),
+                ("HALF\uDBFFKEY", "v", LobbyComparison.Equal, true),
+            };
+
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in checks)
+            {
+                yield return ($"[{DescribeText(key)}] {comparison} [{DescribeText(filter)}]", new LobbySearchQuery().AddStringFilter(key, filter, comparison), isKept);
+            }
+
+            // A numeric filter finds a key with such a surrogate the same way.
+            yield return ("number [half\\uDFFFnumber] Equal 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7), true);
+            yield return ("number [half\\uDFFFnumber] NotEqual 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7, LobbyComparison.NotEqual), false);
         }
 
         /// <summary>Text with every character outside printable ASCII written as its escape, for a failure message.</summary>

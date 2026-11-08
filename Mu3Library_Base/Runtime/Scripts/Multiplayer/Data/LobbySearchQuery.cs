@@ -48,6 +48,13 @@ namespace Mu3Library.Multiplayer.Data
         /// point, as UTF-8 text sorts, without regard to case only for a to z: <c>"é"</c> is
         /// greater than <c>"É"</c>, and a character beyond U+FFFF, such as an emoji, is greater
         /// than one up to U+FFFF. A value that another value begins with is less than it.
+        /// <para>
+        /// A UTF-16 surrogate without its pair, in the filter's key or value or in the lobby's
+        /// data, counts as U+FFFD on every backend, since UTF-8 carries it to Steam as U+FFFD
+        /// (<see cref="Backend.IMultiplayerBackend.SetLobbyData"/>): <c>"a\uD800"</c> equals
+        /// <c>"a\uDC00"</c> and <c>"a\uFFFD"</c>, and sorts where <c>"a\uFFFD"</c> sorts. The
+        /// manager refuses such text in lobby data, but not in a filter.
+        /// </para>
         /// </remarks>
         public LobbySearchQuery AddStringFilter(string key, string value, LobbyComparison comparison = LobbyComparison.Equal)
         {
@@ -78,6 +85,12 @@ namespace Mu3Library.Multiplayer.Data
         /// <c>" 7"</c> as 0, <c>"010"</c> as 10, <c>"0x10"</c> as 16, <c>"'A"</c> as 65, and
         /// <c>"2147483648"</c> as -2147483648. A whole number written in decimal within the range
         /// of <see cref="int"/>, with no space before it, reads as written.
+        /// </para>
+        /// <para>
+        /// A UTF-16 surrogate without its pair, in the filter's key or in the lobby's data, counts
+        /// as U+FFFD on every backend, since UTF-8 carries it to Steam as U+FFFD, as for
+        /// <see cref="AddStringFilter"/>: after a <c>'</c> it reads as the first byte of U+FFFD,
+        /// so <c>"'\uD800"</c> reads as -17.
         /// </para>
         /// </summary>
         public LobbySearchQuery AddNumericFilter(string key, int value, LobbyComparison comparison = LobbyComparison.Equal)
