@@ -185,18 +185,29 @@ class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
                 self.assertIn(f"Selected {heading} targets: none", completed.stdout.splitlines())
 
 
-def nunit_results(passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 0) -> str:
-    """An NUnit 3 result file of the shape the Unity Test Framework writes."""
-    total = passed + len(failed) + skipped
+def nunit_results(
+    passed: int = 3, failed: tuple[str, ...] = (), skipped: int = 0, inconclusive: tuple[str, ...] = ()
+) -> str:
+    """An NUnit 3 result file of the shape the Unity Test Framework writes.
+
+    The failed and inconclusive tests are named, in a fixture whose result NUnit takes from its tests:
+    Failed when one failed, Passed when one passed, and Inconclusive when every one was inconclusive.
+    """
+    total = passed + len(failed) + len(inconclusive) + skipped
+    result = "Failed" if failed else "Passed" if passed or not inconclusive else "Inconclusive"
     cases = "\n".join(
-        f'    <test-case id="{index}" name="{name}" fullname="Fixture.Tests.{name}" result="Failed" />'
-        for index, name in enumerate(failed, start=1000)
+        f'    <test-case id="{index}" name="{name}" fullname="Fixture.Tests.{name}" result="{case_result}" />'
+        for index, (name, case_result) in enumerate(
+            [(name, "Failed") for name in failed] + [(name, "Inconclusive") for name in inconclusive], start=1000
+        )
     )
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
-        f'<test-run id="2" testcasecount="{total}" result="{"Failed" if failed else "Passed"}" total="{total}" '
-        f'passed="{passed}" failed="{len(failed)}" inconclusive="0" skipped="{skipped}" asserts="0">\n'
+        f'<test-run id="2" testcasecount="{total}" result="{result}" total="{total}" '
+        f'passed="{passed}" failed="{len(failed)}" inconclusive="{len(inconclusive)}" skipped="{skipped}" asserts="0">\n'
+        f'  <test-suite type="TestFixture" id="999" name="Tests" fullname="Fixture.Tests" result="{result}">\n'
         f"{cases}\n"
+        "  </test-suite>\n"
         "</test-run>"
     )
 
@@ -239,8 +250,9 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         completed = self.run_tests("leaf", results=nunit_results(passed=3, skipped=1))
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("EditMode tests passed for leaf: 4 tests, 3 passed, 0 failed, 1 skipped", completed.stdout)
-        self.assertIn("  - leaf: 4 tests, 3 passed, 0 failed, 1 skipped", completed.stdout.splitlines())
+        self.assertIn("EditMode tests passed for leaf: 4 tests, 3 passed, 0 failed, 1 skipped, 0 inconclusive", completed.stdout)
+        self.assertIn("  - leaf: 4 tests, 3 passed, 0 failed, 1 skipped, 0 inconclusive", completed.stdout.splitlines())
+        self.assertNotIn("inconclusive: ", completed.stdout + completed.stderr)
         self.assertTrue(self.results_file("leaf").is_file())
 
     def test_unity_runs_the_editmode_tests_without_quit(self) -> None:
@@ -258,7 +270,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
         self.assertIn("-runTests -testPlatform PlayMode -testResults ", arguments)
-        self.assertIn("PlayMode tests passed for leaf: 2 tests, 2 passed, 0 failed, 0 skipped", completed.stdout)
+        self.assertIn("PlayMode tests passed for leaf: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive", completed.stdout)
         self.assertIn("PlayMode test summary:", completed.stdout.splitlines())
         self.assertTrue(self.results_file("leaf", "playmode").is_file())
         self.assertFalse(self.results_file("leaf").is_file())
@@ -279,7 +291,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         [arguments] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity arguments: ")]
         self.assertIn(f"-runTests -testPlatform EditMode -testFilter {pattern} -testResults ", arguments)
         self.assertIn(f"fake unity test filter: [{pattern}]", completed.stdout.splitlines())
-        self.assertIn("EditMode tests passed for leaf: 1 tests, 1 passed, 0 failed, 0 skipped", completed.stdout)
+        self.assertIn("EditMode tests passed for leaf: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive", completed.stdout)
 
     def test_filter_is_left_out_of_git_bash_path_conversion_by_its_first_part(self) -> None:
         pattern = "Fixture.Tests.Case(a=/b);Fixture.Tests.Other"
@@ -406,7 +418,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         completed = self.run_tests("leaf", "--stall-timeout", "0", results=nunit_results(), sleep="1")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout)
+        self.assertIn("EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive", completed.stdout)
 
     def test_stall_timeout_needs_whole_seconds(self) -> None:
         for value in ("", "1.5", "-1", "soon"):
@@ -430,9 +442,59 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         completed = self.run_tests("leaf", results=nunit_results(passed=2, failed=("Breaks",)), unity_status=2)
 
         self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped", completed.stderr)
+        self.assertIn("error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive", completed.stderr)
         self.assertIn("  failed: Fixture.Tests.Breaks", completed.stderr)
         self.assertIn("EditMode tests failed for 1 target(s)", completed.stderr)
+
+    def test_inconclusive_test_fails_the_run_and_is_named_in_the_summary(self) -> None:
+        # The Unity Test Framework exits with 2 for an inconclusive test, as for a failed one; the
+        # counts fail the target even when Unity does not.
+        results = nunit_results(passed=3, skipped=1, inconclusive=("Waits", "Times"))
+        for unity_status in (2, 0):
+            with self.subTest(unity_status=unity_status):
+                completed = self.run_tests("leaf", results=results, unity_status=unity_status)
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                self.assertIn("error: leaf: 6 tests, 3 passed, 0 failed, 1 skipped, 2 inconclusive", completed.stderr)
+                self.assertIn("  inconclusive: Fixture.Tests.Waits", completed.stderr.splitlines())
+                self.assertNotIn("although no test failed", completed.stderr)
+                lines = completed.stdout.splitlines()
+                summary = lines[lines.index("EditMode test summary:") + 1 :]
+                self.assertEqual(
+                    [
+                        "  - leaf: FAILED, 6 tests, 3 passed, 0 failed, 1 skipped, 2 inconclusive",
+                        "    inconclusive: Fixture.Tests.Waits",
+                        "    inconclusive: Fixture.Tests.Times",
+                    ],
+                    summary[:3],
+                )
+                self.assertTrue(summary[3].startswith("Results: "), summary)
+
+    def test_failed_and_inconclusive_tests_of_one_target_are_both_named(self) -> None:
+        completed = self.run_tests(
+            "leaf", results=nunit_results(passed=1, failed=("Breaks",), inconclusive=("Waits",)), unity_status=2
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("error: leaf: 3 tests, 1 passed, 1 failed, 0 skipped, 1 inconclusive", completed.stderr)
+        self.assertIn("  failed: Fixture.Tests.Breaks", completed.stderr.splitlines())
+        self.assertIn("  inconclusive: Fixture.Tests.Waits", completed.stderr.splitlines())
+        self.assertIn("    inconclusive: Fixture.Tests.Waits", completed.stdout.splitlines())
+
+    def test_a_fixture_whose_every_test_is_inconclusive_is_not_named_as_a_test(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results(passed=0, inconclusive=("Waits",)), unity_status=2)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        named = [line for line in completed.stdout.splitlines() if "inconclusive: " in line]
+        self.assertEqual(["    inconclusive: Fixture.Tests.Waits"], named)
+
+    def test_results_without_an_inconclusive_count_fail(self) -> None:
+        completed = self.run_tests("leaf", results=nunit_results().replace(' inconclusive="0"', ""))
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn(
+            "error: leaf: could not read the test counts in log/unity-tests/leaf-editmode.xml", completed.stderr
+        )
 
     def test_run_without_results_fails(self) -> None:
         completed = self.run_tests("leaf", unity_status=1)
@@ -1004,7 +1066,7 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         [unity] = [line for line in completed.stdout.splitlines() if line.startswith("Unity: ")]
         self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
         self.assertIn(
-            "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped", completed.stdout.splitlines()
+            "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive", completed.stdout.splitlines()
         )
 
     def test_an_override_that_is_the_hub_editor_does_not_warn(self) -> None:
@@ -1086,7 +1148,7 @@ class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
     def test_both_entry_points_run_the_fixture_targets_from_outside_the_repository(self) -> None:
         runs = (
             ("compile-unity.sh", "Unity compilation succeeded: leaf", self.root / "log" / "unity-compile" / "leaf.log"),
-            ("test-unity.sh", "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped",
+            ("test-unity.sh", "EditMode tests passed for leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive",
              self.root / "log" / "unity-tests" / "leaf-editmode.xml"),
         )
         for entry_point, success, kept in runs:
