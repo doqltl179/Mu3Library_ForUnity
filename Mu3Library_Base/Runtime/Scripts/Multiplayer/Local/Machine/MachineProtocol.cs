@@ -103,7 +103,15 @@ namespace Mu3Library.Multiplayer.Local.Machine
             writer.WriteString(ToWireName(name ?? string.Empty));
         }
 
-        public static string ReadName(ref PacketReader reader) => reader.ReadString(MaxNameBytes);
+        /// <summary>
+        /// Reads a name of at most <see cref="MaxNameBytes"/> and cuts it as <see cref="ToWireName"/>
+        /// does, once, as it arrives: a longer name, which only a process of another version sends,
+        /// is kept as a process of this version would have sent it (#374). So every name a lobby
+        /// or a connection keeps is already cut, and <see cref="WriteSnapshot"/>,
+        /// <see cref="MemberBytes"/>, and the lobby file's capacity write and count it again and
+        /// again without allocating.
+        /// </summary>
+        public static string ReadName(ref PacketReader reader) => ToWireName(reader.ReadString(MaxNameBytes));
 
         public static void WriteSnapshot(PacketWriter writer, MachineLobby lobby)
         {

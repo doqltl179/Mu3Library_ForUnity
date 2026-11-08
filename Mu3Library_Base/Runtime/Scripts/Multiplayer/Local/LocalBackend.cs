@@ -55,7 +55,9 @@ namespace Mu3Library.Multiplayer.Local
     /// So the player name travels cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
     /// characters, as the roster cuts it, and <see cref="SetLobbyData"/> refuses a longer key or
     /// value with false and <see cref="CreateLobby"/> answers <see cref="MultiplayerReason.BackendError"/>,
-    /// each with a warning, as Steam refuses a key or a value too long for it.
+    /// each with a warning, as Steam refuses a key or a value too long for it. A longer name that
+    /// another process sends within those bytes is cut the same way as it arrives, so
+    /// <see cref="GetPlayerName"/> reports it cut.
     /// </para>
     /// <para>
     /// On a machine-wide network a backend's lobby file lists at most 64 lobbies, each with at
