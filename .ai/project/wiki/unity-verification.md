@@ -78,5 +78,5 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 ## Report
 
 - The compile targets run, the Editor version, Unity's exit status, and the error and warning counts from its log.
-- For tests, the targets run and each target's total, passed, failed, and skipped counts from the summary.
+- For tests, the targets run and each target's total, passed, failed, skipped, and inconclusive counts from the summary. An inconclusive test reached no verdict and fails its target ([tools/README.md](../../../tools/README.md#unity-test-entrypoint) says why): name each one the summary lists, and do not report the behavior it covers as verified until a run gives it a verdict.
 - Compile and test runs take minutes per target, so report the targets actually run rather than all targets.

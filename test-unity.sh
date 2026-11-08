@@ -33,9 +33,10 @@ UNITY_STALL_SECONDS=600
 COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
 FAILED_TARGET_COUNT=0
-# Set by project_has_testables and find_unfinished_test.
+# Set by project_has_testables, find_unfinished_test, and find_tests_with_result.
 NO_TESTABLES_REASON=""
 UNFINISHED_TEST=""
+RESULT_TESTS=()
 
 usage() {
     local i
@@ -44,8 +45,8 @@ usage() {
 Usage: ./test-unity.sh [changed|all|target] [options]
 
 Runs the EditMode or PlayMode tests of the selected development projects with
-the Unity Test Framework, and exits non-zero when a test fails or a run reports
-no result.
+the Unity Test Framework, and exits non-zero when a test fails or is
+inconclusive or a run reports no result.
 
 Selection:
   changed          Test every project that consumes a package affected by Git
@@ -201,8 +202,9 @@ keep_testable_targets() {
 }
 
 # Reads the counts of the <test-run> element that opens an NUnit 3 result file
-# into the variables total, passed, failed, and skipped, which test_target
-# declares, or returns 1 when the element or one of the counts is missing.
+# into the variables total, passed, failed, skipped, and inconclusive, which
+# test_target declares, or returns 1 when the element or one of the counts is
+# missing.
 read_test_run_counts() {
     local results_file="$1"
     local line
@@ -219,23 +221,47 @@ read_test_run_counts() {
         fi
     done < "$results_file"
 
-    for count_name in total passed failed skipped; do
+    for count_name in total passed failed skipped inconclusive; do
         count_pattern="[[:space:]]$count_name=\"([0-9]+)\""
         [[ "$header" =~ $count_pattern ]] || return 1
         printf -v "$count_name" '%s' "${BASH_REMATCH[1]}"
     done
 }
 
-print_failed_tests() {
+# Sets RESULT_TESTS to the full names of the test cases in an NUnit 3 result
+# file whose result is the one given, such as Failed or Inconclusive; a suite
+# whose tests all had that result is not one of them.
+find_tests_with_result() {
     local results_file="$1"
+    local result="$2"
     local test_case
     local pattern='fullname="([^"]*)"'
 
+    RESULT_TESTS=()
     while IFS= read -r test_case; do
         if [[ "$test_case" =~ $pattern ]]; then
-            printf '  failed: %s\n' "${BASH_REMATCH[1]}" >&2
+            RESULT_TESTS+=("${BASH_REMATCH[1]}")
         fi
-    done < <(grep -o '<test-case [^>]*result="Failed"[^>]*>' "$results_file" || true)
+    done < <(grep -o "<test-case [^>]*result=\"$result\"[^>]*>" "$results_file" || true)
+}
+
+# Names the failed and the inconclusive tests of the target that record_failure
+# has just recorded, and adds the inconclusive ones to its summary entry, since
+# its counts alone do not say which tests reached no verdict.
+name_failed_and_inconclusive_tests() {
+    local results_file="$1"
+    local test_name
+
+    find_tests_with_result "$results_file" Failed
+    for test_name in ${RESULT_TESTS[@]+"${RESULT_TESTS[@]}"}; do
+        printf '  failed: %s\n' "$test_name" >&2
+    done
+
+    find_tests_with_result "$results_file" Inconclusive
+    for test_name in ${RESULT_TESTS[@]+"${RESULT_TESTS[@]}"}; do
+        printf '  inconclusive: %s\n' "$test_name" >&2
+        SUMMARY_LINES+=("  inconclusive: $test_name")
+    done
 }
 
 # Sets UNFINISHED_TEST to the full name of the test that Unity began last and
@@ -278,6 +304,7 @@ test_target() {
     local passed
     local failed
     local skipped
+    local inconclusive
     local counts
     local unfinished
     local stall_phrase
@@ -326,11 +353,16 @@ test_target() {
         record_failure "$target_key" "could not read the test counts in ${results_file#"$REPO_ROOT"/}"
         return 0
     fi
-    counts="$total tests, $passed passed, $failed failed, $skipped skipped"
+    counts="$total tests, $passed passed, $failed failed, $skipped skipped, $inconclusive inconclusive"
 
-    if [[ "$failed" -gt 0 ]]; then
+    # An inconclusive test, one whose Assume did not hold or that called
+    # Assert.Inconclusive, reached no verdict, so it fails the target as a
+    # failed test does; the Unity Test Framework exits with 2 for it too. A test
+    # that cannot run on this machine calls Assert.Ignore, which NUnit counts as
+    # skipped.
+    if [[ "$failed" -gt 0 || "$inconclusive" -gt 0 ]]; then
         record_failure "$target_key" "$counts"
-        print_failed_tests "$results_file"
+        name_failed_and_inconclusive_tests "$results_file"
     elif [[ "$total" -eq 0 && -n "$TEST_FILTER" ]]; then
         record_failure "$target_key" "no test matched --filter $TEST_FILTER"
     elif [[ "$total" -eq 0 ]]; then
@@ -349,7 +381,12 @@ print_summary() {
     printf '%s test summary:\n' "$TEST_PLATFORM"
     if [[ "${#SUMMARY_LINES[@]}" -gt 0 ]]; then
         for line in "${SUMMARY_LINES[@]}"; do
-            printf '  - %s\n' "$line"
+            # A line that starts with a space details the target line before it.
+            if [[ "$line" == " "* ]]; then
+                printf '  %s\n' "$line"
+            else
+                printf '  - %s\n' "$line"
+            fi
         done
     fi
 }
