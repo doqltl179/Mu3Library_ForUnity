@@ -264,6 +264,22 @@ class StripHarnessTemplateTests(unittest.TestCase):
         self.assertEqual(1, boot.count("UnreadFieldHolder"))
         self.assertIn("new UnreadFieldHolder()", boot)
 
+    def test_repository_template_reaches_the_unread_instance_inject_property_only_by_reflection(self) -> None:
+        # A call to the property's getter or setter would keep it in the player without the
+        # link.xml, so the check shows what the link.xml keeps only while the property's
+        # declaration is its only mention, and the boot only creates its class.
+        harness = template_dir(repo_root()) / "Assets" / "Harness"
+        services = (harness / "StripHarnessServices.cs").read_text(encoding="utf-8")
+        boot = (harness / "StripHarnessBoot.cs").read_text(encoding="utf-8")
+
+        self.assertEqual(1, services.count("InjectedButUnreadProperty"))
+        self.assertEqual(0, boot.count("InjectedButUnreadProperty"))
+        self.assertIn(
+            "[Inject] public IUnreadPropertyService InjectedButUnreadProperty { get; private set; }", services
+        )
+        self.assertEqual(1, boot.count("UnreadPropertyHolder"))
+        self.assertIn("new UnreadPropertyHolder()", boot)
+
 
 class StripHarnessLogTests(unittest.TestCase):
     def test_parser_reads_checks_result_and_notes_among_unity_lines(self) -> None:

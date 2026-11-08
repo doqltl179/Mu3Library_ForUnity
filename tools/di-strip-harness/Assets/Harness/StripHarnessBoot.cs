@@ -152,8 +152,12 @@ namespace StripHarness
 
             // An instance [Inject] field that no code reads is filled only if the player kept its
             // attribute for the container to find; filling it creates one transient service.
-            string unreadField = UnreadFieldInjectFailure(consumer?.Injector, new UnreadFieldHolder());
+            string unreadField = UnreadMemberInjectFailure(consumer?.Injector, new UnreadFieldHolder(), "UnreadFieldService.ctor");
             Check("inject.unread-instance-field", () => unreadField == null, () => unreadField);
+            // The same for an instance [Inject] auto-property with a private setter that no code
+            // reads: the player must keep the property, its setter, and its attribute.
+            string unreadProperty = UnreadMemberInjectFailure(consumer?.Injector, new UnreadPropertyHolder(), "UnreadPropertyService.ctor");
+            Check("inject.unread-instance-property", () => unreadProperty == null, () => unreadProperty);
 
 #if !UNITY_EDITOR
             Check("inject.player-only-member-with-preserve", () => consumer?.PlayerOnlyPreserved != null, () => $"{consumer?.PlayerOnlyPreserved}");
@@ -253,16 +257,17 @@ namespace StripHarness
             }
         }
 
-        // Null when injecting target created exactly one UnreadFieldService; otherwise what
-        // happened instead. Reads the type through the object, as StaticInjectFailure does.
-        private static string UnreadFieldInjectFailure(IObjectInjector injector, object target)
+        // Null when injecting target created exactly one service, counted by the probe its
+        // constructor hits; otherwise what happened instead. Reads the type through the object,
+        // as StaticInjectFailure does.
+        private static string UnreadMemberInjectFailure(IObjectInjector injector, object target, string ctorProbe)
         {
             if (injector == null)
             {
                 return "no injector";
             }
 
-            int before = Probe.Count("UnreadFieldService.ctor");
+            int before = Probe.Count(ctorProbe);
             try
             {
                 injector.Inject(target);
@@ -272,10 +277,13 @@ namespace StripHarness
                 return $"{ex.GetType().Name}: {ex.Message}";
             }
 
-            int created = Probe.Count("UnreadFieldService.ctor") - before;
+            int created = Probe.Count(ctorProbe) - before;
+            Type type = target.GetType();
             return created == 1
                 ? null
-                : $"services created={created} ([Inject] fields found={InjectableMembers.GetFields(target.GetType()).Count})";
+                : $"services created={created} ([Inject] fields found={InjectableMembers.GetFields(type).Count}"
+                    + $" properties found={InjectableMembers.GetProperties(type).Count}"
+                    + $" properties without a setter={InjectableMembers.GetUnwritableProperties(type).Count})";
         }
 
         private static string SafeDescribe(Func<object> get)
