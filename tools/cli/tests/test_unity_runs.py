@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -15,7 +17,7 @@ from shell_harness import bash_or_skip
 from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
 from mu3_cli import fixed_load
 from mu3_cli.repository import repo_root
-from mu3_cli.unity import is_directory_link, link_samples, load_target_specs, remove_directory_link
+from mu3_cli.unity import bash_script_command, is_directory_link, link_samples, load_target_specs, remove_directory_link
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH.
 FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
@@ -849,6 +851,125 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             "  - leaf, 2 runs: 0 of 2 failed; 6 tests, 6 passed, 0 failed, 0 skipped, 0 inconclusive",
             self.summary(completed),
         )
+
+
+def msys_pid(windows_pid: int) -> str:
+    """The process ID Git Bash knows a Windows process by, which its kill takes."""
+    listing = subprocess.run([str(bash_or_skip()), "-c", "ps"], capture_output=True, text=True, check=True).stdout
+    for line in listing.splitlines()[1:]:
+        fields = line.split()
+        # Some lines start with a status letter before the PID, PPID, PGID, and WINPID.
+        if fields and not fields[0].isdigit():
+            fields = fields[1:]
+        if len(fields) > 3 and fields[3] == str(windows_pid):
+            return fields[0]
+    raise AssertionError(f"Git Bash lists no process with the Windows ID {windows_pid}")
+
+
+class InterruptedLoadRunTests(FixtureRepositoryTestCase):
+    """Interrupts test-unity.sh while a fake Unity runs a test under the load, whose spinners wait
+    instead of spinning a core, and checks that neither the helper nor a spinner outlives it."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+
+    def start_loaded_run(self) -> tuple[subprocess.Popen[str], dict[str, str], Path]:
+        """Starts a run whose fake Unity logs its first test and then stays silent for 60 s, and
+        returns it once the helper has let its spinners spin, with the helper's record."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        sleeper_file = self.sleeper_file = Path(directory.name) / "sleeper.pid"
+        output =(Path(directory.name) / "output.txt").open("w", encoding="utf-8")
+        self.addCleanup(output.close)
+        environment = self.unity_environment(
+            FAKE_UNITY_RESULTS=nunit_results(passed=1),
+            FAKE_UNITY_LOG=UTP_BEGIN,
+            FAKE_UNITY_SLEEP="60",
+            FAKE_UNITY_SLEEPER_FILE=str(sleeper_file),
+        )
+        script = subprocess.Popen(
+            bash_script_command(self.root / "test-unity.sh", ["leaf", "--load-spinners", "2"]),
+            cwd=self.root,
+            env=environment,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(self.end_fake_unity, sleeper_file)
+        self.addCleanup(self.end, script)
+
+        record_file = self.root / "log" / "unity-tests" / "leaf-editmode.load"
+        record: dict[str, str] = {}
+
+        def spinning() -> bool:
+            try:
+                record.update(read_record(record_file))
+            except (OSError, ValueError):
+                return False
+            return record.get("load") == "started"
+
+        deadline = time.monotonic() + 60
+        while not spinning() and script.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual("started", record.get("load"), "the helper never let its spinners spin")
+        return script, record, record_file
+
+    @staticmethod
+    def end(process: subprocess.Popen[str]) -> None:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+
+    @staticmethod
+    def end_fake_unity(sleeper_file: Path) -> None:
+        """Ends the fake Unity's silence, which a script killed outright leaves running."""
+        if sleeper_file.is_file():
+            sleeper = sleeper_file.read_text(encoding="utf-8").strip()
+            subprocess.run([str(bash_or_skip()), "-c", f"kill {sleeper} 2>/dev/null"], check=False)
+
+    def assert_helper_and_spinners_end(self, record: dict[str, str]) -> None:
+        pids = [int(record["helper_pid"]), *map(int, record["spinner_pids"].split())]
+        self.assertEqual(3, len(pids))
+        deadline = time.monotonic() + 30
+        while any(fixed_load.process_running(pid) for pid in pids) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual([], [pid for pid in pids if fixed_load.process_running(pid)], "outlived the script")
+
+    def test_a_terminated_script_stops_unity_the_helper_and_the_spinners(self) -> None:
+        script, record, record_file = self.start_loaded_run()
+        root_pid = int(record["root_pid"])
+
+        if platform.system() == "Windows":
+            # A Windows signal would end bash outright; Git Bash's kill delivers SIGTERM, which
+            # its trap handles.
+            subprocess.run([str(bash_or_skip()), "-c", f"kill -TERM {msys_pid(root_pid)}"], check=True)
+        else:
+            os.kill(root_pid, signal.SIGTERM)
+
+        # The trap that run_unity_logged sets stops Unity and exits with 130, and the exit stops the helper.
+        self.assertEqual(130, script.wait(timeout=60))
+        self.assert_helper_and_spinners_end(record)
+        final = read_record(record_file)
+        self.assertEqual(("yes", "run-end", ""), (final["complete"], final["load_ended"], final["error"]))
+        self.assertEqual([], list(record_file.parent.glob("*.load-stop")))
+        sleeper = self.sleeper_file.read_text(encoding="utf-8").strip()
+        alive = subprocess.run([str(bash_or_skip()), "-c", f"kill -0 {sleeper}"], capture_output=True, check=False)
+        self.assertNotEqual(0, alive.returncode, f"the fake Unity's sleep {sleeper} outlived the script")
+
+    def test_a_script_killed_outright_leaves_neither_the_helper_nor_a_spinner(self) -> None:
+        script, record, record_file = self.start_loaded_run()
+        root_pid = int(record["root_pid"])
+
+        # Neither a trap nor an exit runs: the helper sees the script end, and each spinner its
+        # input close as the helper ends.
+        if platform.system() == "Windows":
+            subprocess.run(["taskkill", "/F", "/PID", str(root_pid)], capture_output=True, check=True)
+        else:
+            os.kill(root_pid, signal.SIGKILL)
+        script.wait(timeout=60)
+
+        self.assert_helper_and_spinners_end(record)
+        final = read_record(record_file)
+        self.assertEqual(("yes", "the script ended before it stopped the load"), (final["complete"], final["error"]))
 
 
 class CompileLogTests(FixtureRepositoryTestCase):
