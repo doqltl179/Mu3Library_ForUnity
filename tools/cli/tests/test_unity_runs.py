@@ -1090,7 +1090,7 @@ class InterruptedLoadRunTests(FixtureRepositoryTestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         sleeper_file = self.sleeper_file = Path(directory.name) / "sleeper.pid"
-        output =(Path(directory.name) / "output.txt").open("w", encoding="utf-8")
+        output = (Path(directory.name) / "output.txt").open("w", encoding="utf-8")
         self.addCleanup(output.close)
         environment = self.unity_environment(
             FAKE_UNITY_RESULTS=nunit_results(passed=1),
