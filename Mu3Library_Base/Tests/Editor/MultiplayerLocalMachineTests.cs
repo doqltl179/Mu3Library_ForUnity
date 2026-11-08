@@ -1165,6 +1165,61 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Directory_ReadWhoseThreadIsHeldUpPastTheWait_FindsAReplacementThatFinishedInTime_AndLooksOnceAtTheOthers()
+        {
+            // Two owners in the middle of a replacement, whose new files are not yet in place. The
+            // read's thread loses its core right after its first look, which finds a lobby file
+            // missing: that owner's new file moves in meanwhile, well within the read's wait, and
+            // the thread comes back only once the wait has run out (#376). The other owner's
+            // replacement does not finish, and the wait that ran out is the one every file shares.
+            long waitTicks = (long)(MachineDirectory.ReplaceWaitSeconds * Stopwatch.Frequency);
+            Dictionary<string, string> temporaries = new Dictionary<string, string>();
+            Dictionary<string, LobbyId> lobbies = new Dictionary<string, LobbyId>();
+            foreach (int port in new[] { 7, 8 })
+            {
+                MachineDirectory directory = new MachineDirectory(_folder, port);
+                directory.Publish(new PlayerId((ulong)port), port, new List<MachineLobby> { ListedLobby((ulong)port, "map", "forest") });
+                directory.Abandon();
+                string file = Path.Combine(_folder, "peer-" + port.ToString(CultureInfo.InvariantCulture) + ".lobbies");
+                string temporary = Path.ChangeExtension(file, ".tmp");
+                File.Move(file, temporary);
+                File.SetLastWriteTimeUtc(temporary, DateTime.UtcNow);
+                temporaries.Add(file, temporary);
+                lobbies.Add(file, new LobbyId((ulong)port));
+            }
+
+            Dictionary<string, int> looks = new Dictionary<string, int>();
+            string first = null;
+            long movedIn = 0;
+            long readStart = Stopwatch.GetTimestamp();
+            List<MachineDirectoryEntry> entries = MachineDirectory.ReadForTests(_folder, file =>
+            {
+                looks[file] = looks.TryGetValue(file, out int count) ? count + 1 : 1;
+                if (first != null)
+                {
+                    return;
+                }
+
+                first = file;
+                File.Move(temporaries[file], file);
+                movedIn = Stopwatch.GetTimestamp();
+
+                // The read's wait started before this look, so it has run out by the end of this.
+                while (Stopwatch.GetTimestamp() - movedIn <= waitTicks)
+                {
+                    Thread.Sleep(1);
+                }
+            });
+
+            Assert.That(first, Is.Not.Null, "The read never looked at a lobby file of the owners in the middle of a replacement.");
+            Assume.That(movedIn - readStart, Is.LessThan(waitTicks), "This thread was held up past the read's wait before it moved the new file in, so the case of a replacement that finished in time was not exercised.");
+            string other = lobbies.Keys.Single(file => file != first);
+            Assert.That(entries.Select(entry => entry.Lobby), Is.EqualTo(new[] { lobbies[first] }), "The read gave up on a lobby file that moved in within its wait.");
+            Assert.That(looks[first], Is.EqualTo(2), "The read did not look at the file it waited for once, and only once, after its wait ran out.");
+            Assert.That(looks.TryGetValue(other, out int otherLooks) ? otherLooks : 0, Is.EqualTo(1), "The read did not look at a file it reached once its wait had run out, or waited for it anew.");
+        }
+
+        [Test]
         public void Directory_DeletesTheTemporaryFileAndBackupsThatAProcessThatEndedLeft_AndKeepsTheOthers()
         {
             Directory.CreateDirectory(_folder);
@@ -1422,9 +1477,8 @@ namespace Mu3Library.Tests
             // file in can wait for a core past the read's wait, and so can an update. Such a round
             // is played again with new players; an update that waited for the replacement would
             // miss every round. Anything else fails at once. That includes a miss of a new file that
-            // moved in within the read's wait, which the load could still cause by holding the
-            // read's thread between its last look at the folder and its deadline; the measurements
-            // for #367 saw none.
+            // moved in within the read's wait, which the load cannot cause by holding the read's
+            // thread past its deadline: the read looks at the file once more after it (#376).
             const int Rounds = 5;
             List<string> missed = new List<string>();
             for (int round = 0; round < Rounds; round++)
