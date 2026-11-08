@@ -100,6 +100,9 @@ class FixtureRepositoryTestCase(unittest.TestCase):
     TESTABLE_PROJECTS: frozenset[str] = frozenset()
     # Lines of the fixture's .gitignore, committed with the baseline.
     GITIGNORE_LINES: tuple[str, ...] = ()
+    # The name of the fixture's root folder inside its temporary directory, which a longer name
+    # pushes deeper, as a nested worktree is.
+    ROOT_NAME = "repository"
 
     root: Path
     fake_unity: Path
@@ -113,7 +116,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
 
         temporary_directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(temporary_directory.cleanup)
-        cls.root = Path(temporary_directory.name) / "repository"
+        cls.root = Path(temporary_directory.name) / cls.ROOT_NAME
         cls.root.mkdir()
         # Git may treat the system temp directory as owned by someone else.
         cls.git_config = Path(temporary_directory.name) / "gitconfig"

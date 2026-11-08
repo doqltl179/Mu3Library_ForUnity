@@ -1184,5 +1184,258 @@ class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
                     self.assertEqual(f"targets {' '.join(key for key, _, _ in MAPPING)}", targets)
 
 
+def package_cache_path(length: int, name: str) -> str:
+    """A Windows path of a package file of exactly length characters whose file name is name."""
+    head = "C:\\Deep\\Project\\Library\\PackageCache\\com.unity.example@0123456789ab\\"
+    return head + "d" * (length - len(head) - len(name) - 1) + "\\" + name
+
+
+def unreadable(path: str, asset: str | None = None) -> str:
+    """The line Unity logs when it cannot find a file, while it imports asset when one is given."""
+    message = f'DirectoryNotFoundException: Could not find a part of the path "{path}"'
+    return f'Asset import failed, "{asset}" > {message}' if asset else message
+
+
+def utp_error(line: str) -> str:
+    """The line -automated adds to Unity's log for the error that Unity logged as line."""
+    return f'##utp:{{"type":"LogEntry","version":2,"phase":"Immediate","severity":"Error","message":{json.dumps(line)}}}'
+
+
+class UnreadableLongPathTests(FixtureRepositoryTestCase):
+    """find_unreadable_long_paths counts the files Unity's log says it could not find although their
+    paths only reached the Windows limit, and the asset imports that failed on them.
+
+    The lines take the forms of a first import from a deep worktree with Unity 6000.6.7f1 (#382)."""
+
+    def warning(self, *lines: str, host: str = "windows") -> str:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.log = Path(directory.name) / "unity.log"
+        self.log.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'HOST_PLATFORM="$2"\nfind_unreadable_long_paths "$1"\nprintf %s "$UNREADABLE_PATHS_WARNING"',
+            str(self.log),
+            host,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout
+
+    def test_counts_each_file_and_each_failed_import_once_and_names_the_dlls(self) -> None:
+        style = package_cache_path(260, "Window.uss")
+        layout = package_cache_path(261, "Window.uxml")
+        plugin = package_cache_path(300, "Plugin.dll")
+        actions = package_cache_path(270, "Default.inputactions")
+        first_import = unreadable(style, asset="Packages/com.unity.example/Window.uxml")
+
+        warning = self.warning(
+            first_import,
+            utp_error(first_import),
+            "  at System.IO.FileStream..ctor (System.String path) [0x0019e] in <a8858c8db>:0",
+            # The importer reads the style sheet again, and another import reads the layout.
+            first_import,
+            unreadable(layout, asset="Packages/com.unity.example/Other.uxml"),
+            # The API updater reads a plugin twice, outside any import.
+            unreadable(plugin),
+            unreadable(plugin),
+            f"Could not read file 'Packages/com.unity.example/Default.inputactions' (System.IO.{unreadable(actions)})",
+        )
+
+        self.assertEqual(
+            "Unity could not read 4 file(s) whose paths have 260 characters or more, among them Plugin.dll, "
+            f"and 2 asset import(s) failed on them; see {self.log}",
+            warning,
+        )
+
+    def test_a_path_short_of_the_limit_is_left_out(self) -> None:
+        warning = self.warning(
+            unreadable(package_cache_path(259, "Missing.uxml"), asset="Packages/com.unity.example/Missing.uxml"),
+            unreadable(package_cache_path(260, "Window.uss")),
+        )
+
+        self.assertEqual(f"Unity could not read 1 file(s) whose paths have 260 characters or more; see {self.log}", warning)
+
+    def test_a_log_without_such_a_file_gives_no_warning(self) -> None:
+        self.assertEqual("", self.warning("Loading", utp_error(unreadable(package_cache_path(280, "Window.uss")))))
+        self.assertEqual("", self.warning(unreadable("C:\\Project\\Assets\\Missing.txt")))
+
+    def test_another_host_is_not_warned(self) -> None:
+        # Only Windows has the limit, so a long path missing elsewhere has another cause.
+        line = unreadable(package_cache_path(280, "Window.uss"), asset="Packages/com.unity.example/Window.uxml")
+
+        self.assertTrue(self.warning(line).startswith("Unity could not read 1 file(s) "))
+        self.assertEqual("", self.warning(line, host="linux"))
+        self.assertEqual("", self.warning(line, host="macos"))
+
+
+class ProjectPathLengthTests(FixtureRepositoryTestCase):
+    """check_project_path_length warns on Windows when the longest path measured below a project, 161
+    characters, reaches the 260-character limit in the folder Unity opens."""
+
+    def warning(self, length: int, location: str = "in-place", host: str = "windows") -> str:
+        # On Windows /c/... becomes C:\... of the same length; elsewhere it stays as it is.
+        folder = "/c/" + "p" * (length - 3)
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'HOST_PLATFORM="$3"\ncheck_project_path_length "$1" "$2"\nprintf %s "$PATH_LIMIT_WARNING"',
+            folder,
+            location,
+            host,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout
+
+    def test_a_folder_that_pushes_the_longest_package_path_to_the_limit_is_warned_about(self) -> None:
+        self.assertEqual("", self.warning(97))
+
+        warning = self.warning(98)
+
+        self.assertIn(" is 98 characters, so the longest package file path measured below a project reaches 260 there", warning)
+        self.assertIn("Unity cannot import a file whose path has 260 characters or more on Windows", warning)
+        self.assertTrue(
+            warning.endswith(
+                "run from a project path of at most 97 characters, such as on a drive letter that subst maps to "
+                "the checkout (tools/README.md)"
+            ),
+            warning,
+        )
+
+    def test_a_mirror_is_told_to_take_a_shorter_tmpdir(self) -> None:
+        warning = self.warning(120, location="isolated")
+
+        self.assertTrue(warning.startswith("the mirror path "), warning)
+        self.assertIn(" is 120 characters, so the longest package file path measured below a project reaches 282 there", warning)
+        self.assertTrue(
+            warning.endswith("set TMPDIR so that the mirror path has at most 97 characters (tools/README.md)"), warning
+        )
+
+    def test_another_host_is_not_warned(self) -> None:
+        self.assertEqual("", self.warning(200, host="linux"))
+        self.assertEqual("", self.warning(200, host="macos"))
+
+
+@unittest.skipUnless(platform.system() == "Windows", "only Windows limits the paths Unity's asset import reads")
+class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
+    """Both entry points warn when Unity's log names a file it could not read past the path limit."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    LOG = unreadable(package_cache_path(270, "Window.uss"))
+
+    def test_compile_warns_after_each_target_and_again_at_the_end_of_a_run_of_several(self) -> None:
+        for target, keys in (("leaf", ["leaf"]), ("all", [key for key, _, _ in MAPPING])):
+            with self.subTest(target=target):
+                # One stream keeps the warnings in order with the runs they follow.
+                completed = self.run_functions(
+                    "compile-unity.sh",
+                    'compile_main "$@" 2>&1',
+                    target,
+                    environment=self.unity_environment(FAKE_UNITY_LOG=self.LOG),
+                )
+
+                self.assertEqual(0, completed.returncode, completed.stdout)
+                lines = completed.stdout.splitlines()
+                warnings = [
+                    f"warning: {key}: Unity could not read 1 file(s) whose paths have 260 characters or more; "
+                    f"see log/unity-compile/{key}.log"
+                    for key in keys
+                ]
+                for key, warning in zip(keys, warnings):
+                    self.assertEqual(warning, lines[lines.index(f"Unity compilation succeeded: {key}") - 1])
+                if len(keys) > 1:
+                    self.assertEqual(warnings, lines[-len(keys):])
+                else:
+                    self.assertEqual(1, lines.count(warnings[0]), completed.stdout)
+
+    def test_a_failed_compile_ends_the_run_after_its_own_warning_without_repeating_it(self) -> None:
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'compile_main "$@" 2>&1',
+            "all",
+            environment=self.unity_environment(FAKE_UNITY_LOG=self.LOG, FAKE_UNITY_STATUS="3"),
+        )
+
+        self.assertEqual(3, completed.returncode, completed.stdout)
+        lines = completed.stdout.splitlines()
+        warning = (
+            "warning: shared: Unity could not read 1 file(s) whose paths have 260 characters or more; "
+            "see log/unity-compile/shared.log"
+        )
+        self.assertEqual(
+            [warning, "error: Unity compilation failed for shared (exit 3)"], lines[-2:], completed.stdout
+        )
+        self.assertEqual(1, lines.count(warning), completed.stdout)
+
+    def test_test_summary_gives_the_warning_under_its_target(self) -> None:
+        warning = (
+            "    warning: Unity could not read 1 file(s) whose paths have 260 characters or more; "
+            "see log/unity-tests/leaf-editmode.log"
+        )
+        for results, status, target_line in (
+            (nunit_results(), 0, "  - leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive"),
+            # A plugin that does not import can break the compile, after which no test runs.
+            ("", 1, "  - leaf: FAILED, Unity exited with 1 and wrote no test results; see its log above"),
+        ):
+            with self.subTest(status=status):
+                completed = self.run_entry_point(
+                    "test-unity.sh",
+                    "leaf",
+                    environment=self.unity_environment(
+                        FAKE_UNITY_LOG=self.LOG, FAKE_UNITY_RESULTS=results, FAKE_UNITY_STATUS=str(status)
+                    ),
+                )
+
+                self.assertEqual(status, completed.returncode, completed.stdout)
+                lines = completed.stdout.splitlines()
+                self.assertEqual(warning, lines[lines.index(target_line) + 1], completed.stdout)
+                self.assertIn(warning.strip().replace("warning: ", "warning: leaf: ", 1), completed.stderr)
+
+
+@unittest.skipUnless(platform.system() == "Windows", "only Windows limits the paths Unity's asset import reads")
+class DeepCheckoutTests(FixtureRepositoryTestCase):
+    """A checkout deep enough that the longest package path measured below a project reaches the
+    Windows limit is warned about before Unity starts, in place and in a mirror."""
+
+    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+    # Long enough that the project folder passes 97 characters below any temporary directory.
+    ROOT_NAME = "repository-" + "deep" * 22
+
+    def test_both_entry_points_warn_before_unity_starts(self) -> None:
+        for entry_point, main in (("compile-unity.sh", "compile_main"), ("test-unity.sh", "test_main")):
+            with self.subTest(entry_point=entry_point):
+                completed = self.run_functions(
+                    entry_point,
+                    f'{main} "$@" 2>&1',
+                    "leaf",
+                    environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                )
+
+                self.assertEqual(0, completed.returncode, completed.stdout)
+                lines = completed.stdout.splitlines()
+                [warning] = [index for index, line in enumerate(lines) if line.startswith("warning: leaf: the project path ")]
+                self.assertRegex(lines[warning], r"\\ProjLeaf is \d+ characters, so the longest package file path")
+                self.assertIn("at most 97 characters, such as on a drive letter that subst maps", lines[warning])
+                [ran] = [index for index, line in enumerate(lines) if line.startswith("fake unity ran ")]
+                self.assertLess(warning, ran, completed.stdout)
+                if entry_point == "test-unity.sh":
+                    self.assertIn(f"    {lines[warning].replace('warning: leaf: ', 'warning: ', 1)}", lines)
+
+    def test_a_mirror_in_a_deep_tmpdir_is_warned_about_and_told_to_shorten_it(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        deep_tmpdir = Path(directory.name) / ("t" * 90)
+        deep_tmpdir.mkdir()
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment(TMPDIR=str(deep_tmpdir))
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        [warning] = [line for line in completed.stderr.splitlines() if line.startswith("warning: leaf: ")]
+        self.assertIn("the mirror path ", warning)
+        self.assertIn("mu3library-unity-compile.", warning)
+        self.assertTrue(warning.endswith("set TMPDIR so that the mirror path has at most 97 characters (tools/README.md)"))
+        self.assertNotIn("the project path ", completed.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
