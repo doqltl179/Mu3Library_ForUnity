@@ -1755,7 +1755,9 @@ namespace Mu3Library.Tests
         {
             // A name past 64 characters, whole, as a process of another version sends it; "pair"
             // puts a surrogate pair across the 64th character, which the cut splits as a sender
-            // of this version splits it, so the kept name is the name such a sender sends.
+            // of this version splits it. The kept name then ends in a lone high surrogate, where
+            // the same name from a sender of this version arrives ending in U+FFFD; the two
+            // strings differ, but written again they make the same bytes.
             string sent = shape == "pair"
                 ? new string('n', MultiplayerLimits.MaxPlayerNameLength - 1) + "\U0001F600" + "tail"
                 : new string('n', 100);
