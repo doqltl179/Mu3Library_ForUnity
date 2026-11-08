@@ -33,9 +33,16 @@ UNITY_STALL_SECONDS=600
 COMPILE_ARGUMENTS=()
 SUMMARY_LINES=()
 FAILED_TARGET_COUNT=0
-# Set by project_has_testables, find_unfinished_test, and find_tests_with_result.
+# How many runs test_target failed whose one failure came from the
+# environment, which the closing error line names.
+ENVIRONMENT_FAILED_COUNT=0
+# Set by project_has_testables, find_unfinished_test, find_data_store_loss,
+# and find_tests_with_result.
 NO_TESTABLES_REASON=""
 UNFINISHED_TEST=""
+DATA_STORE_LOSS_PID=""
+DATA_STORE_LOSS_TEST=""
+DATA_STORE_LOSS_ERROR=""
 RESULT_TESTS=()
 
 # How many spinners --load-spinners asks for, each a Python process that spins
@@ -84,6 +91,10 @@ REPEAT_TEST_NAMES=()
 REPEAT_TEST_RUNS=()
 REPEAT_OTHERS_LOW=""
 REPEAT_OTHERS_HIGH=""
+# The runs of one target under --repeat in which Unity's Data Store service
+# ended, and those of them whose one failure came from it.
+REPEAT_DATA_STORE_LOSSES=0
+REPEAT_ENVIRONMENT_FAILED_RUNS=0
 
 usage() {
     local i
@@ -164,6 +175,14 @@ Unity starts. Each run keeps that record beside its results as
 <target>-<platform>-run<k>.xml, .log, and .load instead, and the summary closes
 each target with the totals of its runs and, for each failed or inconclusive
 test, the number of runs it had that result in.
+
+When Unity's Data Store service, the process that serves the Editor the files
+it imported, ends before the Editor does, Unity logs an error that fails the
+test then running, whatever that test checks. The summary then names the
+service's process ID and that test under the run. When the test's failure
+message holds that error and nothing else, the summary says so, and a run
+whose one failure that was says that the failure came from the environment.
+It still fails, since that test reached no verdict: run the target again.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), how --editor-version retargets the mirror, the sample-link
@@ -367,6 +386,221 @@ unfinished_test() {
     if [[ -n "$UNFINISHED_TEST" ]]; then
         printf '%s\n' "$UNFINISHED_TEST"
     fi
+}
+
+# Sets DATA_STORE_LOSS_PID to the process ID that Unity's log names once the
+# Unity Data Store service, the process that serves the Editor the files it
+# imported, has ended before the Editor, DATA_STORE_LOSS_TEST to the full name
+# of the test that had begun and not ended then, and DATA_STORE_LOSS_ERROR to
+# the error as Unity logged it, or all three to nothing. Unity logs that end as
+# an error once, when it next reads such a file, and reads them in its own
+# process from then on. The line that ends a test is passed over, since its
+# failure message can quote the error.
+find_data_store_loss() {
+    local log_file="$1"
+
+    DATA_STORE_LOSS_PID=""
+    DATA_STORE_LOSS_TEST=""
+    DATA_STORE_LOSS_ERROR=""
+    [[ -f "$log_file" ]] || return 0
+
+    {
+        IFS= read -r DATA_STORE_LOSS_PID || true
+        IFS= read -r DATA_STORE_LOSS_TEST || true
+        IFS= read -r DATA_STORE_LOSS_ERROR || true
+    } < <(awk '
+        BEGIN {
+            status = "##utp:{\"type\":\"TestStatus\""
+            name_key = "\"name\":\""
+            marker = "Unity Data Store service (pid "
+            marker_end = ") is no longer running."
+            running = ""
+        }
+        { sub(/\r$/, "") }
+        index($0, status) == 1 {
+            running = ""
+            start = index($0, name_key)
+            if (index($0, "\"phase\":\"Begin\"") == 0 || start == 0) {
+                next
+            }
+            # The name is a JSON string, whose escaped quotes, as in a test
+            # case string argument, do not end it. A \uXXXX escape is not
+            # decoded, so such a name matches no test of the result file, and
+            # the end of the service is then only a warning.
+            rest = substr($0, start + length(name_key))
+            for (i = 1; i <= length(rest); i++) {
+                c = substr(rest, i, 1)
+                if (c == "\\") {
+                    i++
+                    c = substr(rest, i, 1)
+                } else if (c == "\"") {
+                    break
+                }
+                running = running c
+            }
+            next
+        }
+        {
+            start = index($0, marker)
+            if (start == 0) {
+                next
+            }
+            rest = substr($0, start + length(marker))
+            end = index(rest, marker_end)
+            pid = substr(rest, 1, end - 1)
+            if (end == 0 || pid !~ /^[0-9]+$/) {
+                next
+            }
+            # Unity logs the error as a line of its own before the LogEntry
+            # line that quotes it, so the rest of the line is the error; in a
+            # LogEntry line it ends where its JSON string does, since it holds
+            # no quote.
+            error = substr($0, start)
+            if (index($0, "##utp:") == 1) {
+                error = substr(error, 1, index(error, "\"") - 1)
+            }
+            print pid
+            print running
+            print error
+            exit
+        }
+    ' "$log_file")
+}
+
+# Returns 0 when the test that find_data_store_loss named failed in a result
+# file on nothing but the error that find_data_store_loss read, as its failure
+# message shows in one of the two forms such a failure takes, each perhaps
+# after "TearDown : ". The Unity Test Framework writes
+#   Unhandled log message: '[Error] <error>'. Use UnityEngine.TestTools.LogAssert.Expect
+# and the TearDown of Mu3WindowTests writes
+#   Unhandled log message: [Error] <error>
+#   Stack trace of the first:
+#   <the stack trace Unity logged with the error, which ends in a line break>
+# A message that holds anything else, such as an assertion that failed, another
+# log after " | ", or a failure that the TearDown adds after the stack trace,
+# shows a failure of the test's own, as does a test that lets failing logs pass
+# with LogAssert.ignoreFailingMessages and failed while the error went by.
+failed_only_on_data_store_loss() {
+    local results_file="$1"
+
+    [[ -n "$DATA_STORE_LOSS_TEST" && -n "$DATA_STORE_LOSS_ERROR" && -f "$results_file" ]] || return 1
+
+    # The values reach awk through the environment, since -v would read the
+    # backslashes of a test name as escapes.
+    DATA_STORE_LOSS_TEST="$DATA_STORE_LOSS_TEST" DATA_STORE_LOSS_ERROR="$DATA_STORE_LOSS_ERROR" awk '
+        # An attribute value with the entities XML predefines replaced. A
+        # character reference such as &#xA; stays, so such a name matches no
+        # test, and the end of the service is then only a warning.
+        function xml_text(text) {
+            gsub(/&quot;/, "\"", text)
+            gsub(/&apos;/, "\047", text)
+            gsub(/&lt;/, "<", text)
+            gsub(/&gt;/, ">", text)
+            gsub(/&amp;/, "\\&", text)
+            return text
+        }
+        function attribute(line, key,    start, rest) {
+            start = index(line, " " key "=\"")
+            if (start == 0) {
+                return ""
+            }
+            rest = substr(line, start + length(key) + 3)
+            return substr(rest, 1, index(rest, "\"") - 1)
+        }
+        BEGIN {
+            name = ENVIRON["DATA_STORE_LOSS_TEST"]
+            error = ENVIRON["DATA_STORE_LOSS_ERROR"]
+            opening = "<message><![CDATA["
+            closing = "]]></message>"
+            state = 0
+            count = 0
+            found = 0
+        }
+        { sub(/\r$/, "") }
+        state == 0 {
+            if (index($0, "<test-case ") == 0 || attribute($0, "result") != "Failed" \
+                || xml_text(attribute($0, "fullname")) != name) {
+                next
+            }
+            if ($0 ~ /\/>[[:space:]]*$/) {
+                exit
+            }
+            state = 1
+            next
+        }
+        state == 1 {
+            if (index($0, "</test-case>")) {
+                exit
+            }
+            start = index($0, opening)
+            if (start == 0) {
+                next
+            }
+            $0 = substr($0, start + length(opening))
+            state = 2
+        }
+        state == 2 {
+            end = index($0, closing)
+            if (end == 0) {
+                lines[++count] = $0
+                next
+            }
+            lines[++count] = substr($0, 1, end - 1)
+            found = 1
+            exit
+        }
+        END {
+            if (!found) {
+                exit 1
+            }
+            first = lines[1]
+            if (index(first, "TearDown : ") == 1) {
+                first = substr(first, length("TearDown : ") + 1)
+            }
+            if (first == "Unhandled log message: \047[Error] " error "\047. Use UnityEngine.TestTools.LogAssert.Expect") {
+                stack = 0
+                rest = 2
+            } else if (first == "Unhandled log message: [Error] " error && lines[2] == "Stack trace of the first:") {
+                stack = 1
+                rest = 3
+            } else {
+                exit 1
+            }
+            # The stack trace ends in a line break, so a failure that the
+            # TearDown joins after it follows an empty line.
+            blank = 0
+            for (i = rest; i <= count; i++) {
+                if (lines[i] == "") {
+                    blank = 1
+                } else if (!stack || blank) {
+                    exit 1
+                }
+            }
+            exit 0
+        }
+    ' "$results_file"
+}
+
+# Adds the end of Unity's Data Store service that find_data_store_loss found,
+# if it found one, under the summary entry of the run that test_target ran
+# last: as the environment's failure when the test that was running failed on
+# the error Unity logged for it and nothing else, given as 1, and as a warning
+# otherwise.
+add_data_store_loss_to_summary() {
+    local failed_the_test="$1"
+    local line="Unity's Data Store service (pid $DATA_STORE_LOSS_PID) ended"
+
+    [[ -n "$DATA_STORE_LOSS_PID" ]] || return 0
+
+    if [[ "$failed_the_test" -eq 1 ]]; then
+        line="environment: $line while $DATA_STORE_LOSS_TEST ran, and the error Unity logged for it failed that test, so the test reached no verdict; run the target again"
+    elif [[ -n "$DATA_STORE_LOSS_TEST" ]]; then
+        line="warning: $line while $DATA_STORE_LOSS_TEST ran; Unity read the files it had imported in its own process from then on"
+    else
+        line="warning: $line while no test ran; Unity read the files it had imported in its own process from then on"
+    fi
+    printf '  %s\n' "$line" >&2
+    SUMMARY_LINES+=("  $line")
 }
 
 record_failure() {
@@ -650,6 +884,10 @@ add_repeat_totals_to_summary() {
         fi
     done
 
+    if [[ "$REPEAT_DATA_STORE_LOSSES" -gt 0 ]]; then
+        SUMMARY_LINES+=("  environment: Unity's Data Store service ended in $REPEAT_DATA_STORE_LOSSES of $REPEAT_COUNT runs, and $REPEAT_ENVIRONMENT_FAILED_RUNS of them failed on that alone")
+    fi
+
     if [[ -n "$REPEAT_OTHERS_LOW" && "$REPEAT_OTHERS_LOW" == "$REPEAT_OTHERS_HIGH" ]]; then
         SUMMARY_LINES+=("  other Unity processes: $REPEAT_OTHERS_LOW at every count of the $REPEAT_COUNT runs")
     elif [[ -n "$REPEAT_OTHERS_LOW" ]]; then
@@ -679,6 +917,7 @@ test_target_repeatedly() {
     local run
     local run_number
     local failed_before
+    local environment_failed_before
 
     remove_repeat_results "$target_key"
     REPEAT_FAILED_RUNS=0
@@ -689,6 +928,8 @@ test_target_repeatedly() {
     REPEAT_TEST_RUNS=()
     REPEAT_OTHERS_LOW=""
     REPEAT_OTHERS_HIGH=""
+    REPEAT_DATA_STORE_LOSSES=0
+    REPEAT_ENVIRONMENT_FAILED_RUNS=0
 
     for ((run = 1; run <= REPEAT_COUNT; run++)); do
         # Numbers as wide as the count keep the files of the runs in order.
@@ -697,7 +938,14 @@ test_target_repeatedly() {
         RUN_FILE_SUFFIX="-run$run_number"
         printf 'Run %s of %s of %s:\n' "$run" "$REPEAT_COUNT" "$target_key"
         failed_before="$FAILED_TARGET_COUNT"
+        environment_failed_before="$ENVIRONMENT_FAILED_COUNT"
         test_target "$target_key"
+        if [[ -n "$DATA_STORE_LOSS_PID" ]]; then
+            REPEAT_DATA_STORE_LOSSES=$((REPEAT_DATA_STORE_LOSSES + 1))
+        fi
+        if [[ "$ENVIRONMENT_FAILED_COUNT" -gt "$environment_failed_before" ]]; then
+            REPEAT_ENVIRONMENT_FAILED_RUNS=$((REPEAT_ENVIRONMENT_FAILED_RUNS + 1))
+        fi
         add_path_limit_warnings_to_summary
         add_load_to_summary
         add_run_to_repeat_totals "$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.xml" \
@@ -720,6 +968,7 @@ test_target() {
     local counts
     local unfinished
     local stall_phrase
+    local loss_failed_test
     local unity_arguments=(-runTests -testPlatform "$TEST_PLATFORM")
 
     if [[ -n "$TEST_FILTER" ]]; then
@@ -752,6 +1001,7 @@ test_target() {
     read_load_record "${results_file%.xml}.load"
     find_unfinished_test "$UNITY_LOG_FILE"
     unfinished="$UNFINISHED_TEST"
+    find_data_store_loss "$UNITY_LOG_FILE"
 
     if [[ "$UNITY_STALLED" -eq 1 ]]; then
         if [[ -n "$unfinished" ]]; then
@@ -760,28 +1010,46 @@ test_target() {
             stall_phrase="while no test was running"
         fi
         record_failure "$target_key" "Unity wrote nothing to its log for $UNITY_STALL_SECONDS s $stall_phrase, so the script stopped it; see ${UNITY_LOG_FILE#"$REPO_ROOT"/}"
+        add_data_store_loss_to_summary 0
         return 0
     fi
 
     if [[ ! -f "$results_file" ]]; then
         record_failure "$target_key" "Unity exited with $UNITY_STATUS and wrote no test results${unfinished:+ while running $unfinished}; see its log above"
+        add_data_store_loss_to_summary 0
         return 0
     fi
 
     if ! read_test_run_counts "$results_file"; then
         record_failure "$target_key" "could not read the test counts in ${results_file#"$REPO_ROOT"/}"
+        add_data_store_loss_to_summary 0
         return 0
     fi
     counts="$total tests, $passed passed, $failed failed, $skipped skipped, $inconclusive inconclusive"
     RUN_COUNTS=("$total" "$passed" "$failed" "$skipped" "$inconclusive")
     find_load_problem "$total"
 
+    # Unity logs the end of its Data Store service as an error, which fails
+    # the test then running whatever that test checks, so a failure on that
+    # error alone gives no verdict. The target still fails, as for an
+    # inconclusive test, but a run whose one failure it was says that it came
+    # from the environment. A test whose failure message shows more failed on
+    # its own, even while the error went by.
+    loss_failed_test=0
+    if [[ "$failed" -gt 0 ]] && failed_only_on_data_store_loss "$results_file"; then
+        loss_failed_test=1
+    fi
+
     # An inconclusive test, one whose Assume did not hold or that called
     # Assert.Inconclusive, reached no verdict, so it fails the target as a
     # failed test does; the Unity Test Framework exits with 2 for it too. A test
     # that cannot run on this machine calls Assert.Ignore, which NUnit counts as
     # skipped.
-    if [[ "$failed" -gt 0 || "$inconclusive" -gt 0 ]]; then
+    if [[ "$loss_failed_test" -eq 1 && "$failed" -eq 1 && "$inconclusive" -eq 0 ]]; then
+        record_failure "$target_key" "$counts; its one failure came from the environment"
+        ENVIRONMENT_FAILED_COUNT=$((ENVIRONMENT_FAILED_COUNT + 1))
+        name_failed_and_inconclusive_tests "$results_file"
+    elif [[ "$failed" -gt 0 || "$inconclusive" -gt 0 ]]; then
         record_failure "$target_key" "$counts"
         name_failed_and_inconclusive_tests "$results_file"
     elif [[ "$total" -eq 0 && -n "$TEST_FILTER" ]]; then
@@ -796,6 +1064,7 @@ test_target() {
         printf '%s tests passed for %s%s: %s\n' "$TEST_PLATFORM" "$target_key" "$RUN_LABEL" "$counts"
         SUMMARY_LINES+=("$target_key$RUN_LABEL: $counts")
     fi
+    add_data_store_loss_to_summary "$loss_failed_test"
 }
 
 # Adds the warnings that run_unity_for_target gave about the Windows path limit
@@ -831,6 +1100,7 @@ test_main() {
     local target_key
     local preflight_failed
     local results_name
+    local environment_phrase=""
 
     load_package_config
     parse_test_arguments "$@"
@@ -899,10 +1169,13 @@ test_main() {
     printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s\n' \
         "$results_name" "$results_name" "${LOAD_PYTHON:+ and load records as $results_name.load}"
 
+    if [[ "$ENVIRONMENT_FAILED_COUNT" -gt 0 ]]; then
+        environment_phrase="; $ENVIRONMENT_FAILED_COUNT of them failed only on the environment, as the summary says"
+    fi
     if [[ "$FAILED_TARGET_COUNT" -gt 0 && "$REPEAT_COUNT" -gt 1 ]]; then
-        fail "$TEST_PLATFORM tests failed in $FAILED_TARGET_COUNT of $((${#SELECTED_TARGETS[@]} * REPEAT_COUNT)) runs"
+        fail "$TEST_PLATFORM tests failed in $FAILED_TARGET_COUNT of $((${#SELECTED_TARGETS[@]} * REPEAT_COUNT)) runs$environment_phrase"
     elif [[ "$FAILED_TARGET_COUNT" -gt 0 ]]; then
-        fail "$TEST_PLATFORM tests failed for $FAILED_TARGET_COUNT target(s)"
+        fail "$TEST_PLATFORM tests failed for $FAILED_TARGET_COUNT target(s)$environment_phrase"
     fi
 }
 

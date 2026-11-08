@@ -40,8 +40,9 @@ LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_cli" / "fixed_load.py"
 # it is given, prints as many ticks as it is given, FAKE_UNITY_TICK_SECONDS (1 unless given)
 # apart, and the log line it is given for after them, then stays silent as long as it is told, in a child process whose PID it can write to
 # a file, writes the test results it is given to the path after -testResults, and exits with
-# the status it is given. Given a file to count its runs in, run <n> writes
-# FAKE_UNITY_RESULTS_<n> instead when that is set, so that each run of --repeat can differ.
+# the status it is given. Given a file to count its runs in, run <n> prints FAKE_UNITY_LOG_<n>
+# and writes FAKE_UNITY_RESULTS_<n> instead when they are set, so that each run of --repeat can
+# differ.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
@@ -63,6 +64,14 @@ fi
 if [[ -n "${MSYS2_ARG_CONV_EXCL:-}" ]]; then
     printf 'fake unity path conversion exclusions: [%s]\\n' "$MSYS2_ARG_CONV_EXCL"
 fi
+if [[ -n "${FAKE_UNITY_RUN_FILE:-}" ]]; then
+    run=$(( $(cat "$FAKE_UNITY_RUN_FILE" 2>/dev/null || printf 0) + 1 ))
+    printf '%s\\n' "$run" > "$FAKE_UNITY_RUN_FILE"
+    per_run="FAKE_UNITY_LOG_$run"
+    FAKE_UNITY_LOG="${!per_run-${FAKE_UNITY_LOG:-}}"
+    per_run="FAKE_UNITY_RESULTS_$run"
+    FAKE_UNITY_RESULTS="${!per_run-${FAKE_UNITY_RESULTS:-}}"
+fi
 if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_LOG"
 fi
@@ -80,12 +89,6 @@ if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
         printf '%s\\n' "$sleeper" > "$FAKE_UNITY_SLEEPER_FILE"
     fi
     wait "$sleeper"
-fi
-if [[ -n "${FAKE_UNITY_RUN_FILE:-}" ]]; then
-    run=$(( $(cat "$FAKE_UNITY_RUN_FILE" 2>/dev/null || printf 0) + 1 ))
-    printf '%s\\n' "$run" > "$FAKE_UNITY_RUN_FILE"
-    per_run="FAKE_UNITY_RESULTS_$run"
-    FAKE_UNITY_RESULTS="${!per_run-${FAKE_UNITY_RESULTS:-}}"
 fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
