@@ -2523,7 +2523,7 @@ namespace Mu3Library.Tests
         /// is there creates another lobby, which writes the file itself. Each runs once while a
         /// rewrite is in flight and once while the writer thread is idle; the difference is the wait.
         /// </summary>
-        [Explicit("Measures in real time, about 45 seconds; run it by name.")]
+        [Explicit("Measures in real time, about 40 seconds; run it by name.")]
         [Test]
         public void LobbyFile_MainThreadWaits_AreMeasured()
         {
