@@ -95,6 +95,17 @@ class ProcessTreeTests(unittest.TestCase):
         self.assertEqual(os.getppid(), current.parent)
         self.assertIn(os.getpid(), descendants(processes, os.getppid(), fixed_load.creation_time_reader()))
 
+    @unittest.skipUnless(sys.platform == "win32", "only Windows reads a service's end from a handle")
+    def test_a_service_that_cannot_be_opened_has_no_end_and_says_why(self) -> None:
+        # No process can be opened by the ID 0, as one refused or already gone cannot be.
+        watch = fixed_load.DataStoreWatch(0)
+
+        self.assertFalse(watch.look())
+        self.assertIsNone(watch.service.ended)
+        self.assertIsNone(watch.service.exit_code)
+        self.assertRegex(watch.service.error, r"^could not open the process \(Windows error \d+\)$")
+        self.assertIn(f"data_store_0_error={watch.service.error}", Record(spinners=0, data_stores=[watch.service]).lines())
+
     def test_a_running_process_is_told_from_one_that_ended(self) -> None:
         ended = subprocess.Popen([sys.executable, "-c", "pass"])
         ended.wait()
@@ -386,8 +397,10 @@ class SupervisorTests(unittest.TestCase):
         )
         self.addCleanup(self.end, service)
         listing = fixed_load.list_processes
+        listings: list[float] = []
 
         def processes() -> list[ProcessEntry]:
+            listings.append(time.monotonic())
             name = fixed_load.default_data_store_process_name()
             return [ProcessEntry(entry.pid, entry.parent, name) if entry.pid == service.pid else entry for entry in listing()]
 
@@ -395,7 +408,10 @@ class SupervisorTests(unittest.TestCase):
             return self.read_record() if self.record_file.exists() else {}
 
         before = time.time()
-        with mock.patch.object(fixed_load, "list_processes", side_effect=processes):
+        # The count of the other Unity processes, which lists them too, runs only at the start and the end.
+        with mock.patch.object(fixed_load, "list_processes", side_effect=processes), mock.patch.object(
+            fixed_load, "SAMPLE_SECONDS", 3600.0
+        ):
             supervisor = threading.Thread(
                 target=fixed_load.supervise,
                 args=(self.log, 0, os.getpid(), self.stop, self.record_file),
@@ -408,6 +424,10 @@ class SupervisorTests(unittest.TestCase):
             # The helper writes its record as it finds the service, and again as the service ends.
             self.assertTrue(wait_until(lambda: named().get("data_store_pids") == str(service.pid)))
             self.assertEqual("", named()[f"data_store_{service.pid}_ended"])
+            # Once it has found the service, it lists the processes no more, over several looks.
+            found = len(listings)
+            time.sleep(4 * fixed_load.SERVICE_LOOK_SECONDS)
+            self.assertEqual(found, len(listings))
             assert service.stdin is not None
             service.stdin.close()
             self.assertEqual(7, service.wait(timeout=30))
@@ -422,6 +442,7 @@ class SupervisorTests(unittest.TestCase):
         ended = datetime.fromisoformat(record[f"data_store_{service.pid}_ended"]).timestamp()
         self.assertLessEqual(before - 1, ended)
         self.assertLessEqual(ended, after + 1)
+        self.assertEqual("", record[f"data_store_{service.pid}_error"])
         if sys.platform == "win32":
             # Windows gives a process's start and its exit code to a handle held open on it.
             self.assertEqual("7", record[f"data_store_{service.pid}_exit_code"])

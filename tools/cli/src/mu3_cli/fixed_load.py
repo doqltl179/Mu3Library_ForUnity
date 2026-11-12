@@ -13,7 +13,7 @@ it. It stops them once every test that the run's test plan names has ended, so t
 not slow Unity's shutdown after it either, or else once the stop file appears or the process
 <pid>, the script, ends. A spinner also ends by itself once this process ends, since its standard
 input then closes, so none outlives the run. Meanwhile it counts the Unity processes that do not descend from <pid>, at the
-start, every few seconds, and as it stops, and watches each Unity Data Store service that
+start, every few seconds, and as it stops, and watches the Unity Data Store service that
 descends from <pid>, the run's own, to record when it started and ended and its exit code. It
 writes what happened to the record file as key=value lines once the spinners wait, once they
 spin, once a service comes up or ends, and once they have stopped, which alone says
@@ -271,28 +271,35 @@ class ProcessWatch:
 @dataclass
 class DataStore:
     """One of the run's Data Store services: when it started and ended, in seconds since the
-    epoch, and its exit code, each None while it is not known."""
+    epoch, and its exit code, each None while it is not known, and why it could not be watched."""
 
     pid: int
     started: float | None = None
     ended: float | None = None
     exit_code: int | None = None
+    error: str = ""
 
 
 class DataStoreWatch:
     """Watches one of the run's Data Store services until it ends. On Windows it holds the process
     open, so that its ID cannot pass to another process meanwhile, and reads its start, its end,
     and its exit code from it. Elsewhere a process that is not this one's child gives neither its
-    end nor its exit code, so the look that first finds it gone dates its end."""
+    start nor its exit code, so the look that first finds it gone dates its end."""
 
     def __init__(self, pid: int) -> None:
         self.service = DataStore(pid)
+        self.watching = True
         self._handle = None
         if sys.platform == "win32":
             self._ctypes, self._wintypes, self._kernel32, _entry = _windows_api()
             self._handle = self._kernel32.OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
             if self._handle:
                 self.service.started = self._time(0)
+            else:
+                # Refused, or ended between the listing that found it and the open: either way
+                # its end stays unknown, not dated by a look that cannot tell.
+                self.service.error = f"could not open the process (Windows error {self._ctypes.get_last_error()})"
+                self.watching = False
 
     def _time(self, index: int) -> float | None:
         """The creation time, at 0, or the exit time, at 1, of the process, or None."""
@@ -303,15 +310,15 @@ class DataStoreWatch:
         return (value - FILETIME_EPOCH) / 10_000_000 if value else None
 
     def look(self) -> bool:
-        """Whether the service has ended, which it records the first time it finds so."""
-        if self.service.ended is not None:
-            return True
+        """Whether the service has ended since the last look, which it then records; a service
+        that has ended, or that could not be opened, is not looked at again."""
+        if not self.watching:
+            return False
         if sys.platform != "win32":
             if process_running(self.service.pid):
                 return False
             self.service.ended = time.time()
-            return True
-        if self._handle:
+        else:
             if self._kernel32.WaitForSingleObject(self._handle, 0) == WAIT_TIMEOUT:
                 return False
             code = self._wintypes.DWORD()
@@ -319,9 +326,7 @@ class DataStoreWatch:
                 self.service.exit_code = code.value
             self.service.ended = self._time(1)
             self.close()
-        # A process that could not be opened ended between the listing that found it and the open.
-        if self.service.ended is None:
-            self.service.ended = time.time()
+        self.watching = False
         return True
 
     def close(self) -> None:
@@ -457,6 +462,7 @@ class Record:
             values[f"data_store_{service.pid}_started"] = local_time(service.started)
             values[f"data_store_{service.pid}_ended"] = local_time(service.ended)
             values[f"data_store_{service.pid}_exit_code"] = "" if service.exit_code is None else service.exit_code
+            values[f"data_store_{service.pid}_error"] = service.error
         values.update(
             {
                 "count_error": self.count_error,
@@ -484,7 +490,9 @@ class Record:
                 time.sleep(0.02)
 
     def write_while_running(self, path: Path) -> None:
-        """Writes the record of a run that goes on, which only helps to find the spinners."""
+        """Writes the record of a run that goes on, which names the spinners, so that they can be
+        found, and the run's Data Store services as they come up and end, should the helper end
+        before it writes its last record."""
         try:
             self.write(path)
         except OSError:
@@ -578,22 +586,25 @@ def supervise(
             return None
 
     def look_at_data_stores() -> None:
-        """Watches each Data Store service that has come up in the tree of the script since the
-        last look, and records the end of each that has ended since. A listing that fails finds
-        none; the count records why."""
+        """Until the run's Data Store service has come up in the tree of the script, lists the
+        processes to find it; from then on only asks the service whether it has ended, since the
+        Editor starts one and does not start it again. A listing takes milliseconds, and a look at
+        the service it holds open a microsecond. A listing that fails finds none; the count
+        records why."""
         changed = False
-        try:
-            processes = list_processes()
-            tree = descendants(processes, root_pid, creation_time_reader())
-        except (OSError, subprocess.SubprocessError):
-            processes, tree = [], set()
-        for entry in processes:
-            if entry.pid in tree and entry.pid not in data_stores and entry.name.casefold() == data_store_name:
-                data_stores[entry.pid] = DataStoreWatch(entry.pid)
-                record.data_stores.append(data_stores[entry.pid].service)
-                changed = True
+        if not data_stores:
+            try:
+                processes = list_processes()
+                tree = descendants(processes, root_pid, creation_time_reader())
+            except (OSError, subprocess.SubprocessError):
+                processes, tree = [], set()
+            for entry in processes:
+                if entry.pid in tree and entry.name.casefold() == data_store_name:
+                    data_stores[entry.pid] = DataStoreWatch(entry.pid)
+                    record.data_stores.append(data_stores[entry.pid].service)
+                    changed = True
         for watch in data_stores.values():
-            if watch.service.ended is None and watch.look():
+            if watch.look():
                 changed = True
         if changed:
             record.write_while_running(record_path)
@@ -612,9 +623,6 @@ def supervise(
             if not root.running():
                 record.error = "the script ended before it stopped the load"
                 break
-            if time.monotonic() >= next_service_look:
-                look_at_data_stores()
-                next_service_look += SERVICE_LOOK_SECONDS
             if spinners and released_at is None:
                 test_log.read()
                 if test_log.first_test is not None:
@@ -635,6 +643,11 @@ def supervise(
                 record.load_ended = "last-test"
                 record.spinners_left = stop_spinners(spinners)
                 record.write_while_running(record_path)
+            # After the log is read, so that a look holds up neither the start nor the stop of the
+            # load that this pass reads; it lengthens only the wait for the next pass.
+            if time.monotonic() >= next_service_look:
+                look_at_data_stores()
+                next_service_look += SERVICE_LOOK_SECONDS
             if time.monotonic() >= next_sample:
                 others = count_others()
                 if others is not None:

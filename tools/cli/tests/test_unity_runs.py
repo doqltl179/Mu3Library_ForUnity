@@ -1535,6 +1535,15 @@ class DataStoreEndTests(FixtureRepositoryTestCase):
                 ],
             ),
             ("data_store_pids=\n", False, []),
+            # Without Python the helper does not run, so the run has no record to point at.
+            (
+                None,
+                True,
+                [
+                    "  data store service: pid 13480 has no end recorded, since the run has no load record; its log "
+                    "is kept as log/unity-tests/leaf-editmode.uds-service.log"
+                ],
+            ),
             (None, False, []),
         ):
             with self.subTest(record=record, kept_log=kept_log):

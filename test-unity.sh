@@ -708,8 +708,10 @@ add_data_store_loss_to_summary() {
         line="pid $DATA_STORE_LOSS_PID exited with code $DATA_STORE_EXIT_CODE at $DATA_STORE_ENDED"
     elif [[ -n "$DATA_STORE_ENDED" ]]; then
         line="pid $DATA_STORE_LOSS_PID ended at $DATA_STORE_ENDED with an exit code that could not be read"
-    elif [[ -f "$kept_log" ]]; then
+    elif [[ -f "$kept_log" && -f "$base.load" ]]; then
         line="pid $DATA_STORE_LOSS_PID has no end in ${base#"$REPO_ROOT"/}.load"
+    elif [[ -f "$kept_log" ]]; then
+        line="pid $DATA_STORE_LOSS_PID has no end recorded, since the run has no load record"
     else
         return 0
     fi
