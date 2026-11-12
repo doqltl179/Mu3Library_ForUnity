@@ -28,6 +28,9 @@ namespace Mu3Library.Tests
     {
         private const string EnableVariable = "MU3LIBRARY_STEAM_TESTS";
 
+        // How long a test waits for CreateLobby's answer.
+        private const int CreateLobbySeconds = 20;
+
         // Robin Walker of Valve (steamcommunity.com/id/robinwalker), a public profile since 2003.
         private const ulong PublicAccountId = 76561197960435530UL;
 
@@ -186,7 +189,7 @@ namespace Mu3Library.Tests
 
                 MultiplayerResult? created = null;
                 manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" }, result => created = result);
-                Pump(manager, () => created.HasValue, 20);
+                Pump(manager, () => created.HasValue, CreateLobbySeconds);
                 Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
                 LobbyId lobby = manager.CurrentLobbyId;
@@ -967,15 +970,15 @@ namespace Mu3Library.Tests
             Recorder recorder = new Recorder();
             _backend.SetListener(recorder);
             Assert.That(_backend.CreateLoopbackPair(out ConnectionId first, out ConnectionId second), Is.True);
-            bool isCreated = false;
+            MultiplayerResult? created = null;
             LobbyId lobby = LobbyId.None;
             _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, null, (reason, made) =>
             {
-                isCreated = true;
+                created = new MultiplayerResult(reason);
                 lobby = made;
             });
-            Pump(() => isCreated, 20);
-            Assert.That(lobby.IsValid, Is.True);
+            Pump(() => created.HasValue, CreateLobbySeconds);
+            Assert.That(lobby.IsValid, Is.True, CreateLobbyAnswer(created));
             Assert.That(IsOwnLobbyMember(lobby), Is.True);
             Assert.That(Steamworks.SteamNetworkingSockets.GetConnectionInfo(new Steamworks.HSteamNetConnection(first.Value), out _), Is.True);
             recorder.Events.Clear();
@@ -1397,7 +1400,7 @@ namespace Mu3Library.Tests
             options.Data["map"] = map;
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
-            Pump(manager, () => created.HasValue, 20);
+            Pump(manager, () => created.HasValue, CreateLobbySeconds);
             Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
             LobbyId lobby = manager.CurrentLobbyId;
@@ -1425,7 +1428,7 @@ namespace Mu3Library.Tests
 
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
-            Pump(manager, () => created.HasValue, 20);
+            Pump(manager, () => created.HasValue, CreateLobbySeconds);
             Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
             return manager.CurrentLobbyId;
         }
@@ -1436,7 +1439,7 @@ namespace Mu3Library.Tests
         /// </summary>
         private static string CreateLobbyAnswer(MultiplayerResult? created)
         {
-            return created.HasValue ? $"CreateLobby answered {created.Value}" : "CreateLobby did not answer within 20 seconds";
+            return created.HasValue ? $"CreateLobby answered {created.Value}" : $"CreateLobby did not answer within {CreateLobbySeconds} seconds";
         }
 
         private static LobbySearchQuery Worldwide() => new LobbySearchQuery { Distance = LobbyDistance.Worldwide };
