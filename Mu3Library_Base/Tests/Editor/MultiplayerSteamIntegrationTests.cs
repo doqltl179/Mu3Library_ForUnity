@@ -572,6 +572,42 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamLobby_DeletesAKeyWithNothingBeforeItsFirstNul_OnlyUntilASearchReturnsTheLobby()
+        {
+            // #405 on Steam itself, through the backend, since the manager refuses a NUL in lobby
+            // data. Such a key reaches Steam as the empty key (#387), which the owner's copy of the
+            // lobby holds from the write until a search returns the lobby from Steam's servers:
+            // until then Steam deletes it and answers true, and after it false, as for a key the
+            // lobby lacks (#343). The local backends write no such key and answer false at once.
+            MultiplayerManager manager = new MultiplayerManager();
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(SearchUntil(manager, Worldwide, lobby), Is.Not.Null, "the lobby never showed up in the library's search");
+
+                Assert.That(_backend.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key right after the write");
+                Assert.That(_backend.DeleteLobbyData(lobby, "\0lead"), Is.True, "right after the write");
+                Assert.That(_backend.GetLobbyData(lobby, "\0lead"), Is.Null);
+
+                // Neither 30 seconds nor a later change of the data took the key from the owner's
+                // lobby on 2026-11-12; a search that returned the lobby with that change did.
+                Assert.That(_backend.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+                Assert.That(_backend.SetLobbyData(lobby, "Mode", "coop"), Is.True);
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Mode", "coop"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the later change");
+                Pump(manager, () => !OwnLobbyGameKeys(lobby).Contains(string.Empty), 10);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Not.Contain(string.Empty), "the owner's lobby keeps the empty key after a search returned the lobby");
+                Assert.That(_backend.DeleteLobbyData(lobby, "\0lead"), Is.False, "once a search returned the lobby");
+                manager.Leave();
+            }
+            finally
+            {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamLobby_OpenedForAReturningPlayer_DuringAGameWithoutLateJoiners_StaysOutOfTheLibrarysSearch()
         {
             // FR-19, FR-20, #253: the host opens such a lobby while a player back in its slot is

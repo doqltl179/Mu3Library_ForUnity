@@ -147,6 +147,17 @@ namespace Mu3Library.Multiplayer.Backend
         /// (#343). Removes the key from the lobby, so lobby search no longer returns it or finds
         /// the lobby by it, except that a numeric filter reads a key the lobby lacks as 0, as
         /// Steam's search did (#353). The manager asks only for a key the lobby holds.
+        /// <para>
+        /// The key is taken as <see cref="SetLobbyData"/> takes it. A key with nothing before its
+        /// first NUL is answered differently on Steam and on the local backends. It reaches Steam
+        /// as the empty key, which the owner's copy of the lobby holds from the write until a
+        /// search returns the lobby from Steam's servers: until then Steam deletes it and answers
+        /// true, and after it false, as for a key the lobby lacks (AppID 480, 2026-11-12, #405;
+        /// neither 30 seconds nor a later change of the data ended it). The local backends write
+        /// no such key, so they answer false at once. They do not follow Steam's first answer,
+        /// which would mean keeping a key the lobby lacks until some search; only a caller of a
+        /// backend itself writes such a key.
+        /// </para>
         /// </summary>
         public bool DeleteLobbyData(LobbyId lobby, string key);
 
