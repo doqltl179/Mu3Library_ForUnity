@@ -557,7 +557,7 @@ namespace Mu3Library.Tests
                 Assert.That(mismatches, Is.Empty);
 
                 // The empty key that a key with nothing before its first NUL reached Steam as is
-                // gone from the owner's lobby once Steam's servers answered.
+                // gone from the owner's lobby once a search returned the lobby (#405).
                 List<string> owned = OwnLobbyGameKeys(lobby);
                 Assert.That(owned.Where(key => key.Length == 0), Is.Empty, $"the owner's lobby holds the game keys '{string.Join("', '", owned)}'");
 
@@ -583,6 +583,7 @@ namespace Mu3Library.Tests
             // until then Steam deletes it and answers true, and after it false, as for a key the
             // lobby lacks (#343). The local backends write no such key and answer false at once.
             MultiplayerManager manager = new MultiplayerManager();
+            Steamworks.Callback<Steamworks.LobbyDataUpdate_t> changed = null;
             try
             {
                 LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
@@ -596,7 +597,19 @@ namespace Mu3Library.Tests
                 // Neither 30 seconds nor a later change of the data took the key from the owner's
                 // lobby on 2026-11-12; a search that returned the lobby with that change did.
                 Assert.That(_backend.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key written again");
+                int updates = 0;
+                changed = Steamworks.Callback<Steamworks.LobbyDataUpdate_t>.Create(update =>
+                {
+                    if (update.m_ulSteamIDLobby == lobby.Value && update.m_ulSteamIDMember == lobby.Value)
+                    {
+                        updates++;
+                    }
+                });
                 Assert.That(_backend.SetLobbyData(lobby, "Mode", "coop"), Is.True);
+                Pump(manager, () => updates > 0, 10);
+                TestContext.WriteLine(updates > 0 ? "Steam answered the later change." : "Steam did not answer the later change within 10 seconds.");
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key after Steam answered the later change, or 10 seconds");
                 Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Mode", "coop"), lobby), Is.Not.Null,
                     "the lobby never showed up in a search filtered by the later change");
                 Pump(manager, () => !OwnLobbyGameKeys(lobby).Contains(string.Empty), 10);
@@ -606,6 +619,7 @@ namespace Mu3Library.Tests
             }
             finally
             {
+                changed?.Dispose();
                 manager.Dispose();
             }
         }

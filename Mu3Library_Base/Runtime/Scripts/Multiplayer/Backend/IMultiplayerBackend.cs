@@ -125,9 +125,10 @@ namespace Mu3Library.Multiplayer.Backend
         /// before the NUL, and keys that differ only after a NUL are one key. A value with nothing
         /// before its first NUL is an empty value, as above. A key with nothing before its first
         /// NUL reaches Steam as an empty key: Steam answered true for it, and the owner read the
-        /// value back at once, but its lobby kept no such key once Steam's servers answered and
-        /// search never returned it, so the local backends write no key and answer true for the
-        /// owner, while a key that is null or empty to begin with answers false on every backend.
+        /// value back at once, but its lobby kept no such key once a search returned the lobby
+        /// (#405, as <see cref="DeleteLobbyData"/> says) and search never returned the key, so the
+        /// local backends write no key and answer true for the owner, while a key that is null or
+        /// empty to begin with answers false on every backend.
         /// </para>
         /// <para>
         /// The manager refuses a NUL character and an unpaired surrogate in every text it writes
