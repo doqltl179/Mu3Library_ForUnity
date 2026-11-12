@@ -1485,6 +1485,12 @@ run_unity_for_target() {
         printf 'warning: %s: %s\n' "$target_key" "$UNREADABLE_PATHS_WARNING" >&2
     fi
 
+    # A script that sources this one defines after_unity_run to read the
+    # folder Unity opened as the project before an isolated mirror goes.
+    if declare -F after_unity_run >/dev/null; then
+        after_unity_run "$run_project_path"
+    fi
+
     cleanup_staging
 }
 

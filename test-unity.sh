@@ -44,6 +44,10 @@ DATA_STORE_LOSS_PID=""
 DATA_STORE_LOSS_TEST=""
 DATA_STORE_LOSS_ERROR=""
 RESULT_TESTS=()
+# When the Data Store service that find_data_store_loss named ended and with
+# what exit code, as read_data_store_end reads them from the helper's record.
+DATA_STORE_ENDED=""
+DATA_STORE_EXIT_CODE=""
 
 # How many spinners --load-spinners asks for, each a Python process that spins
 # a CPU core from the first test of a run until its last test ends, and how many
@@ -172,9 +176,9 @@ spinners with python or python3 of version 3.10 or later from PATH; without
 one, the processes go uncounted and --load-spinners stops the script before
 Unity starts. Each run keeps that record beside its results as
 <target>-<platform>.load. With --repeat, run <k> writes
-<target>-<platform>-run<k>.xml, .log, and .load instead, and the summary closes
-each target with the totals of its runs and, for each failed or inconclusive
-test, the number of runs it had that result in.
+<target>-<platform>-run<k>.xml, .log, .load, and .uds-service.log instead,
+and the summary closes each target with the totals of its runs and, for each
+failed or inconclusive test, the number of runs it had that result in.
 
 When Unity's Data Store service, the process that serves the Editor the files
 it imported, ends before the Editor does, Unity logs an error that fails the
@@ -183,6 +187,11 @@ service's process ID and that test under the run. When the test's failure
 message holds that error and nothing else, the summary says so, and a run
 whose one failure that was says that the failure came from the environment.
 It still fails, since that test reached no verdict: run the target again.
+The helper records in the .load record when each Data Store service of the
+run started and ended and its exit code, and a run whose Unity launched the
+service keeps the log the service wrote, the project's Logs/UDS-Service.log,
+as <target>-<platform>.uds-service.log. Under a run in which the service
+ended, the summary gives its exit code, when it ended, and that log.
 
 Where a target runs (in place, or in an isolated mirror while an Editor has the
 project open), how --editor-version retargets the mirror, the sample-link
@@ -647,14 +656,40 @@ failed_only_on_data_store_loss() {
     ' "$results_file"
 }
 
+# Sets DATA_STORE_ENDED and DATA_STORE_EXIT_CODE to when the Data Store
+# service whose process ID is given ended and with what exit code, as the
+# helper recorded them for a run, or to nothing for what it did not record.
+read_data_store_end() {
+    local record_file="$1"
+    local pid="$2"
+    local key
+    local value
+
+    DATA_STORE_ENDED=""
+    DATA_STORE_EXIT_CODE=""
+    [[ -n "$pid" && -f "$record_file" ]] || return 0
+
+    while IFS='=' read -r key value || [[ -n "$key" ]]; do
+        value="${value%$'\r'}"
+        case "$key" in
+            "data_store_${pid}_ended") DATA_STORE_ENDED="$value" ;;
+            "data_store_${pid}_exit_code") DATA_STORE_EXIT_CODE="$value" ;;
+        esac
+    done <"$record_file"
+}
+
 # Adds the end of Unity's Data Store service that find_data_store_loss found,
 # if it found one, under the summary entry of the run that test_target ran
-# last: as the environment's failure when the test that was running failed on
-# the error Unity logged for it and nothing else, given as 1, and as a warning
-# otherwise.
+# last, whose results are the files that start with the base given: as the
+# environment's failure when the test that was running failed on the error
+# Unity logged for it and nothing else, given as 1, and as a warning
+# otherwise. A line follows with when the service ended and its exit code, as
+# the helper recorded them, and the service's log that the run kept.
 add_data_store_loss_to_summary() {
     local failed_the_test="$1"
+    local base="$2"
     local line="Unity's Data Store service (pid $DATA_STORE_LOSS_PID) ended"
+    local kept_log="$base.uds-service.log"
 
     [[ -n "$DATA_STORE_LOSS_PID" ]] || return 0
 
@@ -667,6 +702,40 @@ add_data_store_loss_to_summary() {
     fi
     printf '  %s\n' "$line" >&2
     SUMMARY_LINES+=("  $line")
+
+    read_data_store_end "$base.load" "$DATA_STORE_LOSS_PID"
+    if [[ -n "$DATA_STORE_ENDED" && -n "$DATA_STORE_EXIT_CODE" ]]; then
+        line="pid $DATA_STORE_LOSS_PID exited with code $DATA_STORE_EXIT_CODE at $DATA_STORE_ENDED"
+    elif [[ -n "$DATA_STORE_ENDED" ]]; then
+        line="pid $DATA_STORE_LOSS_PID ended at $DATA_STORE_ENDED with an exit code that could not be read"
+    elif [[ -f "$kept_log" ]]; then
+        line="pid $DATA_STORE_LOSS_PID has no end in ${base#"$REPO_ROOT"/}.load"
+    else
+        return 0
+    fi
+    if [[ -f "$kept_log" ]]; then
+        line="$line; its log is kept as ${kept_log#"$REPO_ROOT"/}"
+    fi
+    printf '  data store service: %s\n' "$line" >&2
+    SUMMARY_LINES+=("  data store service: $line")
+}
+
+# Called by run_unity_for_target once Unity has exited, before it removes an
+# isolated mirror, with the folder Unity opened as the project. When Unity's
+# log says that it launched its Data Store service, this keeps the log the
+# service wrote there, Logs/UDS-Service.log, beside the run's results. Every
+# such run keeps it, since Unity logs a service's end only as it next reads an
+# imported file, so an end late in a run may never reach its log, and a
+# service that ended with its Editor gives the log to compare with. In a run
+# that launched no service, the log there is an earlier run's.
+after_unity_run() {
+    local service_log="$1/Logs/UDS-Service.log"
+    local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
+
+    grep -q -F 'Launching Unity Data Store' "$UNITY_LOG_FILE" 2>/dev/null || return 0
+    [[ -f "$service_log" ]] || return 0
+    cp -- "$service_log" "$kept_log" 2>/dev/null \
+        || printf 'warning: could not keep %s beside the results\n' "$service_log" >&2
 }
 
 record_failure() {
@@ -1048,8 +1117,9 @@ test_target() {
     fi
     UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.log"
     # The helper starts the load at the first test this run's Unity logs, so a
-    # log that an earlier run left must not be there for it to read.
-    rm -f -- "$UNITY_LOG_FILE"
+    # log that an earlier run left must not be there for it to read, and the
+    # Data Store service's log of an earlier run must not stand in either.
+    rm -f -- "$UNITY_LOG_FILE" "${results_file%.xml}.uds-service.log"
     RUN_COUNTS=()
     start_load_helper "${results_file%.xml}"
 
@@ -1076,19 +1146,19 @@ test_target() {
             stall_phrase="while no test was running"
         fi
         record_failure "$target_key" "Unity wrote nothing to its log for $UNITY_STALL_SECONDS s $stall_phrase, so the script stopped it; see ${UNITY_LOG_FILE#"$REPO_ROOT"/}"
-        add_data_store_loss_to_summary 0
+        add_data_store_loss_to_summary 0 "${results_file%.xml}"
         return 0
     fi
 
     if [[ ! -f "$results_file" ]]; then
         record_failure "$target_key" "Unity exited with $UNITY_STATUS and wrote no test results${unfinished:+ while running $unfinished}; see its log above"
-        add_data_store_loss_to_summary 0
+        add_data_store_loss_to_summary 0 "${results_file%.xml}"
         return 0
     fi
 
     if ! read_test_run_counts "$results_file"; then
         record_failure "$target_key" "could not read the test counts in ${results_file#"$REPO_ROOT"/}"
-        add_data_store_loss_to_summary 0
+        add_data_store_loss_to_summary 0 "${results_file%.xml}"
         return 0
     fi
     counts="$total tests, $passed passed, $failed failed, $skipped skipped, $inconclusive inconclusive"
@@ -1130,7 +1200,7 @@ test_target() {
         printf '%s tests passed for %s%s: %s\n' "$TEST_PLATFORM" "$target_key" "$RUN_LABEL" "$counts"
         SUMMARY_LINES+=("$target_key$RUN_LABEL: $counts")
     fi
-    add_data_store_loss_to_summary "$loss_failed_test"
+    add_data_store_loss_to_summary "$loss_failed_test" "${results_file%.xml}"
 }
 
 # Adds the warnings that run_unity_for_target gave about the Windows path limit
