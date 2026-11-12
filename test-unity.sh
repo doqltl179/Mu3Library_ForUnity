@@ -328,9 +328,74 @@ read_test_run_counts() {
     done
 }
 
+# Sets XML_TEXT to an XML attribute value with its references replaced by the
+# characters they stand for: the entities XML predefines, such as the &quot;
+# of a test case that takes a string, and the numeric character references,
+# whose characters it writes in UTF-8 whatever the locale. It reads the value
+# from left to right, so that the text an &amp; leaves is not read again, and
+# builds the text without ${var//pattern/replacement}, whose replacement
+# bash 5.2 reads an unquoted & in. A reference it does not know stays as it
+# is, as does one to a character that a bash string cannot hold or that is not
+# a character, such as &#0; or a surrogate.
+xml_attribute_text() {
+    local text="$1"
+    local pattern='^(quot|apos|lt|gt|amp|#[0-9]{1,7}|#x[0-9A-Fa-f]{1,6});'
+    local reference
+    local code
+    local bytes
+
+    XML_TEXT=""
+    while [[ "$text" == *'&'* ]]; do
+        XML_TEXT+="${text%%&*}"
+        text="${text#*&}"
+        if [[ ! "$text" =~ $pattern ]]; then
+            XML_TEXT+='&'
+            continue
+        fi
+        reference="${BASH_REMATCH[1]}"
+        case "$reference" in
+            quot) XML_TEXT+='"' ;;
+            apos) XML_TEXT+="'" ;;
+            lt) XML_TEXT+='<' ;;
+            gt) XML_TEXT+='>' ;;
+            amp) XML_TEXT+='&' ;;
+            *)
+                if [[ "$reference" == '#x'* ]]; then
+                    code=$((16#${reference#'#x'}))
+                else
+                    code=$((10#${reference#'#'}))
+                fi
+                if ((code == 0 || (code >= 0xD800 && code <= 0xDFFF) || code > 0x10FFFF)); then
+                    XML_TEXT+='&'
+                    continue
+                fi
+                # Octal escapes in a printf format write bytes, not characters
+                # of the locale.
+                if ((code < 0x80)); then
+                    printf -v bytes '\\%03o' "$code"
+                elif ((code < 0x800)); then
+                    printf -v bytes '\\%03o\\%03o' $((0xC0 | code >> 6)) $((0x80 | (code & 0x3F)))
+                elif ((code < 0x10000)); then
+                    printf -v bytes '\\%03o\\%03o\\%03o' $((0xE0 | code >> 12)) \
+                        $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+                else
+                    printf -v bytes '\\%03o\\%03o\\%03o\\%03o' $((0xF0 | code >> 18)) \
+                        $((0x80 | (code >> 12 & 0x3F))) $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+                fi
+                # shellcheck disable=SC2059
+                printf -v bytes "$bytes"
+                XML_TEXT+="$bytes"
+                ;;
+        esac
+        text="${text#"$reference";}"
+    done
+    XML_TEXT+="$text"
+}
+
 # Sets RESULT_TESTS to the full names of the test cases in an NUnit 3 result
-# file whose result is the one given, such as Failed or Inconclusive; a suite
-# whose tests all had that result is not one of them.
+# file whose result is the one given, such as Failed or Inconclusive, as the
+# tests have them, with the XML references of the result file replaced; a
+# suite whose tests all had that result is not one of them.
 find_tests_with_result() {
     local results_file="$1"
     local result="$2"
@@ -340,7 +405,8 @@ find_tests_with_result() {
     RESULT_TESTS=()
     while IFS= read -r test_case; do
         if [[ "$test_case" =~ $pattern ]]; then
-            RESULT_TESTS+=("${BASH_REMATCH[1]}")
+            xml_attribute_text "${BASH_REMATCH[1]}"
+            RESULT_TESTS+=("$XML_TEXT")
         fi
     done < <(grep -o "<test-case [^>]*result=\"$result\"[^>]*>" "$results_file" || true)
 }

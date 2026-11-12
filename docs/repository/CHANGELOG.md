@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-12
+
+### Fixed
+- `test-unity.sh` names failed and inconclusive tests as the tests name themselves, after their `error:` line, in the summary, and in the totals of `--repeat` (#397). It took each name from the `fullname` attribute of the NUnit result file without replacing its XML references, so a test case that takes a string, such as `WrapInDefineSymbol_WithoutSymbol_ReturnsTheScript("")`, was named `WrapInDefineSymbol_WithoutSymbol_ReturnsTheScript(&quot;&quot;)`, which matches no test, and differed from the name the script gives a test that stalled. It now replaces `&quot;`, `&apos;`, `&lt;`, `&gt;`, `&amp;`, and numeric character references, reading each name once from left to right, so that the `&quot;` an `&amp;quot;` leaves stays, and without bash's `${var//pattern/replacement}`, in which bash 5.2 turns an `&` back into the text it replaces.
+
 ## 2026-11-08
 
 ### Added

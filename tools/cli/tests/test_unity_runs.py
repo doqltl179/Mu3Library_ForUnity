@@ -555,6 +555,33 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         named = [line for line in completed.stdout.splitlines() if "inconclusive: " in line]
         self.assertEqual(["    inconclusive: Fixture.Tests.Waits"], named)
 
+    def test_failed_and_inconclusive_tests_are_named_as_the_tests_name_themselves(self) -> None:
+        # The result file writes a test case's string argument with the XML references of an
+        # attribute. An &amp; is read once, so the &quot; it leaves stays, and bash 5.2's
+        # patsub_replacement would have put the whole &amp; back for the & it stands for.
+        failed = ("Case(&quot;a &amp; b&quot;)", "Quote(&apos;&lt;T&gt;&apos;, &amp;quot;)")
+        inconclusive = ("Text(&quot;caf&#xE9; &#233; &#x1F600;&quot;)", "Odd(&foo; &#0;)")
+        completed = self.run_tests(
+            "leaf", results=nunit_results(passed=1, failed=failed, inconclusive=inconclusive), unity_status=2
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        errors = completed.stderr.splitlines()
+        start = errors.index("error: leaf: 5 tests, 1 passed, 2 failed, 0 skipped, 2 inconclusive")
+        text = f'Fixture.Tests.Text("caf{chr(0xE9)} {chr(0xE9)} {chr(0x1F600)}")'
+        self.assertEqual(
+            [
+                '  failed: Fixture.Tests.Case("a & b")',
+                "  failed: Fixture.Tests.Quote('<T>', &quot;)",
+                f"  inconclusive: {text}",
+                "  inconclusive: Fixture.Tests.Odd(&foo; &#0;)",
+            ],
+            errors[start + 1 : start + 5],
+        )
+        self.assertEqual(
+            [f"    inconclusive: {text}", "    inconclusive: Fixture.Tests.Odd(&foo; &#0;)"], self.summary(completed)[1:3]
+        )
+
     def summary(self, completed: subprocess.CompletedProcess[str]) -> list[str]:
         lines = completed.stdout.splitlines()
         return lines[lines.index("EditMode test summary:") + 1 :]
