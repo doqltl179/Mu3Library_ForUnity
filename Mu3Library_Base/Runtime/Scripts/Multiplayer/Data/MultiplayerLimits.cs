@@ -37,7 +37,8 @@ namespace Mu3Library.Multiplayer.Data
         /// network as a process sends a name and as it reads one, all cut with it, so every
         /// player keeps the same name. Half of a pair would reach the other processes through
         /// UTF-8 as U+FFFD while its own process kept the lone surrogate (#384). A surrogate the
-        /// name already held without its pair stays as it is.
+        /// name already held without its pair stays as it is; the host's roster then takes it as
+        /// U+FFFD (<see cref="Local.Utf8Text.AsCarried"/>, #398).
         /// </summary>
         internal static string CutPlayerName(string name)
         {
