@@ -916,7 +916,11 @@ namespace Mu3Library.Multiplayer
         private Participant ReadParticipant(ref PacketReader reader, PlayerId host)
         {
             PlayerId id = new PlayerId(reader.ReadULong());
-            string name = reader.ReadString(MaxPlayerNameBytes);
+
+            // A host of this library sends each name cut already, so only another host sends a
+            // longer one within MaxPlayerNameBytes. The client cuts it as the host does, once, as
+            // it arrives, so its roster holds what such a host would have sent (#399).
+            string name = MultiplayerLimits.CutPlayerName(reader.ReadString(MaxPlayerNameBytes));
             bool isReady = reader.ReadBool();
             bool isLateJoiner = reader.ReadBool();
             bool isConnected = reader.ReadBool();

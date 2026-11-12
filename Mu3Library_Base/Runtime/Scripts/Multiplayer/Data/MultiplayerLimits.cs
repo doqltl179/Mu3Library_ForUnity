@@ -23,7 +23,8 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// Longest player name, in characters, that the roster carries; longer names are cut to
         /// it, or to one character fewer when the cut would split a surrogate pair, such as an
-        /// emoji, so a cut name never ends in half of one.
+        /// emoji, so a cut name never ends in half of one. The host cuts the name its backend
+        /// reports, and a client cuts a longer name it reads from the host's packets the same way.
         /// </summary>
         public const int MaxPlayerNameLength = 64;
 
@@ -31,8 +32,9 @@ namespace Mu3Library.Multiplayer.Data
         /// <paramref name="name"/> cut as the roster cuts it: to <see cref="MaxPlayerNameLength"/>
         /// characters, or before a surrogate pair that the cut would split, so to one fewer. It
         /// is the same instance, without allocating, when it is no longer than that, so a name
-        /// cut once is never cut again. The manager's roster, and the frames of a machine-wide
-        /// local network as a process sends a name and as it reads one, all cut with it, so every
+        /// cut once is never cut again. The manager's roster, as the host builds it and as a
+        /// client reads it from the host's packets (#399), and the frames of a machine-wide local
+        /// network as a process sends a name and as it reads one, all cut with it, so every
         /// player keeps the same name. Half of a pair would reach the other processes through
         /// UTF-8 as U+FFFD while its own process kept the lone surrogate (#384). A surrogate the
         /// name already held without its pair stays as it is.
