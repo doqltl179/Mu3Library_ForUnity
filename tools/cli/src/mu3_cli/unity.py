@@ -643,8 +643,12 @@ def unlink_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[Sample
             results.append(SampleLinkResult(spec.key, True, f"Unlinked {link_label}, which pointed at {destination}."))
             continue
         if os.path.lexists(link_path):
-            kind = "folder" if link_path.is_dir() else "file"
-            message = f"error: {link_label} is a real {kind}, not a link; it was left untouched."
+            # is_directory_link accepts only symbolic links and junctions, so this also covers
+            # other reparse points, such as a cloud-synced folder.
+            message = (
+                f"error: {link_label} is not a sample link (a real folder, file, or other reparse point);"
+                " it was left untouched."
+            )
             results.append(SampleLinkResult(spec.key, False, message))
             continue
         results.append(SampleLinkResult(spec.key, True, f"Not linked: {link_label} does not exist."))

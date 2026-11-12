@@ -472,7 +472,9 @@ class SampleLinkTests(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assertEqual(
-            "error: Project/Assets/Samples is a real folder, not a link; it was left untouched.", result.message
+            "error: Project/Assets/Samples is not a sample link (a real folder, file, or other reparse point);"
+            " it was left untouched.",
+            result.message,
         )
         self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
 
@@ -482,7 +484,7 @@ class SampleLinkTests(unittest.TestCase):
         [result] = self.unlink_all()
 
         self.assertFalse(result.ok)
-        self.assertIn("is a real file, not a link; it was left untouched", result.message)
+        self.assertIn("Project/Assets/Samples is not a sample link", result.message)
         self.assertEqual("local\n", self.link.read_text(encoding="utf-8"))
 
     def test_unlink_without_a_link_reports_it_and_succeeds(self) -> None:
@@ -507,7 +509,7 @@ class SampleLinkTests(unittest.TestCase):
 
         self.assertEqual(1, result.exit_code, result.output)
         self.assertIn("[sample] Unlinked Project/Assets/Samples", result.output)
-        self.assertIn("[blocked] error: Blocked/Assets/Samples is a real folder", result.output)
+        self.assertIn("[blocked] error: Blocked/Assets/Samples is not a sample link", result.output)
         self.assertFalse(os.path.lexists(self.link))
         self.assertTrue((self.root / "Package" / "Samples~" / "Sample.cs").is_file())
         self.assertTrue((blocked / "Local.cs").is_file())
