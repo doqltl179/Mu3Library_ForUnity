@@ -187,7 +187,7 @@ namespace Mu3Library.Tests
                 MultiplayerResult? created = null;
                 manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" }, result => created = result);
                 Pump(manager, () => created.HasValue, 20);
-                Assert.That(created?.IsSuccess, Is.True);
+                Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
                 LobbyId lobby = manager.CurrentLobbyId;
                 Assert.That(_backend.IsLobbyMember(lobby, _backend.LocalPlayerId), Is.True);
@@ -1362,7 +1362,7 @@ namespace Mu3Library.Tests
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
             Pump(manager, () => created.HasValue, 20);
-            Assert.That(created?.IsSuccess, Is.True);
+            Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
             LobbyId lobby = manager.CurrentLobbyId;
             Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo(map));
@@ -1390,8 +1390,17 @@ namespace Mu3Library.Tests
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
             Pump(manager, () => created.HasValue, 20);
-            Assert.That(created?.IsSuccess, Is.True);
+            Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
             return manager.CurrentLobbyId;
+        }
+
+        /// <summary>
+        /// What <see cref="MultiplayerManager.CreateLobby"/> answered, for the message of an
+        /// assertion on it, so a failed creation shows its reason rather than only that it failed.
+        /// </summary>
+        private static string CreateLobbyAnswer(MultiplayerResult? created)
+        {
+            return created.HasValue ? $"CreateLobby answered {created.Value}" : "CreateLobby did not answer within 20 seconds";
         }
 
         private static LobbySearchQuery Worldwide() => new LobbySearchQuery { Distance = LobbyDistance.Worldwide };
