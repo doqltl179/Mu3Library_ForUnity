@@ -612,6 +612,45 @@ def link_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[SampleLi
     return results
 
 
+def unlink_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[SampleLinkResult]:
+    """Remove each target's samples link, whatever it points at, and nothing else.
+
+    On Windows `git worktree remove` stops at the first junction it meets and leaves the
+    worktree's folder behind, so the links go first. Only the link itself is removed, never the
+    folder it points at, and a real folder or file in the link's place is reported and left
+    untouched. A target without a link is reported as not linked, so the command can run again.
+    """
+    results: list[SampleLinkResult] = []
+    for spec in specs.values():
+        if spec.samples_link is None:
+            continue
+
+        link_path = root / spec.project_path / spec.samples_link
+        link_label = (spec.project_path / spec.samples_link).as_posix()
+
+        if is_directory_link(link_path):
+            samples_path = root / spec.samples_path
+            if link_path.exists() and samples_path.is_dir() and os.path.samefile(link_path, samples_path):
+                destination = spec.samples_path.as_posix()
+            else:
+                destination = _link_destination(link_path)
+            try:
+                remove_directory_link(link_path)
+            except OSError as error:
+                message = f"error: could not remove the link {link_label}: {error}"
+                results.append(SampleLinkResult(spec.key, False, message))
+                continue
+            results.append(SampleLinkResult(spec.key, True, f"Unlinked {link_label}, which pointed at {destination}."))
+            continue
+        if os.path.lexists(link_path):
+            kind = "folder" if link_path.is_dir() else "file"
+            message = f"error: {link_label} is a real {kind}, not a link; it was left untouched."
+            results.append(SampleLinkResult(spec.key, False, message))
+            continue
+        results.append(SampleLinkResult(spec.key, True, f"Not linked: {link_label} does not exist."))
+    return results
+
+
 def sample_link_diagnostic(spec: UnityTargetSpec, root: Path) -> UnityDiagnostic | None:
     current = sample_link_state(spec, root)
     if current is None:
@@ -1067,6 +1106,36 @@ def unity_link_samples(
         specs = {target: specs[target]}
 
     results = link_samples(specs, root)
+    for result in results:
+        typer.echo(f"[{result.target}] {result.message}", err=not result.ok)
+    if not results:
+        typer.echo("No configured target has a samples link.")
+    if not all(result.ok for result in results):
+        raise typer.Exit(code=1)
+
+
+@unity_app.command("unlink-samples")
+def unity_unlink_samples(
+    target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to unlink."),
+) -> None:
+    """Remove the samples links that link-samples created, before git worktree remove deletes a worktree.
+
+    Only each link is removed, never the Samples~ folder it points at. A real folder or file in
+    the link's place is reported and left untouched, and the command then exits with 1.
+    Run link-samples to restore the links.
+    """
+    root = repo_root()
+    try:
+        specs = load_target_specs(root)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+
+    if target is not None:
+        if target not in specs:
+            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
+        specs = {target: specs[target]}
+
+    results = unlink_samples(specs, root)
     for result in results:
         typer.echo(f"[{result.target}] {result.message}", err=not result.ok)
     if not results:
