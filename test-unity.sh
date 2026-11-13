@@ -55,17 +55,9 @@ DATA_STORE_EXIT_CODE=""
 # times --repeat runs each target.
 LOAD_SPINNERS=0
 REPEAT_COUNT=1
-# The helper that starts the spinners beside each run and counts the Unity
-# processes that are not the run's own, the Python that runs it, found by
-# find_load_python, or why there is none. The tool tests set
-# UNITY_LOAD_SPINNERS_IDLE=1 so that their spinners wait instead of spinning.
-readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_cli/fixed_load.py"
-LOAD_PYTHON=""
-LOAD_UNAVAILABLE=""
-LOAD_HELPER_PID=""
-LOAD_STOP_FILE=""
-# What the helper recorded for the run that test_target ran last, which
-# read_load_record reads.
+# What the helper that compile-unity.sh's start_load_helper starts beside each
+# run recorded for the run that test_target ran last, which read_load_record
+# reads.
 LOAD_STATE=""
 LOAD_CPUS=""
 LOAD_ENDED_BEFORE=""
@@ -729,24 +721,6 @@ add_data_store_loss_to_summary() {
     SUMMARY_LINES+=("  data store service: $line")
 }
 
-# Called by run_unity_for_target once Unity has exited, before it removes an
-# isolated mirror, with the folder Unity opened as the project. When Unity's
-# log says that it launched its Data Store service, this keeps the log the
-# service wrote there, Logs/UDS-Service.log, beside the run's results. Every
-# such run keeps it, since Unity logs a service's end only as it next reads an
-# imported file, so an end late in a run may never reach its log, and a
-# service that ended with its Editor gives the log to compare with. In a run
-# that launched no service, the log there is an earlier run's.
-after_unity_run() {
-    local service_log="$1/Logs/UDS-Service.log"
-    local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
-
-    grep -q -F 'Launching Unity Data Store' "$UNITY_LOG_FILE" 2>/dev/null || return 0
-    [[ -f "$service_log" ]] || return 0
-    cp -- "$service_log" "$kept_log" 2>/dev/null \
-        || printf 'warning: could not keep %s beside the results\n' "$service_log" >&2
-}
-
 record_failure() {
     local target_key="$1"
     local reason="$2"
@@ -754,82 +728,6 @@ record_failure() {
     printf 'error: %s%s: %s\n' "$target_key" "$RUN_LABEL" "$reason" >&2
     SUMMARY_LINES+=("$target_key$RUN_LABEL: FAILED, $reason")
     FAILED_TARGET_COUNT=$((FAILED_TARGET_COUNT + 1))
-}
-
-# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
-# later, the version mu3-cli needs, or LOAD_UNAVAILABLE to why the helper cannot
-# run. python comes first: on Windows python3 is often the stand-in of the
-# Microsoft Store, which only says how to install Python.
-find_load_python() {
-    local candidate
-
-    LOAD_PYTHON=""
-    LOAD_UNAVAILABLE=""
-    if [[ ! -f "$LOAD_HELPER" ]]; then
-        LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
-        return 1
-    fi
-    for candidate in python python3; do
-        if command -v "$candidate" >/dev/null 2>&1 \
-            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
-            LOAD_PYTHON="$candidate"
-            return 0
-        fi
-    done
-    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
-    return 1
-}
-
-# Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
-# record and stop files beside it. It counts the Unity processes that do not
-# descend from this script, whose Windows process ID it needs under Git Bash,
-# and starts the spinners waiting, to spin from the first test the log shows.
-start_load_helper() {
-    local base="$1"
-    local root_pid="$$"
-    local idle=()
-
-    LOAD_STOP_FILE="$base.load-stop"
-    rm -f -- "$base.load" "$LOAD_STOP_FILE"
-    [[ -n "$LOAD_PYTHON" ]] || return 0
-
-    if [[ -r "/proc/$$/winpid" ]]; then
-        read -r root_pid <"/proc/$$/winpid"
-    fi
-    if [[ "${UNITY_LOAD_SPINNERS_IDLE:-0}" == 1 ]]; then
-        idle=(--idle)
-    fi
-
-    "$LOAD_PYTHON" -I "$(to_windows_path "$LOAD_HELPER")" supervise \
-        --log "$(to_windows_path "$UNITY_LOG_FILE")" \
-        --spinners "$LOAD_SPINNERS" \
-        --root-pid "$root_pid" \
-        --stop "$(to_windows_path "$LOAD_STOP_FILE")" \
-        --record "$(to_windows_path "$base.load")" \
-        ${idle[@]+"${idle[@]}"} </dev/null &
-    LOAD_HELPER_PID=$!
-}
-
-# Tells the helper that the run ended, so that it stops the spinners and writes
-# its record, and waits for it; one that has not ended after 10 s is stopped
-# with every process it started. An exit, an interrupt included, calls it too.
-stop_load_helper() {
-    local helper_pid="$LOAD_HELPER_PID"
-    local look
-
-    LOAD_HELPER_PID=""
-    [[ -n "$helper_pid" ]] || return 0
-
-    : >"$LOAD_STOP_FILE" 2>/dev/null || true
-    for ((look = 0; look < 100; look++)); do
-        kill -0 "$helper_pid" 2>/dev/null || break
-        sleep 0.1
-    done
-    if kill -0 "$helper_pid" 2>/dev/null; then
-        stop_process_tree "$helper_pid"
-    fi
-    wait "$helper_pid" 2>/dev/null || true
-    rm -f -- "$LOAD_STOP_FILE"
 }
 
 # Reads the key=value lines the helper wrote for a run into the LOAD_ and
@@ -1126,11 +1024,10 @@ test_target() {
     fi
     UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.log"
     # The helper starts the load at the first test this run's Unity logs, so a
-    # log that an earlier run left must not be there for it to read, and the
-    # Data Store service's log of an earlier run must not stand in either.
-    rm -f -- "$UNITY_LOG_FILE" "${results_file%.xml}.uds-service.log"
+    # log that an earlier run left must not be there for it to read.
+    rm -f -- "$UNITY_LOG_FILE"
     RUN_COUNTS=()
-    start_load_helper "${results_file%.xml}"
+    start_load_helper "${results_file%.xml}" "$LOAD_SPINNERS"
 
     # -automated makes the Unity Test Framework log a line as each test begins
     # and ends, which names the test that a stalled or crashed run was in.
@@ -1311,8 +1208,8 @@ test_main() {
     else
         results_name="<target>-$PLATFORM_KEY"
     fi
-    printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s\n' \
-        "$results_name" "$results_name" "${LOAD_PYTHON:+ and load records as $results_name.load}"
+    printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s and Data Store service logs as %s.uds-service.log\n' \
+        "$results_name" "$results_name" "${LOAD_PYTHON:+, load records as $results_name.load,}" "$results_name"
 
     if [[ "$ENVIRONMENT_FAILED_COUNT" -gt 0 ]]; then
         environment_phrase="; $ENVIRONMENT_FAILED_COUNT of them failed only on the environment, as the summary says"

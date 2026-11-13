@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, LOAD_HELPER, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
@@ -27,9 +28,17 @@ from mu3_cli.unity import (
     unlink_samples,
 )
 
-# rm and sleep become shell functions, which take precedence over the commands on PATH.
-FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
-sleep() { :; }
+# rm and sleep become shell functions, which take precedence over the commands on PATH. rm fails
+# only for the isolated mirror, whose folder MIRROR_REMOVAL names, so that the run's records beside
+# its log are still replaced.
+MIRROR_REMOVAL = "*mu3library-unity-compile.*"
+FAILING_REMOVAL = f"""rm() {{
+    case "$*" in
+        {MIRROR_REMOVAL}) printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1 ;;
+    esac
+    command rm "$@"
+}}
+sleep() {{ :; }}
 """
 
 
@@ -72,12 +81,16 @@ class MirrorCleanupTests(FixtureRepositoryTestCase):
     def test_removal_retries_before_it_gives_up(self) -> None:
         # The first two attempts fail, as they do while a Unity child process still holds a file.
         # Each attempt runs in its own subshell, so a file counts them.
-        flaky_removal = """rm() {
-    printf x >> "$TMPDIR/removal-attempts"
-    if [[ "$(wc -c < "$TMPDIR/removal-attempts")" -le 2 ]]; then return 1; fi
+        flaky_removal = f"""rm() {{
+    case "$*" in
+        {MIRROR_REMOVAL})
+            printf x >> "$TMPDIR/removal-attempts"
+            if [[ "$(wc -c < "$TMPDIR/removal-attempts")" -le 2 ]]; then return 1; fi
+            ;;
+    esac
     command rm "$@"
-}
-sleep() { :; }
+}}
+sleep() {{ :; }}
 """
         completed = self.run_functions(
             "compile-unity.sh",
@@ -1032,8 +1045,8 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertEqual("  - leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive", summary[0])
         self.assertRegex(summary[1], OTHER_UNITY_PROCESSES)
         self.assertEqual(
-            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log "
-            "and load records as <target>-editmode.load",
+            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log, "
+            "load records as <target>-editmode.load, and Data Store service logs as <target>-editmode.uds-service.log",
             summary[2],
         )
         self.assertNotIn("load: ", completed.stdout)
@@ -1052,7 +1065,11 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(f"warning: other Unity processes will not be counted: {missing}", completed.stderr)
         self.assertIn(f"    other Unity processes: not counted, {missing}", self.summary(completed))
-        self.assertNotIn("load records", completed.stdout)
+        self.assertIn(
+            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log "
+            "and Data Store service logs as <target>-editmode.uds-service.log",
+            completed.stdout.splitlines(),
+        )
 
         completed = self.run_tests("leaf", "--load-spinners", "2", results=nunit_results())
 
@@ -1143,8 +1160,9 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
                 "    failed in 2 of 4 runs: Fixture.Tests.Breaks",
                 "    inconclusive in 1 of 4 runs: Fixture.Tests.Waits",
                 "<over runs>",
-                "Results: log/unity-tests/<target>-editmode-run<k>.xml, with Unity logs as <target>-editmode-run<k>.log "
-                "and load records as <target>-editmode-run<k>.load",
+                "Results: log/unity-tests/<target>-editmode-run<k>.xml, with Unity logs as <target>-editmode-run<k>.log, "
+                "load records as <target>-editmode-run<k>.load, and Data Store service logs as "
+                "<target>-editmode-run<k>.uds-service.log",
             ],
             summary,
         )
@@ -1452,6 +1470,104 @@ class CompileLogTests(FixtureRepositoryTestCase):
                 self.assertTrue(ran[0].endswith("/ProjShared"), ran[0])
                 self.assertNotIn("Compiling layered", completed.stdout)
                 self.assertNotIn("Unity compilation succeeded", completed.stdout)
+
+    def test_a_compile_keeps_the_record_of_its_data_store_service_and_the_service_s_log(self) -> None:
+        # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
+        service_log = "Starting Unity Data Store Application\nShut down UDS service system complete"
+        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log=service_log)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Compiling leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
+        self.assertEqual([], self.mirrors_left())
+        logs = self.log_file("leaf").parent
+        self.assertEqual(f"{service_log}\n", (logs / "leaf.uds-service.log").read_text(encoding="utf-8"))
+        # The helper ran beside the compile, without spinners; the fake is not a child of the
+        # script as Windows sees it, so it finds no service (DataStoreRecordTests finds one).
+        record = read_record(logs / "leaf.load")
+        self.assertEqual(("0", "", "yes", ""), (record["spinners"], record["data_store_pids"], record["complete"], record["error"]))
+        self.assertEqual([], list(logs.glob("*.load-stop")))
+        self.assertNotIn("will not be recorded", completed.stderr)
+
+    def test_a_compile_whose_unity_did_not_launch_the_service_keeps_no_service_log(self) -> None:
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        project_logs = self.root / "ProjLeaf" / "Logs"
+        project_logs.mkdir()
+        self.addCleanup(shutil.rmtree, project_logs)
+        (project_logs / "UDS-Service.log").write_text("an earlier run's service\n", encoding="utf-8")
+        kept = self.log_file("leaf").with_name("leaf.uds-service.log")
+        kept.parent.mkdir(parents=True)
+        kept.write_text("kept by an earlier run\n", encoding="utf-8")
+
+        completed = self.compile("leaf", log="Compiling scripts")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertFalse(kept.exists())
+        self.assertEqual("an earlier run's service\n", (project_logs / "UDS-Service.log").read_text(encoding="utf-8"))
+
+    def test_without_the_helper_a_compile_warns_and_keeps_only_the_service_s_log(self) -> None:
+        helper = self.root / LOAD_HELPER
+        moved = helper.with_name("fixed_load.py.away")
+        helper.rename(moved)
+        self.addCleanup(moved.rename, helper)
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        record = self.log_file("leaf").with_name("leaf.load")
+        record.parent.mkdir(parents=True)
+        record.write_text("complete=yes\n", encoding="utf-8")
+
+        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log="Shut down")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(
+            "warning: the Data Store service of each run will not be recorded: "
+            "tools/cli/src/mu3_cli/fixed_load.py is missing",
+            completed.stderr.splitlines(),
+        )
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+        # The record an earlier run left does not stand in for this one's.
+        self.assertFalse(record.exists())
+        self.assertEqual("Shut down\n", record.with_name("leaf.uds-service.log").read_text(encoding="utf-8"))
+
+
+@unittest.skipUnless(platform.system() == "Windows", "a stand-in service needs a native Windows program to run")
+class DataStoreRecordTests(FixtureRepositoryTestCase):
+    """The helper that compile-unity.sh starts beside a run records the service the run starts.
+
+    Under Git Bash a program that runs another one built for it, as the fake Unity does, leaves the
+    tree that Windows sees, so the service has to be a native program that the script runs itself,
+    as Unity runs its service: a copy of cmd.exe named as Unity names the service.
+    """
+
+    def test_the_record_gives_the_end_and_the_exit_code_of_a_service_that_descends_from_the_script(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        service = Path(directory.name) / fixed_load.default_data_store_process_name()
+        shutil.copy2(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cmd.exe", service)
+        base = Path(directory.name) / "leaf"
+
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'find_load_python || { printf "%s\\n" "$LOAD_UNAVAILABLE"; exit 2; }\n'
+            'UNITY_LOG_FILE="$2.log"\n'
+            'start_load_helper "$2"\n'
+            "status=0\n"
+            # The service lives about a second, several of the helper's looks.
+            'MSYS2_ARG_CONV_EXCL="*" "$1" /d /c "ping -n 2 127.0.0.1 >nul & exit 7" || status=$?\n'
+            "stop_load_helper\n"
+            'printf "service exited with %s\\n" "$status"\n',
+            service.as_posix(),
+            base.as_posix(),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        self.assertIn("service exited with 7", completed.stdout.splitlines())
+        record = read_record(base.with_name("leaf.load"))
+        self.assertEqual(("0", "yes"), (record["spinners"], record["complete"]))
+        [pid] = record["data_store_pids"].split()
+        self.assertEqual("7", record[f"data_store_{pid}_exit_code"])
+        started = datetime.fromisoformat(record[f"data_store_{pid}_started"])
+        ended = datetime.fromisoformat(record[f"data_store_{pid}_ended"])
+        self.assertLess(started, ended)
+        self.assertFalse(base.with_name("leaf.load-stop").exists())
 
 
 class UnfinishedTestTests(FixtureRepositoryTestCase):

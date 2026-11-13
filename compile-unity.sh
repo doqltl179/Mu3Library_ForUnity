@@ -77,6 +77,16 @@ readonly LONGEST_PROJECT_FILE_PATH=161
 PATH_LIMIT_WARNING=""
 UNREADABLE_PATHS_WARNING=""
 COMPILE_WARNINGS=()
+# The helper that runs beside each run of a target, the Python that runs it,
+# found by find_load_python, or why there is none. It records when each Unity
+# Data Store service of the run started and ended and its exit code, and counts
+# the Unity processes that are not the run's own; test-unity.sh also has it put
+# its runs under a fixed load.
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_cli/fixed_load.py"
+LOAD_PYTHON=""
+LOAD_UNAVAILABLE=""
+LOAD_HELPER_PID=""
+LOAD_STOP_FILE=""
 
 SKIP_SAMPLES=0
 readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
@@ -331,6 +341,14 @@ The script prints Unity's log as Unity writes it and keeps it in
 log/unity-compile/<target>.log. A compile that stops writing, such as one
 waiting on a dialog that batch mode cannot show, is stopped with its child
 processes after --stall-timeout seconds and fails its target.
+
+Beside that log, a helper run with python or python3 of version 3.10 or later
+from PATH records in <target>.load when each Unity Data Store service of the
+run, the process that serves the Editor the files it imported, started and
+ended and its exit code, and a run whose Unity launched the service keeps the
+log the service wrote, the project's Logs/UDS-Service.log, as
+<target>.uds-service.log, also from an isolated mirror. The script judges
+neither; without the Python, it warns and records no service.
 EOF
 }
 
@@ -1359,6 +1377,86 @@ stop_process_tree() {
     done
 }
 
+# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
+# later, the version mu3-cli needs, or LOAD_UNAVAILABLE to why the helper cannot
+# run. python comes first: on Windows python3 is often the stand-in of the
+# Microsoft Store, which only says how to install Python.
+find_load_python() {
+    local candidate
+
+    LOAD_PYTHON=""
+    LOAD_UNAVAILABLE=""
+    if [[ ! -f "$LOAD_HELPER" ]]; then
+        LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
+        return 1
+    fi
+    for candidate in python python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+            LOAD_PYTHON="$candidate"
+            return 0
+        fi
+    done
+    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
+    return 1
+}
+
+# Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
+# record, <base>.load, and its stop file beside it, after removing a record an
+# earlier run left. It watches the run's Data Store service and counts the
+# Unity processes that do not descend from this script, whose Windows process
+# ID it needs under Git Bash. Given a number of spinners, it starts them
+# waiting, to spin from the first test the log shows; the tool tests set
+# UNITY_LOAD_SPINNERS_IDLE=1 so that they wait instead of spinning.
+start_load_helper() {
+    local base="$1"
+    local spinners="${2:-0}"
+    local root_pid="$$"
+    local idle=()
+
+    LOAD_STOP_FILE="$base.load-stop"
+    rm -f -- "$base.load" "$LOAD_STOP_FILE"
+    [[ -n "$LOAD_PYTHON" ]] || return 0
+
+    if [[ -r "/proc/$$/winpid" ]]; then
+        read -r root_pid <"/proc/$$/winpid"
+    fi
+    if [[ "${UNITY_LOAD_SPINNERS_IDLE:-0}" == 1 ]]; then
+        idle=(--idle)
+    fi
+
+    "$LOAD_PYTHON" -I "$(to_windows_path "$LOAD_HELPER")" supervise \
+        --log "$(to_windows_path "$UNITY_LOG_FILE")" \
+        --spinners "$spinners" \
+        --root-pid "$root_pid" \
+        --stop "$(to_windows_path "$LOAD_STOP_FILE")" \
+        --record "$(to_windows_path "$base.load")" \
+        ${idle[@]+"${idle[@]}"} </dev/null &
+    LOAD_HELPER_PID=$!
+}
+
+# Tells the helper that the run ended, so that it stops the spinners and writes
+# its record, and waits for it; one that has not ended after 10 s is stopped
+# with every process it started. An exit, an interrupt included, calls it too.
+stop_load_helper() {
+    local helper_pid="$LOAD_HELPER_PID"
+    local look
+
+    LOAD_HELPER_PID=""
+    [[ -n "$helper_pid" ]] || return 0
+
+    : >"$LOAD_STOP_FILE" 2>/dev/null || true
+    for ((look = 0; look < 100; look++)); do
+        kill -0 "$helper_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if kill -0 "$helper_pid" 2>/dev/null; then
+        stop_process_tree "$helper_pid"
+    fi
+    wait "$helper_pid" 2>/dev/null || true
+    rm -f -- "$LOAD_STOP_FILE"
+}
+
 # Sets UNITY_CLOCK to the time in microseconds. Bash 5 reads it to the
 # microsecond from EPOCHREALTIME, whose decimal separator follows the locale.
 # An older bash, such as the 3.2 that macOS ships, has only SECONDS, which
@@ -1474,6 +1572,8 @@ run_unity_for_target() {
     fi
 
     unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
+    # The Data Store service's log of an earlier run must not stand in for this one's.
+    rm -f -- "${UNITY_LOG_FILE%.log}.uds-service.log"
     UNITY_STALLED=0
     set +e
     run_unity_logged "${unity_command[@]}"
@@ -1485,13 +1585,26 @@ run_unity_for_target() {
         printf 'warning: %s: %s\n' "$target_key" "$UNREADABLE_PATHS_WARNING" >&2
     fi
 
-    # A script that sources this one defines after_unity_run to read the
-    # folder Unity opened as the project before an isolated mirror goes.
-    if declare -F after_unity_run >/dev/null; then
-        after_unity_run "$run_project_path"
-    fi
-
+    keep_data_store_service_log "$run_project_path"
     cleanup_staging
+}
+
+# Keeps the log that Unity's Data Store service wrote in the folder Unity
+# opened as the project, Logs/UDS-Service.log, beside Unity's log as
+# <name>.uds-service.log, when Unity's log says that it launched the service;
+# run_unity_for_target calls it before an isolated mirror goes. Every such run
+# keeps it, since Unity logs a service's end only as it next reads an imported
+# file, so an end late in a run may never reach its log, and a service that
+# ended with its Editor gives the log to compare with. In a run that launched
+# no service, the log there is an earlier run's.
+keep_data_store_service_log() {
+    local service_log="$1/Logs/UDS-Service.log"
+    local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
+
+    grep -q -F 'Launching Unity Data Store' "$UNITY_LOG_FILE" 2>/dev/null || return 0
+    [[ -f "$service_log" ]] || return 0
+    cp -- "$service_log" "$kept_log" 2>/dev/null \
+        || printf 'warning: could not keep %s beside the results\n' "$service_log" >&2
 }
 
 compile_target() {
@@ -1500,7 +1613,12 @@ compile_target() {
 
     mkdir -p "$COMPILE_LOG_DIR"
     UNITY_LOG_FILE="$COMPILE_LOG_DIR/$target_key.log"
+    # The helper records the run's Data Store service in <target>.load, as for
+    # a test run; a compile judges neither the service nor the other Unity
+    # processes the helper counts.
+    start_load_helper "$COMPILE_LOG_DIR/$target_key"
     run_unity_for_target "$target_key" "Compiling" -quit
+    stop_load_helper
     for warning in "$PATH_LIMIT_WARNING" "$UNREADABLE_PATHS_WARNING"; do
         if [[ -n "$warning" ]]; then
             COMPILE_WARNINGS+=("$target_key: $warning")
@@ -1635,9 +1753,13 @@ compile_main() {
         exit 0
     fi
 
-    trap cleanup_staging EXIT
+    # The helper that a run starts stops with the script, however it ends.
+    trap 'stop_load_helper; cleanup_staging' EXIT
 
     preflight_selected_targets || fail "preflight failed; no projects were compiled"
+    if ! find_load_python; then
+        printf 'warning: the Data Store service of each run will not be recorded: %s\n' "$LOAD_UNAVAILABLE" >&2
+    fi
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
         compile_target "$target_key"
