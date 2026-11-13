@@ -92,6 +92,21 @@ REPEAT_OTHERS_HIGH=""
 # ended, and those of them whose one failure came from it.
 REPEAT_DATA_STORE_LOSSES=0
 REPEAT_ENVIRONMENT_FAILED_RUNS=0
+# The totals that [CountedRepeat] logged for the tests it ran many times in the
+# run that test_target ran last, which find_counted_repeats reads: each test's
+# full name, its counts as "<ended> <runs> <passed> <failed> <inconclusive>
+# <skipped>", and its failure rate as the line gives it. Under --repeat, the
+# counts of each such test summed over a target's runs, and how many of the runs
+# gave them.
+COUNTED_REPEAT_TESTS=()
+COUNTED_REPEAT_COUNTS=()
+COUNTED_REPEAT_RATES=()
+REPEAT_COUNTED_REPEAT_TESTS=()
+REPEAT_COUNTED_REPEAT_COUNTS=()
+REPEAT_COUNTED_REPEAT_RUNS=()
+# What compute_failure_rate and counted_repeat_phrase set.
+FAILURE_RATE=""
+COUNTED_REPEAT_PHRASE=""
 
 usage() {
     local i
@@ -172,6 +187,13 @@ Unity starts. Each run keeps that record beside its results as
 <target>-<platform>-run<k>.xml, .log, .load, and .uds-service.log instead,
 and the summary closes each target with the totals of its runs and, for each
 failed or inconclusive test, the number of runs it had that result in.
+
+A test that [CountedRepeat] runs many times in one Unity counts as one test.
+The totals the attribute logs for it in Unity's log, its runs and how many
+passed, failed, were inconclusive, and were skipped, and its failure rate, the
+summary gives under the run as "counted repeat: <full name>: ..."; with
+--repeat, the target's totals add them up over its runs, with the failure rate
+of the sums.
 
 When Unity's Data Store service, the process that serves the Editor the files
 it imported, ends before the Editor does, Unity logs an error that fails the
@@ -858,6 +880,112 @@ add_load_to_summary() {
     done
 }
 
+# Sets COUNTED_REPEAT_TESTS, COUNTED_REPEAT_COUNTS, and COUNTED_REPEAT_RATES
+# from the lines of a Unity log in which [CountedRepeat], an attribute of the
+# Base EditMode tests (Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs),
+# gives the totals of a test it ran many times in one Unity:
+#   [Repeat] <full name>: totals: runs <ended> of <runs>, passed <p>,
+#   failed <f>, inconclusive <i>, skipped <s>, failure rate <rate>
+# on one line, where the rate is a percentage or "none, no run ended". The name
+# is the longest that leaves the rest of the line in that form, so a test
+# case's string argument may hold any of it; a line that quotes the totals
+# after another start, such as the ##utp: line of a test's failure, is not one.
+find_counted_repeats() {
+    local log_file="$1"
+    local line
+    local count='(0|[1-9][0-9]*)'
+    local pattern="^\\[Repeat\\] (.+): totals: runs $count of $count, passed $count, failed $count, inconclusive $count, skipped $count, failure rate ([0-9]+\\.[0-9]+%|none, no run ended)\$"
+
+    COUNTED_REPEAT_TESTS=()
+    COUNTED_REPEAT_COUNTS=()
+    COUNTED_REPEAT_RATES=()
+    [[ -f "$log_file" ]] || return 0
+
+    while IFS= read -r line; do
+        line="${line%$'\r'}"
+        if [[ "$line" =~ $pattern ]]; then
+            COUNTED_REPEAT_TESTS+=("${BASH_REMATCH[1]}")
+            COUNTED_REPEAT_COUNTS+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]} ${BASH_REMATCH[5]} ${BASH_REMATCH[6]} ${BASH_REMATCH[7]}")
+            COUNTED_REPEAT_RATES+=("${BASH_REMATCH[8]}")
+        fi
+    done < <(grep -a '^\[Repeat] .*: totals: runs ' "$log_file" || true)
+}
+
+# Sets COUNTED_REPEAT_PHRASE to counts, as COUNTED_REPEAT_COUNTS keeps them,
+# and a failure rate in the words of [CountedRepeat]'s totals line.
+counted_repeat_phrase() {
+    local ended
+    local runs
+    local passed
+    local failed
+    local inconclusive
+    local skipped
+
+    read -r ended runs passed failed inconclusive skipped <<<"$1"
+    COUNTED_REPEAT_PHRASE="runs $ended of $runs, passed $passed, failed $failed, inconclusive $inconclusive, skipped $skipped, failure rate $2"
+}
+
+# Sets FAILURE_RATE to the share of the runs that ended, given first, that
+# failed, given second, as [CountedRepeat] gives it: a percentage to two
+# decimals, with a half rounded up, or "none, no run ended".
+compute_failure_rate() {
+    local ended="$1"
+    local failed="$2"
+    local hundredths
+
+    if [[ "$ended" -eq 0 ]]; then
+        FAILURE_RATE="none, no run ended"
+        return 0
+    fi
+    hundredths=$(((failed * 20000 + ended) / (2 * ended)))
+    printf -v FAILURE_RATE '%d.%02d%%' "$((hundredths / 100))" "$((hundredths % 100))"
+}
+
+# Adds the totals that [CountedRepeat] logged in the run that test_target ran
+# last under its summary entry, a line for each test, since the run's counts
+# take such a test as one test however many times it ran.
+add_counted_repeats_to_summary() {
+    local i
+
+    find_counted_repeats "$UNITY_LOG_FILE"
+    for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
+        counted_repeat_phrase "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"
+        SUMMARY_LINES+=("  counted repeat: ${COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+    done
+}
+
+# Adds the counts that [CountedRepeat] gave for a test in the run that
+# test_target ran last to the totals of its target, and the run to the runs
+# that gave them unless the third argument says, with 1, that the run gave
+# that test's totals before.
+tally_counted_repeat() {
+    local test_name="$1"
+    local counts="$2"
+    local seen_in_run="$3"
+    local added=()
+    local sums=()
+    local i
+    local k
+
+    for ((i = 0; i < ${#REPEAT_COUNTED_REPEAT_TESTS[@]}; i++)); do
+        if [[ "${REPEAT_COUNTED_REPEAT_TESTS[$i]}" == "$test_name" ]]; then
+            read -r -a added <<<"$counts"
+            read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
+            for ((k = 0; k < 6; k++)); do
+                sums[$k]=$((sums[$k] + added[$k]))
+            done
+            REPEAT_COUNTED_REPEAT_COUNTS[$i]="${sums[*]}"
+            if [[ "$seen_in_run" -eq 0 ]]; then
+                REPEAT_COUNTED_REPEAT_RUNS[$i]=$((REPEAT_COUNTED_REPEAT_RUNS[$i] + 1))
+            fi
+            return 0
+        fi
+    done
+    REPEAT_COUNTED_REPEAT_TESTS+=("$test_name")
+    REPEAT_COUNTED_REPEAT_COUNTS+=("$counts")
+    REPEAT_COUNTED_REPEAT_RUNS+=(1)
+}
+
 # Adds a test that had the result given, Failed or Inconclusive, in the run
 # that test_target ran last to the totals of the target's runs.
 tally_repeated_test() {
@@ -877,17 +1005,30 @@ tally_repeated_test() {
 }
 
 # Adds the run that test_target ran last, whose results file is given and
-# which failed when the second argument is 1, to the totals of its target.
+# which failed when the second argument is 1, to the totals of its target,
+# with the totals that [CountedRepeat] logged in it, as
+# add_counted_repeats_to_summary read them, even when it wrote no results.
 add_run_to_repeat_totals() {
     local results_file="$1"
     local run_failed="$2"
     local i
+    local j
+    local seen_in_run
     local result
     local test_name
 
     if [[ "$run_failed" -eq 1 ]]; then
         REPEAT_FAILED_RUNS=$((REPEAT_FAILED_RUNS + 1))
     fi
+    for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
+        seen_in_run=0
+        for ((j = 0; j < i; j++)); do
+            if [[ "${COUNTED_REPEAT_TESTS[$j]}" == "${COUNTED_REPEAT_TESTS[$i]}" ]]; then
+                seen_in_run=1
+            fi
+        done
+        tally_counted_repeat "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "$seen_in_run"
+    done
     [[ "${#RUN_COUNTS[@]}" -eq 5 ]] || return 0
 
     REPEAT_COUNTED_RUNS=$((REPEAT_COUNTED_RUNS + 1))
@@ -904,10 +1045,13 @@ add_run_to_repeat_totals() {
 
 # Adds the totals of a target's runs to the summary: how many runs failed, the
 # sums of the counts of those that wrote results, the runs in which each test
-# failed or was inconclusive, and the fewest and most other Unity processes.
+# failed or was inconclusive, the sums of the totals that [CountedRepeat]
+# logged for each test with the failure rate of those sums, and the fewest and
+# most other Unity processes.
 add_repeat_totals_to_summary() {
     local target_key="$1"
     local counts="no run wrote results"
+    local sums=()
     local i
 
     if [[ "$REPEAT_COUNTED_RUNS" -gt 0 ]]; then
@@ -924,6 +1068,13 @@ add_repeat_totals_to_summary() {
         else
             SUMMARY_LINES+=("  inconclusive in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
         fi
+    done
+
+    for ((i = 0; i < ${#REPEAT_COUNTED_REPEAT_TESTS[@]}; i++)); do
+        read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
+        compute_failure_rate "${sums[0]}" "${sums[3]}"
+        counted_repeat_phrase "${REPEAT_COUNTED_REPEAT_COUNTS[$i]}" "$FAILURE_RATE"
+        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
     done
 
     if [[ "$REPEAT_DATA_STORE_LOSSES" -gt 0 ]]; then
@@ -972,6 +1123,9 @@ test_target_repeatedly() {
     REPEAT_OTHERS_HIGH=""
     REPEAT_DATA_STORE_LOSSES=0
     REPEAT_ENVIRONMENT_FAILED_RUNS=0
+    REPEAT_COUNTED_REPEAT_TESTS=()
+    REPEAT_COUNTED_REPEAT_COUNTS=()
+    REPEAT_COUNTED_REPEAT_RUNS=()
 
     for ((run = 1; run <= REPEAT_COUNT; run++)); do
         # Numbers as wide as the count keep the files of the runs in order.
@@ -988,6 +1142,7 @@ test_target_repeatedly() {
         if [[ "$ENVIRONMENT_FAILED_COUNT" -gt "$environment_failed_before" ]]; then
             REPEAT_ENVIRONMENT_FAILED_RUNS=$((REPEAT_ENVIRONMENT_FAILED_RUNS + 1))
         fi
+        add_counted_repeats_to_summary
         add_path_limit_warnings_to_summary
         add_load_to_summary
         add_run_to_repeat_totals "$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.xml" \
@@ -1197,6 +1352,7 @@ test_main() {
             test_target_repeatedly "$target_key"
         else
             test_target "$target_key"
+            add_counted_repeats_to_summary
             add_path_limit_warnings_to_summary
             add_load_to_summary
         fi

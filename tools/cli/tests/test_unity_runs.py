@@ -340,6 +340,18 @@ def utp_status(phase: str, name: str, message: str = "") -> str:
     )
 
 
+def counted_repeat_totals(
+    name: str, ended: int, runs: int, passed: int, failed: int = 0, inconclusive: int = 0, skipped: int = 0
+) -> str:
+    """The line [CountedRepeat] logs once the runs of the test named have ended, as Tally.Totals in
+    Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes it."""
+    rate = f"{100.0 * failed / ended:.2f}%" if ended else "none, no run ended"
+    return (
+        f"[Repeat] {name}: totals: runs {ended} of {runs}, passed {passed}, failed {failed}, "
+        f"inconclusive {inconclusive}, skipped {skipped}, failure rate {rate}"
+    )
+
+
 def data_store_loss_log(running: str | None) -> str:
     """Unity's log of a run whose Data Store service ended while the test named ran, or between two tests.
 
@@ -1211,6 +1223,87 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             summary[: len(summary) - 2],
         )
 
+    def test_a_run_gives_the_totals_that_counted_repeat_logged_for_each_test(self) -> None:
+        # The name keeps what a test case's string argument may hold, the text that precedes the
+        # totals included; a line that quotes the totals inside another, such as a test's failure
+        # message, is not one; and Unity's log may end its lines in CR LF.
+        name = 'Fixture.Tests.Case("a: totals: b")'
+        log = "\r\n".join(
+            [
+                f"[Repeat] {name}: start, runs 400 (MU3LIBRARY_TEST_REPEAT=400)",
+                f"[Repeat] {name}: run 1 of 400: Passed in 274.4 ms",
+                counted_repeat_totals(name, 400, 400, passed=398, failed=2),
+                utp_status("End", name, counted_repeat_totals(name, 1, 1, passed=0, failed=1)),
+                counted_repeat_totals("Fixture.Tests.Stopped", 3, 10, passed=2, inconclusive=1),
+            ]
+        )
+
+        completed = self.run_tests("leaf", results=nunit_results(passed=2), log=log)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = self.summary(completed)
+        self.assertEqual(
+            [
+                "  - leaf: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {name}: runs 400 of 400, passed 398, failed 2, inconclusive 0, skipped 0, "
+                "failure rate 0.50%",
+                "    counted repeat: Fixture.Tests.Stopped: runs 3 of 10, passed 2, failed 0, inconclusive 1, skipped 0, "
+                "failure rate 0.00%",
+            ],
+            summary[:3],
+        )
+        self.assertRegex(summary[3], OTHER_UNITY_PROCESSES)
+        self.assertTrue(summary[4].startswith("Results: "), summary)
+
+    def test_the_totals_of_repeated_runs_sum_what_counted_repeat_logged_in_each(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        repeated = "Fixture.Tests.Repeated"
+        cancelled = "Fixture.Tests.Cancelled"
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "3",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results_1=nunit_results(passed=0, failed=("Repeated",)),
+            log_1=counted_repeat_totals(repeated, 2, 2, passed=1, failed=1),
+            results_2=nunit_results(passed=2),
+            log_2="\n".join(
+                [counted_repeat_totals(repeated, 1, 1, passed=1), counted_repeat_totals(cancelled, 0, 5, passed=0)]
+            ),
+            # The third run writes no results, but its log gives the totals of a test it began.
+            results_3="",
+            log_3=counted_repeat_totals(repeated, 0, 3, passed=0),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 3: FAILED, 1 tests, 0 passed, 1 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                "  - leaf run 2 of 3: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                f"    counted repeat: {cancelled}: runs 0 of 5, passed 0, failed 0, inconclusive 0, skipped 0, "
+                "failure rate none, no run ended",
+                "  - leaf run 3 of 3: FAILED, Unity exited with 0 and wrote no test results; see its log above",
+                f"    counted repeat: {repeated}: runs 0 of 3, passed 0, failed 0, inconclusive 0, skipped 0, "
+                "failure rate none, no run ended",
+                "  - leaf, 3 runs: 2 of 3 failed; 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive, "
+                "in the 2 runs that wrote results",
+                f"    failed in 1 of 3 runs: {repeated}",
+                f"    counted repeat in 3 of 3 runs: {repeated}: runs 3 of 6, passed 2, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 33.33%",
+                f"    counted repeat in 1 of 3 runs: {cancelled}: runs 0 of 5, passed 0, failed 0, inconclusive 0, "
+                "skipped 0, failure rate none, no run ended",
+            ],
+            summary[: len(summary) - 2],
+        )
+        self.assertRegex(summary[-2], self.OTHERS_OVER_RUNS)
+        self.assertTrue(summary[-1].startswith("Results: "), summary)
+
     def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
         results_dir = self.results_dir()
         results_dir.mkdir(parents=True)
@@ -1593,6 +1686,75 @@ class UnfinishedTestTests(FixtureRepositoryTestCase):
     def test_names_nothing_once_the_last_test_ended_or_when_none_began(self) -> None:
         self.assertEqual("", self.unfinished(UTP_BEGIN, UTP_END))
         self.assertEqual("", self.unfinished("Loading"))
+
+
+class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
+    """find_counted_repeats reads the totals that [CountedRepeat] logs, and compute_failure_rate gives
+    the failure rate of summed totals as the attribute gives it."""
+
+    # Prints what find_counted_repeats found, a test a line.
+    PRINT_FOUND = (
+        'find_counted_repeats "$1"\n'
+        "for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do\n"
+        '    printf "%s|%s|%s\\n" "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"\n'
+        "done"
+    )
+
+    def found(self, *lines: str) -> list[str]:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        log = Path(directory.name) / "unity.log"
+        log.write_bytes("".join(f"{line}\n" for line in lines).encode("utf-8"))
+        completed = self.run_functions("test-unity.sh", self.PRINT_FOUND, str(log))
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout.splitlines()
+
+    def test_reads_each_test_s_counts_and_rate_from_a_line_of_its_own(self) -> None:
+        self.assertEqual(
+            ["Fixture.Tests.Repeated|400 400 398 2 0 0|0.50%", "Fixture.Tests.None|0 5 0 0 0 0|none, no run ended"],
+            self.found(
+                "[Repeat] Fixture.Tests.Repeated: start, runs 400 (MU3LIBRARY_TEST_REPEAT=400)",
+                "[Repeat] Fixture.Tests.Repeated: run 400 of 400: Failed in 12.5 ms: Expected 1 | But was 2",
+                counted_repeat_totals("Fixture.Tests.Repeated", 400, 400, passed=398, failed=2) + "\r",
+                counted_repeat_totals("Fixture.Tests.None", 0, 5, passed=0),
+            ),
+        )
+
+    def test_takes_the_longest_name_that_leaves_the_totals(self) -> None:
+        # A string argument that holds a whole totals line stays in the name.
+        name = f'Fixture.Tests.Case("{counted_repeat_totals("x", 1, 1, passed=1)}")'
+
+        self.assertEqual([f"{name}|2 2 1 1 0 0|50.00%"], self.found(counted_repeat_totals(name, 2, 2, passed=1, failed=1)))
+
+    def test_passes_over_lines_that_only_quote_the_totals_or_do_not_hold_them_whole(self) -> None:
+        line = counted_repeat_totals("Fixture.Tests.Repeated", 2, 2, passed=1, failed=1)
+
+        self.assertEqual(
+            [],
+            self.found(
+                utp_status("End", "Fixture.Tests.Repeated", line),
+                f" {line}",
+                line.replace("runs 2 of 2", "runs 02 of 2"),
+                line.replace("50.00%", "50.00"),
+                line.replace(", skipped 0", ""),
+            ),
+        )
+        self.assertEqual([], self.found())
+
+    def test_the_failure_rate_is_given_to_two_decimals_with_a_half_rounded_up(self) -> None:
+        completed = self.run_functions(
+            "test-unity.sh",
+            'for counts in "3 1" "3 2" "8 1" "800 1" "1 0" "5 5" "0 0"; do\n'
+            "    compute_failure_rate $counts\n"
+            '    printf "%s\\n" "$FAILURE_RATE"\n'
+            "done",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(
+            ["33.33%", "66.67%", "12.50%", "0.13%", "0.00%", "100.00%", "none, no run ended"],
+            completed.stdout.splitlines(),
+        )
 
 
 class DataStoreLossTests(FixtureRepositoryTestCase):
