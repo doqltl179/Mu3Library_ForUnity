@@ -1,5 +1,5 @@
 ---
-owns: "What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
+owns: "What this repository is: the package model, the package-first rule, development projects, removing a worktree that holds sample links, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
 reviewed: 2026-10-24
 ---
@@ -39,7 +39,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
 - Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
-- Before `git worktree remove`, run `PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples` with the root of the worktree being removed as the working directory; in `git-worktree-cleanup`, do it after the checks pass and before your shell moves to the main checkout. On Windows the sample links otherwise stop the removal with `Directory not empty` and leave the folder behind. «Worktree Removal» in [tools/README.md](../../../tools/README.md) owns the command's behavior and the recovery for a folder already left behind. [ai-agents#81](https://github.com/doqltl179/ai-agents/issues/81) proposes a kit key, `commands.worktree_teardown`, that `git-worktree-cleanup` would run instead; once a kit release ships it, set it in `profile.toml` and delete this bullet.
+- Before `git worktree remove`, remove the worktree's sample links from inside it, in a subshell so your own shell stays in the main checkout: `(cd <worktree> && PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples)`. In `git-worktree-cleanup`, run it after the checks pass and before `git worktree remove`. On Windows the links otherwise stop the removal with `Directory not empty` and leave the folder behind. If the command exits non-zero, stop and report its output; never continue to `git worktree remove`. A real folder, file, or other reparse point in a link's place is Git-ignored, so the skill's `git status` check never saw it, and the removal would delete it without warning. [tools/README.md](../../../tools/README.md#worktree-removal) owns the command's behavior and the recovery for a folder already left behind. [ai-agents#81](https://github.com/doqltl179/ai-agents/issues/81) proposes a kit key, `commands.worktree_teardown`, that `git-worktree-cleanup` would run instead; once a kit release ships it, set it in `profile.toml`, and delete this bullet, the «removing a worktree» line under When, and the worktree removal named in `owns`.
 
 ## Directory Map
 
