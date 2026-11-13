@@ -42,19 +42,28 @@ namespace Mu3Library.Tests
     /// repeated test's full name, so test-unity.sh's summary gives that test's totals.
     /// </para>
     /// <para>
-    /// Before any run it refuses, as an invalid test: an empty name, a name that no test or more than
-    /// one test has, or that names a suite; itself and a test with <c>[CountedRepeat]</c>; a test that
+    /// Without a name it reports itself as ignored, with a message that asks for one: a filter that
+    /// matches it among other tests, such as a namespace, selects it as it selects every
+    /// <c>[Explicit]</c> test it matches, and such a run should pass, as <c>[CountedRepeat]</c> passes
+    /// there after one run.
+    /// </para>
+    /// <para>
+    /// Before any run it refuses, as an invalid test: a name that no test or more than one test has,
+    /// or that names a suite; itself and a test with <c>[CountedRepeat]</c>; a test that
     /// the framework would not run, ignored or invalid; and what it cannot run as the framework does:
     /// a test that returns <c>IEnumerator</c>, as a <c>[UnityTest]</c> does, or a <c>Task</c>; a
     /// fixture that takes arguments; a fixture with <c>[UnitySetUp]</c>, <c>[UnityTearDown]</c>,
     /// <c>[UnityOneTimeSetUp]</c>, or <c>[UnityOneTimeTearDown]</c>, or a <c>[SetUp]</c> or
     /// <c>[TearDown]</c> that returns a <c>Task</c>, which the framework runs over several frames
     /// where each run here takes one call; an <c>IOuterUnityTestAction</c>, which also takes frames;
-    /// a <c>[PrebuildSetup]</c> or <c>[PostBuildCleanup]</c> or their interfaces, which the framework
-    /// calls before and after the run only for the tests its filter selects; and a
-    /// <c>[SetUpFixture]</c> above the test that is not above the runner, which the run never sets up.
-    /// The value of <see cref="CountedRepeatAttribute.RunsVariable"/> is refused as for
-    /// <c>[CountedRepeat]</c>.
+    /// an <c>ITestAction</c> on the method of a test case that targets suites, which the framework
+    /// calls around the method's cases; a <c>[PrebuildSetup]</c> or <c>[PostBuildCleanup]</c> or
+    /// their interfaces, which the framework calls before and after the run only for the tests its
+    /// filter selects; and a <c>[SetUpFixture]</c> above the test that is not above the runner, which
+    /// the run never sets up. The value of <see cref="CountedRepeatAttribute.RunsVariable"/> is
+    /// refused as for <c>[CountedRepeat]</c>. For a test in another test assembly than the runner's,
+    /// the suite actions and context changes that attributes of that assembly declare are neither
+    /// made nor refused.
     /// </para>
     /// <para>
     /// It reaches three internals of the Unity Test Framework by reflection, since nothing public
@@ -68,12 +77,45 @@ namespace Mu3Library.Tests
     {
         public const string NameVariable = "MU3LIBRARY_TEST_REPEAT_NAME";
 
+        private const string NoName = "Set " + NameVariable + " to the full name of the test to repeat, as the fullname attribute of the result file gives it.";
+
         [Explicit("Repeats the test that MU3LIBRARY_TEST_REPEAT_NAME names as many times as MU3LIBRARY_TEST_REPEAT says; run it by name.")]
         [Test]
         [RunsNamedTest]
         public void RepeatTheNamedTest()
         {
             Assert.Fail("[RunsNamedTest] runs the named test in place of this method, but the Unity Test Framework called the method.");
+        }
+
+        /// <summary>
+        /// The runner's result for repeating the test named <paramref name="name"/> as many times as
+        /// <paramref name="runsValue"/>, the value of <see cref="CountedRepeatAttribute.RunsVariable"/>,
+        /// says. Without a name it is ignored, since a filter that matches the runner among others,
+        /// such as a namespace, selects it as it selects every <c>[Explicit]</c> test it matches, and
+        /// <c>[CountedRepeat]</c> then runs its test once and passes; it is invalid when it refuses.
+        /// </summary>
+        internal static TestResult Run(ITestExecutionContext context, Test runner, string name, string runsValue, Action<string> log)
+        {
+            TestResult result = runner.MakeTestResult();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                result.SetResult(ResultState.Ignored, NoName);
+                return result;
+            }
+
+            int runs = 0;
+            string source = null;
+            TestCommand run = null;
+            string refusal = Find(runner, name, out TestMethod target)
+                ?? CountedRepeatAttribute.ParseRuns(runsValue, out runs, out source)
+                ?? Prepare(runner, target, out run);
+            if (refusal != null)
+            {
+                result.SetResult(ResultState.NotRunnable, refusal);
+                return result;
+            }
+
+            return Repeat(context, runner, target, run, runs, source, log);
         }
 
         /// <summary>
@@ -85,7 +127,7 @@ namespace Mu3Library.Tests
             target = null;
             if (string.IsNullOrWhiteSpace(name))
             {
-                return $"Set {NameVariable} to the full name of the test to repeat, as the fullname attribute of the result file gives it.";
+                return NoName;
             }
 
             name = name.Trim();
@@ -160,13 +202,18 @@ namespace Mu3Library.Tests
 
                 if (fixtureResult.ResultState.Status == TestStatus.Passed)
                 {
-                    foreach (IApplyToContext change in target.Method.GetCustomAttributes<IApplyToContext>(true))
+                    Exception unapplied = ApplyContextChanges(target, context);
+                    if (unapplied == null)
                     {
-                        change.ApplyToContext(context);
+                        context.CurrentTest = target;
+                        overall = CountedRepeatAttribute.RunCounted(context, target, runner, current => Framework.RunWithinOneCall(run, current), runs, source, log);
                     }
-
-                    context.CurrentTest = target;
-                    overall = CountedRepeatAttribute.RunCounted(context, target, runner, current => Framework.RunWithinOneCall(run, current), runs, source, log);
+                    else
+                    {
+                        // No run starts, and the fixture is still torn down below.
+                        overall = runner.MakeTestResult();
+                        overall.RecordException(unapplied);
+                    }
                 }
                 else
                 {
@@ -196,6 +243,25 @@ namespace Mu3Library.Tests
             }
 
             return overall;
+        }
+
+        // The changes that the framework makes to a test's context from the attributes of its method,
+        // such as [Timeout]: null, or what one of them threw.
+        private static Exception ApplyContextChanges(TestMethod target, ITestExecutionContext context)
+        {
+            try
+            {
+                foreach (IApplyToContext change in target.Method.GetCustomAttributes<IApplyToContext>(true))
+                {
+                    change.ApplyToContext(context);
+                }
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                return exception;
+            }
         }
 
         private static void Collect(ITest test, string name, List<TestMethod> tests, List<ITest> suites)
@@ -287,6 +353,12 @@ namespace Mu3Library.Tests
             if (CountedRepeatAttribute.HasOuterActions(target))
             {
                 return $"{name} has IOuterUnityTestAction attributes, on its method or on a class above it, which the framework runs over several frames around each run; each run of the runner takes one call.";
+            }
+
+            if (target.Parent is ParameterizedMethodSuite
+                && ActionsHelper.GetActionsFromTestMethodInfo(target.Method).Any(action => (action.Targets & ActionTargets.Suite) == ActionTargets.Suite))
+            {
+                return $"{target.Parent.FullName} has an ITestAction that targets suites, which the framework calls once around its test cases; the runner sets up only the fixture around the runs.";
             }
 
             if (HasBuildSteps(target.Method.MethodInfo, type))
@@ -394,29 +466,13 @@ namespace Mu3Library.Tests
 
             public override TestResult Execute(ITestExecutionContext context)
             {
-                string refusal = Find(Test, Environment.GetEnvironmentVariable(NameVariable), out TestMethod target);
-                int runs = 0;
-                string source = null;
-                TestCommand run = null;
-                if (refusal == null)
-                {
-                    refusal = CountedRepeatAttribute.ReadRuns(out runs, out source);
-                }
-
-                if (refusal == null)
-                {
-                    refusal = Prepare(Test, target, out run);
-                }
-
-                if (refusal != null)
-                {
-                    context.CurrentResult.SetResult(ResultState.NotRunnable, refusal);
-                    return context.CurrentResult;
-                }
-
-                TestResult overall = Repeat(context, Test, target, run, runs, source, CountedRepeatAttribute.Log);
-                context.CurrentResult = overall;
-                return overall;
+                context.CurrentResult = Run(
+                    context,
+                    Test,
+                    Environment.GetEnvironmentVariable(NameVariable),
+                    Environment.GetEnvironmentVariable(CountedRepeatAttribute.RunsVariable),
+                    CountedRepeatAttribute.Log);
+                return context.CurrentResult;
             }
         }
 

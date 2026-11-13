@@ -33,6 +33,41 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Run_WithoutAName_IsIgnored_AndRunsNothing()
+        {
+            ITestExecutionContext context = Context();
+            TestResult own = context.CurrentResult;
+
+            foreach (string name in new[] { null, "  " })
+            {
+                TestResult result = CountedRepeatRunner.Run(context, context.CurrentTest, name, "5", _lines.Add);
+
+                Assert.That(result.ResultState, Is.EqualTo(ResultState.Ignored));
+                Assert.That(result.Message, Is.EqualTo($"Set {CountedRepeatRunner.NameVariable} to the full name of the test to repeat, as the fullname attribute of the result file gives it."));
+            }
+
+            Assert.That(_lines, Is.Empty);
+            Assert.That(context.CurrentResult, Is.SameAs(own));
+        }
+
+        [Test]
+        public void Run_WithAWrongNameOrNumberOfRuns_IsInvalid()
+        {
+            ITestExecutionContext context = Context();
+            string unknown = typeof(CountedRepeatByNameTests).FullName + ".NoSuchTest";
+
+            TestResult wrongName = CountedRepeatRunner.Run(context, context.CurrentTest, unknown, "5", _lines.Add);
+            // The name is found; the number of runs is refused before anything else is looked at.
+            TestResult wrongRuns = CountedRepeatRunner.Run(context, context.CurrentTest, context.CurrentTest.FullName, "0", _lines.Add);
+
+            Assert.That(wrongName.ResultState, Is.EqualTo(ResultState.NotRunnable));
+            Assert.That(wrongName.Message, Does.StartWith($"No EditMode test of the project is named '{unknown}'"));
+            Assert.That(wrongRuns.ResultState, Is.EqualTo(ResultState.NotRunnable));
+            Assert.That(wrongRuns.Message, Is.EqualTo("MU3LIBRARY_TEST_REPEAT gives the number of runs, a whole number from 1, not '0'."));
+            Assert.That(_lines, Is.Empty);
+        }
+
+        [Test]
         public void Find_WithoutAName_AsksForOne()
         {
             string refusal = CountedRepeatRunner.Find(Context().CurrentTest, "  ", out TestMethod target);
@@ -60,6 +95,23 @@ namespace Mu3Library.Tests
             string refusal = CountedRepeatRunner.Find(Context().CurrentTest, name, out _);
 
             Assert.That(refusal, Is.EqualTo($"No EditMode test of the project is named '{name}'; give the full name of the test, as the fullname attribute of the result file gives it."));
+        }
+
+        [Test]
+        public void Find_RefusesANameThatMoreThanOneTestHas()
+        {
+            TestSuite root = new TestSuite("Duplicates");
+            TestFixture first = new TestFixture(new TypeWrapper(typeof(Recording)));
+            TestFixture second = new TestFixture(new TypeWrapper(typeof(Recording)));
+            root.Add(first);
+            root.Add(second);
+            TestMethod test = Build(first, typeof(Recording), nameof(Recording.FailsOnTheSecondRun));
+            Build(second, typeof(Recording), nameof(Recording.FailsOnTheSecondRun));
+
+            string refusal = CountedRepeatRunner.Find(test, test.FullName, out TestMethod target);
+
+            Assert.That(refusal, Is.EqualTo($"2 tests are named '{test.FullName}', and the runner repeats one."));
+            Assert.That(target, Is.Null);
         }
 
         [Test]
@@ -96,12 +148,36 @@ namespace Mu3Library.Tests
         [TestCase(typeof(TaskSetUpShape), nameof(TaskSetUpShape.Run), "TaskSetUpShape.SetUpAsync is a [SetUp] or [TearDown] that returns a Task")]
         [TestCase(typeof(OuterActionShape), nameof(OuterActionShape.Run), "has IOuterUnityTestAction attributes")]
         [TestCase(typeof(PrebuildSetupShape), nameof(PrebuildSetupShape.Run), "or its fixture implements IPrebuildSetup or IPostBuildCleanup")]
+        [TestCase(typeof(Shapes), nameof(Shapes.WithPostBuildCleanup), "has a [PrebuildSetup] or [PostBuildCleanup]")]
+        [TestCase(typeof(PostBuildCleanupShape), nameof(PostBuildCleanupShape.Run), "or its fixture implements IPrebuildSetup or IPostBuildCleanup")]
         public void Prepare_RefusesWhatItCannotRunAsTheFrameworkDoes(Type fixture, string method, string reason)
         {
             string refusal = CountedRepeatRunner.Prepare(Context().CurrentTest, Build(fixture, method), out TestCommand run);
 
             Assert.That(refusal, Does.Contain(reason));
             Assert.That(run, Is.Null);
+        }
+
+        [Test]
+        public void Prepare_RefusesATestCaseWhoseMethodHasASuiteAction()
+        {
+            TestFixture fixture = new TestFixture(new TypeWrapper(typeof(Shapes)));
+            ParameterizedMethodSuite cases = new ParameterizedMethodSuite(new MethodWrapper(typeof(Shapes), nameof(Shapes.WithSuiteAction)));
+            fixture.Add(cases);
+
+            string refusal = CountedRepeatRunner.Prepare(Context().CurrentTest, Build(cases, typeof(Shapes), nameof(Shapes.WithSuiteAction)), out _);
+
+            Assert.That(refusal, Is.EqualTo($"{cases.FullName} has an ITestAction that targets suites, which the framework calls once around its test cases; the runner sets up only the fixture around the runs."));
+        }
+
+        [Test]
+        public void Prepare_RefusesATestInNoFixture()
+        {
+            TestMethod target = Build(new TestSuite("Plain"), typeof(Recording), nameof(Recording.FailsOnTheSecondRun));
+
+            string refusal = CountedRepeatRunner.Prepare(Context().CurrentTest, target, out _);
+
+            Assert.That(refusal, Is.EqualTo($"{target.FullName} is in no test fixture."));
         }
 
         [Test]
@@ -215,6 +291,50 @@ namespace Mu3Library.Tests
             Assert.That(_lines[1], Does.Contain(": run 1 of 3: Passed in "));
             Assert.That(_lines[2], Does.Contain(": run 2 of 3: Failed").And.Contain($"Timeout value of {Sleeps.TimeoutMilliseconds} ms was exceeded"));
             Assert.That(_lines[3], Does.Contain(": run 3 of 3: Passed in "));
+        }
+
+        [Test]
+        public void Repeat_TimesEachRunOut_WithTheTimeoutOfTheFixtureClass()
+        {
+            TestMethod target = Build(typeof(SleepsUnderAClassTimeout), nameof(SleepsUnderAClassTimeout.SleepsPastTheTimeoutOnTheSecondRun));
+
+            RepeatPrepared(target, 3);
+
+            Assert.That(_lines[1], Does.Contain(": run 1 of 3: Passed in "));
+            Assert.That(_lines[2], Does.Contain(": run 2 of 3: Failed").And.Contain($"Timeout value of {Sleeps.TimeoutMilliseconds} ms was exceeded"));
+            Assert.That(_lines[3], Does.Contain(": run 3 of 3: Passed in "));
+        }
+
+        [Test]
+        public void Repeat_CallsTheSuiteActionsOfTheFixtureOnce_AndItsTestActionsInEachRun()
+        {
+            TestMethod target = Build(typeof(WithActions), nameof(WithActions.Run));
+
+            RepeatPrepared(target, 2);
+
+            Assert.That(Calls, Is.EqualTo(new[]
+            {
+                "before Suite",
+                "before Test", "run", "after Test",
+                "before Test", "run", "after Test",
+                "after Suite",
+            }));
+        }
+
+        [Test]
+        public void Repeat_RunsNothingWhenTheTestCannotChangeTheContext_AndStillTearsTheFixtureDown()
+        {
+            ITestExecutionContext context = Context();
+            int timeout = context.TestCaseTimeout;
+            TestMethod target = Build(typeof(BreaksTheContext), nameof(BreaksTheContext.Run));
+
+            TestResult result = RepeatPrepared(target, 3);
+
+            Assert.That(Calls, Is.EqualTo(new[] { "construct", "one-time teardown", "dispose" }));
+            Assert.That(_lines, Is.Empty);
+            Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
+            Assert.That(result.Message, Does.Contain(ThrowsOnTheContextAttribute.Error));
+            Assert.That(context.TestCaseTimeout, Is.EqualTo(timeout));
         }
 
         [Test]
@@ -459,6 +579,105 @@ namespace Mu3Library.Tests
 
             [PrebuildSetup(typeof(PrebuildSetupShape))]
             public void WithPrebuildSetup() { }
+
+            [PostBuildCleanup(typeof(PostBuildCleanupShape))]
+            public void WithPostBuildCleanup() { }
+
+            [RecordsActions(ActionTargets.Suite)]
+            public void WithSuiteAction() { }
+        }
+
+        private sealed class PostBuildCleanupShape : IPostBuildCleanup
+        {
+            public void Cleanup() { }
+
+            public void Run() { }
+        }
+
+        [Timeout(Sleeps.TimeoutMilliseconds)]
+        private sealed class SleepsUnderAClassTimeout
+        {
+            private int _runs;
+
+            public void SleepsPastTheTimeoutOnTheSecondRun()
+            {
+                _runs++;
+                Thread.Sleep(_runs == 2 ? 600 : 150);
+            }
+        }
+
+        [RecordsActions(ActionTargets.Suite)]
+        [RecordsActions(ActionTargets.Test)]
+        private sealed class WithActions
+        {
+            public void Run()
+            {
+                Calls.Add("run");
+            }
+        }
+
+        private sealed class BreaksTheContext : IDisposable
+        {
+            public BreaksTheContext()
+            {
+                Calls.Add("construct");
+            }
+
+            [OneTimeTearDown]
+            public void OneTimeTearDown()
+            {
+                Calls.Add("one-time teardown");
+            }
+
+            [SetUp]
+            public void SetUp()
+            {
+                Calls.Add("setup");
+            }
+
+            [ThrowsOnTheContext]
+            public void Run()
+            {
+                Calls.Add("run");
+            }
+
+            public void Dispose()
+            {
+                Calls.Add("dispose");
+            }
+        }
+
+        // As [SetCulture] with a culture that does not exist.
+        [AttributeUsage(AttributeTargets.Method)]
+        private sealed class ThrowsOnTheContextAttribute : NUnitAttribute, IApplyToContext
+        {
+            public const string Error = "the context cannot take this change";
+
+            public void ApplyToContext(ITestExecutionContext context)
+            {
+                throw new InvalidOperationException(Error);
+            }
+        }
+
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
+        private sealed class RecordsActionsAttribute : NUnitAttribute, ITestAction
+        {
+            public RecordsActionsAttribute(ActionTargets targets)
+            {
+                Targets = targets;
+            }
+
+            public ActionTargets Targets { get; }
+
+            public void BeforeTest(ITest test)
+            {
+                Calls.Add("before " + Targets);
+            }
+
+            public void AfterTest(ITest test)
+            {
+                Calls.Add("after " + Targets);
+            }
         }
 
         private sealed class UnitySetUpShape
