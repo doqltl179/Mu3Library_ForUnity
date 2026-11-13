@@ -55,17 +55,9 @@ DATA_STORE_EXIT_CODE=""
 # times --repeat runs each target.
 LOAD_SPINNERS=0
 REPEAT_COUNT=1
-# The helper that starts the spinners beside each run and counts the Unity
-# processes that are not the run's own, the Python that runs it, found by
-# find_load_python, or why there is none. The tool tests set
-# UNITY_LOAD_SPINNERS_IDLE=1 so that their spinners wait instead of spinning.
-readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_cli/fixed_load.py"
-LOAD_PYTHON=""
-LOAD_UNAVAILABLE=""
-LOAD_HELPER_PID=""
-LOAD_STOP_FILE=""
-# What the helper recorded for the run that test_target ran last, which
-# read_load_record reads.
+# What the helper that compile-unity.sh's start_load_helper starts beside each
+# run recorded for the run that test_target ran last, which read_load_record
+# reads.
 LOAD_STATE=""
 LOAD_CPUS=""
 LOAD_ENDED_BEFORE=""
@@ -100,6 +92,21 @@ REPEAT_OTHERS_HIGH=""
 # ended, and those of them whose one failure came from it.
 REPEAT_DATA_STORE_LOSSES=0
 REPEAT_ENVIRONMENT_FAILED_RUNS=0
+# The totals that [CountedRepeat] logged for the tests it ran many times in the
+# run that test_target ran last, which find_counted_repeats reads: each test's
+# full name, its counts as "<ended> <runs> <passed> <failed> <inconclusive>
+# <skipped>", and its failure rate as the line gives it. Under --repeat, the
+# counts of each such test summed over a target's runs, and how many of the runs
+# gave them.
+COUNTED_REPEAT_TESTS=()
+COUNTED_REPEAT_COUNTS=()
+COUNTED_REPEAT_RATES=()
+REPEAT_COUNTED_REPEAT_TESTS=()
+REPEAT_COUNTED_REPEAT_COUNTS=()
+REPEAT_COUNTED_REPEAT_RUNS=()
+# What compute_failure_rate and counted_repeat_phrase set.
+FAILURE_RATE=""
+COUNTED_REPEAT_PHRASE=""
 
 usage() {
     local i
@@ -180,6 +187,13 @@ Unity starts. Each run keeps that record beside its results as
 <target>-<platform>-run<k>.xml, .log, .load, and .uds-service.log instead,
 and the summary closes each target with the totals of its runs and, for each
 failed or inconclusive test, the number of runs it had that result in.
+
+A test that [CountedRepeat] runs many times in one Unity counts as one test.
+The totals the attribute logs for it in Unity's log, its runs and how many
+passed, failed, were inconclusive, and were skipped, and its failure rate, the
+summary gives under the run as "counted repeat: <full name>: ..."; with
+--repeat, the target's totals add them up over its runs, with the failure rate
+of the sums.
 
 When Unity's Data Store service, the process that serves the Editor the files
 it imported, ends before the Editor does, Unity logs an error that fails the
@@ -731,24 +745,6 @@ add_data_store_loss_to_summary() {
     SUMMARY_LINES+=("  data store service: $line")
 }
 
-# Called by run_unity_for_target once Unity has exited, before it removes an
-# isolated mirror, with the folder Unity opened as the project. When Unity's
-# log says that it launched its Data Store service, this keeps the log the
-# service wrote there, Logs/UDS-Service.log, beside the run's results. Every
-# such run keeps it, since Unity logs a service's end only as it next reads an
-# imported file, so an end late in a run may never reach its log, and a
-# service that ended with its Editor gives the log to compare with. In a run
-# that launched no service, the log there is an earlier run's.
-after_unity_run() {
-    local service_log="$1/Logs/UDS-Service.log"
-    local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
-
-    grep -q -F 'Launching Unity Data Store' "$UNITY_LOG_FILE" 2>/dev/null || return 0
-    [[ -f "$service_log" ]] || return 0
-    cp -- "$service_log" "$kept_log" 2>/dev/null \
-        || printf 'warning: could not keep %s beside the results\n' "$service_log" >&2
-}
-
 record_failure() {
     local target_key="$1"
     local reason="$2"
@@ -756,82 +752,6 @@ record_failure() {
     printf 'error: %s%s: %s\n' "$target_key" "$RUN_LABEL" "$reason" >&2
     SUMMARY_LINES+=("$target_key$RUN_LABEL: FAILED, $reason")
     FAILED_TARGET_COUNT=$((FAILED_TARGET_COUNT + 1))
-}
-
-# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
-# later, the version mu3-cli needs, or LOAD_UNAVAILABLE to why the helper cannot
-# run. python comes first: on Windows python3 is often the stand-in of the
-# Microsoft Store, which only says how to install Python.
-find_load_python() {
-    local candidate
-
-    LOAD_PYTHON=""
-    LOAD_UNAVAILABLE=""
-    if [[ ! -f "$LOAD_HELPER" ]]; then
-        LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
-        return 1
-    fi
-    for candidate in python python3; do
-        if command -v "$candidate" >/dev/null 2>&1 \
-            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
-            LOAD_PYTHON="$candidate"
-            return 0
-        fi
-    done
-    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
-    return 1
-}
-
-# Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
-# record and stop files beside it. It counts the Unity processes that do not
-# descend from this script, whose Windows process ID it needs under Git Bash,
-# and starts the spinners waiting, to spin from the first test the log shows.
-start_load_helper() {
-    local base="$1"
-    local root_pid="$$"
-    local idle=()
-
-    LOAD_STOP_FILE="$base.load-stop"
-    rm -f -- "$base.load" "$LOAD_STOP_FILE"
-    [[ -n "$LOAD_PYTHON" ]] || return 0
-
-    if [[ -r "/proc/$$/winpid" ]]; then
-        read -r root_pid <"/proc/$$/winpid"
-    fi
-    if [[ "${UNITY_LOAD_SPINNERS_IDLE:-0}" == 1 ]]; then
-        idle=(--idle)
-    fi
-
-    "$LOAD_PYTHON" -I "$(to_windows_path "$LOAD_HELPER")" supervise \
-        --log "$(to_windows_path "$UNITY_LOG_FILE")" \
-        --spinners "$LOAD_SPINNERS" \
-        --root-pid "$root_pid" \
-        --stop "$(to_windows_path "$LOAD_STOP_FILE")" \
-        --record "$(to_windows_path "$base.load")" \
-        ${idle[@]+"${idle[@]}"} </dev/null &
-    LOAD_HELPER_PID=$!
-}
-
-# Tells the helper that the run ended, so that it stops the spinners and writes
-# its record, and waits for it; one that has not ended after 10 s is stopped
-# with every process it started. An exit, an interrupt included, calls it too.
-stop_load_helper() {
-    local helper_pid="$LOAD_HELPER_PID"
-    local look
-
-    LOAD_HELPER_PID=""
-    [[ -n "$helper_pid" ]] || return 0
-
-    : >"$LOAD_STOP_FILE" 2>/dev/null || true
-    for ((look = 0; look < 100; look++)); do
-        kill -0 "$helper_pid" 2>/dev/null || break
-        sleep 0.1
-    done
-    if kill -0 "$helper_pid" 2>/dev/null; then
-        stop_process_tree "$helper_pid"
-    fi
-    wait "$helper_pid" 2>/dev/null || true
-    rm -f -- "$LOAD_STOP_FILE"
 }
 
 # Reads the key=value lines the helper wrote for a run into the LOAD_ and
@@ -962,6 +882,117 @@ add_load_to_summary() {
     done
 }
 
+# Sets COUNTED_REPEAT_TESTS, COUNTED_REPEAT_COUNTS, and COUNTED_REPEAT_RATES
+# from the lines of a Unity log in which [CountedRepeat], an attribute of the
+# Base EditMode tests (Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs),
+# gives the totals of a test it ran many times in one Unity:
+#   [Repeat] <full name>: totals: runs <ended> of <runs>, passed <p>,
+#   failed <f>, inconclusive <i>, skipped <s>, failure rate <rate>
+# on one line, where the rate is a percentage or "none, no run ended". The name
+# is the longest that leaves the rest of the line in that form, so a test
+# case's string argument may hold any of it; a line that quotes the totals
+# after another start, such as the ##utp: line of a test's failure, is not one.
+# The line of one run whose failure message ends in such totals reads as one
+# too, which only a test that fails with that text as its message writes.
+find_counted_repeats() {
+    local log_file="$1"
+    local line
+    local count='(0|[1-9][0-9]*)'
+    local pattern="^\\[Repeat\\] (.+): totals: runs $count of $count, passed $count, failed $count, inconclusive $count, skipped $count, failure rate ([0-9]+\\.[0-9]+%|none, no run ended)\$"
+
+    COUNTED_REPEAT_TESTS=()
+    COUNTED_REPEAT_COUNTS=()
+    COUNTED_REPEAT_RATES=()
+    [[ -f "$log_file" ]] || return 0
+
+    # -U keeps the CR of a CR LF line, which the grep of Git Bash drops
+    # otherwise, so that this function removes it on every host; -a comes last,
+    # since BSD grep takes the last of the two.
+    while IFS= read -r line; do
+        line="${line%$'\r'}"
+        if [[ "$line" =~ $pattern ]]; then
+            COUNTED_REPEAT_TESTS+=("${BASH_REMATCH[1]}")
+            COUNTED_REPEAT_COUNTS+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]} ${BASH_REMATCH[5]} ${BASH_REMATCH[6]} ${BASH_REMATCH[7]}")
+            COUNTED_REPEAT_RATES+=("${BASH_REMATCH[8]}")
+        fi
+    done < <(grep -U -a '^\[Repeat] .*: totals: runs ' "$log_file" || true)
+}
+
+# Sets COUNTED_REPEAT_PHRASE to counts, as COUNTED_REPEAT_COUNTS keeps them,
+# and a failure rate in the words of [CountedRepeat]'s totals line.
+counted_repeat_phrase() {
+    local ended
+    local runs
+    local passed
+    local failed
+    local inconclusive
+    local skipped
+
+    read -r ended runs passed failed inconclusive skipped <<<"$1"
+    COUNTED_REPEAT_PHRASE="runs $ended of $runs, passed $passed, failed $failed, inconclusive $inconclusive, skipped $skipped, failure rate $2"
+}
+
+# Sets FAILURE_RATE to the share of the runs that ended, given first, that
+# failed, given second, as [CountedRepeat] gives it: a percentage to two
+# decimals, with a half rounded up, or "none, no run ended".
+compute_failure_rate() {
+    local ended="$1"
+    local failed="$2"
+    local hundredths
+
+    if [[ "$ended" -eq 0 ]]; then
+        FAILURE_RATE="none, no run ended"
+        return 0
+    fi
+    hundredths=$(((failed * 20000 + ended) / (2 * ended)))
+    printf -v FAILURE_RATE '%d.%02d%%' "$((hundredths / 100))" "$((hundredths % 100))"
+}
+
+# Adds the totals that [CountedRepeat] logged in the run that test_target ran
+# last under its summary entry, a line for each test, since the run's counts
+# take such a test as one test however many times it ran.
+add_counted_repeats_to_summary() {
+    local i
+
+    find_counted_repeats "$UNITY_LOG_FILE"
+    for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
+        counted_repeat_phrase "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"
+        SUMMARY_LINES+=("  counted repeat: ${COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+    done
+}
+
+# Adds the counts that [CountedRepeat] gave for a test in the run that
+# test_target ran last to the totals of its target, and the run to the runs
+# that gave them unless the third argument says, with 1, that the run gave
+# that test's totals before.
+tally_counted_repeat() {
+    local test_name="$1"
+    local counts="$2"
+    local seen_in_run="$3"
+    local added=()
+    local sums=()
+    local i
+    local k
+
+    for ((i = 0; i < ${#REPEAT_COUNTED_REPEAT_TESTS[@]}; i++)); do
+        if [[ "${REPEAT_COUNTED_REPEAT_TESTS[$i]}" == "$test_name" ]]; then
+            read -r -a added <<<"$counts"
+            read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
+            for ((k = 0; k < 6; k++)); do
+                sums[$k]=$((sums[$k] + added[$k]))
+            done
+            REPEAT_COUNTED_REPEAT_COUNTS[$i]="${sums[*]}"
+            if [[ "$seen_in_run" -eq 0 ]]; then
+                REPEAT_COUNTED_REPEAT_RUNS[$i]=$((REPEAT_COUNTED_REPEAT_RUNS[$i] + 1))
+            fi
+            return 0
+        fi
+    done
+    REPEAT_COUNTED_REPEAT_TESTS+=("$test_name")
+    REPEAT_COUNTED_REPEAT_COUNTS+=("$counts")
+    REPEAT_COUNTED_REPEAT_RUNS+=(1)
+}
+
 # Adds a test that had the result given, Failed or Inconclusive, in the run
 # that test_target ran last to the totals of the target's runs.
 tally_repeated_test() {
@@ -981,17 +1012,30 @@ tally_repeated_test() {
 }
 
 # Adds the run that test_target ran last, whose results file is given and
-# which failed when the second argument is 1, to the totals of its target.
+# which failed when the second argument is 1, to the totals of its target,
+# with the totals that [CountedRepeat] logged in it, as
+# add_counted_repeats_to_summary read them, even when it wrote no results.
 add_run_to_repeat_totals() {
     local results_file="$1"
     local run_failed="$2"
     local i
+    local j
+    local seen_in_run
     local result
     local test_name
 
     if [[ "$run_failed" -eq 1 ]]; then
         REPEAT_FAILED_RUNS=$((REPEAT_FAILED_RUNS + 1))
     fi
+    for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
+        seen_in_run=0
+        for ((j = 0; j < i; j++)); do
+            if [[ "${COUNTED_REPEAT_TESTS[$j]}" == "${COUNTED_REPEAT_TESTS[$i]}" ]]; then
+                seen_in_run=1
+            fi
+        done
+        tally_counted_repeat "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "$seen_in_run"
+    done
     [[ "${#RUN_COUNTS[@]}" -eq 5 ]] || return 0
 
     REPEAT_COUNTED_RUNS=$((REPEAT_COUNTED_RUNS + 1))
@@ -1008,10 +1052,13 @@ add_run_to_repeat_totals() {
 
 # Adds the totals of a target's runs to the summary: how many runs failed, the
 # sums of the counts of those that wrote results, the runs in which each test
-# failed or was inconclusive, and the fewest and most other Unity processes.
+# failed or was inconclusive, the sums of the totals that [CountedRepeat]
+# logged for each test with the failure rate of those sums, and the fewest and
+# most other Unity processes.
 add_repeat_totals_to_summary() {
     local target_key="$1"
     local counts="no run wrote results"
+    local sums=()
     local i
 
     if [[ "$REPEAT_COUNTED_RUNS" -gt 0 ]]; then
@@ -1028,6 +1075,13 @@ add_repeat_totals_to_summary() {
         else
             SUMMARY_LINES+=("  inconclusive in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
         fi
+    done
+
+    for ((i = 0; i < ${#REPEAT_COUNTED_REPEAT_TESTS[@]}; i++)); do
+        read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
+        compute_failure_rate "${sums[0]}" "${sums[3]}"
+        counted_repeat_phrase "${REPEAT_COUNTED_REPEAT_COUNTS[$i]}" "$FAILURE_RATE"
+        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
     done
 
     if [[ "$REPEAT_DATA_STORE_LOSSES" -gt 0 ]]; then
@@ -1076,6 +1130,9 @@ test_target_repeatedly() {
     REPEAT_OTHERS_HIGH=""
     REPEAT_DATA_STORE_LOSSES=0
     REPEAT_ENVIRONMENT_FAILED_RUNS=0
+    REPEAT_COUNTED_REPEAT_TESTS=()
+    REPEAT_COUNTED_REPEAT_COUNTS=()
+    REPEAT_COUNTED_REPEAT_RUNS=()
 
     for ((run = 1; run <= REPEAT_COUNT; run++)); do
         # Numbers as wide as the count keep the files of the runs in order.
@@ -1092,6 +1149,7 @@ test_target_repeatedly() {
         if [[ "$ENVIRONMENT_FAILED_COUNT" -gt "$environment_failed_before" ]]; then
             REPEAT_ENVIRONMENT_FAILED_RUNS=$((REPEAT_ENVIRONMENT_FAILED_RUNS + 1))
         fi
+        add_counted_repeats_to_summary
         add_path_limit_warnings_to_summary
         add_load_to_summary
         add_run_to_repeat_totals "$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.xml" \
@@ -1128,11 +1186,10 @@ test_target() {
     fi
     UNITY_LOG_FILE="$RESULTS_DIR/$target_key-$PLATFORM_KEY$RUN_FILE_SUFFIX.log"
     # The helper starts the load at the first test this run's Unity logs, so a
-    # log that an earlier run left must not be there for it to read, and the
-    # Data Store service's log of an earlier run must not stand in either.
-    rm -f -- "$UNITY_LOG_FILE" "${results_file%.xml}.uds-service.log"
+    # log that an earlier run left must not be there for it to read.
+    rm -f -- "$UNITY_LOG_FILE"
     RUN_COUNTS=()
-    start_load_helper "${results_file%.xml}"
+    start_load_helper "${results_file%.xml}" "$LOAD_SPINNERS"
 
     # -automated makes the Unity Test Framework log a line as each test begins
     # and ends, which names the test that a stalled or crashed run was in.
@@ -1302,6 +1359,7 @@ test_main() {
             test_target_repeatedly "$target_key"
         else
             test_target "$target_key"
+            add_counted_repeats_to_summary
             add_path_limit_warnings_to_summary
             add_load_to_summary
         fi
@@ -1313,8 +1371,8 @@ test_main() {
     else
         results_name="<target>-$PLATFORM_KEY"
     fi
-    printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s\n' \
-        "$results_name" "$results_name" "${LOAD_PYTHON:+ and load records as $results_name.load}"
+    printf 'Results: log/unity-tests/%s.xml, with Unity logs as %s.log%s and Data Store service logs as %s.uds-service.log\n' \
+        "$results_name" "$results_name" "${LOAD_PYTHON:+, load records as $results_name.load,}" "$results_name"
 
     if [[ "$ENVIRONMENT_FAILED_COUNT" -gt 0 ]]; then
         environment_phrase="; $ENVIRONMENT_FAILED_COUNT of them failed only on the environment, as the summary says"

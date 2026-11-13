@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from fixture_repository import FAKE_UNITY, LOAD_HELPER, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
@@ -27,9 +28,17 @@ from mu3_cli.unity import (
     unlink_samples,
 )
 
-# rm and sleep become shell functions, which take precedence over the commands on PATH.
-FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
-sleep() { :; }
+# rm and sleep become shell functions, which take precedence over the commands on PATH. rm fails
+# only for the isolated mirror, whose folder MIRROR_REMOVAL names, so that the run's records beside
+# its log are still replaced.
+MIRROR_REMOVAL = "*mu3library-unity-compile.*"
+FAILING_REMOVAL = f"""rm() {{
+    case "$*" in
+        {MIRROR_REMOVAL}) printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1 ;;
+    esac
+    command rm "$@"
+}}
+sleep() {{ :; }}
 """
 
 
@@ -72,12 +81,16 @@ class MirrorCleanupTests(FixtureRepositoryTestCase):
     def test_removal_retries_before_it_gives_up(self) -> None:
         # The first two attempts fail, as they do while a Unity child process still holds a file.
         # Each attempt runs in its own subshell, so a file counts them.
-        flaky_removal = """rm() {
-    printf x >> "$TMPDIR/removal-attempts"
-    if [[ "$(wc -c < "$TMPDIR/removal-attempts")" -le 2 ]]; then return 1; fi
+        flaky_removal = f"""rm() {{
+    case "$*" in
+        {MIRROR_REMOVAL})
+            printf x >> "$TMPDIR/removal-attempts"
+            if [[ "$(wc -c < "$TMPDIR/removal-attempts")" -le 2 ]]; then return 1; fi
+            ;;
+    esac
     command rm "$@"
-}
-sleep() { :; }
+}}
+sleep() {{ :; }}
 """
         completed = self.run_functions(
             "compile-unity.sh",
@@ -324,6 +337,18 @@ def utp_status(phase: str, name: str, message: str = "") -> str:
     return (
         f'##utp:{{"type":"TestStatus","time":2,"version":2,"phase":"End","processId":1,"name":{json.dumps(name)},'
         f'"state":{5 if message else 4},"message":{json.dumps(message)},"duration":1}}'
+    )
+
+
+def counted_repeat_totals(
+    name: str, ended: int, runs: int, passed: int, failed: int = 0, inconclusive: int = 0, skipped: int = 0
+) -> str:
+    """The line [CountedRepeat] logs once the runs of the test named have ended, as Tally.Totals in
+    Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes it."""
+    rate = f"{100.0 * failed / ended:.2f}%" if ended else "none, no run ended"
+    return (
+        f"[Repeat] {name}: totals: runs {ended} of {runs}, passed {passed}, failed {failed}, "
+        f"inconclusive {inconclusive}, skipped {skipped}, failure rate {rate}"
     )
 
 
@@ -1032,8 +1057,8 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertEqual("  - leaf: 3 tests, 3 passed, 0 failed, 0 skipped, 0 inconclusive", summary[0])
         self.assertRegex(summary[1], OTHER_UNITY_PROCESSES)
         self.assertEqual(
-            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log "
-            "and load records as <target>-editmode.load",
+            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log, "
+            "load records as <target>-editmode.load, and Data Store service logs as <target>-editmode.uds-service.log",
             summary[2],
         )
         self.assertNotIn("load: ", completed.stdout)
@@ -1052,7 +1077,11 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(f"warning: other Unity processes will not be counted: {missing}", completed.stderr)
         self.assertIn(f"    other Unity processes: not counted, {missing}", self.summary(completed))
-        self.assertNotIn("load records", completed.stdout)
+        self.assertIn(
+            "Results: log/unity-tests/<target>-editmode.xml, with Unity logs as <target>-editmode.log "
+            "and Data Store service logs as <target>-editmode.uds-service.log",
+            completed.stdout.splitlines(),
+        )
 
         completed = self.run_tests("leaf", "--load-spinners", "2", results=nunit_results())
 
@@ -1143,8 +1172,9 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
                 "    failed in 2 of 4 runs: Fixture.Tests.Breaks",
                 "    inconclusive in 1 of 4 runs: Fixture.Tests.Waits",
                 "<over runs>",
-                "Results: log/unity-tests/<target>-editmode-run<k>.xml, with Unity logs as <target>-editmode-run<k>.log "
-                "and load records as <target>-editmode-run<k>.load",
+                "Results: log/unity-tests/<target>-editmode-run<k>.xml, with Unity logs as <target>-editmode-run<k>.log, "
+                "load records as <target>-editmode-run<k>.load, and Data Store service logs as "
+                "<target>-editmode-run<k>.uds-service.log",
             ],
             summary,
         )
@@ -1189,6 +1219,125 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
                 "  - leaf, 3 runs: 2 of 3 failed; 6 tests, 4 passed, 2 failed, 0 skipped, 0 inconclusive",
                 "    failed in 2 of 3 runs: Fixture.Tests.Breaks",
                 "    environment: Unity's Data Store service ended in 2 of 3 runs, and 1 of them failed on that alone",
+            ],
+            summary[: len(summary) - 2],
+        )
+
+    def test_a_run_gives_the_totals_that_counted_repeat_logged_for_each_test(self) -> None:
+        # The name keeps what a test case's string argument may hold, the text that precedes the
+        # totals included; a line that quotes the totals inside another, such as a test's failure
+        # message, is not one; and Unity's log may end its lines in CR LF.
+        name = 'Fixture.Tests.Case("a: totals: b")'
+        log = "\r\n".join(
+            [
+                f"[Repeat] {name}: start, runs 400 (MU3LIBRARY_TEST_REPEAT=400)",
+                f"[Repeat] {name}: run 1 of 400: Passed in 274.4 ms",
+                counted_repeat_totals(name, 400, 400, passed=398, failed=2),
+                utp_status("End", name, counted_repeat_totals(name, 1, 1, passed=0, failed=1)),
+                counted_repeat_totals("Fixture.Tests.Stopped", 3, 10, passed=2, inconclusive=1),
+            ]
+        )
+
+        completed = self.run_tests("leaf", results=nunit_results(passed=2), log=log)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = self.summary(completed)
+        self.assertEqual(
+            [
+                "  - leaf: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {name}: runs 400 of 400, passed 398, failed 2, inconclusive 0, skipped 0, "
+                "failure rate 0.50%",
+                "    counted repeat: Fixture.Tests.Stopped: runs 3 of 10, passed 2, failed 0, inconclusive 1, skipped 0, "
+                "failure rate 0.00%",
+            ],
+            summary[:3],
+        )
+        self.assertRegex(summary[3], OTHER_UNITY_PROCESSES)
+        self.assertTrue(summary[4].startswith("Results: "), summary)
+
+    def test_the_totals_of_repeated_runs_sum_what_counted_repeat_logged_in_each(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        repeated = "Fixture.Tests.Repeated"
+        cancelled = "Fixture.Tests.Cancelled"
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "3",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results_1=nunit_results(passed=0, failed=("Repeated",)),
+            log_1=counted_repeat_totals(repeated, 2, 2, passed=1, failed=1),
+            results_2=nunit_results(passed=2),
+            log_2="\n".join(
+                [counted_repeat_totals(repeated, 1, 1, passed=1), counted_repeat_totals(cancelled, 0, 5, passed=0)]
+            ),
+            # The third run writes no results, but its log gives the totals of a test it began.
+            results_3="",
+            log_3=counted_repeat_totals(repeated, 0, 3, passed=0),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 3: FAILED, 1 tests, 0 passed, 1 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                "  - leaf run 2 of 3: 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                f"    counted repeat: {cancelled}: runs 0 of 5, passed 0, failed 0, inconclusive 0, skipped 0, "
+                "failure rate none, no run ended",
+                "  - leaf run 3 of 3: FAILED, Unity exited with 0 and wrote no test results; see its log above",
+                f"    counted repeat: {repeated}: runs 0 of 3, passed 0, failed 0, inconclusive 0, skipped 0, "
+                "failure rate none, no run ended",
+                "  - leaf, 3 runs: 2 of 3 failed; 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive, "
+                "in the 2 runs that wrote results",
+                f"    failed in 1 of 3 runs: {repeated}",
+                f"    counted repeat in 3 of 3 runs: {repeated}: runs 3 of 6, passed 2, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 33.33%",
+                f"    counted repeat in 1 of 3 runs: {cancelled}: runs 0 of 5, passed 0, failed 0, inconclusive 0, "
+                "skipped 0, failure rate none, no run ended",
+            ],
+            summary[: len(summary) - 2],
+        )
+        self.assertRegex(summary[-2], self.OTHERS_OVER_RUNS)
+        self.assertTrue(summary[-1].startswith("Results: "), summary)
+
+    def test_a_run_that_gives_a_test_s_totals_twice_adds_both_and_counts_as_one_run(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        repeated = "Fixture.Tests.Repeated"
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results=nunit_results(passed=1),
+            log_1=chr(10).join(
+                [
+                    counted_repeat_totals(repeated, 2, 2, passed=1, failed=1),
+                    counted_repeat_totals(repeated, 1, 1, passed=1),
+                ]
+            ),
+            log_2=counted_repeat_totals(repeated, 1, 1, passed=1),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf run 2 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf, 2 runs: 0 of 2 failed; 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat in 2 of 2 runs: {repeated}: runs 4 of 4, passed 3, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 25.00%",
             ],
             summary[: len(summary) - 2],
         )
@@ -1458,6 +1607,157 @@ class CompileLogTests(FixtureRepositoryTestCase):
                 self.assertNotIn("Compiling layered", completed.stdout)
                 self.assertNotIn("Unity compilation succeeded", completed.stdout)
 
+    def test_a_compile_keeps_the_record_of_its_data_store_service_and_the_service_s_log(self) -> None:
+        # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
+        service_log = "Starting Unity Data Store Application\nShut down UDS service system complete"
+        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log=service_log)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Compiling leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
+        self.assertEqual([], self.mirrors_left())
+        logs = self.log_file("leaf").parent
+        self.assertEqual(f"{service_log}\n", (logs / "leaf.uds-service.log").read_text(encoding="utf-8"))
+        # The helper ran beside the compile, without spinners; the fake is not a child of the
+        # script as Windows sees it, so it finds no service (DataStoreRecordTests finds one).
+        record = read_record(logs / "leaf.load")
+        self.assertEqual(("0", "", "yes", ""), (record["spinners"], record["data_store_pids"], record["complete"], record["error"]))
+        self.assertEqual([], list(logs.glob("*.load-stop")))
+        self.assertNotIn("will not be recorded", completed.stderr)
+
+    def test_a_compile_whose_unity_did_not_launch_the_service_keeps_no_service_log(self) -> None:
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        project_logs = self.root / "ProjLeaf" / "Logs"
+        project_logs.mkdir()
+        self.addCleanup(shutil.rmtree, project_logs)
+        (project_logs / "UDS-Service.log").write_text("an earlier run's service\n", encoding="utf-8")
+        kept = self.log_file("leaf").with_name("leaf.uds-service.log")
+        kept.parent.mkdir(parents=True)
+        kept.write_text("kept by an earlier run\n", encoding="utf-8")
+
+        completed = self.compile("leaf", log="Compiling scripts")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertFalse(kept.exists())
+        self.assertEqual("an earlier run's service\n", (project_logs / "UDS-Service.log").read_text(encoding="utf-8"))
+
+    def test_without_the_helper_a_compile_warns_and_keeps_only_the_service_s_log(self) -> None:
+        helper = self.root / LOAD_HELPER
+        moved = helper.with_name("fixed_load.py.away")
+        helper.rename(moved)
+        self.addCleanup(moved.rename, helper)
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        record = self.log_file("leaf").with_name("leaf.load")
+        record.parent.mkdir(parents=True)
+        record.write_text("complete=yes\n", encoding="utf-8")
+
+        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log="Shut down")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(
+            "warning: the Data Store service of each run will not be recorded: "
+            "tools/cli/src/mu3_cli/fixed_load.py is missing",
+            completed.stderr.splitlines(),
+        )
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+        # The record an earlier run left does not stand in for this one's.
+        self.assertFalse(record.exists())
+        self.assertEqual("Shut down\n", record.with_name("leaf.uds-service.log").read_text(encoding="utf-8"))
+
+    def test_each_target_of_a_compile_stops_its_own_helper(self) -> None:
+        # A helper that a later target's start replaced would not be told that its run ended.
+        completed = self.compile("all")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        logs = self.log_file("leaf").parent
+        for key, _, _ in MAPPING:
+            with self.subTest(target=key):
+                self.assertIn(f"Unity compilation succeeded: {key}", completed.stdout.splitlines())
+                record = read_record(logs / f"{key}.load")
+                self.assertEqual(("yes", ""), (record["complete"], record["error"]))
+        self.assertEqual([], list(logs.glob("*.load-stop")))
+
+    def test_records_that_cannot_be_removed_do_not_stop_the_compile(self) -> None:
+        # rm becomes a shell function that cannot remove the run's records, as when another program
+        # holds them open.
+        failing_record_removal = """rm() {
+    case "$*" in
+        *.load|*.load-stop|*.uds-service.log) return 1 ;;
+    esac
+    command rm "$@"
+}
+"""
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        completed = self.run_functions(
+            "compile-unity.sh", failing_record_removal + 'compile_main "$@"', "leaf", environment=self.unity_environment()
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+        for name in ("leaf.load", "leaf.load-stop", "leaf.uds-service.log"):
+            self.assertIn(
+                f"warning: could not remove log/unity-compile/{name}, which an earlier run left",
+                completed.stderr.splitlines(),
+            )
+
+    def test_records_of_an_earlier_run_go_before_a_run_that_fails_to_start(self) -> None:
+        # A mirror cannot be made in a temporary folder that does not exist, so the run stops before Unity.
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        logs = self.log_file("leaf").parent
+        logs.mkdir(parents=True)
+        (logs / "leaf.uds-service.log").write_text("kept by an earlier run\n", encoding="utf-8")
+        (logs / "leaf.load").write_text("earlier=yes\n", encoding="utf-8")
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment(TMPDIR=str(self.root / "missing"))
+        )
+
+        self.assertNotEqual(0, completed.returncode, completed.stdout)
+        self.assertNotIn("fake unity ran", completed.stdout)
+        self.assertFalse((logs / "leaf.uds-service.log").exists())
+        # The helper started for the run writes its own record as the script ends.
+        self.assertNotIn("earlier", read_record(logs / "leaf.load"))
+
+@unittest.skipUnless(platform.system() == "Windows", "a stand-in service needs a native Windows program to run")
+class DataStoreRecordTests(FixtureRepositoryTestCase):
+    """The helper that compile-unity.sh starts beside a run records the service the run starts.
+
+    Under Git Bash a program that runs another one built for it, as the fake Unity does, leaves the
+    tree that Windows sees, so the service has to be a native program that the script runs itself,
+    as Unity runs its service: a copy of cmd.exe named as Unity names the service.
+    """
+
+    def test_the_record_gives_the_end_and_the_exit_code_of_a_service_that_descends_from_the_script(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        service = Path(directory.name) / fixed_load.default_data_store_process_name()
+        shutil.copy2(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cmd.exe", service)
+        base = Path(directory.name) / "leaf"
+
+        completed = self.run_functions(
+            "compile-unity.sh",
+            'find_load_python || { printf "%s\\n" "$LOAD_UNAVAILABLE"; exit 2; }\n'
+            'UNITY_LOG_FILE="$2.log"\n'
+            'start_load_helper "$2"\n'
+            "status=0\n"
+            # The service lives about a second, several of the helper's looks.
+            'MSYS2_ARG_CONV_EXCL="*" "$1" /d /c "ping -n 2 127.0.0.1 >nul & exit 7" || status=$?\n'
+            "stop_load_helper\n"
+            'printf "service exited with %s\\n" "$status"\n',
+            service.as_posix(),
+            base.as_posix(),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        self.assertIn("service exited with 7", completed.stdout.splitlines())
+        record = read_record(base.with_name("leaf.load"))
+        self.assertEqual(("0", "yes"), (record["spinners"], record["complete"]))
+        [pid] = record["data_store_pids"].split()
+        self.assertEqual("7", record[f"data_store_{pid}_exit_code"])
+        started = datetime.fromisoformat(record[f"data_store_{pid}_started"])
+        ended = datetime.fromisoformat(record[f"data_store_{pid}_ended"])
+        self.assertLess(started, ended)
+        self.assertFalse(base.with_name("leaf.load-stop").exists())
+
 
 class UnfinishedTestTests(FixtureRepositoryTestCase):
     """unfinished_test reads the test a run was in from the lines -automated adds to the log."""
@@ -1482,6 +1782,75 @@ class UnfinishedTestTests(FixtureRepositoryTestCase):
     def test_names_nothing_once_the_last_test_ended_or_when_none_began(self) -> None:
         self.assertEqual("", self.unfinished(UTP_BEGIN, UTP_END))
         self.assertEqual("", self.unfinished("Loading"))
+
+
+class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
+    """find_counted_repeats reads the totals that [CountedRepeat] logs, and compute_failure_rate gives
+    the failure rate of summed totals as the attribute gives it."""
+
+    # Prints what find_counted_repeats found, a test a line.
+    PRINT_FOUND = (
+        'find_counted_repeats "$1"\n'
+        "for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do\n"
+        '    printf "%s|%s|%s\\n" "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"\n'
+        "done"
+    )
+
+    def found(self, *lines: str) -> list[str]:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        log = Path(directory.name) / "unity.log"
+        log.write_bytes("".join(f"{line}\n" for line in lines).encode("utf-8"))
+        completed = self.run_functions("test-unity.sh", self.PRINT_FOUND, str(log))
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout.splitlines()
+
+    def test_reads_each_test_s_counts_and_rate_from_a_line_of_its_own(self) -> None:
+        self.assertEqual(
+            ["Fixture.Tests.Repeated|400 400 398 2 0 0|0.50%", "Fixture.Tests.None|0 5 0 0 0 0|none, no run ended"],
+            self.found(
+                "[Repeat] Fixture.Tests.Repeated: start, runs 400 (MU3LIBRARY_TEST_REPEAT=400)",
+                "[Repeat] Fixture.Tests.Repeated: run 400 of 400: Failed in 12.5 ms: Expected 1 | But was 2",
+                counted_repeat_totals("Fixture.Tests.Repeated", 400, 400, passed=398, failed=2) + "\r",
+                counted_repeat_totals("Fixture.Tests.None", 0, 5, passed=0),
+            ),
+        )
+
+    def test_takes_the_longest_name_that_leaves_the_totals(self) -> None:
+        # A string argument that holds a whole totals line stays in the name.
+        name = f'Fixture.Tests.Case("{counted_repeat_totals("x", 1, 1, passed=1)}")'
+
+        self.assertEqual([f"{name}|2 2 1 1 0 0|50.00%"], self.found(counted_repeat_totals(name, 2, 2, passed=1, failed=1)))
+
+    def test_passes_over_lines_that_only_quote_the_totals_or_do_not_hold_them_whole(self) -> None:
+        line = counted_repeat_totals("Fixture.Tests.Repeated", 2, 2, passed=1, failed=1)
+
+        self.assertEqual(
+            [],
+            self.found(
+                utp_status("End", "Fixture.Tests.Repeated", line),
+                f" {line}",
+                line.replace("runs 2 of 2", "runs 02 of 2"),
+                line.replace("50.00%", "50.00"),
+                line.replace(", skipped 0", ""),
+            ),
+        )
+        self.assertEqual([], self.found())
+
+    def test_the_failure_rate_is_given_to_two_decimals_with_a_half_rounded_up(self) -> None:
+        completed = self.run_functions(
+            "test-unity.sh",
+            'for counts in "3 1" "3 2" "8 1" "800 1" "1 0" "5 5" "0 0"; do\n'
+            "    compute_failure_rate $counts\n"
+            '    printf "%s\\n" "$FAILURE_RATE"\n'
+            "done",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(
+            ["33.33%", "66.67%", "12.50%", "0.13%", "0.00%", "100.00%", "none, no run ended"],
+            completed.stdout.splitlines(),
+        )
 
 
 class DataStoreLossTests(FixtureRepositoryTestCase):

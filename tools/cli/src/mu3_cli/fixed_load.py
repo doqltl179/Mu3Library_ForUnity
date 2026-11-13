@@ -1,7 +1,8 @@
 """Puts one Unity test run under a fixed CPU load and counts the other Unity processes around it.
 
 test-unity.sh runs this file as a script, with nothing but the standard library, beside each run
-of a target:
+of a target, and compile-unity.sh beside each compile, with no spinners, for the record of its
+Data Store service:
 
     python -I fixed_load.py supervise --log <Unity log> --spinners <n> --root-pid <pid>
         --stop <file> --record <file> [--idle]
