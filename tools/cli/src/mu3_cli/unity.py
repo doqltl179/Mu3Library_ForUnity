@@ -869,7 +869,6 @@ def render_diagnostics(diagnostics: list[UnityDiagnostic], output_format: str, r
     if output_format != "text":
         raise typer.BadParameter("--format must be either 'text' or 'json'.")
 
-    echo_repository_root(root)
     for item in diagnostics:
         typer.echo(f"[{item.status}] [{item.target}] {item.title}: {item.detail}")
         if item.suggestion:
@@ -978,6 +977,9 @@ def unity_doctor(
 ) -> None:
     """Diagnose Unity package mappings, projects, Editors, modules, locks, and log readiness."""
     root = repo_root()
+    # The JSON report carries the root as a field, so that its output stays one JSON object.
+    if output_format != "json":
+        echo_repository_root(root)
     try:
         specs = load_target_specs(root)
     except ValueError as error:

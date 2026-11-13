@@ -85,15 +85,17 @@ def repo_root() -> Path:
     return module_root
 
 
-def _holds_without_another_checkout(root: Path, working_directory: Path) -> bool:
+def _checkout_holding(root: Path, working_directory: Path) -> tuple[bool, Path | None]:
+    """Return whether root holds the working directory with no other checkout in between, and
+    otherwise the nearest other checkout that holds it, or None when no checkout does."""
     # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
     root_folder = root.resolve()
     for candidate in (working_directory, *working_directory.parents):
         if candidate.resolve() == root_folder:
-            return True
+            return True, None
         if _is_checkout_root(candidate):
-            return False
-    return False
+            return False, candidate
+    return False, None
 
 
 def outside_checkout_refusal(root: Path, command: str) -> str | None:
@@ -103,7 +105,9 @@ def outside_checkout_refusal(root: Path, command: str) -> str | None:
     An installed `mu3-cli` acts on the checkout it was installed from wherever it runs, so run from
     another checkout it would change files there instead. The working directory is inside root when
     root, or a subst drive or link that names it, holds it with no other checkout in between, so a
-    worktree nested in root's folder, such as one under `.claude/worktrees/`, is outside it.
+    worktree nested in root's folder, such as one under `.claude/worktrees/`, is outside it. A folder
+    that a failed `git worktree remove` left there has lost the `AGENTS.md` and `.github` that mark a
+    checkout, so it counts as inside root (#436).
     """
     try:
         working_directory = Path.cwd()
@@ -113,15 +117,19 @@ def outside_checkout_refusal(root: Path, command: str) -> str | None:
             f"({error}), so nothing was changed. Run it again from inside that checkout."
         )
     try:
-        if _holds_without_another_checkout(root, working_directory):
-            return None
+        inside, other_checkout = _checkout_holding(root, working_directory)
     except OSError:
         # A folder on the way up that cannot be read leaves the answer unknown, which counts as outside.
-        pass
-    return (
-        f"mu3-cli {command} would change the checkout at {root}, but the working directory {working_directory} "
-        "is outside it, so nothing was changed. Run it from inside that checkout, or, for the checkout you are in, "
-        f"run PYTHONPATH=tools/cli/src python -m mu3_cli {command} from that checkout's root."
+        inside, other_checkout = False, None
+    if inside:
+        return None
+    refusal = f"mu3-cli {command} would change the checkout at {root}, but the working directory {working_directory} "
+    if other_checkout is None:
+        return refusal + "is outside it and in no checkout, so nothing was changed. Run it from inside that checkout."
+    return refusal + (
+        f"is outside it, in the checkout at {other_checkout}, so nothing was changed. Run it from inside {root}, "
+        f"or, to change the checkout at {other_checkout}, run PYTHONPATH=tools/cli/src python -m mu3_cli {command} "
+        "from that checkout's root."
     )
 
 

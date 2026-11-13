@@ -330,9 +330,9 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
 
         self.assertEqual(
             f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
-            f"{working_directory} is outside it, so nothing was changed. Run it from inside that checkout, or, "
-            "for the checkout you are in, run PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples "
-            "from that checkout's root.",
+            f"{working_directory} is outside it, in the checkout at {self.other}, so nothing was changed. "
+            f"Run it from inside {self.main}, or, to change the checkout at {self.other}, run "
+            "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples from that checkout's root.",
             self.refusal(self.main, working_directory),
         )
 
@@ -342,11 +342,26 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
         refusal = self.refusal(self.main, working_directory)
 
         self.assertIsNotNone(refusal)
-        self.assertIn(f"the working directory {working_directory} is outside it", refusal)
+        self.assertIn(
+            f"the working directory {working_directory} is outside it, in the checkout at {self.nested},", refusal
+        )
         self.assertIsNone(self.refusal(self.nested, working_directory))
 
-    def test_folder_in_no_checkout_is_refused(self) -> None:
-        self.assertIsNotNone(self.refusal(self.main, self.temporary))
+    def test_folder_in_no_checkout_is_refused_without_naming_another(self) -> None:
+        self.assertEqual(
+            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"{self.temporary} is outside it and in no checkout, so nothing was changed. "
+            "Run it from inside that checkout.",
+            self.refusal(self.main, self.temporary),
+        )
+
+    def test_folder_a_failed_removal_left_in_the_folder_of_a_checkout_is_inside_it(self) -> None:
+        # git worktree remove deletes AGENTS.md and .github before it stops at a junction, so nothing
+        # marks the folder it leaves as a checkout of its own.
+        left_behind = self.main / ".claude" / "worktrees" / "removed" / "UnityProject_BuiltIn"
+        left_behind.mkdir(parents=True)
+
+        self.assertIsNone(self.refusal(self.main, left_behind))
 
     def test_unreadable_working_directory_is_refused(self) -> None:
         with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):
