@@ -17,7 +17,14 @@ from shell_harness import bash_or_skip
 from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
 from mu3_cli import fixed_load
 from mu3_cli.repository import repo_root
-from mu3_cli.unity import bash_script_command, is_directory_link, link_samples, load_target_specs, remove_directory_link
+from mu3_cli.unity import (
+    bash_script_command,
+    is_directory_link,
+    link_samples,
+    load_target_specs,
+    remove_directory_link,
+    unlink_samples,
+)
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH.
 FAILING_REMOVAL = """rm() { printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1; }
@@ -187,6 +194,50 @@ class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
                 self.assertEqual(0, completed.returncode, completed.stderr)
                 self.assertIn("Git changes inspected: 0", completed.stdout.splitlines(), completed.stdout)
                 self.assertIn(f"Selected {heading} targets: none", completed.stdout.splitlines())
+
+
+class WorktreeRemovalTests(FixtureRepositoryTestCase):
+    """On Windows git worktree remove stops at the first junction it meets and leaves the
+    worktree's folder behind, so a linked worktree is removed only after unlink-samples."""
+
+    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
+    # Ignored as the repository ignores its links, so the linked worktree counts as clean.
+    GITIGNORE_LINES = ("ProjLeaf/Assets/Samples",)
+
+    def remove_leftover(self, worktree: Path) -> None:
+        # The link goes first, so that nothing walks through it into the folder it points at.
+        link = worktree / "ProjLeaf" / "Assets" / "Samples"
+        if is_directory_link(link):
+            remove_directory_link(link)
+        shutil.rmtree(worktree, ignore_errors=True)
+        self._git("worktree", "prune")
+
+    def test_worktree_whose_samples_were_unlinked_is_removed_with_its_folder(self) -> None:
+        worktree = self.root.parent / "unit"
+        self._git("worktree", "add", "--detach", str(worktree))
+        self.addCleanup(self.remove_leftover, worktree)
+        # Git does not track the fixture's empty Assets folder, which a real project fills.
+        (worktree / "ProjLeaf" / "Assets").mkdir()
+        specs = load_target_specs(worktree)
+        [linked] = link_samples(specs, worktree)
+        self.assertTrue(linked.ok, linked.message)
+
+        [unlinked] = unlink_samples(specs, worktree)
+        self.assertTrue(unlinked.ok, unlinked.message)
+        self.assertTrue((worktree / "PkgLeaf" / "Samples~" / "Sample.cs").is_file())
+        completed = subprocess.run(
+            ["git", "worktree", "remove", str(worktree)],
+            cwd=self.root,
+            env=self._environment(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertFalse(os.path.lexists(worktree))
+        self.assertTrue((self.root / "PkgLeaf" / "Samples~" / "Sample.cs").is_file())
 
 
 def nunit_results(

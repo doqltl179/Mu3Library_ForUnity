@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
 using Mu3Library.Multiplayer.Protocol;
 using UnityEngine;
 
@@ -896,12 +897,15 @@ namespace Mu3Library.Multiplayer
         /// <summary>
         /// The player's name as the backend reports it, cut to <see cref="MultiplayerLimits.MaxPlayerNameLength"/>
         /// so the roster always fits in one packet, and before a surrogate pair the cut would
-        /// split, so the host's roster holds the same name as the clients read from its packets
-        /// (<see cref="MultiplayerLimits.CutPlayerName"/>).
+        /// split (<see cref="MultiplayerLimits.CutPlayerName"/>), with each surrogate without its
+        /// pair as U+FFFD, as UTF-8 carries it in the host's packets (<see cref="Utf8Text.AsCarried"/>,
+        /// #398). So the host's roster holds the same name as the clients read from its packets,
+        /// even from a backend a game writes itself whose name holds such a surrogate. Both return
+        /// the same instance, without allocating, when they change nothing.
         /// </summary>
         private string GetParticipantName(PlayerId player)
         {
-            return MultiplayerLimits.CutPlayerName(_backend.GetPlayerName(player) ?? string.Empty);
+            return Utf8Text.AsCarried(MultiplayerLimits.CutPlayerName(_backend.GetPlayerName(player) ?? string.Empty));
         }
 
         /// <summary>The connections of the account that the host has not welcomed yet.</summary>

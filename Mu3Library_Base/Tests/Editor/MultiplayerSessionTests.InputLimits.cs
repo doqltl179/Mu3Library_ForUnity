@@ -157,6 +157,43 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ANameLongerThanTheRosterTakes_IsCutAtAClient_AsTheHostCutsIt()
+        {
+            // NFR-5, #399: a host of this library sends each name already cut, so only another
+            // host sends one longer than MaxPlayerNameLength within the bytes a name may take. A
+            // client cuts it as it arrives, in the welcome and in the news of a join, as the host
+            // cuts it, so its roster holds what a host of this library would have sent: 64
+            // characters, or 63 before a surrogate pair that the cut would split.
+            RecordingListener listener = new RecordingListener();
+            LocalBackend fakeHost = CreateRawBackend("FakeHost", listener);
+            Assert.That(fakeHost.StartListening(), Is.True);
+            LobbyId lobby = CreateRawLobby(fakeHost, GameId, 1);
+            Node a = CreateNode("A");
+            a.Manager.JoinLobby(lobby);
+            Pump();
+            ConnectionId connection = listener.Connected.Single();
+            PlayerId hostId = fakeHost.LocalPlayerId;
+            PlayerId late = new PlayerId(hostId.Value + 1000);
+
+            int max = MultiplayerLimits.MaxPlayerNameLength;
+            string hostName = new string('h', 100);
+            string lateName = new string('l', max - 1) + "\U0001F600" + "tail";
+
+            fakeHost.Send(connection, WelcomePacket(hostId, a.Id, hostName, "m", "forest"), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.Lobby));
+            Assert.That(a.Manager.TryGetParticipant(hostId, out Participant hostSeen), Is.True);
+            Assert.That(hostSeen.Name, Is.EqualTo(new string('h', max)));
+
+            a.Joined.Clear();
+            fakeHost.Send(connection, ParticipantJoinedPacket(late, lateName), DeliveryMode.Reliable);
+            Pump();
+            Assert.That(a.Joined.Select(participant => participant.Name), Is.EqualTo(new[] { new string('l', max - 1) }));
+            Assert.That(a.Manager.TryGetParticipant(late, out Participant lateSeen), Is.True);
+            Assert.That(lateSeen.Name, Is.EqualTo(new string('l', max - 1)));
+        }
+
+        [Test]
         public void ARosterLargerThanASessionHolds_IsMalformedAtAClient_AndAFullOneStillArrives()
         {
             // NFR-5: a host admits at most MaxCapacity players, so a client drops a welcome with a

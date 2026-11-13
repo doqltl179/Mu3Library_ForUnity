@@ -627,8 +627,8 @@ namespace Mu3Library.Multiplayer.Local
             // and text ends at its first NUL on every backend, in this process and in the owner's
             // own (#372, #387). A key with nothing before its first NUL reaches Steam as an empty
             // key, which Steam answered true for on AppID 480 on 2026-11-08 though its lobby kept
-            // no such key once Steam's servers answered, so the owner writes none and answers
-            // true, as for an empty value (#343).
+            // no such key once a search returned the lobby (#405), so the owner writes none and
+            // answers true, as for an empty value (#343).
             bool isKeyGiven = !string.IsNullOrEmpty(key);
             key = Utf8Text.AsLobbyText(key);
             value = Utf8Text.AsLobbyText(value);

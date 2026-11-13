@@ -47,6 +47,13 @@ namespace Mu3Library.Multiplayer.Backend
         public bool IsAvailable { get; }
 
         public PlayerId LocalPlayerId { get; }
+
+        /// <summary>
+        /// The player's name, which the host's roster shows to every player. The host takes it cut
+        /// to <see cref="MultiplayerLimits.MaxPlayerNameLength"/> and with each UTF-16 surrogate
+        /// without its pair as U+FFFD, as UTF-8 carries it to the clients in the host's packets,
+        /// so the host and every client hold the same string for each player.
+        /// </summary>
         public string GetPlayerName(PlayerId player);
 
         /// <summary>Largest data, in bytes, that one <see cref="Send"/> carries; 512 KiB on Steam.</summary>
@@ -125,9 +132,10 @@ namespace Mu3Library.Multiplayer.Backend
         /// before the NUL, and keys that differ only after a NUL are one key. A value with nothing
         /// before its first NUL is an empty value, as above. A key with nothing before its first
         /// NUL reaches Steam as an empty key: Steam answered true for it, and the owner read the
-        /// value back at once, but its lobby kept no such key once Steam's servers answered and
-        /// search never returned it, so the local backends write no key and answer true for the
-        /// owner, while a key that is null or empty to begin with answers false on every backend.
+        /// value back at once, but its lobby kept no such key once a search returned the lobby
+        /// (#405, as <see cref="DeleteLobbyData"/> says) and search never returned the key, so the
+        /// local backends write no key and answer true for the owner, while a key that is null or
+        /// empty to begin with answers false on every backend.
         /// </para>
         /// <para>
         /// The manager refuses a NUL character and an unpaired surrogate in every text it writes
@@ -147,6 +155,17 @@ namespace Mu3Library.Multiplayer.Backend
         /// (#343). Removes the key from the lobby, so lobby search no longer returns it or finds
         /// the lobby by it, except that a numeric filter reads a key the lobby lacks as 0, as
         /// Steam's search did (#353). The manager asks only for a key the lobby holds.
+        /// <para>
+        /// The key is taken as <see cref="SetLobbyData"/> takes it. A key with nothing before its
+        /// first NUL is answered differently on Steam and on the local backends. It reaches Steam
+        /// as the empty key, which the owner's copy of the lobby holds from the write until a
+        /// search returns the lobby from Steam's servers: until then Steam deletes it and answers
+        /// true, and after it false, as for a key the lobby lacks (AppID 480, 2026-11-12, #405;
+        /// neither 30 seconds nor a later change of the data ended it). The local backends write
+        /// no such key, so they answer false at once. They do not follow Steam's first answer,
+        /// which would mean keeping a key the lobby lacks until some search; only a caller of a
+        /// backend itself writes such a key.
+        /// </para>
         /// </summary>
         public bool DeleteLobbyData(LobbyId lobby, string key);
 

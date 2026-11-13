@@ -28,6 +28,9 @@ namespace Mu3Library.Tests
     {
         private const string EnableVariable = "MU3LIBRARY_STEAM_TESTS";
 
+        // How long a test waits for CreateLobby's answer.
+        private const int CreateLobbySeconds = 20;
+
         // Robin Walker of Valve (steamcommunity.com/id/robinwalker), a public profile since 2003.
         private const ulong PublicAccountId = 76561197960435530UL;
 
@@ -186,8 +189,8 @@ namespace Mu3Library.Tests
 
                 MultiplayerResult? created = null;
                 manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Mu3 test" }, result => created = result);
-                Pump(manager, () => created.HasValue, 20);
-                Assert.That(created?.IsSuccess, Is.True);
+                Pump(manager, () => created.HasValue, CreateLobbySeconds);
+                Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
                 LobbyId lobby = manager.CurrentLobbyId;
                 Assert.That(_backend.IsLobbyMember(lobby, _backend.LocalPlayerId), Is.True);
@@ -554,7 +557,7 @@ namespace Mu3Library.Tests
                 Assert.That(mismatches, Is.Empty);
 
                 // The empty key that a key with nothing before its first NUL reached Steam as is
-                // gone from the owner's lobby once Steam's servers answered.
+                // gone from the owner's lobby once a search returned the lobby (#405).
                 List<string> owned = OwnLobbyGameKeys(lobby);
                 Assert.That(owned.Where(key => key.Length == 0), Is.Empty, $"the owner's lobby holds the game keys '{string.Join("', '", owned)}'");
 
@@ -567,6 +570,56 @@ namespace Mu3Library.Tests
             }
             finally
             {
+                manager.Dispose();
+            }
+        }
+
+        [Test]
+        public void SteamLobby_DeletesAKeyWithNothingBeforeItsFirstNul_OnlyUntilASearchReturnsTheLobby()
+        {
+            // #405 on Steam itself, through the backend, since the manager refuses a NUL in lobby
+            // data. Such a key reaches Steam as the empty key (#387), which the owner's copy of the
+            // lobby holds from the write until a search returns the lobby from Steam's servers:
+            // until then Steam deletes it and answers true, and after it false, as for a key the
+            // lobby lacks (#343). The local backends write no such key and answer false at once.
+            MultiplayerManager manager = new MultiplayerManager();
+            Steamworks.Callback<Steamworks.LobbyDataUpdate_t> changed = null;
+            try
+            {
+                LobbyId lobby = CreatePublicLobby(manager, "Map", "desert");
+                Assert.That(SearchUntil(manager, Worldwide, lobby), Is.Not.Null, "the lobby never showed up in the library's search");
+
+                Assert.That(_backend.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key right after the write");
+                Assert.That(_backend.DeleteLobbyData(lobby, "\0lead"), Is.True, "right after the write");
+                Assert.That(_backend.GetLobbyData(lobby, "\0lead"), Is.Null);
+
+                // Neither 30 seconds nor a later change of the data took the key from the owner's
+                // lobby on 2026-11-12; a search that returned the lobby with that change did.
+                Assert.That(_backend.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key written again");
+                int updates = 0;
+                changed = Steamworks.Callback<Steamworks.LobbyDataUpdate_t>.Create(update =>
+                {
+                    if (update.m_ulSteamIDLobby == lobby.Value && update.m_ulSteamIDMember == lobby.Value)
+                    {
+                        updates++;
+                    }
+                });
+                Assert.That(_backend.SetLobbyData(lobby, "Mode", "coop"), Is.True);
+                Pump(manager, () => updates > 0, 10);
+                TestContext.WriteLine(updates > 0 ? "Steam answered the later change." : "Steam did not answer the later change within 10 seconds.");
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Contain(string.Empty), "the owner's lobby holds the empty key after Steam answered the later change, or 10 seconds");
+                Assert.That(SearchUntil(manager, () => Worldwide().AddStringFilter("Mode", "coop"), lobby), Is.Not.Null,
+                    "the lobby never showed up in a search filtered by the later change");
+                Pump(manager, () => !OwnLobbyGameKeys(lobby).Contains(string.Empty), 10);
+                Assert.That(OwnLobbyGameKeys(lobby), Does.Not.Contain(string.Empty), "the owner's lobby keeps the empty key after a search returned the lobby");
+                Assert.That(_backend.DeleteLobbyData(lobby, "\0lead"), Is.False, "once a search returned the lobby");
+                manager.Leave();
+            }
+            finally
+            {
+                changed?.Dispose();
                 manager.Dispose();
             }
         }
@@ -931,15 +984,15 @@ namespace Mu3Library.Tests
             Recorder recorder = new Recorder();
             _backend.SetListener(recorder);
             Assert.That(_backend.CreateLoopbackPair(out ConnectionId first, out ConnectionId second), Is.True);
-            bool isCreated = false;
+            MultiplayerResult? created = null;
             LobbyId lobby = LobbyId.None;
             _backend.CreateLobby(LobbyVisibility.InviteOnly, 2, null, (reason, made) =>
             {
-                isCreated = true;
+                created = new MultiplayerResult(reason);
                 lobby = made;
             });
-            Pump(() => isCreated, 20);
-            Assert.That(lobby.IsValid, Is.True);
+            Pump(() => created.HasValue, CreateLobbySeconds);
+            Assert.That(lobby.IsValid, Is.True, CreateLobbyAnswer(created));
             Assert.That(IsOwnLobbyMember(lobby), Is.True);
             Assert.That(Steamworks.SteamNetworkingSockets.GetConnectionInfo(new Steamworks.HSteamNetConnection(first.Value), out _), Is.True);
             recorder.Events.Clear();
@@ -1361,8 +1414,8 @@ namespace Mu3Library.Tests
             options.Data["map"] = map;
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
-            Pump(manager, () => created.HasValue, 20);
-            Assert.That(created?.IsSuccess, Is.True);
+            Pump(manager, () => created.HasValue, CreateLobbySeconds);
+            Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
 
             LobbyId lobby = manager.CurrentLobbyId;
             Assert.That(_backend.GetLobbyData(lobby, "map"), Is.EqualTo(map));
@@ -1389,9 +1442,18 @@ namespace Mu3Library.Tests
 
             MultiplayerResult? created = null;
             manager.CreateLobby(options, result => created = result);
-            Pump(manager, () => created.HasValue, 20);
-            Assert.That(created?.IsSuccess, Is.True);
+            Pump(manager, () => created.HasValue, CreateLobbySeconds);
+            Assert.That(created?.IsSuccess, Is.True, CreateLobbyAnswer(created));
             return manager.CurrentLobbyId;
+        }
+
+        /// <summary>
+        /// What <see cref="MultiplayerManager.CreateLobby"/> answered, for the message of an
+        /// assertion on it, so a failed creation shows its reason rather than only that it failed.
+        /// </summary>
+        private static string CreateLobbyAnswer(MultiplayerResult? created)
+        {
+            return created.HasValue ? $"CreateLobby answered {created.Value}" : $"CreateLobby did not answer within {CreateLobbySeconds} seconds";
         }
 
         private static LobbySearchQuery Worldwide() => new LobbySearchQuery { Distance = LobbyDistance.Worldwide };

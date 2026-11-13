@@ -242,6 +242,28 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void JoinLobby_OnABackendThatNamesAPlayerWithASurrogateWithoutItsPair_ReachesTheSameRosterEverywhere()
+        {
+            // FR-9, #398: a backend a game writes itself may report a name with a surrogate
+            // without its pair, which the host's packets carry to the clients through UTF-8 as
+            // U+FFFD. So the host's roster takes each name as UTF-8 carries it too, its own and
+            // that of a player who joins, while a pair stays as it is, and the host and the
+            // client hold the same string for each player.
+            Node host = CreatePlatformNode("Host");
+            Node a = CreateNode("A");
+            host.Platform.PlayerNames[host.Id] = "pair\U0001F600lone\uD800";
+            host.Platform.PlayerNames[a.Id] = "\uDC00client";
+            CreateHost(host, PublicOptions(SessionRules.Default));
+            Assert.That(Join(a, host).IsSuccess, Is.True);
+
+            string[] carried = { "pair\U0001F600lone\uFFFD", "\uFFFDclient" };
+            foreach ((string side, Node node) in new[] { ("host", host), ("client", a) })
+            {
+                Assert.That(node.Manager.Participants.Select(participant => participant.Name), Is.EqualTo(carried), side);
+            }
+        }
+
+        [Test]
         public void JoinRequest_FromOutsideTheGame_JoinsLikeJoinLobby_AndLeavesTheCurrentSession()
         {
             // FR-7

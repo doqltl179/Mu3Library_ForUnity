@@ -11,6 +11,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity doctor`: diagnose bash, package mappings, sample links, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity di-strip-harness`: build the DI stripping harness as a Windows player at a chosen scripting backend and Managed Stripping Level, with the Editor the URP project names or another installed one, run it, and report each check (see [../README.md](../README.md#di-stripping-harness)).
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
+- `unity unlink-samples`: remove only those links, never the `Samples~` folders they point at, so that `git worktree remove` can delete the worktree on Windows (see [../README.md](../README.md#worktree-removal)).
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
 - `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails, `--load-spinners <n>` spins *n* CPU cores from the first test of each run to its last, and `--repeat <n>` runs each target *n* times and totals the runs (see [../README.md](../README.md#fixed-load-and-repeated-runs)).
@@ -92,6 +93,7 @@ Available now:
 - `unity compile`: change-aware batchmode compilation with configured target keys, `all`, and `--base` controls.
 - `unity test`: EditMode execution with the same selection, NUnit XML results under `log/unity-tests/`, and a non-zero exit on any failure.
 - `unity link-samples`: the sample links a fresh clone needs.
+- `unity unlink-samples`: those links removed again before `git worktree remove`.
 
 ```powershell
 mu3-cli unity doctor --target built-in
