@@ -4,13 +4,15 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
 from mu3_cli import fixed_load
-from mu3_cli.fixed_load import ProcessEntry, Record, TestLog, count_other_processes, descendants
+from mu3_cli.fixed_load import DataStore, ProcessEntry, Record, TestLog, count_other_processes, descendants
 from mu3_cli.repository import repo_root
 
 HELPER = repo_root() / "tools" / "cli" / "src" / "mu3_cli" / "fixed_load.py"
@@ -92,6 +94,17 @@ class ProcessTreeTests(unittest.TestCase):
         [current] = [entry for entry in processes if entry.pid == os.getpid()]
         self.assertEqual(os.getppid(), current.parent)
         self.assertIn(os.getpid(), descendants(processes, os.getppid(), fixed_load.creation_time_reader()))
+
+    @unittest.skipUnless(sys.platform == "win32", "only Windows reads a service's end from a handle")
+    def test_a_service_that_cannot_be_opened_has_no_end_and_says_why(self) -> None:
+        # No process can be opened by the ID 0, as one refused or already gone cannot be.
+        watch = fixed_load.DataStoreWatch(0)
+
+        self.assertFalse(watch.look())
+        self.assertIsNone(watch.service.ended)
+        self.assertIsNone(watch.service.exit_code)
+        self.assertRegex(watch.service.error, r"^could not open the process \(Windows error \d+\)$")
+        self.assertIn(f"data_store_0_error={watch.service.error}", Record(spinners=0, data_stores=[watch.service]).lines())
 
     def test_a_running_process_is_told_from_one_that_ended(self) -> None:
         ended = subprocess.Popen([sys.executable, "-c", "pass"])
@@ -204,6 +217,25 @@ class RecordTests(unittest.TestCase):
         self.assertIn("others_during_max=3", lines)
         self.assertIn("looks=2", lines)
         self.assertTrue(all("\n" not in line and "\r" not in line for line in lines))
+
+    def test_each_data_store_service_has_its_start_its_end_and_its_exit_code(self) -> None:
+        started = 1_794_000_000.0
+        record = Record(
+            spinners=0,
+            data_stores=[DataStore(13480, started=started, ended=started + 16.25, exit_code=3221225477), DataStore(13490)],
+        )
+
+        lines = record.lines()
+
+        local = datetime.fromtimestamp(started + 16.25).astimezone().isoformat(timespec="milliseconds")
+        self.assertIn("data_store_pids=13480 13490", lines)
+        self.assertIn(f"data_store_13480_ended={local}", lines)
+        self.assertIn("data_store_13480_exit_code=3221225477", lines)
+        # A service that still runs, or whose start could not be read, has neither yet.
+        self.assertIn("data_store_13490_started=", lines)
+        self.assertIn("data_store_13490_ended=", lines)
+        self.assertIn("data_store_13490_exit_code=", lines)
+        self.assertIn("data_store_pids=", Record(spinners=0).lines())
 
 
 class SupervisorTests(unittest.TestCase):
@@ -356,6 +388,68 @@ class SupervisorTests(unittest.TestCase):
         self.assertRegex(record["others_during_max"], r"^\d+$")
         self.assertGreaterEqual(int(record["looks"]), 1)
         self.assertEqual(str(os.cpu_count()), record["cpus"])
+
+    def test_the_record_gives_when_the_run_s_data_store_service_ended_and_its_exit_code(self) -> None:
+        # A child of this process, the script here, stands in for the service: the listing names
+        # it as one, and it exits with 7 once its input closes.
+        service = subprocess.Popen(
+            [sys.executable, "-c", "import sys; sys.stdin.read(); sys.exit(7)"], stdin=subprocess.PIPE
+        )
+        self.addCleanup(self.end, service)
+        listing = fixed_load.list_processes
+        listings: list[float] = []
+
+        def processes() -> list[ProcessEntry]:
+            listings.append(time.monotonic())
+            name = fixed_load.default_data_store_process_name()
+            return [ProcessEntry(entry.pid, entry.parent, name) if entry.pid == service.pid else entry for entry in listing()]
+
+        def named() -> dict[str, str]:
+            return self.read_record() if self.record_file.exists() else {}
+
+        before = time.time()
+        # The count of the other Unity processes, which lists them too, runs only at the start and the end.
+        with mock.patch.object(fixed_load, "list_processes", side_effect=processes), mock.patch.object(
+            fixed_load, "SAMPLE_SECONDS", 3600.0
+        ):
+            supervisor = threading.Thread(
+                target=fixed_load.supervise,
+                args=(self.log, 0, os.getpid(), self.stop, self.record_file),
+                daemon=True,
+            )
+            supervisor.start()
+            self.addCleanup(supervisor.join, 30)
+            self.addCleanup(self.stop.write_text, "", encoding="utf-8")
+
+            # The helper writes its record as it finds the service, and again as the service ends.
+            self.assertTrue(wait_until(lambda: named().get("data_store_pids") == str(service.pid)))
+            self.assertEqual("", named()[f"data_store_{service.pid}_ended"])
+            # Once it has found the service, it lists the processes no more, over several looks.
+            found = len(listings)
+            time.sleep(4 * fixed_load.SERVICE_LOOK_SECONDS)
+            self.assertEqual(found, len(listings))
+            assert service.stdin is not None
+            service.stdin.close()
+            self.assertEqual(7, service.wait(timeout=30))
+            after = time.time()
+            self.assertTrue(wait_until(lambda: named()[f"data_store_{service.pid}_ended"] != ""))
+            self.stop.write_text("", encoding="utf-8")
+            supervisor.join(timeout=30)
+
+        record = self.read_record()
+        self.assertEqual("yes", record["complete"])
+        self.assertEqual(str(service.pid), record["data_store_pids"])
+        ended = datetime.fromisoformat(record[f"data_store_{service.pid}_ended"]).timestamp()
+        self.assertLessEqual(before - 1, ended)
+        self.assertLessEqual(ended, after + 1)
+        self.assertEqual("", record[f"data_store_{service.pid}_error"])
+        if sys.platform == "win32":
+            # Windows gives a process's start and its exit code to a handle held open on it.
+            self.assertEqual("7", record[f"data_store_{service.pid}_exit_code"])
+            started = datetime.fromisoformat(record[f"data_store_{service.pid}_started"]).timestamp()
+            self.assertLessEqual(started, ended)
+        else:
+            self.assertEqual("", record[f"data_store_{service.pid}_exit_code"])
 
     def test_the_spinners_end_when_the_script_ends_without_stopping_them(self) -> None:
         script = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])

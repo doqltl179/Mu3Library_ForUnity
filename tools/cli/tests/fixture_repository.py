@@ -42,7 +42,8 @@ LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_cli" / "fixed_load.py"
 # a file, writes the test results it is given to the path after -testResults, and exits with
 # the status it is given. Given a file to count its runs in, run <n> prints FAKE_UNITY_LOG_<n>
 # and writes FAKE_UNITY_RESULTS_<n> instead when they are set, so that each run of --repeat can
-# differ.
+# differ. Given FAKE_UNITY_SERVICE_LOG, it writes that text as the log Unity's Data Store service
+# writes in the project, Logs/UDS-Service.log.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
@@ -74,6 +75,10 @@ if [[ -n "${FAKE_UNITY_RUN_FILE:-}" ]]; then
 fi
 if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_LOG"
+fi
+if [[ -n "${FAKE_UNITY_SERVICE_LOG:-}" ]]; then
+    mkdir -p "$project/Logs"
+    printf '%s\\n' "$FAKE_UNITY_SERVICE_LOG" > "$project/Logs/UDS-Service.log"
 fi
 for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
     sleep "${FAKE_UNITY_TICK_SECONDS:-1}"
@@ -212,6 +217,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             "FAKE_UNITY_SLEEP",
             "FAKE_UNITY_SLEEPER_FILE",
             "FAKE_UNITY_RUN_FILE",
+            "FAKE_UNITY_SERVICE_LOG",
             "MSYS2_ARG_CONV_EXCL",
             "UNITY_LOG_POLL_SECONDS",
             "UNITY_LOAD_SPINNERS_IDLE",

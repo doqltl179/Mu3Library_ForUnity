@@ -297,6 +297,8 @@ UTP_END = (
 # The summary line under each run that counts the Unity processes the run did not start; other
 # Unity processes may run on the machine while the tests do.
 OTHER_UNITY_PROCESSES = r"^    other Unity processes: \d+ at the start, \d+( to \d+)? while it ran \(\d+ look\(s\)\)$"
+# The line Unity 6000.6.7f1 logs as it launches its Data Store service, with the space it ends in.
+DATA_STORE_LAUNCH = "Launching Unity Data Store - C:/Program Files/Unity/Hub/Editor/6000.6.7f1/Editor/Data/Tools/Unity.DataStore.exe "
 # The error Unity 6000.6.7f1 logged once its Data Store service had ended during a run (#393).
 DATA_STORE_LOSS = (
     "Unity Data Store service (pid 13480) is no longer running. Artifacts will be read in process for the rest of "
@@ -606,6 +608,33 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         named = [line for line in completed.stdout.splitlines() if "inconclusive: " in line]
         self.assertEqual(["    inconclusive: Fixture.Tests.Waits"], named)
 
+    def test_failed_and_inconclusive_tests_are_named_as_the_tests_name_themselves(self) -> None:
+        # The result file writes a test case's string argument with the XML references of an
+        # attribute. An &amp; is read once, so the &quot; it leaves stays, and bash 5.2's
+        # patsub_replacement would have put the whole &amp; back for the & it stands for.
+        failed = ("Case(&quot;a &amp; b&quot;)", "Quote(&apos;&lt;T&gt;&apos;, &amp;quot;)")
+        inconclusive = ("Text(&quot;caf&#xE9; &#233; &#x1F600;&quot;)", "Odd(&foo; &#0;)")
+        completed = self.run_tests(
+            "leaf", results=nunit_results(passed=1, failed=failed, inconclusive=inconclusive), unity_status=2
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        errors = completed.stderr.splitlines()
+        start = errors.index("error: leaf: 5 tests, 1 passed, 2 failed, 0 skipped, 2 inconclusive")
+        text = f'Fixture.Tests.Text("caf{chr(0xE9)} {chr(0xE9)} {chr(0x1F600)}")'
+        self.assertEqual(
+            [
+                '  failed: Fixture.Tests.Case("a & b")',
+                "  failed: Fixture.Tests.Quote('<T>', &quot;)",
+                f"  inconclusive: {text}",
+                "  inconclusive: Fixture.Tests.Odd(&foo; &#0;)",
+            ],
+            errors[start + 1 : start + 5],
+        )
+        self.assertEqual(
+            [f"    inconclusive: {text}", "    inconclusive: Fixture.Tests.Odd(&foo; &#0;)"], self.summary(completed)[1:3]
+        )
+
     def summary(self, completed: subprocess.CompletedProcess[str]) -> list[str]:
         lines = completed.stdout.splitlines()
         return lines[lines.index("EditMode test summary:") + 1 :]
@@ -719,6 +748,48 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             ],
             self.summary(completed)[:2],
         )
+
+    def test_a_run_whose_unity_launched_the_data_store_service_keeps_the_service_s_log(self) -> None:
+        # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
+        service_log = "Starting Unity Data Store Application\nShut down UDS service system complete"
+        completed = self.run_tests(
+            "leaf",
+            "--isolated",
+            results=nunit_results(passed=2, failed=("Breaks",), messages={"Breaks": FRAMEWORK_LOSS_FAILURE}),
+            unity_status=2,
+            log=f"{DATA_STORE_LAUNCH}\n{data_store_loss_log('Fixture.Tests.Breaks')}",
+            service_log=service_log,
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
+        self.assertEqual([], self.mirrors_left())
+        kept = self.root / "log" / "unity-tests" / "leaf-editmode.uds-service.log"
+        self.assertEqual(f"{service_log}\n", kept.read_text(encoding="utf-8"))
+        # The fake is not a child of the script as Windows sees it, so the helper finds no service.
+        line = (
+            "data store service: pid 13480 has no end in log/unity-tests/leaf-editmode.load; its log is kept as "
+            "log/unity-tests/leaf-editmode.uds-service.log"
+        )
+        self.assertIn(f"  {line}", completed.stderr.splitlines())
+        self.assertEqual(f"    {line}", self.summary(completed)[2])
+
+    def test_a_service_log_that_the_run_s_unity_did_not_launch_the_service_for_is_not_kept(self) -> None:
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        logs = self.root / "ProjLeaf" / "Logs"
+        logs.mkdir()
+        self.addCleanup(shutil.rmtree, logs)
+        (logs / "UDS-Service.log").write_text("an earlier run's service\n", encoding="utf-8")
+        kept = self.root / "log" / "unity-tests" / "leaf-editmode.uds-service.log"
+        kept.parent.mkdir(parents=True)
+        kept.write_text("kept by an earlier run\n", encoding="utf-8")
+
+        completed = self.run_tests("leaf", results=nunit_results(passed=1), log=UTP_BEGIN)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertFalse(kept.exists())
+        self.assertEqual("an earlier run's service\n", (logs / "UDS-Service.log").read_text(encoding="utf-8"))
+        self.assertNotIn("data store service:", completed.stdout + completed.stderr)
 
     def test_results_without_an_inconclusive_count_fail(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results().replace(' inconclusive="0"', ""))
@@ -1450,6 +1521,84 @@ class DataStoreLossFailureTests(FixtureRepositoryTestCase):
 
         self.assertTrue(self.failed_only_on_it(results, test='Fixture.Tests.Case("a & b \\ c")'))
         self.assertFalse(self.failed_only_on_it(results, test="Fixture.Tests.Case(&quot;a &amp; b \\ c&quot;)"))
+
+
+class DataStoreEndTests(FixtureRepositoryTestCase):
+    """add_data_store_loss_to_summary gives, under the line about the end of the Data Store service, when
+    the service ended and its exit code, as the helper recorded them, and the service's log the run kept."""
+
+    ENVIRONMENT = (
+        "  environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the error "
+        "Unity logged for it failed that test, so the test reached no verdict; run the target again"
+    )
+
+    def summary(self, record: str | None, kept_log: bool) -> list[str]:
+        shutil.rmtree(self.root / "log", ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        base = self.root / "log" / "unity-tests" / "leaf-editmode"
+        base.parent.mkdir(parents=True)
+        if record is not None:
+            base.with_name("leaf-editmode.load").write_bytes(record.encode("utf-8"))
+        if kept_log:
+            base.with_name("leaf-editmode.uds-service.log").write_text("Shut down\n", encoding="utf-8")
+        completed = self.run_functions(
+            "test-unity.sh",
+            "DATA_STORE_LOSS_PID=13480\nDATA_STORE_LOSS_TEST=Fixture.Tests.Breaks\n"
+            'add_data_store_loss_to_summary 1 "$REPO_ROOT/log/unity-tests/leaf-editmode" 2>/dev/null\n'
+            'printf "%s\\n" "${SUMMARY_LINES[@]}"',
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        lines = completed.stdout.splitlines()
+        self.assertEqual(self.ENVIRONMENT, lines[0])
+        return lines[1:]
+
+    def test_gives_the_exit_code_and_the_end_the_helper_recorded_and_the_kept_log(self) -> None:
+        record = (
+            "data_store_pids=13470 13480\r\n"
+            "data_store_13470_ended=2026-11-08T21:49:40.000+09:00\r\ndata_store_13470_exit_code=0\r\n"
+            "data_store_13480_started=2026-11-08T21:49:54.120+09:00\r\n"
+            "data_store_13480_ended=2026-11-08T21:50:10.502+09:00\r\ndata_store_13480_exit_code=3221225477\r\n"
+            "complete=yes\r\n"
+        )
+        self.assertEqual(
+            [
+                "  data store service: pid 13480 exited with code 3221225477 at 2026-11-08T21:50:10.502+09:00; its log "
+                "is kept as log/unity-tests/leaf-editmode.uds-service.log"
+            ],
+            self.summary(record, kept_log=True),
+        )
+
+    def test_says_what_the_helper_could_not_read(self) -> None:
+        unread_code = "data_store_pids=13480\ndata_store_13480_ended=2026-11-08T21:50:10.502+09:00\ndata_store_13480_exit_code=\n"
+        self.assertEqual(
+            ["  data store service: pid 13480 ended at 2026-11-08T21:50:10.502+09:00 with an exit code that could not be read"],
+            self.summary(unread_code, kept_log=False),
+        )
+
+    def test_names_a_kept_log_without_an_end_and_adds_nothing_without_either(self) -> None:
+        for record, kept_log, lines in (
+            (
+                "data_store_pids=\n",
+                True,
+                [
+                    "  data store service: pid 13480 has no end in log/unity-tests/leaf-editmode.load; its log is kept "
+                    "as log/unity-tests/leaf-editmode.uds-service.log"
+                ],
+            ),
+            ("data_store_pids=\n", False, []),
+            # Without Python the helper does not run, so the run has no record to point at.
+            (
+                None,
+                True,
+                [
+                    "  data store service: pid 13480 has no end recorded, since the run has no load record; its log "
+                    "is kept as log/unity-tests/leaf-editmode.uds-service.log"
+                ],
+            ),
+            (None, False, []),
+        ):
+            with self.subTest(record=record, kept_log=kept_log):
+                self.assertEqual(lines, self.summary(record, kept_log))
 
 
 class StallTimeoutDefaultTests(FixtureRepositoryTestCase):
