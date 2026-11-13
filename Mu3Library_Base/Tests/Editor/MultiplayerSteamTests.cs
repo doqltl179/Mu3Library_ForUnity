@@ -49,10 +49,34 @@ namespace Mu3Library.Tests
 
         [TestCase(EResult.k_EResultOK, MultiplayerReason.None)]
         [TestCase(EResult.k_EResultNoConnection, MultiplayerReason.SteamNotRunning)]
-        [TestCase(EResult.k_EResultLimitExceeded, MultiplayerReason.BackendError)]
+        [TestCase(EResult.k_EResultLimitExceeded, MultiplayerReason.RateLimited)]
+        [TestCase(EResult.k_EResultTimeout, MultiplayerReason.Timeout)]
+        [TestCase(EResult.k_EResultFail, MultiplayerReason.BackendError)]
+        [TestCase(EResult.k_EResultAccessDenied, MultiplayerReason.BackendError)]
         public void CreateResult_MapsToAReason(EResult result, MultiplayerReason expected)
         {
+            // #423: Steam's lobby creation limit answers a reason a game can tell from other failures.
             Assert.That(SteamReasons.FromCreateResult(result), Is.EqualTo(expected));
+        }
+
+        [TestCase(EResult.k_EResultNoConnection, false, MultiplayerReason.SteamNotRunning, "k_EResultNoConnection")]
+        [TestCase(EResult.k_EResultLimitExceeded, false, MultiplayerReason.RateLimited, "k_EResultLimitExceeded")]
+        [TestCase(EResult.k_EResultTimeout, false, MultiplayerReason.Timeout, "k_EResultTimeout")]
+        [TestCase(EResult.k_EResultFail, false, MultiplayerReason.BackendError, "k_EResultFail")]
+        [TestCase(EResult.k_EResultOK, true, MultiplayerReason.BackendError, "I/O failure")]
+        public void FailedLobbyCreation_LogsWhatSteamAnswered(EResult result, bool ioFailure, MultiplayerReason expected, string answer)
+        {
+            // #423: the warning names Steam's own answer, which the reason alone does not tell.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not create a lobby \(" + Regex.Escape(answer) + @"\); the lobby creation answers " + expected + @"\."));
+            Assert.That(SteamBackend.CreatedLobbyReason(result, ioFailure), Is.EqualTo(expected));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void CreatedLobby_LogsNothing()
+        {
+            Assert.That(SteamBackend.CreatedLobbyReason(EResult.k_EResultOK, ioFailure: false), Is.EqualTo(MultiplayerReason.None));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [TestCase(LobbyVisibility.InviteOnly, ELobbyType.k_ELobbyTypePrivate)]

@@ -124,7 +124,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             Track<LobbyCreated_t>(call, (created, ioFailure) =>
             {
-                MultiplayerReason reason = ioFailure ? MultiplayerReason.BackendError : SteamReasons.FromCreateResult(created.m_eResult);
+                MultiplayerReason reason = CreatedLobbyReason(created.m_eResult, ioFailure);
                 if (reason != MultiplayerReason.None)
                 {
                     EnqueueCallback(() => onCompleted?.Invoke(reason, LobbyId.None));
@@ -160,6 +160,33 @@ namespace Mu3Library.Multiplayer.Steam
                 _lobbyOwners[lobby.m_SteamID] = LocalPlayerId;
                 EnqueueCallback(() => onCompleted?.Invoke(MultiplayerReason.None, new LobbyId(lobby.m_SteamID)));
             }, reason => onCompleted?.Invoke(reason, LobbyId.None));
+        }
+
+        /// <summary>
+        /// The reason for Steam's answer to a lobby creation (<see cref="SteamReasons.FromCreateResult"/>),
+        /// or <see cref="MultiplayerReason.BackendError"/> for a call that ended in an I/O failure.
+        /// Every failure logs a warning with what Steam answered, whichever reason it maps to: one
+        /// reason stands for several of Steam's answers (<see cref="MultiplayerReason.BackendError"/>
+        /// for most, <see cref="MultiplayerReason.SteamNotRunning"/> also for a Steam that went
+        /// away), and only Steam's own result tells a developer which limit or error Steam meant.
+        /// A lobby creation is rare and the player's own request, so the warning does not repeat
+        /// every frame.
+        /// </summary>
+        internal static MultiplayerReason CreatedLobbyReason(EResult result, bool ioFailure)
+        {
+            if (ioFailure)
+            {
+                Debug.LogWarning($"[Multiplayer] Steam could not create a lobby (I/O failure); the lobby creation answers {MultiplayerReason.BackendError}.");
+                return MultiplayerReason.BackendError;
+            }
+
+            MultiplayerReason reason = SteamReasons.FromCreateResult(result);
+            if (reason != MultiplayerReason.None)
+            {
+                Debug.LogWarning($"[Multiplayer] Steam could not create a lobby ({result}); the lobby creation answers {reason}.");
+            }
+
+            return reason;
         }
 
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted)
