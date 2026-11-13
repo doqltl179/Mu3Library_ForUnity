@@ -102,6 +102,30 @@ class PackageCodeCharacterTests(unittest.TestCase):
         self.assertEqual(1, len(issues), issues)
         self.assertTrue(issues[0].startswith(f"could not inspect package code file: {Path(path)} ("), issues)
 
+    def test_bytes_of_another_encoding_are_reported_as_a_file_to_save_as_utf8(self) -> None:
+        korean = "".join(map(chr, (0xD55C, 0xAD6D, 0xC5B4)))
+        cases = {
+            "latin-1": "caf".encode("ascii") + bytes([0xE9]),
+            "cp949": korean.encode("cp949"),
+            "cut short": bytes([0xE2, 0x82]),
+            # ED followed by a byte outside A0 to BF starts no surrogate.
+            "ED without a surrogate": bytes([0xED, 0x41]),
+        }
+        for name, data in cases.items():
+            with self.subTest(name):
+                path = self.write(b"// first\n// " + data)
+
+                [issue] = package_code_issues(self.root, [path])
+
+                self.assertTrue(
+                    issue.endswith(
+                        "; line 2 is not UTF-8, as text saved in another encoding, such as Korean saved as CP949, "
+                        "is not; save the file as UTF-8"
+                    ),
+                    issue,
+                )
+                self.assertNotIn("surrogate", issue)
+
     # Built from code points and bytes, never typed: an editing tool can turn a typed escape into
     # the character, and a lossy one turns an unpaired surrogate into the replacement character.
     REPLACEMENT = chr(0xFFFD)
@@ -306,9 +330,9 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
 
         self.assertEqual(
             f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
-            f"{working_directory} is outside it, so nothing was changed. Run it from inside that checkout, or, "
-            "for the checkout you are in, run PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples "
-            "from that checkout's root.",
+            f"{working_directory} is outside it, in the checkout at {self.other}, so nothing was changed. "
+            f"Run it from inside {self.main}, or, to change the checkout at {self.other}, run "
+            "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples from that checkout's root.",
             self.refusal(self.main, working_directory),
         )
 
@@ -318,11 +342,26 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
         refusal = self.refusal(self.main, working_directory)
 
         self.assertIsNotNone(refusal)
-        self.assertIn(f"the working directory {working_directory} is outside it", refusal)
+        self.assertIn(
+            f"the working directory {working_directory} is outside it, in the checkout at {self.nested},", refusal
+        )
         self.assertIsNone(self.refusal(self.nested, working_directory))
 
-    def test_folder_in_no_checkout_is_refused(self) -> None:
-        self.assertIsNotNone(self.refusal(self.main, self.temporary))
+    def test_folder_in_no_checkout_is_refused_without_naming_another(self) -> None:
+        self.assertEqual(
+            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"{self.temporary} is outside it and in no checkout, so nothing was changed. "
+            "Run it from inside that checkout.",
+            self.refusal(self.main, self.temporary),
+        )
+
+    def test_folder_a_failed_removal_left_in_the_folder_of_a_checkout_is_inside_it(self) -> None:
+        # git worktree remove deletes AGENTS.md and .github before it stops at a junction, so nothing
+        # marks the folder it leaves as a checkout of its own.
+        left_behind = self.main / ".claude" / "worktrees" / "removed" / "UnityProject_BuiltIn"
+        left_behind.mkdir(parents=True)
+
+        self.assertIsNone(self.refusal(self.main, left_behind))
 
     def test_unreadable_working_directory_is_refused(self) -> None:
         with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):

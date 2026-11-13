@@ -544,9 +544,8 @@ class SampleLinkTests(unittest.TestCase):
                 self.assertEqual(
                     [
                         f"error: mu3-cli unity {command} would change the checkout at {self.root}, "
-                        f"but the working directory {outside} is outside it, so nothing was changed. "
-                        "Run it from inside that checkout, or, for the checkout you are in, run "
-                        f"PYTHONPATH=tools/cli/src python -m mu3_cli unity {command} from that checkout's root."
+                        f"but the working directory {outside} is outside it and in no checkout, so nothing was changed. "
+                        "Run it from inside that checkout."
                     ],
                     result.stderr.splitlines(),
                 )
@@ -580,6 +579,19 @@ class RepositoryRootLineTests(unittest.TestCase):
             {"repository_root": str(root), "diagnostics": [], "summary": {"pass": 0, "warn": 0, "fail": 0}},
             json.loads(as_json.stdout),
         )
+
+    def test_doctor_names_the_root_before_it_refuses_a_target(self) -> None:
+        root = repo_root()
+
+        text = CliRunner().invoke(app, ["unity", "doctor", "--target", "missing"])
+        as_json = CliRunner().invoke(app, ["unity", "doctor", "--format", "json", "--target", "missing"])
+
+        self.assertEqual(2, text.exit_code, text.output)
+        self.assertEqual([f"Repository root: {root}"], text.stdout.splitlines())
+        self.assertIn("Unknown Unity target 'missing'", text.stderr)
+        # The JSON report names the root only as a field of the report, which a refused target never reaches.
+        self.assertEqual(2, as_json.exit_code, as_json.output)
+        self.assertEqual("", as_json.stdout)
 
 
 class BashDiscoveryTests(unittest.TestCase):
