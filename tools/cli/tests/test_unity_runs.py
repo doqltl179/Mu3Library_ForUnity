@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform
@@ -1285,6 +1286,42 @@ class InterruptedLoadRunTests(FixtureRepositoryTestCase):
             sleeper = sleeper_file.read_text(encoding="utf-8").strip()
             subprocess.run([str(bash_or_skip()), "-c", f"kill {sleeper} 2>/dev/null"], check=False)
 
+    @staticmethod
+    def end_what_the_kill_left(script: fixed_load.ProcessWatch) -> None:
+        """Ends every process that descends from a script that taskkill ended outright, and waits
+        for each, before the folder that holds the script's output is removed.
+
+        A kill that lands while Git Bash forks leaves the child, which holds the output file it
+        inherited and waits for the script to finish the fork until it gives up 300 s later with
+        "fatal error in forked process - WFSO timed out after longjmp", so the removal failed with
+        WinError 32 (#428). The script is held open so that its ID, which its children name as
+        their parent, cannot pass to another process, and each child is held open before it is
+        looked up again, for the same reason. The fake Unity and its sleep name a parent that ended
+        as Git Bash ran them, so they are not found here; end_fake_unity ends them.
+        """
+        outlived: list[int] = []
+        try:
+            first = fixed_load.descendants(fixed_load.list_processes(), script.pid, fixed_load.creation_time_reader())
+            watches = [fixed_load.ProcessWatch(pid) for pid in sorted(first - {script.pid})]
+            try:
+                again = fixed_load.descendants(fixed_load.list_processes(), script.pid, fixed_load.creation_time_reader())
+                left = [watch for watch in watches if watch.pid in again and watch.running()]
+                for watch in left:
+                    # On Windows os.kill ends the process outright, whatever the signal.
+                    with contextlib.suppress(OSError):
+                        os.kill(watch.pid, signal.SIGTERM)
+                deadline = time.monotonic() + 30
+                while any(watch.running() for watch in left) and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                outlived = [watch.pid for watch in left if watch.running()]
+            finally:
+                for watch in watches:
+                    watch.close()
+        finally:
+            script.close()
+        if outlived:
+            raise AssertionError(f"processes that the killed script left could not be ended: {outlived}")
+
     def assert_helper_and_spinners_end(self, record: dict[str, str]) -> None:
         pids = [int(record["helper_pid"]), *map(int, record["spinner_pids"].split())]
         self.assertEqual(3, len(pids))
@@ -1321,6 +1358,7 @@ class InterruptedLoadRunTests(FixtureRepositoryTestCase):
         # Neither a trap nor an exit runs: the helper sees the script end, and each spinner its
         # input close as the helper ends.
         if platform.system() == "Windows":
+            self.addCleanup(self.end_what_the_kill_left, fixed_load.ProcessWatch(root_pid))
             subprocess.run(["taskkill", "/F", "/PID", str(root_pid)], capture_output=True, check=True)
         else:
             os.kill(root_pid, signal.SIGKILL)
