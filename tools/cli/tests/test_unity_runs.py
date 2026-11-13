@@ -1304,6 +1304,44 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertRegex(summary[-2], self.OTHERS_OVER_RUNS)
         self.assertTrue(summary[-1].startswith("Results: "), summary)
 
+    def test_a_run_that_gives_a_test_s_totals_twice_adds_both_and_counts_as_one_run(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        repeated = "Fixture.Tests.Repeated"
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results=nunit_results(passed=1),
+            log_1=chr(10).join(
+                [
+                    counted_repeat_totals(repeated, 2, 2, passed=1, failed=1),
+                    counted_repeat_totals(repeated, 1, 1, passed=1),
+                ]
+            ),
+            log_2=counted_repeat_totals(repeated, 1, 1, passed=1),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf run 2 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {repeated}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf, 2 runs: 0 of 2 failed; 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat in 2 of 2 runs: {repeated}: runs 4 of 4, passed 3, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 25.00%",
+            ],
+            summary[: len(summary) - 2],
+        )
+
     def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
         results_dir = self.results_dir()
         results_dir.mkdir(parents=True)

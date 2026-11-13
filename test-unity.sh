@@ -892,6 +892,8 @@ add_load_to_summary() {
 # is the longest that leaves the rest of the line in that form, so a test
 # case's string argument may hold any of it; a line that quotes the totals
 # after another start, such as the ##utp: line of a test's failure, is not one.
+# The line of one run whose failure message ends in such totals reads as one
+# too, which only a test that fails with that text as its message writes.
 find_counted_repeats() {
     local log_file="$1"
     local line
@@ -903,6 +905,9 @@ find_counted_repeats() {
     COUNTED_REPEAT_RATES=()
     [[ -f "$log_file" ]] || return 0
 
+    # -U keeps the CR of a CR LF line, which the grep of Git Bash drops
+    # otherwise, so that this function removes it on every host; -a comes last,
+    # since BSD grep takes the last of the two.
     while IFS= read -r line; do
         line="${line%$'\r'}"
         if [[ "$line" =~ $pattern ]]; then
@@ -910,7 +915,7 @@ find_counted_repeats() {
             COUNTED_REPEAT_COUNTS+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]} ${BASH_REMATCH[5]} ${BASH_REMATCH[6]} ${BASH_REMATCH[7]}")
             COUNTED_REPEAT_RATES+=("${BASH_REMATCH[8]}")
         fi
-    done < <(grep -a '^\[Repeat] .*: totals: runs ' "$log_file" || true)
+    done < <(grep -U -a '^\[Repeat] .*: totals: runs ' "$log_file" || true)
 }
 
 # Sets COUNTED_REPEAT_PHRASE to counts, as COUNTED_REPEAT_COUNTS keeps them,
