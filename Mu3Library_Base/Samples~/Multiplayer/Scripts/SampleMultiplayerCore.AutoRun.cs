@@ -12,7 +12,8 @@ namespace Mu3Library.Sample.Multiplayer
     /// own participant data key. The guest searches for the lobby by name, joins it by its lobby
     /// ID, sets its participant data key, gets ready, answers the host's message, deletes its key
     /// once it heard the lobby data key deleted, and waits to be kicked. Every step logs a line
-    /// that starts with <c>[MultiplayerSample] AUTO</c>; the run ends with <c>AUTO PASS</c> or
+    /// whose text after its time and the <c>[MultiplayerSample]</c> prefix starts with
+    /// <c>AUTO</c> (<see cref="SampleLog"/>); the run ends with <c>AUTO PASS</c> or
     /// <c>AUTO FAIL</c> and then quits, a player with exit code 0 or 1 and the editor by leaving
     /// play mode.
     /// </summary>

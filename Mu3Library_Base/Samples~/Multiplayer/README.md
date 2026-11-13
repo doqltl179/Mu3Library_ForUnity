@@ -55,13 +55,13 @@ With Steamworks.NET installed and Steam running, the same buttons play on Steam 
 
 ## The Log
 
-The on-screen log shows the latest 16 lines. Each of them, and each line the sample writes to the Unity log, starts with the time it was logged at: this computer's local time of day to the millisecond, `HH:mm:ss.fff`. In the Unity log the prefix follows the time:
+The on-screen log shows the latest 16 lines. Each of them, and each line with the prefix `[MultiplayerSample]` in the Unity log, starts with the time it was logged at: this computer's local time of day to the millisecond, `HH:mm:ss.fff`. In the Unity log the prefix follows the time:
 
 ```
 14:05:09.123 [MultiplayerSample] State: InGame -> Offline (HostLeft)
 ```
 
-The time comes from the computer's clock rather than from the start of the process, so the lines of two computers compare when their clocks are synchronized and set to the same time zone: which came first, and how long after one event another came, such as how long after the host's process ended a player's session ended with `HostLeft`. Two computers' lines are only as close as their clocks, so synchronize both before such a check. The time carries no date. The library's own lines, which start with `[Multiplayer]`, carry no time.
+The time comes from the computer's clock rather than from the start of the process, so the lines of two computers compare when their clocks are synchronized and set to the same time zone: which came first, and how long after one event another came, such as how long after the host's process ended a player's session ended with `HostLeft`. Two computers' lines are only as close as their clocks, so synchronize both before such a check. The time carries no date. The library's own lines, which start with `[Multiplayer]`, carry no time, and neither does the exception the sample logs as it is when its backend cannot start, which a timed line about it follows.
 
 ## Unattended Run
 
