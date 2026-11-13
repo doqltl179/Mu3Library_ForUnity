@@ -94,10 +94,11 @@ namespace Mu3Library.Multiplayer.Data
         /// the host's handshake (<see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/>), a Steam
         /// lobby search (25 seconds) or avatar (10 seconds), and a lobby rejoin that got no answer
         /// (<see cref="IMultiplayerManagerEventBus.OnLobbyRejoinFailed"/>). A Steam lobby creation
-        /// answers it, and logs a warning, when Steam answers <c>k_EResultTimeout</c>, as Steam
-        /// did, 10 seconds after the request, to an account that had created 21 lobbies within
-        /// about 20 seconds; creating the lobby again some time later can succeed, and the manager
-        /// does not try again on its own. The host also closes with it a connection of an account
+        /// answers it, and logs a warning, when Steam answers <c>k_EResultTimeout</c>, which Steam
+        /// documents for a request its servers did not answer and also answered, 10 seconds after
+        /// the request, to an account that had created 21 lobbies within about 20 seconds;
+        /// creating the lobby again some time later can succeed, and the manager does not try
+        /// again on its own. The host also closes with it a connection of an account
         /// that already has <see cref="MultiplayerLimits.MaxPendingConnectionsPerAccount"/>
         /// connections it has not admitted. That is no timeout, but a reconnecting client tries
         /// again on it, as on a handshake that ran out, since an earlier attempt of its own may
