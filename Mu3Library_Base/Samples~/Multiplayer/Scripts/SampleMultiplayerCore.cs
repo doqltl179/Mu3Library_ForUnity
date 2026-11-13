@@ -53,6 +53,14 @@ namespace Mu3Library.Sample.Multiplayer
         private readonly SampleLog _log = new SampleLog();
         private readonly MessageWriter _writer = new MessageWriter();
         private readonly List<LobbyInfo> _foundLobbies = new List<LobbyInfo>();
+
+        /// <summary>
+        /// The search list's line of lobby data for each found lobby, at the same index as in
+        /// <see cref="_foundLobbies"/>, written once per search rather than in every frame the
+        /// list is drawn in.
+        /// </summary>
+        private readonly List<string> _foundLobbyDataLines = new List<string>();
+
         private readonly Dictionary<PlayerId, AvatarSlot> _avatars = new Dictionary<PlayerId, AvatarSlot>();
 
         private SampleCommandLine _commandLine;
@@ -234,6 +242,7 @@ namespace Mu3Library.Sample.Multiplayer
             }
 
             _foundLobbies.Clear();
+            _foundLobbyDataLines.Clear();
 
             if (!result.IsSuccess)
             {
@@ -242,6 +251,11 @@ namespace Mu3Library.Sample.Multiplayer
             }
 
             _foundLobbies.AddRange(result.Lobbies);
+            for (int i = 0; i < _foundLobbies.Count; i++)
+            {
+                string data = LobbyDataText(_foundLobbies[i].Data);
+                _foundLobbyDataLines.Add($"Lobby data: {data ?? "(none)"}");
+            }
 
             // The unattended run searches every second, so only a search from the button logs.
             if (!IsAutoRunning)
@@ -676,6 +690,7 @@ namespace Mu3Library.Sample.Multiplayer
             }
 
             _foundLobbies.Clear();
+            _foundLobbyDataLines.Clear();
             _manager.ReleaseAvatars();
         }
         #endregion
@@ -700,6 +715,57 @@ namespace Mu3Library.Sample.Multiplayer
         private string PingText(PlayerId player)
         {
             return _manager.TryGetParticipantPing(player, out int ping) ? $"{ping} ms" : "-";
+        }
+
+        /// <summary>
+        /// The longest text <see cref="LobbyDataText"/> writes, the cut included. A lobby holds up
+        /// to <see cref="MultiplayerLimits.MaxLobbyDataSize"/> bytes of game-defined data, so the
+        /// search list cuts the rest off rather than grow one row of the list to many lines.
+        /// </summary>
+        private const int MaxLobbyDataTextLength = 120;
+
+        /// <summary>
+        /// The game-defined lobby data that lobby search returned with a lobby (<see cref="LobbyInfo.Data"/>),
+        /// such as <c>"map" "forest"</c>, its keys in order and each in the case the backend
+        /// handed it back in, which on Steam can differ from the case the host wrote it in; null
+        /// when it holds none, as after the host deleted every key. The library's own keys are
+        /// never in it.
+        /// </summary>
+        private static string LobbyDataText(IReadOnlyDictionary<string, string> data)
+        {
+            if (data.Count == 0)
+            {
+                return null;
+            }
+
+            List<string> keys = new List<string>(data.Keys);
+            keys.Sort(StringComparer.OrdinalIgnoreCase);
+
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < keys.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(", ");
+                }
+
+                builder.Append('"').Append(keys[i]).Append("\" \"").Append(data[keys[i]]).Append('"');
+            }
+
+            if (builder.Length > MaxLobbyDataTextLength)
+            {
+                // Never between the two halves of a surrogate pair.
+                int length = MaxLobbyDataTextLength - 3;
+                if (char.IsHighSurrogate(builder[length - 1]))
+                {
+                    length--;
+                }
+
+                builder.Length = length;
+                builder.Append("...");
+            }
+
+            return builder.ToString();
         }
 
         private static string Pick(string[] values)

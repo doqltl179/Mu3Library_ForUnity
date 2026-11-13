@@ -12,7 +12,8 @@ namespace Mu3Library.Sample.Multiplayer
     /// own participant data key. The guest searches for the lobby by name, joins it by its lobby
     /// ID, sets its participant data key, gets ready, answers the host's message, deletes its key
     /// once it heard the lobby data key deleted, and waits to be kicked. Every step logs a line
-    /// that starts with <c>[MultiplayerSample] AUTO</c>; the run ends with <c>AUTO PASS</c> or
+    /// whose text after its time and the <c>[MultiplayerSample]</c> prefix starts with
+    /// <c>AUTO</c> (<see cref="SampleLog"/>); the run ends with <c>AUTO PASS</c> or
     /// <c>AUTO FAIL</c> and then quits, a player with exit code 0 or 1 and the editor by leaving
     /// play mode.
     /// </summary>
@@ -259,7 +260,11 @@ namespace Mu3Library.Sample.Multiplayer
                 LobbyInfo lobby = _foundLobbies[i];
                 if (string.Equals(lobby.Name, _commandLine.LobbyName, StringComparison.Ordinal))
                 {
-                    StepAutoRun(AutoStep.JoiningLobby, $"found the lobby, lobby ID {lobby.Id}; joining it by that ID");
+                    // This line names the lobby data that search returned, and the line after the
+                    // join the lobby data the host sent, so the log shows both side by side.
+                    string data = LobbyDataText(lobby.Data);
+                    string found = data == null ? "with no lobby data" : $"with the lobby data {data}";
+                    StepAutoRun(AutoStep.JoiningLobby, $"found the lobby, lobby ID {lobby.Id}, {found}; joining it by that ID");
                     JoinLobby(lobby.Id);
                     return;
                 }

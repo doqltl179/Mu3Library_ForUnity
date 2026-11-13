@@ -125,13 +125,21 @@ namespace Mu3Library.Sample.Multiplayer
             for (int i = 0; i < _foundLobbies.Count; i++)
             {
                 LobbyInfo lobby = _foundLobbies[i];
+                string dataLine = _foundLobbyDataLines[i];
                 string inGame = lobby.IsInGame ? ", in game" : string.Empty;
+
+                // The lobby data that search returned goes on a line of its own under the button,
+                // beside the same avatar cell, so the button keeps the text it had, and
+                // LobbyDataText cuts a long one short.
                 GUILayout.BeginHorizontal();
                 DrawAvatar(lobby.HostId);
+                GUILayout.BeginVertical();
                 if (GUILayout.Button($"Join \"{lobby.Name}\" ({lobby.MemberCount}/{lobby.Capacity}{inGame}), ID {lobby.Id}"))
                 {
                     JoinLobby(lobby.Id);
                 }
+                GUILayout.Label(dataLine);
+                GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
             }
 
