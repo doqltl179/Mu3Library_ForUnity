@@ -259,7 +259,11 @@ namespace Mu3Library.Sample.Multiplayer
                 LobbyInfo lobby = _foundLobbies[i];
                 if (string.Equals(lobby.Name, _commandLine.LobbyName, StringComparison.Ordinal))
                 {
-                    StepAutoRun(AutoStep.JoiningLobby, $"found the lobby, lobby ID {lobby.Id}; joining it by that ID");
+                    // This line names the lobby data that search returned, and the line after the
+                    // join the lobby data the host sent, so the log shows both side by side.
+                    string data = LobbyDataText(lobby.Data);
+                    string found = data == null ? "with no lobby data" : $"with the lobby data {data}";
+                    StepAutoRun(AutoStep.JoiningLobby, $"found the lobby, lobby ID {lobby.Id}, {found}; joining it by that ID");
                     JoinLobby(lobby.Id);
                     return;
                 }

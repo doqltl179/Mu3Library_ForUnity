@@ -75,8 +75,9 @@ namespace Mu3Library.Sample.Multiplayer
                 }
 
                 // A player build never falls back by itself. The sample does, so that it also
-                // runs on a computer without Steam.
-                Debug.LogWarning($"[MultiplayerSample] Steam is unavailable ({result.Reason}); the sample uses the local backend.");
+                // runs on a computer without Steam. The line starts with its time, as the lines
+                // of SampleLog do.
+                Debug.LogWarning($"{SampleLog.Timestamp()} {SampleLog.Prefix}Steam is unavailable ({result.Reason}); the sample uses the local backend.");
             }
 #endif
 
