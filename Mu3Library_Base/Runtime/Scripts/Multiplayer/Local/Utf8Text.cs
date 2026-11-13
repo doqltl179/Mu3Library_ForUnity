@@ -10,7 +10,8 @@ namespace Mu3Library.Multiplayer.Local
     /// and the keys and string values of search filters, as UTF-8 carries them (#372): every
     /// backend then reads the same text, in this process and in the owner's own on a
     /// machine-wide network. They take the player name they are created with the same way, as
-    /// Steam's names arrive through UTF-8 (#384).
+    /// Steam's names arrive through UTF-8 (#384), and the host's manager takes the name any
+    /// backend reports for its roster the same way, as its packets carry it to the clients (#398).
     /// <para>
     /// Steamworks.NET also hands Steam each such text as a C string, which ends at its first NUL,
     /// and the manager refuses a NUL in the same texts. So the local backends take the lobby

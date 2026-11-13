@@ -47,6 +47,13 @@ namespace Mu3Library.Multiplayer.Backend
         public bool IsAvailable { get; }
 
         public PlayerId LocalPlayerId { get; }
+
+        /// <summary>
+        /// The player's name, which the host's roster shows to every player. The host takes it cut
+        /// to <see cref="MultiplayerLimits.MaxPlayerNameLength"/> and with each UTF-16 surrogate
+        /// without its pair as U+FFFD, as UTF-8 carries it to the clients in the host's packets,
+        /// so the host and every client hold the same string for each player.
+        /// </summary>
         public string GetPlayerName(PlayerId player);
 
         /// <summary>Largest data, in bytes, that one <see cref="Send"/> carries; 512 KiB on Steam.</summary>
