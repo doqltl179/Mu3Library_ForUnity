@@ -44,6 +44,7 @@ DATA_STORE_LOSS_PID=""
 DATA_STORE_LOSS_TEST=""
 DATA_STORE_LOSS_ERROR=""
 RESULT_TESTS=()
+RESULT_TEST_ATTRIBUTES=()
 # When the Data Store service that find_data_store_loss named ended and with
 # what exit code, as read_data_store_end reads them from the helper's record.
 DATA_STORE_ENDED=""
@@ -403,8 +404,9 @@ xml_attribute_text() {
 
 # Sets RESULT_TESTS to the full names of the test cases in an NUnit 3 result
 # file whose result is the one given, such as Failed or Inconclusive, as the
-# tests have them, with the XML references of the result file replaced; a
-# suite whose tests all had that result is not one of them.
+# tests have them, with the XML references of the result file replaced, and
+# RESULT_TEST_ATTRIBUTES to the same names, in the same order, as the result
+# file writes them; a suite whose tests all had that result is not one of them.
 find_tests_with_result() {
     local results_file="$1"
     local result="$2"
@@ -412,8 +414,10 @@ find_tests_with_result() {
     local pattern='fullname="([^"]*)"'
 
     RESULT_TESTS=()
+    RESULT_TEST_ATTRIBUTES=()
     while IFS= read -r test_case; do
         if [[ "$test_case" =~ $pattern ]]; then
+            RESULT_TEST_ATTRIBUTES+=("${BASH_REMATCH[1]}")
             xml_attribute_text "${BASH_REMATCH[1]}"
             RESULT_TESTS+=("$XML_TEXT")
         fi
@@ -557,23 +561,26 @@ find_data_store_loss() {
 # with LogAssert.ignoreFailingMessages and failed while the error went by.
 failed_only_on_data_store_loss() {
     local results_file="$1"
+    local index
+    local fullname=""
 
     [[ -n "$DATA_STORE_LOSS_TEST" && -n "$DATA_STORE_LOSS_ERROR" && -f "$results_file" ]] || return 1
 
+    # The test is found by its name as find_tests_with_result reads it for the
+    # failed: lines and the summary, and then by its fullname attribute as the
+    # result file writes it, so that one function replaces the XML references.
+    find_tests_with_result "$results_file" Failed
+    for index in ${RESULT_TESTS[@]+"${!RESULT_TESTS[@]}"}; do
+        if [[ "${RESULT_TESTS[$index]}" == "$DATA_STORE_LOSS_TEST" ]]; then
+            fullname="${RESULT_TEST_ATTRIBUTES[$index]}"
+            break
+        fi
+    done
+    [[ -n "$fullname" ]] || return 1
+
     # The values reach awk through the environment, since -v would read the
     # backslashes of a test name as escapes.
-    DATA_STORE_LOSS_TEST="$DATA_STORE_LOSS_TEST" DATA_STORE_LOSS_ERROR="$DATA_STORE_LOSS_ERROR" awk '
-        # An attribute value with the entities XML predefines replaced. A
-        # character reference such as &#xA; stays, so such a name matches no
-        # test, and the end of the service is then only a warning.
-        function xml_text(text) {
-            gsub(/&quot;/, "\"", text)
-            gsub(/&apos;/, "\047", text)
-            gsub(/&lt;/, "<", text)
-            gsub(/&gt;/, ">", text)
-            gsub(/&amp;/, "\\&", text)
-            return text
-        }
+    DATA_STORE_LOSS_FULLNAME="$fullname" DATA_STORE_LOSS_ERROR="$DATA_STORE_LOSS_ERROR" awk '
         function attribute(line, key,    start, rest) {
             start = index(line, " " key "=\"")
             if (start == 0) {
@@ -583,7 +590,7 @@ failed_only_on_data_store_loss() {
             return substr(rest, 1, index(rest, "\"") - 1)
         }
         BEGIN {
-            name = ENVIRON["DATA_STORE_LOSS_TEST"]
+            fullname = ENVIRON["DATA_STORE_LOSS_FULLNAME"]
             error = ENVIRON["DATA_STORE_LOSS_ERROR"]
             opening = "<message><![CDATA["
             closing = "]]></message>"
@@ -594,7 +601,7 @@ failed_only_on_data_store_loss() {
         { sub(/\r$/, "") }
         state == 0 {
             if (index($0, "<test-case ") == 0 || attribute($0, "result") != "Failed" \
-                || xml_text(attribute($0, "fullname")) != name) {
+                || attribute($0, "fullname") != fullname) {
                 next
             }
             if ($0 ~ /\/>[[:space:]]*$/) {

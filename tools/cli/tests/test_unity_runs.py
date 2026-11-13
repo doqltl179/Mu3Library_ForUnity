@@ -670,6 +670,31 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             errors,
         )
 
+    def test_a_test_that_the_result_file_names_with_character_references_fails_on_the_environment(self) -> None:
+        # The result file writes the name with numeric character references, decimal and
+        # hexadecimal, which the check reads as the failed: line does (#419); Unity's log writes
+        # the characters themselves.
+        failed = "Case(&#34;a &#38; b&#x3C;T&#x3E;&#x22;)"
+        name = 'Fixture.Tests.Case("a & b<T>")'
+        completed = self.run_tests(
+            "leaf",
+            results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
+            unity_status=2,
+            log=data_store_loss_log(name),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        environment = (
+            f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error Unity "
+            "logged for it failed that test, so the test reached no verdict; run the target again"
+        )
+        errors = completed.stderr.splitlines()
+        start = errors.index(
+            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the environment"
+        )
+        self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
+        self.assertEqual(f"  {environment}", self.summary(completed)[1])
+
     def test_a_target_that_failed_otherwise_too_fails_on_its_counts_and_names_the_environment(self) -> None:
         environment = (
             "    environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the "
@@ -1521,6 +1546,18 @@ class DataStoreLossFailureTests(FixtureRepositoryTestCase):
 
         self.assertTrue(self.failed_only_on_it(results, test='Fixture.Tests.Case("a & b \\ c")'))
         self.assertFalse(self.failed_only_on_it(results, test="Fixture.Tests.Case(&quot;a &amp; b \\ c&quot;)"))
+
+    def test_reads_the_name_through_its_numeric_character_references_as_the_failed_lines_do(self) -> None:
+        name = "Text(&quot;caf&#xE9; &#233; &#x1F600; &#38;amp;&quot;)"
+        results = nunit_results(passed=1, failed=(name,), messages={name: FRAMEWORK_LOSS_FAILURE})
+
+        # Each reference is read once, so the &amp; that &#38; leaves stays.
+        self.assertTrue(
+            self.failed_only_on_it(results, test=f'Fixture.Tests.Text("caf{chr(0xE9)} {chr(0xE9)} {chr(0x1F600)} &amp;")')
+        )
+        self.assertFalse(
+            self.failed_only_on_it(results, test='Fixture.Tests.Text("caf&#xE9; &#233; &#x1F600; &#38;amp;")')
+        )
 
 
 class DataStoreEndTests(FixtureRepositoryTestCase):
