@@ -55,7 +55,7 @@ Each line's full rule lives on the linked page.
 ## This Project
 
 - Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them.
-- Kit: version 0.6.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Kit: version 0.7.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 
@@ -72,6 +72,7 @@ Each line's full rule lives on the linked page.
 | `commands.build` | `bash ./compile-unity.sh changed` |
 | `commands.test` | `bash ./test-unity.sh changed` |
 | `commands.worktree_setup` | `PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples` |
+| `commands.worktree_teardown` | `PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples` |
 | `commands.test_playmode` | `bash ./test-unity.sh changed --platform playmode` |
 | `commands.test_tools` | `PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests` |
 

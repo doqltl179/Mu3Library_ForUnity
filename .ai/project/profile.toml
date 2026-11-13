@@ -28,6 +28,8 @@ test_playmode = "bash ./test-unity.sh changed --platform playmode"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 # Links each development project's Assets/ to its package's Samples~, which a fresh clone or worktree lacks.
 worktree_setup = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+# Removes those links again; on Windows they stop `git worktree remove` halfway. tools/README.md «Worktree Removal» owns the recovery for a folder already left behind.
+worktree_teardown = "PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples"
 
 [docs]
 source_locale = "en"

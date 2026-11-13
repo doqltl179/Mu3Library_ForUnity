@@ -29,8 +29,13 @@ Commands come from `commands.*` in the profile (shown in `AGENTS.md` «This Proj
 | Schema or data migration | Forward and rollback on a copy |
 | Docs only | Links resolve and examples match real signatures; `agentkit.py check` for agent docs |
 | Performance | Before and after measurements under the same conditions |
+| Any of the above that must hold an escape sequence as literal text | Also the bytes that landed, per «Escape Sequences As Literal Text» |
 
 Narrow test runs to the changed area first, then run the broader suite when the change crosses module boundaries. When the profile defines named commands for several surfaces (for example an engine compile and tool tests), run the ones listed in the «Project Binding» of the role that owns the touched paths.
+
+## Escape Sequences As Literal Text
+
+When a change must contain an escape sequence as literal text (for example a Unicode escape in a string literal, JSON, a regular expression, or a doc example), verify the bytes that landed, not what you typed. The path from an agent to its tools may decode typed escape text into the character itself, in file edits and shell commands alike, and a typed search needle is decoded the same way, so a plain text search finds the decoded character and reports success even when the file holds the character instead of the escape. Build the escape text and each search needle from code points in a script (for example the backslash as `chr(92)` in Python) and write the file from that same script, count the needle's hits against the escapes written, and confirm that lines meant to be ASCII hold only bytes 32–126 plus tab, LF, and CR.
 
 ## Evidence Format
 

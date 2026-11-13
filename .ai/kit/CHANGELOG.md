@@ -4,6 +4,18 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-14
+
+### Added
+- Profile key `commands.worktree_teardown`: `git-worktree-cleanup` runs it inside a worktree right before `git worktree remove`, to undo what `commands.worktree_setup` made that blocks removal, such as links or junctions. On Windows, junctions left in a worktree stopped `git worktree remove` with `Directory not empty` after Git had already unregistered the worktree, so its folder stayed behind. The key is empty by default and cleanup is unchanged without it; projects whose `worktree_setup` makes links or junctions may set it. (minor)
+
+### Changed
+- `verification.md`: a change that must hold an escape sequence as literal text, such as a Unicode escape in a string literal, JSON, a regular expression, or a doc example, is verified by the bytes that landed, not by what was typed. The path from an agent to its tools may decode typed escape text into the character itself, in file edits and shell commands alike, search needles included, so a plain text search can pass while the file holds the character. (minor)
+
+### Fixed
+- `git-branch-start`: the check that the worktree root is ignored runs `git check-ignore <worktree_root>/` with a trailing slash. Without it, the directory-only pattern that `install` writes to `.gitignore`, such as `.worktrees/`, does not match before the first worktree creates the folder, so the check reported an ignored root as not ignored. (patch)
+- `git-branch-start`: the worktree root is confirmed ignored before `git worktree add`, so a root that is not ignored stops the step with nothing created. Before, the check came after the worktree and its task branch were made, and stopping left them behind. (patch)
+
 ## [0.6.0] - 2026-10-31
 
 ### Added

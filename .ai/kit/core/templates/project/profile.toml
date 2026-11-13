@@ -49,6 +49,7 @@ typecheck = ""
 e2e = ""
 run = ""
 worktree_setup = ""             # Run in a fresh worktree before work: recreate untracked links, local config, caches.
+worktree_teardown = ""          # Run inside a worktree right before it is removed: undo what worktree_setup made that blocks removal, such as links or junctions.
 
 [docs]
 readme = "README.md"
