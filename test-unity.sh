@@ -503,9 +503,11 @@ find_data_store_loss() {
                 next
             }
             # The name is a JSON string, whose escaped quotes, as in a test
-            # case string argument, do not end it. A \uXXXX escape is not
-            # decoded, so such a name matches no test of the result file, and
-            # the end of the service is then only a warning.
+            # case string argument, do not end it. Each escape is read as the
+            # character after the backslash, so a name with an escape that
+            # stands for another character, such as \n, \t, or \uXXXX, matches
+            # no test of the result file, and the end of the service is then
+            # only a warning.
             rest = substr($0, start + length(name_key))
             for (i = 1; i <= length(rest); i++) {
                 c = substr(rest, i, 1)
