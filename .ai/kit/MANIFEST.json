@@ -1,10 +1,10 @@
 {
   "_generated": "agentkit:generated; kit integrity manifest, do not edit",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "files": {
-    "CHANGELOG.md": "e9f35058c20dee163649e2505510bb76be4b6270163fa93c820a610611083d2a",
+    "CHANGELOG.md": "ed7d2c39a97d31aee56f39ffba6ad2a8d5c4681b6c93168832e3b040c2290489",
     "LICENSE": "8e2bfb8804a638467b3148fda822ad072076c4f317f4b9e16ae4ee9139770083",
-    "VERSION": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+    "VERSION": "967d9afb101346667166f2e76e81910bc190488d7d41d50ca0072e9d92f00e32",
     "core/START.md": "6fc3d6c21ac4eaec41495438db8278b713d4f31175379089b67791d00d6b1bb7",
     "core/agents/CATALOG.md": "40d7c243e835e4892eeaf4fbe909b567321c9bc44329bd0848547fc957c2801f",
     "core/agents/client/android-engineer.md": "e7efdd8f2606054635069ad5ba93a674c1342a248f053afe20e57e00cb64cb31",
@@ -55,10 +55,10 @@
     "core/skills/content-revision-propose/SKILL.md": "3466bac7d4c5f7f063a36df4ea2027b22ee4cfb39fe90805486f5913d28c1f65",
     "core/skills/decision-interview/SKILL.md": "2a4e7fea04a044b21b3e13eb9a41ebf927cfd22fd515b81319d168caed1a809d",
     "core/skills/dependency-upgrade/SKILL.md": "29fa72ed1b1d30cdeebbefa771aa66d72e8093a8640143e4fd0d3a18c7cf8cdf",
-    "core/skills/git-branch-start/SKILL.md": "6178292c755ecaa0fc5baf6241981fafbb83f027b94274cfa07838d45a0de4c1",
+    "core/skills/git-branch-start/SKILL.md": "62d67f55c4467ed5104a4545c933f213f47205cef4969e75c1d5043b50f3aca8",
     "core/skills/git-commit/SKILL.md": "76c8797828050aa3e73cc983cc0d4d04f1c9b7047ea99ea819680ef47b87c71f",
     "core/skills/git-conflict-resolve/SKILL.md": "2d406ad5c9f1ff5f8d28670b78c0d20eba3b1ffac48ebc3835cf3786ea39ac2a",
-    "core/skills/git-worktree-cleanup/SKILL.md": "340f893559fca668745e1f8a4f1e1cdd13e2d3a4f1e1e612c88c21d0adf15653",
+    "core/skills/git-worktree-cleanup/SKILL.md": "d922c093bd9a49dbc2ffeb8c8b188c616b4a42cf1a6b6e5bd81ac73a074896ca",
     "core/skills/github-issue-create/SKILL.md": "d59547b62831b231919e42fbf19c8820073ac7228e523a9a89caf69f50896584",
     "core/skills/github-issue-triage/SKILL.md": "8689a0be4e744cf405d1acb09b0a82f74f63a9d3f26bbda949e44678e8b0e156",
     "core/skills/github-pr-create/SKILL.md": "f5e40eea0561128109e7e6896ad2b3db7f17e8c5223d69d48f510169155330fb",
@@ -130,7 +130,7 @@
     "core/templates/plan.md": "641876af8ed643b54197d72a9edcb992341074641c97fce12f4aa4e924b7bdda",
     "core/templates/profile.starter.toml": "39d908fcf27e95a80ad24a0f992b2ccc0f97412876fe80a8f25e5dba206af19c",
     "core/templates/project/lessons.md": "ec1795dd1d637e5e4fe7c453c4317315f30fc419753b20baaa2b41a2e2dcb6bd",
-    "core/templates/project/profile.toml": "bfd9892d512b5a6094cef5eea8319c82ed9c6af5809d3fe1a43c6366b76b01f2",
+    "core/templates/project/profile.toml": "043c48edb9f1bb359dc7e87f89c66834e123b5d7b338e356f3e25a59519fb138",
     "core/templates/project/wiki/README.md": "64b7d1441624c233e5280cdc0265d00c9ac4aec5f36b0b2b3837b395bf2cf946",
     "core/templates/project/wiki/glossary.md": "c562d9f21fa423b898ea960690fff43df696206bbe4ad8cd4b6a5150f99b2300",
     "core/templates/skill/SKILL.md": "cf4ee47b9522d745400c3913885319ff9ad8976ceb84dcb92630b92aceb21710",
@@ -170,7 +170,7 @@
     "core/wiki/workflows/code-changes.md": "cda074207951e2ef4461a41d4ccd24867c3c646149dc6b4aaee665ee7955f38a",
     "core/wiki/workflows/documentation.md": "f78a19ae16b6f995d6fc1520828d04e902669516cd215d4932edb6d66415b829",
     "core/wiki/workflows/domain-terms.md": "908ec44263cb062a93533ea32cfb74ce9f6f321114d0bdb6e03987ab03b64f51",
-    "core/wiki/workflows/git-workflow.md": "59c04e7b88fa6e82659ed9e0a1ecb32eb3511b786bf2f84655a9742241ecd18f",
+    "core/wiki/workflows/git-workflow.md": "e0d06f40755a031ddcbfcb04fd8a0a4ebaff99b436f7992a7b08ae19438ccc9b",
     "core/wiki/workflows/idea-evaluation.md": "9ddb28636c37c719ccc849086bb8754303935a87a1a05b0ca548f2220193739a",
     "core/wiki/workflows/idea-records.md": "b71eb48defc0910254f07b6d05fc7cfda9d695b588993a9d0d88bff6ec9e59ad",
     "core/wiki/workflows/issues-and-prs.md": "72b15fd446cb1671b9183927ef7bf98aca2edd8fedf0fd1a399d2b97a56aba5c",
@@ -179,7 +179,7 @@
     "core/wiki/workflows/release.md": "517dbe8143c77dcfa3b0618572d41339a49125289563bd9259a376f4b0060550",
     "core/wiki/workflows/review.md": "70a606d43df4c9a05bda334bd0bebff84e98695564eb46938ecbc002e7153e4a",
     "core/wiki/workflows/translation.md": "c9a945de559903c8b8b58fba5b7d3628b5715591fd96e6484463e19eb4ff37de",
-    "core/wiki/workflows/verification.md": "dda4fa614f8e49963272d817a75ecd9a161688c1b92f15199299b1e88829686b",
+    "core/wiki/workflows/verification.md": "3ad47cef702a859a7283634530ebd8ae32c27b4e38f194c4e57ef8891b86cd2e",
     "tools/agentkit.py": "0aca20afa127ed8863e75edd87a0ca1922da454513e90a5686d9d9b0a671418d"
   }
 }
