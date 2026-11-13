@@ -45,6 +45,10 @@ PACKAGE_CODE_SUFFIXES = {".cs"}
 # Package code writes them as \u escapes; an editing tool once saved such escapes as the characters.
 HIDDEN_CHARACTER_CATEGORIES = {"Cc", "Cf", "Co", "Zl", "Zp"}
 ALLOWED_CONTROL_CHARACTERS = {"\t", "\r"}
+# The replacement character, which a lossy conversion leaves where it could not carry a character,
+# such as an unpaired surrogate that an editing tool saved in place of its \u escape. A test meant
+# to hold that surrogate then checks nothing, so package code writes U+FFFD as an escape too.
+REPLACEMENT_CHARACTER = chr(0xFFFD)
 
 
 def _enclosing_root(path: Path) -> Path | None:
@@ -129,7 +133,8 @@ def hidden_characters(line: str) -> list[str]:
 
 
 def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
-    """Report each line of package code that holds an invisible or private-use character."""
+    """Report each line of package code that holds an invisible or private-use character or the
+    replacement character, and each file that is not UTF-8."""
     issues: list[str] = []
     for relative_path_text in relative_paths:
         relative_path = Path(relative_path_text)
@@ -138,9 +143,18 @@ def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
             continue
         try:
             # utf-8-sig drops only a byte order mark at the start; one anywhere else is reported.
-            text = candidate.read_text(encoding="utf-8-sig")
-        except (OSError, UnicodeDecodeError) as error:
+            text = candidate.read_bytes().decode("utf-8-sig")
+        except OSError as error:
             issues.append(f"could not inspect package code file: {relative_path} ({error})")
+            continue
+        except UnicodeDecodeError as error:
+            # An unpaired surrogate written out as bytes, ED A0 80 to ED BF BF, is not UTF-8 either.
+            line_number = error.object[: error.start].count(b"\n") + 1
+            issues.append(
+                f"could not inspect package code file: {relative_path} ({error}); line {line_number} is not UTF-8, "
+                "and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), which package code writes "
+                "as a \\u escape"
+            )
             continue
         # str.splitlines() would also split at the separators this check reports.
         for line_number, line in enumerate(text.split("\n"), start=1):
@@ -149,6 +163,11 @@ def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
                 issues.append(
                     f"invisible or private-use character {', '.join(code_points)} in package code, "
                     f"write it as a \\u escape: {relative_path}:{line_number}"
+                )
+            if REPLACEMENT_CHARACTER in line:
+                issues.append(
+                    "replacement character U+FFFD in package code, which a lossy conversion leaves where it "
+                    f"could not carry a character, write the character meant as a \\u escape: {relative_path}:{line_number}"
                 )
     return issues
 

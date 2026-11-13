@@ -7,7 +7,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 ## Initial Command Surface
 
 - `repo info`: print key repository roots and the agent kit and overlay locations.
-- `repo check`: validate repository document layout, README links, stale routing references, invisible and private-use characters in package `.cs` files, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
+- `repo check`: validate repository document layout, README links, stale routing references, invisible and private-use characters and the replacement character U+FFFD in package `.cs` files, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs. A package `.cs` file that is not UTF-8 is reported with the line where its bytes stop being UTF-8, which an unpaired surrogate written out as bytes also causes.
 - `unity doctor`: diagnose bash, package mappings, sample links, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity di-strip-harness`: build the DI stripping harness as a Windows player at a chosen scripting backend and Managed Stripping Level, with the Editor the URP project names or another installed one, run it, and report each check (see [../README.md](../README.md#di-stripping-harness)).
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).

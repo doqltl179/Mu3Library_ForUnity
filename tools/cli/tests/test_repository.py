@@ -101,6 +101,51 @@ class PackageCodeCharacterTests(unittest.TestCase):
         self.assertEqual(1, len(issues), issues)
         self.assertTrue(issues[0].startswith(f"could not inspect package code file: {Path(path)} ("), issues)
 
+    # Built from code points and bytes, never typed: an editing tool can turn a typed escape into
+    # the character, and a lossy one turns an unpaired surrogate into the replacement character.
+    REPLACEMENT = chr(0xFFFD)
+    UNPAIRED_SURROGATE = bytes([0xED, 0xA0, 0x80])  # U+D800 written out as if it were a character
+
+    def test_replacement_character_is_reported_with_its_line(self) -> None:
+        path = self.write(f"// first\r\nstring s = \"{self.REPLACEMENT}\";\r\n".encode("utf-8"))
+
+        self.assertEqual(
+            [
+                "replacement character U+FFFD in package code, which a lossy conversion leaves where it "
+                f"could not carry a character, write the character meant as a \\u escape: {Path(path)}:2"
+            ],
+            package_code_issues(self.root, [path]),
+        )
+
+    def test_replacement_character_written_as_an_escape_passes(self) -> None:
+        escape = "\\u" + format(ord(self.REPLACEMENT), "04X")
+        path = self.write(f"string s = \"{escape}\";\n".encode("utf-8"))
+
+        self.assertEqual("\\uFFFD", escape)
+        self.assertEqual([], package_code_issues(self.root, [path]))
+
+    def test_unpaired_surrogate_bytes_are_reported_as_what_the_file_may_hold(self) -> None:
+        path = self.write(b"// first\nstring s = \"" + self.UNPAIRED_SURROGATE + b"\";\n")
+
+        [issue] = package_code_issues(self.root, [path])
+
+        self.assertTrue(issue.startswith(f"could not inspect package code file: {Path(path)} ("), issue)
+        self.assertIn("invalid continuation byte", issue)
+        self.assertTrue(
+            issue.endswith(
+                "; line 2 is not UTF-8, and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), "
+                "which package code writes as a \\u escape"
+            ),
+            issue,
+        )
+
+    def test_line_of_bytes_that_are_not_utf8_counts_past_a_byte_order_mark(self) -> None:
+        path = self.write(b"\xef\xbb\xbf// first\n// second\nchar c = '\xff';\n")
+
+        [issue] = package_code_issues(self.root, [path])
+
+        self.assertIn("; line 3 is not UTF-8", issue)
+
     def test_package_code_paths_lists_the_package_csharp_files(self) -> None:
         paths = package_code_paths(repo_root())
 

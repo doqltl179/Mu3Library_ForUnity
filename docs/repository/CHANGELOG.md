@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-13
+
+### Changed
+- `mu3-cli repo check` reports each line of a package `.cs` file that holds the replacement character U+FFFD and asks for the character meant as a `\u` escape, and a package `.cs` file that is not UTF-8 is reported with the line where its bytes stop being UTF-8 and a note that they may be an unpaired surrogate written out as bytes (`ED A0 80` to `ED BF BF`) (#413). U+FFFD is what a lossy conversion leaves where it could not carry a character. An editing tool can turn a typed escape into the character (#410), so a test meant to hold an unpaired surrogate can end up holding U+FFFD and pass without checking anything. The check passed over U+FFFD, a visible symbol, and the decoding error named only the byte and its position in the file. On 2026-11-13 none of the 548 package `.cs` files held U+FFFD.
+
 ## 2026-11-12
 
 ### Added
