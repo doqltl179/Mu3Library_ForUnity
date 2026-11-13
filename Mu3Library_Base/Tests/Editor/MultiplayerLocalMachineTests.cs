@@ -1627,6 +1627,20 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>
+        /// <see cref="SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate"/> as many
+        /// times as <c>MU3LIBRARY_TEST_REPEAT</c> says, each run with its own SetUp and TearDown, for
+        /// its failure rate under a fixed load (#408). The name does not start with the test's: a filter
+        /// is a regular expression that matches anywhere in a full name, so the test's would select this.
+        /// </summary>
+        [Explicit("Repeats a test in one Unity as many times as MU3LIBRARY_TEST_REPEAT says; run it by name.")]
+        [Test]
+        [CountedRepeat]
+        public void Repeated_SearchAndJoin_ThatMeetAReplacement()
+        {
+            SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate();
+        }
+
+        /// <summary>
         /// One round of <see cref="SearchAndJoin_ThatMeetAReplacement_FindTheLobby_WithoutHoldingAnUpdate"/>
         /// with new players: null when it held, or what it missed in a way that CPU load explains.
         /// </summary>
