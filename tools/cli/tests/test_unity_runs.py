@@ -1469,7 +1469,12 @@ class InterruptedLoadRunTests(FixtureRepositoryTestCase):
         # Neither a trap nor an exit runs: the helper sees the script end, and each spinner its
         # input close as the helper ends.
         if platform.system() == "Windows":
-            self.addCleanup(self.end_what_the_kill_left, fixed_load.ProcessWatch(root_pid))
+            script_watch = fixed_load.ProcessWatch(root_pid)
+            self.addCleanup(script_watch.close)
+            # Only a script held open while it runs keeps its ID from another process, whose
+            # children the cleanup would end.
+            self.assertTrue(script_watch.running(), "the script ended before the test killed it")
+            self.addCleanup(self.end_what_the_kill_left, script_watch)
             subprocess.run(["taskkill", "/F", "/PID", str(root_pid)], capture_output=True, check=True)
         else:
             os.kill(root_pid, signal.SIGKILL)
