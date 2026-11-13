@@ -12,6 +12,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - starting work here, or unsure which package or folder a change belongs to (`project.guardrails` holds the package-first rule),
 - choosing a commit scope or area label,
+- removing a worktree,
 - editing README or CHANGELOG files.
 
 ## Route Away When
@@ -38,6 +39,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
 - Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
+- Before `git worktree remove`, run `PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples` with the root of the worktree being removed as the working directory; in `git-worktree-cleanup`, do it after the checks pass and before your shell moves to the main checkout. On Windows the sample links otherwise stop the removal with `Directory not empty` and leave the folder behind. «Worktree Removal» in [tools/README.md](../../../tools/README.md) owns the command's behavior and the recovery for a folder already left behind.
 
 ## Directory Map
 
