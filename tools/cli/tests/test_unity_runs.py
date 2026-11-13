@@ -1625,6 +1625,59 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertFalse(record.exists())
         self.assertEqual("Shut down\n", record.with_name("leaf.uds-service.log").read_text(encoding="utf-8"))
 
+    def test_each_target_of_a_compile_stops_its_own_helper(self) -> None:
+        # A helper that a later target's start replaced would not be told that its run ended.
+        completed = self.compile("all")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        logs = self.log_file("leaf").parent
+        for key, _, _ in MAPPING:
+            with self.subTest(target=key):
+                self.assertIn(f"Unity compilation succeeded: {key}", completed.stdout.splitlines())
+                record = read_record(logs / f"{key}.load")
+                self.assertEqual(("yes", ""), (record["complete"], record["error"]))
+        self.assertEqual([], list(logs.glob("*.load-stop")))
+
+    def test_records_that_cannot_be_removed_do_not_stop_the_compile(self) -> None:
+        # rm becomes a shell function that cannot remove the run's records, as when another program
+        # holds them open.
+        failing_record_removal = """rm() {
+    case "$*" in
+        *.load|*.load-stop|*.uds-service.log) return 1 ;;
+    esac
+    command rm "$@"
+}
+"""
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        completed = self.run_functions(
+            "compile-unity.sh", failing_record_removal + 'compile_main "$@"', "leaf", environment=self.unity_environment()
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
+        for name in ("leaf.load", "leaf.load-stop", "leaf.uds-service.log"):
+            self.assertIn(
+                f"warning: could not remove log/unity-compile/{name}, which an earlier run left",
+                completed.stderr.splitlines(),
+            )
+
+    def test_records_of_an_earlier_run_go_before_a_run_that_fails_to_start(self) -> None:
+        # A mirror cannot be made in a temporary folder that does not exist, so the run stops before Unity.
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
+        logs = self.log_file("leaf").parent
+        logs.mkdir(parents=True)
+        (logs / "leaf.uds-service.log").write_text("kept by an earlier run\n", encoding="utf-8")
+        (logs / "leaf.load").write_text("earlier=yes\n", encoding="utf-8")
+
+        completed = self.run_entry_point(
+            "compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment(TMPDIR=str(self.root / "missing"))
+        )
+
+        self.assertNotEqual(0, completed.returncode, completed.stdout)
+        self.assertNotIn("fake unity ran", completed.stdout)
+        self.assertFalse((logs / "leaf.uds-service.log").exists())
+        # The helper started for the run writes its own record as the script ends.
+        self.assertNotIn("earlier", read_record(logs / "leaf.load"))
 
 @unittest.skipUnless(platform.system() == "Windows", "a stand-in service needs a native Windows program to run")
 class DataStoreRecordTests(FixtureRepositoryTestCase):

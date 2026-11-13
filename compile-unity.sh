@@ -1402,20 +1402,28 @@ find_load_python() {
 }
 
 # Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
-# record, <base>.load, and its stop file beside it, after removing a record an
-# earlier run left. It watches the run's Data Store service and counts the
-# Unity processes that do not descend from this script, whose Windows process
-# ID it needs under Git Bash. Given a number of spinners, it starts them
-# waiting, to spin from the first test the log shows; the tool tests set
-# UNITY_LOAD_SPINNERS_IDLE=1 so that they wait instead of spinning.
+# record, <base>.load, and its stop file beside it. It first removes what an
+# earlier run left there, that record and the Data Store service's log that
+# keep_data_store_service_log keeps as <base>.uds-service.log, before the run
+# can fail, as when its mirror cannot be made, so that neither stands in for
+# this run's; a file it cannot remove, such as one another program holds open,
+# gets a warning and does not stop the run. The helper watches the run's Data
+# Store service and counts the Unity processes that do not descend from this
+# script, whose Windows process ID it needs under Git Bash. Given a number of
+# spinners, it starts them waiting, to spin from the first test the log shows;
+# the tool tests set UNITY_LOAD_SPINNERS_IDLE=1 so that they wait instead.
 start_load_helper() {
     local base="$1"
     local spinners="${2:-0}"
     local root_pid="$$"
     local idle=()
+    local earlier
 
     LOAD_STOP_FILE="$base.load-stop"
-    rm -f -- "$base.load" "$LOAD_STOP_FILE"
+    for earlier in "$base.load" "$LOAD_STOP_FILE" "$base.uds-service.log"; do
+        rm -f -- "$earlier" 2>/dev/null \
+            || printf 'warning: could not remove %s, which an earlier run left\n' "${earlier#"$REPO_ROOT"/}" >&2
+    done
     [[ -n "$LOAD_PYTHON" ]] || return 0
 
     if [[ -r "/proc/$$/winpid" ]]; then
@@ -1454,7 +1462,9 @@ stop_load_helper() {
         stop_process_tree "$helper_pid"
     fi
     wait "$helper_pid" 2>/dev/null || true
-    rm -f -- "$LOAD_STOP_FILE"
+    # A stop file left here only stops the next helper at once, and
+    # start_load_helper warns that it cannot remove it.
+    rm -f -- "$LOAD_STOP_FILE" 2>/dev/null || true
 }
 
 # Sets UNITY_CLOCK to the time in microseconds. Bash 5 reads it to the
@@ -1572,8 +1582,6 @@ run_unity_for_target() {
     fi
 
     unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
-    # The Data Store service's log of an earlier run must not stand in for this one's.
-    rm -f -- "${UNITY_LOG_FILE%.log}.uds-service.log"
     UNITY_STALLED=0
     set +e
     run_unity_logged "${unity_command[@]}"
@@ -1596,7 +1604,8 @@ run_unity_for_target() {
 # keeps it, since Unity logs a service's end only as it next reads an imported
 # file, so an end late in a run may never reach its log, and a service that
 # ended with its Editor gives the log to compare with. In a run that launched
-# no service, the log there is an earlier run's.
+# no service, the log there is an earlier run's. start_load_helper removes the
+# one an earlier run kept before the run starts.
 keep_data_store_service_log() {
     local service_log="$1/Logs/UDS-Service.log"
     local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
