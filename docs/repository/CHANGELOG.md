@@ -10,7 +10,7 @@ Package release notes remain in:
 ## 2026-11-14 (agentkit 0.7.0)
 
 ### Changed
-- Updated agentkit from 0.6.0 to 0.7.0, which ships the two proposals this repository sent upstream (#432). `git-worktree-cleanup` now runs the new profile key `commands.worktree_teardown` inside a worktree right before `git worktree remove` and stops when it fails, so `profile.toml` sets it to `unity unlink-samples` and the temporary removal note in `.ai/project/wiki/overview.md` is gone (ai-agents#81). `verification.md` now has agents verify an escape sequence meant as literal text by the bytes that landed, which the escape lesson in `.ai/project/lessons.md` held, so that lesson is gone (ai-agents#82). `git-branch-start` checks that the worktree root is ignored with a trailing slash and before `git worktree add`.
+- Updated agentkit from 0.6.0 to 0.7.0, which ships the two proposals this repository sent upstream, ai-agents#81 and #82 (#432). `profile.toml` sets the new key `commands.worktree_teardown` to `unity unlink-samples`. `git-worktree-cleanup` runs it inside a worktree right before `git worktree remove` and stops when it fails, but skips those steps while `policy.worktrees` is off, as it is here. `.ai/project/wiki/overview.md` therefore still tells agents to run it before removing a worktree this repository makes anyway, and from Git Bash, since PowerShell cannot start its POSIX form and would let a failure through (#447). `verification.md` now has agents verify an escape sequence meant as literal text by the bytes that landed, which the escape lesson in `.ai/project/lessons.md` held, so that lesson is gone. `git-branch-start` checks that the worktree root is ignored with a trailing slash and before `git worktree add`.
 
 ## 2026-11-13
 
