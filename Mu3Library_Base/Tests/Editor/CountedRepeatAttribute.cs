@@ -35,8 +35,9 @@ namespace Mu3Library.Tests
     /// <para>
     /// It holds a <c>[Test]</c> that returns nothing; the framework refuses it on a
     /// <c>[UnityTest]</c>. It refuses a test that is not explicit, which the default run would
-    /// then run through it, and a fixture with <c>[UnitySetUp]</c> or <c>[UnityTearDown]</c>,
-    /// which the framework calls outside it, once around all the runs.
+    /// then run through it, and a fixture with <c>[UnitySetUp]</c> or <c>[UnityTearDown]</c> or
+    /// a test with an <c>IOuterUnityTestAction</c>, which the framework calls outside it, once
+    /// around all the runs.
     /// </para>
     /// </remarks>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
@@ -152,6 +153,11 @@ namespace Mu3Library.Tests
                     return $"[CountedRepeat] calls [SetUp] and [TearDown] in each run, but the framework calls the [UnitySetUp] and [UnityTearDown] of {fixture.Name} once around all the runs.";
                 }
 
+                if (HasOuterActions(Test))
+                {
+                    return $"[CountedRepeat] calls [SetUp] and [TearDown] in each run, but the framework calls the IOuterUnityTestAction attributes of {Test.FullName} once around all the runs.";
+                }
+
                 string value = Environment.GetEnvironmentVariable(RunsVariable);
                 if (string.IsNullOrWhiteSpace(value))
                 {
@@ -165,6 +171,26 @@ namespace Mu3Library.Tests
                 }
 
                 return null;
+            }
+
+            // The framework takes them from the method and from each suite above it that has a type,
+            // as its OuterUnityTestActionCommand does.
+            private static bool HasOuterActions(ITest test)
+            {
+                if (test.Method != null && test.Method.MethodInfo.GetCustomAttributes(true).OfType<IOuterUnityTestAction>().Any())
+                {
+                    return true;
+                }
+
+                for (ITest parent = test.Parent; parent != null; parent = parent.Parent)
+                {
+                    if (parent.TypeInfo != null && parent.TypeInfo.GetCustomAttributes<IOuterUnityTestAction>(true).Length > 0)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             private static bool IsExplicit(ITest test)
