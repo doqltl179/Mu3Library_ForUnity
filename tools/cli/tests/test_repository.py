@@ -15,6 +15,7 @@ from mu3_cli.repository import (
     STALE_AGENT_REFERENCE_PARTS,
     agentkit_cli_path,
     is_generated_tool_artifact,
+    outside_checkout_refusal,
     package_code_issues,
     package_code_paths,
     repo_root,
@@ -100,6 +101,75 @@ class PackageCodeCharacterTests(unittest.TestCase):
 
         self.assertEqual(1, len(issues), issues)
         self.assertTrue(issues[0].startswith(f"could not inspect package code file: {Path(path)} ("), issues)
+
+    def test_bytes_of_another_encoding_are_reported_as_a_file_to_save_as_utf8(self) -> None:
+        korean = "".join(map(chr, (0xD55C, 0xAD6D, 0xC5B4)))
+        cases = {
+            "latin-1": "caf".encode("ascii") + bytes([0xE9]),
+            "cp949": korean.encode("cp949"),
+            "cut short": bytes([0xE2, 0x82]),
+            # ED followed by a byte outside A0 to BF starts no surrogate.
+            "ED without a surrogate": bytes([0xED, 0x41]),
+        }
+        for name, data in cases.items():
+            with self.subTest(name):
+                path = self.write(b"// first\n// " + data)
+
+                [issue] = package_code_issues(self.root, [path])
+
+                self.assertTrue(
+                    issue.endswith(
+                        "; line 2 is not UTF-8, as text saved in another encoding, such as Korean saved as CP949, "
+                        "is not; save the file as UTF-8"
+                    ),
+                    issue,
+                )
+                self.assertNotIn("surrogate", issue)
+
+    # Built from code points and bytes, never typed: an editing tool can turn a typed escape into
+    # the character, and a lossy one turns an unpaired surrogate into the replacement character.
+    REPLACEMENT = chr(0xFFFD)
+    UNPAIRED_SURROGATE = bytes([0xED, 0xA0, 0x80])  # U+D800 written out as if it were a character
+
+    def test_replacement_character_is_reported_with_its_line(self) -> None:
+        path = self.write(f"// first\r\nstring s = \"{self.REPLACEMENT}\";\r\n".encode("utf-8"))
+
+        self.assertEqual(
+            [
+                "replacement character U+FFFD in package code, which a lossy conversion leaves where it "
+                f"could not carry a character, write the character meant as a \\u escape: {Path(path)}:2"
+            ],
+            package_code_issues(self.root, [path]),
+        )
+
+    def test_replacement_character_written_as_an_escape_passes(self) -> None:
+        escape = "\\u" + format(ord(self.REPLACEMENT), "04X")
+        path = self.write(f"string s = \"{escape}\";\n".encode("utf-8"))
+
+        self.assertEqual("\\uFFFD", escape)
+        self.assertEqual([], package_code_issues(self.root, [path]))
+
+    def test_unpaired_surrogate_bytes_are_reported_as_what_the_file_may_hold(self) -> None:
+        path = self.write(b"// first\nstring s = \"" + self.UNPAIRED_SURROGATE + b"\";\n")
+
+        [issue] = package_code_issues(self.root, [path])
+
+        self.assertTrue(issue.startswith(f"could not inspect package code file: {Path(path)} ("), issue)
+        self.assertIn("invalid continuation byte", issue)
+        self.assertTrue(
+            issue.endswith(
+                "; line 2 is not UTF-8, and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), "
+                "which package code writes as a \\u escape"
+            ),
+            issue,
+        )
+
+    def test_line_of_bytes_that_are_not_utf8_counts_past_a_byte_order_mark(self) -> None:
+        path = self.write(b"\xef\xbb\xbf// first\n// second\nchar c = '\xff';\n")
+
+        [issue] = package_code_issues(self.root, [path])
+
+        self.assertIn("; line 3 is not UTF-8", issue)
 
     def test_package_code_paths_lists_the_package_csharp_files(self) -> None:
         paths = package_code_paths(repo_root())
@@ -214,6 +284,96 @@ class RepositoryRootSpellingTests(unittest.TestCase):
             Path, "cwd", side_effect=FileNotFoundError("deleted")
         ):
             self.assertEqual(self.short_root, repo_root())
+
+
+class OutsideCheckoutRefusalTests(unittest.TestCase):
+    """An installed mu3-cli acts on the checkout it was installed from wherever it runs, so the
+    commands that change files there refuse a working directory outside that checkout (#416)."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.temporary = Path(directory.name)
+        self.main = self.make_checkout(self.temporary / "main")
+        # A worktree inside the main checkout's folder, as a session worktree under .claude/worktrees/ is.
+        self.nested = self.make_checkout(self.main / ".claude" / "worktrees" / "session")
+        self.other = self.make_checkout(self.temporary / "other")
+
+    @staticmethod
+    def make_checkout(root: Path) -> Path:
+        (root / ".github").mkdir(parents=True)
+        (root / "AGENTS.md").write_text("# Checkout\n", encoding="utf-8")
+        (root / "UnityProject_BuiltIn").mkdir()
+        return root
+
+    @staticmethod
+    def refusal(root: Path, working_directory: Path) -> str | None:
+        with mock.patch.object(Path, "cwd", return_value=working_directory):
+            return outside_checkout_refusal(root, "unity link-samples")
+
+    def test_working_directory_inside_the_checkout_is_accepted(self) -> None:
+        for working_directory in (self.main, self.main / "UnityProject_BuiltIn"):
+            with self.subTest(working_directory=working_directory):
+                self.assertIsNone(self.refusal(self.main, working_directory))
+
+    def test_short_path_to_the_same_checkout_is_inside_it(self) -> None:
+        # A link stands in for a subst drive: resolve() follows both back to the long path (#82).
+        short = self.temporary / "short"
+        create_directory_link(short, self.main.resolve())
+        self.addCleanup(remove_directory_link, short)
+
+        self.assertIsNone(self.refusal(self.main, short / "UnityProject_BuiltIn"))
+        self.assertIsNone(self.refusal(short, self.main / "UnityProject_BuiltIn"))
+
+    def test_another_checkout_is_refused_with_both_folders_named(self) -> None:
+        working_directory = self.other / "UnityProject_BuiltIn"
+
+        self.assertEqual(
+            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"{working_directory} is outside it, in the checkout at {self.other}, so nothing was changed. "
+            f"Run it from inside {self.main}, or, to change the checkout at {self.other}, run "
+            "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples from that checkout's root.",
+            self.refusal(self.main, working_directory),
+        )
+
+    def test_checkout_nested_in_the_folder_of_another_is_outside_it(self) -> None:
+        working_directory = self.nested / "UnityProject_BuiltIn"
+
+        refusal = self.refusal(self.main, working_directory)
+
+        self.assertIsNotNone(refusal)
+        self.assertIn(
+            f"the working directory {working_directory} is outside it, in the checkout at {self.nested},", refusal
+        )
+        self.assertIsNone(self.refusal(self.nested, working_directory))
+
+    def test_folder_in_no_checkout_is_refused_without_naming_another(self) -> None:
+        self.assertEqual(
+            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"{self.temporary} is outside it and in no checkout, so nothing was changed. "
+            "Run it from inside that checkout.",
+            self.refusal(self.main, self.temporary),
+        )
+
+    def test_folder_a_failed_removal_left_in_the_folder_of_a_checkout_is_inside_it(self) -> None:
+        # git worktree remove deletes AGENTS.md and .github before it stops at a junction, so nothing
+        # marks the folder it leaves as a checkout of its own.
+        left_behind = self.main / ".claude" / "worktrees" / "removed" / "UnityProject_BuiltIn"
+        left_behind.mkdir(parents=True)
+
+        self.assertIsNone(self.refusal(self.main, left_behind))
+
+    def test_unreadable_working_directory_is_refused(self) -> None:
+        with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):
+            refusal = outside_checkout_refusal(self.main, "unity unlink-samples")
+
+        self.assertTrue(
+            refusal.startswith(
+                f"mu3-cli unity unlink-samples would change the checkout at {self.main}, "
+                "but the working directory cannot be read ("
+            ),
+            refusal,
+        )
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from typing import Callable, Iterable, Mapping
 
 import typer
 
-from mu3_cli.repository import repo_root
+from mu3_cli.repository import outside_checkout_refusal, repo_root
 
 
 unity_app = typer.Typer(no_args_is_help=True, help="Unity Editor diagnostics and batchmode orchestration.")
@@ -850,10 +850,21 @@ def diagnostic_summary(diagnostics: list[UnityDiagnostic]) -> dict[str, int]:
     }
 
 
-def render_diagnostics(diagnostics: list[UnityDiagnostic], output_format: str) -> dict[str, int]:
+def echo_repository_root(root: Path) -> None:
+    """Name the checkout a unity command acts on, which for an installed mu3-cli is the one it was
+    installed from, wherever the command runs."""
+    typer.echo(f"Repository root: {root}")
+
+
+def render_diagnostics(diagnostics: list[UnityDiagnostic], output_format: str, root: Path) -> dict[str, int]:
     summary = diagnostic_summary(diagnostics)
     if output_format == "json":
-        typer.echo(json.dumps({"diagnostics": [asdict(item) for item in diagnostics], "summary": summary}, indent=2))
+        document = {
+            "repository_root": str(root),
+            "diagnostics": [asdict(item) for item in diagnostics],
+            "summary": summary,
+        }
+        typer.echo(json.dumps(document, indent=2))
         return summary
     if output_format != "text":
         raise typer.BadParameter("--format must be either 'text' or 'json'.")
@@ -966,6 +977,9 @@ def unity_doctor(
 ) -> None:
     """Diagnose Unity package mappings, projects, Editors, modules, locks, and log readiness."""
     root = repo_root()
+    # The JSON report carries the root as a field, so that its output stays one JSON object.
+    if output_format != "json":
+        echo_repository_root(root)
     try:
         specs = load_target_specs(root)
     except ValueError as error:
@@ -976,7 +990,7 @@ def unity_doctor(
             raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
         specs = {target: specs[target]}
 
-    summary = render_diagnostics(run_unity_diagnostics(specs, root), output_format)
+    summary = render_diagnostics(run_unity_diagnostics(specs, root), output_format, root)
     if summary["fail"]:
         raise typer.Exit(code=1)
 
@@ -987,6 +1001,7 @@ def unity_changes(
 ) -> None:
     """Explain which package projects are selected from Git changes."""
     root = repo_root()
+    echo_repository_root(root)
     try:
         arguments = entry_point_arguments("changed", base, True, False, False, False)
         return_code = run_entry_point(compile_script_path(root), arguments, root)
@@ -1021,6 +1036,7 @@ def unity_compile(
 ) -> None:
     """Run the repository's change-aware Unity batchmode compiler."""
     root = repo_root()
+    echo_repository_root(root)
     try:
         arguments = entry_point_arguments(
             target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
@@ -1074,6 +1090,7 @@ def unity_test(
 ) -> None:
     """Run the EditMode or PlayMode tests of the selected projects through test-unity.sh."""
     root = repo_root()
+    echo_repository_root(root)
     try:
         arguments = (
             entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version)
@@ -1089,6 +1106,15 @@ def unity_test(
     if return_code:
         raise typer.Exit(code=return_code)
 
+
+def refuse_outside_checkout(root: Path, command: str) -> None:
+    """Stop with exit 2, before anything changes, when the working directory is outside the checkout at root."""
+    refusal = outside_checkout_refusal(root, command)
+    if refusal is not None:
+        typer.echo(f"error: {refusal}", err=True)
+        raise typer.Exit(code=2)
+
+
 @unity_app.command("link-samples")
 def unity_link_samples(
     target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to link."),
@@ -1099,6 +1125,8 @@ def unity_link_samples(
     in the link's place stops the command without being touched.
     """
     root = repo_root()
+    echo_repository_root(root)
+    refuse_outside_checkout(root, "unity link-samples")
     try:
         specs = load_target_specs(root)
     except ValueError as error:
@@ -1129,6 +1157,8 @@ def unity_unlink_samples(
     Run link-samples to restore the links.
     """
     root = repo_root()
+    echo_repository_root(root)
+    refuse_outside_checkout(root, "unity unlink-samples")
     try:
         specs = load_target_specs(root)
     except ValueError as error:

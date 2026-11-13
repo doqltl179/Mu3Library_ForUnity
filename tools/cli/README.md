@@ -7,7 +7,7 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 ## Initial Command Surface
 
 - `repo info`: print key repository roots and the agent kit and overlay locations.
-- `repo check`: validate repository document layout, README links, stale routing references, invisible and private-use characters in package `.cs` files, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs.
+- `repo check`: validate repository document layout, README links, stale routing references, invisible and private-use characters and the replacement character U+FFFD in package `.cs` files, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs. A package `.cs` file that is not UTF-8 is reported with the line where its bytes stop being UTF-8. When those bytes start like an unpaired surrogate written out as bytes, `ED` and then a byte from `A0` to `BF`, the report says they may be one; otherwise it asks to save the file as UTF-8, as for Korean saved as CP949.
 - `unity doctor`: diagnose bash, package mappings, sample links, Unity projects, required Editors, installed modules, project locks, and log readiness.
 - `unity di-strip-harness`: build the DI stripping harness as a Windows player at a chosen scripting backend and Managed Stripping Level, with the Editor the URP project names or another installed one, run it, and report each check (see [../README.md](../README.md#di-stripping-harness)).
 - `unity link-samples`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
@@ -15,6 +15,13 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity changes`: explain which development projects the current Git changes or a `--base` ref select, including every project that consumes a changed package.
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
 - `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails, `--load-spinners <n>` spins *n* CPU cores from the first test of each run to its last, and `--repeat <n>` runs each target *n* times and totals the runs (see [../README.md](../README.md#fixed-load-and-repeated-runs)).
+
+## Repository Root
+
+The CLI acts on the checkout it was imported from. An installed `mu3-cli`, such as the editable one in a checkout's `.venv`, keeps acting on the checkout it was installed from even when it runs in another checkout's folder. A working directory inside that same checkout only supplies the spelling of its root, such as the `subst` drive it was run from.
+
+- Every `unity` command prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
+- `unity link-samples` and `unity unlink-samples` change nothing and exit with 2 when the working directory is outside that checkout. The error names both folders, and the checkout the working directory is in when there is one. A worktree inside the checkout's folder, such as one under `.claude/worktrees/`, counts as outside it, and a `subst` drive or a link that names the checkout counts as inside it. A folder that a failed `git worktree remove` left inside the checkout's folder counts as inside it, since the folder has lost the `AGENTS.md` and `.github` that mark a checkout; see [../README.md](../README.md#worktree-removal) (#436). To change the checkout you are in, run its own CLI from its root with `PYTHONPATH=tools/cli/src python -m mu3_cli`.
 
 ## Compile Verification
 

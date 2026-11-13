@@ -45,11 +45,19 @@ PACKAGE_CODE_SUFFIXES = {".cs"}
 # Package code writes them as \u escapes; an editing tool once saved such escapes as the characters.
 HIDDEN_CHARACTER_CATEGORIES = {"Cc", "Cf", "Co", "Zl", "Zp"}
 ALLOWED_CONTROL_CHARACTERS = {"\t", "\r"}
+# The replacement character, which a lossy conversion leaves where it could not carry a character,
+# such as an unpaired surrogate that an editing tool saved in place of its \u escape. A test meant
+# to hold that surrogate then checks nothing, so package code writes U+FFFD as an escape too.
+REPLACEMENT_CHARACTER = chr(0xFFFD)
+
+
+def _is_checkout_root(path: Path) -> bool:
+    return (path / "AGENTS.md").exists() and (path / ".github").exists()
 
 
 def _enclosing_root(path: Path) -> Path | None:
     for candidate in (path, *path.parents):
-        if (candidate / "AGENTS.md").exists() and (candidate / ".github").exists():
+        if _is_checkout_root(candidate):
             return candidate
     return None
 
@@ -75,6 +83,54 @@ def repo_root() -> Path:
     if working_root is not None and working_root.resolve() == module_root.resolve():
         return working_root
     return module_root
+
+
+def _checkout_holding(root: Path, working_directory: Path) -> tuple[bool, Path | None]:
+    """Return whether root holds the working directory with no other checkout in between, and
+    otherwise the nearest other checkout that holds it, or None when no checkout does."""
+    # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
+    root_folder = root.resolve()
+    for candidate in (working_directory, *working_directory.parents):
+        if candidate.resolve() == root_folder:
+            return True, None
+        if _is_checkout_root(candidate):
+            return False, candidate
+    return False, None
+
+
+def outside_checkout_refusal(root: Path, command: str) -> str | None:
+    """Return why the mu3-cli `command`, such as `unity link-samples`, must not change the checkout at
+    root from the working directory, or None when the working directory is inside that checkout.
+
+    An installed `mu3-cli` acts on the checkout it was installed from wherever it runs, so run from
+    another checkout it would change files there instead. The working directory is inside root when
+    root, or a subst drive or link that names it, holds it with no other checkout in between, so a
+    worktree nested in root's folder, such as one under `.claude/worktrees/`, is outside it. A folder
+    that a failed `git worktree remove` left there has lost the `AGENTS.md` and `.github` that mark a
+    checkout, so it counts as inside root (#436).
+    """
+    try:
+        working_directory = Path.cwd()
+    except OSError as error:
+        return (
+            f"mu3-cli {command} would change the checkout at {root}, but the working directory cannot be read "
+            f"({error}), so nothing was changed. Run it again from inside that checkout."
+        )
+    try:
+        inside, other_checkout = _checkout_holding(root, working_directory)
+    except OSError:
+        # A folder on the way up that cannot be read leaves the answer unknown, which counts as outside.
+        inside, other_checkout = False, None
+    if inside:
+        return None
+    refusal = f"mu3-cli {command} would change the checkout at {root}, but the working directory {working_directory} "
+    if other_checkout is None:
+        return refusal + "is outside it and in no checkout, so nothing was changed. Run it from inside that checkout."
+    return refusal + (
+        f"is outside it, in the checkout at {other_checkout}, so nothing was changed. Run it from inside {root}, "
+        f"or, to change the checkout at {other_checkout}, run PYTHONPATH=tools/cli/src python -m mu3_cli {command} "
+        "from that checkout's root."
+    )
 
 
 def is_generated_tool_artifact(relative_path: str) -> bool:
@@ -128,8 +184,22 @@ def hidden_characters(line: str) -> list[str]:
     ]
 
 
+def _undecodable_bytes_hint(error: UnicodeDecodeError) -> str:
+    """Say what the bytes UTF-8 could not decode may be, and how package code writes them instead."""
+    data, start = error.object, error.start
+    # An unpaired surrogate written out as bytes, ED A0 80 to ED BF BF, starts with ED and a byte
+    # from A0 to BF, which UTF-8 never encodes.
+    if data[start] == 0xED and start + 1 < len(data) and 0xA0 <= data[start + 1] <= 0xBF:
+        return (
+            "and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), which package code writes "
+            "as a \\u escape"
+        )
+    return "as text saved in another encoding, such as Korean saved as CP949, is not; save the file as UTF-8"
+
+
 def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
-    """Report each line of package code that holds an invisible or private-use character."""
+    """Report each line of package code that holds an invisible or private-use character or the
+    replacement character, and each file that is not UTF-8."""
     issues: list[str] = []
     for relative_path_text in relative_paths:
         relative_path = Path(relative_path_text)
@@ -138,9 +208,16 @@ def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
             continue
         try:
             # utf-8-sig drops only a byte order mark at the start; one anywhere else is reported.
-            text = candidate.read_text(encoding="utf-8-sig")
-        except (OSError, UnicodeDecodeError) as error:
+            text = candidate.read_bytes().decode("utf-8-sig")
+        except OSError as error:
             issues.append(f"could not inspect package code file: {relative_path} ({error})")
+            continue
+        except UnicodeDecodeError as error:
+            line_number = error.object[: error.start].count(b"\n") + 1
+            issues.append(
+                f"could not inspect package code file: {relative_path} ({error}); line {line_number} is not UTF-8, "
+                + _undecodable_bytes_hint(error)
+            )
             continue
         # str.splitlines() would also split at the separators this check reports.
         for line_number, line in enumerate(text.split("\n"), start=1):
@@ -149,6 +226,11 @@ def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
                 issues.append(
                     f"invisible or private-use character {', '.join(code_points)} in package code, "
                     f"write it as a \\u escape: {relative_path}:{line_number}"
+                )
+            if REPLACEMENT_CHARACTER in line:
+                issues.append(
+                    "replacement character U+FFFD in package code, which a lossy conversion leaves where it "
+                    f"could not carry a character, write the character meant as a \\u escape: {relative_path}:{line_number}"
                 )
     return issues
 
