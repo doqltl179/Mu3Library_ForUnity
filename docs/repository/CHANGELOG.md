@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-12
+
+### Added
+- `mu3-cli unity unlink-samples` removes the sample links that `unity link-samples` creates, so that `git worktree remove` can delete a worktree on Windows (#402). Git for Windows stopped at the junctions with `Directory not empty` and exit status 255, so the worktree left `git worktree list` while its folder stayed behind with tracked files in it. The repository had no command that removed the links and no note to remove them first. The command removes each link itself, never the `Samples~` folder it points at, including a link that points elsewhere or at nothing. It reports a real folder or file in a link's place, leaves it untouched, and exits with 1. It reports a target without a link as not linked and succeeds. On 2026-11-12, with Git 2.41.0.windows.1, a worktree whose links the command had removed was deleted with exit status 0, and its `Samples~` folders still held all their files just before the removal. `tools/README.md` gives the order and how to clear a folder that an earlier removal left behind.
+
 ## 2026-11-08
 
 ### Added

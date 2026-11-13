@@ -38,6 +38,7 @@ from mu3_cli.unity import (
     sample_link_diagnostic,
     sample_link_state,
     stall_timeout_arguments,
+    unlink_samples,
 )
 from shell_harness import run_sourced
 
@@ -421,7 +422,99 @@ class SampleLinkTests(unittest.TestCase):
         plain = UnityTargetSpec("plain", Path("Package"), Path("Project"))
 
         self.assertEqual([], link_samples({"plain": plain}, self.root))
+        self.assertEqual([], unlink_samples({"plain": plain}, self.root))
         self.assertIsNone(sample_link_diagnostic(plain, self.root))
+
+    def unlink_all(self) -> list[SampleLinkResult]:
+        return unlink_samples({"sample": self.spec}, self.root)
+
+    def test_unlink_removes_only_the_link(self) -> None:
+        self.link_all()
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Unlinked Project/Assets/Samples, which pointed at Package/Samples~.", result.message)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertEqual(["Sample.cs"], [path.name for path in (self.root / "Package" / "Samples~").iterdir()])
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+
+    def test_unlink_removes_a_link_to_another_folder_without_touching_that_folder(self) -> None:
+        other = self.root / "Other"
+        other.mkdir()
+        (other / "Keep.cs").write_text("// keep\n", encoding="utf-8")
+        create_directory_link(self.link, other.resolve())
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertIn("Unlinked Project/Assets/Samples, which pointed at ", result.message)
+        self.assertIn("Other", result.message)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertEqual(["Keep.cs"], [path.name for path in other.iterdir()])
+
+    def test_unlink_removes_a_link_whose_samples_folder_is_gone(self) -> None:
+        # link-samples refuses a target without Samples~; its old link must still go.
+        self.link_all()
+        shutil.rmtree(self.root / "Package" / "Samples~")
+        self.assertEqual("no-samples", sample_link_state(self.spec, self.root).state)
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertFalse(os.path.lexists(self.link))
+
+    def test_unlink_leaves_a_real_folder_untouched(self) -> None:
+        self.link.mkdir()
+        (self.link / "Local.cs").write_text("// local\n", encoding="utf-8")
+
+        [result] = self.unlink_all()
+
+        self.assertFalse(result.ok)
+        self.assertEqual(
+            "error: Project/Assets/Samples is not a sample link (a real folder, file, or other reparse point);"
+            " it was left untouched.",
+            result.message,
+        )
+        self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
+
+    def test_unlink_leaves_a_real_file_untouched(self) -> None:
+        self.link.write_text("local\n", encoding="utf-8")
+
+        [result] = self.unlink_all()
+
+        self.assertFalse(result.ok)
+        self.assertIn("Project/Assets/Samples is not a sample link", result.message)
+        self.assertEqual("local\n", self.link.read_text(encoding="utf-8"))
+
+    def test_unlink_without_a_link_reports_it_and_succeeds(self) -> None:
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Not linked: Project/Assets/Samples does not exist.", result.message)
+
+    def test_unlink_command_removes_links_and_fails_on_a_real_folder(self) -> None:
+        (self.root / "unity-cli-packages.tsv").write_text(
+            "sample\tPackage\tProject\tAssets/Samples\nblocked\tPackage\tBlocked\tAssets/Samples\n",
+            encoding="utf-8",
+        )
+        blocked = self.root / "Blocked" / "Assets" / "Samples"
+        blocked.mkdir(parents=True)
+        (blocked / "Local.cs").write_text("// local\n", encoding="utf-8")
+        self.link_all()
+
+        with mock.patch("mu3_cli.unity.repo_root", return_value=self.root):
+            result = CliRunner().invoke(app, ["unity", "unlink-samples"])
+            unknown = CliRunner().invoke(app, ["unity", "unlink-samples", "--target", "missing"])
+
+        self.assertEqual(1, result.exit_code, result.output)
+        self.assertIn("[sample] Unlinked Project/Assets/Samples", result.output)
+        self.assertIn("[blocked] error: Blocked/Assets/Samples is not a sample link", result.output)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertTrue((self.root / "Package" / "Samples~" / "Sample.cs").is_file())
+        self.assertTrue((blocked / "Local.cs").is_file())
+        self.assertEqual(2, unknown.exit_code, unknown.output)
+        self.assertIn("Unknown Unity target 'missing'", unknown.output)
 
 
 class BashDiscoveryTests(unittest.TestCase):
