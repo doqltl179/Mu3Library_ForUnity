@@ -38,11 +38,14 @@ namespace Mu3Library.Multiplayer.Steam
         }
 
         /// <summary>
-        /// Steam answers a client that created too many lobbies with <c>k_EResultLimitExceeded</c>,
-        /// as its documentation says, and in a measurement (#423) answered an account that had
-        /// created 21 lobbies within about 20 seconds with <c>k_EResultTimeout</c>, 10 seconds
-        /// after the request. Both get a reason of their own, so a game can tell them from other
-        /// failures and create the lobby again later.
+        /// Steam documents <c>k_EResultLimitExceeded</c> for a client that created too many lobbies
+        /// and <c>k_EResultTimeout</c> for a request its servers did not answer; in a measurement
+        /// (#404) it also answered an account that had created 21 lobbies within about 20 seconds
+        /// with <c>k_EResultTimeout</c>, 10 seconds after the request, so a timeout may be the
+        /// limit or the servers. Both map to existing reasons other than
+        /// <see cref="MultiplayerReason.BackendError"/>, <see cref="MultiplayerReason.RateLimited"/>
+        /// and <see cref="MultiplayerReason.Timeout"/>, so a game can tell them from other failures
+        /// and create the lobby again later.
         /// </summary>
         public static MultiplayerReason FromCreateResult(EResult result)
         {
