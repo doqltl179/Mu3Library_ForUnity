@@ -672,6 +672,7 @@ namespace Mu3Library.Tests
             // SetLobbyData and DeleteLobbyData take the key the same way. A key with nothing before
             // its first NUL writes no key and answers true for the owner, as Steam answered for
             // the empty key it reached Steam as, while a key empty to begin with answers false.
+            // Deleting it answers false, as Steam answered once a search returned the lobby (#405).
             Assert.That(owner.SetLobbyData(lobby, "NUL.KEY\0other", "w\0tail"), Is.True);
             Assert.That(owner.GetLobbyData(lobby, "nul.key\0more"), Is.EqualTo("w"));
             Assert.That(owner.SetLobbyData(lobby, "\0lead", "v"), Is.True);
