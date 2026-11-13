@@ -78,12 +78,19 @@ namespace Mu3Library.Tests
             /// </summary>
             public int SendsBeforeFailure = -1;
 
+            /// <summary>
+            /// The names <see cref="GetPlayerName"/> answers for these players instead of the
+            /// local backend's, as a backend a game writes itself may name a player: one with a
+            /// surrogate without its pair, which the local backend never reports.
+            /// </summary>
+            public readonly Dictionary<PlayerId, string> PlayerNames = new Dictionary<PlayerId, string>();
+
             public string Name => "Platform";
             public bool IsAvailable => !IsGone && _inner.IsAvailable;
             MultiplayerReason IUnavailableReasonBackend.UnavailableReason => GoneReason;
             public PlayerId LocalPlayerId => _inner.LocalPlayerId;
             public int MaxPacketSize => _inner.MaxPacketSize;
-            public string GetPlayerName(PlayerId player) => _inner.GetPlayerName(player);
+            public string GetPlayerName(PlayerId player) => PlayerNames.TryGetValue(player, out string name) ? name : _inner.GetPlayerName(player);
 
             public void SetListener(IMultiplayerBackendListener listener)
             {

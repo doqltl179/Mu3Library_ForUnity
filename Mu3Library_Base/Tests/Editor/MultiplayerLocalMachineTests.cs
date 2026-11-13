@@ -660,10 +660,12 @@ namespace Mu3Library.Tests
 
             // A change takes its key and value the same way on its way to the member and the lobby
             // file, and a key with nothing before its first NUL writes nothing and answers true
-            // for the owner, as Steam answered for the empty key it reached Steam as.
+            // for the owner, as Steam answered for the empty key it reached Steam as. Deleting it
+            // answers false, as Steam answered once a search returned the lobby (#405).
             Assert.That(owner.SetLobbyData(lobby, "NUL.VALUE\0other", "changed\0tail"), Is.True);
             Assert.That(owner.SetLobbyData(lobby, "\0lead", "v"), Is.True);
             Assert.That(member.SetLobbyData(lobby, "\0lead", "v"), Is.False, "only the owner writes lobby data");
+            Assert.That(owner.DeleteLobbyData(lobby, "\0lead"), Is.False, "the owner holds no empty key to delete");
             PumpUntil(() => member.GetLobbyData(lobby, "nul.value") == "changed" && ListedData(lobby, "nul.value") == "changed",
                 "the change to reach the member and the lobby file");
             Assert.That(ListedData(lobby, string.Empty), Is.Null, "the lobby file lists no empty key");
@@ -2537,7 +2539,7 @@ namespace Mu3Library.Tests
         /// is there creates another lobby, which writes the file itself. Each runs once while a
         /// rewrite is in flight and once while the writer thread is idle; the difference is the wait.
         /// </summary>
-        [Explicit("Measures in real time, about 45 seconds; run it by name.")]
+        [Explicit("Measures in real time, about 40 seconds; run it by name.")]
         [Test]
         public void LobbyFile_MainThreadWaits_AreMeasured()
         {
