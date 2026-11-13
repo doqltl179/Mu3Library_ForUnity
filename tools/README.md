@@ -49,7 +49,7 @@ On Windows, `git worktree remove` cannot delete a worktree that holds the sample
 PYTHONPATH=tools/cli/src python -m mu3_cli unity unlink-samples
 ```
 
-Then run `git worktree remove <worktree>` from another checkout. The command removes each link itself and never the `Samples~` folder it points at. A link that points elsewhere or at nothing is removed too. A real folder or file in a link's place is reported and left untouched, and the command then exits with 1. A target without a link is reported as not linked, so the command can run again. `unity link-samples` brings the links back. `--target <key>` limits either command to one target.
+Then run `git worktree remove <worktree>` from another checkout. The command removes each link itself and never the `Samples~` folder it points at. A link that points elsewhere or at nothing is removed too. A real folder or file in a link's place is reported and left untouched, and the command then exits with 1. A target without a link is reported as not linked, so the command can run again. `unity link-samples` brings the links back. `--target <key>` limits either command to one target. Both name the checkout they act on in their first line, and both exit with 2 without changing anything when the working directory is outside that checkout, so an installed `mu3-cli` from another checkout cannot remove that checkout's links instead (see [cli/README.md](cli/README.md#repository-root)).
 
 If a removal has already left a folder behind, its `tools/` folder and `unity-cli-packages.tsv` may be gone, so the command cannot run there. Remove each link that another checkout's `unity-cli-packages.tsv` names, inside that folder, with `cmd /c rmdir <link>` from Command Prompt or PowerShell, or `cmd //c rmdir <link>` from Git Bash, which would rewrite `/c` as a path. Without `/s`, `cmd`'s `rmdir` removes a junction and leaves its target alone; PowerShell's own `rmdir` is `Remove-Item`, which takes the target's files for the junction's own and asks to delete them with it. Then delete the folder. Never delete such a folder with a tool that may follow a junction into the folder it points at.
 
@@ -67,7 +67,7 @@ One command, run from the repository root, enters the repository's development e
 
 Entering it:
 
-- creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode;
+- creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode, so that `mu3-cli` acts on this checkout even from another worktree's folder, where `unity link-samples` and `unity unlink-samples` refuse to run (see [cli/README.md](cli/README.md#repository-root));
 - activates that virtual environment, so its `python` and `mu3-cli` come first on `PATH`;
 - sets every variable that `.env.local` at the repository root lists, such as those in [Environment](#environment), and `MU3_DEV_ROOT` to the repository root;
 - in PowerShell on Windows, makes `bash` run the bash that `mu3-cli` uses, normally that of Git for Windows, putting its folder first on `PATH` when `bash` does not already find it, so `bash ./test-unity.sh` runs the bash the scripts are written for.

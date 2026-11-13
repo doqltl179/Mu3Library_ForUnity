@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
@@ -503,11 +504,14 @@ class SampleLinkTests(unittest.TestCase):
         (blocked / "Local.cs").write_text("// local\n", encoding="utf-8")
         self.link_all()
 
-        with mock.patch("mu3_cli.unity.repo_root", return_value=self.root):
+        with mock.patch("mu3_cli.unity.repo_root", return_value=self.root), mock.patch.object(
+            Path, "cwd", return_value=self.root / "Project"
+        ):
             result = CliRunner().invoke(app, ["unity", "unlink-samples"])
             unknown = CliRunner().invoke(app, ["unity", "unlink-samples", "--target", "missing"])
 
         self.assertEqual(1, result.exit_code, result.output)
+        self.assertEqual(f"Repository root: {self.root}", result.stdout.splitlines()[0])
         self.assertIn("[sample] Unlinked Project/Assets/Samples", result.output)
         self.assertIn("[blocked] error: Blocked/Assets/Samples is not a sample link", result.output)
         self.assertFalse(os.path.lexists(self.link))
@@ -515,6 +519,67 @@ class SampleLinkTests(unittest.TestCase):
         self.assertTrue((blocked / "Local.cs").is_file())
         self.assertEqual(2, unknown.exit_code, unknown.output)
         self.assertIn("Unknown Unity target 'missing'", unknown.output)
+
+    def test_link_commands_change_nothing_from_a_working_directory_outside_the_checkout(self) -> None:
+        # An installed mu3-cli acts on the checkout it was installed from, here self.root (#416).
+        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
+        outside = temporary_root(self)
+
+        def invoke(command: str) -> object:
+            with mock.patch("mu3_cli.unity.repo_root", return_value=self.root), mock.patch.object(
+                Path, "cwd", return_value=outside
+            ):
+                return CliRunner().invoke(app, ["unity", command])
+
+        refused_link = invoke("link-samples")
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+        self.link_all()
+        refused_unlink = invoke("unlink-samples")
+        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
+
+        for command, result in (("link-samples", refused_link), ("unlink-samples", refused_unlink)):
+            with self.subTest(command=command):
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
+                self.assertEqual(
+                    [
+                        f"error: mu3-cli unity {command} would change the checkout at {self.root}, "
+                        f"but the working directory {outside} is outside it, so nothing was changed. "
+                        "Run it from inside that checkout, or, for the checkout you are in, run "
+                        f"PYTHONPATH=tools/cli/src python -m mu3_cli unity {command} from that checkout's root."
+                    ],
+                    result.stderr.splitlines(),
+                )
+
+
+class RepositoryRootLineTests(unittest.TestCase):
+    """Every unity command names the checkout it acts on, which for an installed mu3-cli is the one
+    it was installed from, wherever it runs (#416)."""
+
+    def test_selection_commands_name_the_root_before_running_the_entry_point(self) -> None:
+        root = repo_root()
+        for arguments in (["changes"], ["compile", "--dry-run"], ["test", "--dry-run"]):
+            with self.subTest(command=arguments[0]):
+                with mock.patch("mu3_cli.unity.run_entry_point", return_value=0) as run:
+                    result = CliRunner().invoke(app, ["unity", *arguments])
+
+                self.assertEqual(0, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {root}"], result.stdout.splitlines())
+                self.assertEqual(root, run.call_args.args[2])
+
+    def test_doctor_names_the_root_in_text_and_in_json(self) -> None:
+        root = repo_root()
+        with mock.patch("mu3_cli.unity.run_unity_diagnostics", return_value=[]):
+            text = CliRunner().invoke(app, ["unity", "doctor"])
+            as_json = CliRunner().invoke(app, ["unity", "doctor", "--format", "json"])
+
+        self.assertEqual(0, text.exit_code, text.output)
+        self.assertEqual([f"Repository root: {root}", "Summary: 0 pass, 0 warn, 0 fail"], text.stdout.splitlines())
+        self.assertEqual(0, as_json.exit_code, as_json.output)
+        self.assertEqual(
+            {"repository_root": str(root), "diagnostics": [], "summary": {"pass": 0, "warn": 0, "fail": 0}},
+            json.loads(as_json.stdout),
+        )
 
 
 class BashDiscoveryTests(unittest.TestCase):
@@ -674,6 +739,19 @@ class ShortPathTests(unittest.TestCase):
         [(command, keywords)] = calls
         self.assertIn(str(self.short_root / "compile-unity.sh"), command)
         self.assertEqual(self.short_root, keywords["cwd"])
+        self.assertEqual(f"Repository root: {self.short_root}", result.stdout.splitlines()[0])
+
+    def test_link_commands_run_from_the_short_path_of_their_own_checkout(self) -> None:
+        # An unknown target stops each command only after the working directory has passed, before any change.
+        for command in ("link-samples", "unlink-samples"):
+            with self.subTest(command=command):
+                with mock.patch.object(Path, "cwd", return_value=self.short_root / "UnityProject_BuiltIn"):
+                    result = CliRunner().invoke(app, ["unity", command, "--target", "no-such-target"])
+
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.short_root}"], result.stdout.splitlines())
+                self.assertIn("Unknown Unity target 'no-such-target'", result.stderr)
+                self.assertNotIn("is outside it", result.stderr)
 
     def test_entry_point_keeps_the_short_path_it_was_started_from(self) -> None:
         # compile-unity.sh passes $REPO_ROOT/<project> to Unity as -projectPath.

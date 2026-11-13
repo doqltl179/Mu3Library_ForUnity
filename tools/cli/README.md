@@ -16,6 +16,13 @@ It is intentionally scoped to tooling-safe roots and should not modify Unity run
 - `unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
 - `unity test`: run the EditMode tests of the selected development projects through `test-unity.sh`, with the same targets and options as `unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails, `--load-spinners <n>` spins *n* CPU cores from the first test of each run to its last, and `--repeat <n>` runs each target *n* times and totals the runs (see [../README.md](../README.md#fixed-load-and-repeated-runs)).
 
+## Repository Root
+
+The CLI acts on the checkout it was imported from. An installed `mu3-cli`, such as the editable one in a checkout's `.venv`, keeps acting on the checkout it was installed from even when it runs in another checkout's folder. A working directory inside that same checkout only supplies the spelling of its root, such as the `subst` drive it was run from.
+
+- Every `unity` command prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
+- `unity link-samples` and `unity unlink-samples` change nothing and exit with 2 when the working directory is outside that checkout. The error names both folders. A worktree inside the checkout's folder, such as one under `.claude/worktrees/`, counts as outside it, and a `subst` drive or a link that names the checkout counts as inside it. To change the checkout you are in, run its own CLI from its root with `PYTHONPATH=tools/cli/src python -m mu3_cli`.
+
 ## Compile Verification
 
 Compile verification runs the Unity Editor, never `dotnet build` on a generated `.csproj`. Unity builds its assemblies from `.asmdef` and the package sources, so a generated project file is not part of what ships and drifts from the code it claims to build.

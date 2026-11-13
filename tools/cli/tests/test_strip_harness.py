@@ -607,6 +607,14 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         self.assertEqual(EXIT_CHECKS_FAILED, result.exit_code, result.output)
         self.assertNotIn("error:", result.output)
 
+    def test_the_run_names_the_checkout_it_acts_on_first(self) -> None:
+        root = fixture_root(self)
+
+        result = self.invoke(root, FakeUnity())
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(f"Repository root: {root}", result.stdout.splitlines()[0])
+
     def test_a_failure_after_the_player_ran_keeps_its_check_results(self) -> None:
         for name, unity, expected in (
             ("passing", FakeUnity(), 0),

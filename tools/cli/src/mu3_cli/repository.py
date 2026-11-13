@@ -51,9 +51,13 @@ ALLOWED_CONTROL_CHARACTERS = {"\t", "\r"}
 REPLACEMENT_CHARACTER = chr(0xFFFD)
 
 
+def _is_checkout_root(path: Path) -> bool:
+    return (path / "AGENTS.md").exists() and (path / ".github").exists()
+
+
 def _enclosing_root(path: Path) -> Path | None:
     for candidate in (path, *path.parents):
-        if (candidate / "AGENTS.md").exists() and (candidate / ".github").exists():
+        if _is_checkout_root(candidate):
             return candidate
     return None
 
@@ -79,6 +83,46 @@ def repo_root() -> Path:
     if working_root is not None and working_root.resolve() == module_root.resolve():
         return working_root
     return module_root
+
+
+def _holds_without_another_checkout(root: Path, working_directory: Path) -> bool:
+    # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
+    root_folder = root.resolve()
+    for candidate in (working_directory, *working_directory.parents):
+        if candidate.resolve() == root_folder:
+            return True
+        if _is_checkout_root(candidate):
+            return False
+    return False
+
+
+def outside_checkout_refusal(root: Path, command: str) -> str | None:
+    """Return why the mu3-cli `command`, such as `unity link-samples`, must not change the checkout at
+    root from the working directory, or None when the working directory is inside that checkout.
+
+    An installed `mu3-cli` acts on the checkout it was installed from wherever it runs, so run from
+    another checkout it would change files there instead. The working directory is inside root when
+    root, or a subst drive or link that names it, holds it with no other checkout in between, so a
+    worktree nested in root's folder, such as one under `.claude/worktrees/`, is outside it.
+    """
+    try:
+        working_directory = Path.cwd()
+    except OSError as error:
+        return (
+            f"mu3-cli {command} would change the checkout at {root}, but the working directory cannot be read "
+            f"({error}), so nothing was changed. Run it again from inside that checkout."
+        )
+    try:
+        if _holds_without_another_checkout(root, working_directory):
+            return None
+    except OSError:
+        # A folder on the way up that cannot be read leaves the answer unknown, which counts as outside.
+        pass
+    return (
+        f"mu3-cli {command} would change the checkout at {root}, but the working directory {working_directory} "
+        "is outside it, so nothing was changed. Run it from inside that checkout, or, for the checkout you are in, "
+        f"run PYTHONPATH=tools/cli/src python -m mu3_cli {command} from that checkout's root."
+    )
 
 
 def is_generated_tool_artifact(relative_path: str) -> bool:

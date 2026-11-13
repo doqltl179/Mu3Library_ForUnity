@@ -25,6 +25,7 @@ import typer
 
 from mu3_cli.repository import repo_root
 from mu3_cli.unity import (
+    echo_repository_root,
     editor_bundled_versions,
     editor_package_manager_dir,
     is_hub_editor_for,
@@ -630,8 +631,10 @@ def unity_di_strip_harness(
         player_timeout=player_timeout,
         editor_version=editor_version,
     )
+    root = repo_root()
+    echo_repository_root(root)
     try:
-        exit_code = run_harness(repo_root(), options)
+        exit_code = run_harness(root, options)
     except HarnessSetupError as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=EXIT_BUILD_FAILED) from error

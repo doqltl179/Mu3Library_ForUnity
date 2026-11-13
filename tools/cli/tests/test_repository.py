@@ -15,6 +15,7 @@ from mu3_cli.repository import (
     STALE_AGENT_REFERENCE_PARTS,
     agentkit_cli_path,
     is_generated_tool_artifact,
+    outside_checkout_refusal,
     package_code_issues,
     package_code_paths,
     repo_root,
@@ -259,6 +260,81 @@ class RepositoryRootSpellingTests(unittest.TestCase):
             Path, "cwd", side_effect=FileNotFoundError("deleted")
         ):
             self.assertEqual(self.short_root, repo_root())
+
+
+class OutsideCheckoutRefusalTests(unittest.TestCase):
+    """An installed mu3-cli acts on the checkout it was installed from wherever it runs, so the
+    commands that change files there refuse a working directory outside that checkout (#416)."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.temporary = Path(directory.name)
+        self.main = self.make_checkout(self.temporary / "main")
+        # A worktree inside the main checkout's folder, as a session worktree under .claude/worktrees/ is.
+        self.nested = self.make_checkout(self.main / ".claude" / "worktrees" / "session")
+        self.other = self.make_checkout(self.temporary / "other")
+
+    @staticmethod
+    def make_checkout(root: Path) -> Path:
+        (root / ".github").mkdir(parents=True)
+        (root / "AGENTS.md").write_text("# Checkout\n", encoding="utf-8")
+        (root / "UnityProject_BuiltIn").mkdir()
+        return root
+
+    @staticmethod
+    def refusal(root: Path, working_directory: Path) -> str | None:
+        with mock.patch.object(Path, "cwd", return_value=working_directory):
+            return outside_checkout_refusal(root, "unity link-samples")
+
+    def test_working_directory_inside_the_checkout_is_accepted(self) -> None:
+        for working_directory in (self.main, self.main / "UnityProject_BuiltIn"):
+            with self.subTest(working_directory=working_directory):
+                self.assertIsNone(self.refusal(self.main, working_directory))
+
+    def test_short_path_to_the_same_checkout_is_inside_it(self) -> None:
+        # A link stands in for a subst drive: resolve() follows both back to the long path (#82).
+        short = self.temporary / "short"
+        create_directory_link(short, self.main.resolve())
+        self.addCleanup(remove_directory_link, short)
+
+        self.assertIsNone(self.refusal(self.main, short / "UnityProject_BuiltIn"))
+        self.assertIsNone(self.refusal(short, self.main / "UnityProject_BuiltIn"))
+
+    def test_another_checkout_is_refused_with_both_folders_named(self) -> None:
+        working_directory = self.other / "UnityProject_BuiltIn"
+
+        self.assertEqual(
+            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"{working_directory} is outside it, so nothing was changed. Run it from inside that checkout, or, "
+            "for the checkout you are in, run PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples "
+            "from that checkout's root.",
+            self.refusal(self.main, working_directory),
+        )
+
+    def test_checkout_nested_in_the_folder_of_another_is_outside_it(self) -> None:
+        working_directory = self.nested / "UnityProject_BuiltIn"
+
+        refusal = self.refusal(self.main, working_directory)
+
+        self.assertIsNotNone(refusal)
+        self.assertIn(f"the working directory {working_directory} is outside it", refusal)
+        self.assertIsNone(self.refusal(self.nested, working_directory))
+
+    def test_folder_in_no_checkout_is_refused(self) -> None:
+        self.assertIsNotNone(self.refusal(self.main, self.temporary))
+
+    def test_unreadable_working_directory_is_refused(self) -> None:
+        with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):
+            refusal = outside_checkout_refusal(self.main, "unity unlink-samples")
+
+        self.assertTrue(
+            refusal.startswith(
+                f"mu3-cli unity unlink-samples would change the checkout at {self.main}, "
+                "but the working directory cannot be read ("
+            ),
+            refusal,
+        )
 
 
 if __name__ == "__main__":
