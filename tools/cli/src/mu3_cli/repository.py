@@ -176,6 +176,19 @@ def hidden_characters(line: str) -> list[str]:
     ]
 
 
+def _undecodable_bytes_hint(error: UnicodeDecodeError) -> str:
+    """Say what the bytes UTF-8 could not decode may be, and how package code writes them instead."""
+    data, start = error.object, error.start
+    # An unpaired surrogate written out as bytes, ED A0 80 to ED BF BF, starts with ED and a byte
+    # from A0 to BF, which UTF-8 never encodes.
+    if data[start] == 0xED and start + 1 < len(data) and 0xA0 <= data[start + 1] <= 0xBF:
+        return (
+            "and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), which package code writes "
+            "as a \\u escape"
+        )
+    return "as text saved in another encoding, such as Korean saved as CP949, is not; save the file as UTF-8"
+
+
 def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
     """Report each line of package code that holds an invisible or private-use character or the
     replacement character, and each file that is not UTF-8."""
@@ -192,12 +205,10 @@ def package_code_issues(root: Path, relative_paths: Iterable[str]) -> list[str]:
             issues.append(f"could not inspect package code file: {relative_path} ({error})")
             continue
         except UnicodeDecodeError as error:
-            # An unpaired surrogate written out as bytes, ED A0 80 to ED BF BF, is not UTF-8 either.
             line_number = error.object[: error.start].count(b"\n") + 1
             issues.append(
                 f"could not inspect package code file: {relative_path} ({error}); line {line_number} is not UTF-8, "
-                "and its bytes may be an unpaired surrogate (ED A0 80 to ED BF BF), which package code writes "
-                "as a \\u escape"
+                + _undecodable_bytes_hint(error)
             )
             continue
         # str.splitlines() would also split at the separators this check reports.

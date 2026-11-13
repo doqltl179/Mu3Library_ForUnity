@@ -102,6 +102,30 @@ class PackageCodeCharacterTests(unittest.TestCase):
         self.assertEqual(1, len(issues), issues)
         self.assertTrue(issues[0].startswith(f"could not inspect package code file: {Path(path)} ("), issues)
 
+    def test_bytes_of_another_encoding_are_reported_as_a_file_to_save_as_utf8(self) -> None:
+        korean = "".join(map(chr, (0xD55C, 0xAD6D, 0xC5B4)))
+        cases = {
+            "latin-1": "caf".encode("ascii") + bytes([0xE9]),
+            "cp949": korean.encode("cp949"),
+            "cut short": bytes([0xE2, 0x82]),
+            # ED followed by a byte outside A0 to BF starts no surrogate.
+            "ED without a surrogate": bytes([0xED, 0x41]),
+        }
+        for name, data in cases.items():
+            with self.subTest(name):
+                path = self.write(b"// first\n// " + data)
+
+                [issue] = package_code_issues(self.root, [path])
+
+                self.assertTrue(
+                    issue.endswith(
+                        "; line 2 is not UTF-8, as text saved in another encoding, such as Korean saved as CP949, "
+                        "is not; save the file as UTF-8"
+                    ),
+                    issue,
+                )
+                self.assertNotIn("surrogate", issue)
+
     # Built from code points and bytes, never typed: an editing tool can turn a typed escape into
     # the character, and a lossy one turns an unpaired surrogate into the replacement character.
     REPLACEMENT = chr(0xFFFD)
