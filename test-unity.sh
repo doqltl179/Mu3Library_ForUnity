@@ -429,12 +429,13 @@ xml_attribute_text() {
 # \\, \/, \b, \f, \n, \r, \t, and \u with four hexadecimal digits in either
 # case, two of which, a high and a low surrogate, stand for a character past
 # U+FFFF. It writes the characters in UTF-8 whatever the locale, as
-# xml_attribute_text does, so that a test's name as Unity's log writes it
-# matches the name as the result file writes it. It reads the text from left
-# to right, so that the backslash a \\ leaves starts no escape. An escape that
-# JSON does not define stays as it is, as does one to a character that a bash
-# string cannot hold or that is not a character, such as \u0000 or a
-# surrogate without its other half.
+# xml_attribute_text does, so that a test's name as Unity's log writes it can
+# be matched with the name as the result file writes it, through
+# result_file_name for the characters that XML cannot hold. It reads the text
+# from left to right, so that the backslash a \\ leaves starts no escape. An
+# escape that JSON does not define stays as it is, as does one to a character
+# that a bash string cannot hold or that is not a character, such as \u0000 or
+# a surrogate without its other half.
 json_string_text() {
     local text="$1"
     local unit_pattern='^u([[:xdigit:]]{4})'
@@ -476,6 +477,42 @@ json_string_text() {
         text="${text:length}"
     done
     JSON_TEXT+="$text"
+}
+
+# Sets RESULT_FILE_NAME to a test's name, as json_string_text gives it from
+# Unity's log, in the form in which the result file writes it once
+# xml_attribute_text has replaced its references, so that the two can be
+# compared. NUnit writes each character that XML cannot hold, U+0001 to
+# U+0008, U+000B, U+000C, U+000E to U+001F, U+FFFE, and U+FFFF, as \u and
+# four lowercase hexadecimal digits, such as \u001b for an escape, and every
+# other character as itself, a backslash too, as TNode in
+# com.unity.ext.nunit 2.1.0 does. So the result file writes an escape and the
+# text \u001b alike, which Unity's log tells apart as \u001B and \\u001b;
+# replacing the result file's \u text instead would read the text \u001b in a
+# name as an escape. TNode writes U+0000 and half a surrogate pair so too,
+# which are left out, since no name from the log holds them: a bash string
+# cannot hold U+0000, and Unity 6000.6.7f1's log cuts a name at it and writes
+# half a surrogate pair as U+FFFD. It builds the text without
+# ${var//pattern/replacement}, as xml_attribute_text does.
+result_file_name() {
+    local text="$1"
+    local code
+    local escape
+    local rest
+
+    for code in {1..8} 11 12 {14..31} 65534 65535; do
+        utf8_character "$code"
+        [[ "$text" == *"$UTF8_CHARACTER"* ]] || continue
+        printf -v escape '\\u%04x' "$code"
+        rest="$text"
+        text=""
+        while [[ "$rest" == *"$UTF8_CHARACTER"* ]]; do
+            text+="${rest%%"$UTF8_CHARACTER"*}$escape"
+            rest="${rest#*"$UTF8_CHARACTER"}"
+        done
+        text+="$rest"
+    done
+    RESULT_FILE_NAME="$text"
 }
 
 # Sets ONE_LINE_NAME to a test's name, as xml_attribute_text or
@@ -683,16 +720,23 @@ find_data_store_loss() {
 failed_only_on_data_store_loss() {
     local results_file="$1"
     local index
+    local name
     local fullname=""
 
     [[ -n "$DATA_STORE_LOSS_TEST" && -n "$DATA_STORE_LOSS_ERROR" && -f "$results_file" ]] || return 1
 
     # The test is found by its name as find_tests_with_result reads it for the
-    # failed: lines and the summary, and then by its fullname attribute as the
-    # result file writes it, so that one function replaces the XML references.
+    # failed: lines and the summary, compared with the name from Unity's log in
+    # the form result_file_name gives it, and then by its fullname attribute as
+    # the result file writes it, so that one function replaces the XML
+    # references. Two tests whose names the result file writes alike, such as
+    # one with an escape and one with the text \u001b, cannot be told apart
+    # there, so the first of them that failed is the one read.
+    result_file_name "$DATA_STORE_LOSS_TEST"
+    name="$RESULT_FILE_NAME"
     find_tests_with_result "$results_file" Failed
     for index in ${RESULT_TESTS[@]+"${!RESULT_TESTS[@]}"}; do
-        if [[ "${RESULT_TESTS[$index]}" == "$DATA_STORE_LOSS_TEST" ]]; then
+        if [[ "${RESULT_TESTS[$index]}" == "$name" ]]; then
             fullname="${RESULT_TEST_ATTRIBUTES[$index]}"
             break
         fi
@@ -999,7 +1043,10 @@ add_load_to_summary() {
 # case's string argument may hold any of it; a line that quotes the totals
 # after another start, such as the ##utp: line of a test's failure, is not one.
 # The line of one run whose failure message ends in such totals reads as one
-# too, which only a test that fails with that text as its message writes.
+# too, which only a test that fails with that text as its message writes. The
+# attribute logs the name as it is, so the totals of a test whose name holds a
+# line break take two lines of the log, neither of them in that form, and are
+# not read.
 find_counted_repeats() {
     local log_file="$1"
     local line
@@ -1056,14 +1103,16 @@ compute_failure_rate() {
 
 # Adds the totals that [CountedRepeat] logged in the run that test_target ran
 # last under its summary entry, a line for each test, since the run's counts
-# take such a test as one test however many times it ran.
+# take such a test as one test however many times it ran. Each line gives the
+# test's name as one_line_name does.
 add_counted_repeats_to_summary() {
     local i
 
     find_counted_repeats "$UNITY_LOG_FILE"
     for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
         counted_repeat_phrase "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"
-        SUMMARY_LINES+=("  counted repeat: ${COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+        one_line_name "${COUNTED_REPEAT_TESTS[$i]}"
+        SUMMARY_LINES+=("  counted repeat: $ONE_LINE_NAME: $COUNTED_REPEAT_PHRASE")
     done
 }
 
@@ -1188,7 +1237,8 @@ add_repeat_totals_to_summary() {
         read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
         compute_failure_rate "${sums[0]}" "${sums[3]}"
         counted_repeat_phrase "${REPEAT_COUNTED_REPEAT_COUNTS[$i]}" "$FAILURE_RATE"
-        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+        one_line_name "${REPEAT_COUNTED_REPEAT_TESTS[$i]}"
+        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: $ONE_LINE_NAME: $COUNTED_REPEAT_PHRASE")
     done
 
     if [[ "$REPEAT_DATA_STORE_LOSSES" -gt 0 ]]; then

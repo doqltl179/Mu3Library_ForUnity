@@ -781,6 +781,125 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(f"  {environment}", self.summary(completed)[1])
         self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
 
+    def assert_fails_on_the_environment(
+        self, name: str, written: str, logged: str, shown: str, logged_shown: str | None = None, **variables: str
+    ) -> None:
+        """Run a target whose one failure is Fixture.Tests.<name>, which failed on the error Unity logs
+        as its Data Store service ends and nothing else, and check that the run fails on the environment.
+
+        written is the name as the result file writes it, logged as Unity's log writes it in a JSON
+        string, shown as the failed: line prints it, and logged_shown as the environment: line prints
+        it when the two lines differ (#493), each after Fixture.Tests.; variables go to the script's
+        environment.
+        """
+        full_name = f"Fixture.Tests.{name}"
+        log = data_store_loss_log(full_name).replace(json.dumps(full_name)[1:-1], f"Fixture.Tests.{logged}")
+        self.assertIn(f'"name":"Fixture.Tests.{logged}"', log)
+        completed = self.run_entry_point(
+            "test-unity.sh",
+            "leaf",
+            environment=self.unity_environment(
+                FAKE_UNITY_RESULTS=nunit_results(passed=2, failed=(written,), messages={written: FRAMEWORK_LOSS_FAILURE}),
+                FAKE_UNITY_STATUS="2",
+                FAKE_UNITY_LOG=log,
+                **variables,
+            ),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        environment = (
+            f"  environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.{logged_shown or shown} "
+            "ran, and the error Unity logged for it failed that test, so the test reached no verdict; run the target "
+            "again"
+        )
+        errors = completed.stderr.splitlines()
+        start = errors.index(
+            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the "
+            "environment"
+        )
+        self.assertEqual([f"  failed: Fixture.Tests.{shown}", environment], errors[start + 1 : start + 3])
+        self.assertEqual(f"  {environment}", self.summary(completed)[1])
+        self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
+
+    def test_a_test_whose_name_holds_a_character_that_xml_cannot_hold_fails_on_the_environment(self) -> None:
+        # The result file writes such a character as the text \u and four lowercase hexadecimal
+        # digits, and Unity's log writes an escape and U+0001 as JSON escapes with uppercase digits
+        # and U+FFFE and U+FFFF as themselves, as Unity 6000.6.7f1 and com.unity.ext.nunit 2.1.0
+        # wrote the names of tests named so (#476). The failed: line prints the result file's text.
+        # The environment: line prints the name from the log through one_line_name, which writes an
+        # escape and U+0001 as the result file does (#459) but leaves U+FFFE and U+FFFF as they are,
+        # so for those two the lines differ; #493 is to print them alike and will change that
+        # expectation. A name read in the C locale is matched alike.
+        b = chr(92)
+        for character, digits, logged in (
+            (chr(0x1B), "001b", f"{b}u001B"),
+            (chr(0x01), "0001", f"{b}u0001"),
+            (chr(0xFFFE), "fffe", chr(0xFFFE)),
+            (chr(0xFFFF), "ffff", chr(0xFFFF)),
+        ):
+            written = f"Named_a{b}u{digits}b"
+            logged_shown = None if ord(character) < 0x20 else f"Named_a{character}b"
+            for variables in ({}, {"LC_ALL": "C"}):
+                with self.subTest(character=f"U+{ord(character):04X}", **variables):
+                    self.assert_fails_on_the_environment(
+                        f"Named_a{character}b", written, f"Named_a{logged}b", written, logged_shown, **variables
+                    )
+        # Each time the character comes, it is written so.
+        with self.subTest(character="U+001B twice"):
+            twice = f"Named_a{b}u001bb{b}u001bc"
+            self.assert_fails_on_the_environment(
+                f"Named_a{chr(0x1B)}b{chr(0x1B)}c", twice, f"Named_a{b}u001Bb{b}u001Bc", twice
+            )
+
+    def test_a_test_whose_name_holds_a_control_character_that_xml_can_hold_fails_on_the_environment(self) -> None:
+        # The result file and Unity's log both wrote DEL, U+009B, and U+2028 as themselves (#476), as
+        # NUnit's rule writes every character that XML can hold, U+0085 among them, and the result
+        # file writes a carriage return as the character reference &#xD;, as it does a tab and a line
+        # break, while the log writes it as \r. So the name from the log keeps them, and both lines
+        # print them as one_line_name does (#459).
+        b = chr(92)
+        for character, written, logged, shown in (
+            (chr(0x7F), chr(0x7F), chr(0x7F), f"{b}u007f"),
+            (chr(0x85), chr(0x85), chr(0x85), f"{b}u0085"),
+            (chr(0x2028), chr(0x2028), chr(0x2028), f"{b}u2028"),
+            (chr(0x0D), "&#xD;", f"{b}r", f"{b}r"),
+        ):
+            with self.subTest(character=f"U+{ord(character):04X}"):
+                self.assert_fails_on_the_environment(
+                    f"Named_a{character}b", f"Named_a{written}b", f"Named_a{logged}b", f"Named_a{shown}b"
+                )
+
+    def test_a_test_whose_name_holds_the_text_of_such_an_escape_fails_on_the_environment(self) -> None:
+        # The result file writes an escape and the text \u001b alike, while Unity's log writes the
+        # text as \\u001b, so the check must not read the result file's \u text as an escape. The
+        # text \^[ is written as it is, and as \\^[ in the log (#476).
+        b = chr(92)
+        for text in (f"{b}u001b", f"{b}^["):
+            with self.subTest(text=text):
+                name = f"Fixture.Tests.Named_a{text}b"
+                failed = f"Named_a{text}b"
+                log = data_store_loss_log(name)
+                self.assertIn(f'"name":"Fixture.Tests.Named_a{b}{text}b"', log)
+                completed = self.run_tests(
+                    "leaf",
+                    results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
+                    unity_status=2,
+                    log=log,
+                )
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                environment = (
+                    f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error "
+                    "Unity logged for it failed that test, so the test reached no verdict; run the target again"
+                )
+                errors = completed.stderr.splitlines()
+                start = errors.index(
+                    "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from "
+                    "the environment"
+                )
+                self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
+                self.assertEqual(f"  {environment}", self.summary(completed)[1])
+
     def test_a_target_that_failed_otherwise_too_fails_on_its_counts_and_names_the_environment(self) -> None:
         environment = (
             "    environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the "
@@ -1442,6 +1561,47 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             summary[: len(summary) - 2],
         )
 
+    def test_the_counted_repeat_lines_print_a_name_that_holds_a_tab_and_an_esc_as_the_failed_lines_do(self) -> None:
+        # Both lines print the name as the failed in lines do (#475), while the totals still add up
+        # by the name itself, so a test named with the text \t and \u001b, printed alike, keeps
+        # totals of its own.
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        controls = f'Fixture.Tests.Case("a{chr(9)}b{chr(0x1B)}c")'
+        shown = r'Fixture.Tests.Case("a\tb\u001bc")'
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results=nunit_results(passed=1),
+            log_1=counted_repeat_totals(controls, 2, 2, passed=1, failed=1),
+            log_2=chr(10).join(
+                [counted_repeat_totals(controls, 1, 1, passed=1), counted_repeat_totals(shown, 4, 4, passed=4)]
+            ),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                "  - leaf run 2 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                f"    counted repeat: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf, 2 runs: 0 of 2 failed; 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat in 2 of 2 runs: {shown}: runs 3 of 3, passed 2, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 33.33%",
+                f"    counted repeat in 1 of 2 runs: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, "
+                "skipped 0, failure rate 0.00%",
+            ],
+            summary[: len(summary) - 2],
+        )
+
     def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
         results_dir = self.results_dir()
         results_dir.mkdir(parents=True)
@@ -2038,6 +2198,17 @@ class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
             ),
         )
         self.assertEqual([], self.found())
+
+    def test_misses_the_totals_of_a_name_that_holds_a_line_break(self) -> None:
+        # A known limit (#475): [CountedRepeat] logs the name as it is, so a line break in it splits
+        # the totals line in two, and neither line holds the totals whole.
+        self.assertEqual(
+            ["Fixture.Tests.After|1 1 1 0 0 0|0.00%"],
+            self.found(
+                counted_repeat_totals(f'Fixture.Tests.Case("a{chr(10)}b")', 2, 2, passed=1, failed=1),
+                counted_repeat_totals("Fixture.Tests.After", 1, 1, passed=1),
+            ),
+        )
 
     def test_the_failure_rate_is_given_to_two_decimals_with_a_half_rounded_up(self) -> None:
         completed = self.run_functions(
