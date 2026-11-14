@@ -79,6 +79,43 @@ namespace Mu3Library.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
+        [Test]
+        public void LobbyCreationWithAnInvalidCallHandle_LogsIt_WhileSteamCanBeUsed()
+        {
+            // #434: the warning has the format of Steam's failed answers, so a developer can tell
+            // this BackendError from theirs.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not create a lobby \(CreateLobby returned an invalid call handle\); the lobby creation answers BackendError\."));
+            Assert.That(SteamBackend.InvalidCreateCallReason(steamAvailable: true), Is.EqualTo(MultiplayerReason.BackendError));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void LobbyCreationWithAnInvalidCallHandle_LogsNothing_OnceSteamCannotBeUsed()
+        {
+            // #434: SteamNotRunning names the cause, and a failed Steam call has warned through Break.
+            Assert.That(SteamBackend.InvalidCreateCallReason(steamAvailable: false), Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void CreateLobby_WhoseSteamCallFails_LogsOnlyTheWarningThatStopsTheBackend()
+        {
+            // #434: the creation's own Steam call fails, so Break warns and the creation adds none.
+            AssumeSteamCallsFail();
+            List<MultiplayerReason> heard = new List<MultiplayerReason>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                backend.CreateLobby(LobbyVisibility.Public, 4, null, (reason, lobby) => heard.Add(reason));
+                Assert.That(backend.IsAvailable, Is.False, "the failed call stops the backend");
+
+                backend.Update();
+                Assert.That(heard, Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }));
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
         [TestCase(LobbyVisibility.InviteOnly, ELobbyType.k_ELobbyTypePrivate)]
         [TestCase(LobbyVisibility.FriendsOnly, ELobbyType.k_ELobbyTypeFriendsOnly)]
         [TestCase(LobbyVisibility.Public, ELobbyType.k_ELobbyTypePublic)]

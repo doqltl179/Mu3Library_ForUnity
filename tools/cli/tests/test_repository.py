@@ -355,13 +355,95 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
             self.refusal(self.main, self.temporary),
         )
 
-    def test_folder_a_failed_removal_left_in_the_folder_of_a_checkout_is_inside_it(self) -> None:
+    def test_folder_a_failed_removal_left_in_a_worktree_folder_of_the_checkout_is_refused(self) -> None:
         # git worktree remove deletes AGENTS.md and .github before it stops at a junction, so nothing
-        # marks the folder it leaves as a checkout of its own.
-        left_behind = self.main / ".claude" / "worktrees" / "removed" / "UnityProject_BuiltIn"
-        left_behind.mkdir(parents=True)
+        # marks the folder it leaves as a checkout of its own; run there, the command means its links (#436).
+        for worktree_folder in (self.main / ".claude" / "worktrees", self.main / ".worktrees"):
+            left_behind = worktree_folder / "removed"
+            (left_behind / "UnityProject_BuiltIn").mkdir(parents=True)
+            for working_directory in (left_behind, left_behind / "UnityProject_BuiltIn"):
+                with self.subTest(working_directory=working_directory):
+                    self.assertEqual(
+                        f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working "
+                        f"directory {working_directory} is in {left_behind}, which is in that checkout's worktree "
+                        f"folder {worktree_folder} but is no checkout of its own, such as a folder that a failed "
+                        "git worktree remove left behind, so nothing was changed. To remove that folder's links, "
+                        'see "Worktree Removal" in tools/README.md. To change that checkout, run it from inside '
+                        "it, outside its worktree folders.",
+                        self.refusal(self.main, working_directory),
+                    )
 
-        self.assertIsNone(self.refusal(self.main, left_behind))
+    def test_left_folder_reached_by_a_short_path_to_the_checkout_is_named_by_that_path(self) -> None:
+        # A link stands in for a subst drive, as in test_short_path_to_the_same_checkout_is_inside_it.
+        (self.main / ".worktrees" / "removed" / "UnityProject_BuiltIn").mkdir(parents=True)
+        short = self.temporary / "short"
+        create_directory_link(short, self.main.resolve())
+        self.addCleanup(remove_directory_link, short)
+
+        refusal = self.refusal(self.main, short / ".worktrees" / "removed" / "UnityProject_BuiltIn")
+
+        self.assertIsNotNone(refusal)
+        self.assertIn(
+            f" is in {short / '.worktrees' / 'removed'}, which is in that checkout's worktree folder ", refusal
+        )
+
+    def test_left_folder_in_a_worktree_folder_that_is_a_link_is_refused(self) -> None:
+        # A worktree folder, or .claude above one, may be a link to a folder elsewhere, as on another drive.
+        checkout = self.make_checkout(self.temporary / "linked")
+        for link, target, worktree_folder in (
+            (checkout / ".worktrees", self.temporary / "worktrees-elsewhere", checkout / ".worktrees"),
+            (checkout / ".claude", self.temporary / "claude-elsewhere", checkout / ".claude" / "worktrees"),
+        ):
+            with self.subTest(link=link):
+                target.mkdir()
+                try:
+                    create_directory_link(link, target.resolve())
+                except OSError as error:
+                    self.skipTest(f"a directory link cannot be made here: {error}")
+                self.addCleanup(remove_directory_link, link)
+                left_behind = worktree_folder / "removed"
+                (left_behind / "UnityProject_BuiltIn").mkdir(parents=True)
+
+                refusal = self.refusal(checkout, left_behind / "UnityProject_BuiltIn")
+
+                self.assertIsNotNone(refusal)
+                self.assertIn(
+                    f" is in {left_behind}, which is in that checkout's worktree folder {worktree_folder} ", refusal
+                )
+
+    def test_worktree_folders_themselves_and_other_folders_beside_them_are_inside_the_checkout(self) -> None:
+        (self.main / ".worktrees").mkdir()
+        (self.main / ".claude" / "settings").mkdir()
+        for working_directory in (
+            self.main / ".worktrees",
+            self.main / ".claude" / "worktrees",
+            self.main / ".claude",
+            self.main / ".claude" / "settings",
+        ):
+            with self.subTest(working_directory=working_directory):
+                self.assertIsNone(self.refusal(self.main, working_directory))
+
+    def test_checkout_in_a_worktree_folder_of_another_is_its_own_checkout(self) -> None:
+        # A unit worktree under .worktrees/ keeps AGENTS.md and .github, so it is no left folder.
+        for checkout in (self.nested, self.make_checkout(self.main / ".worktrees" / "unit")):
+            with self.subTest(checkout=checkout):
+                for working_directory in (checkout, checkout / "UnityProject_BuiltIn"):
+                    self.assertIsNone(self.refusal(checkout, working_directory))
+                self.assertIn(
+                    f"is outside it, in the checkout at {checkout},",
+                    self.refusal(self.main, checkout / "UnityProject_BuiltIn"),
+                )
+                # Its own worktree folders hold folders that it refuses in turn.
+                left_behind = checkout / ".worktrees" / "removed"
+                left_behind.mkdir(parents=True)
+                self.assertIn(f" is in {left_behind}, ", self.refusal(checkout, left_behind))
+
+    def test_this_checkout_is_inside_itself_wherever_it_lies(self) -> None:
+        # The checkout the tests run from may itself be a worktree under another checkout's .worktrees/.
+        root = repo_root()
+
+        self.assertIsNone(self.refusal(root, root))
+        self.assertIsNone(self.refusal(root, root / "tools" / "cli"))
 
     def test_unreadable_working_directory_is_refused(self) -> None:
         with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):

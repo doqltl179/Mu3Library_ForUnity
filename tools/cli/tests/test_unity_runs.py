@@ -721,6 +721,36 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
         self.assertEqual(f"  {environment}", self.summary(completed)[1])
 
+    def test_a_test_whose_name_the_log_writes_with_json_escapes_fails_on_the_environment(self) -> None:
+        # Unity's log writes the name as a JSON string, here with the escapes json.dumps writes for
+        # a line break, a tab, and characters outside ASCII, one of them as a surrogate pair; the
+        # result file writes the line break and the tab as character references and the others as
+        # themselves, in UTF-8 (#439).
+        name = f'Fixture.Tests.Case("a{chr(10)}b{chr(9)}caf{chr(0xE9)} {chr(0x1F600)}")'
+        failed = f"Case(&quot;a&#xA;b&#x9;caf{chr(0xE9)} {chr(0x1F600)}&quot;)"
+        log = data_store_loss_log(name)
+        b = chr(92)
+        self.assertIn(f"a{b}nb{b}tcaf{b}u00e9 {b}ud83d{b}ude00", log)
+        completed = self.run_tests(
+            "leaf",
+            results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
+            unity_status=2,
+            log=log,
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        environment = (
+            f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error Unity "
+            "logged for it failed that test, so the test reached no verdict; run the target again"
+        )
+        self.assertIn(
+            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the "
+            f"environment\n  failed: {name}\n{environment}\n",
+            completed.stderr,
+        )
+        self.assertIn(f"\n  {environment}\n", completed.stdout)
+        self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
+
     def test_a_target_that_failed_otherwise_too_fails_on_its_counts_and_names_the_environment(self) -> None:
         environment = (
             "    environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the "
@@ -1779,9 +1809,61 @@ class UnfinishedTestTests(FixtureRepositoryTestCase):
 
         self.assertEqual('Fixture.Tests.Case("two \\ words")\n', self.unfinished(begin))
 
+    def test_replaces_the_escapes_of_a_line_break_a_tab_and_characters_outside_ascii(self) -> None:
+        name = f'Fixture.Tests.Case("a{chr(10)}b{chr(9)}caf{chr(0xE9)} {chr(0x1F600)}")'
+
+        self.assertEqual(f"{name}\n", self.unfinished(utp_status("Begin", name)))
+
     def test_names_nothing_once_the_last_test_ended_or_when_none_began(self) -> None:
         self.assertEqual("", self.unfinished(UTP_BEGIN, UTP_END))
         self.assertEqual("", self.unfinished("Loading"))
+
+
+class JsonStringTextTests(FixtureRepositoryTestCase):
+    """json_string_text replaces the escapes of a JSON string, the form in which Unity's log writes a
+    test's name, by JSON's rules, and writes the characters in UTF-8 as xml_attribute_text does."""
+
+    def text(self, escaped: str) -> bytes:
+        # A file carries the text both ways, since a command line can change its backslashes and
+        # quotes, and output read as text, its carriage returns.
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name) / "escaped.txt"
+        target = Path(directory.name) / "text.txt"
+        source.write_bytes(escaped.encode("ascii"))
+        completed = self.run_functions(
+            "test-unity.sh",
+            'IFS= read -r escaped <"$1" || true\njson_string_text "$escaped"\nprintf "%s" "$JSON_TEXT" >"$2"',
+            str(source),
+            str(target),
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return target.read_bytes()
+
+    def test_replaces_each_escape_of_one_character(self) -> None:
+        b = chr(92)
+        escaped = "".join(f"{b}{character}" for character in f'"{b}/bfnrt')
+
+        self.assertEqual(
+            f'a"{b}/{chr(8)}{chr(12)}{chr(10)}{chr(13)}{chr(9)}z'.encode("utf-8"), self.text(f"a{escaped}z")
+        )
+
+    def test_replaces_a_unicode_escape_in_either_case_and_a_surrogate_pair_with_the_character_in_utf_8(self) -> None:
+        b = chr(92)
+        escaped = f"{b}u0041 {b}u00e9{b}u00C9 {b}u4E2D {b}uD83D{b}uDE00 {b}ud83d{b}ude00"
+
+        self.assertEqual(
+            f"A {chr(0xE9)}{chr(0xC9)} {chr(0x4E2D)} {chr(0x1F600)} {chr(0x1F600)}".encode("utf-8"), self.text(escaped)
+        )
+
+    def test_reads_from_left_to_right_and_leaves_an_escape_that_stands_for_no_character_as_it_is(self) -> None:
+        # The backslash that an escaped backslash leaves starts no escape. A bash string cannot hold
+        # U+0000, a surrogate without its other half is no character, and neither is an escape that
+        # JSON does not define, so each of them stays, as xml_attribute_text leaves &#0;.
+        b = chr(92)
+        kept = f"{b}u0000 {b}uD83D {b}uDE00{b}uD83D {b}x {b}u12G {b}"
+
+        self.assertEqual(f"{b}u0041 {b}uD83DA {kept}".encode("ascii"), self.text(f"{b}{b}u0041 {b}uD83D{b}u0041 {kept}"))
 
 
 class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
@@ -1878,6 +1960,11 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
 
     def test_keeps_the_escaped_quotes_of_a_string_argument(self) -> None:
         name = 'Fixture.Tests.Case("two \\ words")'
+
+        self.assertEqual(("13480", name), self.loss(utp_status("Begin", name), DATA_STORE_LOSS))
+
+    def test_replaces_the_escapes_of_a_line_break_a_tab_and_characters_outside_ascii(self) -> None:
+        name = f'Fixture.Tests.Case("a{chr(10)}b{chr(9)}caf{chr(0xE9)} {chr(0x1F600)}")'
 
         self.assertEqual(("13480", name), self.loss(utp_status("Begin", name), DATA_STORE_LOSS))
 
