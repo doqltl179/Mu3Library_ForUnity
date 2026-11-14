@@ -245,34 +245,32 @@ namespace Mu3Library.Multiplayer.Steam
 
             Track<LobbyEnter_t>(call, (entered, ioFailure) =>
             {
-                MultiplayerReason reason = MultiplayerReason.BackendError;
+                MultiplayerReason reason;
                 try
                 {
-                    if (!ioFailure)
+                    EChatRoomEnterResponse response = (EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse;
+                    if (!ioFailure && response == EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed && SteamMatchmaking.RequestLobbyData(lobby))
                     {
-                        EChatRoomEnterResponse response = (EChatRoomEnterResponse)entered.m_EChatRoomEnterResponse;
-                        if (response == EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed && SteamMatchmaking.RequestLobbyData(lobby))
+                        // Steam refuses a lobby that is not joinable and one that takes this
+                        // player only by invite with the same answer, and knows the data of a
+                        // lobby this player is not in only after asking, unless a search found
+                        // the lobby. The data tells whether the session's game runs, which
+                        // the refusal then names GameInProgress, whether that game refuses
+                        // late joiners, and who hosts it, so a player whose slot the host
+                        // keeps can reach the host past the lobby (FR-21). So the answer
+                        // waits for the data.
+                        _refusals.Add(new PendingRefusal
                         {
-                            // Steam refuses a lobby that is not joinable and one that takes this
-                            // player only by invite with the same answer, and knows the data of a
-                            // lobby this player is not in only after asking, unless a search found
-                            // the lobby. The data tells whether the session's game runs, which
-                            // the refusal then names GameInProgress, whether that game refuses
-                            // late joiners, and who hosts it, so a player whose slot the host
-                            // keeps can reach the host past the lobby (FR-21). So the answer
-                            // waits for the data.
-                            _refusals.Add(new PendingRefusal
-                            {
-                                Lobby = lobby.m_SteamID,
-                                Deadline = Time.realtimeSinceStartupAsDouble + RefusalDataTimeoutSeconds,
-                                OnCompleted = onCompleted,
-                            });
-                            return;
-                        }
-
-                        reason = SteamReasons.FromEnterResponse(response, IsLobbyInGame(lobby));
+                            Lobby = lobby.m_SteamID,
+                            Deadline = Time.realtimeSinceStartupAsDouble + RefusalDataTimeoutSeconds,
+                            OnCompleted = onCompleted,
+                        });
+                        return;
                     }
 
+                    // The lobby's data is read before the answer is decided, so a Steam call that
+                    // fails here answers below with only the warning Break logs.
+                    reason = EnteredLobbyReason(response, !ioFailure && IsLobbyInGame(lobby), ioFailure);
                     if (reason == MultiplayerReason.None)
                     {
                         _lobbyOwners[lobby.m_SteamID] = new PlayerId(SteamMatchmaking.GetLobbyOwner(lobby).m_SteamID);
@@ -293,6 +291,49 @@ namespace Mu3Library.Multiplayer.Steam
 
                 EnqueueCallback(() => onCompleted?.Invoke(reason));
             }, reason => onCompleted?.Invoke(reason));
+        }
+
+        /// <summary>
+        /// The reason for Steam's answer to a lobby entry (<see cref="SteamReasons.FromEnterResponse"/>),
+        /// or <see cref="MultiplayerReason.BackendError"/> for a call that ended in an I/O failure.
+        /// An entry that answers <see cref="MultiplayerReason.BackendError"/> logs a warning in the
+        /// format <see cref="CreatedLobbyReason"/> logs, with Steam's response or the I/O failure,
+        /// since that reason stands for several of Steam's answers and only the response tells a
+        /// developer which one Steam gave (#473). A lobby entry is the player's own request or one
+        /// try of the manager's lobby rejoin, at most one a second, so the warning does not repeat
+        /// every frame.
+        /// </summary>
+        /// <remarks>
+        /// Unlike a failed lobby creation, an entry Steam refuses with a named reason
+        /// (<see cref="MultiplayerReason.LobbyNotFound"/>, <see cref="MultiplayerReason.SessionFull"/>,
+        /// <see cref="MultiplayerReason.Banned"/>, <see cref="MultiplayerReason.GameInProgress"/>)
+        /// logs nothing, and so does a refused entry that waited for the lobby's data
+        /// (<see cref="AnswerRefusals"/>), which always answers one of them. Such a reason is the
+        /// answer a game shows its player, not a fault to fix; it already names what Steam
+        /// answered, <see cref="MultiplayerReason.LobbyNotFound"/> alone standing for two
+        /// responses, a lobby that is gone and a refusal without the data of a running game; and
+        /// the manager's lobby rejoin asks again about once a second while the lobby refuses it,
+        /// so a warning would repeat for an expected answer.
+        /// The call result reaches this only while Steam can be used (<see cref="Track{T}"/>), and
+        /// <paramref name="isInGame"/> is read from Steam before, so an entry whose Steam call fails
+        /// answers <see cref="MultiplayerReason.SteamNotRunning"/> with only the warning
+        /// <see cref="Break"/> logs.
+        /// </remarks>
+        internal static MultiplayerReason EnteredLobbyReason(EChatRoomEnterResponse response, bool isInGame, bool ioFailure)
+        {
+            if (ioFailure)
+            {
+                Debug.LogWarning($"[Multiplayer] Steam could not join a lobby (I/O failure); the lobby entry answers {MultiplayerReason.BackendError}.");
+                return MultiplayerReason.BackendError;
+            }
+
+            MultiplayerReason reason = SteamReasons.FromEnterResponse(response, isInGame);
+            if (reason == MultiplayerReason.BackendError)
+            {
+                Debug.LogWarning($"[Multiplayer] Steam could not join a lobby ({response}); the lobby entry answers {reason}.");
+            }
+
+            return reason;
         }
 
         /// <summary>
@@ -503,8 +544,9 @@ namespace Mu3Library.Multiplayer.Steam
                         if (!ioFailure)
                         {
                             lobbies = ReadSearchResults((int)matches.m_nLobbiesMatching);
-                            reason = MultiplayerReason.None;
                         }
+
+                        reason = MatchedLobbiesReason(ioFailure);
                     }
                     catch (Exception e) when (IsSteamUnavailable(e, out Exception cause))
                     {
@@ -534,6 +576,29 @@ namespace Mu3Library.Multiplayer.Steam
         internal static MultiplayerReason InvalidSearchCallReason()
         {
             Debug.LogWarning($"[Multiplayer] Steam could not search for lobbies (RequestLobbyList returned an invalid call handle); the lobby search answers {MultiplayerReason.BackendError}.");
+            return MultiplayerReason.BackendError;
+        }
+
+        /// <summary>
+        /// The reason for Steam's answer to a lobby search: <see cref="MultiplayerReason.None"/> for
+        /// the lobbies it matched, or <see cref="MultiplayerReason.BackendError"/> for a call that
+        /// ended in an I/O failure, with a warning in the format <see cref="CreatedLobbyReason"/>
+        /// logs, since nothing else tells this failure from the other answers that reason stands
+        /// for (#473). Steam's answer carries the number of lobbies it matched and no result, so the
+        /// I/O failure is the only failure Steam answers a search with. The call result reaches
+        /// this only while Steam can be used (<see cref="Track{T}"/>), and the results are read
+        /// before, so a search whose Steam call fails answers
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> with only the warning <see cref="Break"/>
+        /// logs.
+        /// </summary>
+        internal static MultiplayerReason MatchedLobbiesReason(bool ioFailure)
+        {
+            if (!ioFailure)
+            {
+                return MultiplayerReason.None;
+            }
+
+            Debug.LogWarning($"[Multiplayer] Steam could not search for lobbies (I/O failure); the lobby search answers {MultiplayerReason.BackendError}.");
             return MultiplayerReason.BackendError;
         }
 

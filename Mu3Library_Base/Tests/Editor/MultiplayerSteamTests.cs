@@ -116,6 +116,38 @@ namespace Mu3Library.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseError, false, "k_EChatRoomEnterResponseError")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseLimited, false, "k_EChatRoomEnterResponseLimited")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseClanDisabled, false, "k_EChatRoomEnterResponseClanDisabled")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseCommunityBan, false, "k_EChatRoomEnterResponseCommunityBan")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseMemberBlockedYou, false, "k_EChatRoomEnterResponseMemberBlockedYou")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseYouBlockedMember, false, "k_EChatRoomEnterResponseYouBlockedMember")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseRatelimitExceeded, false, "k_EChatRoomEnterResponseRatelimitExceeded")]
+        [TestCase((EChatRoomEnterResponse)99, false, "99")]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess, true, "I/O failure")]
+        public void FailedLobbyEntry_LogsWhatSteamAnswered(EChatRoomEnterResponse response, bool ioFailure, string answer)
+        {
+            // #473: BackendError stands for all of these, so the warning names Steam's own answer;
+            // a response this Steamworks.NET has no name for shows as its number.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not join a lobby \(" + Regex.Escape(answer) + @"\); the lobby entry answers BackendError\."));
+            Assert.That(SteamBackend.EnteredLobbyReason(response, isInGame: false, ioFailure), Is.EqualTo(MultiplayerReason.BackendError));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess, false, MultiplayerReason.None)]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseDoesntExist, false, MultiplayerReason.LobbyNotFound)]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseFull, false, MultiplayerReason.SessionFull)]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseBanned, false, MultiplayerReason.Banned)]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed, true, MultiplayerReason.GameInProgress)]
+        [TestCase(EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed, false, MultiplayerReason.LobbyNotFound)]
+        public void LobbyEntry_ThatSteamLetsIn_OrRefusesWithANamedReason_LogsNothing(EChatRoomEnterResponse response, bool isInGame, MultiplayerReason expected)
+        {
+            // #473: a named reason is the answer a game shows its player, and the manager's lobby
+            // rejoin may hear it about once a second, so it logs nothing.
+            Assert.That(SteamBackend.EnteredLobbyReason(response, isInGame, ioFailure: false), Is.EqualTo(expected));
+            LogAssert.NoUnexpectedReceived();
+        }
+
         [Test]
         public void LobbyEntryWithAnInvalidCallHandle_LogsIt_WhileSteamCanBeUsed()
         {
@@ -150,6 +182,23 @@ namespace Mu3Library.Tests
                 Assert.That(heard, Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }));
             }
 
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void LobbySearchThatEndsInAnIOFailure_LogsIt()
+        {
+            // #473: Steam's answer to a search carries no result code, so the I/O failure is the
+            // only failure the warning can name.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not search for lobbies \(I/O failure\); the lobby search answers BackendError\."));
+            Assert.That(SteamBackend.MatchedLobbiesReason(ioFailure: true), Is.EqualTo(MultiplayerReason.BackendError));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void LobbySearchThatSteamAnswers_LogsNothing()
+        {
+            Assert.That(SteamBackend.MatchedLobbiesReason(ioFailure: false), Is.EqualTo(MultiplayerReason.None));
             LogAssert.NoUnexpectedReceived();
         }
 
