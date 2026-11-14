@@ -114,6 +114,56 @@ class ReadProjectTests(unittest.TestCase):
         self.assertEqual(["typer>=0.12,<1.0", "tomli; python_version < '3.11'"], project["dependencies"])
         self.assertEqual({"mu3-repo": "mu3_repo.cli:app", "mu3-unity": "mu3_unity.cli:app"}, project["scripts"])
 
+    def test_the_minimal_reader_drops_comments_at_the_end_of_a_line_but_not_inside_a_string(self) -> None:
+        text = "\n".join(
+            [
+                "[project]  # main",
+                "name = 'mu3-tools'  # a literal string",
+                'version = "1.0#not-a-comment"',
+                'dependencies = ["typer>=0.12,<1.0"]  # pinned',
+                "",
+                "[project.scripts]  # commands",
+                'mu3-repo = "mu3_repo.cli:app"',
+                "",
+                "[project.optional-dependencies]",
+                "lint = [",
+                '    "ruff",  # the "lint" tool',
+                "]  # end",
+            ]
+        )
+
+        project = ensure_tools.read_minimal_toml(text)["project"]
+
+        self.assertEqual("mu3-tools", project["name"])
+        self.assertEqual("1.0#not-a-comment", project["version"])
+        self.assertEqual(["typer>=0.12,<1.0"], project["dependencies"])
+        self.assertEqual({"mu3-repo": "mu3_repo.cli:app"}, project["scripts"])
+        self.assertNotIn("mu3-repo", project)
+
+    def test_the_minimal_reader_reads_what_tomllib_reads_with_end_of_line_comments(self) -> None:
+        try:
+            import tomllib
+        except ModuleNotFoundError:
+            self.skipTest("tomllib comes with Python 3.11")
+        text = "\n".join(
+            [
+                "[project]  # main",
+                'name = "mu3-tools"',
+                'version = "0.1.0"',
+                "dependencies = [",
+                '    "typer>=0.12,<1.0",  # the "cli" lib',
+                "    'tomli; python_version < \"3.11\"',",
+                "]  # end",
+                "[project.scripts]",
+                'mu3-repo = "mu3_repo.cli:app"  # repo',
+            ]
+        )
+
+        expected = tomllib.loads(text)["project"]
+        minimal = ensure_tools.read_minimal_toml(text)["project"]
+
+        self.assertEqual(expected, minimal)
+
     def test_the_minimal_reader_refuses_an_array_that_does_not_end(self) -> None:
         with self.assertRaises(ValueError):
             ensure_tools.read_minimal_toml('[project]\ndependencies = [\n    "typer",\n')
@@ -232,6 +282,25 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(2, len(result.problems), result.problems)
         self.assertIn("0.0.9 is installed", result.problems[0])
         self.assertIn("dependencies", result.problems[1])
+
+    def test_optional_dependencies_in_the_metadata_are_not_dependencies(self) -> None:
+        # Requires-Dist lists [project.optional-dependencies] too, each with a marker on its extra.
+        installed = matching_install(current_project())
+        installed.requires = [*installed.requires, 'ruff; extra == "lint"', "mypy ; python_version >= '3.11' and extra=='lint'"]
+
+        self.assertEqual([], self.check(installed).problems)
+
+    def test_a_version_written_otherwise_than_in_its_canonical_form_is_not_compared(self) -> None:
+        # setuptools writes 0.2.0-beta as 0.2.0b0, which this script does not compute.
+        project = current_project()
+        installed = matching_install(project)
+        installed.metadata["Version"] = "0.2.0b0"
+
+        for version, problems in (("0.2.0-beta", 0), ("0.2.0b0", 0), ("0.2.0", 1), ("1!2.0rc1.post2.dev3", 1)):
+            with self.subTest(version=version):
+                written = ensure_tools.Project(project.name, version, project.dependencies, project.scripts)
+                result = ensure_tools.check(written, TOOLS_DIR, SCRIPTS_DIR, [installed], every_launcher)
+                self.assertEqual(problems, len(result.problems), result.problems)
 
     def test_an_install_that_is_not_editable_or_comes_from_another_checkout_differs(self) -> None:
         project = current_project()

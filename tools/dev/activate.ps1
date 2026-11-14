@@ -1,6 +1,7 @@
 # Enters the repository's development environment in this PowerShell session:
 #   - creates .venv at the repository root on first use and installs the repository tools
 #     (tools/cli) into it,
+#   - installs them again when they differ from tools/cli/pyproject.toml (tools/dev/ensure_tools.py),
 #   - sets the variables in .env.local (see tools/dev/env.local.example),
 #   - activates that virtual environment,
 #   - on Windows, puts Git Bash first on PATH so `bash ./test-unity.sh` runs.

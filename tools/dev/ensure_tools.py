@@ -60,6 +60,9 @@ def normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+# The canonical form of a PEP 440 public version, the form setuptools writes into the metadata.
+_CANONICAL_VERSION = re.compile(r"(?:[0-9]+!)?[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc)[0-9]+)?(?:\.post[0-9]+)?(?:\.dev[0-9]+)?")
+
 _REQUIREMENT = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)", re.DOTALL)
 
 
@@ -87,28 +90,56 @@ def normalize_requirement(text: str) -> str:
     return result
 
 
+_EXTRA_MARKER = re.compile(r";.*\bextra\s*==", re.DOTALL)
+
 _KEY_LINE = re.compile(r"\s*([A-Za-z0-9_-]+|\"[^\"]+\")\s*=\s*(.*)")
-_BASIC_STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')
+# A basic string, whose escapes _unescape replaces, or a literal string, which has none.
+_STRING = re.compile(r'"((?:[^"\\]|\\.)*)"|\'([^\']*)\'')
 
 
 def _unescape(text: str) -> str:
     return re.sub(r"\\(.)", r"\1", text)
 
 
+def _string_values(text: str) -> list[str]:
+    return [_unescape(basic) if basic or not literal else literal for basic, literal in _STRING.findall(text)]
+
+
+def _strip_comment(line: str) -> str:
+    """The line without its comment: a # outside a basic or a literal string starts one."""
+    quote = None
+    i = 0
+    while i < len(line):
+        c = line[i]
+        if quote:
+            if c == "\\" and quote == '"':
+                i += 1
+            elif c == quote:
+                quote = None
+        elif c in "\"'":
+            quote = c
+        elif c == "#":
+            return line[:i]
+        i += 1
+    return line
+
+
 def read_minimal_toml(text: str) -> dict:
     """Reads the part of pyproject.toml this script needs, for Python 3.10, which has no tomllib.
 
-    It takes the basic strings and the arrays of basic strings of [project], one key per line,
-    an array over several lines included, and the basic strings of [project.scripts]. Lines that
-    start with # are comments.
+    It takes the strings and the arrays of strings of [project], one key per line, an array over
+    several lines included, and the strings of [project.scripts]; a string is a basic or a literal
+    string on one line, and a # outside one starts a comment. Other values, such as an inline
+    table or a multi-line string, are left out.
     """
     project: dict = {}
     scripts: dict[str, str] = {}
     table = None
     lines = iter(text.splitlines())
     for line in lines:
+        line = _strip_comment(line)
         stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped:
             continue
         if stripped.startswith("["):
             table = stripped.strip("[] \t")
@@ -123,15 +154,14 @@ def read_minimal_toml(text: str) -> dict:
         if value.startswith("["):
             while not _closes_array(value):
                 try:
-                    value += "\n" + next(lines)
+                    value += "\n" + _strip_comment(next(lines))
                 except StopIteration:
                     raise ValueError(f"the array of {key} does not end") from None
-            parsed = [_unescape(s) for s in _BASIC_STRING.findall(_drop_comments(value))]
+            parsed = _string_values(value)
         else:
-            string = _BASIC_STRING.match(value)
-            if not string:
+            if not _STRING.match(value):
                 continue
-            parsed = _unescape(string.group(1))
+            parsed = _string_values(value)[0]
 
         (project if table == "project" else scripts)[key] = parsed
 
@@ -140,12 +170,8 @@ def read_minimal_toml(text: str) -> dict:
     return {"project": project}
 
 
-def _drop_comments(value: str) -> str:
-    return "\n".join(line for line in value.splitlines() if not line.strip().startswith("#"))
-
-
 def _closes_array(value: str) -> bool:
-    return _BASIC_STRING.sub("", _drop_comments(value)).rstrip().endswith("]")
+    return _STRING.sub("", value).rstrip().endswith("]")
 
 
 def read_project(path: Path) -> Project:
@@ -227,12 +253,15 @@ def check(
     elif not same_path(source, tools_dir):
         differs(f"{project.name} is installed from {source}, not from {tools_dir}")
 
+    # The metadata holds the version in its canonical form, such as 0.2.0b0 for 0.2.0-beta, which
+    # this script does not compute, so a version written otherwise is not compared.
     version = installed.metadata["Version"]
-    if version != project.version:
+    if _CANONICAL_VERSION.fullmatch(project.version) and version != project.version:
         differs(f"{project.name} {version} is installed, and tools/cli/pyproject.toml has {project.version}")
 
+    # Requires-Dist also lists the optional dependencies, each with a marker on its extra.
     wanted = sorted(normalize_requirement(d) for d in project.dependencies)
-    have = sorted(normalize_requirement(d) for d in (installed.requires or ()))
+    have = sorted(normalize_requirement(d) for d in (installed.requires or ()) if not _EXTRA_MARKER.search(d))
     if wanted != have:
         differs(f"its dependencies are {', '.join(have) or 'none'}, and tools/cli/pyproject.toml lists {', '.join(wanted) or 'none'}")
 
