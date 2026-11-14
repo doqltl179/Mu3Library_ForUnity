@@ -27,6 +27,7 @@ import typer
 
 from mu3_common.checkout import echo_repository_root, repo_root
 from mu3_common.editor import UnityTargetSpec, is_hub_editor_for, load_target_specs, project_editor_version, resolve_editor_path
+from mu3_common.process import run_with_timeout
 from mu3_common.work_dir import FolderNotClaimedError, claim_folder
 
 
@@ -61,14 +62,15 @@ PROFILE_VARIABLE_CHARACTERS = "[]{}"
 LOG_PREFIX = "MU3VERIFY "
 CONTENT_BUILT_LINE = "Addressable content successfully built"
 # Exit codes beside 0 (the copy is ready, and with a build the player built as asked) and typer's 2
-# (a usage error). 1 means Unity ran and the build failed, refused the settings, or built the content
-# when it should not have or did not when it should; 3 means the run stopped before Unity started.
+# (a usage error). 1 means Unity ran and the build failed, refused the settings, passed the build
+# timeout, or built the content when it should not have or did not when it should; 3 means the copy
+# could not be prepared, Unity could not be started, or its log could not be read.
 EXIT_BUILD_FAILED = 1
 EXIT_SETUP_FAILED = 3
 
 
 class VerifySetupError(RuntimeError):
-    """The work folder, the copy, or its settings could not be prepared, or Unity could not be started."""
+    """The work folder, the copy, or its settings could not be prepared, Unity could not be started, or its log read."""
 
 
 class SettingsFormatError(ValueError):
@@ -400,11 +402,12 @@ def files_below(folder: Path, skip: str | None = None) -> list[Path]:
     return sorted(path for path in folder.rglob("*") if path.is_file() and path.name != skip)
 
 
-Runner = Callable[[list[str]], int]
+# Runs a command with a timeout in seconds and returns its exit code, or None when it was stopped there.
+Runner = Callable[[list[str], float], "int | None"]
 
 
-def default_runner(command: list[str]) -> int:
-    return subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode
+def default_runner(command: list[str], timeout: float) -> int | None:
+    return run_with_timeout(command, timeout)
 
 
 @dataclass(frozen=True)
@@ -414,6 +417,8 @@ class VerifyOptions:
     fresh: bool = False
     build: bool = True
     scenes: tuple[str, ...] = ()
+    # Seconds Unity may take to open the copy and build; then it is stopped with what it started.
+    build_timeout: float = 3600
 
 
 def prepare_copy(
@@ -493,7 +498,8 @@ def prepare_copy(
 def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = default_runner, echo: Callable[[str], None] = typer.echo) -> int:
     """Prepare the copy and, unless options.build is off, build its player; returns the command's exit code.
 
-    Raises VerifySetupError, which the command ends with exit 3, when anything before Unity fails.
+    Raises VerifySetupError, which the command ends with exit 3, when the copy cannot be prepared,
+    Unity cannot be started, or its log cannot be read.
     """
     with setup_step("reading the development projects"):
         spec = load_target_specs(root)[TARGET]
@@ -546,7 +552,10 @@ def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = defaul
     echo(f"Building {label}; log: {log_path}")
     started = time.monotonic()
     with setup_step("starting Unity"):
-        status = runner(build_command(editor_path, copy_project, options.content, bundles, player_path, options.scenes, log_path))
+        status = runner(
+            build_command(editor_path, copy_project, options.content, bundles, player_path, options.scenes, log_path),
+            options.build_timeout,
+        )
     duration = time.monotonic() - started
     with setup_step(f"reading {log_path}"):
         log_text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
@@ -556,7 +565,10 @@ def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = defaul
 
     content_built = (copy_project / EARLIER_CONTENT).is_dir() or CONTENT_BUILT_LINE in log_text
     built_files = files_below(bundles, WORK_DIR_MARKER) if options.content == "build" else []
-    echo(f"Unity exited with {status} after {duration:.1f} s")
+    if status is None:
+        echo(f"Unity was stopped after {duration:.1f} s, at the build timeout of {options.build_timeout:g} s")
+    else:
+        echo(f"Unity exited with {status} after {duration:.1f} s")
     echo(f"Player: {player_path}" if player_path.is_file() else "Player: none")
     if options.content == "build":
         echo(f"Content: {'built' if content_built else 'not built'}, {len(built_files)} files in {bundles}")
@@ -564,7 +576,9 @@ def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = defaul
         echo(f"Content: {'built' if content_built else 'not built'}")
 
     problems: list[str] = []
-    if status != 0:
+    if status is None:
+        problems.append(f"Unity did not finish within --build-timeout and was stopped with the processes it started; see {log_path}")
+    elif status != 0:
         problems.append(f"Unity exited with {status}; see {log_path}")
     if not player_path.is_file():
         problems.append("no player was built")
@@ -602,12 +616,15 @@ def verify_build(
     scene: list[str] | None = typer.Option(
         None, "--scene", help="Scene asset of the copy to build, such as Assets/Mu3LibrarySamples/...; repeat for more. Default: one empty scene."
     ),
+    build_timeout: int = typer.Option(
+        3600, "--build-timeout", help="Seconds Unity may take to open the copy and build, after which it is stopped."
+    ),
 ) -> None:
     """Build a Windows x64 player of a copy of UnityProject_BuiltIn that writes no Addressables output outside the checkout.
 
     Exits 0 when the copy is ready and, with a build, the player built as --content asks; 1 when
-    Unity ran and the build failed or did not build the content as asked; and 3 when the run stopped
-    before Unity started.
+    Unity ran and the build failed, passed --build-timeout, or did not build the content as asked;
+    and 3 when the copy could not be prepared, Unity could not be started, or its log could not be read.
     """
     if content not in CONTENT_MODES:
         raise typer.BadParameter(f"--content expects one of: {', '.join(CONTENT_MODES)}.")
@@ -618,8 +635,12 @@ def verify_build(
             raise typer.BadParameter(problem)
     if scenes and not build:
         raise typer.BadParameter("--scene names what to build, so it cannot be combined with --no-build.")
+    if build_timeout <= 0:
+        raise typer.BadParameter("--build-timeout expects a positive number of seconds.")
 
-    options = VerifyOptions(content=content, work_dir=work_dir, fresh=fresh, build=build, scenes=scenes)
+    options = VerifyOptions(
+        content=content, work_dir=work_dir, fresh=fresh, build=build, scenes=scenes, build_timeout=build_timeout
+    )
     root = repo_root()
     echo_repository_root(root)
     try:

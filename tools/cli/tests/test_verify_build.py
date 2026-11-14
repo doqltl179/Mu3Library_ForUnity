@@ -367,14 +367,17 @@ class CopyTests(unittest.TestCase):
 class FakeUnity:
     """Writes the files a build leaves: its log, the player, and, when told, the content."""
 
-    def __init__(self, status: int = 0, builds_content: bool = False, builds_player: bool = True) -> None:
+    def __init__(self, status: int | None = 0, builds_content: bool = False, builds_player: bool = True) -> None:
+        # None stands for a Unity that the runner stopped at the timeout.
         self.status = status
         self.builds_content = builds_content
         self.builds_player = builds_player
         self.commands: list[list[str]] = []
+        self.timeouts: list[float] = []
 
-    def __call__(self, command: list[str]) -> int:
+    def __call__(self, command: list[str], timeout: float) -> int | None:
         self.commands.append(command)
+        self.timeouts.append(timeout)
 
         def argument(name: str) -> Path:
             return Path(command[command.index(name) + 1])
@@ -437,6 +440,20 @@ class RunTests(unittest.TestCase):
     def test_build_mode_fails_when_no_content_was_built(self) -> None:
         self.assertEqual(EXIT_BUILD_FAILED, self.run_tool("build", FakeUnity()))
         self.assertTrue(any(line.startswith("FAIL: no content was built") for line in self.output))
+
+    def test_unity_gets_the_build_timeout(self) -> None:
+        unity = FakeUnity()
+
+        self.assertEqual(0, self.run_tool("none", unity))
+        self.assertEqual(0, self.run_tool("none", unity, build_timeout=120))
+
+        self.assertEqual([3600, 120], unity.timeouts)
+
+    def test_a_build_stopped_at_the_timeout_fails(self) -> None:
+        self.assertEqual(EXIT_BUILD_FAILED, self.run_tool("none", FakeUnity(status=None, builds_player=False), build_timeout=5))
+
+        self.assertTrue(any(line.startswith("Unity was stopped after ") and line.endswith("at the build timeout of 5 s") for line in self.output))
+        self.assertTrue(any(line.startswith("FAIL: Unity did not finish within --build-timeout") for line in self.output))
 
     def test_a_build_that_unity_failed_fails(self) -> None:
         self.assertEqual(EXIT_BUILD_FAILED, self.run_tool("none", FakeUnity(status=1, builds_player=False)))
@@ -509,6 +526,12 @@ class CommandTests(unittest.TestCase):
 
         no_build = CliRunner().invoke(app, ["--content", "none", "--no-build", "--scene", "Assets/A.unity"])
         self.assertEqual(2, no_build.exit_code)
+
+    def test_the_build_timeout_must_be_positive(self) -> None:
+        result = CliRunner().invoke(app, ["--content", "none", "--build-timeout", "0"])
+
+        self.assertEqual(2, result.exit_code)
+        self.assertIn("--build-timeout expects a positive number", result.output)
 
 
 if __name__ == "__main__":
