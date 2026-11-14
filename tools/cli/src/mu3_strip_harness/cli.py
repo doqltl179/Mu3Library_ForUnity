@@ -32,6 +32,7 @@ from mu3_common.editor import (
     project_editor_version,
     resolve_editor_path,
 )
+from mu3_common.work_dir import FolderNotClaimedError, claim_folder
 
 
 BACKENDS = ("mono", "il2cpp")
@@ -115,18 +116,13 @@ def claim_work_dir(work_dir: Path) -> bool:
     --work-dir cannot cost a project its assets; a work folder made before the marker existed is
     refused too, and the user deletes it or passes another. Returns whether this call wrote the marker.
     """
-    marker = work_dir / WORK_DIR_MARKER
-    if marker.is_file():
-        return False
-    if work_dir.exists() and (not work_dir.is_dir() or any(work_dir.iterdir())):
+    try:
+        return claim_folder(work_dir, WORK_DIR_MARKER, WORK_DIR_MARKER_TEXT)
+    except FolderNotClaimedError as error:
         raise HarnessSetupError(
-            f"{work_dir} is not an empty folder and has no {WORK_DIR_MARKER} marker, so the harness will not "
-            "change or delete files in it; pass a new or empty --work-dir, or delete the folder yourself "
-            "if an earlier version of the harness made it"
-        )
-    work_dir.mkdir(parents=True, exist_ok=True)
-    marker.write_text(WORK_DIR_MARKER_TEXT, encoding="utf-8")
-    return True
+            f"{error}, so the harness will not change or delete files in it; pass a new or empty --work-dir, "
+            "or delete the folder yourself if an earlier version of the harness made it"
+        ) from error
 
 
 def read_dependencies(path: Path, entry_type: type) -> dict:
