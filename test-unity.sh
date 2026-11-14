@@ -352,6 +352,29 @@ read_test_run_counts() {
     done
 }
 
+# Sets UTF8_CHARACTER to the character whose code point is given, which is
+# neither 0 nor a surrogate nor past U+10FFFF, in UTF-8 whatever the locale.
+utf8_character() {
+    local code="$1"
+    local bytes
+
+    # Octal escapes in a printf format write bytes, not characters of the
+    # locale.
+    if ((code < 0x80)); then
+        printf -v bytes '\\%03o' "$code"
+    elif ((code < 0x800)); then
+        printf -v bytes '\\%03o\\%03o' $((0xC0 | code >> 6)) $((0x80 | (code & 0x3F)))
+    elif ((code < 0x10000)); then
+        printf -v bytes '\\%03o\\%03o\\%03o' $((0xE0 | code >> 12)) \
+            $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+    else
+        printf -v bytes '\\%03o\\%03o\\%03o\\%03o' $((0xF0 | code >> 18)) \
+            $((0x80 | (code >> 12 & 0x3F))) $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+    fi
+    # shellcheck disable=SC2059
+    printf -v UTF8_CHARACTER "$bytes"
+}
+
 # Sets XML_TEXT to an XML attribute value with its references replaced by the
 # characters they stand for: the entities XML predefines, such as the &quot;
 # of a test case that takes a string, and the numeric character references,
@@ -366,7 +389,6 @@ xml_attribute_text() {
     local pattern='^(quot|apos|lt|gt|amp|#[0-9]{1,7}|#x[0-9A-Fa-f]{1,6});'
     local reference
     local code
-    local bytes
 
     XML_TEXT=""
     while [[ "$text" == *'&'* ]]; do
@@ -393,27 +415,67 @@ xml_attribute_text() {
                     XML_TEXT+='&'
                     continue
                 fi
-                # Octal escapes in a printf format write bytes, not characters
-                # of the locale.
-                if ((code < 0x80)); then
-                    printf -v bytes '\\%03o' "$code"
-                elif ((code < 0x800)); then
-                    printf -v bytes '\\%03o\\%03o' $((0xC0 | code >> 6)) $((0x80 | (code & 0x3F)))
-                elif ((code < 0x10000)); then
-                    printf -v bytes '\\%03o\\%03o\\%03o' $((0xE0 | code >> 12)) \
-                        $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
-                else
-                    printf -v bytes '\\%03o\\%03o\\%03o\\%03o' $((0xF0 | code >> 18)) \
-                        $((0x80 | (code >> 12 & 0x3F))) $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
-                fi
-                # shellcheck disable=SC2059
-                printf -v bytes "$bytes"
-                XML_TEXT+="$bytes"
+                utf8_character "$code"
+                XML_TEXT+="$UTF8_CHARACTER"
                 ;;
         esac
         text="${text#"$reference";}"
     done
     XML_TEXT+="$text"
+}
+
+# Sets JSON_TEXT to the text of a JSON string, given without its quotes, with
+# its escapes replaced by the characters they stand for by JSON's rules: \",
+# \\, \/, \b, \f, \n, \r, \t, and \u with four hexadecimal digits in either
+# case, two of which, a high and a low surrogate, stand for a character past
+# U+FFFF. It writes the characters in UTF-8 whatever the locale, as
+# xml_attribute_text does, so that a test's name as Unity's log writes it
+# matches the name as the result file writes it. It reads the text from left
+# to right, so that the backslash a \\ leaves starts no escape. An escape that
+# JSON does not define stays as it is, as does one to a character that a bash
+# string cannot hold or that is not a character, such as \u0000 or a
+# surrogate without its other half.
+json_string_text() {
+    local text="$1"
+    local unit_pattern='^u([[:xdigit:]]{4})'
+    local low_pattern='^\\u([dD][cCdDeEfF][[:xdigit:]]{2})'
+    local code
+    local length
+
+    JSON_TEXT=""
+    while [[ "$text" == *'\'* ]]; do
+        JSON_TEXT+="${text%%\\*}"
+        text="${text#*\\}"
+        length=1
+        case "$text" in
+            '"'* | '\'* | /*) JSON_TEXT+="${text:0:1}" ;;
+            b*) JSON_TEXT+=$'\b' ;;
+            f*) JSON_TEXT+=$'\f' ;;
+            n*) JSON_TEXT+=$'\n' ;;
+            r*) JSON_TEXT+=$'\r' ;;
+            t*) JSON_TEXT+=$'\t' ;;
+            *)
+                if [[ ! "$text" =~ $unit_pattern ]]; then
+                    JSON_TEXT+='\'
+                    continue
+                fi
+                code=$((16#${BASH_REMATCH[1]}))
+                length=5
+                if ((code >= 0xD800 && code <= 0xDBFF)) && [[ "${text:5}" =~ $low_pattern ]]; then
+                    code=$((0x10000 + (code - 0xD800) * 0x400 + 16#${BASH_REMATCH[1]} - 0xDC00))
+                    length=11
+                fi
+                if ((code == 0 || (code >= 0xD800 && code <= 0xDFFF))); then
+                    JSON_TEXT+='\'
+                    continue
+                fi
+                utf8_character "$code"
+                JSON_TEXT+="$UTF8_CHARACTER"
+                ;;
+        esac
+        text="${text:length}"
+    done
+    JSON_TEXT+="$text"
 }
 
 # Sets RESULT_TESTS to the full names of the test cases in an NUnit 3 result
@@ -463,13 +525,14 @@ find_unfinished_test() {
     local log_file="$1"
     local status_line
     # A JSON string, whose escaped quotes, as in a test case's string argument,
-    # do not end it.
+    # do not end it, and whose escapes json_string_text replaces.
     local pattern='"name":"((\\.|[^"\\])*)"'
 
     UNFINISHED_TEST=""
     status_line="$(grep -o '##utp:{"type":"TestStatus".*' "$log_file" 2>/dev/null | tail -n 1 || true)"
     if [[ "$status_line" == *'"phase":"Begin"'* && "$status_line" =~ $pattern ]]; then
-        UNFINISHED_TEST="$(printf '%s\n' "${BASH_REMATCH[1]}" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g')"
+        json_string_text "${BASH_REMATCH[1]}"
+        UNFINISHED_TEST="$JSON_TEXT"
     fi
 }
 
@@ -517,17 +580,16 @@ find_data_store_loss() {
                 next
             }
             # The name is a JSON string, whose escaped quotes, as in a test
-            # case string argument, do not end it. Each escape is read as the
-            # character after the backslash, so a name with an escape that
-            # stands for another character, such as \n, \t, or \uXXXX, matches
-            # no test of the result file, and the end of the service is then
-            # only a warning.
+            # case string argument, do not end it. Its escapes stay, so that a
+            # name with a line break, which the string writes as \n, still
+            # takes one line, and json_string_text replaces them once the
+            # lines are read.
             rest = substr($0, start + length(name_key))
             for (i = 1; i <= length(rest); i++) {
                 c = substr(rest, i, 1)
                 if (c == "\\") {
                     i++
-                    c = substr(rest, i, 1)
+                    c = c substr(rest, i, 1)
                 } else if (c == "\"") {
                     break
                 }
@@ -560,6 +622,8 @@ find_data_store_loss() {
             exit
         }
     ' "$log_file")
+    json_string_text "$DATA_STORE_LOSS_TEST"
+    DATA_STORE_LOSS_TEST="$JSON_TEXT"
 }
 
 # Returns 0 when the test that find_data_store_loss named failed in a result
