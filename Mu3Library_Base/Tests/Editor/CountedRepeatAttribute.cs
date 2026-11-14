@@ -55,7 +55,17 @@ namespace Mu3Library.Tests
 
         public TestCommand Wrap(TestCommand command)
         {
-            return new CountedRepeatCommand(command);
+            return Wrap(command, Log);
+        }
+
+        /// <summary>
+        /// The command of <see cref="Wrap(TestCommand)"/>, which gives its lines to
+        /// <paramref name="log"/> instead of Unity's log, so that a test of the runs it gives
+        /// leaves no line for test-unity.sh's summary to report as a counted repeat.
+        /// </summary>
+        internal TestCommand Wrap(TestCommand command, Action<string> log)
+        {
+            return new CountedRepeatCommand(command, log);
         }
 
         /// <summary>
@@ -211,8 +221,13 @@ namespace Mu3Library.Tests
 
         private sealed class CountedRepeatCommand : DelegatingTestCommand
         {
-            public CountedRepeatCommand(TestCommand innerCommand)
-                : base(innerCommand) { }
+            private readonly Action<string> _log;
+
+            public CountedRepeatCommand(TestCommand innerCommand, Action<string> log)
+                : base(innerCommand)
+            {
+                _log = log;
+            }
 
             public override TestResult Execute(ITestExecutionContext context)
             {
@@ -223,7 +238,7 @@ namespace Mu3Library.Tests
                     return context.CurrentResult;
                 }
 
-                return RunCounted(context, Test, Test, innerCommand.Execute, runs, source, Log);
+                return RunCounted(context, Test, Test, innerCommand.Execute, runs, source, _log);
             }
 
             private string Refusal(out int runs, out string source)
