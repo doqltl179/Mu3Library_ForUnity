@@ -530,14 +530,17 @@ result_file_name() {
 # json_string_text gives it, in the form in which the script prints it, so
 # that each line that names a test takes one line. A tab, a line break, and a
 # carriage return become \t, \n, and \r, and every other control character,
-# U+0001 to U+001F and U+007F to U+009F, and the line and paragraph
-# separators U+2028 and U+2029 become \u and four lowercase hexadecimal
-# digits, the form in which NUnit's XML writes a control character that XML
-# cannot hold, such as \u001b. Every other character stays as it is,
-# a backslash too, as in that form and in the \\ and \n of the name that NUnit
-# gives a test case that takes a string, so a name without such a character is
-# printed as the result file gives it. The script matches and counts the names
-# themselves; only what it prints takes this form. It builds the text without
+# U+0001 to U+001F and U+007F to U+009F, the line and paragraph separators
+# U+2028 and U+2029, and the noncharacters U+FFFE and U+FFFF become \u and
+# four lowercase hexadecimal digits, the form in which NUnit's XML writes a
+# character that XML cannot hold, such as \u001b and \ufffe. So a name with
+# U+FFFE that Unity's log gives as the character is printed as the result file
+# gives it (#493). Every other character stays as it is, a backslash too, as
+# in that form and in the \\ and \n of the name that NUnit gives a test case
+# that takes a string, so a name without such a character is printed as the
+# result file gives it, and a name with the text \ufffe is printed as one with
+# U+FFFE is. The script matches and counts the names themselves; only what it
+# prints takes this form. It builds the text without
 # ${var//pattern/replacement}, as xml_attribute_text does.
 one_line_name() {
     local text="$1"
@@ -545,7 +548,7 @@ one_line_name() {
     local escape
     local rest
 
-    for code in {1..31} {127..159} 8232 8233; do
+    for code in {1..31} {127..159} 8232 8233 65534 65535; do
         utf8_character "$code"
         [[ "$text" == *"$UTF8_CHARACTER"* ]] || continue
         case "$code" in
