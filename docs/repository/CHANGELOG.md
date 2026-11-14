@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15
+
+### Fixed
+- `test-unity.sh` prints the name in the `counted repeat:` lines under a run and in the `counted repeat in <k> of <runs> runs:` lines of the `--repeat` totals as the `failed:` lines print it since #459: a tab, a line break, and a carriage return as `\t`, `\n`, and `\r`, and every other control character and U+2028 and U+2029 as `\u` and four lowercase hexadecimal digits (#475). These lines gave the name as `[CountedRepeat]` logs it, the test's full name as it is, so a name with a tab or an ESC was printed with the character itself while the `failed in` line of the same totals printed the escape. The totals of a test's runs still add up by the name itself, so a test named with a tab and one named with the text `\t`, printed alike, keep totals of their own. A line break does not reach these lines: the attribute logs it as it is, which splits the totals line in two, neither of which the script reads, so the summary gives no `counted repeat` line for such a test, as before. `tools/README.md` records this as a known limit, since NUnit writes a line break in a test case's string argument as `\n`, so such a name needs, for example, a `TestName` that holds one. Tool tests check both lines for a name with a tab and an ESC, separate totals for a name with the text `\t` and `\u001b`, and that a totals line split by a line break is not read.
+
 ## 2026-11-15 (agentkit 0.9.0)
 
 ### Changed
