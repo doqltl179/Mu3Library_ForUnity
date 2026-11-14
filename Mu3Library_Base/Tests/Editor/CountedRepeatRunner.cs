@@ -342,9 +342,7 @@ namespace Mu3Library.Tests
                 return $"{type.Name} has [UnityOneTimeSetUp] or [UnityOneTimeTearDown], which the framework runs over several frames; the runner sets up and tears down the fixture in one call each.";
             }
 
-            MethodInfo waits = Reflect.GetMethodsWithAttribute(type, typeof(SetUpAttribute), true)
-                .Concat(Reflect.GetMethodsWithAttribute(type, typeof(TearDownAttribute), true))
-                .FirstOrDefault(method => method.ReturnType == typeof(Task));
+            MethodInfo waits = CountedRepeatAttribute.SetUpOrTearDownThatReturnsATask(type);
             if (waits != null)
             {
                 return $"{type.Name}.{waits.Name} is a [SetUp] or [TearDown] that returns a Task, which the framework waits for over several frames; each run of the runner takes one call, in which a task that continues on Unity's main thread never ends.";
