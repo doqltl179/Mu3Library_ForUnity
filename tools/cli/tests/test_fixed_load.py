@@ -11,11 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-from mu3_cli import fixed_load
-from mu3_cli.fixed_load import DataStore, ProcessEntry, Record, TestLog, count_other_processes, descendants
-from mu3_cli.repository import repo_root
+from mu3_common.checkout import repo_root
+from mu3_fixed_load import fixed_load
+from mu3_fixed_load.fixed_load import DataStore, ProcessEntry, Record, TestLog, count_other_processes, descendants
 
-HELPER = repo_root() / "tools" / "cli" / "src" / "mu3_cli" / "fixed_load.py"
+HELPER = repo_root() / "tools" / "cli" / "src" / "mu3_fixed_load" / "fixed_load.py"
 
 
 def utp(phase: str, name: str = "Fixture.Tests.Times") -> str:

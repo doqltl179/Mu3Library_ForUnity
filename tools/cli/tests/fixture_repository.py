@@ -10,8 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mu3_cli.repository import repo_root
-from mu3_cli.unity import bash_script_command
+from mu3_common.bash import bash_script_command
+from mu3_common.checkout import repo_root
 from shell_harness import bash_or_skip, run_sourced
 
 # Mirrors the shape of this repository: one package every project consumes, one
@@ -33,7 +33,7 @@ PROJECT_PACKAGES = {
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 # The helper test-unity.sh runs beside each run, which the fixture keeps at its path.
-LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_cli" / "fixed_load.py"
+LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_fixed_load" / "fixed_load.py"
 
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
 # -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line

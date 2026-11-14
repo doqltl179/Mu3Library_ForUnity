@@ -12,7 +12,7 @@ using UnityEngine;
 // The boot of the DI stripping harness (tools/README.md#di-stripping-harness). The scene is empty:
 // HarnessBoot creates itself and then the cores at runtime, each check logs one HARNESS CHECK line,
 // and the player quits with 0 only when every check passed and nothing logged an error or
-// exception. mu3-cli unity di-strip-harness reads these lines from the player's log.
+// exception. mu3-di-strip-harness reads these lines from the player's log.
 namespace StripHarness
 {
     public sealed class HarnessOtherCore : CoreBase

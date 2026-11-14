@@ -17,16 +17,12 @@ from pathlib import Path
 from fixture_repository import FAKE_UNITY, LOAD_HELPER, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
 from shell_harness import bash_or_skip
 from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
-from mu3_cli import fixed_load
-from mu3_cli.repository import repo_root
-from mu3_cli.unity import (
-    bash_script_command,
-    is_directory_link,
-    link_samples,
-    load_target_specs,
-    remove_directory_link,
-    unlink_samples,
-)
+from mu3_common.bash import bash_script_command
+from mu3_common.checkout import repo_root
+from mu3_common.editor import load_target_specs
+from mu3_common.sample_links import is_directory_link
+from mu3_fixed_load import fixed_load
+from mu3_samples.cli import link_samples, remove_directory_link, unlink_samples
 
 # rm and sleep become shell functions, which take precedence over the commands on PATH. rm fails
 # only for the isolated mirror, whose folder MIRROR_REMOVAL names, so that the run's records beside
@@ -122,7 +118,7 @@ class SampleLinkPreflightTests(FixtureRepositoryTestCase):
 
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn("error: leaf: ProjLeaf/Assets/Samples is missing, so its samples would not compile.", completed.stderr)
-        self.assertIn("unity link-samples", completed.stderr)
+        self.assertIn("python -m mu3_samples link", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
 
     def test_without_samples_runs_and_says_what_it_left_out(self) -> None:
@@ -212,7 +208,7 @@ class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
 
 class WorktreeRemovalTests(FixtureRepositoryTestCase):
     """On Windows git worktree remove stops at the first junction it meets and leaves the
-    worktree's folder behind, so a linked worktree is removed only after unlink-samples."""
+    worktree's folder behind, so a linked worktree is removed only after mu3-samples unlink."""
 
     SAMPLE_LINKS = {"leaf": "Assets/Samples"}
     # Ignored as the repository ignores its links, so the linked worktree counts as clean.
@@ -1264,7 +1260,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         moved = helper.with_name("fixed_load.py.away")
         helper.rename(moved)
         self.addCleanup(moved.rename, helper)
-        missing = "tools/cli/src/mu3_cli/fixed_load.py is missing"
+        missing = "tools/cli/src/mu3_fixed_load/fixed_load.py is missing"
 
         completed = self.run_tests("leaf", results=nunit_results())
 
@@ -1915,7 +1911,7 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(
             "warning: the Data Store service of each run will not be recorded: "
-            "tools/cli/src/mu3_cli/fixed_load.py is missing",
+            "tools/cli/src/mu3_fixed_load/fixed_load.py is missing",
             completed.stderr.splitlines(),
         )
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())

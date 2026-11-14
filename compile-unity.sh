@@ -82,14 +82,14 @@ COMPILE_WARNINGS=()
 # Data Store service of the run started and ended and its exit code, and counts
 # the Unity processes that are not the run's own; test-unity.sh also has it put
 # its runs under a fixed load.
-readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_cli/fixed_load.py"
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_fixed_load/fixed_load.py"
 LOAD_PYTHON=""
 LOAD_UNAVAILABLE=""
 LOAD_HELPER_PID=""
 LOAD_STOP_FILE=""
 
 SKIP_SAMPLES=0
-readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_samples link"
 
 TARGET_KEYS=()
 PACKAGE_PATHS=()
@@ -298,7 +298,7 @@ Environment:
       Optional folder that holds one folder per installed Editor version, for
       a Unity Hub set to install Editors outside its default location
       (Program Files\Unity\Hub\Editor, /Applications/Unity/Hub/Editor, or
-      ~/Unity/Hub/Editor). mu3-cli unity doctor reads the same variable.
+      ~/Unity/Hub/Editor). mu3-unity doctor reads the same variable.
   TMPDIR
       Where isolated mirrors are created. Keep it short on Windows.
 
@@ -320,7 +320,7 @@ references it, because each project compiles it with different defines.
 Unity skips a package's Samples~ folder, so a project compiles the samples only
 through the link the fourth column of unity-cli-packages.tsv names. A run stops
 before Unity starts when a selected project lacks that link; create the links
-with: PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples
+with: PYTHONPATH=tools/cli/src python -m mu3_samples link
 
 The default execution mode compiles in place when a project is closed. If the
 same project is open in Unity, it compiles a temporary mirror instead, leaving
@@ -703,7 +703,7 @@ project_editor_version() {
 
 # Unity Hub's install location, which holds one folder per Editor version.
 # UNITY_HUB_EDITOR_ROOT replaces it for a Hub set to install Editors elsewhere;
-# mu3-cli unity doctor reads the same variable.
+# mu3-unity doctor reads the same variable.
 hub_editor_root() {
     local editor_root="${UNITY_HUB_EDITOR_ROOT:-}"
     local program_files
@@ -1378,7 +1378,7 @@ stop_process_tree() {
 }
 
 # Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
-# later, the version mu3-cli needs, or LOAD_UNAVAILABLE to why the helper cannot
+# later, the version tools/cli needs, or LOAD_UNAVAILABLE to why the helper cannot
 # run. python comes first: on Windows python3 is often the stand-in of the
 # Microsoft Store, which only says how to install Python.
 find_load_python() {

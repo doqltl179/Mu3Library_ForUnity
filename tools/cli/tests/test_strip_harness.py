@@ -15,9 +15,9 @@ from typer.testing import CliRunner
 
 from shell_harness import run_sourced
 from test_unity_runs import FAKE_EDITOR_PACKAGES, FLOOR_VERSION
-from mu3_cli.cli import app
-from mu3_cli.repository import repo_root
-from mu3_cli.strip_harness import (
+from mu3_common.checkout import repo_root
+from mu3_common.editor import editor_bundled_versions, editor_package_manager_dir
+from mu3_strip_harness.cli import (
     EXIT_BUILD_FAILED,
     EXIT_CHECKS_FAILED,
     WORK_DIR_MARKER,
@@ -25,6 +25,7 @@ from mu3_cli.strip_harness import (
     HarnessRun,
     HarnessCheck,
     HarnessSetupError,
+    app,
     claim_work_dir,
     mirror_manifest,
     parse_player_log,
@@ -36,7 +37,6 @@ from mu3_cli.strip_harness import (
     template_dir,
     unitask_source,
 )
-from mu3_cli.unity import editor_bundled_versions, editor_package_manager_dir
 
 
 UNITASK_URL = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask"
@@ -375,14 +375,14 @@ class StripHarnessLogTests(unittest.TestCase):
         self.assertIn("the player logged no HARNESS CHECK line", run_problems(HarnessRun(), 0))
 
 
-@mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+@mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
 class StripHarnessRunTests(unittest.TestCase):
     def run_fixture(self, unity: FakeUnity, options: HarnessOptions | None = None) -> tuple[int, list[str], Path]:
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
         work = root / "work"
         lines: list[str] = []
-        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             code = run_harness(root, options or HarnessOptions(work_dir=work), unity, lines.append)
         return code, lines, work
 
@@ -435,7 +435,7 @@ class StripHarnessRunTests(unittest.TestCase):
 
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
-        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             code = run_harness(root, options_for(root / "work"), unity, lambda line: None)
 
         self.assertEqual(0, code)
@@ -449,7 +449,7 @@ class StripHarnessRunTests(unittest.TestCase):
         editor = write(root / "Editor" / "Unity.exe", "")
         work = root / "work"
         unity = FakeUnity()
-        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
             run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
             source = root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs"
@@ -474,7 +474,7 @@ class StripHarnessWorkDirTests(unittest.TestCase):
         self.assertFalse(claim_work_dir(root / "new" / "work"))
         self.assertTrue(claim_work_dir(empty))
 
-    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
     def test_a_folder_without_the_marker_is_refused_and_keeps_every_file(self, _system: mock.Mock) -> None:
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
@@ -483,7 +483,7 @@ class StripHarnessWorkDirTests(unittest.TestCase):
         asset = write(work / "project" / "Assets" / "Mine.cs", "// mine\n")
         unity = FakeUnity()
 
-        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             with self.assertRaisesRegex(HarnessSetupError, f"has no {re.escape(WORK_DIR_MARKER)} marker"):
                 run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
 
@@ -499,12 +499,12 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
     def invoke(self, root: Path, unity: FakeUnity, *arguments: str) -> object:
         editor = write(root / "Editor" / "Unity.exe", "")
         with (
-            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
-            mock.patch("mu3_cli.strip_harness.repo_root", return_value=root),
-            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)),
-            mock.patch("mu3_cli.strip_harness.run_with_timeout", new=unity),
+            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("mu3_strip_harness.cli.repo_root", return_value=root),
+            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
+            mock.patch("mu3_strip_harness.cli.run_with_timeout", new=unity),
         ):
-            return CliRunner().invoke(app, ["unity", "di-strip-harness", "--work-dir", str(root / "work"), *arguments])
+            return CliRunner().invoke(app, ["--work-dir", str(root / "work"), *arguments])
 
     def assert_setup_failure(self, result: object, cause: str) -> None:
         self.assertEqual(EXIT_BUILD_FAILED, result.exit_code, result.output)
@@ -561,7 +561,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
             "UniTask lock file missing": (
                 lambda root: (root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json").unlink(),
                 ("--with-unitask",), None, "FileNotFoundError"),
-            "locked mirror file": (lambda root: None, (), ("mu3_cli.strip_harness.write_if_changed", locked),
+            "locked mirror file": (lambda root: None, (), ("mu3_strip_harness.cli.write_if_changed", locked),
                                    "preparing the mirror project"),
         }
         for name, (arrange, arguments, failing, cause) in cases.items():
@@ -580,7 +580,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         self.assertEqual(0, self.invoke(root, FakeUnity()).exit_code)
         unity = FakeUnity()
 
-        with mock.patch("mu3_cli.strip_harness.shutil.rmtree", side_effect=PermissionError(13, "Access is denied")):
+        with mock.patch("mu3_strip_harness.cli.shutil.rmtree", side_effect=PermissionError(13, "Access is denied")):
             result = self.invoke(root, unity)
 
         self.assert_setup_failure(result, "removing the previous mono-high player and logs failed: PermissionError: [Errno 13] Access is denied")
@@ -621,7 +621,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
             ("failing", FakeUnity(PASSING_LOG.replace("inject.field PASS", "inject.field FAIL"), player_status=1), EXIT_CHECKS_FAILED),
         ):
             with self.subTest(name):
-                with mock.patch("mu3_cli.strip_harness.player_sizes", side_effect=PermissionError(13, "Access is denied")):
+                with mock.patch("mu3_strip_harness.cli.player_sizes", side_effect=PermissionError(13, "Access is denied")):
                     result = self.invoke(fixture_root(self), unity)
 
                 self.assertEqual(expected, result.exit_code, result.output)
@@ -634,8 +634,8 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         process = mock.Mock(pid=123)
 
         with (
-            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
-            mock.patch("mu3_cli.strip_harness.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
+            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("mu3_strip_harness.cli.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
         ):
             stop_process_tree(process)
 
@@ -659,8 +659,8 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         options = HarnessOptions(stripping="Medium", work_dir=work, editor_version=FLOOR_VERSION)
 
         with (
-            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
-            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)) as resolve,
+            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)) as resolve,
         ):
             code = run_harness(root, options, unity, lines.append)
 
@@ -691,14 +691,14 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         write(mirror / "ProjectSettings" / "ProjectVersion.txt", opened)
         lines.clear()
         with (
-            mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows"),
-            mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)),
+            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
         ):
             self.assertEqual(0, run_harness(root, options, unity, lines.append))
         self.assertEqual(opened, (mirror / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"))
         self.assertIn("Mirror changes: none", lines)
 
-    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
     def test_an_override_that_is_not_the_requested_editor_is_named_in_a_warning(self, _system: mock.Mock) -> None:
         for name, location, editor_version, warning in (
             ("other Editor for --editor-version", "elsewhere", FLOOR_VERSION,
@@ -712,7 +712,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
                 editor = fake_editor(root / location)
                 lines: list[str] = []
 
-                with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, True)):
+                with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, True)):
                     code = run_harness(
                         root, HarnessOptions(work_dir=root / "work", editor_version=editor_version), FakeUnity(), lines.append
                     )
@@ -721,13 +721,13 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
                 warnings = [line for line in lines if "the explicit override will be used" in line]
                 self.assertEqual([warning + str(editor)] if warning else [], warnings)
 
-    @mock.patch("mu3_cli.strip_harness.platform.system", return_value="Windows")
+    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
     def test_an_editor_without_bundled_packages_stops_before_unity_runs(self, _system: mock.Mock) -> None:
         root = fixture_root(self)
         editor = fake_editor(root, with_packages=False)
         unity = FakeUnity()
 
-        with mock.patch("mu3_cli.strip_harness.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             with self.assertRaisesRegex(HarnessSetupError, f"cannot find the packages that Unity {FLOOR_VERSION} bundles"):
                 run_harness(root, HarnessOptions(work_dir=root / "work", editor_version=FLOOR_VERSION), unity, lambda line: None)
 
@@ -794,20 +794,20 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
 
 class StripHarnessCommandTests(unittest.TestCase):
     def test_unknown_stripping_level_is_a_usage_error(self) -> None:
-        result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--stripping", "Strongest"])
+        result = CliRunner().invoke(app, ["--stripping", "Strongest"])
 
         self.assertEqual(2, result.exit_code)
         self.assertTrue(re.search(r"--stripping expects one of", result.output))
 
     def test_unknown_backend_is_a_usage_error(self) -> None:
-        result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--backend", "dotnet"])
+        result = CliRunner().invoke(app, ["--backend", "dotnet"])
 
         self.assertEqual(2, result.exit_code)
 
     def test_editor_version_must_name_a_full_release(self) -> None:
         for version in ("6000.3", "../6000.3.17f1", "6000.3.17f1/x"):
             with self.subTest(version=version):
-                result = CliRunner().invoke(app, ["unity", "di-strip-harness", "--editor-version", version])
+                result = CliRunner().invoke(app, ["--editor-version", version])
 
                 self.assertEqual(2, result.exit_code)
                 self.assertIn("--editor-version expects a full Unity version", result.output)

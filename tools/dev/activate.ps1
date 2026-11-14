@@ -1,5 +1,6 @@
 # Enters the repository's development environment in this PowerShell session:
-#   - creates .venv at the repository root on first use and installs mu3-cli into it,
+#   - creates .venv at the repository root on first use and installs the repository tools
+#     (tools/cli) into it,
 #   - sets the variables in .env.local (see tools/dev/env.local.example),
 #   - activates that virtual environment,
 #   - on Windows, puts Git Bash first on PATH so `bash ./test-unity.sh` runs.
@@ -44,7 +45,7 @@
     # --- Virtual environment ---------------------------------------------------------------
     $activate = & $findActivate
     if (-not $activate) {
-        Write-Host "[mu3] Creating $venv and installing mu3-cli..."
+        Write-Host "[mu3] Creating $venv and installing the repository tools..."
         $cli = Join-Path $root 'tools\cli'
         $python = Get-Command -Name python, python3 -CommandType Application -ErrorAction SilentlyContinue |
             Select-Object -First 1
@@ -121,13 +122,13 @@
 
     # --- Git Bash --------------------------------------------------------------------------
     # PowerShell on Windows has no bash on PATH, or finds WSL's, which cannot run the
-    # repository's scripts. mu3-cli's own lookup (tools/cli/README.md, "Bash on Windows")
-    # chooses the bash, so both run the same one. Exit code 3 means mu3-cli is missing.
+    # repository's scripts. The tools' own lookup in mu3_common (tools/cli/README.md, "Bash on
+    # Windows") chooses the bash, so both run the same one. Exit code 3 means the tools are missing.
     $bash = $null
     if ($onWindows) {
-        $bash = & python -I -c "import contextlib, sys`ntry: import mu3_cli.unity as u`nexcept ImportError: sys.exit(3)`nwith contextlib.suppress(Exception): print(u.find_windows_bash())"
+        $bash = & python -I -c "import contextlib, sys`ntry: import mu3_common.bash as b`nexcept ImportError: sys.exit(3)`nwith contextlib.suppress(Exception): print(b.find_windows_bash())"
         if ($LASTEXITCODE -eq 3) {
-            Write-Warning "[mu3] mu3-cli is not installed in $venv, so Git Bash was not looked up; delete the folder and enter again."
+            Write-Warning "[mu3] The repository tools are not installed in $venv, so Git Bash was not looked up; delete the folder and enter again."
         }
         elseif (-not $bash) {
             Write-Warning '[mu3] Git Bash was not found; install Git for Windows to run the .sh scripts.'
