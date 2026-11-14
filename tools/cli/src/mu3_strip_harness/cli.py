@@ -15,7 +15,6 @@ import os
 import platform
 import re
 import shutil
-import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +31,7 @@ from mu3_common.editor import (
     project_editor_version,
     resolve_editor_path,
 )
+from mu3_common.process import run_with_timeout
 from mu3_common.work_dir import FolderNotClaimedError, claim_folder
 
 
@@ -361,32 +361,6 @@ def player_sizes(player_path: Path) -> dict[str, int]:
     if game_assembly.is_file():
         sizes["GameAssembly.dll"] = game_assembly.stat().st_size
     return sizes
-
-
-def stop_process_tree(process: subprocess.Popen) -> None:
-    """Stop a process this module started and the processes it started, such as Unity's build workers."""
-    if platform.system() == "Windows":
-        try:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
-        except OSError:
-            # Without taskkill only the process itself stops below; the run still reports the timeout
-            # rather than this error.
-            pass
-    process.kill()
-    process.wait()
-
-
-def run_with_timeout(command: list[str], timeout: float, cwd: Path | None = None) -> int | None:
-    """Run a command and return its exit code, or None after stopping it at the timeout."""
-    process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    try:
-        return process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        stop_process_tree(process)
-        return None
-    except BaseException:
-        stop_process_tree(process)
-        raise
 
 
 Runner = Callable[[list[str], float], "int | None"]
