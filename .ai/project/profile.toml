@@ -10,11 +10,13 @@ guardrails = [
     "Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).",
     "No breaking change to a package's public API unless the request asks for it.",
     "Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.",
+    "A work folder outside the checkout goes under the root that the machine's MU3_WORK_ROOT environment variable names, since policy.work_root stays empty (.ai/project/wiki/overview.md).",
 ]
 
 [policy]
 # Each development project's Library/ holds 1.3-2.3 GB that a fresh worktree re-imports (.ai/project/wiki/overview.md).
 worktrees = false
+# work_root keeps its empty default: the root differs per machine, so each sets MU3_WORK_ROOT instead (.ai/project/wiki/overview.md).
 
 [hosting]
 ci = false
