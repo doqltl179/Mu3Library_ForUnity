@@ -1,5 +1,5 @@
 ---
-owns: "What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
+owns: "What this repository is: the package model, the package-first rule, development projects, removing a worktree that holds sample links, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
 reviewed: 2026-10-24
 ---
@@ -12,6 +12,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - starting work here, or unsure which package or folder a change belongs to (`project.guardrails` holds the package-first rule),
 - choosing a commit scope or area label,
+- removing a worktree,
 - editing README or CHANGELOG files.
 
 ## Route Away When
@@ -38,6 +39,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
 - Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
+- Before every `git worktree remove` here, run `commands.worktree_teardown` inside the worktree from Git Bash, in a subshell so your own shell stays where it was: `(cd <worktree> && <commands.worktree_teardown>)`. Like `commands.worktree_setup`, its value is POSIX shell syntax; PowerShell cannot start it and leaves `$LASTEXITCODE` at its previous value, so a failure would pass unnoticed. If it exits non-zero, stop and report its output; never continue to `git worktree remove`. A real folder or file in a link's place is Git-ignored, so `git status` never showed it, and the removal would delete it without warning. Worktrees are still made here with `policy.worktrees` off, such as for parallel units, but `git-worktree-cleanup` skips its worktree steps whenever the policy is off; for a unit that ran in a worktree, follow that skill as if the policy were on, which runs this command at its teardown step. [tools/README.md](../../../tools/README.md#worktree-removal) owns the command's behavior and the recovery for a folder already left behind.
 
 ## Directory Map
 
