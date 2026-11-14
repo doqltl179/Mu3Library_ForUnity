@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (agentkit 0.10.1)
+
+### Changed
+- Updated agentkit from 0.9.0 to 0.10.1, which ships the two proposals this repository sent upstream after #488, ai-agents#127 and ai-agents#128 (#506). `policy.work_root` now takes `env:NAME` for a root that differs per machine, so `profile.toml` sets it to `env:MU3_WORK_ROOT`, and the guidance that had agents read that variable while the key stayed empty, and propose setting it when unset, is gone from `.ai/project/wiki/overview.md` and `project.guardrails`: «Work Folders» in `git-workflow.md` owns that rule now, with the restart an agent host may need to see a new variable. `git-worktree-cleanup` deletes only the work folders the pull request names and reports any other at the derived path, so the overview's own line on that is gone too. Every `<unit>` must now not end in `.` or a space and must differ, ignoring letter case, from that of every other task branch; the overview's `<unit>`, the first 32 characters of the task branch without trailing dots, already never ends in either, since a branch name holds no spaces. The overview keeps that each machine sets `MU3_WORK_ROOT` in the user environment rather than in `.env.local`, the `<unit>` form, and the root lengths that keep each development project's copy below the path warning. In 0.10.1, `git-worktree-cleanup` removes a worktree with `git -c core.longpaths=true`, as `tools/README.md` «Worktree Removal» already has this repository do, and runs its unsaved-changes check with the same flag.
+
 ## 2026-11-15
 
 ### Added

@@ -4,6 +4,24 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-15
+
+### Fixed
+- `git-worktree-cleanup`: the removal step runs `git -c core.longpaths=true worktree remove <worktree>`, and the unsaved-changes check runs `git -c core.longpaths=true -C <worktree> status --short`. Git for Windows reaches a path longer than 260 characters only when `core.longpaths` is on for the command that touches it, and a setting in the removed worktree's own configuration is not used when a removal run from the main checkout deletes the files. Before, removing a worktree that held such a path, in a tracked file or in an ignored folder such as a dependency folder or an engine cache, failed with `Filename too long`, unregistered the worktree anyway, and left its folder where `git worktree list` no longer finds it. When a tracked file had such a path and `core.longpaths` was not on for the worktree either, the status check listed that file as deleted and stopped the cleanup, and `git worktree remove` refused with a message that suggests `--force`. Git on other platforms has no such setting and ignores the key. (patch)
+
+## [0.10.0] - 2026-11-15
+
+### Added
+- `policy.work_root` accepts `env:NAME` for a work-folder root that differs per machine: the root is the value of the environment variable `NAME` on the machine running the agents, which must be an absolute path or start with `~`. «Work Folders» in `git-workflow.md` treats an unset or empty variable as an empty root, and the agent then proposes in its report that the user set that variable on the machine, instead of a change to the key; `git-worktree-cleanup` reads the same root before it builds `<work_root>/<project.name>/<unit>`, and the profile template comment names the form. Before, the key held one value for every machine, read only from the committed profile, so a project whose machines needed different roots, such as a short path at a drive root that another machine lacks, left the key empty and had every unit ask for a root and propose setting the key. Absolute, `~`, and empty values behave as before. (minor)
+
+### Fixed
+- `git-worktree-cleanup` and «Work Folders» in `git-workflow.md`: cleanup deletes only the work folders the pull request body names, and reports a folder at `<work_root>/<project.name>/<unit>` that the body does not name instead of deleting it. Before, step 9 deleted that path whenever it existed, so cleaning up a unit that made no work folder could delete the folder of another, still open unit with the same `<unit>`: `feat/a-b` and `feat/a/b` both give `feat-a-b`, and a short form that keeps the first 32 characters gives one name to branches whose first 32 characters match. Every form of `<unit>` must now also not end in `.` or a space, and must differ, ignoring letter case, from the `<unit>` of every other local or remote task branch; the unit checks both before making the folder and stops to ask when either fails. On Windows, PowerShell and cmd drop a trailing `.` or space when they make a folder while Git Bash keeps it, so such a path named different folders in different shells, and a delete in the other shell could exit with 0 and leave the folder behind. (patch)
+
+### Migration
+1. If `.ai/project/` gives `<unit>` a shorter form, such as the first characters of the task branch, change that form in the same file so that it never ends in `.` or a space, for example by dropping trailing dots and spaces after shortening; per «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md`, a unit whose `<unit>` ends in one stops to ask before making its folder. The cleanup of an open unit that already made a folder under the old form then reports that folder instead of deleting it; delete it by hand per «Work Folders» once that unit's pull request merges.
+2. If `.ai/project/`, `project.guardrails` in `.ai/project/profile.toml` included, tells agents to read the work-folder root from an environment variable while `policy.work_root` stays empty, set `policy.work_root = "env:<that variable>"` in `.ai/project/profile.toml`.
+3. When step 2 applied, delete that guidance from `.ai/project/`, keeping the other project facts in the same file: «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns the rule.
+
 ## [0.9.0] - 2026-11-14
 
 ### Added
