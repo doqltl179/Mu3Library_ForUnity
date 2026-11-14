@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14 (agentkit 0.7.3)
+
+### Changed
+- Updated agentkit from 0.7.1 to 0.7.3, two patch releases without migration notes (#467). `release-cut` now reads the previous release tag of each package in scope from `origin/main`, narrowed to that package's `tag_pattern` with `git describe --match`. On 2026-11-14 the old command, run on `develop`, gave `base/v0.26.0` whatever the package: another package's tag for URP and Watermelon Game, and an older one for Base. The new one gives `base/v0.27.0`, `urp/v0.4.0`, and `game/watermelon/v0.7.0`, the latest GitHub Release of each, so `PREV_TAG` in `.ai/project/wiki/package-release.md` stays as it is. The `lessons.md` template and «Lessons» in `project-overlay.md` now point to «Promotion» in `memory-policy.md` for when a lesson is promoted and deleted; `.ai/project/lessons.md` already said so and is unchanged.
+
 ## 2026-11-14
 
 ### Changed

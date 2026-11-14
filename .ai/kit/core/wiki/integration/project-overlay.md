@@ -59,4 +59,4 @@ reviewed: 2026-10-09
 ## Lessons
 
 - One line per lesson: the rule learned and why, newest last.
-- Promote a lesson to a wiki page when it becomes a standing rule, or upstream when it is not project-specific; then delete it here. Owned by [memory-policy.md](../operating-model/memory-policy.md).
+- Promote a lesson, and delete it from `lessons.md`, when «Promotion» in [memory-policy.md](../operating-model/memory-policy.md) says.
