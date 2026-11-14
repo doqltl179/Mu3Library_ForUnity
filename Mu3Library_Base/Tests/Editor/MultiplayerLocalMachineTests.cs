@@ -2080,11 +2080,12 @@ namespace Mu3Library.Tests
         {
             LocalBackend owner = CreateRawBackend(CreateNetwork(), "Owner");
 
-            // Asked in one update, the 64th lobby is created and the 65th refused.
+            // Asked in one update, the 64th lobby is created and the 65th refused with InvalidState,
+            // which leaving a lobby clears, as for a manager with a session, not waiting (#435).
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
             List<(MultiplayerReason Reason, LobbyId Lobby)> answers = CreateLobbies(owner, MachineDirectory.MaxListedLobbies + 1, null);
             Assert.That(answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Reason), Is.All.EqualTo(MultiplayerReason.None));
-            Assert.That(answers.Last(), Is.EqualTo((MultiplayerReason.BackendError, LobbyId.None)));
+            Assert.That(answers.Last(), Is.EqualTo((MultiplayerReason.InvalidState, LobbyId.None)));
 
             // The file lists every lobby created, which another process finds.
             List<LobbyId> created = answers.Take(MachineDirectory.MaxListedLobbies).Select(answer => answer.Lobby).ToList();
@@ -2431,7 +2432,7 @@ namespace Mu3Library.Tests
             Assert.That(MachineDirectory.Read(_folder).Select(entry => entry.Lobby), Is.EquivalentTo(created));
 
             UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("owns at most 64 lobbies at a time; the lobby was not created"));
-            Assert.That(CreateLobbies(next.Backend, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.BackendError));
+            Assert.That(CreateLobbies(next.Backend, 1, null).Single().Reason, Is.EqualTo(MultiplayerReason.InvalidState));
 
             // Once one of the others ends, the file lists it.
             next.Backend.LeaveLobby(created[0]);

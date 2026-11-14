@@ -74,8 +74,10 @@ namespace Mu3Library.Multiplayer.Local
     /// most 4,096 data entries, every key it holds counting as one whatever its value, and keys
     /// that differ only in case as one, since the lobby keeps them as one key; and a frame brings
     /// a lobby to its members with no more entries. So <see cref="CreateLobby"/> answers
-    /// <see cref="MultiplayerReason.BackendError"/> when the backend already owns 64 lobbies or
-    /// the lobby would hold more than 4,096 keys, an entry with an empty value making none, and
+    /// <see cref="MultiplayerReason.InvalidState"/> when the backend already owns 64 lobbies, as
+    /// a manager answers a creation while it has a session, since only leaving one makes room
+    /// and waiting does not, and <see cref="MultiplayerReason.BackendError"/> when the lobby
+    /// would hold more than 4,096 keys, an entry with an empty value making none, and
     /// <see cref="SetLobbyData"/> refuses with false a
     /// new key that would make a lobby hold more than 4,096, each with a warning; a key the lobby
     /// holds can still change. The file also takes at most 1 MiB, and a frame a lobby of at most
