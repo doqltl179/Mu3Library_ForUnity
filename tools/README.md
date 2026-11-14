@@ -67,7 +67,7 @@ One command, run from the repository root, enters the repository's development e
 
 Entering it:
 
-- creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode. That `mu3-cli` acts on this checkout wherever it runs. Run from another checkout, `unity link-samples` and `unity unlink-samples` refuse, but not from a folder that a failed worktree removal left inside this checkout's folder (see [cli/README.md](cli/README.md#repository-root) and [Worktree Removal](#worktree-removal));
+- creates `.venv` at the repository root on first use, with `uv` when it is installed and `python -m venv` otherwise, and installs `mu3-cli` into it in editable mode. That `mu3-cli` acts on this checkout wherever it runs. Run from another checkout, or from a folder that a failed worktree removal left in this checkout's `.claude/worktrees/` or `.worktrees/`, `unity link-samples` and `unity unlink-samples` refuse (see [cli/README.md](cli/README.md#repository-root) and [Worktree Removal](#worktree-removal));
 - activates that virtual environment, so its `python` and `mu3-cli` come first on `PATH`;
 - sets every variable that `.env.local` at the repository root lists, such as those in [Environment](#environment), and `MU3_DEV_ROOT` to the repository root;
 - in PowerShell on Windows, makes `bash` run the bash that `mu3-cli` uses, normally that of Git for Windows, putting its folder first on `PATH` when `bash` does not already find it, so `bash ./test-unity.sh` runs the bash the scripts are written for.

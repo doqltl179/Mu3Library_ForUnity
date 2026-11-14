@@ -383,7 +383,33 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
         refusal = self.refusal(self.main, short / ".worktrees" / "removed" / "UnityProject_BuiltIn")
 
         self.assertIsNotNone(refusal)
-        self.assertIn(f" is in {short / '.worktrees' / 'removed'}, which is in that checkout's worktree folder ", refusal)
+        self.assertIn(
+            f" is in {short / '.worktrees' / 'removed'}, which is in that checkout's worktree folder ", refusal
+        )
+
+    def test_left_folder_in_a_worktree_folder_that_is_a_link_is_refused(self) -> None:
+        # A worktree folder, or .claude above one, may be a link to a folder elsewhere, as on another drive.
+        checkout = self.make_checkout(self.temporary / "linked")
+        for link, target, worktree_folder in (
+            (checkout / ".worktrees", self.temporary / "worktrees-elsewhere", checkout / ".worktrees"),
+            (checkout / ".claude", self.temporary / "claude-elsewhere", checkout / ".claude" / "worktrees"),
+        ):
+            with self.subTest(link=link):
+                target.mkdir()
+                try:
+                    create_directory_link(link, target.resolve())
+                except OSError as error:
+                    self.skipTest(f"a directory link cannot be made here: {error}")
+                self.addCleanup(remove_directory_link, link)
+                left_behind = worktree_folder / "removed"
+                (left_behind / "UnityProject_BuiltIn").mkdir(parents=True)
+
+                refusal = self.refusal(checkout, left_behind / "UnityProject_BuiltIn")
+
+                self.assertIsNotNone(refusal)
+                self.assertIn(
+                    f" is in {left_behind}, which is in that checkout's worktree folder {worktree_folder} ", refusal
+                )
 
     def test_worktree_folders_themselves_and_other_folders_beside_them_are_inside_the_checkout(self) -> None:
         (self.main / ".worktrees").mkdir()

@@ -95,7 +95,8 @@ def _checkout_holding(root: Path, working_directory: Path) -> tuple[bool, Path |
     """
     # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
     root_folder = root.resolve()
-    worktree_folders = {root_folder / folder for folder in WORKTREE_FOLDERS}
+    # A worktree folder, or `.claude` above one, may itself be a link, which each candidate resolves through.
+    worktree_folders = {(root_folder / folder).resolve() for folder in WORKTREE_FOLDERS}
     in_worktree_folder: Path | None = None
     below: Path | None = None
     for candidate in (working_directory, *working_directory.parents):
