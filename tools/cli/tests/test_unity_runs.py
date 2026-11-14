@@ -328,6 +328,11 @@ TEARDOWN_LOSS_FAILURE = (
     "UnityEditor.AssetDatabase:LoadAssetAtPath<Mu3Library.Editor.Window.Drawer.DrawerListDrawer> (string)\n"
     "Mu3Library.Tests.Mu3WindowTests:DeleteCreatedPaths (bool) (at Mu3WindowTests.cs:502)\n"
 )
+# The full name of a test case whose name holds a line break and a tab, as a result file writes the
+# test case's name, as the test names itself, and as the script prints it, on one line (#459).
+CONTROL_NAME_ATTRIBUTE = "Case(&quot;a&#xA;b&#x9;c&quot;)"
+CONTROL_NAME = f'Fixture.Tests.Case("a{chr(10)}b{chr(9)}c")'
+CONTROL_NAME_SHOWN = r'Fixture.Tests.Case("a\nb\tc")'
 
 
 def utp_status(phase: str, name: str, message: str = "") -> str:
@@ -518,6 +523,8 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         for log, phrase in (
             (UTP_BEGIN, "while running Fixture.Tests.Hangs"),
             (f"{UTP_BEGIN}\n{UTP_END}", "while no test was running"),
+            # A name with a line break and a tab is named on one line.
+            (utp_status("Begin", CONTROL_NAME), f"while running {CONTROL_NAME_SHOWN}"),
         ):
             with self.subTest(phrase=phrase):
                 sleeper_directory = tempfile.TemporaryDirectory()
@@ -539,7 +546,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertIn(
                     f"error: leaf: Unity wrote nothing to its log for 1 s {phrase}, so the script stopped it; "
                     "see log/unity-tests/leaf-editmode.log",
-                    completed.stderr,
+                    completed.stderr.splitlines(),
                 )
                 self.assertFalse(self.results_file("leaf").exists())
                 # The fake's own child, which taskkill /T does not reach on Git Bash, is gone too.
@@ -661,6 +668,26 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             [f"    inconclusive: {text}", "    inconclusive: Fixture.Tests.Odd(&foo; &#0;)"], self.summary(completed)[1:3]
         )
 
+    def test_a_failed_or_inconclusive_test_whose_name_holds_a_line_break_and_a_tab_is_named_on_one_line(self) -> None:
+        # The result file writes the line break and the tab as character references, which the
+        # script replaces, and prints them as \n and \t; a backslash stays as it is.
+        inconclusive = "Dir(&quot;C:\\Temp&#x9;&#xA;&quot;)"
+        completed = self.run_tests(
+            "leaf",
+            results=nunit_results(passed=1, failed=(CONTROL_NAME_ATTRIBUTE,), inconclusive=(inconclusive,)),
+            unity_status=2,
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        errors = completed.stderr.splitlines()
+        start = errors.index("error: leaf: 3 tests, 1 passed, 1 failed, 0 skipped, 1 inconclusive")
+        path = r'Fixture.Tests.Dir("C:\Temp\t\n")'
+        self.assertEqual([f"  failed: {CONTROL_NAME_SHOWN}", f"  inconclusive: {path}"], errors[start + 1 : start + 3])
+        self.assertEqual(
+            ["  - leaf: FAILED, 3 tests, 1 passed, 1 failed, 0 skipped, 1 inconclusive", f"    inconclusive: {path}"],
+            self.summary(completed)[:2],
+        )
+
     def summary(self, completed: subprocess.CompletedProcess[str]) -> list[str]:
         lines = completed.stdout.splitlines()
         return lines[lines.index("EditMode test summary:") + 1 :]
@@ -739,16 +766,19 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         )
 
         self.assertEqual(1, completed.returncode, completed.stdout)
+        # The script matches the names themselves, and prints the line break and the tab as \n and
+        # \t, so that each line names the test on one line (#459).
+        shown = f'Fixture.Tests.Case("a{b}nb{b}tcaf{chr(0xE9)} {chr(0x1F600)}")'
         environment = (
-            f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error Unity "
+            f"  environment: Unity's Data Store service (pid 13480) ended while {shown} ran, and the error Unity "
             "logged for it failed that test, so the test reached no verdict; run the target again"
         )
-        self.assertIn(
-            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the "
-            f"environment\n  failed: {name}\n{environment}\n",
-            completed.stderr,
+        errors = completed.stderr.splitlines()
+        start = errors.index(
+            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the environment"
         )
-        self.assertIn(f"\n  {environment}\n", completed.stdout)
+        self.assertEqual([f"  failed: {shown}", environment], errors[start + 1 : start + 3])
+        self.assertEqual(f"  {environment}", self.summary(completed)[1])
         self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
 
     def test_a_target_that_failed_otherwise_too_fails_on_its_counts_and_names_the_environment(self) -> None:
@@ -829,6 +859,21 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             ],
             self.summary(completed)[:2],
         )
+
+    def test_a_run_without_results_names_a_test_whose_name_holds_a_line_break_and_a_tab_on_one_line(self) -> None:
+        log = "\n".join([utp_status("Begin", CONTROL_NAME), DATA_STORE_LOSS])
+        completed = self.run_tests("leaf", unity_status=1, log=log)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        reason = f"Unity exited with 1 and wrote no test results while running {CONTROL_NAME_SHOWN}; see its log above"
+        warning = (
+            f"warning: Unity's Data Store service (pid 13480) ended while {CONTROL_NAME_SHOWN} ran; Unity read the "
+            "files it had imported in its own process from then on"
+        )
+        errors = completed.stderr.splitlines()
+        start = errors.index(f"error: leaf: {reason}")
+        self.assertEqual(f"  {warning}", errors[start + 1])
+        self.assertEqual([f"  - leaf: FAILED, {reason}", f"    {warning}"], self.summary(completed)[:2])
 
     def test_a_run_whose_unity_launched_the_data_store_service_keeps_the_service_s_log(self) -> None:
         # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
@@ -1251,6 +1296,31 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
                 "    environment: Unity's Data Store service ended in 2 of 3 runs, and 1 of them failed on that alone",
             ],
             summary[: len(summary) - 2],
+        )
+
+    def test_the_totals_name_a_test_whose_name_holds_a_line_break_and_a_tab_on_one_line(self) -> None:
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results_1=nunit_results(passed=1, failed=(CONTROL_NAME_ATTRIBUTE,)),
+            results_2=nunit_results(
+                passed=1, failed=(CONTROL_NAME_ATTRIBUTE,), inconclusive=("Dir(&quot;C:\\Temp&#x9;&#xA;&quot;)",)
+            ),
+        )
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        summary = self.summary(completed)
+        totals = summary.index("  - leaf, 2 runs: 2 of 2 failed; 5 tests, 2 passed, 2 failed, 0 skipped, 1 inconclusive")
+        self.assertEqual(
+            [
+                f"    failed in 2 of 2 runs: {CONTROL_NAME_SHOWN}",
+                r'    inconclusive in 1 of 2 runs: Fixture.Tests.Dir("C:\Temp\t\n")',
+            ],
+            summary[totals + 1 : totals + 3],
         )
 
     def test_a_run_gives_the_totals_that_counted_repeat_logged_for_each_test(self) -> None:
@@ -1864,6 +1934,56 @@ class JsonStringTextTests(FixtureRepositoryTestCase):
         kept = f"{b}u0000 {b}uD83D {b}uDE00{b}uD83D {b}x {b}u12G {b}"
 
         self.assertEqual(f"{b}u0041 {b}uD83DA {kept}".encode("ascii"), self.text(f"{b}{b}u0041 {b}uD83D{b}u0041 {kept}"))
+
+
+class OneLineNameTests(FixtureRepositoryTestCase):
+    """one_line_name gives a test's name in the form the script prints it in, on one line (#459)."""
+
+    def shown(self, name: str, environment: dict[str, str] | None = None) -> str:
+        # A file carries the name both ways, since a command line cannot carry every control
+        # character, and output read as text turns a carriage return into a line break.
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name) / "name.txt"
+        target = Path(directory.name) / "shown.txt"
+        source.write_bytes(name.encode("utf-8"))
+        completed = self.run_functions(
+            "test-unity.sh",
+            "IFS= read -r -d '' name <\"$1\" || true\none_line_name \"$name\"\nprintf '%s' \"$ONE_LINE_NAME\" >\"$2\"",
+            str(source),
+            str(target),
+            environment=environment,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return target.read_bytes().decode("utf-8")
+
+    def test_writes_a_tab_a_line_break_and_a_carriage_return_as_t_n_and_r(self) -> None:
+        self.assertEqual(r'F.Case("a\nb\tc\r\nd")', self.shown(f'F.Case("a{chr(10)}b{chr(9)}c{chr(13)}{chr(10)}d")'))
+
+    def test_writes_every_other_control_character_and_the_line_and_paragraph_separators_as_u_and_four_digits(self) -> None:
+        # As NUnit's XML writes a control character that XML cannot hold, such as \u001b.
+        self.assertEqual(
+            r"a\u001bb\u0007\u007f\u0085\u009f\u2028\u2029",
+            self.shown(f"a{chr(0x1B)}b{chr(7)}{chr(0x7F)}{chr(0x85)}{chr(0x9F)}{chr(0x2028)}{chr(0x2029)}"),
+        )
+        codes = [*range(0x01, 0x20), *range(0x7F, 0xA0), 0x2028, 0x2029]
+        named = {0x09: r"\t", 0x0A: r"\n", 0x0D: r"\r"}
+        expected = "|".join(named.get(code, f"\\u{code:04x}") for code in codes)
+        for environment in (None, {**self._environment(), "LC_ALL": "C"}):
+            with self.subTest(environment="C locale" if environment else "default"):
+                self.assertEqual(expected, self.shown("|".join(chr(code) for code in codes), environment))
+
+    def test_keeps_every_other_character_and_a_name_without_control_characters_as_it_is(self) -> None:
+        # A backslash stays as it is, as in the \\ and \n of the name NUnit gives a test case that
+        # takes a string, and as in the \u001b with which NUnit's XML writes a control character.
+        for name in (
+            r'F.Case("C:\\Temp\n", "\u001b")',
+            f'F.Text("caf{chr(0xE9)} {chr(0x4E2D)} {chr(0x1F600)} {chr(0xA0)}{chr(0x2027)}{chr(0x202A)}")',
+            "F.Odd(&foo; &#0; \\u0000) ~ !",
+            "",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(name, self.shown(name))
 
 
 class CountedRepeatTotalsTests(FixtureRepositoryTestCase):

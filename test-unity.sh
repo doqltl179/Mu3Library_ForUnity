@@ -478,6 +478,45 @@ json_string_text() {
     JSON_TEXT+="$text"
 }
 
+# Sets ONE_LINE_NAME to a test's name, as xml_attribute_text or
+# json_string_text gives it, in the form in which the script prints it, so
+# that each line that names a test takes one line. A tab, a line break, and a
+# carriage return become \t, \n, and \r, and every other control character,
+# U+0001 to U+001F and U+007F to U+009F, and the line and paragraph
+# separators U+2028 and U+2029 become \u and four lowercase hexadecimal
+# digits, the form in which NUnit's XML writes a control character that XML
+# cannot hold, such as \u001b. Every other character stays as it is,
+# a backslash too, as in that form and in the \\ and \n of the name that NUnit
+# gives a test case that takes a string, so a name without such a character is
+# printed as the result file gives it. The script matches and counts the names
+# themselves; only what it prints takes this form. It builds the text without
+# ${var//pattern/replacement}, as xml_attribute_text does.
+one_line_name() {
+    local text="$1"
+    local code
+    local escape
+    local rest
+
+    for code in {1..31} {127..159} 8232 8233; do
+        utf8_character "$code"
+        [[ "$text" == *"$UTF8_CHARACTER"* ]] || continue
+        case "$code" in
+            9) escape='\t' ;;
+            10) escape='\n' ;;
+            13) escape='\r' ;;
+            *) printf -v escape '\\u%04x' "$code" ;;
+        esac
+        rest="$text"
+        text=""
+        while [[ "$rest" == *"$UTF8_CHARACTER"* ]]; do
+            text+="${rest%%"$UTF8_CHARACTER"*}$escape"
+            rest="${rest#*"$UTF8_CHARACTER"}"
+        done
+        text+="$rest"
+    done
+    ONE_LINE_NAME="$text"
+}
+
 # Sets RESULT_TESTS to the full names of the test cases in an NUnit 3 result
 # file whose result is the one given, such as Failed or Inconclusive, as the
 # tests have them, with the XML references of the result file replaced, and
@@ -509,13 +548,15 @@ name_failed_and_inconclusive_tests() {
 
     find_tests_with_result "$results_file" Failed
     for test_name in ${RESULT_TESTS[@]+"${RESULT_TESTS[@]}"}; do
-        printf '  failed: %s\n' "$test_name" >&2
+        one_line_name "$test_name"
+        printf '  failed: %s\n' "$ONE_LINE_NAME" >&2
     done
 
     find_tests_with_result "$results_file" Inconclusive
     for test_name in ${RESULT_TESTS[@]+"${RESULT_TESTS[@]}"}; do
-        printf '  inconclusive: %s\n' "$test_name" >&2
-        SUMMARY_LINES+=("  inconclusive: $test_name")
+        one_line_name "$test_name"
+        printf '  inconclusive: %s\n' "$ONE_LINE_NAME" >&2
+        SUMMARY_LINES+=("  inconclusive: $ONE_LINE_NAME")
     done
 }
 
@@ -780,10 +821,11 @@ add_data_store_loss_to_summary() {
 
     [[ -n "$DATA_STORE_LOSS_PID" ]] || return 0
 
+    one_line_name "$DATA_STORE_LOSS_TEST"
     if [[ "$failed_the_test" -eq 1 ]]; then
-        line="environment: $line while $DATA_STORE_LOSS_TEST ran, and the error Unity logged for it failed that test, so the test reached no verdict; run the target again"
+        line="environment: $line while $ONE_LINE_NAME ran, and the error Unity logged for it failed that test, so the test reached no verdict; run the target again"
     elif [[ -n "$DATA_STORE_LOSS_TEST" ]]; then
-        line="warning: $line while $DATA_STORE_LOSS_TEST ran; Unity read the files it had imported in its own process from then on"
+        line="warning: $line while $ONE_LINE_NAME ran; Unity read the files it had imported in its own process from then on"
     else
         line="warning: $line while no test ran; Unity read the files it had imported in its own process from then on"
     fi
@@ -1134,10 +1176,11 @@ add_repeat_totals_to_summary() {
     SUMMARY_LINES+=("$target_key, $REPEAT_COUNT runs: $REPEAT_FAILED_RUNS of $REPEAT_COUNT failed; $counts")
 
     for ((i = 0; i < ${#REPEAT_TEST_NAMES[@]}; i++)); do
+        one_line_name "${REPEAT_TEST_NAMES[$i]}"
         if [[ "${REPEAT_TEST_RESULTS[$i]}" == Failed ]]; then
-            SUMMARY_LINES+=("  failed in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
+            SUMMARY_LINES+=("  failed in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: $ONE_LINE_NAME")
         else
-            SUMMARY_LINES+=("  inconclusive in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_TEST_NAMES[$i]}")
+            SUMMARY_LINES+=("  inconclusive in ${REPEAT_TEST_RUNS[$i]} of $REPEAT_COUNT runs: $ONE_LINE_NAME")
         fi
     done
 
@@ -1268,7 +1311,8 @@ test_target() {
     stop_load_helper
     read_load_record "${results_file%.xml}.load"
     find_unfinished_test "$UNITY_LOG_FILE"
-    unfinished="$UNFINISHED_TEST"
+    one_line_name "$UNFINISHED_TEST"
+    unfinished="$ONE_LINE_NAME"
     find_data_store_loss "$UNITY_LOG_FILE"
 
     if [[ "$UNITY_STALLED" -eq 1 ]]; then
