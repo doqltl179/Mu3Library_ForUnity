@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14
+
+### Changed
+- `mu3-cli unity link-samples` and `unity unlink-samples` exit with 2 without changing anything when the working directory is in a folder of the checkout's worktree folders, `.claude/worktrees/` or `.worktrees/`, that is no checkout of its own, and the error names that folder and points to «Worktree Removal» in `tools/README.md` (#436). A folder that a failed `git worktree remove` left there has lost the `AGENTS.md` and `.github` that mark a checkout, so since #416 the commands took it for part of the checkout around it: the main checkout's installed `mu3-cli`, run in such a folder, would remove the main checkout's links rather than the folder's, and only its first line, which names the root, showed it. A real checkout in those folders is still its own checkout, and a left folder anywhere else inside a checkout's folder still counts as part of it. On 2026-11-14 a worktree's own CLI, run from a folder without `AGENTS.md` or `.github` in that worktree's `.worktrees/`, refused both commands with exit status 2 and created no link; run from the worktree's root and from its `UnityProject_BuiltIn` folder, it passed the check.
+
 ## 2026-11-14 (agentkit 0.7.1)
 
 ### Changed

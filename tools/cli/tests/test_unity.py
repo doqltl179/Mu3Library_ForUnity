@@ -550,6 +550,39 @@ class SampleLinkTests(unittest.TestCase):
                     result.stderr.splitlines(),
                 )
 
+    def test_link_commands_change_nothing_from_a_folder_left_in_a_worktree_folder_of_the_checkout(self) -> None:
+        # A failed git worktree remove leaves a folder with no AGENTS.md or .github in it; run there,
+        # unlink-samples would remove self.root's links instead of that folder's own (#436).
+        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
+        left_behind = self.root / ".worktrees" / "removed"
+        (left_behind / "Project").mkdir(parents=True)
+
+        def invoke(command: str) -> object:
+            with mock.patch("mu3_cli.unity.repo_root", return_value=self.root), mock.patch.object(
+                Path, "cwd", return_value=left_behind / "Project"
+            ):
+                return CliRunner().invoke(app, ["unity", command])
+
+        refused_link = invoke("link-samples")
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+        self.link_all()
+        refused_unlink = invoke("unlink-samples")
+        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
+
+        for command, result in (("link-samples", refused_link), ("unlink-samples", refused_unlink)):
+            with self.subTest(command=command):
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
+                [error] = result.stderr.splitlines()
+                self.assertTrue(
+                    error.startswith(
+                        f"error: mu3-cli unity {command} would change the checkout at {self.root}, but the working "
+                        f"directory {left_behind / 'Project'} is in {left_behind}, "
+                    ),
+                    error,
+                )
+                self.assertIn('see "Worktree Removal" in tools/README.md.', error)
+
 
 class RepositoryRootLineTests(unittest.TestCase):
     """Every unity command names the checkout it acts on, which for an installed mu3-cli is the one
