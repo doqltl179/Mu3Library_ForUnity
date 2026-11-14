@@ -48,7 +48,8 @@ COPY_BUILD_SCRIPT = Path("Assets", "Mu3VerifyBuild", "Editor", "Mu3VerifyBuild.c
 # What a content build leaves in a project and a player build without content copies into the player.
 EARLIER_CONTENT = Path("Library", "com.unity.addressables", "aa")
 # The file that marks the work folder and the bundles folder as this tool's. It writes it into a new
-# or empty folder and changes or deletes files only in a folder that has it.
+# or empty folder and changes or deletes files only in a folder that has it. The two folders share it,
+# so work_dir_problem keeps them apart.
 WORK_DIR_MARKER = ".mu3-verify-build"
 WORK_DIR_MARKER_TEXT = "mu3-verify-build made this folder and may change or delete any file in it.\n"
 COPY_COMMIT_FILE = "copy-commit.txt"
@@ -118,6 +119,28 @@ def project_path_problem(copy_project: Path, system: str | None = None) -> str |
         f"cannot read every package file from a project folder of {PROJECT_PATH_LIMIT} characters or more, and "
         "a content build fails from deeper ones (Fresh Clone Setup in tools/README.md); pass a shorter "
         "--work-dir, such as the unit's folder under MU3_WORK_ROOT"
+    )
+
+
+def work_dir_problem(work_dir: Path, bundles: Path) -> str | None:
+    """Why --work-dir cannot hold the copy beside the bundles folder, or None when it can.
+
+    A content build empties the bundles folder, so a work folder that is it, lies inside it, or holds
+    it would lose the copy. Both carry the same marker, so the marker alone cannot tell them apart.
+    """
+    # resolve() follows a subst drive or a link to the folder it names, so both spellings meet there.
+    work, folder = work_dir.resolve(), bundles.resolve()
+    if work == folder:
+        relation = "is"
+    elif folder in work.parents:
+        relation = "is inside"
+    elif work in folder.parents:
+        relation = "holds"
+    else:
+        return None
+    return (
+        f"--work-dir {work_dir} {relation} the bundles folder {bundles}, which a content build empties; "
+        "pass a --work-dir apart from it"
     )
 
 
@@ -476,7 +499,11 @@ def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = defaul
         spec = load_target_specs(root)[TARGET]
     work_dir = Path(os.path.abspath(options.work_dir or default_work_dir(root)))
     bundles = Path(os.path.abspath(bundles_dir(root)))
-    for problem in (project_path_problem(work_dir / spec.project_path), profile_path_problem(bundles)):
+    for problem in (
+        work_dir_problem(work_dir, bundles),
+        project_path_problem(work_dir / spec.project_path),
+        profile_path_problem(bundles),
+    ):
         if problem:
             raise VerifySetupError(problem)
 

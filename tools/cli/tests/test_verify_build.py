@@ -30,6 +30,7 @@ from mu3_verify_build.cli import (
     project_path_problem,
     run_verify_build,
     scene_problem,
+    work_dir_problem,
 )
 from mu3_common.editor import load_target_specs
 
@@ -469,6 +470,23 @@ class RunTests(unittest.TestCase):
         with self.assertRaisesRegex(VerifySetupError, f"has no {WORK_DIR_MARKER} marker"):
             self.run_tool("build", build=False)
         self.assertEqual(["keep.txt"], [path.name for path in self.work.iterdir()])
+
+    def test_a_work_dir_that_is_in_or_holds_the_bundles_folder_is_refused_before_anything_is_written(self) -> None:
+        bundles = bundles_dir(self.root)
+        for work, relation in ((bundles, "is"), (bundles / "copy", "is inside"), (self.root / "log", "holds")):
+            with self.subTest(work=work):
+                with self.assertRaisesRegex(VerifySetupError, f" {relation} the bundles folder .*, which a content build empties"):
+                    run_verify_build(
+                        self.root,
+                        VerifyOptions(content="build", work_dir=work),
+                        runner=FakeUnity(builds_content=True),
+                        echo=self.output.append,
+                    )
+                self.assertFalse((self.root / "log").exists())
+
+        self.assertIsNone(work_dir_problem(self.work, bundles))
+        # A sibling whose name only starts with the bundles folder's is apart from it.
+        self.assertIsNone(work_dir_problem(bundles.parent / (bundles.name + "-copy"), bundles))
 
     def test_a_bundles_folder_it_did_not_make_is_refused(self) -> None:
         write(bundles_dir(self.root) / "keep.txt", "keep")
