@@ -4,6 +4,18 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-14
+
+### Changed
+- `git-branch-start`, «Worktrees» in `git-workflow.md`, «Scaling The Order» in `request-lifecycle.md`, and the `policy.worktrees` comment in the profile template: with `policy.worktrees = false`, a unit that runs at the same time as another unit still gets its own worktree under `policy.worktree_root`, through the target-path check, the check that the root is ignored, and `commands.worktree_setup`. Only a unit that runs alone cuts its task branch in the main checkout, and no other unit starts until that unit is cleaned up; `git-branch-start` stops before cutting a branch in place while a worktree under `policy.worktree_root` exists. Before, the policy alone chose the workspace, so a unit that ran at the same time as another also cut its branch in the main checkout and shared that working tree with it, which «Ordering Rules» in `concurrency.md` rules out, and skipped the checks that guard worktree creation. The main checkout stays on the integration branch while units run in worktrees, because `git-worktree-cleanup` switches it there after each merge: `git-branch-start` now stops before creating a worktree when the main checkout is on another branch, and «Stop Conditions» in `git-workflow.md` stops before project files are edited in the main checkout while another unit runs. (minor)
+
+### Fixed
+- `git-worktree-cleanup` and «Cleanup» in `git-workflow.md`: the cleanup stops before removing anything when the main checkout is on a branch that is neither the integration branch nor, for a unit without a worktree, the unit's own task branch. Step 7 switched the main checkout to the integration branch without looking, so it could take the main checkout away from another unit working there and carry that unit's uncommitted changes onto the integration branch. That unit could be one started in place while an agent host ran another unit in a worktree outside `policy.worktree_root`, which the checks in `git-branch-start` do not see. (patch)
+
+### Migration
+1. If `.ai/project/` holds guidance that gives units running at the same time a worktree while `policy.worktrees = false`, such as following the worktree steps of `git-branch-start` in place of its in-place step, delete only that guidance and keep the other project facts in the same file: «Worktrees» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns that rule.
+2. If `policy.worktrees = false` in `.ai/project/profile.toml`, units run at the same time, and a fresh worktree lacks something they need, set `commands.worktree_setup` there to recreate it, and `commands.worktree_teardown` when that setup makes links or junctions, per «Worktrees» in `.ai/kit/core/wiki/workflows/git-workflow.md`.
+
 ## [0.7.3] - 2026-11-14
 
 ### Fixed
