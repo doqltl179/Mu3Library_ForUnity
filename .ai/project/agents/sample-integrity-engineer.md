@@ -16,7 +16,7 @@ Mission: keep every package sample importable and working in a consuming project
 ## Owns
 - `Samples~` content of each package and the `samples` entries of its `package.json`.
 - Sample-only orchestration and presentation, per «Package Surfaces» in [package-architecture.md](../wiki/rules/package-architecture.md).
-- The development-project view of a sample: `UnityProject_*/Assets/Mu3LibrarySamples*` is a Git-ignored link to `Samples~`, a junction on Windows and a symbolic link elsewhere, that `commands.worktree_setup` (`mu3-cli unity link-samples`) creates ([overview.md](../wiki/overview.md)).
+- The development-project view of a sample: `UnityProject_*/Assets/Mu3LibrarySamples*` is a Git-ignored link to `Samples~`, a junction on Windows and a symbolic link elsewhere, that `commands.worktree_setup` (`mu3-samples link`) creates ([overview.md](../wiki/overview.md)).
 
 ## Does Not Own
 - Reusable package runtime behavior a sample exposes → `game-runtime-engineer`

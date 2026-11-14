@@ -9,23 +9,22 @@ from unittest import mock
 from typer.testing import CliRunner
 
 from fixture_repository import FixtureRepositoryTestCase
-from mu3_cli import repository
-from mu3_cli.cli import app
-from mu3_cli.repository import (
+from mu3_common import checkout
+from mu3_common.checkout import outside_checkout_refusal, repo_root
+from mu3_repo.cli import app
+from mu3_repo.hygiene import (
     STALE_AGENT_REFERENCE_PARTS,
     agentkit_cli_path,
     is_generated_tool_artifact,
-    outside_checkout_refusal,
     package_code_issues,
     package_code_paths,
-    repo_root,
     repository_hygiene_issues,
     repository_text_paths,
     tracked_tool_paths,
 )
-from mu3_cli.unity import create_directory_link, remove_directory_link
+from mu3_samples.cli import create_directory_link, remove_directory_link
 
-MODULE_PATH = Path("tools", "cli", "src", "mu3_cli", "repository.py")
+MODULE_PATH = Path("tools", "cli", "src", "mu3_common", "checkout.py")
 
 
 class RepositoryHygieneTests(unittest.TestCase):
@@ -34,14 +33,14 @@ class RepositoryHygieneTests(unittest.TestCase):
 
     def test_generated_tool_artifacts_are_detected(self) -> None:
         self.assertTrue(is_generated_tool_artifact("tools/cli/build/obj/generated.json"))
-        self.assertTrue(is_generated_tool_artifact("tools/cli/src/mu3_cli.egg-info/PKG-INFO"))
-        self.assertFalse(is_generated_tool_artifact("tools/cli/src/mu3_cli/repository.py"))
+        self.assertTrue(is_generated_tool_artifact("tools/cli/src/mu3_tools.egg-info/PKG-INFO"))
+        self.assertFalse(is_generated_tool_artifact("tools/cli/src/mu3_repo/hygiene.py"))
 
     def test_agentkit_is_installed(self) -> None:
         self.assertTrue(agentkit_cli_path(repo_root()).is_file())
 
     def test_repo_info_lists_every_mapped_package(self) -> None:
-        result = CliRunner().invoke(app, ["repo", "info"])
+        result = CliRunner().invoke(app, ["info"])
 
         self.assertEqual(0, result.exit_code, result.output)
         package_lines = [line for line in result.output.splitlines() if line.startswith("Package (")]
@@ -250,24 +249,24 @@ class RepositoryRootSpellingTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.temporary = Path(directory.name)
-        self.real_root = Path(repository.__file__).resolve().parents[len(MODULE_PATH.parts) - 1]
+        self.real_root = Path(checkout.__file__).resolve().parents[len(MODULE_PATH.parts) - 1]
         self.short_root = self.temporary / "short"
         create_directory_link(self.short_root, self.real_root)
         # Remove the link before the temporary folder goes, so cleanup never walks through it.
         self.addCleanup(remove_directory_link, self.short_root)
 
     def root_for(self, module_root: Path, working_directory: Path) -> Path:
-        with mock.patch.object(repository, "__file__", str(module_root / MODULE_PATH)), mock.patch.object(
+        with mock.patch.object(checkout, "__file__", str(module_root / MODULE_PATH)), mock.patch.object(
             Path, "cwd", return_value=working_directory
         ):
             return repo_root()
 
     def test_root_keeps_the_short_path_the_module_was_imported_from(self) -> None:
-        # PYTHONPATH=tools/cli/src python -m mu3_cli, run from the short path.
+        # PYTHONPATH=tools/cli/src python -m <tool>, such as mu3_unity, run from the short path.
         self.assertEqual(self.short_root, self.root_for(self.short_root, self.temporary))
 
     def test_working_directory_in_the_same_checkout_supplies_its_short_path(self) -> None:
-        # An installed mu3-cli keeps the long path it was installed from, but runs from the short path.
+        # An installed tool keeps the long path it was installed from, but runs from the short path.
         working_directory = self.short_root / "UnityProject_BuiltIn"
 
         self.assertEqual(self.short_root, self.root_for(self.real_root, working_directory))
@@ -280,14 +279,14 @@ class RepositoryRootSpellingTests(unittest.TestCase):
         self.assertEqual(self.short_root, self.root_for(self.short_root, other))
 
     def test_deleted_working_directory_leaves_the_module_spelling(self) -> None:
-        with mock.patch.object(repository, "__file__", str(self.short_root / MODULE_PATH)), mock.patch.object(
+        with mock.patch.object(checkout, "__file__", str(self.short_root / MODULE_PATH)), mock.patch.object(
             Path, "cwd", side_effect=FileNotFoundError("deleted")
         ):
             self.assertEqual(self.short_root, repo_root())
 
 
 class OutsideCheckoutRefusalTests(unittest.TestCase):
-    """An installed mu3-cli acts on the checkout it was installed from wherever it runs, so the
+    """An installed tool acts on the checkout it was installed from wherever it runs, so the
     commands that change files there refuse a working directory outside that checkout (#416)."""
 
     def setUp(self) -> None:
@@ -309,7 +308,7 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
     @staticmethod
     def refusal(root: Path, working_directory: Path) -> str | None:
         with mock.patch.object(Path, "cwd", return_value=working_directory):
-            return outside_checkout_refusal(root, "unity link-samples")
+            return outside_checkout_refusal(root, "mu3_samples", "link")
 
     def test_working_directory_inside_the_checkout_is_accepted(self) -> None:
         for working_directory in (self.main, self.main / "UnityProject_BuiltIn"):
@@ -329,10 +328,10 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
         working_directory = self.other / "UnityProject_BuiltIn"
 
         self.assertEqual(
-            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"mu3-samples link would change the checkout at {self.main}, but the working directory "
             f"{working_directory} is outside it, in the checkout at {self.other}, so nothing was changed. "
             f"Run it from inside {self.main}, or, to change the checkout at {self.other}, run "
-            "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples from that checkout's root.",
+            "PYTHONPATH=tools/cli/src python -m mu3_samples link from that checkout's root.",
             self.refusal(self.main, working_directory),
         )
 
@@ -349,7 +348,7 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
 
     def test_folder_in_no_checkout_is_refused_without_naming_another(self) -> None:
         self.assertEqual(
-            f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working directory "
+            f"mu3-samples link would change the checkout at {self.main}, but the working directory "
             f"{self.temporary} is outside it and in no checkout, so nothing was changed. "
             "Run it from inside that checkout.",
             self.refusal(self.main, self.temporary),
@@ -364,7 +363,7 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
             for working_directory in (left_behind, left_behind / "UnityProject_BuiltIn"):
                 with self.subTest(working_directory=working_directory):
                     self.assertEqual(
-                        f"mu3-cli unity link-samples would change the checkout at {self.main}, but the working "
+                        f"mu3-samples link would change the checkout at {self.main}, but the working "
                         f"directory {working_directory} is in {left_behind}, which is in that checkout's worktree "
                         f"folder {worktree_folder} but is no checkout of its own, such as a folder that a failed "
                         "git worktree remove left behind, so nothing was changed. To remove that folder's links, "
@@ -447,11 +446,11 @@ class OutsideCheckoutRefusalTests(unittest.TestCase):
 
     def test_unreadable_working_directory_is_refused(self) -> None:
         with mock.patch.object(Path, "cwd", side_effect=FileNotFoundError(2, "deleted")):
-            refusal = outside_checkout_refusal(self.main, "unity unlink-samples")
+            refusal = outside_checkout_refusal(self.main, "mu3_samples", "unlink")
 
         self.assertTrue(
             refusal.startswith(
-                f"mu3-cli unity unlink-samples would change the checkout at {self.main}, "
+                f"mu3-samples unlink would change the checkout at {self.main}, "
                 "but the working directory cannot be read ("
             ),
             refusal,

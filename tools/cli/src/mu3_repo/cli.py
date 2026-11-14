@@ -2,29 +2,15 @@ from __future__ import annotations
 
 import typer
 
-from mu3_cli.repository import (
-    agentkit_cli_path,
-    repo_root,
-    repository_hygiene_issues,
-    run_agentkit_check,
-)
-from mu3_cli.strip_harness import unity_di_strip_harness
-from mu3_cli.unity import load_target_specs, unity_app
+from mu3_common.checkout import repo_root
+from mu3_common.editor import load_target_specs
+from mu3_repo.hygiene import agentkit_cli_path, repository_hygiene_issues, run_agentkit_check
 
 
-app = typer.Typer(
-    add_completion=False,
-    no_args_is_help=True,
-    help="Auxiliary repository CLI for Mu3Library tooling and Unity automation workflows.",
-)
-repo_app = typer.Typer(no_args_is_help=True, help="Repository discovery commands.")
-app.add_typer(repo_app, name="repo")
-app.add_typer(unity_app, name="unity")
-# The harness module imports the unity module, so it registers its command here rather than there.
-unity_app.command("di-strip-harness")(unity_di_strip_harness)
+app = typer.Typer(add_completion=False, no_args_is_help=True, help="Repository discovery commands.")
 
 
-@repo_app.command("info")
+@app.command("info")
 def repo_info() -> None:
     """Print key repository roots and agent document locations."""
     root = repo_root()
@@ -43,7 +29,7 @@ def repo_info() -> None:
     typer.echo(f"CLI tooling: {root / 'tools' / 'cli'}")
 
 
-@repo_app.command("check")
+@app.command("check")
 def repo_check() -> None:
     """Validate repository hygiene, then run the agentkit check on the agent docs."""
     issues = repository_hygiene_issues()

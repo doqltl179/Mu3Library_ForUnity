@@ -23,9 +23,8 @@ from typing import Callable, Iterator, Sequence
 
 import typer
 
-from mu3_cli.repository import repo_root
-from mu3_cli.unity import (
-    echo_repository_root,
+from mu3_common.checkout import echo_repository_root, repo_root
+from mu3_common.editor import (
     editor_bundled_versions,
     editor_package_manager_dir,
     is_hub_editor_for,
@@ -57,7 +56,7 @@ LONG_PROJECT_PATH = 100
 # The file that marks a --work-dir as the harness's own. The harness writes it into a new or empty
 # folder and changes or deletes files only in a folder that has it.
 WORK_DIR_MARKER = ".mu3-di-strip-harness"
-WORK_DIR_MARKER_TEXT = "mu3-cli unity di-strip-harness made this folder and may change or delete any file in it.\n"
+WORK_DIR_MARKER_TEXT = "mu3-di-strip-harness made this folder and may change or delete any file in it.\n"
 # A full Unity release, as compile-unity.sh --editor-version accepts it; it names a Unity Hub folder.
 EDITOR_VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?")
 
@@ -586,7 +585,11 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
     return 0
 
 
-def unity_di_strip_harness(
+app = typer.Typer(add_completion=False)
+
+
+@app.command()
+def di_strip_harness(
     stripping: str = typer.Option("High", "--stripping", help="Managed Stripping Level: " + ", ".join(STRIPPING_LEVELS) + "."),
     backend: str = typer.Option("mono", "--backend", help="Scripting backend: mono or il2cpp."),
     with_unitask: bool = typer.Option(

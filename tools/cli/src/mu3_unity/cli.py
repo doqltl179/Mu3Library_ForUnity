@@ -3,35 +3,25 @@ from __future__ import annotations
 import json
 import os
 import platform
-import re
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Mapping
+from typing import Callable
 
 import typer
 
-from mu3_cli.repository import outside_checkout_refusal, repo_root
+from mu3_common.bash import BashNotFoundError, bash_script_command, find_bash
+from mu3_common.checkout import echo_repository_root, repo_root
+from mu3_common.editor import UnityTargetSpec, load_target_specs, project_editor_version, resolve_editor_path
+from mu3_common.sample_links import LINK_SAMPLES_COMMAND, sample_link_state
 
 
-unity_app = typer.Typer(no_args_is_help=True, help="Unity Editor diagnostics and batchmode orchestration.")
-
-TARGET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-RESERVED_TARGETS = {"all", "changed"}
-
-
-@dataclass(frozen=True)
-class UnityTargetSpec:
-    key: str
-    package_path: Path
-    project_path: Path
-    # Where the project links to the package's Samples~ folder, relative to the project.
-    samples_link: Path | None = None
-
-    @property
-    def samples_path(self) -> Path:
-        return self.package_path / "Samples~"
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Unity Editor diagnostics and batchmode orchestration.",
+)
 
 
 @dataclass(frozen=True)
@@ -43,228 +33,12 @@ class UnityDiagnostic:
     suggestion: str | None = None
 
 
-def package_config_path(root: Path) -> Path:
-    return root / "unity-cli-packages.tsv"
-
-
 def compile_script_path(root: Path) -> Path:
     return root / "compile-unity.sh"
 
 
 def test_script_path(root: Path) -> Path:
     return root / "test-unity.sh"
-
-
-def _safe_relative_path(value: str, line_number: int) -> Path:
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError(f"Mapping paths must remain inside the repository at line {line_number}: {value}")
-    return path
-
-
-def load_target_specs(root: Path | None = None) -> dict[str, UnityTargetSpec]:
-    root = root or repo_root()
-    config_path = package_config_path(root)
-    if not config_path.is_file():
-        raise ValueError(f"Unity package mapping not found: {config_path}")
-
-    specs: dict[str, UnityTargetSpec] = {}
-    for line_number, raw_line in enumerate(config_path.read_text(encoding="utf-8-sig").splitlines(), start=1):
-        if not raw_line or raw_line.startswith("#"):
-            continue
-
-        # The fourth column, the samples link, is optional.
-        columns = raw_line.split("\t")
-        if len(columns) not in (3, 4) or not all(columns[:3]):
-            raise ValueError(f"Invalid Unity package mapping at {config_path}:{line_number}")
-
-        key, package_value, project_value = columns[:3]
-        samples_value = columns[3] if len(columns) == 4 else ""
-        if not TARGET_PATTERN.fullmatch(key) or key in RESERVED_TARGETS:
-            raise ValueError(f"Invalid or reserved Unity target '{key}' at {config_path}:{line_number}")
-        if key in specs:
-            raise ValueError(f"Duplicate Unity target '{key}' at {config_path}:{line_number}")
-
-        specs[key] = UnityTargetSpec(
-            key=key,
-            package_path=_safe_relative_path(package_value, line_number),
-            project_path=_safe_relative_path(project_value, line_number),
-            samples_link=_safe_relative_path(samples_value, line_number) if samples_value else None,
-        )
-
-    if not specs:
-        raise ValueError(f"No Unity package mappings found in {config_path}")
-    return specs
-
-
-def project_editor_version(spec: UnityTargetSpec, root: Path) -> str | None:
-    version_file = root / spec.project_path / "ProjectSettings" / "ProjectVersion.txt"
-    if not version_file.is_file():
-        return None
-
-    for line in version_file.read_text(encoding="utf-8-sig").splitlines():
-        if line.startswith("m_EditorVersion: "):
-            return line.removeprefix("m_EditorVersion: ").strip()
-    return None
-
-
-def _override_editor_path() -> Path | None:
-    value = os.environ.get("UNITY_EDITOR") or os.environ.get("UNITY")
-    if not value:
-        return None
-
-    path = Path(value).expanduser()
-    if path.suffix == ".app":
-        return path / "Contents" / "MacOS" / "Unity"
-    return path
-
-
-def default_editor_path(version: str) -> Path:
-    editor_root = os.environ.get("UNITY_HUB_EDITOR_ROOT")
-    if editor_root:
-        root = Path(editor_root).expanduser() / version
-    elif platform.system() == "Darwin":
-        root = Path("/Applications/Unity/Hub/Editor") / version
-    elif platform.system() == "Windows":
-        root = Path(os.environ.get("PROGRAMFILES", "C:/Program Files")) / "Unity" / "Hub" / "Editor" / version
-    else:
-        root = Path.home() / "Unity" / "Hub" / "Editor" / version
-
-    if platform.system() == "Darwin":
-        return root / "Unity.app" / "Contents" / "MacOS" / "Unity"
-    return root / "Editor" / "Unity.exe" if platform.system() == "Windows" else root / "Editor" / "Unity"
-
-
-def resolve_editor_path(version: str) -> tuple[Path, bool]:
-    override = _override_editor_path()
-    if override is not None:
-        return override, True
-    return default_editor_path(version), False
-
-
-def is_hub_editor_for(editor_path: Path, version: str) -> bool:
-    """Whether a Unity executable sits where Unity Hub installs that Editor version.
-
-    compile-unity.sh's hub_editor_suffix makes the same test to warn when UNITY_EDITOR or UNITY
-    overrides the Editor a project or --editor-version asks for with another one.
-    """
-    if platform.system() == "Darwin":
-        suffix: tuple[str, ...] = ("Editor", version, "Unity.app", "Contents", "MacOS", "Unity")
-    else:
-        suffix = ("Editor", version, "Editor", "Unity.exe" if platform.system() == "Windows" else "Unity")
-    tail = editor_path.parts[-len(suffix):]
-    return [os.path.normcase(part) for part in tail] == [os.path.normcase(part) for part in suffix]
-
-
-class BashNotFoundError(ValueError):
-    """No bash that can run the repository's shell entry points was found."""
-
-    def __init__(self, detail: str, suggestion: str) -> None:
-        super().__init__(f"{detail} {suggestion}")
-        self.detail = detail
-        self.suggestion = suggestion
-
-
-# The Windows system directories hold bash.exe only as the launcher of WSL, which runs the
-# script inside a Linux distribution that cannot reach the Windows Unity Editor.
-_WINDOWS_SYSTEM_DIRECTORIES = {"system32", "syswow64", "sysnative"}
-# Folders inside a Git for Windows installation that hold a git.exe.
-_GIT_FOR_WINDOWS_TOOL_DIRECTORIES = {"mingw64", "mingw32", "clangarm64", "usr"}
-
-
-def _is_wsl_launcher(path: Path, environ: Mapping[str, str]) -> bool:
-    if "windowsapps" in (part.lower() for part in path.parts):
-        return True
-    system_root = environ.get("SystemRoot") or environ.get("SYSTEMROOT") or environ.get("windir") or r"C:\Windows"
-    return path.parent.name.lower() in _WINDOWS_SYSTEM_DIRECTORIES and os.path.normcase(
-        str(path.parent.parent)
-    ) == os.path.normcase(str(Path(system_root)))
-
-
-def git_for_windows_bash(git_path: Path) -> Path:
-    """Return where Git for Windows keeps bash.exe, given the git.exe it put on PATH.
-
-    The installer puts <Git>\\cmd (and sometimes <Git>\\mingw64\\bin) on PATH but not <Git>\\bin.
-    <Git>\\bin\\bash.exe also adds Git's Unix tools to PATH before it starts, which the scripts need.
-    """
-    tool_directory = git_path.parent
-    if tool_directory.name.lower() == "bin" and tool_directory.parent.name.lower() in _GIT_FOR_WINDOWS_TOOL_DIRECTORIES:
-        install_root = tool_directory.parent.parent
-    else:
-        install_root = tool_directory.parent
-    return install_root / "bin" / "bash.exe"
-
-
-def _default_git_for_windows_roots(environ: Mapping[str, str]) -> list[Path]:
-    roots = [
-        Path(environ[name]) / "Git"
-        for name in ("ProgramW6432", "ProgramFiles", "ProgramFiles(x86)")
-        if environ.get(name)
-    ]
-    if environ.get("LOCALAPPDATA"):
-        roots.append(Path(environ["LOCALAPPDATA"]) / "Programs" / "Git")
-    return roots
-
-
-def find_windows_bash(
-    which: Callable[[str], str | None] = shutil.which,
-    environ: Mapping[str, str] = os.environ,
-) -> Path:
-    """Find the bash of Git for Windows: on PATH, next to git, or in a default install location."""
-    skipped_launcher: Path | None = None
-    on_path = which("bash")
-    if on_path:
-        candidate = Path(on_path)
-        if not _is_wsl_launcher(candidate, environ):
-            return candidate
-        skipped_launcher = candidate
-
-    git_path = which("git")
-    if git_path:
-        candidate = git_for_windows_bash(Path(git_path))
-        if candidate.is_file():
-            return candidate
-
-    for install_root in _default_git_for_windows_roots(environ):
-        candidate = install_root / "bin" / "bash.exe"
-        if candidate.is_file():
-            return candidate
-
-    detail = ["Git for Windows bash was not found; the Unity entry points need it on Windows."]
-    if skipped_launcher is not None:
-        detail.append(f"The bash on PATH ({skipped_launcher}) starts WSL, not Git Bash, so it was skipped.")
-    if git_path:
-        detail.append(f"No bash.exe was found next to {git_path} or in the default install locations.")
-    else:
-        detail.append("git is not on PATH either, and no default install location holds bash.exe.")
-    raise BashNotFoundError(
-        " ".join(detail),
-        "Install Git for Windows (https://git-scm.com/download/win), or add the folder that holds its "
-        "bash.exe, usually C:\\Program Files\\Git\\bin, to PATH.",
-    )
-
-
-def find_bash(
-    which: Callable[[str], str | None] = shutil.which,
-    environ: Mapping[str, str] = os.environ,
-    system: str | None = None,
-) -> Path:
-    """Find the bash that runs compile-unity.sh and test-unity.sh on this host."""
-    if (system or platform.system()) == "Windows":
-        return find_windows_bash(which, environ)
-
-    on_path = which("bash")
-    if not on_path:
-        raise BashNotFoundError("bash was not found on PATH.", "Install bash and put it on PATH.")
-    return Path(on_path)
-
-
-def bash_script_command(script_path: Path, arguments: list[str]) -> list[str]:
-    # Windows cannot execute a shell script directly, so bash has to carry it.
-    if platform.system() == "Windows":
-        return [str(find_windows_bash()), str(script_path), *arguments]
-
-    return [str(script_path), *arguments]
 
 
 def installed_playback_engines(editor_path: Path) -> list[str]:
@@ -289,63 +63,6 @@ def installed_playback_engines(editor_path: Path) -> list[str]:
         if candidate.is_dir():
             engines.update(path.name for path in candidate.iterdir() if path.is_dir())
     return sorted(engines)
-
-
-def editor_package_manager_dir(editor_path: Path) -> Path | None:
-    """The folder in which an Editor keeps the packages it bundles, or None when it has none.
-
-    It lies beside the executable in Data/ on Windows and Linux, and in Contents/Resources of
-    Unity.app on macOS, as compile-unity.sh's editor_package_manager_dir looks for it.
-    """
-    for candidate in (
-        editor_path.parent / "Data" / "Resources" / "PackageManager",
-        editor_path.parent.parent / "Resources" / "PackageManager",
-    ):
-        if (candidate / "BuiltInPackages").is_dir():
-            return candidate
-    return None
-
-
-def _json_version(value: object) -> str | None:
-    return value if isinstance(value, str) and value else None
-
-
-def _read_json_object(path: Path) -> dict:
-    """A JSON file that holds an object; anything else raises ValueError naming the file."""
-    try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
-    except json.JSONDecodeError as error:
-        raise ValueError(f"{path} is not valid JSON: {error}") from error
-    if not isinstance(data, dict):
-        raise ValueError(f"{path} does not hold a JSON object")
-    return data
-
-
-def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[str]) -> dict[str, str]:
-    """The version an Editor bundles of each named package it bundles.
-
-    The rule is compile-unity.sh's editor_bundled_version, which retargets its --editor-version
-    mirrors: the version the Editor's package manifest recommends, or else the version of the
-    package's built-in copy. A package with neither is left out. A file of a shape other than
-    the Editor writes raises ValueError naming it.
-    """
-    manifest_file = package_manager_dir / "Editor" / "manifest.json"
-    recommended: dict = {}
-    if manifest_file.is_file():
-        recommended = _read_json_object(manifest_file).get("packages", {})
-        if not isinstance(recommended, dict):
-            raise ValueError(f"{manifest_file} is malformed: packages is not a JSON object")
-
-    versions: dict[str, str] = {}
-    for name in package_names:
-        entry = recommended.get(name)
-        version = _json_version(entry.get("version")) if isinstance(entry, dict) else None
-        built_in_copy = package_manager_dir / "BuiltInPackages" / name / "package.json"
-        if version is None and built_in_copy.is_file():
-            version = _json_version(_read_json_object(built_in_copy).get("version"))
-        if version is not None:
-            versions[name] = version
-    return versions
 
 
 _WINDOWS_GENERIC_READ = 0x80000000
@@ -472,189 +189,6 @@ def project_lock_diagnostic(
     return _diagnostic("PASS", spec.key, "Project lock", "Project is not locked.")
 
 
-_WINDOWS_REPARSE_TAG_MOUNT_POINT = 0xA0000003
-LINK_SAMPLES_COMMAND = "PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
-
-
-def is_directory_link(path: Path) -> bool:
-    """Whether path is a symbolic link or, on Windows, a directory junction, even a dangling one."""
-    if path.is_symlink():
-        return True
-    try:
-        status = os.lstat(path)
-    except OSError:
-        return False
-    return getattr(status, "st_reparse_tag", 0) == _WINDOWS_REPARSE_TAG_MOUNT_POINT
-
-
-def _link_destination(path: Path) -> str:
-    try:
-        destination = os.readlink(path)
-    except OSError:
-        return "an unreadable destination"
-    return destination.removeprefix("\\\\?\\")
-
-
-@dataclass(frozen=True)
-class SampleLinkState:
-    """linked, missing, misdirected (a link elsewhere or to nothing), blocked (a real folder or file), or no-samples."""
-
-    state: str
-    detail: str
-
-
-def sample_link_state(spec: UnityTargetSpec, root: Path) -> SampleLinkState | None:
-    """Unity skips folders whose name ends in ~, so a project compiles a package's samples only
-    through a link from its Assets folder to Samples~. Returns None for a target without one."""
-    if spec.samples_link is None:
-        return None
-
-    link_label = (spec.project_path / spec.samples_link).as_posix()
-    samples_label = spec.samples_path.as_posix()
-    link_path = root / spec.project_path / spec.samples_link
-    samples_path = root / spec.samples_path
-
-    if not samples_path.is_dir():
-        return SampleLinkState("no-samples", f"{samples_label} does not exist.")
-    if is_directory_link(link_path):
-        if link_path.exists() and os.path.samefile(link_path, samples_path):
-            return SampleLinkState("linked", f"{link_label} links to {samples_label}.")
-        return SampleLinkState(
-            "misdirected", f"{link_label} links to {_link_destination(link_path)} instead of {samples_label}."
-        )
-    if link_path.exists():
-        kind = "folder" if link_path.is_dir() else "file"
-        return SampleLinkState("blocked", f"{link_label} is a real {kind}, not a link to {samples_label}.")
-    return SampleLinkState(
-        "missing", f"{link_label} is missing, so the project does not compile the samples in {samples_label}."
-    )
-
-
-def create_directory_link(link_path: Path, target: Path) -> None:
-    """Link link_path to the target folder.
-
-    Windows gets a junction, which needs neither administrator rights nor Developer Mode and
-    takes an absolute target. Elsewhere a relative symbolic link keeps working after the
-    checkout moves.
-    """
-    if platform.system() == "Windows":
-        completed = subprocess.run(
-            ["cmd", "/d", "/c", "mklink", "/J", str(link_path), str(target)],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            check=False,
-        )
-        if completed.returncode != 0:
-            raise OSError(f"mklink /J failed: {(completed.stderr or completed.stdout).strip()}")
-        return
-
-    os.symlink(os.path.relpath(target, link_path.parent), link_path, target_is_directory=True)
-
-
-def remove_directory_link(link_path: Path) -> None:
-    """Remove the link itself; neither call follows it into the folder it points at."""
-    if platform.system() == "Windows":
-        os.rmdir(link_path)
-    else:
-        os.unlink(link_path)
-
-
-@dataclass(frozen=True)
-class SampleLinkResult:
-    target: str
-    ok: bool
-    message: str
-
-
-def link_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[SampleLinkResult]:
-    """Create each target's samples link, leave a correct one alone, and replace a link that
-    points elsewhere. A real folder or file in the link's place is never touched."""
-    results: list[SampleLinkResult] = []
-    for spec in specs.values():
-        current = sample_link_state(spec, root)
-        if current is None:
-            continue
-
-        link_path = root / spec.project_path / spec.samples_link
-        # A junction stores its target as given, so it must not keep a subst drive or a relative path.
-        samples_path = (root / spec.samples_path).resolve()
-        link_label = (spec.project_path / spec.samples_link).as_posix()
-        samples_label = spec.samples_path.as_posix()
-
-        if current.state == "linked":
-            results.append(SampleLinkResult(spec.key, True, f"Already linked: {link_label} -> {samples_label}."))
-            continue
-        if current.state in ("blocked", "no-samples"):
-            suggestion = (
-                " Move it out of the way, then run this command again; it was left untouched."
-                if current.state == "blocked"
-                else ""
-            )
-            results.append(SampleLinkResult(spec.key, False, f"error: {current.detail}{suggestion}"))
-            continue
-        if not link_path.parent.is_dir():
-            results.append(
-                SampleLinkResult(spec.key, False, f"error: {link_path.parent.relative_to(root).as_posix()} is missing.")
-            )
-            continue
-
-        try:
-            if current.state == "misdirected":
-                remove_directory_link(link_path)
-            create_directory_link(link_path, samples_path)
-        except OSError as error:
-            results.append(SampleLinkResult(spec.key, False, f"error: could not link {link_label}: {error}"))
-            continue
-
-        verb = "Relinked" if current.state == "misdirected" else "Linked"
-        results.append(SampleLinkResult(spec.key, True, f"{verb} {link_label} -> {samples_label}."))
-    return results
-
-
-def unlink_samples(specs: dict[str, UnityTargetSpec], root: Path) -> list[SampleLinkResult]:
-    """Remove each target's samples link, whatever it points at, and nothing else.
-
-    On Windows `git worktree remove` stops at the first junction it meets and leaves the
-    worktree's folder behind, so the links go first. Only the link itself is removed, never the
-    folder it points at, and a real folder or file in the link's place is reported and left
-    untouched. A target without a link is reported as not linked, so the command can run again.
-    """
-    results: list[SampleLinkResult] = []
-    for spec in specs.values():
-        if spec.samples_link is None:
-            continue
-
-        link_path = root / spec.project_path / spec.samples_link
-        link_label = (spec.project_path / spec.samples_link).as_posix()
-
-        if is_directory_link(link_path):
-            samples_path = root / spec.samples_path
-            if link_path.exists() and samples_path.is_dir() and os.path.samefile(link_path, samples_path):
-                destination = spec.samples_path.as_posix()
-            else:
-                destination = _link_destination(link_path)
-            try:
-                remove_directory_link(link_path)
-            except OSError as error:
-                message = f"error: could not remove the link {link_label}: {error}"
-                results.append(SampleLinkResult(spec.key, False, message))
-                continue
-            results.append(SampleLinkResult(spec.key, True, f"Unlinked {link_label}, which pointed at {destination}."))
-            continue
-        if os.path.lexists(link_path):
-            # is_directory_link accepts only symbolic links and junctions, so this also covers
-            # other reparse points, such as a cloud-synced folder.
-            message = (
-                f"error: {link_label} is not a sample link (a real folder, file, or other reparse point);"
-                " it was left untouched."
-            )
-            results.append(SampleLinkResult(spec.key, False, message))
-            continue
-        results.append(SampleLinkResult(spec.key, True, f"Not linked: {link_label} does not exist."))
-    return results
-
-
 def sample_link_diagnostic(spec: UnityTargetSpec, root: Path) -> UnityDiagnostic | None:
     current = sample_link_state(spec, root)
     if current is None:
@@ -750,11 +284,11 @@ def run_unity_diagnostics(
 
     if os.access(root, os.W_OK):
         diagnostics.append(
-            _diagnostic("PASS", "global", "Log root", "Repository is writable for future log/mu3_cli run records.")
+            _diagnostic("PASS", "global", "Log root", "Repository is writable for future log/mu3_unity run records.")
         )
     else:
         diagnostics.append(
-            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for future log/mu3_cli run records.")
+            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for future log/mu3_unity run records.")
         )
 
     for spec in specs.values():
@@ -848,12 +382,6 @@ def diagnostic_summary(diagnostics: list[UnityDiagnostic]) -> dict[str, int]:
         "warn": sum(item.status == "WARN" for item in diagnostics),
         "fail": sum(item.status == "FAIL" for item in diagnostics),
     }
-
-
-def echo_repository_root(root: Path) -> None:
-    """Name the checkout a unity command acts on, which for an installed mu3-cli is the one it was
-    installed from, wherever the command runs."""
-    typer.echo(f"Repository root: {root}")
 
 
 def render_diagnostics(diagnostics: list[UnityDiagnostic], output_format: str, root: Path) -> dict[str, int]:
@@ -970,7 +498,7 @@ def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
     return subprocess.run(command, cwd=root, check=False).returncode
 
 
-@unity_app.command("doctor")
+@app.command("doctor")
 def unity_doctor(
     target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to inspect."),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
@@ -995,7 +523,7 @@ def unity_doctor(
         raise typer.Exit(code=1)
 
 
-@unity_app.command("changes")
+@app.command("changes")
 def unity_changes(
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
 ) -> None:
@@ -1012,7 +540,7 @@ def unity_changes(
         raise typer.Exit(code=return_code)
 
 
-@unity_app.command("compile")
+@app.command("compile")
 def unity_compile(
     target: str = typer.Argument("changed", help="changed, all, or a target from unity-cli-packages.tsv."),
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
@@ -1050,7 +578,7 @@ def unity_compile(
 
 
 
-@unity_app.command("test")
+@app.command("test")
 def unity_test(
     target: str = typer.Argument("changed", help="changed, all, or a target from unity-cli-packages.tsv."),
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
@@ -1105,74 +633,3 @@ def unity_test(
 
     if return_code:
         raise typer.Exit(code=return_code)
-
-
-def refuse_outside_checkout(root: Path, command: str) -> None:
-    """Stop with exit 2, before anything changes, when the working directory is outside the checkout at root."""
-    refusal = outside_checkout_refusal(root, command)
-    if refusal is not None:
-        typer.echo(f"error: {refusal}", err=True)
-        raise typer.Exit(code=2)
-
-
-@unity_app.command("link-samples")
-def unity_link_samples(
-    target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to link."),
-) -> None:
-    """Link each development project's Assets folder to its package's Samples~ folder.
-
-    A correct link is left alone, a link that points elsewhere is replaced, and a real folder
-    in the link's place stops the command without being touched.
-    """
-    root = repo_root()
-    echo_repository_root(root)
-    refuse_outside_checkout(root, "unity link-samples")
-    try:
-        specs = load_target_specs(root)
-    except ValueError as error:
-        raise typer.BadParameter(str(error)) from error
-
-    if target is not None:
-        if target not in specs:
-            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
-        specs = {target: specs[target]}
-
-    results = link_samples(specs, root)
-    for result in results:
-        typer.echo(f"[{result.target}] {result.message}", err=not result.ok)
-    if not results:
-        typer.echo("No configured target has a samples link.")
-    if not all(result.ok for result in results):
-        raise typer.Exit(code=1)
-
-
-@unity_app.command("unlink-samples")
-def unity_unlink_samples(
-    target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to unlink."),
-) -> None:
-    """Remove the samples links that link-samples created, before git worktree remove deletes a worktree.
-
-    Only each link is removed, never the Samples~ folder it points at. A real folder or file in
-    the link's place is reported and left untouched, and the command then exits with 1.
-    Run link-samples to restore the links.
-    """
-    root = repo_root()
-    echo_repository_root(root)
-    refuse_outside_checkout(root, "unity unlink-samples")
-    try:
-        specs = load_target_specs(root)
-    except ValueError as error:
-        raise typer.BadParameter(str(error)) from error
-
-    if target is not None:
-        if target not in specs:
-            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
-        specs = {target: specs[target]}
-
-    results = unlink_samples(specs, root)
-    for result in results:
-        typer.echo(f"[{result.target}] {result.message}", err=not result.ok)
-    if not results:
-        typer.echo("No configured target has a samples link.")
-    if not all(result.ok for result in results):
-        raise typer.Exit(code=1)

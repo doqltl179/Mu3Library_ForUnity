@@ -1,5 +1,5 @@
 // The precompiled assembly of the DI stripping harness (tools/README.md#di-stripping-harness).
-// mu3-cli unity di-strip-harness compiles it with the Editor's own Mono compiler into
+// mu3-di-strip-harness compiles it with the Editor's own Mono compiler into
 // Assets/Plugins/HarnessPlugin.dll of the mirror project. It references nothing but mscorlib,
 // so it knows nothing of Mu3Library.DI; Assembly-CSharp registers its classes and nothing
 // creates them with `new`.

@@ -7,7 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // The build entry of the DI stripping harness (tools/README.md#di-stripping-harness).
-// mu3-cli unity di-strip-harness runs it with -executeMethod StripHarnessBuild.BuildPlayer and
+// mu3-di-strip-harness runs it with -executeMethod StripHarnessBuild.BuildPlayer and
 // reads the HARNESS lines it logs.
 public static class StripHarnessBuild
 {

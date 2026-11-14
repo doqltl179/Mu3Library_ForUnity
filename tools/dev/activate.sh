@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Enters the repository's development environment in this bash session:
-#   - creates .venv at the repository root on first use and installs mu3-cli into it,
+#   - creates .venv at the repository root on first use and installs the repository tools
+#     (tools/cli) into it,
 #   - sets the variables in .env.local (see tools/dev/env.local.example),
 #   - activates that virtual environment.
 #
@@ -22,7 +23,7 @@ if [[ -n "${_MU3_DEV_ACTIVE:-}" ]] && declare -F deactivate >/dev/null; then
 fi
 
 _mu3_dev_enter() {
-    local _mu3_root _mu3_venv _mu3_scripts _mu3_cli _mu3_python
+    local _mu3_root _mu3_venv _mu3_scripts _mu3_tools _mu3_python
     # An empty CDPATH keeps cd from printing the folder into the result.
     _mu3_root="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)" || return 1
     _mu3_venv="$_mu3_root/.venv"
@@ -34,15 +35,15 @@ _mu3_dev_enter() {
 
     # --- Virtual environment --------------------------------------------------------------
     if [[ ! -f "$_mu3_scripts/activate" ]]; then
-        printf '[mu3] Creating %s and installing mu3-cli...\n' "$_mu3_venv"
-        _mu3_cli="$_mu3_root/tools/cli"
+        printf '[mu3] Creating %s and installing the repository tools...\n' "$_mu3_venv"
+        _mu3_tools="$_mu3_root/tools/cli"
         _mu3_python="$(command -v python || command -v python3)"
         if command -v uv >/dev/null 2>&1; then
             uv venv "$_mu3_venv" --prompt mu3 --quiet \
-                && uv pip install --python "$_mu3_venv" --quiet -e "$_mu3_cli"
+                && uv pip install --python "$_mu3_venv" --quiet -e "$_mu3_tools"
         elif [[ -n "$_mu3_python" ]]; then
             "$_mu3_python" -m venv "$_mu3_venv" --prompt mu3 \
-                && "$_mu3_scripts/python" -m pip install --quiet -e "$_mu3_cli"
+                && "$_mu3_scripts/python" -m pip install --quiet -e "$_mu3_tools"
         else
             printf '[mu3] Neither uv nor Python was found; install one of them and try again.\n' >&2
             return 1
