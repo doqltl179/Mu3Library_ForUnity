@@ -24,6 +24,9 @@ protected_branches = ["develop", "main"]      # Never commit directly; changes a
 issue_first = true              # Every work unit starts from an issue on the hosting platform (ignored when hosting.platform is "none").
 worktrees = true                # Every work unit runs in its own Git worktree cut from integration_branch. false: only a unit that runs alone works in the main checkout.
 worktree_root = ".worktrees"    # Directory holding the worktrees, relative to the project root; kept out of Git by .gitignore.
+work_root = ""                  # Root of the folders units make outside their checkout, as <work_root>/<project.name>/<unit> (git-workflow.md «Work Folders»):
+                                # an absolute path, or one starting with "~" for the user's home, that every machine running the agents can use.
+                                # Empty: ask the user before making one.
 max_parallel_units = 0          # Upper limit on units running at the same time on this machine; 0 means decide with `agentkit.py capacity`.
 branch_pattern = "<type>/<scope>-<summary>"   # Task branch name; <type> is a Conventional Commits type.
 commit_convention = "conventional"            # "conventional" (Conventional Commits) or "none".

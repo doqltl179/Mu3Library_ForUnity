@@ -97,5 +97,5 @@ Asked for several ideas, set one problem per idea or compare different ideas for
 
 ## Boundaries
 
-- Judging an idea changes no code, generated content, or checked-in units. Run a tool that rewrites tracked output only in a disposable copy outside the checkout.
+- Judging an idea changes no code, generated content, or checked-in units. Run a tool that rewrites tracked output only in a disposable copy in a work folder outside the checkout, per «Work Folders» in [git-workflow.md](git-workflow.md).
 - Device, deployment, and other long-running runs follow «Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md).

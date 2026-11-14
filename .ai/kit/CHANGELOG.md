@@ -4,6 +4,15 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
+### Added
+- Profile key `policy.work_root` and «Work Folders» in `git-workflow.md`: a folder a unit makes for its own run and throws away afterward, such as an engine mirror, a disposable copy of the project, or a tool's output, stays in an already ignored folder inside the unit's worktree when the work can run there, and otherwise goes to `<policy.work_root>/<project.name>/<unit>`, where `<unit>` is the task branch with slashes as dashes. Never directly in a drive root, the home folder, or the system temp folder. With the key empty, the agent asks the user for a root before making one and proposes setting the key as its own change instead of editing the profile within the unit; a relative root, or a path that already exists and the unit did not make, also stops it to ask. The unit names its work folders by absolute path in its pull request body («Pull Request Body» in `issues-and-prs.md`). `git-worktree-cleanup` deletes them after the merge, from the profile path and from the folders the body names whose last segment is `<unit>`, writes each path so that it ends with the folder's own name, since with anything after the name a link check reads the link's target, and with a trailing `/` or `\` `rm -rf` then deletes that target's contents, stops and asks when a folder is a link or junction, or holds one and no POSIX shell is available, and reports any other folder the unit made outside its checkout instead of deleting it. Work with no task branch, such as judging an idea, names its folder after the task and deletes it before its report; «Boundaries» in `idea-evaluation.md` links the rule for its disposable copy. Before, the kit named no place for such folders, so agents picked paths such as a drive root whose names did not show which unit made them, and nothing deleted them after the merge. The key is empty by default. (minor)
+
+### Migration
+1. If `.ai/project/` holds guidance on where units put folders outside their checkout, such as a short-path example at a drive root, ask the user which root that guidance means and set `policy.work_root` to it in `.ai/project/profile.toml`; work folders go to `<work_root>/<project.name>/<unit>` beneath it.
+2. Delete that guidance from `.ai/project/`, keeping the other project facts in the same file, such as a path-length limit: «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns the rule.
+
 ## [0.8.0] - 2026-11-14
 
 ### Changed
