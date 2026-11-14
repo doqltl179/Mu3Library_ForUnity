@@ -7,14 +7,16 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Mu3Library.Tests
 {
     /// <summary>
-    /// The refusals of <see cref="CountedRepeatAttribute"/> before its first run. The fixtures it wraps
-    /// here carry no test attribute, so the run loads none of them, and a refusal logs no line, so
-    /// test-unity.sh's summary reports no counted repeat for them.
+    /// The refusals of <see cref="CountedRepeatAttribute"/> before its first run, and the runs of a
+    /// test it accepts. The fixtures it wraps here carry no test attribute, so the run loads none of
+    /// them. A refusal logs no line, and the runs give their lines to a list instead of Unity's log,
+    /// so test-unity.sh's summary reports no counted repeat for them.
     /// </summary>
     public class CountedRepeatAttributeTests
     {
@@ -98,6 +100,74 @@ namespace Mu3Library.Tests
             Assert.That(result.ResultState, Is.EqualTo(ResultState.NotRunnable));
             Assert.That(result.Message, Is.EqualTo($"[CountedRepeat] calls [SetUp] and [TearDown] in each run, but the framework calls the IOuterUnityTestAction attributes of {target.FullName} once around all the runs."));
             Assert.That(Calls, Is.Empty);
+        }
+
+        [Test]
+        public void RunsAnExplicitTest_InEveryRun_AndLogsToTheGivenTarget()
+        {
+            AssertRunsEveryRun(BuildExplicit(typeof(PlainShape)));
+        }
+
+        [Test]
+        public void RunsATestUnderAnExplicitSuite_InEveryRun_AndLogsToTheGivenTarget()
+        {
+            TestMethod target = BuildExplicit(typeof(PlainShape));
+            // As the run builds a [Test] without [Explicit] in a fixture with [Explicit], which makes
+            // only the fixture explicit.
+            target.RunState = RunState.Runnable;
+            ((Test)target.Parent).RunState = RunState.Explicit;
+
+            AssertRunsEveryRun(target);
+        }
+
+        // Wraps the command with a list as the log target and runs it three times, the number that
+        // the run takes from MU3LIBRARY_TEST_REPEAT, which is set only around the call. No line may
+        // reach Unity's log, where test-unity.sh's summary would report a counted repeat.
+        private static void AssertRunsEveryRun(TestMethod target)
+        {
+            List<string> lines = new List<string>();
+            List<string> unityLines = new List<string>();
+            Application.LogCallback recordRepeatLines = (message, stackTrace, type) =>
+            {
+                if (message.StartsWith(CountedRepeatAttribute.LinePrefix, StringComparison.Ordinal))
+                {
+                    unityLines.Add(message);
+                }
+            };
+            TestExecutionContext context = new TestExecutionContext
+            {
+                CurrentTest = target,
+                CurrentResult = target.MakeTestResult(),
+            };
+
+            TestResult result;
+            string runsBefore = Environment.GetEnvironmentVariable(CountedRepeatAttribute.RunsVariable);
+            Environment.SetEnvironmentVariable(CountedRepeatAttribute.RunsVariable, "3");
+            Application.logMessageReceived += recordRepeatLines;
+            try
+            {
+                result = new CountedRepeatAttribute().Wrap(new RecordsTheRun(target), lines.Add).Execute(context);
+            }
+            finally
+            {
+                Application.logMessageReceived -= recordRepeatLines;
+                Environment.SetEnvironmentVariable(CountedRepeatAttribute.RunsVariable, runsBefore);
+            }
+
+            string name = target.FullName;
+            string totals = "runs 3 of 3, passed 3, failed 0, inconclusive 0, skipped 0, failure rate 0.00%";
+            Assert.That(result.ResultState, Is.EqualTo(ResultState.Success));
+            Assert.That(result.Message, Is.EqualTo(totals));
+            Assert.That(Calls, Is.EqualTo(new[] { "run", "run", "run" }));
+            Assert.That(lines, Has.Count.EqualTo(5));
+            Assert.That(lines[0], Is.EqualTo($"{name}: start, runs 3 ({CountedRepeatAttribute.RunsVariable}=3)"));
+            for (int run = 1; run <= 3; run++)
+            {
+                Assert.That(lines[run], Does.StartWith($"{name}: run {run} of 3: Passed in "));
+            }
+
+            Assert.That(lines[4], Is.EqualTo($"{name}: totals: {totals}"));
+            Assert.That(unityLines, Is.Empty);
         }
 
         private static TestResult ExecuteWrapped(TestMethod target)
