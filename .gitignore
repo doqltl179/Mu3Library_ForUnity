@@ -106,6 +106,10 @@ tools/**/[Bb]in/
 tools/**/*.egg-info/
 /log/
 
+# The dump Git Bash writes, such as bash.EXE.stackdump, in its working directory when it fails
+# fatally, as a forked child of a script killed outright does (see tools/README.md).
+*.stackdump
+
 # agentkit working records and per-unit worktrees
 .ai/tasks/
 .worktrees/
