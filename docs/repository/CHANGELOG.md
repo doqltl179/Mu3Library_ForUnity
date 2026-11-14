@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14 (agentkit 0.7.1)
+
+### Changed
+- Updated agentkit from 0.7.0 to 0.7.1, which fixes the two `git-worktree-cleanup` defects this repository proposed upstream after #447, ai-agents#92 and ai-agents#93 (#449). The skill now finds a unit's worktree with `git worktree list` instead of reading `policy.worktrees`, so it tears down and removes the worktrees this repository makes with the policy off. Its PowerShell teardown form resets `$LASTEXITCODE` and checks it with `$?`, so a teardown that never started stops the cleanup. It also stops before removing a worktree that holds another worktree. `.ai/project/wiki/overview.md` therefore drops its instruction to follow the skill as if the policy were on and its PowerShell exit-code note, and keeps what the kit does not say: run `commands.worktree_teardown` before any `git worktree remove`, from Git Bash since its value is POSIX shell syntax, and why a failure must stop the removal. The `shell` stack pack now names when PowerShell's `$LASTEXITCODE` and `$?` miss a failure.
+
 ## 2026-11-14 (agentkit 0.7.0)
 
 ### Changed
