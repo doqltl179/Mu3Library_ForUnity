@@ -117,7 +117,7 @@ namespace Mu3Library.Multiplayer.Steam
 
             if (call == SteamAPICall_t.Invalid)
             {
-                MultiplayerReason failure = UnavailableOr(MultiplayerReason.BackendError);
+                MultiplayerReason failure = InvalidCreateCallReason(IsAvailable);
                 EnqueueCallback(() => onCompleted?.Invoke(failure, LobbyId.None));
                 return;
             }
@@ -187,6 +187,27 @@ namespace Mu3Library.Multiplayer.Steam
             }
 
             return reason;
+        }
+
+        /// <summary>
+        /// The reason for a lobby creation that Steam gave no call to wait on
+        /// (<c>SteamMatchmaking.CreateLobby</c> returned <c>SteamAPICall_t.Invalid</c>, or was not
+        /// called). While Steam can be used (<paramref name="steamAvailable"/>) it is
+        /// <see cref="MultiplayerReason.BackendError"/> with a warning in the format
+        /// <see cref="CreatedLobbyReason"/> logs, since nothing else tells this failure from the
+        /// other answers that reason stands for (#434). Once Steam cannot be used it is
+        /// <see cref="MultiplayerReason.SteamNotRunning"/> without a warning: that reason names the
+        /// cause, and when a Steam call failed, <see cref="Break"/> has already logged one.
+        /// </summary>
+        internal static MultiplayerReason InvalidCreateCallReason(bool steamAvailable)
+        {
+            if (!steamAvailable)
+            {
+                return MultiplayerReason.SteamNotRunning;
+            }
+
+            Debug.LogWarning($"[Multiplayer] Steam could not create a lobby (CreateLobby returned an invalid call handle); the lobby creation answers {MultiplayerReason.BackendError}.");
+            return MultiplayerReason.BackendError;
         }
 
         public void SearchLobbies(LobbySearchQuery query, Action<MultiplayerReason, IReadOnlyList<BackendLobby>> onCompleted)
