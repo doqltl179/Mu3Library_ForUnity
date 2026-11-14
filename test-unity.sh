@@ -485,10 +485,14 @@ json_string_text() {
 # compared. NUnit writes each character that XML cannot hold, U+0001 to
 # U+0008, U+000B, U+000C, U+000E to U+001F, U+FFFE, and U+FFFF, as \u and
 # four lowercase hexadecimal digits, such as \u001b for an escape, and every
-# other character as itself, a backslash too. So the result file writes an
-# escape and the text \u001b alike, which Unity's log tells apart as \u001B
-# and \\u001b; replacing the result file's \u text instead would read the
-# text \u001b in a name as an escape. It builds the text without
+# other character as itself, a backslash too, as TNode in
+# com.unity.ext.nunit 2.1.0 does. So the result file writes an escape and the
+# text \u001b alike, which Unity's log tells apart as \u001B and \\u001b;
+# replacing the result file's \u text instead would read the text \u001b in a
+# name as an escape. TNode writes U+0000 and half a surrogate pair so too,
+# which are left out, since no name from the log holds them: a bash string
+# cannot hold U+0000, and Unity 6000.6.7f1's log cuts a name at it and writes
+# half a surrogate pair as U+FFFD. It builds the text without
 # ${var//pattern/replacement}, as xml_attribute_text does.
 result_file_name() {
     local text="$1"
