@@ -10,7 +10,7 @@ Package release notes remain in:
 ## 2026-11-14
 
 ### Changed
-- `.gitignore` ignores `*.stackdump`, the dump Git Bash writes in its working directory when it fails fatally (#438). A kill of `test-unity.sh` from Task Manager or with `taskkill /F` that lands while Git Bash forks leaves the forked `bash.exe`, which holds the script's output for about 300 s, then writes `*** fatal error in forked process - WFSO timed out after longjmp` to it and leaves `bash.EXE.stackdump`, which Git listed as untracked. `tools/README.md` describes that process beside the helper's cleanup.
+- `.gitignore` ignores `*.stackdump`, the dump Git Bash writes in its working directory when it fails fatally (#438). A `taskkill /F` of `test-unity.sh` that lands while Git Bash forks can leave the forked `bash.exe`, which holds the script's output for about 300 s, then writes `*** fatal error in forked process - WFSO timed out after longjmp` to it and leaves `bash.EXE.stackdump`, which Git listed as untracked. On 2026-11-14, 4 of 39 such kills of a run with the tool tests' fake Unity left that child, which ended 300.4 to 300.6 s after the kill in the three that were timed; a real Unity run, a kill from Task Manager, and `compile-unity.sh` were not tried. `tools/README.md` describes that process beside the helper's cleanup.
 
 ## 2026-11-14 (agentkit 0.7.1)
 
