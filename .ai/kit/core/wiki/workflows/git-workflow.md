@@ -43,21 +43,21 @@ Stop if the checkout is not the one expected for this step, holds changes you ca
 
 ## Worktrees
 
-When `policy.worktrees` is on (the default), every unit runs in its own worktree:
+Every unit runs in its own worktree when `policy.worktrees` is on (the default), and also when it runs at the same time as another unit, whatever the policy says:
 
 ```bash
 git fetch origin
 git worktree add --no-track -b <branch> <worktree_root>/<branch-with-slashes-as-dashes> origin/<integration_branch>
 ```
 
-- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, keep a multi-unit plan and idea records in its ignored `.ai/tasks/`. Never edit project files there.
+- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, keep a multi-unit plan and idea records in its ignored `.ai/tasks/`. Never edit project files there. Why: `git-worktree-cleanup` switches the main checkout to the integration branch after each merge, which would move a unit working there.
 - Run every command of the unit inside its worktree. Dependencies and build outputs are per worktree; install them there with `commands.install`.
 - Never share a worktree between units or reuse one for a different branch.
 - `--no-track` keeps the task branch from tracking the integration branch; the first `git push -u origin <branch>` sets its own upstream.
 - A fresh worktree holds only tracked files. It lacks dependency folders, build outputs, engine import caches, local configuration, and untracked links or junctions. `commands.worktree_setup` recreates what the project needs and runs right after the worktree is created. `commands.worktree_teardown` undoes what would block removal; the `git-worktree-cleanup` skill runs it inside the worktree before `git worktree remove`.
-- Before relying on worktrees, weigh the setup cost per worktree: disk (`agentkit.py capacity` shows free disk) and first-setup time, such as a full engine re-import. When it outweighs the isolation, set `policy.worktrees = false`: units then run one at a time in the main checkout.
+- Before relying on worktrees, weigh the setup cost per worktree: disk (`agentkit.py capacity` shows free disk) and first-setup time, such as a full engine re-import. When it outweighs the isolation, set `policy.worktrees = false`: a unit that runs alone then works in the main checkout.
 
-When `policy.worktrees` is off, cut the task branch in the current checkout: `git switch -c <branch> --no-track origin/<integration_branch>`.
+When `policy.worktrees` is off and no other unit is open or will start before this one is cleaned up, cut the task branch in the current checkout: `git switch -c <branch> --no-track origin/<integration_branch>`. While a unit works in the main checkout, start no other unit until `git-worktree-cleanup` has run for it after its pull request merged; if another unit must start sooner, stop and ask the user.
 
 ## Task Branch
 
@@ -90,6 +90,7 @@ With head-branch deletion on («Repository Settings» in [issues-and-prs.md](iss
 - the pull request is merged and `git log origin/<integration_branch>..<branch>` is empty,
 - the worktree has no uncommitted or untracked changes,
 - no other worktree lies inside the worktree,
+- the main checkout is on the integration branch, or on the task branch for a unit without a worktree,
 - no open pull request is stacked on the branch,
 - this task created the worktree and branch.
 
@@ -97,7 +98,7 @@ With head-branch deletion on («Repository Settings» in [issues-and-prs.md](iss
 
 Stop and report instead of improvising when:
 
-- a commit is about to land on a protected branch, or project files are about to be edited in the main checkout while `policy.worktrees` is on,
+- a commit is about to land on a protected branch, or project files are about to be edited in the main checkout while `policy.worktrees` is on or another unit runs at the same time,
 - the branch or worktree does not match the unit or the naming pattern,
 - local and remote state diverged, or a push would overwrite remote work,
 - files cannot be attributed to the current concern,

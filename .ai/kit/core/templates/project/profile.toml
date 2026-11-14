@@ -22,7 +22,7 @@ release_branch = "main"         # Release branch: changes arrive only through a 
                                 # Set both to the same branch for trunk-based flow.
 protected_branches = ["develop", "main"]      # Never commit directly; changes arrive only through merged pull requests.
 issue_first = true              # Every work unit starts from an issue on the hosting platform (ignored when hosting.platform is "none").
-worktrees = true                # Every work unit runs in its own Git worktree cut from integration_branch.
+worktrees = true                # Every work unit runs in its own Git worktree cut from integration_branch. false: only a unit that runs alone works in the main checkout.
 worktree_root = ".worktrees"    # Directory holding the worktrees, relative to the project root; kept out of Git by .gitignore.
 max_parallel_units = 0          # Upper limit on units running at the same time on this machine; 0 means decide with `agentkit.py capacity`.
 branch_pattern = "<type>/<scope>-<summary>"   # Task branch name; <type> is a Conventional Commits type.
