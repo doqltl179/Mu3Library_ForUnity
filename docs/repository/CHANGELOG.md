@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14
+
+### Changed
+- `.gitignore` ignores `*.stackdump`, the dump Git Bash writes in its working directory when it fails fatally (#438). A kill of `test-unity.sh` from Task Manager or with `taskkill /F` that lands while Git Bash forks leaves the forked `bash.exe`, which holds the script's output for about 300 s, then writes `*** fatal error in forked process - WFSO timed out after longjmp` to it and leaves `bash.EXE.stackdump`, which Git listed as untracked. `tools/README.md` describes that process beside the helper's cleanup.
+
 ## 2026-11-14 (agentkit 0.7.1)
 
 ### Changed
