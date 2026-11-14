@@ -64,7 +64,6 @@ Each line's full rule lives on the linked page.
 - Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
-- A work folder outside the checkout goes under the root that the machine's MU3_WORK_ROOT environment variable names, since policy.work_root stays empty (.ai/project/wiki/overview.md).
 
 ### Commands
 
@@ -89,7 +88,7 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `policy.issue_first` | true |
 | `policy.worktrees` | false |
 | `policy.worktree_root` | .worktrees |
-| `policy.work_root` | — |
+| `policy.work_root` | env:MU3_WORK_ROOT |
 | `policy.max_parallel_units` | 0 |
 | `policy.branch_pattern` | <type>/<scope>-<summary> |
 | `policy.commit_convention` | conventional |
