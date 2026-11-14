@@ -57,6 +57,30 @@ If a removal has already left a folder behind, its `tools/` folder and `unity-cl
 
 On 2026-11-12, with Git 2.41.0.windows.1, `git worktree remove` of a fresh worktree linked by `unity link-samples` failed this way. It had already deleted every folder but the three development projects, the packages and so the junctions' targets among them, and left the three junctions and 129 files. In a second fresh worktree, `unity unlink-samples` after `unity link-samples` removed the three links, and the `Samples~` folders of Base, URP, and Watermelon Game still held 415, 39, and 54 files, as many as before the links were made. `git worktree remove` then ended with exit status 0 and deleted the folder (#402).
 
+A worktree nested in a session worktree, at `.claude/worktrees/<session>/.worktrees/<unit>`, holds tracked files whose paths have 260 characters or more: from a worktree folder of 122 characters, 12 files in `UnityProject_BuiltIn/Assets/AddressableAssetsData/AssetGroups/Schemas/`, the six schema assets of the Localization string table groups and their `.meta` files, have 261 to 269. Git for Windows deletes such a file only while `core.longpaths` is on, and `git worktree remove` takes the setting from the checkout it runs in: the unit worktree's own setting, in its `config.worktree`, does not reach a removal run from the main checkout. Remove such a worktree from the main checkout, after the steps above, with the setting given for that one command:
+
+```bash
+git -c core.longpaths=true worktree remove <worktree>
+```
+
+This changes no repository setting. `git config core.longpaths true` in the main checkout would let a plain `git worktree remove` delete it too, but that setting lives in the configuration every worktree of the repository shares, so turning it on is the user's choice. Without the setting, the removal ends with `error: failed to delete '<worktree>': Filename too long` and exit status 255. The worktree is gone from `git worktree list`, but the three development projects' folders stay behind with the files Git had not deleted yet, the long ones among them. A worktree without a `core.longpaths` of its own is refused before that, with `contains modified or untracked files, use --force to delete it`, because the check cannot read its long files; the command above passes that check too. Do not add `--force`, which skips the check that the worktree holds no unsaved changes.
+
+If such a removal has already left a folder behind, it is no worktree any more, and Git without the setting cannot read its long files: in the folder #466 records, `git hash-object` failed on them with `Filename too long`. Delete the folder with a tool that reaches paths of 260 characters or more, and only once nothing in it is a link. Check that the teardown before the removal reported each target as `Unlinked` or `Not linked`, then confirm it with this command, run from outside the folder, which prints every junction, symbolic link, or other reparse point in the folder and nothing when there is none:
+
+```bash
+python -c "import os, stat, sys; r = 2 * os.sep + '?' + os.sep + os.path.abspath(sys.argv[1]); [print(os.path.join(d, n)[4:]) for d, ds, fs in os.walk(r) for n in ds + fs if os.lstat(os.path.join(d, n)).st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT]" <folder>
+```
+
+Remove each path it prints with `cmd`'s `rmdir`, as the paragraph above says, and run it again. Once it prints nothing, delete the folder:
+
+```bash
+python -c "import os, shutil, sys; shutil.rmtree(2 * os.sep + '?' + os.sep + os.path.abspath(sys.argv[1]))" <folder>
+```
+
+Both commands put the `\\?\` prefix before the folder's absolute path, which lets Windows reach paths of 260 characters or more, and both run alike from Git Bash and PowerShell.
+
+On 2026-11-14, with Git 2.41.0.windows.1 and Python 3.12.2, a worktree at a folder of 122 characters, with `core.longpaths` in its own `config.worktree` as a unit worktree has it, was removed from a clone of the repository without the setting. The plain `git worktree remove` ended as above, with exit status 255, and left 179 files in the three development projects, the 12 long ones among them. A junction made in the left folder's `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` was the one path the first command printed; after `rmdir` removed it, the command printed nothing, the second command deleted the folder, and the junction's target still held its file. `git -c core.longpaths=true worktree remove` deleted two more worktrees at that depth, one with and one without a `core.longpaths` of its own, with exit status 0 and no folder left; the same day it removed four unit worktrees from the main checkout, where the plain command had left a fifth one's 179 files behind (#466).
+
 ## Development Environment
 
 One command, run from the repository root, enters the repository's development environment in a terminal:
