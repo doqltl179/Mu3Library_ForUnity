@@ -7,6 +7,7 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Mu3Library.Tests
@@ -120,10 +121,19 @@ namespace Mu3Library.Tests
         }
 
         // Wraps the command with a list as the log target and runs it three times, the number that
-        // the run takes from MU3LIBRARY_TEST_REPEAT, which is set only around the call.
+        // the run takes from MU3LIBRARY_TEST_REPEAT, which is set only around the call. No line may
+        // reach Unity's log, where test-unity.sh's summary would report a counted repeat.
         private static void AssertRunsEveryRun(TestMethod target)
         {
             List<string> lines = new List<string>();
+            List<string> unityLines = new List<string>();
+            Application.LogCallback recordRepeatLines = (message, stackTrace, type) =>
+            {
+                if (message.StartsWith(CountedRepeatAttribute.LinePrefix, StringComparison.Ordinal))
+                {
+                    unityLines.Add(message);
+                }
+            };
             TestExecutionContext context = new TestExecutionContext
             {
                 CurrentTest = target,
@@ -133,12 +143,14 @@ namespace Mu3Library.Tests
             TestResult result;
             string runsBefore = Environment.GetEnvironmentVariable(CountedRepeatAttribute.RunsVariable);
             Environment.SetEnvironmentVariable(CountedRepeatAttribute.RunsVariable, "3");
+            Application.logMessageReceived += recordRepeatLines;
             try
             {
                 result = new CountedRepeatAttribute().Wrap(new RecordsTheRun(target), lines.Add).Execute(context);
             }
             finally
             {
+                Application.logMessageReceived -= recordRepeatLines;
                 Environment.SetEnvironmentVariable(CountedRepeatAttribute.RunsVariable, runsBefore);
             }
 
@@ -155,6 +167,7 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(lines[4], Is.EqualTo($"{name}: totals: {totals}"));
+            Assert.That(unityLines, Is.Empty);
         }
 
         private static TestResult ExecuteWrapped(TestMethod target)
