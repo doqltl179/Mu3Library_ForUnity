@@ -999,7 +999,10 @@ add_load_to_summary() {
 # case's string argument may hold any of it; a line that quotes the totals
 # after another start, such as the ##utp: line of a test's failure, is not one.
 # The line of one run whose failure message ends in such totals reads as one
-# too, which only a test that fails with that text as its message writes.
+# too, which only a test that fails with that text as its message writes. The
+# attribute logs the name as it is, so the totals of a test whose name holds a
+# line break take two lines of the log, neither of them in that form, and are
+# not read.
 find_counted_repeats() {
     local log_file="$1"
     local line
@@ -1056,14 +1059,16 @@ compute_failure_rate() {
 
 # Adds the totals that [CountedRepeat] logged in the run that test_target ran
 # last under its summary entry, a line for each test, since the run's counts
-# take such a test as one test however many times it ran.
+# take such a test as one test however many times it ran. Each line gives the
+# test's name as one_line_name does.
 add_counted_repeats_to_summary() {
     local i
 
     find_counted_repeats "$UNITY_LOG_FILE"
     for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do
         counted_repeat_phrase "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"
-        SUMMARY_LINES+=("  counted repeat: ${COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+        one_line_name "${COUNTED_REPEAT_TESTS[$i]}"
+        SUMMARY_LINES+=("  counted repeat: $ONE_LINE_NAME: $COUNTED_REPEAT_PHRASE")
     done
 }
 
@@ -1188,7 +1193,8 @@ add_repeat_totals_to_summary() {
         read -r -a sums <<<"${REPEAT_COUNTED_REPEAT_COUNTS[$i]}"
         compute_failure_rate "${sums[0]}" "${sums[3]}"
         counted_repeat_phrase "${REPEAT_COUNTED_REPEAT_COUNTS[$i]}" "$FAILURE_RATE"
-        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: ${REPEAT_COUNTED_REPEAT_TESTS[$i]}: $COUNTED_REPEAT_PHRASE")
+        one_line_name "${REPEAT_COUNTED_REPEAT_TESTS[$i]}"
+        SUMMARY_LINES+=("  counted repeat in ${REPEAT_COUNTED_REPEAT_RUNS[$i]} of $REPEAT_COUNT runs: $ONE_LINE_NAME: $COUNTED_REPEAT_PHRASE")
     done
 
     if [[ "$REPEAT_DATA_STORE_LOSSES" -gt 0 ]]; then

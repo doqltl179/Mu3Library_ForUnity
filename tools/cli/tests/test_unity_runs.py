@@ -1442,6 +1442,47 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             summary[: len(summary) - 2],
         )
 
+    def test_the_counted_repeat_lines_print_a_name_that_holds_a_tab_and_an_esc_as_the_failed_lines_do(self) -> None:
+        # Both lines print the name as the failed in lines do (#475), while the totals still add up
+        # by the name itself, so a test named with the text \t and \u001b, printed alike, keeps
+        # totals of its own.
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        controls = f'Fixture.Tests.Case("a{chr(9)}b{chr(0x1B)}c")'
+        shown = r'Fixture.Tests.Case("a\tb\u001bc")'
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results=nunit_results(passed=1),
+            log_1=counted_repeat_totals(controls, 2, 2, passed=1, failed=1),
+            log_2=chr(10).join(
+                [counted_repeat_totals(controls, 1, 1, passed=1), counted_repeat_totals(shown, 4, 4, passed=4)]
+            ),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                "  - leaf run 2 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                f"    counted repeat: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf, 2 runs: 0 of 2 failed; 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat in 2 of 2 runs: {shown}: runs 3 of 3, passed 2, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 33.33%",
+                f"    counted repeat in 1 of 2 runs: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, "
+                "skipped 0, failure rate 0.00%",
+            ],
+            summary[: len(summary) - 2],
+        )
+
     def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
         results_dir = self.results_dir()
         results_dir.mkdir(parents=True)
@@ -2038,6 +2079,17 @@ class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
             ),
         )
         self.assertEqual([], self.found())
+
+    def test_misses_the_totals_of_a_name_that_holds_a_line_break(self) -> None:
+        # A known limit (#475): [CountedRepeat] logs the name as it is, so a line break in it splits
+        # the totals line in two, and neither line holds the totals whole.
+        self.assertEqual(
+            ["Fixture.Tests.After|1 1 1 0 0 0|0.00%"],
+            self.found(
+                counted_repeat_totals(f'Fixture.Tests.Case("a{chr(10)}b")', 2, 2, passed=1, failed=1),
+                counted_repeat_totals("Fixture.Tests.After", 1, 1, passed=1),
+            ),
+        )
 
     def test_the_failure_rate_is_given_to_two_decimals_with_a_half_rounded_up(self) -> None:
         completed = self.run_functions(
