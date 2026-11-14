@@ -4,6 +4,17 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
+### Changed
+- Stack pack `shell`: PowerShell's `$LASTEXITCODE` keeps its previous value when a command cannot start, such as a POSIX-only `VAR=value cmd`, or is a cmdlet, so a failure can read as `0` and a success as an earlier non-zero code. For a command that may not start or may be a cmdlet, the pack says to read `$?` in the next statement and names what `$?` misses: a non-terminating failure inside a function or inside a script that ends without `exit`, and, in Windows PowerShell 5.1, a failure inside `(...)`, `$(...)`, or `@(...)`. `git-worktree-cleanup` links this pitfall instead of stating it. (patch)
+
+### Fixed
+- `git-worktree-cleanup`: whether a unit has a worktree to check, tear down, and remove is decided by `git worktree list` showing its task branch checked out in a linked worktree, not by `policy.worktrees`. Parallel units and agent hosts create worktrees even while the policy is off; for such a unit the skill checked the main checkout for unsaved changes instead of the worktree, skipped `commands.worktree_teardown` and `git worktree remove`, and then failed to delete the branch, still checked out in the worktree. (patch)
+- `git-worktree-cleanup`: the PowerShell form of the `commands.worktree_teardown` step checks `$?` and throws on failure instead of checking `$LASTEXITCODE`, which keeps its previous value when the command cannot start, such as a POSIX-only `VAR=value cmd`, or is a cmdlet. A teardown that never ran or failed as a cmdlet could pass as a success, and the cleanup went on to `git worktree remove` with the links or junctions still in place. (patch)
+- `git-worktree-cleanup`: a worktree that holds another worktree stops the cleanup before `git worktree remove`, and the skill reports the inner worktrees' paths. `git worktree remove` does not count ignored files as changes, so a unit worktree that a session had created under an ignored folder such as `.worktrees/` inside its own worktree was deleted with its uncommitted and untracked files, while the outer worktree's status check printed nothing. (patch)
+- `git-worktree-cleanup`: the PowerShell form of the `commands.worktree_teardown` step now also sets `$global:LASTEXITCODE` to `0` before the command and treats it as failed when `$?` is `$false` or `$global:LASTEXITCODE` is not `0`. `$?` alone reads as success when a native program fails inside a teardown script that ends without `exit`, or, in Windows PowerShell 5.1, inside a command wrapped in `(...)`, so the cleanup could go on to `git worktree remove` with the links or junctions still in place. A teardown script whose last native program exits non-zero on purpose now stops the cleanup unless it ends with `exit 0`. Stack pack `shell` gives the same check, notes that PowerShell always sets `$LASTEXITCODE` in the global scope, and names what neither value catches. (patch)
+
 ## [0.7.0] - 2026-11-14
 
 ### Added
