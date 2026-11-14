@@ -88,7 +88,7 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
-# Links to package samples (source of truth is Samples~), created by mu3-cli unity link-samples:
+# Links to package samples (source of truth is Samples~), created by mu3-samples link:
 # a junction on Windows, a symbolic link elsewhere. No trailing slash: Git applies a pattern
 # ending in / only to real directories, so it would miss a symbolic link.
 UnityProject_BuiltIn/Assets/Mu3LibrarySamples
