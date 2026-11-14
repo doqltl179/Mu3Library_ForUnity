@@ -116,6 +116,71 @@ namespace Mu3Library.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
+        [Test]
+        public void LobbyEntryWithAnInvalidCallHandle_LogsIt_WhileSteamCanBeUsed()
+        {
+            // #465: as a lobby creation's (#434), so a developer can tell this BackendError from
+            // the others.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not join a lobby \(JoinLobby returned an invalid call handle\); the lobby entry answers BackendError\."));
+            Assert.That(SteamBackend.InvalidJoinCallReason(steamAvailable: true), Is.EqualTo(MultiplayerReason.BackendError));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void LobbyEntryWithAnInvalidCallHandle_LogsNothing_OnceSteamCannotBeUsed()
+        {
+            // #465: SteamNotRunning names the cause, and a failed Steam call has warned through Break.
+            Assert.That(SteamBackend.InvalidJoinCallReason(steamAvailable: false), Is.EqualTo(MultiplayerReason.SteamNotRunning));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void JoinLobby_WhoseSteamCallFails_LogsOnlyTheWarningThatStopsTheBackend()
+        {
+            // #465: the entry's own Steam call fails, so Break warns and the entry adds none.
+            AssumeSteamCallsFail();
+            List<MultiplayerReason> heard = new List<MultiplayerReason>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                backend.JoinLobby(SomeLobby, heard.Add);
+                Assert.That(backend.IsAvailable, Is.False, "the failed call stops the backend");
+
+                backend.Update();
+                Assert.That(heard, Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }));
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void LobbySearchWithAnInvalidCallHandle_LogsIt()
+        {
+            // #465: as a lobby creation's (#434). A search gets there only while Steam can be used.
+            LogAssert.Expect(LogType.Warning, new Regex(@"Steam could not search for lobbies \(RequestLobbyList returned an invalid call handle\); the lobby search answers BackendError\."));
+            Assert.That(SteamBackend.InvalidSearchCallReason(), Is.EqualTo(MultiplayerReason.BackendError));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void SearchLobbies_WhoseSteamCallFails_LogsOnlyTheWarningThatStopsTheBackend()
+        {
+            // #465: the search's own Steam call fails, so Break warns and the search adds none.
+            AssumeSteamCallsFail();
+            List<MultiplayerReason> heard = new List<MultiplayerReason>();
+            using (SteamBackend backend = SteamBackend.CreateWithoutSteam(new SteamBackendOptions()))
+            {
+                LogAssert.Expect(LogType.Warning, FailedCallWarning);
+                backend.SearchLobbies(null, (reason, lobbies) => heard.Add(reason));
+                Assert.That(backend.IsAvailable, Is.False, "the failed call stops the backend");
+
+                backend.Update();
+                Assert.That(heard, Is.EqualTo(new[] { MultiplayerReason.SteamNotRunning }));
+            }
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
         [TestCase(LobbyVisibility.InviteOnly, ELobbyType.k_ELobbyTypePrivate)]
         [TestCase(LobbyVisibility.FriendsOnly, ELobbyType.k_ELobbyTypeFriendsOnly)]
         [TestCase(LobbyVisibility.Public, ELobbyType.k_ELobbyTypePublic)]
