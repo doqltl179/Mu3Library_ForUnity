@@ -352,6 +352,29 @@ read_test_run_counts() {
     done
 }
 
+# Sets UTF8_CHARACTER to the character whose code point is given, which is
+# neither 0 nor a surrogate nor past U+10FFFF, in UTF-8 whatever the locale.
+utf8_character() {
+    local code="$1"
+    local bytes
+
+    # Octal escapes in a printf format write bytes, not characters of the
+    # locale.
+    if ((code < 0x80)); then
+        printf -v bytes '\\%03o' "$code"
+    elif ((code < 0x800)); then
+        printf -v bytes '\\%03o\\%03o' $((0xC0 | code >> 6)) $((0x80 | (code & 0x3F)))
+    elif ((code < 0x10000)); then
+        printf -v bytes '\\%03o\\%03o\\%03o' $((0xE0 | code >> 12)) \
+            $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+    else
+        printf -v bytes '\\%03o\\%03o\\%03o\\%03o' $((0xF0 | code >> 18)) \
+            $((0x80 | (code >> 12 & 0x3F))) $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
+    fi
+    # shellcheck disable=SC2059
+    printf -v UTF8_CHARACTER "$bytes"
+}
+
 # Sets XML_TEXT to an XML attribute value with its references replaced by the
 # characters they stand for: the entities XML predefines, such as the &quot;
 # of a test case that takes a string, and the numeric character references,
@@ -366,7 +389,6 @@ xml_attribute_text() {
     local pattern='^(quot|apos|lt|gt|amp|#[0-9]{1,7}|#x[0-9A-Fa-f]{1,6});'
     local reference
     local code
-    local bytes
 
     XML_TEXT=""
     while [[ "$text" == *'&'* ]]; do
@@ -393,22 +415,8 @@ xml_attribute_text() {
                     XML_TEXT+='&'
                     continue
                 fi
-                # Octal escapes in a printf format write bytes, not characters
-                # of the locale.
-                if ((code < 0x80)); then
-                    printf -v bytes '\\%03o' "$code"
-                elif ((code < 0x800)); then
-                    printf -v bytes '\\%03o\\%03o' $((0xC0 | code >> 6)) $((0x80 | (code & 0x3F)))
-                elif ((code < 0x10000)); then
-                    printf -v bytes '\\%03o\\%03o\\%03o' $((0xE0 | code >> 12)) \
-                        $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
-                else
-                    printf -v bytes '\\%03o\\%03o\\%03o\\%03o' $((0xF0 | code >> 18)) \
-                        $((0x80 | (code >> 12 & 0x3F))) $((0x80 | (code >> 6 & 0x3F))) $((0x80 | (code & 0x3F)))
-                fi
-                # shellcheck disable=SC2059
-                printf -v bytes "$bytes"
-                XML_TEXT+="$bytes"
+                utf8_character "$code"
+                XML_TEXT+="$UTF8_CHARACTER"
                 ;;
         esac
         text="${text#"$reference";}"
