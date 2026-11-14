@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (agentkit 0.9.0)
+
+### Changed
+- Updated agentkit from 0.8.0 to 0.9.0, which adds the profile key `policy.work_root` and «Work Folders» in `git-workflow.md` (#488): a folder a unit makes outside its checkout, such as an engine mirror or a copy of a project, goes to `<work_root>/<project.name>/<unit>`, never directly in a drive root, the home folder, or the system temp folder; the pull request names it, and `git-worktree-cleanup` deletes it after the merge. By the user's decision the root differs per machine, so `policy.work_root` stays empty in `profile.toml` and `.ai/project/wiki/overview.md` has agents read the user environment variable `MU3_WORK_ROOT` instead, `D:/w` on the maintainer's machine, asking as the kit says when it is unset; a new line in `project.guardrails`, which `AGENTS.md` shows, points there. The overview line also cuts `<unit>` to the first 32 characters of the task branch, gives the longest root that keeps a mirror or copy of each development project below the 98-character warning of `tools/README.md`, and has cleanup delete the folder it derives only when the pull request names it, since two branches can share those 32 characters. The DI stripping harness examples in `tools/README.md`, which passed `--work-dir C:/mu3-strip` and `C:/mu3h`, now pass the unit's folder under `MU3_WORK_ROOT`. `compile-unity.sh`'s mirror in `TMPDIR`, which the script makes and deletes within one run, is not a work folder and is unchanged.
+
 ## 2026-11-14 (agentkit 0.8.0)
 
 ### Changed

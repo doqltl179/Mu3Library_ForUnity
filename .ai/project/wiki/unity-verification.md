@@ -56,7 +56,7 @@ The kit's [verification.md](../../kit/core/wiki/workflows/verification.md) owns 
 - When the change can behave differently on the lowest supported Editor, such as code behind a `UNITY_6000_x_OR_NEWER` branch, also run Medium and High with `--editor-version` set to an installed release of the [floor](#lowest-supported-editor).
 - [tools/README.md](../../../tools/README.md#di-stripping-harness) owns why only a player shows stripping, what the harness builds and where, its checks and how many there are, its options, the Editor modules and toolchain each backend needs, how `--editor-version` retargets the mirror, which work folders it accepts, why `--work-dir` must stay short, and what each exit code means.
 - Exit 3 is no result, neither a pass nor a DI regression: fix the cause the run reports, which can be the change under test, and run again.
-- Pass a short `--work-dir` from a deep worktree.
+- From a deep worktree, pass the unit's work folder under `MU3_WORK_ROOT` as `--work-dir` ([overview.md](overview.md) «Development Projects»).
 - When a run warns that the explicit `UNITY_EDITOR` override will be used, report the Editor that built it, not the one requested.
 - Player builds are memory-heavy: run one at a time. [tools/README.md](../../../tools/README.md#measured-runs) owns the measured runs: how long a run took on a new or an imported mirror and under what load, the sizes it built, and which combinations passed on which date.
 - Report the backend, the stripping level, whether UniTask was in, the Editor version, the exit code, and the passed and failed check counts.

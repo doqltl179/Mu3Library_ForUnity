@@ -1,6 +1,6 @@
 ---
 name: git-worktree-cleanup
-description: "Clean up after a unit's pull request merged: confirm the merge, confirm nothing unsaved and nothing stacked on the branch, then remove the worktree (when the unit has one) and delete the task branch, and update the main checkout to the latest integration branch. Use when a unit's pull request has merged, or the user asks to clean up merged worktrees or branches."
+description: "Clean up after a unit's pull request merged: confirm the merge, confirm nothing unsaved and nothing stacked on the branch, then remove the worktree (when the unit has one) and the unit's work folders, delete the task branch, and update the main checkout to the latest integration branch. Use when a unit's pull request has merged, or the user asks to clean up merged worktrees or branches."
 category: git
 volatility: evolving
 reviewed: 2026-10-09
@@ -18,7 +18,7 @@ reviewed: 2026-10-09
 
 ## Inputs
 - The task branch and the pull request number, and the worktree path when the unit has one.
-- `policy.integration_branch` and `commands.worktree_teardown` from the profile.
+- `policy.integration_branch`, `policy.work_root`, `project.name`, and `commands.worktree_teardown` from the profile.
 
 ## Steps
 1. From the main checkout, run `git fetch origin --prune` and confirm the pull request merged: `gh pr view <number> --json state,mergedAt` shows `MERGED`.
@@ -34,7 +34,8 @@ reviewed: 2026-10-09
 6. Remove the worktree: `git worktree remove <worktree>`, then `git worktree prune`. If it reports `Permission denied` after `git worktree list` no longer shows the worktree, Git already removed its files and only the empty directory is held by a process: once that process has left, delete the empty directory (`rmdir <worktree>`).
 7. Update the main checkout before deleting the branch: `git switch <integration_branch>` and `git pull --ff-only`. `git branch -d` checks the branch against the checked-out branch, so it refuses a just-merged branch while the local integration branch is behind; for a unit without a worktree, this step also switches the main checkout off the task branch, which cannot be deleted while checked out.
 8. Delete the branch: `git branch -d <branch>` (use `-D` only after step 2 proved a squash merge), and `git push origin --delete <branch>` only when the remote branch still exists (with head-branch deletion on, the platform already removed it).
-9. Confirm with `git worktree list` and `git branch -a --list "*<branch>*"`.
+9. Delete the unit's work folders, with `<unit>` as «Work Folders» in git-workflow.md defines it: `<work_root>/<project.name>/<unit>` when `policy.work_root` and `project.name` are both set (expand a leading `~` to the home folder), and each work folder the pull request body (`gh pr view <number> --json body`) names whose last path segment is `<unit>`. Skip a path that does not exist, and delete each other one by the rules in «Work Folders», which also say when to stop and ask. Delete nothing else outside the worktree; report any other folder the pull request body names or the unit made outside its checkout instead.
+10. Confirm with `git worktree list` and `git branch -a --list "*<branch>*"`.
 
 ## Output
-- The removed worktree path and deleted branches, or the condition that stopped the cleanup.
+- The removed worktree path, deleted work folders, and deleted branches, or the condition that stopped the cleanup.

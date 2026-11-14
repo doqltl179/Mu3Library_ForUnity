@@ -55,7 +55,7 @@ Each line's full rule lives on the linked page.
 ## This Project
 
 - Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them.
-- Kit: version 0.8.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Kit: version 0.9.0, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 
@@ -64,6 +64,7 @@ Each line's full rule lives on the linked page.
 - Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
+- A work folder outside the checkout goes under the root that the machine's MU3_WORK_ROOT environment variable names, since policy.work_root stays empty (.ai/project/wiki/overview.md).
 
 ### Commands
 
@@ -88,6 +89,7 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `policy.issue_first` | true |
 | `policy.worktrees` | false |
 | `policy.worktree_root` | .worktrees |
+| `policy.work_root` | — |
 | `policy.max_parallel_units` | 0 |
 | `policy.branch_pattern` | <type>/<scope>-<summary> |
 | `policy.commit_convention` | conventional |
