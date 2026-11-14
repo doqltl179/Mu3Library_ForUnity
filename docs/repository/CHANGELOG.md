@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14
+
+### Fixed
+- `[CountedRepeat]` refuses a fixture with a `[SetUp]` or `[TearDown]` that returns a `Task`, as an invalid test before its first run, with a message that names the method, as `CountedRepeatRunner` refuses it (#442). The Unity Test Framework 1.8.0 waits for such a task by yielding one frame at a time until it completes, while `[CountedRepeat]` runs each run in one call, in which no frame passes, so a task that continues on Unity's main thread, such as an `await` that returns to its synchronization context, could not end, and the run would have stalled until `test-unity.sh`'s `--stall-timeout` stopped Unity; that stall is inferred from the framework's source and was not reproduced. `CountedRepeatAttributeTests` checks the refusal for a `[SetUp]`, a `[TearDown]`, and an inherited `[SetUp]`, on fixtures that the run does not load. On 2026-11-14, with Unity 6000.6.7f1, its three cases failed without the check, each having run the wrapped command once, and passed with it on all three targets.
+
 ## 2026-11-14 (agentkit 0.7.1)
 
 ### Changed
