@@ -318,6 +318,11 @@ DATA_STORE_LOSS = (
 # it, and as the TearDown of Mu3WindowTests did in #393, with the stack trace Unity logged, which ends
 # in a line break.
 FRAMEWORK_LOSS_FAILURE = f"Unhandled log message: '[Error] {DATA_STORE_LOSS}'. Use UnityEngine.TestTools.LogAssert.Expect"
+
+# A locale whose multibyte encoding is not UTF-8: Git Bash's gawk reads CP932 there and drops bytes
+# of a UTF-8 name that it cannot read as such (#494). The Data Store checks must read a name byte
+# for byte in it, as they do in the C locale.
+NOT_UTF_8_LOCALE = "ja_JP.SJIS"
 TEARDOWN_LOSS_FAILURE = (
     f"TearDown : Unhandled log message: [Error] {DATA_STORE_LOSS}\n"
     "Stack trace of the first:\n"
@@ -725,24 +730,34 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         # the characters themselves.
         failed = "Case(&#34;a &#38; b&#x3C;T&#x3E;&#x22;)"
         name = 'Fixture.Tests.Case("a & b<T>")'
-        completed = self.run_tests(
-            "leaf",
-            results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
-            unity_status=2,
-            log=data_store_loss_log(name),
-        )
+        for variables in ({}, {"LC_ALL": NOT_UTF_8_LOCALE}):
+            with self.subTest(**variables):
+                completed = self.run_entry_point(
+                    "test-unity.sh",
+                    "leaf",
+                    environment=self.unity_environment(
+                        FAKE_UNITY_RESULTS=nunit_results(
+                            passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}
+                        ),
+                        FAKE_UNITY_STATUS="2",
+                        FAKE_UNITY_LOG=data_store_loss_log(name),
+                        **variables,
+                    ),
+                )
 
-        self.assertEqual(1, completed.returncode, completed.stdout)
-        environment = (
-            f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error Unity "
-            "logged for it failed that test, so the test reached no verdict; run the target again"
-        )
-        errors = completed.stderr.splitlines()
-        start = errors.index(
-            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the environment"
-        )
-        self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
-        self.assertEqual(f"  {environment}", self.summary(completed)[1])
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                environment = (
+                    f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error "
+                    "Unity logged for it failed that test, so the test reached no verdict; run the target again"
+                )
+                errors = completed.stderr.splitlines()
+                start = errors.index(
+                    "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from "
+                    "the environment"
+                )
+                self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
+                self.assertEqual(f"  {environment}", self.summary(completed)[1])
+                self.assertNotIn("Invalid multibyte data", completed.stderr)
 
     def test_a_test_whose_name_the_log_writes_with_json_escapes_fails_on_the_environment(self) -> None:
         # Unity's log writes the name as a JSON string, here with the escapes json.dumps writes for
@@ -754,28 +769,38 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         log = data_store_loss_log(name)
         b = chr(92)
         self.assertIn(f"a{b}nb{b}tcaf{b}u00e9 {b}ud83d{b}ude00", log)
-        completed = self.run_tests(
-            "leaf",
-            results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
-            unity_status=2,
-            log=log,
-        )
+        for variables in ({}, {"LC_ALL": NOT_UTF_8_LOCALE}):
+            with self.subTest(**variables):
+                completed = self.run_entry_point(
+                    "test-unity.sh",
+                    "leaf",
+                    environment=self.unity_environment(
+                        FAKE_UNITY_RESULTS=nunit_results(
+                            passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}
+                        ),
+                        FAKE_UNITY_STATUS="2",
+                        FAKE_UNITY_LOG=log,
+                        **variables,
+                    ),
+                )
 
-        self.assertEqual(1, completed.returncode, completed.stdout)
-        # The script matches the names themselves, and prints the line break and the tab as \n and
-        # \t, so that each line names the test on one line (#459).
-        shown = f'Fixture.Tests.Case("a{b}nb{b}tcaf{chr(0xE9)} {chr(0x1F600)}")'
-        environment = (
-            f"  environment: Unity's Data Store service (pid 13480) ended while {shown} ran, and the error Unity "
-            "logged for it failed that test, so the test reached no verdict; run the target again"
-        )
-        errors = completed.stderr.splitlines()
-        start = errors.index(
-            "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from the environment"
-        )
-        self.assertEqual([f"  failed: {shown}", environment], errors[start + 1 : start + 3])
-        self.assertEqual(f"  {environment}", self.summary(completed)[1])
-        self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                # The script matches the names themselves, and prints the line break and the tab as
+                # \n and \t, so that each line names the test on one line (#459).
+                shown = f'Fixture.Tests.Case("a{b}nb{b}tcaf{chr(0xE9)} {chr(0x1F600)}")'
+                environment = (
+                    f"  environment: Unity's Data Store service (pid 13480) ended while {shown} ran, and the error "
+                    "Unity logged for it failed that test, so the test reached no verdict; run the target again"
+                )
+                errors = completed.stderr.splitlines()
+                start = errors.index(
+                    "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from "
+                    "the environment"
+                )
+                self.assertEqual([f"  failed: {shown}", environment], errors[start + 1 : start + 3])
+                self.assertEqual(f"  {environment}", self.summary(completed)[1])
+                self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
+                self.assertNotIn("Invalid multibyte data", completed.stderr)
 
     def assert_fails_on_the_environment(
         self, name: str, written: str, logged: str, shown: str, logged_shown: str | None = None, **variables: str
@@ -825,7 +850,8 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         # The environment: line prints the name from the log through one_line_name, which writes an
         # escape and U+0001 as the result file does (#459) but leaves U+FFFE and U+FFFF as they are,
         # so for those two the lines differ; #493 is to print them alike and will change that
-        # expectation. A name read in the C locale is matched alike.
+        # expectation. A name read in the C locale, or in a locale whose multibyte encoding is not
+        # UTF-8 (#494), is matched alike.
         b = chr(92)
         for character, digits, logged in (
             (chr(0x1B), "001b", f"{b}u001B"),
@@ -835,7 +861,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         ):
             written = f"Named_a{b}u{digits}b"
             logged_shown = None if ord(character) < 0x20 else f"Named_a{character}b"
-            for variables in ({}, {"LC_ALL": "C"}):
+            for variables in ({}, {"LC_ALL": "C"}, {"LC_ALL": NOT_UTF_8_LOCALE}):
                 with self.subTest(character=f"U+{ord(character):04X}", **variables):
                     self.assert_fails_on_the_environment(
                         f"Named_a{character}b", written, f"Named_a{logged}b", written, logged_shown, **variables
@@ -2226,7 +2252,7 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
     """find_data_store_loss reads from Unity's log the process ID of its Data Store service, once the
     service ended, and the test that was running then."""
 
-    def loss(self, *lines: str) -> tuple[str, str]:
+    def loss(self, *lines: str, **variables: str) -> tuple[str, str]:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         log = Path(directory.name) / "unity.log"
@@ -2235,8 +2261,10 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
             "test-unity.sh",
             'find_data_store_loss "$1"\nprintf "%s|%s|%s" "$DATA_STORE_LOSS_PID" "$DATA_STORE_LOSS_TEST" "$DATA_STORE_LOSS_ERROR"',
             str(log),
+            environment={**self._environment(), **variables} if variables else None,
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("", completed.stderr)
         pid, test, error = completed.stdout.split("|")
         self.assertEqual(DATA_STORE_LOSS.replace("13480", pid) if pid else "", error)
         return pid, test
@@ -2255,6 +2283,18 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
 
         self.assertEqual(("13480", name), self.loss(utp_status("Begin", name), DATA_STORE_LOSS))
 
+    def test_reads_a_name_byte_for_byte_in_a_locale_that_is_not_utf_8(self) -> None:
+        # Unity's log writes U+FFFE as itself (#476), and other characters outside ASCII may come
+        # as themselves too; in CP932 gawk dropped bytes of such a name, so that U+FFFE's EF BF BE
+        # became BF BE (#494).
+        name = f"Fixture.Tests.Named_a{chr(0xFFFE)}b{chr(0xE9)}{chr(0x1F600)}"
+        begin = utp_status("Begin", name).replace(json.dumps(name), json.dumps(name, ensure_ascii=False))
+        self.assertIn(chr(0xFFFE), begin)
+
+        for variables in ({}, {"LC_ALL": "C"}, {"LC_ALL": NOT_UTF_8_LOCALE}):
+            with self.subTest(**variables):
+                self.assertEqual(("13480", name), self.loss(begin, DATA_STORE_LOSS, **variables))
+
     def test_takes_the_first_end_and_reads_it_from_its_log_entry_too(self) -> None:
         later = DATA_STORE_LOSS.replace("13480", "2")
 
@@ -2266,6 +2306,28 @@ class DataStoreLossTests(FixtureRepositoryTestCase):
         self.assertEqual(("", ""), self.loss(utp_status("Begin", "Fixture.Tests.Quotes"), ended))
         self.assertEqual(("", ""), self.loss("Unity Data Store running and initialised", UTP_BEGIN, UTP_END))
         self.assertEqual(("", ""), self.loss("Unity Data Store service (pid x) is no longer running."))
+
+
+class LocaleTests(FixtureRepositoryTestCase):
+    """test-unity.sh runs in the C locale when the locale's encoding is not UTF-8, so that bash, grep,
+    and awk read the bytes of a UTF-8 test name as they are (#494)."""
+
+    def locale_after_sourcing(self, locale: str) -> str:
+        completed = self.run_functions(
+            "test-unity.sh",
+            'printf "%s|%s" "${LC_ALL-unset}" "$(locale charmap)"',
+            environment={**self._environment(), "LC_ALL": locale},
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return completed.stdout
+
+    def test_a_locale_whose_encoding_is_not_utf_8_becomes_the_c_locale(self) -> None:
+        for locale in (NOT_UTF_8_LOCALE, "ko_KR.EUC-KR", "en_US.ISO-8859-1"):
+            with self.subTest(locale=locale):
+                self.assertEqual("C|ANSI_X3.4-1968", self.locale_after_sourcing(locale))
+
+    def test_a_utf_8_locale_stays(self) -> None:
+        self.assertEqual("ko_KR.UTF-8|UTF-8", self.locale_after_sourcing("ko_KR.UTF-8"))
 
 
 class DataStoreLossFailureTests(FixtureRepositoryTestCase):
