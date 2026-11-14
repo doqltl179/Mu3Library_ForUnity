@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -37,7 +39,8 @@ namespace Mu3Library.Tests
     /// <c>[UnityTest]</c>. It refuses a test that is not explicit, which the default run would
     /// then run through it, and a fixture with <c>[UnitySetUp]</c> or <c>[UnityTearDown]</c> or
     /// a test with an <c>IOuterUnityTestAction</c>, which the framework calls outside it, once
-    /// around all the runs.
+    /// around all the runs, and a fixture with a <c>[SetUp]</c> or <c>[TearDown]</c> that returns a
+    /// <c>Task</c>, which the framework waits for over several frames while each run takes one call.
     /// </para>
     /// <para>
     /// <see cref="CountedRepeatRunner"/> runs the same runs and logs the same lines for a test it
@@ -172,6 +175,15 @@ namespace Mu3Library.Tests
                 || Reflect.GetMethodsWithAttribute(fixture, typeof(UnityTearDownAttribute), true).Length > 0;
         }
 
+        // The framework yields a frame at a time until such a task completes, while a run here
+        // takes one call.
+        internal static MethodInfo SetUpOrTearDownThatReturnsATask(Type fixture)
+        {
+            return Reflect.GetMethodsWithAttribute(fixture, typeof(SetUpAttribute), true)
+                .Concat(Reflect.GetMethodsWithAttribute(fixture, typeof(TearDownAttribute), true))
+                .FirstOrDefault(method => method.ReturnType == typeof(Task));
+        }
+
         // The framework takes them from the method and from each suite above it that has a type,
         // as its OuterUnityTestActionCommand does.
         internal static bool HasOuterActions(ITest test)
@@ -227,6 +239,12 @@ namespace Mu3Library.Tests
                 if (fixture != null && HasUnitySetUpOrTearDown(fixture))
                 {
                     return $"[CountedRepeat] calls [SetUp] and [TearDown] in each run, but the framework calls the [UnitySetUp] and [UnityTearDown] of {fixture.Name} once around all the runs.";
+                }
+
+                MethodInfo waits = fixture != null ? SetUpOrTearDownThatReturnsATask(fixture) : null;
+                if (waits != null)
+                {
+                    return $"[CountedRepeat] runs each run, its [SetUp] and [TearDown] included, in one call, but {fixture.Name}.{waits.Name} is a [SetUp] or [TearDown] that returns a Task, which the framework waits for over several frames; in one call a task that continues on Unity's main thread never ends.";
                 }
 
                 if (HasOuterActions(Test))
