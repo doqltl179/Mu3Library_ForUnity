@@ -781,6 +781,80 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(f"  {environment}", self.summary(completed)[1])
         self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
 
+    def test_a_test_whose_name_holds_a_character_that_xml_cannot_hold_fails_on_the_environment(self) -> None:
+        # The result file writes such a character as \u and four lowercase hexadecimal digits, as
+        # text, and Unity's log writes an escape and U+0001 as JSON escapes with uppercase digits and
+        # U+FFFE and U+FFFF as themselves, as Unity 6000.6.7f1 and com.unity.ext.nunit 2.1.0 wrote
+        # the names of tests named so (#476).
+        b = chr(92)
+        for character, written, logged in (
+            (chr(0x1B), f"{b}u001b", f"{b}u001B"),
+            (chr(0x01), f"{b}u0001", f"{b}u0001"),
+            (chr(0xFFFE), f"{b}ufffe", chr(0xFFFE)),
+            (chr(0xFFFF), f"{b}uffff", chr(0xFFFF)),
+        ):
+            with self.subTest(character=f"U+{ord(character):04X}"):
+                name = f"Fixture.Tests.Named_a{character}b"
+                failed = f"Named_a{written}b"
+                log = data_store_loss_log(name).replace(json.dumps(name)[1:-1], f"Fixture.Tests.Named_a{logged}b")
+                self.assertIn(f'"name":"Fixture.Tests.Named_a{logged}b"', log)
+                completed = self.run_tests(
+                    "leaf",
+                    results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
+                    unity_status=2,
+                    log=log,
+                )
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                errors = completed.stderr.splitlines()
+                start = errors.index(
+                    "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from "
+                    "the environment"
+                )
+                self.assertEqual(f"  failed: Fixture.Tests.{failed}", errors[start + 1])
+                self.assertTrue(errors[start + 2].startswith("  environment: Unity's Data Store service (pid 13480) "))
+                self.assertEqual(f"  {errors[start + 2]}", self.summary(completed)[1])
+                self.assertNotIn("warning: Unity's Data Store service", completed.stdout + completed.stderr)
+                if ord(character) < 0x20:
+                    # The name is printed with the same escape in both lines (#459).
+                    self.assertEqual(
+                        f"  environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.{failed} "
+                        "ran, and the error Unity logged for it failed that test, so the test reached no verdict; "
+                        "run the target again",
+                        errors[start + 2],
+                    )
+
+    def test_a_test_whose_name_holds_the_text_of_such_an_escape_fails_on_the_environment(self) -> None:
+        # The result file writes an escape and the text \u001b alike, while Unity's log writes the
+        # text as \\u001b, so the check must not read the result file's \u text as an escape. The
+        # text \^[ is written as it is, and as \\^[ in the log (#476).
+        b = chr(92)
+        for text in (f"{b}u001b", f"{b}^["):
+            with self.subTest(text=text):
+                name = f"Fixture.Tests.Named_a{text}b"
+                failed = f"Named_a{text}b"
+                log = data_store_loss_log(name)
+                self.assertIn(f'"name":"Fixture.Tests.Named_a{b}{text}b"', log)
+                completed = self.run_tests(
+                    "leaf",
+                    results=nunit_results(passed=2, failed=(failed,), messages={failed: FRAMEWORK_LOSS_FAILURE}),
+                    unity_status=2,
+                    log=log,
+                )
+
+                self.assertEqual(1, completed.returncode, completed.stdout)
+                environment = (
+                    f"  environment: Unity's Data Store service (pid 13480) ended while {name} ran, and the error "
+                    "Unity logged for it failed that test, so the test reached no verdict; run the target again"
+                )
+                errors = completed.stderr.splitlines()
+                start = errors.index(
+                    "error: leaf: 3 tests, 2 passed, 1 failed, 0 skipped, 0 inconclusive; its one failure came from "
+                    "the environment"
+                )
+                self.assertEqual([f"  failed: {name}", environment], errors[start + 1 : start + 3])
+                self.assertEqual(f"  {environment}", self.summary(completed)[1])
+
     def test_a_target_that_failed_otherwise_too_fails_on_its_counts_and_names_the_environment(self) -> None:
         environment = (
             "    environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.Breaks ran, and the "
