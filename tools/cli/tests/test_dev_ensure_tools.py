@@ -296,7 +296,15 @@ class CheckTests(unittest.TestCase):
         installed = matching_install(project)
         installed.metadata["Version"] = "0.2.0b0"
 
-        for version, problems in (("0.2.0-beta", 0), ("0.2.0b0", 0), ("0.2.0", 1), ("1!2.0rc1.post2.dev3", 1)):
+        for version, problems in (
+            ("0.2.0-beta", 0),
+            ("0.2.0b0", 0),
+            ("02.0", 0),
+            ("0!2.0", 0),
+            ("0.2.0b00", 0),
+            ("0.2.0", 1),
+            ("1!2.0rc1.post2.dev3", 1),
+        ):
             with self.subTest(version=version):
                 written = ensure_tools.Project(project.name, version, project.dependencies, project.scripts)
                 result = ensure_tools.check(written, TOOLS_DIR, SCRIPTS_DIR, [installed], every_launcher)

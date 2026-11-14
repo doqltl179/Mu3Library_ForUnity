@@ -61,7 +61,11 @@ def normalize_name(name: str) -> str:
 
 
 # The canonical form of a PEP 440 public version, the form setuptools writes into the metadata.
-_CANONICAL_VERSION = re.compile(r"(?:[0-9]+!)?[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc)[0-9]+)?(?:\.post[0-9]+)?(?:\.dev[0-9]+)?")
+# packaging writes 01 as 1 and leaves out an epoch of 0.
+_NUMBER = r"(?:0|[1-9][0-9]*)"
+_CANONICAL_VERSION = re.compile(
+    rf"(?:[1-9][0-9]*!)?{_NUMBER}(?:\.{_NUMBER})*(?:(?:a|b|rc){_NUMBER})?(?:\.post{_NUMBER})?(?:\.dev{_NUMBER})?"
+)
 
 _REQUIREMENT = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)", re.DOTALL)
 
@@ -129,8 +133,8 @@ def read_minimal_toml(text: str) -> dict:
 
     It takes the strings and the arrays of strings of [project], one key per line, an array over
     several lines included, and the strings of [project.scripts]; a string is a basic or a literal
-    string on one line, and a # outside one starts a comment. Other values, such as an inline
-    table or a multi-line string, are left out.
+    string on one line, and a # outside one starts a comment. A key is bare or in double quotes.
+    Other values, such as an inline table or a multi-line string, are left out.
     """
     project: dict = {}
     scripts: dict[str, str] = {}
