@@ -17,6 +17,7 @@ from shell_harness import run_sourced
 from test_unity_runs import FAKE_EDITOR_PACKAGES, FLOOR_VERSION
 from mu3_common.checkout import repo_root
 from mu3_common.editor import editor_bundled_versions, editor_package_manager_dir
+from mu3_common.process import stop_process_tree
 from mu3_strip_harness.cli import (
     EXIT_BUILD_FAILED,
     EXIT_CHECKS_FAILED,
@@ -32,7 +33,6 @@ from mu3_strip_harness.cli import (
     retarget_dependencies,
     run_harness,
     run_problems,
-    stop_process_tree,
     sync_template,
     template_dir,
     unitask_source,
@@ -634,8 +634,8 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         process = mock.Mock(pid=123)
 
         with (
-            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
-            mock.patch("mu3_strip_harness.cli.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
+            mock.patch("mu3_common.process.platform.system", return_value="Windows"),
+            mock.patch("mu3_common.process.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
         ):
             stop_process_tree(process)
 

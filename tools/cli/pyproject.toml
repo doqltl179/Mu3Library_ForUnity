@@ -19,6 +19,7 @@ mu3-repo = "mu3_repo.cli:app"
 mu3-unity = "mu3_unity.cli:app"
 mu3-samples = "mu3_samples.cli:app"
 mu3-di-strip-harness = "mu3_strip_harness.cli:app"
+mu3-verify-build = "mu3_verify_build.cli:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

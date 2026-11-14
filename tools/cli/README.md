@@ -12,8 +12,9 @@ They are intentionally scoped to tooling-safe roots and should not modify Unity 
 | `mu3_unity` | `mu3-unity` | Unity Editor diagnostics, and compiles and test runs through `compile-unity.sh` and `test-unity.sh` |
 | `mu3_samples` | `mu3-samples` | The development projects' links to their packages' `Samples~` folders |
 | `mu3_strip_harness` | `mu3-di-strip-harness` | The [DI stripping harness](../README.md#di-stripping-harness) |
+| `mu3_verify_build` | `mu3-verify-build` | The [verification build](../README.md#verification-build), a player of a copy of `UnityProject_BuiltIn` whose Addressables output stays in the checkout |
 | `mu3_fixed_load` | none | The helper that `compile-unity.sh` and `test-unity.sh` run beside each Unity run, by its path, `src/mu3_fixed_load/fixed_load.py`, with nothing but the standard library (see [../README.md](../README.md#fixed-load-and-repeated-runs)) |
-| `mu3_common` | none | The code the tools share: the repository root and the refusal to change it from outside the checkout (`checkout`), the package mapping in `unity-cli-packages.tsv` and the Editor each project needs (`editor`), the bash that runs the shell entrypoints (`bash`), and the state of each samples link (`sample_links`) |
+| `mu3_common` | none | The code the tools share: the repository root and the refusal to change it from outside the checkout (`checkout`), the package mapping in `unity-cli-packages.tsv` and the Editor each project needs (`editor`), the bash that runs the shell entrypoints (`bash`), the state of each samples link (`sample_links`), the marker file that lets a tool change only a folder it made (`work_dir`), and a command run with a timeout that also stops the processes it started (`process`) |
 
 Each command also runs as `python -m <package>`, such as `python -m mu3_unity doctor`, and so from the repository root without installing the tools, with `PYTHONPATH=tools/cli/src`. A tool imports `mu3_common` and nothing of another tool, so code that two tools need goes into `mu3_common` rather than into a copy.
 
@@ -26,12 +27,13 @@ Each command also runs as `python -m <package>`, such as `python -m mu3_unity do
 - `mu3-samples link`: link each development project's `Assets/` to its package's `Samples~` folder, the setup step a fresh clone needs (see [../README.md](../README.md#fresh-clone-setup)).
 - `mu3-samples unlink`: remove only those links, never the `Samples~` folders they point at, so that `git worktree remove` can delete the worktree on Windows (see [../README.md](../README.md#worktree-removal)).
 - `mu3-di-strip-harness`: build the DI stripping harness as a Windows player at a chosen scripting backend and Managed Stripping Level, with the Editor the URP project names or another installed one, run it, and report each check (see [../README.md](../README.md#di-stripping-harness)).
+- `mu3-verify-build --content build|none`: make a copy of `UnityProject_BuiltIn` and Base from HEAD whose Addressables output stays in the checkout, and build its Windows player with the content or without it (see [../README.md](../README.md#verification-build)).
 
 ## Repository Root
 
 The tools act on the checkout they were imported from. An installed command, such as one of the editable install in a checkout's `.venv`, keeps acting on the checkout it was installed from even when it runs in another checkout's folder. A working directory inside that same checkout only supplies the spelling of its root, such as the `subst` drive it was run from.
 
-- Every command of `mu3-unity` and `mu3-samples`, and `mu3-di-strip-harness`, prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `mu3-unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
+- Every command of `mu3-unity` and `mu3-samples`, and `mu3-di-strip-harness` and `mu3-verify-build`, prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `mu3-unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
 - `mu3-samples link` and `mu3-samples unlink` change nothing and exit with 2 when the working directory is outside that checkout. The error names both folders, and the checkout the working directory is in when there is one. A worktree inside the checkout's folder, such as one under `.claude/worktrees/`, counts as outside it, and a `subst` drive or a link that names the checkout counts as inside it. A folder in the checkout's worktree folders, `.claude/worktrees/` and `.worktrees/`, that is no checkout of its own is refused too, and the error names that folder. A failed `git worktree remove` leaves such a folder, which has lost the `AGENTS.md` and `.github` that mark a checkout; [../README.md](../README.md#worktree-removal) says how to remove its links (#436). To change the checkout you are in, run its own tools from its root with `PYTHONPATH=tools/cli/src python -m mu3_samples`.
 
 ## Compile Verification
@@ -61,7 +63,7 @@ Enter the repository's development environment from PowerShell. The first run cr
 mu3-unity --help
 ```
 
-From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. A `.venv` made before the tools were split into one command each (#485) holds the former single command and none of the four above, since entering only installs into a new `.venv`; delete the folder and enter again.
+From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. A `.venv` made before the tools were split into one command each (#485) holds the former single command and none of the commands above, since entering only installs into a new `.venv`; delete the folder and enter again. One made before `mu3-verify-build` was added (#481) lacks that command: delete it and enter again. To keep it instead, install the tools into it again from the repository root, with `uv pip install --python .venv -e tools/cli` when `uv` made it, since such a `.venv` has no pip, and otherwise with `python -m pip install -e tools/cli` while it is active. Entering does not reinstall them on its own yet (#504).
 
 ## Verification
 
