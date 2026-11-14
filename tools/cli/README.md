@@ -14,7 +14,7 @@ They are intentionally scoped to tooling-safe roots and should not modify Unity 
 | `mu3_strip_harness` | `mu3-di-strip-harness` | The [DI stripping harness](../README.md#di-stripping-harness) |
 | `mu3_verify_build` | `mu3-verify-build` | The [verification build](../README.md#verification-build), a player of a copy of `UnityProject_BuiltIn` whose Addressables output stays in the checkout |
 | `mu3_fixed_load` | none | The helper that `compile-unity.sh` and `test-unity.sh` run beside each Unity run, by its path, `src/mu3_fixed_load/fixed_load.py`, with nothing but the standard library (see [../README.md](../README.md#fixed-load-and-repeated-runs)) |
-| `mu3_common` | none | The code the tools share: the repository root and the refusal to change it from outside the checkout (`checkout`), the package mapping in `unity-cli-packages.tsv` and the Editor each project needs (`editor`), the bash that runs the shell entrypoints (`bash`), the state of each samples link (`sample_links`), and the marker file that lets a tool change only a folder it made (`work_dir`) |
+| `mu3_common` | none | The code the tools share: the repository root and the refusal to change it from outside the checkout (`checkout`), the package mapping in `unity-cli-packages.tsv` and the Editor each project needs (`editor`), the bash that runs the shell entrypoints (`bash`), the state of each samples link (`sample_links`), the marker file that lets a tool change only a folder it made (`work_dir`), and a command run with a timeout that also stops the processes it started (`process`) |
 
 Each command also runs as `python -m <package>`, such as `python -m mu3_unity doctor`, and so from the repository root without installing the tools, with `PYTHONPATH=tools/cli/src`. A tool imports `mu3_common` and nothing of another tool, so code that two tools need goes into `mu3_common` rather than into a copy.
 
@@ -63,7 +63,7 @@ Enter the repository's development environment from PowerShell. The first run cr
 mu3-unity --help
 ```
 
-From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. A `.venv` made before the tools were split into one command each (#485) holds the former single command and none of the commands above, since entering only installs into a new `.venv`; delete the folder and enter again. One made before `mu3-verify-build` was added (#481) lacks that command; install the tools into it again with `python -m pip install -e tools/cli`, or delete it and enter again.
+From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. A `.venv` made before the tools were split into one command each (#485) holds the former single command and none of the commands above, since entering only installs into a new `.venv`; delete the folder and enter again. One made before `mu3-verify-build` was added (#481) lacks that command: delete it and enter again. To keep it instead, install the tools into it again from the repository root, with `uv pip install --python .venv -e tools/cli` when `uv` made it, since such a `.venv` has no pip, and otherwise with `python -m pip install -e tools/cli` while it is active. Entering does not reinstall them on its own yet (#504).
 
 ## Verification
 
