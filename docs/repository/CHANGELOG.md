@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14
+
+### Fixed
+- `test-unity.sh` replaces the escapes of the JSON string in which Unity's log writes a test's name by JSON's rules, so a test whose name holds a line break, a tab, or a character outside ASCII that the log writes as `\n`, `\t`, or `\uXXXX`, a surrogate pair included, now counts as failed on the environment when the end of Unity's Data Store service alone failed it (#439). The check read each escape as the character after the backslash, so the log's `F.Case(\"a\nb\")` became `F.Case("anb")`, which matched no failed test of the result file, where the name holds `&#xA;`, and its line was a `warning:`. The new `json_string_text` writes the characters in UTF-8 through `utf8_character`, which `xml_attribute_text` now uses for the result file's numeric character references too, so both give the same bytes; an escape of U+0000, which a bash string cannot hold, of half a surrogate pair, or one that JSON does not define stays as it is. The name of a test that stalled, which `find_unfinished_test` read with `sed`, replacing only `\"` and `\\`, is read by the same function. Tool tests check each escape, hexadecimal digits in either case, a surrogate pair, the escapes that stay, both readers, and a run whose result file and log name such a test. Whether Unity's `##utp:` lines write characters outside ASCII as `\uXXXX`, and whether test names hold control characters in practice, was not checked.
+
 ## 2026-11-14 (agentkit 0.7.1)
 
 ### Changed
