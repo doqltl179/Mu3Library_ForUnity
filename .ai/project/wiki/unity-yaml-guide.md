@@ -24,7 +24,7 @@ The `unity` stack pack owns how serialized assets change: the route order (live 
 
 - Samples live in `Mu3Library_*/Samples~/`, which Unity does not import. Each development project exposes them through a Git-ignored link, a junction on Windows and a symbolic link elsewhere: `UnityProject_BuiltIn/Assets/Mu3LibrarySamples`, `UnityProject_URP/Assets/Mu3LibrarySamplesURP`, `UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame`.
 - The Editor and batch routes therefore edit a sample in place through that path. There is no copy to bring back, and the `.meta` files Unity writes land in `Samples~`, where they are tracked.
-- A fresh clone or worktree has no links until `commands.worktree_setup` (`mu3-cli unity link-samples`) creates them; run it before taking the Editor or batch route.
+- A fresh clone or worktree has no links until `commands.worktree_setup` (`mu3-samples link`) creates them; run it before taking the Editor or batch route.
 - The scene owns the ScreenEffect sample's wiring. Never replace scene wiring with runtime UI generation to avoid a scene edit.
 
 ## Sample Text And Input

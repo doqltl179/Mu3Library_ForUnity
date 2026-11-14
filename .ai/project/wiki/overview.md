@@ -68,7 +68,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 - `README.md` and `CHANGELOG.md` are English; their localized copies are listed in `[docs.locale_paths]`.
 - When `CHANGELOG.md` changes, check whether `README.md` needs the same change: new features, changed signatures, new define symbols, usage examples.
 - `CHANGELOG.md` tracks package releases only, under per-package headers ([package-release.md](package-release.md)). Repository workflow and tooling changes go to `docs/repository/CHANGELOG.md`.
-- `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-cli repo check` verifies them.
+- `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-repo check` verifies them.
 
 ## File Encoding
 
@@ -78,4 +78,4 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 ## Local-Only Verification
 
 - The repository runs no GitHub Actions and no branch protection (`hosting.ci = false`), so a wrong pull request base is a stop condition, not a failing check.
-- Local guards: `python .ai/kit/tools/agentkit.py check` for agent docs, and `mu3-cli repo check`, which runs repository hygiene checks and then that check.
+- Local guards: `python .ai/kit/tools/agentkit.py check` for agent docs, and `mu3-repo check`, which runs repository hygiene checks and then that check.
