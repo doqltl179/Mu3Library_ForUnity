@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-14 (agentkit 0.8.0)
+
+### Changed
+- Updated agentkit from 0.7.3 to 0.8.0, which ships the proposal this repository sent upstream after #451, ai-agents#115 (#452, #486). With `policy.worktrees = false`, `git-branch-start` now gives a unit that runs at the same time as another its own worktree, and «Worktrees» in `git-workflow.md` lets a unit cut its branch in place only when no other unit is open or will start before it is cleaned up; otherwise each unit gets a worktree, and in the main checkout another unit starts before that one is cleaned up only after asking the user. `.ai/project/wiki/overview.md` therefore drops its instruction to take the skill's worktree steps as if the policy were on, and keeps what the kit does not say: the `.worktrees/<short-name>` path in the checkout the session runs in, a Claude app session's own worktree and the edit guard, the path depth limit, and the teardown. By the user's decision it also records that a Claude app worktree is its session's checkout, so units of other sessions are not "another unit" there or in the main checkout, and that `git-worktree-cleanup` keeps such a worktree, switching it to the session's own branch before deleting the task branch. `work-issues` asks once, when it reports the batch order, whether an issue may start in the same checkout before an earlier unit there is cleaned up, records the answer in its plan, and without that yes works only an issue that needs no such start. `git-branch-start` also stops before creating a worktree while the main checkout is off the integration branch, and before cutting a branch in place while a worktree lies under `policy.worktree_root`; `git-worktree-cleanup` stops before removing anything while the main checkout is on a branch other than the integration branch or, for a unit without a worktree, its task branch; «Stop Conditions» stops before project files are edited in the main checkout while another unit runs. The second migration note asks for `commands.worktree_setup` and `commands.worktree_teardown`, which `profile.toml` already sets.
+
 ## 2026-11-14 (agentkit 0.7.3)
 
 ### Changed
