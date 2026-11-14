@@ -134,10 +134,14 @@ namespace Mu3Library.Multiplayer.Local.Machine
                     return;
                 }
 
+                // InvalidState, as the manager answers a creation while it has a session (#435):
+                // only leaving a lobby clears this limit, never waiting, while RateLimited, which
+                // Steam answers to its creation limit, promises that creating the lobby again
+                // later can succeed.
                 if (CountOwnedLobbies() >= MachineDirectory.MaxListedLobbies)
                 {
                     Debug.LogWarning($"[Multiplayer] A backend on the local network owns at most {MachineDirectory.MaxListedLobbies} lobbies at a time; the lobby was not created.");
-                    onCompleted?.Invoke(MultiplayerReason.BackendError, LobbyId.None);
+                    onCompleted?.Invoke(MultiplayerReason.InvalidState, LobbyId.None);
                     return;
                 }
 

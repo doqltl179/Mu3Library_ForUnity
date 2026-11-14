@@ -48,7 +48,14 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>The backend does not offer the feature, as the local backend has no avatars.</summary>
         NotSupported = 5,
 
-        /// <summary>The request does not fit the current session state.</summary>
+        /// <summary>
+        /// The request does not fit the current session state, such as a lobby creation while
+        /// the manager has a session. A machine-wide local backend
+        /// (<c>LocalNetwork.CreateMachineWide</c>) also answers it, and logs a warning, for a lobby
+        /// creation while it already owns 64 lobbies. Both clear only by leaving, the session or a
+        /// lobby, never by waiting, so the backend does not answer <see cref="RateLimited"/>,
+        /// which promises that creating the lobby again later can succeed.
+        /// </summary>
         InvalidState = 10,
         /// <summary>A request argument is missing or out of range.</summary>
         InvalidArgument = 11,
