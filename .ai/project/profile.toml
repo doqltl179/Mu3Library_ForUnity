@@ -27,7 +27,7 @@ area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
 [commands]
 build = "bash ./compile-unity.sh changed"
 test = "bash ./test-unity.sh changed"
-# The play-mode tests, which reach what only the player loop runs; minimal and urp run them without UniTask.
+# The play-mode tests, which reach what only the player loop runs; minimal runs the DI core tests without UniTask.
 test_playmode = "bash ./test-unity.sh changed --platform playmode"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 
