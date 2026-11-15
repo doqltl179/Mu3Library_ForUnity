@@ -686,6 +686,9 @@ namespace Mu3Library.Tests
         #endregion
 
         #region String Comparisons
+        // The members that MultiplayerSteamIntegrationTests read from here are public, since the
+        // Steam package's test assembly references this one to check Steam against the same data.
+
         /// <summary>
         /// How Steam's string filters compared a lobby's value with a filter's value, as the sign
         /// of the lobby's value minus the filter's: what Steam's search on AppID 480 gave for all
@@ -719,7 +722,7 @@ namespace Mu3Library.Tests
         /// Steam as on every backend, since the manager leaves the key out (#313).
         /// </summary>
         internal const string MissingStringKey = "missing";
-        internal const string EmptyStringKey = "empty";
+        public const string EmptyStringKey = "empty";
 
         internal static readonly LobbyComparison[] AllLobbyComparisons =
         {
@@ -731,7 +734,7 @@ namespace Mu3Library.Tests
         /// Lobby data that holds each lobby value of <see cref="SteamStringComparisons"/> under a
         /// key of its own, and <see cref="EmptyStringKey"/> with an empty value.
         /// </summary>
-        internal static Dictionary<string, string> StringComparisonData()
+        public static Dictionary<string, string> StringComparisonData()
         {
             Dictionary<string, string> data = new Dictionary<string, string>();
             for (int i = 0; i < SteamStringComparisons.Length; i++)
@@ -744,7 +747,7 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>Each filter to search with on <see cref="StringComparisonData"/>, and whether it keeps the lobby.</summary>
-        internal static IEnumerable<(string Key, string Filter, LobbyComparison Comparison, bool IsKept)> StringComparisonChecks()
+        public static IEnumerable<(string Key, string Filter, LobbyComparison Comparison, bool IsKept)> StringComparisonChecks()
         {
             for (int i = 0; i < SteamStringComparisons.Length; i++)
             {
@@ -772,7 +775,7 @@ namespace Mu3Library.Tests
         /// holds with an empty value: only a caller of a backend itself writes one, since the
         /// manager deletes a key written empty (#313).
         /// </summary>
-        internal const string EmptyValueKey = "raw";
+        public const string EmptyValueKey = "raw";
 
         /// <summary>
         /// Each filter to search with on <see cref="EmptyValueKey"/>, held with an empty value, and
@@ -781,7 +784,7 @@ namespace Mu3Library.Tests
         /// empty string, and a numeric filter reads it as 0. Every backend gives these results;
         /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
         /// </summary>
-        internal static IEnumerable<(string Description, Func<LobbySearchQuery, LobbySearchQuery> AddTo, bool IsKept)> EmptyValueFilterChecks()
+        public static IEnumerable<(string Description, Func<LobbySearchQuery, LobbySearchQuery> AddTo, bool IsKept)> EmptyValueFilterChecks()
         {
             foreach (string filter in new[] { string.Empty, "x" })
             {
@@ -805,8 +808,8 @@ namespace Mu3Library.Tests
         }
 
         /// <summary>The one game key, and its value, of the lobby that <see cref="KeylessFilterChecks"/> search for.</summary>
-        internal const string KeylessFilterLobbyKey = "map";
-        internal const string KeylessFilterLobbyValue = "desert";
+        public const string KeylessFilterLobbyKey = "map";
+        public const string KeylessFilterLobbyValue = "desert";
 
         /// <summary>
         /// Searches with a string or numeric filter whose key is null or empty, under every
@@ -839,7 +842,7 @@ namespace Mu3Library.Tests
         /// A key that the lobby <see cref="MissingKeyNumericFilterChecks"/> search for lacks: it
         /// holds only <see cref="KeylessFilterLobbyKey"/>.
         /// </summary>
-        internal const string MissingNumericKey = "level";
+        public const string MissingNumericKey = "level";
 
         /// <summary>
         /// Each numeric filter on <see cref="MissingNumericKey"/>, which the lobby lacks, and
@@ -848,7 +851,7 @@ namespace Mu3Library.Tests
         /// backend gives these results; <c>MultiplayerSteamIntegrationTests</c> checks Steam
         /// against them.
         /// </summary>
-        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> MissingKeyNumericFilterChecks()
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> MissingKeyNumericFilterChecks()
         {
             foreach (int number in new[] { 0, 1, -1 })
             {
@@ -868,7 +871,7 @@ namespace Mu3Library.Tests
         /// (<see cref="LobbySearchQuery.AddNumericFilter"/>);
         /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
         /// </summary>
-        internal static readonly (string Lobby, int Read)[] SteamNumericReadings =
+        public static readonly (string Lobby, int Read)[] SteamNumericReadings =
         {
             // Decimal digits after one sign, up to the first other character, never octal.
             ("-4", -4), ("+3", 3), ("-0", 0), ("7 ", 7), ("007", 7), ("010", 10), ("08", 8),
@@ -890,23 +893,23 @@ namespace Mu3Library.Tests
         };
 
         /// <summary>The key prefix of <see cref="SteamNumericReadings"/> in <see cref="NumericReadingData"/>.</summary>
-        internal const string NumericReadingKey = "num";
+        public const string NumericReadingKey = "num";
 
         /// <summary>
         /// A quote followed by an unpaired surrogate, which only a caller of a backend itself
         /// writes, since the manager refuses such a value: UTF-8 cannot carry the surrogate, so
         /// it reaches Steam and a lobby file as U+FFFD, whose first byte, 0xEF, reads -17.
         /// </summary>
-        internal static readonly (string Lobby, int Read)[] UnpairedSurrogateReadings =
+        public static readonly (string Lobby, int Read)[] UnpairedSurrogateReadings =
         {
             ("'\uD800", -17), ("'\uDC00", -17), ("-'\uD83Dx", 17),
         };
 
         /// <summary>The key prefix of <see cref="UnpairedSurrogateReadings"/> in <see cref="NumericReadingData"/>.</summary>
-        internal const string UnpairedSurrogateKey = "lone";
+        public const string UnpairedSurrogateKey = "lone";
 
         /// <summary>Lobby data that holds each value of <paramref name="readings"/> under <paramref name="keyPrefix"/> and its index.</summary>
-        internal static Dictionary<string, string> NumericReadingData((string Lobby, int Read)[] readings, string keyPrefix)
+        public static Dictionary<string, string> NumericReadingData((string Lobby, int Read)[] readings, string keyPrefix)
         {
             Dictionary<string, string> data = new Dictionary<string, string>();
             for (int i = 0; i < readings.Length; i++)
@@ -922,7 +925,7 @@ namespace Mu3Library.Tests
         /// numeric filter <c>Equal</c> the number it reads, which keeps the lobby, then one
         /// <c>NotEqual</c> it, which drops it.
         /// </summary>
-        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NumericReadingChecks((string Lobby, int Read)[] readings, string keyPrefix)
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NumericReadingChecks((string Lobby, int Read)[] readings, string keyPrefix)
         {
             for (int i = 0; i < readings.Length; i++)
             {
@@ -956,7 +959,7 @@ namespace Mu3Library.Tests
         };
 
         /// <summary>Lobby data that holds each entry of <see cref="UnpairedSurrogateData"/> as written.</summary>
-        internal static Dictionary<string, string> UnpairedSurrogateLobbyData()
+        public static Dictionary<string, string> UnpairedSurrogateLobbyData()
         {
             return UnpairedSurrogateData.ToDictionary(entry => entry.Key, entry => entry.Value);
         }
@@ -977,7 +980,7 @@ namespace Mu3Library.Tests
         };
 
         /// <summary>Each read of <see cref="UnpairedSurrogateLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
-        internal static IEnumerable<string> UnpairedSurrogateLookupMismatches(string reader, Func<string, string> read)
+        public static IEnumerable<string> UnpairedSurrogateLookupMismatches(string reader, Func<string, string> read)
         {
             foreach ((string key, string value) in UnpairedSurrogateLookups)
             {
@@ -993,7 +996,7 @@ namespace Mu3Library.Tests
         /// What in <paramref name="data"/>, the data a search returned for the lobby of
         /// <see cref="UnpairedSurrogateLobbyData"/>, differs from that data as every backend holds it.
         /// </summary>
-        internal static IEnumerable<string> UnpairedSurrogateDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        public static IEnumerable<string> UnpairedSurrogateDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
         {
             foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in UnpairedSurrogateData)
             {
@@ -1017,7 +1020,7 @@ namespace Mu3Library.Tests
         /// so it equals U+FFFD and any other such surrogate, and sorts where U+FFFD sorts, before
         /// a character beyond U+FFFF, which a low surrogate counted by itself would sort after.
         /// </summary>
-        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> UnpairedSurrogateFilterChecks()
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> UnpairedSurrogateFilterChecks()
         {
             (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
             {
@@ -1074,7 +1077,7 @@ namespace Mu3Library.Tests
         };
 
         /// <summary>Lobby data that holds each entry of <see cref="NulData"/> and <see cref="NulDataWithoutAKey"/> as written.</summary>
-        internal static Dictionary<string, string> NulLobbyData()
+        public static Dictionary<string, string> NulLobbyData()
         {
             Dictionary<string, string> data = NulData.ToDictionary(entry => entry.Key, entry => entry.Value);
             foreach ((string key, string value) in NulDataWithoutAKey)
@@ -1102,7 +1105,7 @@ namespace Mu3Library.Tests
         };
 
         /// <summary>Each read of <see cref="NulLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
-        internal static IEnumerable<string> NulLookupMismatches(string reader, Func<string, string> read)
+        public static IEnumerable<string> NulLookupMismatches(string reader, Func<string, string> read)
         {
             foreach ((string key, string value) in NulLookups)
             {
@@ -1119,7 +1122,7 @@ namespace Mu3Library.Tests
         /// <see cref="NulLobbyData"/>, differs from that data as every backend holds it: the
         /// entries of <see cref="NulData"/> up to their first NUL, and no other key.
         /// </summary>
-        internal static IEnumerable<string> NulDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        public static IEnumerable<string> NulDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
         {
             foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in NulData)
             {
@@ -1150,7 +1153,7 @@ namespace Mu3Library.Tests
         /// an empty value, unlike a key the lobby lacks (#286), and a numeric filter reads it as 0
         /// (#353).
         /// </summary>
-        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NulFilterChecks()
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NulFilterChecks()
         {
             (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
             {
@@ -1210,7 +1213,7 @@ namespace Mu3Library.Tests
             return builder.ToString();
         }
 
-        internal static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
+        public static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
         {
             string lobby = key == MissingStringKey ? "a lobby without the key"
                 : key == EmptyStringKey ? "a lobby with the key empty"

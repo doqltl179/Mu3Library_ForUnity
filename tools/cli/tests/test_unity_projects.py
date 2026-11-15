@@ -43,6 +43,7 @@ class RepositoryConfigTests(unittest.TestCase):
                 "com.github.doqltl179.mu3library.inputsystem",
                 "com.github.doqltl179.mu3library.localization",
                 "com.github.doqltl179.mu3library.notifications",
+                "com.github.doqltl179.mu3library.steam",
             },
             set(self.configs["full"].packages),
         )

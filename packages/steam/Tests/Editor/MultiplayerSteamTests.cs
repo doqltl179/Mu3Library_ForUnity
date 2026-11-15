@@ -6,7 +6,7 @@ using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
-using Mu3Library.Multiplayer.Steam;
+using Mu3Library.Steam.Multiplayer;
 using NUnit.Framework;
 using NUnit.Framework.Constraints;
 using Steamworks;

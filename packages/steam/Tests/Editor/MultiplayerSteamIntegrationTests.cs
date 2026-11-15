@@ -8,8 +8,7 @@ using System.Threading;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
-using Mu3Library.Multiplayer.Protocol;
-using Mu3Library.Multiplayer.Steam;
+using Mu3Library.Steam.Multiplayer;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Constraints;
@@ -105,8 +104,9 @@ namespace Mu3Library.Tests
             sent.Add(large);
             Assert.That(_backend.Send(sender, large, DeliveryMode.Reliable), Is.True);
 
-            int kicked = ReasonCodes.ToWire(MultiplayerReason.Kicked);
-            _backend.Disconnect(sender, kicked);
+            // A code in 1000-1999, which Steam leaves to an application's normal close reasons.
+            const int closeCode = 1234;
+            _backend.Disconnect(sender, closeCode);
             Pump(() => recorder.DisconnectCode >= 0, 10);
 
             Assert.That(recorder.Received.Count, Is.EqualTo(sent.Count));
@@ -117,7 +117,7 @@ namespace Mu3Library.Tests
 
             Assert.That(recorder.Events.Last(), Is.EqualTo("disconnected " + receiver));
             Assert.That(recorder.DisconnectKind, Is.EqualTo(BackendDisconnectKind.ClosedByPeer));
-            Assert.That(recorder.DisconnectCode, Is.EqualTo(kicked));
+            Assert.That(recorder.DisconnectCode, Is.EqualTo(closeCode));
             Assert.That(_backend.Send(sender, new byte[] { 1 }, DeliveryMode.Reliable), Is.False, "a connection this side closed refuses data");
         }
 
@@ -195,7 +195,9 @@ namespace Mu3Library.Tests
                 LobbyId lobby = manager.CurrentLobbyId;
                 Assert.That(_backend.IsLobbyMember(lobby, _backend.LocalPlayerId), Is.True);
                 Assert.That(_backend.GetLobbyOwner(lobby), Is.EqualTo(_backend.LocalPlayerId));
-                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion), Is.EqualTo(WireProtocol.VersionText));
+                // The manager's own search below keeps only lobbies of its packet format, so
+                // finding the lobby there shows that this value is the manager's own.
+                Assert.That(_backend.GetLobbyData(lobby, LobbyDataKeys.WireVersion), Is.Not.Empty);
 
                 bool found = false;
                 Stopwatch watch = Stopwatch.StartNew();

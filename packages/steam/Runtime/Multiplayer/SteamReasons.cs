@@ -1,7 +1,7 @@
 using Mu3Library.Multiplayer.Data;
 using Steamworks;
 
-namespace Mu3Library.Multiplayer.Steam
+namespace Mu3Library.Steam.Multiplayer
 {
     /// <summary>
     /// Maps Steam's answers to the library's reasons and types.

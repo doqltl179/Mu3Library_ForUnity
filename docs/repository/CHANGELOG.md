@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-16 (steam package)
+
+### Changed
+- The `full` project config names the new Steam package, `packages/steam`, as `"checkout"` and lists it under `testables` (#543, ADR 0001 D7, D11, D12, D19), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `MultiplayerSteamTests` and `MultiplayerSteamIntegrationTests` from the package's own test assembly, `Mu3Library.Steam.Tests.Editor`, with its counts unchanged. No other config ran those tests under Base, since they need Steamworks.NET, which only `full` installs, so no other count changes. `full` keeps Steamworks.NET and `steam_appid.txt`, which the package and its tests still need. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
 ## 2026-11-16 (di package)
 
 ### Changed

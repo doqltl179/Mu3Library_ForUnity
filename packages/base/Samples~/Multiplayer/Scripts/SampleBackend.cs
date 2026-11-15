@@ -3,25 +3,29 @@ using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using UnityEngine;
-#if MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
-using Mu3Library.Multiplayer.Steam;
+#if MULTIPLAYER_STEAM_PACKAGE && MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
+using Mu3Library.Steam.Multiplayer;
 #endif
 
 namespace Mu3Library.Sample.Multiplayer
 {
     /// <summary>
-    /// Picks the backend the sample plays on: Steam when Steamworks.NET is installed and the Steam
-    /// client runs, otherwise the local backend on a network that every process of this computer
-    /// shares, so that an editor and a player build, or two builds, meet without Steam. The
-    /// manager does not own its backend; the core disposes this after the manager.
+    /// Picks the backend the sample plays on: Steam when the Steam package and Steamworks.NET are
+    /// installed and the Steam client runs, otherwise the local backend on a network that every
+    /// process of this computer shares, so that an editor and a player build, or two builds, meet
+    /// without Steam. The manager does not own its backend; the core disposes this after the
+    /// manager.
     /// </summary>
     /// <remarks>
-    /// The Steam code compiles only with <c>MULTIPLAYER_STEAMWORKS_SUPPORT</c>, which the sample's
-    /// assembly definition sets for Steamworks.NET 2025.164.1 or later, as
-    /// <c>Mu3Library.Multiplayer.Steam</c> needs, and only while the build target is a standalone
-    /// platform. That assembly leaves out 32-bit Windows players, and no define that Unity 6.6 keeps
-    /// tells them apart (it deprecates <c>UNITY_64</c>), so with Steamworks.NET installed the
-    /// sample builds for the editor and 64-bit standalone players only.
+    /// The Steam code compiles only with <c>MULTIPLAYER_STEAM_PACKAGE</c>, which the sample's
+    /// assembly definition sets while the Steam package
+    /// (<c>com.github.doqltl179.mu3library.steam</c>) is installed, and
+    /// <c>MULTIPLAYER_STEAMWORKS_SUPPORT</c>, which it sets for Steamworks.NET 2025.164.1 or later,
+    /// as <c>Mu3Library.Steam.Multiplayer</c> needs, and only while the build target is a
+    /// standalone platform. The Steam package does not install Steamworks.NET, so the sample checks
+    /// for both. That assembly leaves out 32-bit Windows players, and no define that Unity 6.6
+    /// keeps tells them apart (it deprecates <c>UNITY_64</c>), so with both installed the sample
+    /// builds for the editor and 64-bit standalone players only.
     /// </remarks>
     public sealed class SampleBackend : IDisposable
     {
@@ -35,7 +39,7 @@ namespace Mu3Library.Sample.Multiplayer
         {
             get
             {
-#if MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
+#if MULTIPLAYER_STEAM_PACKAGE && MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
                 return Backend is SteamBackend;
 #else
                 return false;
@@ -56,7 +60,7 @@ namespace Mu3Library.Sample.Multiplayer
         {
             LocalNetwork network = LocalNetwork.CreateMachineWide(gameId);
 
-#if MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
+#if MULTIPLAYER_STEAM_PACKAGE && MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
             if (!forceLocal)
             {
                 SteamBackendOptions options = new SteamBackendOptions
@@ -87,7 +91,7 @@ namespace Mu3Library.Sample.Multiplayer
         /// <summary>Opens the Steam overlay's invite dialog for the lobby; elsewhere it answers <see cref="MultiplayerReason.NotSupported"/>.</summary>
         public MultiplayerResult OpenInviteDialog(LobbyId lobby)
         {
-#if MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
+#if MULTIPLAYER_STEAM_PACKAGE && MULTIPLAYER_STEAMWORKS_SUPPORT && UNITY_STANDALONE
             if (Backend is SteamBackend steam)
             {
                 return steam.OpenInviteDialog(lobby);
