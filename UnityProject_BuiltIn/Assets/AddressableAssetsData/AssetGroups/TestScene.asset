@@ -14,19 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: TestScene
   m_GUID: 1639c0d22dce5714dabb4a5c8eabe05d
-  m_SerializeEntries:
-  - m_GUID: 20742fac7db662744b7160273fce3a69
-    m_Address: Sample_AddressablesAdditive
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - test-scene
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 24159f7bd12d06848878529da7b9af90
-    m_Address: Sample_Addressables
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - test-scene
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: a40f30e0c77da9848a0d1da31b4080c4, type: 2}
   m_SchemaSet:

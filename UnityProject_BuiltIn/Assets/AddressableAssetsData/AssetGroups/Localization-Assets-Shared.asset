@@ -14,14 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: Localization-Assets-Shared
   m_GUID: a60f25345bdd19c4dbcccf420a4bea5e
-  m_SerializeEntries:
-  - m_GUID: 4e6b589bdccd7bb42852a61c0f63cebd
-    m_Address: Assets/Mu3LibraryAssets/Samples~/Sample_Localization/Localization/Tables/TestStringTable
-      Shared Data.asset
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - base-download
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 1
   m_Settings: {fileID: 11400000, guid: a40f30e0c77da9848a0d1da31b4080c4, type: 2}
   m_SchemaSet:

@@ -14,19 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: TestPack
   m_GUID: 95223a18040834e468d8a219f702ffb6
-  m_SerializeEntries:
-  - m_GUID: 926fff1ccf3cf46468776ad51b75deb6
-    m_Address: TestImage03
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - test-image
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c0a65327c51651541800f95dc70bb4f2
-    m_Address: Assets/Mu3LibrarySamples/Sample_Template/Images/SceneThumbnails
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - download-all
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: a40f30e0c77da9848a0d1da31b4080c4, type: 2}
   m_SchemaSet:

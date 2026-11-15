@@ -14,21 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: TestPack02
   m_GUID: aa5e35f6ffb8fa441a20e5e9227fac22
-  m_SerializeEntries:
-  - m_GUID: 1bfbac337a74bc644b65dee79cfe4f6f
-    m_Address: TestImage02
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - download-all
-    - test-image
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 3255d73790e03a94aa3dafe1195290a8
-    m_Address: TestImage
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - test-image
-    - test-label
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: a40f30e0c77da9848a0d1da31b4080c4, type: 2}
   m_SchemaSet:
