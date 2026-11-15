@@ -1,4 +1,3 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
 using System;
 
 namespace Mu3Library.Addressable
@@ -41,4 +40,3 @@ namespace Mu3Library.Addressable
         }
     }
 }
-#endif

@@ -1,5 +1,3 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
-
 using System.Collections.Generic;
 
 namespace Mu3Library.Addressable.Data
@@ -25,5 +23,3 @@ namespace Mu3Library.Addressable.Data
         }
     }
 }
-
-#endif

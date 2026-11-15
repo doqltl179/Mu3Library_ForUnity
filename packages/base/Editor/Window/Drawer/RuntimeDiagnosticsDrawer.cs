@@ -4,7 +4,7 @@ using Mu3Library.UI.MVP;
 using UnityEditor;
 using UnityEngine;
 
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+#if MU3LIBRARY_ADDRESSABLES_PACKAGE
 using Mu3Library.Addressable;
 #endif
 
@@ -71,7 +71,7 @@ namespace Mu3Library.Editor.Window.Drawer
                     anyDrawn = true;
                 }
 
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+#if MU3LIBRARY_ADDRESSABLES_PACKAGE
                 if (instance is AddressablesManager addressablesManager)
                 {
                     DrawAddressablesDiagnostics(addressablesManager);
@@ -97,7 +97,7 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
+#if MU3LIBRARY_ADDRESSABLES_PACKAGE
         private void DrawAddressablesDiagnostics(AddressablesManager addressablesManager)
         {
             EditorGUILayout.LabelField($"Addressables cached assets: {addressablesManager.CachedAssetCount}");

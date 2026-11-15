@@ -1,4 +1,4 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT && MU3LIBRARY_UNITASK_SUPPORT
+#if MU3LIBRARY_UNITASK_SUPPORT
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -300,9 +300,9 @@ namespace Mu3Library.Addressable
             {
                 try
                 {
-                    // Mu3Library does not reference UniTask.Addressables, so this binds to UniTask's
-                    // IEnumerator extension, which waits for IsDone and does not throw for a failed
-                    // handle. OnInitializeCompleted logs the failure and reports it through
+                    // Mu3Library.Addressables does not reference UniTask.Addressables, so this binds to
+                    // UniTask's IEnumerator extension, which waits for IsDone and does not throw for a
+                    // failed handle. OnInitializeCompleted logs the failure and reports it through
                     // InitializeError and OnInitializeResult; the catch keeps this path as quiet as
                     // Initialize(Action) should the handle extension ever be the one that binds.
                     await handle.ToUniTask();

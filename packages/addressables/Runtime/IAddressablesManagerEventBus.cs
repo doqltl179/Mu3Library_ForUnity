@@ -1,4 +1,3 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
 using System;
 using Mu3Library.Foundation.Event;
 
@@ -17,4 +16,3 @@ namespace Mu3Library.Addressable
         public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed);
     }
 }
-#endif
