@@ -28,6 +28,7 @@ The detailed notes go in the root `CHANGELOG.md` (and its localized copies) unde
 | `notifications` | `## [notifications/X.Y.Z] - YYYY-MM-DD` | `[Notifications] vX.Y.Z` |
 | `inputsystem` | `## [inputsystem/X.Y.Z] - YYYY-MM-DD` | `[Input System] vX.Y.Z` |
 | `localization` | `## [localization/X.Y.Z] - YYYY-MM-DD` | `[Localization] vX.Y.Z` |
+| `addressables` | `## [addressables/X.Y.Z] - YYYY-MM-DD` | `[Addressables] vX.Y.Z` |
 
 - Plain `vX.Y.Z` tags (`v0.0.20` through `v0.6.0`) are historical.
 - The Watermelon Game tag path is `game/watermelon` while its commit scope is `watermelon`; keep each as written.

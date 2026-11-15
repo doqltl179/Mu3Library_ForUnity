@@ -1,4 +1,3 @@
-#if MU3LIBRARY_ADDRESSABLES_SUPPORT
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -40,5 +39,3 @@ namespace Mu3Library.Addressable
         public void ClearCache();
     }
 }
-
-#endif

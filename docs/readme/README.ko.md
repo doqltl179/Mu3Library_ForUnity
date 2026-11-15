@@ -42,7 +42,7 @@
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩, 바인딩 오버라이드 퍼시스턴스와 이름 내보내기 드로어를 별도의 Input System 패키지로 제공
 - 🌍 **Localization Manager**: 문자열과 로컬라이즈된 에셋 조회, 모든 구독자가 전달받는 로케일 변경, 로케일/테이블/엔트리를 역할별 스크립트로 분리하는 데이터 내보내기와 문자 수집 도구를 별도의 Localization 패키지로 제공
-- 🧰 **에디터 유틸리티 Drawer**: 라벨, 그룹, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 데이터 내보내기 제공
+- 🗂 **Addressables Manager**: key 단위 에셋 로드와 캐시, 다운로드 크기 조회와 의존성 다운로드, 한 번에 하나씩 Addressables에 닿는 카탈로그 확인과 갱신, 라벨, 그룹, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 그룹 데이터 내보내기를 별도의 Addressables 패키지로 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper를 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
 
@@ -76,6 +76,8 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
 
 `LocalizationManager`와 그 데이터 내보내기, 문자 수집 드로어를 담은 Localization 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
 
+`AddressablesManager`와 그 그룹 데이터 내보내기 드로어를 담은 Addressables 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
@@ -85,6 +87,7 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
     - `packages/notifications/package.json`
     - `packages/inputsystem/package.json` (먼저 Base 설치)
     - `packages/localization/package.json` (먼저 Base 설치)
+    - `packages/addressables/package.json` (먼저 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
@@ -266,25 +269,7 @@ void Start()
 페이드, 덕킹, 루프 간격, 플레이리스트 트랙 사이 간격은 기본적으로 비스케일 시간으로 진행하므로, 소스 자체가 계속 재생되듯 `Time.timeScale`이 0일 때도 계속 진행합니다. 게임의 타임 스케일을 따르게 하려면 `_audioManager.TimeMode = TimeMode.Scaled;`로 설정하세요. `PlayBgm`, `PlayBgmForce`, `TransitionBgm`은 `StopBgm`처럼 실행 중인 BGM 플레이리스트를 끝냅니다.
 
 ### Addressables
-Addressables 지원이 활성화된 경우, key로 해석되는 모든 에셋을 해당 resource location의 `PrimaryKey`로 인덱싱한 `Dictionary<string, T>`로 로드할 수 있습니다. `PrimaryKey`는 비어 있지 않고 고유해야 하며, 그렇지 않으면 로드 작업이 실패합니다.
-
-```csharp
-[Inject] private IAddressablesManager _addressablesManager;
-
-_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
-{
-    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
-    {
-        Debug.Log(texture.name);
-    }
-});
-
-// UniTask 지원도 활성화된 경우:
-Dictionary<string, Texture2D> textures =
-    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
-```
-
-카탈로그 확인과 갱신(`CheckForCatalogUpdates`, `UpdateCatalogs`와 그 UniTask 변형)은 호출 순서대로 하나씩 Addressables에 닿습니다. 다른 호출이 진행 중일 때 부른 호출은(그 호출의 콜백 안에서 부른 것 포함) 앞선 콜백 다음 ResourceManager 업데이트에서, 즉 그 핸들이 정리된 뒤에 시작하며, `Dispose`는 아직 Addressables에 닿지 않은 호출을 null로 알립니다. 갱신은 매니저가 초기화된 뒤에만 Addressables에 닿습니다. 아직 초기화되지 않은 매니저는 `Initialize`와 같은 초기화를 같은 `IsInitializing` 상태와 이벤트로 거치고, 초기화가 진행 중일 때 부른 갱신은 그 초기화를 기다립니다. 그 초기화가 실패하면 갱신의 콜백은 null을 받고, 이후의 갱신도 초기화 호출이 성공할 때까지 다시 시도하지 않고 같은 방식으로 실패합니다.
+key로 에셋을 로드해 캐시하고 카탈로그 확인과 갱신을 한 번에 하나씩 실행하는 `AddressablesManager`는 별도의 Addressables 패키지로 옮겨졌습니다. 사용법은 그 [README](../../packages/addressables/README.md)를 참고하세요. Base는 아래 Scene Loader의 Addressables 씬 로드를 유지합니다.
 
 ### Scene Loader
 built-in 및 Addressables 씬 모두에 대해 명시적인 씬 명령을 지원합니다.
@@ -385,7 +370,7 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 | 패키지 | Define | 기능 |
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await 비동기 API |
-| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 동적 에셋 로딩 |
+| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Addressables 씬 로드 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | 멀티플레이 세션의 Steam 백엔드 (2025.164.1 이상. 별도 `Mu3Library.Multiplayer.Steam` 어셈블리이며, 에디터에서는 빌드 대상이 스탠드얼론 플랫폼일 때 컴파일되고, 플레이어는 64비트 스탠드얼론인 Windows x64, macOS, Linux x64에만 들어가며 32비트 Windows에는 들어가지 않음) |
 
@@ -394,6 +379,8 @@ Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨�
 `InputSystemManager`는 별도의 Input System 패키지로 옮겨졌습니다. 이 패키지는 Unity Input System을 의존 패키지로 함께 설치합니다. 자세한 내용은 그 [README](../../packages/inputsystem/README.md)를 참고하세요. Base는 아래에서 설명하는, `MVPManager`가 만드는 `EventSystem`의 입력 모듈을 위해 `MU3LIBRARY_INPUTSYSTEM_SUPPORT`를 유지합니다.
 
 `LocalizationManager`는 별도의 Localization 패키지로 옮겨졌습니다. 이 패키지는 Unity Localization을 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/localization/README.md)를 참고하세요.
+
+`AddressablesManager`는 별도의 Addressables 패키지로 옮겨졌습니다. 이 패키지는 Unity Addressables를 의존 패키지로 함께 설치합니다. 자세한 내용은 그 [README](../../packages/addressables/README.md)를 참고하세요. Base는 위에서 설명한 `SceneLoader`의 Addressables 씬 로드를 위해 `MU3LIBRARY_ADDRESSABLES_SUPPORT`를 유지합니다.
 
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
@@ -431,7 +418,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 
 ## 📖 전체 모듈 목록
 
-- **Addressable**: Addressables 통합 (선택)
+- **Addressable**: 별도의 Addressables 패키지로 옮겨짐 ([README](../../packages/addressables/README.md))
 - **Attribute**: `ConditionalHideAttribute`, `ButtonInvokeAttribute` 등의 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **Particle**: 편리한 `ParticleSystem` 제어, loop 설정과 `OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted` 이벤트를 제공하는 `ParticleHandler` MonoBehaviour
@@ -564,6 +551,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 - Notifications: `com.github.doqltl179.mu3library.notifications` (다음 릴리스부터)
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존, 다음 릴리스부터)
 - Localization: `com.github.doqltl179.mu3library.localization` (Base 의존, 다음 릴리스부터)
+- Addressables: `com.github.doqltl179.mu3library.addressables` (Base 의존, 다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)

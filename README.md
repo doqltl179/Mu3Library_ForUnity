@@ -42,7 +42,7 @@
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence, with a name exporter drawer, in the separate Input System package
 - 🌍 **Localization Manager**: String and localized asset lookup and locale changes that every subscriber hears, with a data exporter that splits locales, tables, and entries into focused scripts and a character collector, in the separate Localization package
-- 🧰 **Editor Utility Drawers**: Includes an Addressable group data export with labels, groups, and entries split into focused scripts that the exporter can wrap in a define symbol
+- 🗂 **Addressables Manager**: Asset loading and caching by key, download size queries and dependency downloads, and catalog checks and updates that reach Addressables one call at a time, with a group data exporter that splits labels, groups, and entries into focused scripts it can wrap in a define symbol, in the separate Addressables package
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
 - 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, and board fitting and coordinate helpers
 
@@ -76,6 +76,8 @@ The Input System package, `InputSystemManager` and its name exporter drawer, als
 
 The Localization package, `LocalizationManager` and its data exporter and character collector drawers, also ships with the next release, and its URL joins this list then. Install Base before it.
 
+The Addressables package, `AddressablesManager` and its group data exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
+
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
@@ -85,6 +87,7 @@ The Localization package, `LocalizationManager` and its data exporter and charac
     - `packages/notifications/package.json`
     - `packages/inputsystem/package.json` (install Base first)
     - `packages/localization/package.json` (install Base first)
+    - `packages/addressables/package.json` (install Base first)
     - `packages/urp/package.json` (install Base first)
     - `packages/game/watermelon/package.json` (install Base and URP first)
 
@@ -266,25 +269,7 @@ void Start()
 Fades, ducks, loop intervals, and the gap between playlist tracks advance on unscaled time by default, so they keep running while `Time.timeScale` is 0, as the sources themselves keep playing then. Set `_audioManager.TimeMode = TimeMode.Scaled;` to have them follow the game's time scale. `PlayBgm`, `PlayBgmForce`, and `TransitionBgm` end a running BGM playlist, as `StopBgm` does.
 
 ### Addressables
-With Addressables support enabled, load all assets resolved by a key into a `Dictionary<string, T>` indexed by the matching resource location's `PrimaryKey`. `PrimaryKey` values must be non-empty and unique; otherwise the load operation fails.
-
-```csharp
-[Inject] private IAddressablesManager _addressablesManager;
-
-_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
-{
-    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
-    {
-        Debug.Log(texture.name);
-    }
-});
-
-// When UniTask support is also enabled:
-Dictionary<string, Texture2D> textures =
-    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
-```
-
-Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
+`AddressablesManager`, which loads and caches assets by key and runs catalog checks and updates one call at a time, moved to the separate Addressables package: see its [README](packages/addressables/README.md) for its use. Base keeps the Addressables scene loading of the Scene Loader below.
 
 ### Scene Loader
 Supports explicit scene commands for both built-in and Addressables scenes.
@@ -385,7 +370,7 @@ When the following packages are installed, their features are automatically enab
 | Package | Define | Feature |
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await asynchronous API |
-| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Dynamic asset loading |
+| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Addressables scene loading |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | Steam backend for multiplayer sessions (2025.164.1 or later; separate `Mu3Library.Multiplayer.Steam` assembly, compiled in the editor while the build target is a standalone platform, and into 64-bit standalone players only: Windows x64, macOS, and Linux x64, not 32-bit Windows) |
 
@@ -394,6 +379,8 @@ Local notifications for Android and iOS moved to the separate Notifications pack
 `InputSystemManager` moved to the separate Input System package, which installs Unity Input System as its dependency: see its [README](packages/inputsystem/README.md). Base keeps `MU3LIBRARY_INPUTSYSTEM_SUPPORT` for the input module of the `EventSystem` that `MVPManager` creates, described below.
 
 `LocalizationManager` moved to the separate Localization package, which installs Unity Localization as its dependency, so no define symbol switches it on: see its [README](packages/localization/README.md).
+
+`AddressablesManager` moved to the separate Addressables package, which installs Unity Addressables as its dependency: see its [README](packages/addressables/README.md). Base keeps `MU3LIBRARY_ADDRESSABLES_SUPPORT` for the Addressables scene loading of `SceneLoader`, described above.
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
@@ -431,7 +418,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 
 ## 📖 Complete Module List
 
-- **Addressable**: Addressables integration (optional)
+- **Addressable**: Moved to the separate Addressables package ([README](packages/addressables/README.md))
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
@@ -564,6 +551,7 @@ This project is distributed under the MIT License.
 - Notifications: `com.github.doqltl179.mu3library.notifications` (from the next release)
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base, from the next release)
 - Localization: `com.github.doqltl179.mu3library.localization` (depends on Base, from the next release)
+- Addressables: `com.github.doqltl179.mu3library.addressables` (depends on Base, from the next release)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

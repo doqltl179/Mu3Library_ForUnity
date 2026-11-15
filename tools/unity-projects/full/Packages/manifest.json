@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+    "com.github.doqltl179.mu3library.addressables": "checkout",
     "com.github.doqltl179.mu3library.base": "checkout",
     "com.github.doqltl179.mu3library.inputsystem": "checkout",
     "com.github.doqltl179.mu3library.localization": "checkout",
@@ -51,6 +52,7 @@
     "com.unity.modules.xr": "1.0.0"
   },
   "testables": [
+    "com.github.doqltl179.mu3library.addressables",
     "com.github.doqltl179.mu3library.base",
     "com.github.doqltl179.mu3library.inputsystem",
     "com.github.doqltl179.mu3library.localization"

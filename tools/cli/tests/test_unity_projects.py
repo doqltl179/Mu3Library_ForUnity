@@ -37,6 +37,7 @@ class RepositoryConfigTests(unittest.TestCase):
         self.assertEqual(
             {
                 BASE,
+                "com.github.doqltl179.mu3library.addressables",
                 "com.github.doqltl179.mu3library.inputsystem",
                 "com.github.doqltl179.mu3library.localization",
                 "com.github.doqltl179.mu3library.notifications",
