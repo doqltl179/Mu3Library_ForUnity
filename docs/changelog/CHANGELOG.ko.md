@@ -13,6 +13,12 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 제거됨
+- Base: **Template**, **Attribute**, **UtilWindow** 샘플과 `package.json`의 `samples`에 있던 각 항목을 제거했습니다(#521). **Multiplayer** 샘플은 당분간 남습니다. 패키지 매니저는 가져온 샘플을 프로젝트 안으로 복사하므로, 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다. 이 샘플들이 보여 주던 기능은 README의 코드 예제에서 다룹니다.
+- Base: `Runtime/Materials`의 기본 색깔 머티리얼(`Black`, `Blue`, `Green`, `Magenta`, `Red`, `White`)과 `Runtime/Textures`의 텍스처(`Circle_32px`, `Circle_64px`와 각각의 `InnerShadow`, `OutShadow` 변형, `square_1px`)를 제거했습니다(#521). 이 에셋을 참조하는 씬, 프리팹, 머티리얼은 업데이트 후 그 참조를 잃습니다. 이미 가져온 Template 샘플도 마찬가지입니다. 계속 필요하면 업데이트 전에 에셋을 프로젝트로 복사하세요.
+- URP: **ScreenEffect** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
+- Watermelon Game: **Watermelon Game** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
+
 ## [base/0.28.0] - 2026-11-15
 
 ### 추가됨

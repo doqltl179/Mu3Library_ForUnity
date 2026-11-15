@@ -43,7 +43,7 @@
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
 - 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
-- 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper와 플레이 가능한 샘플 씬을 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
+- 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper를 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
 
 ## 📋 요구사항
 
@@ -438,20 +438,15 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 
 ## 🎓 샘플
 
-패키지 매니저의 **Samples** 탭에서 다음 샘플을 가져올 수 있습니다:
+Base에는 샘플이 하나 있으며, 패키지 매니저의 **Samples** 탭에서 가져올 수 있습니다. URP와 Watermelon Game 패키지에는 샘플이 없으며, 아래에 각 패키지의 주요 기능을 정리했습니다:
 
 Base 패키지 (**Mu3 Library**):
-- **Template**: 기본 Core 구조 및 사용 예제
-- **Attribute**: `ConditionalHideAttribute`와 `ButtonInvokeAttribute` 사용법
-- **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
 - **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다
 
 URP 패키지 (**Mu3 Library URP**):
-- **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
 
 Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
-- **Watermelon Game**: 설정 가능한 보드, 과일 스프라이트, 샘플 manager/core 스크립트를 포함한 플레이 가능한 2D 낙하 과일 병합 씬
 - **Fruit item indexes**: 보드 설정은 항상 11개의 과일 항목을 포함하며 0부터 시작하는 목록 index로 접근합니다.
 - **Item contact area**: 보드 기준 리사이즈가 아이템 collider 크기를 맞추므로 어떤 `BoardConfig`에서도 아이템 index별 접촉 영역이 같습니다. `BoardItemInfo.ColliderScale`은 collider가 sprite에서 차지하는 비율을, `BoardItemInfo.ColliderOffset`은 collider 지름 대비 비율로 그 중심을 정하며, sprite는 collider를 감싸도록 그려집니다.
 - **Board fitting**: `BoardArea.Fit(...)`으로 설정된 카메라 뷰포트 padding 안에 보드 스프라이트를 맞출 수 있습니다.
@@ -462,11 +457,10 @@ Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
 - **Board commands**: `BoardController.EnqueueCommand(...)`는 보드의 공개 커맨드 큐에 커맨드를 넣습니다. `IUpdatableBoardCommand`와 `ICancelableBoardCommand`로 커맨드를 프레임 단위로 실행하고 취소할 수 있으며, `BoardCommand`는 그 둘을 lifecycle hook 위에 구성합니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면이고, 패키지는 `MergingCommand`를 포함한 Flow/Item/Score 커맨드를 제공합니다.
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
-- **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
 
-**샘플의 입력과 텍스트:** Base의 Template·Attribute 샘플과 URP의 ScreenEffect 샘플 씬은 Input System 패키지가 있든 없든 입력에 반응합니다. 씬의 `EventSystem`에는 Input Manager를 읽는 `StandaloneInputModule`과 `SampleInputModuleSelector`가 있습니다. Input System 패키지가 설치되어 있고 **Active Input Handling**이 "Input System Package (New)"나 "Both"이면 `SampleInputModuleSelector`가 씬이 시작될 때 그 모듈을 `InputSystemUIInputModule`로 바꿉니다. `MVPManager`가 직접 만드는 `EventSystem`에 적용하는 규칙과 같습니다. Template 샘플의 `Sample_IS` 씬은 `InputSystemManager`를 보여 주므로 그 기능에는 Input System 패키지와 "Input System Package (New)"나 "Both"가 필요하며, 그 UI는 모든 설정에서 반응합니다. Template 샘플의 키보드 단축키와 마우스 클릭은 샘플의 `SampleInput` 클래스를 거치며, 이 클래스는 Input System 백엔드가 켜져 있으면 Input System을, 그렇지 않으면 Input Manager를 읽습니다. 이 샘플들의 TextMesh Pro 텍스트는 TMP Essential Resources 없이 만든 플레이어에서도 그려집니다. 각 샘플이 텍스트가 쓰는 폰트 에셋·스타일 시트·셰이더를 `Fonts/`와 `Shaders/`에 담고 있으며, 그 라이선스는 샘플의 `Third-Party Notices.txt`에 있습니다. 그런 플레이어에서 TextMesh Pro는 레이아웃에 텍스트 크기를 0으로 알리므로, WebRequest 씬의 스크롤 로그처럼 레이아웃이 텍스트 크기에 맞추는 곳은 Template 샘플의 `SampleTextPreferredSize`가 텍스트를 잽니다. Editor에서는 TMP Essential Resources를 가져오기 전까지 TextMesh Pro가 텍스트를 그리지 않으며, 가져오기를 제안합니다. Template 샘플에서 Addressables, Localization, UniTask는 계속 선택 사항입니다. 이 패키지들 없이도 샘플이 컴파일되며, 없는 패키지가 필요한 부분은 패키지가 설치되지 않았다는 로그를 남깁니다. UtilWindow 샘플의 Addressable·Localization 데이터 내보내기는 **Define Symbol** 필드에 설정된 `TEMPLATE_ADDRESSABLES_SUPPORT`와 `TEMPLATE_LOCALIZATION_SUPPORT` 안에 Template 샘플의 키 스크립트를 쓰므로, 키 스크립트를 다시 생성해도 그 패키지들 없이 컴파일됩니다. Base의 Multiplayer 샘플은 버튼을 IMGUI로 그리므로 `EventSystem`, 입력 모듈, TextMesh Pro 리소스가 필요 없고, Input System 패키지가 있든 없든 입력에 반응하며 플레이어와 에디터 모두에서 텍스트를 표시합니다.
+**샘플의 입력과 텍스트:** Base의 Multiplayer 샘플은 버튼을 IMGUI로 그리므로 `EventSystem`, 입력 모듈, TextMesh Pro 리소스가 필요 없고, Input System 패키지가 있든 없든 입력에 반응하며 플레이어와 에디터 모두에서 텍스트를 표시합니다.
 
-이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서, Watermelon Game 샘플 소스를 `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`에서 확인할 수 있습니다.
+이 저장소에서는 Multiplayer 샘플 소스를 `Mu3Library_Base/Samples~/Multiplayer`에서 확인할 수 있습니다.
 
 새 helper로 MVP render camera를 스택에 넣으려면 render camera를 직접 전달하세요:
 
@@ -475,13 +469,6 @@ using Mu3Library.URP.Cam;
 
 CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 ```
-
-**Template 주요 구성:**
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
-- Localization: Locales(KO/JA/EN), String Table 샘플
-- Resources: MVP 샘플용 Prefab 및 설정
-
-기본 색깔 머티리얼(Black, Blue, Green, Magenta, Red, White)은 Template 샘플에 들어 있지 않습니다. Base 패키지 런타임과 함께 `Mu3Library_Base/Runtime/Materials/`에 들어 있으므로, Base를 설치하면 바로 `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` 아래에서 쓸 수 있습니다.
 
 ## 🏗 아키텍처 개요
 

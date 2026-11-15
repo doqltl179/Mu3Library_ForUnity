@@ -41,21 +41,6 @@
     },
     "samples": [
         {
-            "displayName": "Template",
-            "description": "Comprehensive samples showcasing Core system, MVP pattern, Audio, WebRequest, Addressables, and Localization. Its scenes respond to input with or without the Input System package, and their TextMesh Pro text renders in a player without the TMP Essential Resources. The Sample_IS scene needs the Input System package with Active Input Handling set to \"Input System Package (New)\" or \"Both\" for its Input System features. Addressables, Localization, and UniTask are optional.",
-            "path": "Samples~/Template"
-        },
-        {
-            "displayName": "Attribute",
-            "description": "ConditionalHide and ButtonInvoke attribute usage examples for Inspector customization. Its scene responds to input with or without the Input System package, and its TextMesh Pro text renders in a player without the TMP Essential Resources.",
-            "path": "Samples~/Attribute"
-        },
-        {
-            "displayName": "UtilWindow",
-            "description": "Custom Editor Window implementation examples",
-            "path": "Samples~/UtilWindow"
-        },
-        {
             "displayName": "Multiplayer",
             "description": "A player-hosted session with buttons: create, search, and join a lobby by its lobby ID, invite friends on Steam, get ready, start, exchange a message, set and delete lobby data as the host and your own participant data as any player, and kick. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. Without Steamworks.NET, or without a running Steam client, it plays on the local backend, where an editor and player builds on the same computer meet; with Steamworks.NET it builds for the editor and 64-bit standalone players only. Its buttons are IMGUI, so it responds to input with or without the Input System package and needs no TextMesh Pro resources. Command-line options run the whole flow unattended; the sample's README lists them.",
             "path": "Samples~/Multiplayer"

@@ -189,7 +189,3 @@ The development projects in this repository reference the package folder by a re
 ```json
 "com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
 ```
-
-## Sample
-
-Import the `Watermelon Game` package sample to receive the `BoardConfig` asset, fruit/background and board-guide images, sample manager/core scripts, and playable `Demo` scene.

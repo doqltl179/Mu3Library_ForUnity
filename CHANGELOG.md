@@ -15,6 +15,12 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Removed
+- Base: the **Template**, **Attribute**, and **UtilWindow** samples, with their entries under `samples` in `package.json` (#521). The **Multiplayer** sample stays for now. Package Manager copies an imported sample into the project, so a sample a project imported earlier stays in its `Assets/Samples` folder. The README's code examples cover the features these samples showed.
+- Base: the default color materials in `Runtime/Materials` (`Black`, `Blue`, `Green`, `Magenta`, `Red`, `White`) and the textures in `Runtime/Textures` (`Circle_32px` and `Circle_64px` with their `InnerShadow` and `OutShadow` variants, and `square_1px`) (#521). A scene, prefab, or material that references one of them, the Template sample a project imported earlier among them, loses that reference after the update; copy the assets into the project before updating if it still needs them.
+- URP: the **ScreenEffect** sample, with its entry under `samples` in `package.json` (#521). A copy a project imported earlier stays in its `Assets/Samples` folder.
+- Watermelon Game: the **Watermelon Game** sample, with its entry under `samples` in `package.json` (#521). A copy a project imported earlier stays in its `Assets/Samples` folder.
+
 ## [base/0.28.0] - 2026-11-15
 
 ### Added
