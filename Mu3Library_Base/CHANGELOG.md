@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-15
+
+- See `base/0.28.0` in the repository root `CHANGELOG.md`. Highlights: the new `Mu3Library.Multiplayer` assembly runs player-hosted sessions, where one player's machine hosts and the others find it through a lobby, with lobbies, ready checks, session rules, and game messages through the host; with Steamworks.NET installed, `SteamBackend` runs them on Steam lobbies and Valve's relays, and `LocalNetwork.CreateMachineWide` lets editors and player builds on one computer play together without Steam; the new **Multiplayer** sample shows each flow; a required `[Inject]` property without a setter, `readonly` field, or `static` member now fails injection instead of staying null; and DI works in a player built with Managed Stripping Level Medium or High.
+
 ## [0.27.0] - 2026-10-31
 
 - See `base/0.27.0` in the repository root `CHANGELOG.md`. Highlights: Unity 6000.3 becomes the lowest supported Editor; MVP view animations and audio fades run on unscaled time by default, with the new `TimeMode` to choose the clock; a failed Addressables scene load reaches `ISceneLoaderEventBus.OnSceneLoadFailed`, and catalog updates can clean the bundle cache (a class that implements `IAddressablesManager` itself has to add the new overloads); the package compiles on Unity 6.5 and later; and the Template sample shrinks from 30.4 MiB to 15.7 MiB.

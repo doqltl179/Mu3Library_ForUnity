@@ -87,7 +87,7 @@ No other combination. A pull request from a task branch into the release branch 
 1. **Summary** — what changed and why, in two or three sentences.
 2. **Changes** — grouped by concern.
 3. **Verification** — the commands run and their results, per «Evidence Format» in [verification.md](verification.md).
-4. **Risks and follow-ups** — what could break and for whom, whether reverting the pull request fully undoes it or a step is one-way (data migrated or deleted, an interface or package published), and follow-ups with issue numbers.
+4. **Risks and follow-ups** — what could break and for whom, whether reverting the pull request fully undoes it or a step is one-way (data migrated or deleted, an interface or package published), follow-ups with issue numbers, and the absolute path of every work folder the unit made outside its checkout («Work Folders» in [git-workflow.md](git-workflow.md)).
 5. **Links** — per «Linking Issues».
 
 ## Linking Issues

@@ -1,5 +1,5 @@
 ---
-owns: "What this repository is: the package model, the package-first rule, development projects, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
+owns: "What this repository is: the package model, the package-first rule, development projects, which checkout a Claude app session's unit uses, where units running at the same time put their worktrees, where each machine sets the work-folder root and how short `<unit>` is, removing a worktree that holds sample links or paths of 260 characters or more, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
 reviewed: 2026-10-24
 ---
@@ -12,6 +12,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 - starting work here, or unsure which package or folder a change belongs to (`project.guardrails` holds the package-first rule),
 - choosing a commit scope or area label,
+- starting or cleaning up a unit in a Claude app worktree, running units at the same time, removing a worktree, or making a folder outside the checkout,
 - editing README or CHANGELOG files.
 
 ## Route Away When
@@ -37,7 +38,11 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `UnityProject_Game_WatermelonGame` | Watermelon Game | `watermelon` |
 
 - Shared Base files compile in more than one project with different define sets, so one Base file can have more than one valid context. URP adds to the Built-In baseline and does not replace it for shared maintenance.
-- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off. A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
+- Each project's `Library/` holds 1.3–2.3 GB (measured 2026-10-09), which a fresh worktree re-imports. This is why `policy.worktrees` is off; units that run at the same time still get one worktree each, per «Worktrees» in [git-workflow.md](../../kit/core/wiki/workflows/git-workflow.md). A fresh worktree also lacks the sample links below until `commands.worktree_setup` creates them.
+- A Claude app worktree (`.claude/worktrees/<name>`) is the checkout of the session that runs in it. Units of other sessions, each in its own app worktree, never work in it, and what they run in the main checkout either only reads or stops while it is off the integration branch (step 4 of `git-branch-start`, step 2 of `git-worktree-cleanup`), so they are not "another unit" for «Worktrees» or «Stop Conditions» in [git-workflow.md](../../kit/core/wiki/workflows/git-workflow.md): a unit that runs alone in a session cuts its branch in place in the session's checkout, once step 5 of [git-branch-start](../../kit/core/skills/git-branch-start/SKILL.md) finds no worktree under that checkout's `.worktrees/`. When that checkout is an app worktree, `git-worktree-cleanup` finds it in step 2 as the unit's worktree, but the app owns it: skip steps 4 to 6 for it, run step 7 with `git -C <main checkout>`, and before step 8 switch it to the session's own branch, fast-forwarded to `origin/<integration_branch>` (or detach it at `origin/<integration_branch>` when the session has no branch of its own), so that `git branch -d` can delete the task branch.
+- Put the worktree of each unit that runs at the same time as another at `.worktrees/<short-name>` of the checkout the session runs in, such as `.worktrees/n430` for issue #430, instead of the branch-named path in step 4 of [git-branch-start](../../kit/core/skills/git-branch-start/SKILL.md). A session in a Claude app worktree (`.claude/worktrees/<name>`) uses that worktree, never the main checkout's `.worktrees/`: the app's edit guard rejects Edit and Write on every path of the main checkout outside the session's own worktree, that folder included (seen 2026-11-04). Keep the name short to keep the path shallow; even so, a path under a session worktree stays too deep for Unity's asset import to read every package file, and that limit and its remedy (`subst`) are owned by step 5 of «Fresh Clone Setup» in [tools/README.md](../../../tools/README.md#fresh-clone-setup). After the unit's pull request merges, `git-worktree-cleanup` removes the worktree, with the teardown in the next line.
+- Before every `git worktree remove` here, including one outside `git-worktree-cleanup` such as for an unmerged or abandoned unit, first pass that skill's checks that the worktree has no unsaved changes and holds no other worktree, then run `commands.worktree_teardown` inside it and stop if it fails, as the skill's teardown step does. Like `commands.worktree_setup`, its value is POSIX shell syntax, so run it in the skill's POSIX form from Git Bash; PowerShell cannot start it, and the skill's PowerShell form then stops. A real folder or file in a link's place is Git-ignored, so `git status` never showed it, and the removal would delete it without warning. [tools/README.md](../../../tools/README.md#worktree-removal) owns the command's behavior and the recovery for a folder already left behind. Run the removal itself as `git -c core.longpaths=true worktree remove <worktree>` ([tools/README.md](../../../tools/README.md#worktree-removal)).
+- A work folder that must lie outside the checkout («Work Folders» in [git-workflow.md](../../kit/core/wiki/workflows/git-workflow.md)) goes under a root that differs per machine, so `policy.work_root` reads it from the user environment variable `MU3_WORK_ROOT`, which each machine sets, such as to `D:/w`. Set it in the user's environment, never in `.env.local`: that file belongs to one checkout, so an app worktree has none, and only a terminal that enters the [development environment](../../../tools/README.md#development-environment) loads it, which agent shells do not. `<unit>` there is the first 32 characters of the task branch with slashes as dashes, without trailing dots, because Unity cannot read every package file from a project folder of 98 characters or more ([tools/README.md](../../../tools/README.md#fresh-clone-setup)): with it, a mirror or copy of `UnityProject_BuiltIn` or `UnityProject_URP`, or the DI stripping harness's mirror, stays below that with a root of up to 23 characters, and a copy of `UnityProject_Game_WatermelonGame` only with a root of up to 11.
 
 ## Directory Map
 
@@ -63,7 +68,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 - `README.md` and `CHANGELOG.md` are English; their localized copies are listed in `[docs.locale_paths]`.
 - When `CHANGELOG.md` changes, check whether `README.md` needs the same change: new features, changed signatures, new define symbols, usage examples.
 - `CHANGELOG.md` tracks package releases only, under per-package headers ([package-release.md](package-release.md)). Repository workflow and tooling changes go to `docs/repository/CHANGELOG.md`.
-- `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-cli repo check` verifies them.
+- `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-repo check` verifies them.
 
 ## File Encoding
 
@@ -73,4 +78,4 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 ## Local-Only Verification
 
 - The repository runs no GitHub Actions and no branch protection (`hosting.ci = false`), so a wrong pull request base is a stop condition, not a failing check.
-- Local guards: `python .ai/kit/tools/agentkit.py check` for agent docs, and `mu3-cli repo check`, which runs repository hygiene checks and then that check.
+- Local guards: `python .ai/kit/tools/agentkit.py check` for agent docs, and `mu3-repo check`, which runs repository hygiene checks and then that check.

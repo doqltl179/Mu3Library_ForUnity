@@ -10,7 +10,9 @@ namespace Mu3Library.Editor.Window.Drawer
     /// <summary>
     /// Validates the DI registrations of every registered core while the game runs: a
     /// registered implementation whose constructor or required [Inject] members cannot be
-    /// resolved is reported here before the first resolve throws at some later moment.
+    /// resolved, and a registered implementation or core that has a required [Inject] property
+    /// without a setter, a required readonly [Inject] field, or a required static [Inject] member,
+    /// is reported here before the first resolve or injection throws at some later moment.
     /// Reading the registrations resolves nothing, so the check has no side effects.
     /// </summary>
     [CreateAssetMenu(fileName = FileName, menuName = MenuName, order = 0)]
@@ -63,22 +65,7 @@ namespace Mu3Library.Editor.Window.Drawer
 
             IReadOnlyList<ServiceDescriptor> descriptors = core.GetRegisteredDescriptors();
             List<string> issues = new();
-            HashSet<Type> checkedTypes = new();
-
-            foreach (ServiceDescriptor descriptor in descriptors)
-            {
-                Type implementationType = descriptor.ImplementationType;
-                if (implementationType == null ||
-                    descriptor.Instance != null ||
-                    descriptor.Factory != null ||
-                    !checkedTypes.Add(implementationType))
-                {
-                    continue;
-                }
-
-                ValidateConstructor(core, implementationType, issues);
-                ValidateInjectMembers(coreRoot, core, implementationType, issues);
-            }
+            ValidateCore(coreRoot, core, descriptors, issues);
 
             EditorGUILayout.LabelField($"Registrations: {descriptors.Count}");
 
@@ -94,7 +81,51 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        private void ValidateConstructor(CoreBase core, Type implementationType, List<string> issues)
+        /// <summary>
+        /// Reports the issues of one core. For each class the container creates: a constructor or
+        /// required [Inject] member that cannot resolve. For those classes and the core itself, both
+        /// of which the container injects: each required [Inject] member it can never fill, whether
+        /// or not its service is registered.
+        /// </summary>
+        /// <remarks>
+        /// A registered instance is left out, so the report matches what runs:
+        /// <c>Container.RegisterInstance</c> never injects the instance it registers, and
+        /// <c>ContainerScope.RegisterInstance</c> injects it as it registers it and undoes the
+        /// registration when that throws, so every instance it leaves registered has been injected.
+        /// A factory's product is left out as well: its type is known only once the factory runs.
+        /// <paramref name="coreRoot"/> is read only for a member that names another core.
+        /// </remarks>
+        internal static void ValidateCore(CoreRoot coreRoot, CoreBase core, IReadOnlyList<ServiceDescriptor> descriptors, List<string> issues)
+        {
+            HashSet<Type> registrationCheckedTypes = new();
+            HashSet<Type> memberCheckedTypes = new();
+
+            Type coreType = core.GetType();
+            memberCheckedTypes.Add(coreType);
+            ValidateUnfillableMembers(coreType, issues);
+
+            foreach (ServiceDescriptor descriptor in descriptors)
+            {
+                Type implementationType = descriptor.ImplementationType;
+                if (implementationType == null || descriptor.Factory != null || descriptor.Instance != null)
+                {
+                    continue;
+                }
+
+                if (registrationCheckedTypes.Add(implementationType))
+                {
+                    ValidateConstructor(core, implementationType, issues);
+                    ValidateInjectMembers(coreRoot, core, implementationType, issues);
+                }
+
+                if (memberCheckedTypes.Add(implementationType))
+                {
+                    ValidateUnfillableMembers(implementationType, issues);
+                }
+            }
+        }
+
+        private static void ValidateConstructor(CoreBase core, Type implementationType, List<string> issues)
         {
             ConstructorInfo[] constructors = implementationType.GetConstructors();
             if (constructors.Length == 0)
@@ -123,7 +154,7 @@ namespace Mu3Library.Editor.Window.Drawer
             issues.Add($"{implementationType.Name}: no public constructor whose parameters are all resolvable.");
         }
 
-        private void ValidateInjectMembers(CoreRoot coreRoot, CoreBase core, Type implementationType, List<string> issues)
+        private static void ValidateInjectMembers(CoreRoot coreRoot, CoreBase core, Type implementationType, List<string> issues)
         {
             // The container's own member rule, so members that base classes declare are
             // checked exactly when the container would inject them.
@@ -156,7 +187,72 @@ namespace Mu3Library.Editor.Window.Drawer
             }
         }
 
-        private bool IsInjectSatisfied(CoreRoot coreRoot, CoreBase core, Type serviceType, InjectAttribute attribute)
+        private static void ValidateUnfillableMembers(Type type, List<string> issues)
+        {
+            ValidateReadOnlyFields(type, issues);
+            ValidateUnwritableProperties(type, issues);
+            ValidateStaticMembers(type, issues);
+        }
+
+        /// <summary>
+        /// Reports each required readonly [Inject] field of <paramref name="implementationType"/>,
+        /// which the container throws for whether or not its service is registered.
+        /// </summary>
+        internal static void ValidateReadOnlyFields(Type implementationType, List<string> issues)
+        {
+            foreach (FieldInfo field in InjectableMembers.GetReadOnlyFields(implementationType))
+            {
+                InjectAttribute attribute = field.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{field.Name}: required [Inject] field is readonly, so the container cannot inject it.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reports each required [Inject] property of <paramref name="implementationType"/> that has
+        /// no setter, which the container throws for whether or not its service is registered.
+        /// </summary>
+        internal static void ValidateUnwritableProperties(Type implementationType, List<string> issues)
+        {
+            foreach (PropertyInfo property in InjectableMembers.GetUnwritableProperties(implementationType))
+            {
+                InjectAttribute attribute = property.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] property has no setter, so the container cannot inject it.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reports each required static [Inject] field and property of
+        /// <paramref name="implementationType"/>, which the container throws for whether or not its
+        /// service is registered.
+        /// </summary>
+        internal static void ValidateStaticMembers(Type implementationType, List<string> issues)
+        {
+            foreach (FieldInfo field in InjectableMembers.GetStaticFields(implementationType))
+            {
+                InjectAttribute attribute = field.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{field.Name}: required [Inject] field is static, so the container cannot inject it.");
+                }
+            }
+
+            foreach (PropertyInfo property in InjectableMembers.GetStaticProperties(implementationType))
+            {
+                InjectAttribute attribute = property.GetCustomAttribute<InjectAttribute>();
+                if (attribute != null && attribute.Required)
+                {
+                    issues.Add($"{implementationType.Name}.{property.Name}: required [Inject] property is static, so the container cannot inject it.");
+                }
+            }
+        }
+
+        private static bool IsInjectSatisfied(CoreRoot coreRoot, CoreBase core, Type serviceType, InjectAttribute attribute)
         {
             if (attribute.CoreType == null)
             {

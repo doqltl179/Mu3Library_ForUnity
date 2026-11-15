@@ -116,7 +116,7 @@ namespace Mu3Library.Editor.FileUtil {
             return result;
         }
 
-        private static bool IsAssetPath(string assetPath) {
+        internal static bool IsAssetPath(string assetPath) {
             if (string.IsNullOrEmpty(assetPath))
             {
                 return false;

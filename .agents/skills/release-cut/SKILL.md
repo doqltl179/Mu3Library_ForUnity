@@ -18,7 +18,7 @@ description: "Cut a requested release: confirm scope, choose the version, finali
 ## Inputs
 - The release request and its scope: included work and target channels.
 - `policy.release_branch`, `policy.protected_branches`, `docs.changelog`, `docs.locales`, `commands.build`, and `commands.test` from the profile.
-- The previous release tag: `git describe --tags --abbrev=0`.
+- The previous release tag of the repository, or of each package in scope: `git describe --tags --abbrev=0 --match '<glob>' origin/<release_branch>`, where `<glob>` is `release.tag_pattern`, or the package's `tag_pattern`, with `{version}` replaced by `*`. Read it from the release branch, where «Release Unit» in [release.md](.ai/kit/core/wiki/workflows/release.md) puts the tag; when the two branches differ, the integration branch may not contain the tagged commit.
 
 ## Steps
 1. Confirm the release was requested and its scope fits «Release Unit» in [release.md](.ai/kit/core/wiki/workflows/release.md). If either is unclear, stop and ask.

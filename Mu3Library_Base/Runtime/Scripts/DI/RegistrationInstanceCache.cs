@@ -37,6 +37,27 @@ namespace Mu3Library.DI
             }
         }
 
+        // Drops the instance a registration produced, but only while it is still the one cached
+        // for that registration.
+        internal void Remove(ServiceDescriptor descriptor, object instance)
+        {
+            if (descriptor.Factory != null)
+            {
+                if (_factoryInstances.TryGetValue(descriptor, out object cached) && ReferenceEquals(cached, instance))
+                {
+                    _factoryInstances.Remove(descriptor);
+                }
+            }
+            else
+            {
+                (Type, string) key = GetTypeKey(descriptor);
+                if (_typeInstances.TryGetValue(key, out object cached) && ReferenceEquals(cached, instance))
+                {
+                    _typeInstances.Remove(key);
+                }
+            }
+        }
+
         internal void CollectInstances(HashSet<object> instances)
         {
             foreach (object instance in _typeInstances.Values)

@@ -1,0 +1,683 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Text;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Protocol;
+using UnityEngine;
+
+namespace Mu3Library.Multiplayer
+{
+    public partial class MultiplayerManager
+    {
+        // The game's own lobby data, without the library's reserved keys: on the host, what it
+        // also wrote to the lobby; on a client, what the host reported from the welcome on. It
+        // finds a key in any case, as Steam does, and never holds two keys that differ only by case.
+        private readonly Dictionary<string, string> _lobbyData = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private ReadOnlyDictionary<string, string> _lobbyDataView = null;
+
+        // On a client, this player's own participant data as the host holds it once it has taken
+        // every request this player sent. Only this player changes its own data, and the host
+        // applies the same rules in the same order, so a request that passes against this copy is
+        // one the host takes, while the copy the host reported back may still lag behind.
+        private readonly Dictionary<string, string> _requestedData = new Dictionary<string, string>();
+
+        public IReadOnlyDictionary<string, string> LobbyData => _lobbyDataView ??= new ReadOnlyDictionary<string, string>(_lobbyData);
+
+        // The UTF-8 bytes of the longest key a data request may hold: three for each character.
+        private const int MaxDataKeyBytes = MultiplayerLimits.MaxDataKeyLength * 3;
+
+        // The fewest bytes one entry of data takes in a packet: the length prefixes of its key and its value.
+        private const int MinDataEntryBytes = 2 * sizeof(int);
+
+
+
+        #region Requests
+        public MultiplayerResult SetLobbyData(string key, string value)
+        {
+            // An empty value deletes the key. A Steam lobby keeps a key it holds when the key is
+            // set to an empty value, but writes none for a key it lacks (AppID 480, 2026-11-04,
+            // #313), and the local backends do the same (#343), so the empty value would leave
+            // the lobby and every player's copy holding different keys.
+            if (IsEmptyValue(value))
+            {
+                return DeleteLobbyData(key);
+            }
+
+            MultiplayerReason check = CheckHostRequest(null);
+            if (check == MultiplayerReason.None)
+            {
+                check = CheckLobbyKeyCase(key, _lobbyData);
+            }
+
+            if (check == MultiplayerReason.None)
+            {
+                check = CheckDataEntry(key, value, _lobbyData, MultiplayerLimits.MaxLobbyDataSize);
+                WarnIfInvalid(check, key);
+            }
+
+            if (check != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(check);
+            }
+
+            if (_lobbyData.TryGetValue(key, out string current) && current == value)
+            {
+                return MultiplayerResult.Success;
+            }
+
+            // Lobby search reads the lobby's own copy, so the lobby takes the value first.
+            if (!_backend.SetLobbyData(_lobbyId, key, value))
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.BackendError);
+            }
+
+            _lobbyData[key] = value;
+
+            _writer.Begin(PacketKind.LobbyDataChanged);
+            _writer.WriteString(key);
+            _writer.WriteString(value);
+
+            int generation = _sessionGeneration;
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onLobbyDataChanged, key, value);
+            }
+
+            return ResultSince(generation);
+        }
+
+        public MultiplayerResult DeleteLobbyData(string key)
+        {
+            MultiplayerReason check = CheckHostRequest(null);
+            if (check == MultiplayerReason.None)
+            {
+                check = IsValidDataKey(key) ? MultiplayerReason.None : MultiplayerReason.InvalidArgument;
+                WarnIfInvalid(check, key);
+            }
+
+            if (check != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(check);
+            }
+
+            // The key is found in any case, as reading and Steam find it, and goes on as it is
+            // spelled in the lobby data, so every player hears of the key it holds.
+            key = FindLobbyKey(key);
+            if (key == null)
+            {
+                return MultiplayerResult.Success;
+            }
+
+            // Lobby search reads the lobby's own copy, so the lobby lets go of the key first.
+            if (!_backend.DeleteLobbyData(_lobbyId, key))
+            {
+                return MultiplayerResult.Failure(MultiplayerReason.BackendError);
+            }
+
+            _lobbyData.Remove(key);
+
+            _writer.Begin(PacketKind.LobbyDataDeleted);
+            _writer.WriteString(key);
+
+            int generation = _sessionGeneration;
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onLobbyDataChanged, key, (string)null);
+            }
+
+            return ResultSince(generation);
+        }
+
+        public MultiplayerResult SetParticipantData(string key, string value)
+        {
+            MultiplayerReason check = CheckOwnDataRequest(out int index);
+            if (check != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(check);
+            }
+
+            IEnumerable<KeyValuePair<string, string>> current = _isHost ? _participants[index].Data : _requestedData;
+            check = CheckDataEntry(key, value, current, MultiplayerLimits.MaxParticipantDataSize);
+            WarnIfInvalid(check, key);
+            if (check != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(check);
+            }
+
+            if (_isHost)
+            {
+                int generation = _sessionGeneration;
+                HostApplyParticipantData(LocalPlayerId, key, value);
+                return ResultSince(generation);
+            }
+
+            // The host decides; this player's own data changes when the host reports it back.
+            _writer.Begin(PacketKind.SetParticipantData);
+            _writer.WriteString(key);
+            _writer.WriteString(value);
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(failure);
+            }
+
+            _requestedData[key] = value;
+            return MultiplayerResult.Success;
+        }
+
+        public MultiplayerResult DeleteParticipantData(string key)
+        {
+            MultiplayerReason check = CheckOwnDataRequest(out int index);
+            if (check == MultiplayerReason.None)
+            {
+                check = IsValidDataKey(key) ? MultiplayerReason.None : MultiplayerReason.InvalidArgument;
+                WarnIfInvalid(check, key);
+            }
+
+            if (check != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(check);
+            }
+
+            if (_isHost)
+            {
+                int generation = _sessionGeneration;
+                HostApplyParticipantDataDeletion(LocalPlayerId, key);
+                return ResultSince(generation);
+            }
+
+            // The host will hold the key exactly when this player's own requests leave it there.
+            if (!_requestedData.ContainsKey(key))
+            {
+                return MultiplayerResult.Success;
+            }
+
+            _writer.Begin(PacketKind.DeleteParticipantData);
+            _writer.WriteString(key);
+            MultiplayerReason failure = SendToHost(DeliveryMode.Reliable);
+            if (failure != MultiplayerReason.None)
+            {
+                return MultiplayerResult.Failure(failure);
+            }
+
+            _requestedData.Remove(key);
+            return MultiplayerResult.Success;
+        }
+
+        /// <summary>
+        /// Whether this player may change its own participant data now, with its place in the roster.
+        /// </summary>
+        private MultiplayerReason CheckOwnDataRequest(out int index)
+        {
+            index = -1;
+            if (!_isInitialized || _isDisposed)
+            {
+                return MultiplayerReason.NotInitialized;
+            }
+
+            if (_state == SessionState.Reconnecting)
+            {
+                return MultiplayerReason.ConnectionLost;
+            }
+
+            index = IndexOfParticipant(LocalPlayerId);
+            return (_state != SessionState.Lobby && _state != SessionState.InGame) || index < 0
+                ? MultiplayerReason.InvalidState
+                : MultiplayerReason.None;
+        }
+        #endregion
+
+        #region Host
+        /// <summary>
+        /// Takes a client's request for its own participant data. The packet names no player, so
+        /// the player is always the one the connection belongs to.
+        /// </summary>
+        private void HostHandleParticipantData(PeerConnection peer, ref PacketReader reader)
+        {
+            ReadDataRequest(ref reader, out string key, out string value);
+            HostTakeParticipantData(peer.Player, key, value);
+        }
+
+        /// <summary>
+        /// Reads a client's data request. A key or value whose UTF-8 bytes could never fit the
+        /// rules makes the packet malformed before it is decoded, so a request held back for the
+        /// rate limits never holds more than its rules allow.
+        /// </summary>
+        private static void ReadDataRequest(ref PacketReader reader, out string key, out string value)
+        {
+            key = reader.ReadString(MaxDataKeyBytes);
+            value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
+        }
+
+        /// <summary>Checks a client's request for its own participant data and applies it, now or once the rate limits have room.</summary>
+        private void HostTakeParticipantData(PlayerId player, string key, string value)
+        {
+            int index = IndexOfParticipant(player);
+            if (index < 0)
+            {
+                return;
+            }
+
+            // A client checks the same rules against its own requests before it sends one, so
+            // only a client that skips the check gets here.
+            MultiplayerReason check = CheckDataEntry(key, value, _participants[index].Data, MultiplayerLimits.MaxParticipantDataSize);
+            if (check != MultiplayerReason.None)
+            {
+                if (IsFirstParticipantDataDrop(check))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped participant data from {player}: {check}. Further refusals for this reason go unlogged until the session ends.");
+                }
+
+                return;
+            }
+
+            HostApplyParticipantData(player, key, value);
+        }
+
+        private void HostApplyParticipantData(PlayerId player, string key, string value)
+        {
+            int index = IndexOfParticipant(player);
+            if (index < 0)
+            {
+                return;
+            }
+
+            Participant current = _participants[index];
+            if (current.Data.TryGetValue(key, out string existing) && existing == value)
+            {
+                return;
+            }
+
+            Participant updated = current.WithData(WithDataEntry(current.Data, key, value));
+            _participants[index] = updated;
+
+            _writer.Begin(PacketKind.ParticipantDataChanged);
+            _writer.WriteULong(player.Value);
+            _writer.WriteString(key);
+            _writer.WriteString(value);
+
+            int generation = _sessionGeneration;
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onParticipantDataChanged, updated, key);
+            }
+        }
+
+        /// <summary>Takes a client's request to delete a key of its own participant data; the packet names no player either.</summary>
+        private void HostHandleParticipantDataDeletion(PeerConnection peer, ref PacketReader reader)
+        {
+            HostTakeParticipantDataDeletion(peer.Player, reader.ReadString(MaxDataKeyBytes));
+        }
+
+        /// <summary>Checks a client's deletion of its own participant data and applies it, now or once the rate limits have room.</summary>
+        private void HostTakeParticipantDataDeletion(PlayerId player, string key)
+        {
+            if (IndexOfParticipant(player) < 0)
+            {
+                return;
+            }
+
+            // A client checks the key before it sends the request, so only one that skips the check gets here.
+            if (!IsValidDataKey(key))
+            {
+                if (IsFirstParticipantDataDrop(MultiplayerReason.InvalidArgument))
+                {
+                    Debug.LogWarning($"[Multiplayer] Dropped a participant data deletion from {player}: {MultiplayerReason.InvalidArgument}. Further refusals for this reason go unlogged until the session ends.");
+                }
+
+                return;
+            }
+
+            HostApplyParticipantDataDeletion(player, key);
+        }
+
+        private void HostApplyParticipantDataDeletion(PlayerId player, string key)
+        {
+            int index = IndexOfParticipant(player);
+            if (index < 0 || !_participants[index].Data.ContainsKey(key))
+            {
+                return;
+            }
+
+            Participant updated = _participants[index].WithData(WithoutDataEntry(_participants[index].Data, key));
+            _participants[index] = updated;
+
+            _writer.Begin(PacketKind.ParticipantDataDeleted);
+            _writer.WriteULong(player.Value);
+            _writer.WriteString(key);
+
+            int generation = _sessionGeneration;
+            BroadcastToWelcomed(ConnectionId.None);
+            if (generation == _sessionGeneration)
+            {
+                Raise(_onParticipantDataChanged, updated, key);
+            }
+        }
+        #endregion
+
+        #region Client
+        private void HandleLobbyDataChanged(ref PacketReader reader)
+        {
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxLobbyDataSize);
+            if (!IsValidDataKey(key))
+            {
+                throw new FormatException("The host changed lobby data under an invalid key.");
+            }
+
+            ThrowIfDataTooLarge(DataSizeWith(key, value, _lobbyData, MultiplayerLimits.MaxLobbyDataSize), MultiplayerLimits.MaxLobbyDataSize);
+
+            _lobbyData[key] = value;
+            Raise(_onLobbyDataChanged, key, value);
+        }
+
+        private void HandleParticipantDataChanged(ref PacketReader reader)
+        {
+            PlayerId player = new PlayerId(reader.ReadULong());
+            string key = reader.ReadString(MaxDataKeyBytes);
+            string value = reader.ReadString(MultiplayerLimits.MaxParticipantDataSize);
+            if (!IsValidDataKey(key))
+            {
+                throw new FormatException("The host changed participant data under an invalid key.");
+            }
+
+            int index = IndexOfParticipant(player);
+            if (index < 0)
+            {
+                return;
+            }
+
+            ThrowIfDataTooLarge(DataSizeWith(key, value, _participants[index].Data, MultiplayerLimits.MaxParticipantDataSize), MultiplayerLimits.MaxParticipantDataSize);
+
+            Participant updated = _participants[index].WithData(WithDataEntry(_participants[index].Data, key, value));
+            _participants[index] = updated;
+            Raise(_onParticipantDataChanged, updated, key);
+        }
+
+        private void HandleLobbyDataDeleted(ref PacketReader reader)
+        {
+            string key = reader.ReadString(MaxDataKeyBytes);
+            if (!IsValidDataKey(key))
+            {
+                throw new FormatException("The host deleted lobby data under an invalid key.");
+            }
+
+            if (_lobbyData.Remove(key))
+            {
+                Raise(_onLobbyDataChanged, key, (string)null);
+            }
+        }
+
+        private void HandleParticipantDataDeleted(ref PacketReader reader)
+        {
+            PlayerId player = new PlayerId(reader.ReadULong());
+            string key = reader.ReadString(MaxDataKeyBytes);
+            if (!IsValidDataKey(key))
+            {
+                throw new FormatException("The host deleted participant data under an invalid key.");
+            }
+
+            int index = IndexOfParticipant(player);
+            if (index < 0 || !_participants[index].Data.ContainsKey(key))
+            {
+                return;
+            }
+
+            Participant updated = _participants[index].WithData(WithoutDataEntry(_participants[index].Data, key));
+            _participants[index] = updated;
+            Raise(_onParticipantDataChanged, updated, key);
+        }
+
+        /// <summary>Takes this player's own data from the welcome, which its later requests build on.</summary>
+        private void TakeRequestedData(IReadOnlyDictionary<string, string> own)
+        {
+            _requestedData.Clear();
+            foreach (KeyValuePair<string, string> pair in own)
+            {
+                _requestedData.Add(pair.Key, pair.Value);
+            }
+        }
+
+        private void ResetDataState()
+        {
+            _lobbyData.Clear();
+            _requestedData.Clear();
+        }
+        #endregion
+
+        #region Rules And Packets
+        /// <summary>
+        /// A lobby data value that writes no key: <see cref="SetLobbyData"/> deletes the key
+        /// instead, and a lobby is created without it. A null value is no value at all and is
+        /// refused, so it is not empty here.
+        /// </summary>
+        private static bool IsEmptyValue(string value) => value != null && value.Length == 0;
+
+        private static bool IsValidDataKey(string key)
+        {
+            return !string.IsNullOrEmpty(key)
+                && key.Length <= MultiplayerLimits.MaxDataKeyLength
+                && IsCleanText(key)
+                && !LobbyDataKeys.IsReserved(key);
+        }
+
+        /// <summary>
+        /// False for text that does not reach the other players unchanged: a NUL character, where
+        /// Steam ends a string, or a surrogate without its pair, so the other players would hold
+        /// another key or value than the sender.
+        /// </summary>
+        private static bool IsCleanText(string text) => text.IndexOf('\0') < 0 && !HasUnpairedSurrogate(text);
+
+        /// <summary>
+        /// True for text with a UTF-16 surrogate without its pair, as a text field that cuts an
+        /// emoji in half leaves. UTF-8 turns it into a replacement character, so the other players
+        /// would read other text than the sender.
+        /// </summary>
+        private static bool HasUnpairedSurrogate(string text)
+        {
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (char.IsHighSurrogate(c))
+                {
+                    if (i + 1 >= text.Length || !char.IsLowSurrogate(text[i + 1]))
+                    {
+                        return true;
+                    }
+
+                    i++;
+                }
+                else if (char.IsLowSurrogate(c))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks one entry of lobby or participant data, and that <paramref name="data"/> stays
+        /// within <paramref name="limit"/> once the entry takes the place of the one under the same key.
+        /// </summary>
+        private static MultiplayerReason CheckDataEntry(string key, string value, IEnumerable<KeyValuePair<string, string>> data, int limit)
+        {
+            if (!IsValidDataKey(key) || value == null || !IsCleanText(value))
+            {
+                return MultiplayerReason.InvalidArgument;
+            }
+
+            return DataSizeWith(key, value, data, limit) > limit ? MultiplayerReason.MessageTooLarge : MultiplayerReason.None;
+        }
+
+        /// <summary>
+        /// The UTF-8 bytes of the keys and values in <paramref name="data"/> once
+        /// <paramref name="key"/> holds <paramref name="value"/> in place of the entry under the
+        /// same key, counted only until they pass <paramref name="limit"/>. The host counts each
+        /// change it takes this way, and a client counts each change the host sends against its own
+        /// copy the same way, so both put the limit at the same byte.
+        /// </summary>
+        private static long DataSizeWith(string key, string value, IEnumerable<KeyValuePair<string, string>> data, int limit)
+        {
+            long size = (long)Encoding.UTF8.GetByteCount(key) + Encoding.UTF8.GetByteCount(value);
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                if (size > limit)
+                {
+                    break;
+                }
+
+                if (!string.Equals(pair.Key, key, StringComparison.Ordinal))
+                {
+                    size += Encoding.UTF8.GetByteCount(pair.Key) + Encoding.UTF8.GetByteCount(pair.Value ?? string.Empty);
+                }
+            }
+
+            return size;
+        }
+
+        /// <summary>
+        /// Makes a host's packet malformed when the data it brings takes more UTF-8 bytes of keys
+        /// and values than <paramref name="limit"/>, with <paramref name="size"/> counted as far
+        /// as it passed the limit. The host holds its own lobby and participant data to the same
+        /// limit with <see cref="CheckDataEntry"/>, and a client's copy follows the host's packet
+        /// by packet, so only a host that skips the check gets here; without this, a host could
+        /// grow a client's copy without bound through entries under ever new keys.
+        /// </summary>
+        private static void ThrowIfDataTooLarge(long size, int limit)
+        {
+            if (size > limit)
+            {
+                throw new FormatException($"Keys and values of {size} bytes or more exceed the {limit}-byte data limit.");
+            }
+        }
+
+        /// <summary>
+        /// Refuses a lobby data key that differs from a key <paramref name="data"/> holds only by
+        /// case, such as <c>map</c> beside <c>Map</c>. Steam keeps one value for both, so the lobby
+        /// there would hold one key while every player's copy and the local backends held two.
+        /// Refusing the second key keeps the same keys, spelled the same way, on every backend,
+        /// whichever spelling Steam would keep or hand back from search.
+        /// </summary>
+        private static MultiplayerReason CheckLobbyKeyCase(string key, Dictionary<string, string> data)
+        {
+            if (key == null)
+            {
+                return MultiplayerReason.None;
+            }
+
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                if (!string.Equals(pair.Key, key, StringComparison.Ordinal)
+                    && string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.LogWarning($"[Multiplayer] Lobby data key '{key}' differs from the key '{pair.Key}' only by case, and Steam does not tell lobby data keys apart by case.");
+                    return MultiplayerReason.InvalidArgument;
+                }
+            }
+
+            return MultiplayerReason.None;
+        }
+
+        /// <summary>The lobby data key that matches <paramref name="key"/> in any case, as the lobby data spells it; null when there is none.</summary>
+        private string FindLobbyKey(string key)
+        {
+            foreach (string held in _lobbyData.Keys)
+            {
+                if (string.Equals(held, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return held;
+                }
+            }
+
+            return null;
+        }
+
+        private static void WarnIfInvalid(MultiplayerReason check, string key)
+        {
+            if (check == MultiplayerReason.InvalidArgument)
+            {
+                Debug.LogWarning($"[Multiplayer] Data key '{key}' is empty, longer than {MultiplayerLimits.MaxDataKeyLength} characters, or starts with the reserved '{LobbyDataKeys.Prefix}' in any case, or the key or its value is null or holds a NUL character or an unpaired surrogate.");
+            }
+        }
+
+        /// <summary>A copy of the data with one entry set, so a participant handed out before keeps its own.</summary>
+        private static IReadOnlyDictionary<string, string> WithDataEntry(IReadOnlyDictionary<string, string> data, string key, string value)
+        {
+            Dictionary<string, string> copy = new Dictionary<string, string>(data.Count + 1);
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                copy[pair.Key] = pair.Value;
+            }
+
+            copy[key] = value;
+            return new ReadOnlyDictionary<string, string>(copy);
+        }
+
+        /// <summary>A copy of the data without one key, so a participant handed out before keeps its own.</summary>
+        private static IReadOnlyDictionary<string, string> WithoutDataEntry(IReadOnlyDictionary<string, string> data, string key)
+        {
+            Dictionary<string, string> copy = new Dictionary<string, string>(data.Count);
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                if (!string.Equals(pair.Key, key, StringComparison.Ordinal))
+                {
+                    copy.Add(pair.Key, pair.Value);
+                }
+            }
+
+            return new ReadOnlyDictionary<string, string>(copy);
+        }
+
+        private static void WriteData(PacketWriter writer, IReadOnlyDictionary<string, string> data)
+        {
+            writer.WriteInt(data.Count);
+            foreach (KeyValuePair<string, string> pair in data)
+            {
+                writer.WriteString(pair.Key);
+                writer.WriteString(pair.Value);
+            }
+        }
+
+        /// <summary>
+        /// Reads what <see cref="WriteData"/> wrote. Every entry takes at least one byte of
+        /// <paramref name="limit"/>, and no value more than all of it; the keys and values together
+        /// take no more than all of it either, as the host's own data never does. Every entry also
+        /// takes at least <see cref="MinDataEntryBytes"/> of the packet, so a count that the rest
+        /// of the packet cannot hold is malformed before any room is reserved for it: a short
+        /// packet that claims thousands of entries allocates nothing for them.
+        /// </summary>
+        private static Dictionary<string, string> ReadData(ref PacketReader reader, int limit)
+        {
+            int count = reader.ReadInt();
+            if (count < 0 || count > limit || count > reader.Remaining / MinDataEntryBytes)
+            {
+                throw new FormatException($"Invalid data entry count {count} with {reader.Remaining} bytes left.");
+            }
+
+            Dictionary<string, string> data = new Dictionary<string, string>(count);
+            long size = 0;
+            for (int i = 0; i < count; i++)
+            {
+                string key = reader.ReadString(MaxDataKeyBytes);
+                string value = reader.ReadString(limit);
+                if (!IsValidDataKey(key))
+                {
+                    throw new FormatException("Data under an invalid key.");
+                }
+
+                size += Encoding.UTF8.GetByteCount(key) + Encoding.UTF8.GetByteCount(value);
+                ThrowIfDataTooLarge(size, limit);
+                data[key] = value;
+            }
+
+            return data;
+        }
+        #endregion
+    }
+}

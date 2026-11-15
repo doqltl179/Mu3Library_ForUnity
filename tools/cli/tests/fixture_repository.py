@@ -10,8 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mu3_cli.repository import repo_root
-from mu3_cli.unity import bash_script_command
+from mu3_common.bash import bash_script_command
+from mu3_common.checkout import repo_root
 from shell_harness import bash_or_skip, run_sourced
 
 # Mirrors the shape of this repository: one package every project consumes, one
@@ -32,23 +32,69 @@ PROJECT_PACKAGES = {
     "ProjOrphan": (),
 }
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
+# The helper test-unity.sh runs beside each run, which the fixture keeps at its path.
+LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_fixed_load" / "fixed_load.py"
 
-# Stands in for the Unity Editor: names the project and the arguments it ran with, writes
-# the test results it is given to the path after -testResults, and exits with the status
-# it is given.
+# Stands in for the Unity Editor: names the project, the arguments it ran with, and the
+# -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
+# it is given, prints as many ticks as it is given, FAKE_UNITY_TICK_SECONDS (1 unless given)
+# apart, and the log line it is given for after them, then stays silent as long as it is told, in a child process whose PID it can write to
+# a file, writes the test results it is given to the path after -testResults, and exits with
+# the status it is given. Given a file to count its runs in, run <n> prints FAKE_UNITY_LOG_<n>
+# and writes FAKE_UNITY_RESULTS_<n> instead when they are set, so that each run of --repeat can
+# differ. Given FAKE_UNITY_SERVICE_LOG, it writes that text as the log Unity's Data Store service
+# writes in the project, Logs/UDS-Service.log.
 FAKE_UNITY = """#!/usr/bin/env bash
 arguments="$*"
 results=""
 project=""
+filter=""
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -testResults) results="$2"; shift ;;
         -projectPath) project="$2"; shift ;;
+        -testFilter) filter="$2"; shift ;;
     esac
     shift
 done
 printf 'fake unity ran %s\\n' "$project"
 printf 'fake unity arguments: %s\\n' "$arguments"
+if [[ -n "$filter" ]]; then
+    printf 'fake unity test filter: [%s]\\n' "$filter"
+fi
+if [[ -n "${MSYS2_ARG_CONV_EXCL:-}" ]]; then
+    printf 'fake unity path conversion exclusions: [%s]\\n' "$MSYS2_ARG_CONV_EXCL"
+fi
+if [[ -n "${FAKE_UNITY_RUN_FILE:-}" ]]; then
+    run=$(( $(cat "$FAKE_UNITY_RUN_FILE" 2>/dev/null || printf 0) + 1 ))
+    printf '%s\\n' "$run" > "$FAKE_UNITY_RUN_FILE"
+    per_run="FAKE_UNITY_LOG_$run"
+    FAKE_UNITY_LOG="${!per_run-${FAKE_UNITY_LOG:-}}"
+    per_run="FAKE_UNITY_RESULTS_$run"
+    FAKE_UNITY_RESULTS="${!per_run-${FAKE_UNITY_RESULTS:-}}"
+fi
+if [[ -n "${FAKE_UNITY_LOG:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG"
+fi
+if [[ -n "${FAKE_UNITY_SERVICE_LOG:-}" ]]; then
+    mkdir -p "$project/Logs"
+    printf '%s\\n' "$FAKE_UNITY_SERVICE_LOG" > "$project/Logs/UDS-Service.log"
+fi
+for ((tick = 1; tick <= ${FAKE_UNITY_TICKS:-0}; tick++)); do
+    sleep "${FAKE_UNITY_TICK_SECONDS:-1}"
+    printf 'fake unity tick %s\\n' "$tick"
+done
+if [[ -n "${FAKE_UNITY_LOG_AFTER_TICKS:-}" ]]; then
+    printf '%s\\n' "$FAKE_UNITY_LOG_AFTER_TICKS"
+fi
+if [[ -n "${FAKE_UNITY_SLEEP:-}" ]]; then
+    sleep "$FAKE_UNITY_SLEEP" &
+    sleeper=$!
+    if [[ -n "${FAKE_UNITY_SLEEPER_FILE:-}" ]]; then
+        printf '%s\\n' "$sleeper" > "$FAKE_UNITY_SLEEPER_FILE"
+    fi
+    wait "$sleeper"
+fi
 if [[ -n "$results" && -n "${FAKE_UNITY_RESULTS:-}" ]]; then
     printf '%s\\n' "$FAKE_UNITY_RESULTS" > "$results"
 fi
@@ -74,6 +120,9 @@ class FixtureRepositoryTestCase(unittest.TestCase):
     TESTABLE_PROJECTS: frozenset[str] = frozenset()
     # Lines of the fixture's .gitignore, committed with the baseline.
     GITIGNORE_LINES: tuple[str, ...] = ()
+    # The name of the fixture's root folder inside its temporary directory, which a longer name
+    # pushes deeper, as a nested worktree is.
+    ROOT_NAME = "repository"
 
     root: Path
     fake_unity: Path
@@ -87,7 +136,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
 
         temporary_directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(temporary_directory.cleanup)
-        cls.root = Path(temporary_directory.name) / "repository"
+        cls.root = Path(temporary_directory.name) / cls.ROOT_NAME
         cls.root.mkdir()
         # Git may treat the system temp directory as owned by someone else.
         cls.git_config = Path(temporary_directory.name) / "gitconfig"
@@ -108,6 +157,8 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         for entry_point in ENTRY_POINTS:
             if (repo_root() / entry_point).is_file():
                 shutil.copy2(repo_root() / entry_point, cls.root / entry_point)
+        (cls.root / LOAD_HELPER).parent.mkdir(parents=True)
+        shutil.copy2(repo_root() / LOAD_HELPER, cls.root / LOAD_HELPER)
         (cls.root / "unity-cli-packages.tsv").write_text(
             "".join(
                 "\t".join([key, package, project, *([cls.SAMPLE_LINKS[key]] if key in cls.SAMPLE_LINKS else [])]) + "\n"
@@ -153,7 +204,24 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         # The user's and the machine's Git configuration stay out as well, so their hooks,
         # file-system monitors, and ignore rules do not apply to the fixture.
         environment = {key: value for key, value in os.environ.items() if key not in cls.repository_environment}
-        for name in ("UNITY_EDITOR", "UNITY", "UNITY_HUB_EDITOR_ROOT", "FAKE_UNITY_RESULTS", "FAKE_UNITY_STATUS"):
+        for name in (
+            "UNITY_EDITOR",
+            "UNITY",
+            "UNITY_HUB_EDITOR_ROOT",
+            "FAKE_UNITY_RESULTS",
+            "FAKE_UNITY_STATUS",
+            "FAKE_UNITY_LOG",
+            "FAKE_UNITY_TICKS",
+            "FAKE_UNITY_LOG_AFTER_TICKS",
+            "FAKE_UNITY_TICK_SECONDS",
+            "FAKE_UNITY_SLEEP",
+            "FAKE_UNITY_SLEEPER_FILE",
+            "FAKE_UNITY_RUN_FILE",
+            "FAKE_UNITY_SERVICE_LOG",
+            "MSYS2_ARG_CONV_EXCL",
+            "UNITY_LOG_POLL_SECONDS",
+            "UNITY_LOAD_SPINNERS_IDLE",
+        ):
             environment.pop(name, None)
         environment.update(
             {
@@ -182,7 +250,14 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             raise RuntimeError(f"git {' '.join(arguments)} failed in the fixture: {completed.stderr.strip()}")
 
     def unity_environment(self, **variables: str) -> dict[str, str]:
-        """The fixture environment with the fake Unity and a mirror directory of this test's own."""
+        """The fixture environment with the fake Unity and a mirror directory of this test's own.
+
+        The logs and results that a run with it writes under log/ go when the test ends. The
+        scripts look at the fake's log every 0.02 s instead of every second, since the fake
+        exits at once and each run would otherwise wait out a whole second, and the spinners
+        that --load-spinners starts wait instead of spinning a core each.
+        """
+        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
         mirror_directory = tempfile.TemporaryDirectory()
         self.addCleanup(mirror_directory.cleanup)
         self.mirror_directory = Path(mirror_directory.name)
@@ -190,15 +265,29 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             **self._environment(),
             "UNITY_EDITOR": str(self.fake_unity),
             "TMPDIR": str(self.mirror_directory),
+            "UNITY_LOG_POLL_SECONDS": "0.02",
+            "UNITY_LOAD_SPINNERS_IDLE": "1",
             **variables,
         }
 
     def run_entry_point(
-        self, entry_point: str, *arguments: str, environment: dict[str, str] | None = None
+        self,
+        entry_point: str,
+        *arguments: str,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+        script: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
+        """Run an entry point from cwd, the fixture's root unless given.
+
+        script spells the entry point's path for bash, such as in another form of the same path;
+        without it the entry point runs by its path as the unity commands run it.
+        """
         return subprocess.run(
-            bash_script_command(self.root / entry_point, list(arguments)),
-            cwd=self.root,
+            bash_script_command(self.root / entry_point, list(arguments))
+            if script is None
+            else [str(bash_or_skip()), script, *arguments],
+            cwd=cwd or self.root,
             env=environment if environment is not None else self._environment(),
             capture_output=True,
             text=True,
@@ -207,13 +296,24 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         )
 
     def run_functions(
-        self, entry_point: str, body: str, *arguments: str, environment: dict[str, str] | None = None
+        self,
+        entry_point: str,
+        body: str,
+        *arguments: str,
+        environment: dict[str, str] | None = None,
+        cwd: Path | None = None,
+        script: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        """Source an entry point and run body with the arguments as its positional parameters."""
+        """Source an entry point and run body with the arguments as its positional parameters.
+
+        It runs from cwd, the fixture's root unless given, and sources script, a spelling of the
+        entry point's path, or the path itself.
+        """
         return run_sourced(
-            self.root / entry_point,
+            script or self.root / entry_point,
             body,
             environment if environment is not None else self._environment(),
+            cwd=cwd or self.root,
             arguments=arguments,
         )
 

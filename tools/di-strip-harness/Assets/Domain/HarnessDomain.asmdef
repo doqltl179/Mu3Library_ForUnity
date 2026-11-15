@@ -1,0 +1,7 @@
+{
+    "name": "HarnessDomain",
+    "rootNamespace": "StripHarness.Domain",
+    "references": [],
+    "autoReferenced": true,
+    "noEngineReferences": true
+}

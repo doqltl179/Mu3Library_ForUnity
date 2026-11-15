@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
@@ -12,30 +13,32 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
-from mu3_cli.cli import app
-from mu3_cli.repository import repo_root
-from mu3_cli.unity import (
-    BashNotFoundError,
+from mu3_common.bash import BashNotFoundError, find_bash, find_windows_bash
+from mu3_common.checkout import repo_root
+from mu3_common.editor import UnityTargetSpec, default_editor_path, load_target_specs, project_editor_version
+from mu3_common.sample_links import sample_link_state
+from mu3_samples.cli import (
     SampleLinkResult,
-    UnityTargetSpec,
+    create_directory_link,
+    link_samples,
+    remove_directory_link,
+    unlink_samples,
+)
+from mu3_samples.cli import app as samples_app
+from mu3_unity.cli import (
     bash_diagnostic,
     entry_point_arguments,
     compile_script_path,
-    create_directory_link,
-    default_editor_path,
     file_is_held_open,
-    find_bash,
-    find_windows_bash,
-    link_samples,
-    load_target_specs,
+    filter_arguments,
+    load_arguments,
     platform_arguments,
-    project_editor_version,
     project_lock_diagnostic,
     project_lock_state,
-    remove_directory_link,
     sample_link_diagnostic,
-    sample_link_state,
+    stall_timeout_arguments,
 )
+from mu3_unity.cli import app as unity_app
 from shell_harness import run_sourced
 
 
@@ -104,6 +107,121 @@ class UnityToolingTests(unittest.TestCase):
     def test_platform_rejects_a_name_the_test_script_does_not_take(self) -> None:
         with self.assertRaisesRegex(ValueError, "--platform expects one of: editmode, playmode"):
             platform_arguments("PlayMode")
+
+    def test_filter_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], filter_arguments(None))
+        self.assertEqual(["--filter", "A.Tests;B.Tests"], filter_arguments("A.Tests;B.Tests"))
+
+    def test_filter_rejects_what_the_test_script_rejects(self) -> None:
+        for pattern, message in (
+            ("", "--filter requires a test name or pattern"),
+            ("  ", "--filter requires a test name or pattern"),
+            ("--dry-run", "--filter expects a test name or pattern, not an option: --dry-run"),
+            ("/Mu3/Regex", "--filter cannot start with /, which Git Bash rewrites as a file path"),
+        ):
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(ValueError, message):
+                filter_arguments(pattern)
+
+    def test_test_command_refuses_an_option_as_its_filter(self) -> None:
+        calls: list[list[str]] = []
+
+        with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+            result = CliRunner().invoke(unity_app, ["test", "--filter", "--dry-run", "built-in"])
+
+        self.assertEqual(2, result.exit_code, result.output)
+        # The error box wraps the message, so the option it names can land on the next line.
+        self.assertIn("not an option:", result.output)
+        self.assertEqual([], calls)
+
+    def test_stall_timeout_reaches_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], stall_timeout_arguments(None))
+        self.assertEqual(["--stall-timeout", "0"], stall_timeout_arguments(0))
+        self.assertEqual(["--stall-timeout", "900"], stall_timeout_arguments(900))
+        with self.assertRaisesRegex(ValueError, "--stall-timeout expects a whole number of seconds"):
+            stall_timeout_arguments(-1)
+
+    def test_test_command_hands_its_options_to_the_test_script(self) -> None:
+        calls: list[tuple[Path, list[str]]] = []
+
+        def run(script_path: Path, arguments: list[str], root: Path) -> int:
+            calls.append((script_path, arguments))
+            return 0
+
+        with mock.patch("mu3_unity.cli.run_entry_point", run):
+            result = CliRunner().invoke(
+                unity_app,
+                [
+                    "test",
+                    "built-in",
+                    "--dry-run",
+                    "--filter",
+                    "Mu3Library.Tests.MultiplayerPerformanceTests",
+                    "--stall-timeout",
+                    "120",
+                ],
+            )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        [(script_path, arguments)] = calls
+        self.assertEqual("test-unity.sh", script_path.name)
+        self.assertEqual(
+            [
+                "built-in",
+                "--dry-run",
+                "--platform",
+                "editmode",
+                "--filter",
+                "Mu3Library.Tests.MultiplayerPerformanceTests",
+                "--stall-timeout",
+                "120",
+            ],
+            arguments,
+        )
+
+    def test_load_and_repeat_reach_the_test_script_only_when_given(self) -> None:
+        self.assertEqual([], load_arguments(None, None))
+        self.assertEqual(["--load-spinners", "0"], load_arguments(0, None))
+        self.assertEqual(["--load-spinners", "16", "--repeat", "3"], load_arguments(16, 3))
+        with self.assertRaisesRegex(ValueError, "--load-spinners expects a whole number of spinners"):
+            load_arguments(-1, None)
+        with self.assertRaisesRegex(ValueError, "--repeat expects a whole number of runs, 1 or more"):
+            load_arguments(None, 0)
+
+    def test_test_command_hands_the_load_and_the_repeats_to_the_test_script(self) -> None:
+        calls: list[list[str]] = []
+
+        with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+            result = CliRunner().invoke(
+                unity_app, ["test", "built-in", "--dry-run", "--load-spinners", "16", "--repeat", "3"]
+            )
+            refused = CliRunner().invoke(unity_app, ["test", "built-in", "--repeat", "0"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            [["built-in", "--dry-run", "--platform", "editmode", "--load-spinners", "16", "--repeat", "3"]], calls
+        )
+        self.assertEqual(2, refused.exit_code, refused.output)
+
+    def test_compile_command_hands_the_stall_timeout_to_the_compile_script(self) -> None:
+        calls: list[tuple[Path, list[str]]] = []
+
+        def run(script_path: Path, arguments: list[str], root: Path) -> int:
+            calls.append((script_path, arguments))
+            return 0
+
+        with mock.patch("mu3_unity.cli.run_entry_point", run):
+            result = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run", "--stall-timeout", "120"])
+            without = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(0, without.exit_code, without.output)
+        self.assertEqual(
+            [
+                ("compile-unity.sh", ["built-in", "--dry-run", "--stall-timeout", "120"]),
+                ("compile-unity.sh", ["built-in", "--dry-run"]),
+            ],
+            [(script_path.name, arguments) for script_path, arguments in calls],
+        )
 
     def test_repository_mapping_names_every_samples_link(self) -> None:
         specs = load_target_specs(repo_root())
@@ -295,14 +413,215 @@ class SampleLinkTests(unittest.TestCase):
 
         self.assertEqual("FAIL", missing.status)
         self.assertIn("Project/Assets/Samples is missing", missing.detail)
-        self.assertIn("unity link-samples", missing.suggestion)
+        self.assertIn("python -m mu3_samples link", missing.suggestion)
         self.assertEqual("PASS", linked.status)
 
     def test_target_without_a_samples_link_is_left_out(self) -> None:
         plain = UnityTargetSpec("plain", Path("Package"), Path("Project"))
 
         self.assertEqual([], link_samples({"plain": plain}, self.root))
+        self.assertEqual([], unlink_samples({"plain": plain}, self.root))
         self.assertIsNone(sample_link_diagnostic(plain, self.root))
+
+    def unlink_all(self) -> list[SampleLinkResult]:
+        return unlink_samples({"sample": self.spec}, self.root)
+
+    def test_unlink_removes_only_the_link(self) -> None:
+        self.link_all()
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Unlinked Project/Assets/Samples, which pointed at Package/Samples~.", result.message)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertEqual(["Sample.cs"], [path.name for path in (self.root / "Package" / "Samples~").iterdir()])
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+
+    def test_unlink_removes_a_link_to_another_folder_without_touching_that_folder(self) -> None:
+        other = self.root / "Other"
+        other.mkdir()
+        (other / "Keep.cs").write_text("// keep\n", encoding="utf-8")
+        create_directory_link(self.link, other.resolve())
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertIn("Unlinked Project/Assets/Samples, which pointed at ", result.message)
+        self.assertIn("Other", result.message)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertEqual(["Keep.cs"], [path.name for path in other.iterdir()])
+
+    def test_unlink_removes_a_link_whose_samples_folder_is_gone(self) -> None:
+        # link refuses a target without Samples~; its old link must still go.
+        self.link_all()
+        shutil.rmtree(self.root / "Package" / "Samples~")
+        self.assertEqual("no-samples", sample_link_state(self.spec, self.root).state)
+
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertFalse(os.path.lexists(self.link))
+
+    def test_unlink_leaves_a_real_folder_untouched(self) -> None:
+        self.link.mkdir()
+        (self.link / "Local.cs").write_text("// local\n", encoding="utf-8")
+
+        [result] = self.unlink_all()
+
+        self.assertFalse(result.ok)
+        self.assertEqual(
+            "error: Project/Assets/Samples is not a sample link (a real folder, file, or other reparse point);"
+            " it was left untouched.",
+            result.message,
+        )
+        self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
+
+    def test_unlink_leaves_a_real_file_untouched(self) -> None:
+        self.link.write_text("local\n", encoding="utf-8")
+
+        [result] = self.unlink_all()
+
+        self.assertFalse(result.ok)
+        self.assertIn("Project/Assets/Samples is not a sample link", result.message)
+        self.assertEqual("local\n", self.link.read_text(encoding="utf-8"))
+
+    def test_unlink_without_a_link_reports_it_and_succeeds(self) -> None:
+        [result] = self.unlink_all()
+
+        self.assertTrue(result.ok, result.message)
+        self.assertEqual("Not linked: Project/Assets/Samples does not exist.", result.message)
+
+    def test_unlink_command_removes_links_and_fails_on_a_real_folder(self) -> None:
+        (self.root / "unity-cli-packages.tsv").write_text(
+            "sample\tPackage\tProject\tAssets/Samples\nblocked\tPackage\tBlocked\tAssets/Samples\n",
+            encoding="utf-8",
+        )
+        blocked = self.root / "Blocked" / "Assets" / "Samples"
+        blocked.mkdir(parents=True)
+        (blocked / "Local.cs").write_text("// local\n", encoding="utf-8")
+        self.link_all()
+
+        with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
+            Path, "cwd", return_value=self.root / "Project"
+        ):
+            result = CliRunner().invoke(samples_app, ["unlink"])
+            unknown = CliRunner().invoke(samples_app, ["unlink", "--target", "missing"])
+
+        self.assertEqual(1, result.exit_code, result.output)
+        self.assertEqual(f"Repository root: {self.root}", result.stdout.splitlines()[0])
+        self.assertIn("[sample] Unlinked Project/Assets/Samples", result.output)
+        self.assertIn("[blocked] error: Blocked/Assets/Samples is not a sample link", result.output)
+        self.assertFalse(os.path.lexists(self.link))
+        self.assertTrue((self.root / "Package" / "Samples~" / "Sample.cs").is_file())
+        self.assertTrue((blocked / "Local.cs").is_file())
+        self.assertEqual(2, unknown.exit_code, unknown.output)
+        self.assertIn("Unknown Unity target 'missing'", unknown.output)
+
+    def test_link_commands_change_nothing_from_a_working_directory_outside_the_checkout(self) -> None:
+        # An installed tool acts on the checkout it was installed from, here self.root (#416).
+        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
+        outside = temporary_root(self)
+
+        def invoke(command: str) -> object:
+            with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
+                Path, "cwd", return_value=outside
+            ):
+                return CliRunner().invoke(samples_app, [command])
+
+        refused_link = invoke("link")
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+        self.link_all()
+        refused_unlink = invoke("unlink")
+        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
+
+        for command, result in (("link", refused_link), ("unlink", refused_unlink)):
+            with self.subTest(command=command):
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
+                self.assertEqual(
+                    [
+                        f"error: mu3-samples {command} would change the checkout at {self.root}, "
+                        f"but the working directory {outside} is outside it and in no checkout, so nothing was changed. "
+                        "Run it from inside that checkout."
+                    ],
+                    result.stderr.splitlines(),
+                )
+
+    def test_link_commands_change_nothing_from_a_folder_left_in_a_worktree_folder_of_the_checkout(self) -> None:
+        # A failed git worktree remove leaves a folder with no AGENTS.md or .github in it; run there,
+        # unlink would remove self.root's links instead of that folder's own (#436).
+        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
+        left_behind = self.root / ".worktrees" / "removed"
+        (left_behind / "Project").mkdir(parents=True)
+
+        def invoke(command: str) -> object:
+            with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
+                Path, "cwd", return_value=left_behind / "Project"
+            ):
+                return CliRunner().invoke(samples_app, [command])
+
+        refused_link = invoke("link")
+        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
+        self.link_all()
+        refused_unlink = invoke("unlink")
+        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
+
+        for command, result in (("link", refused_link), ("unlink", refused_unlink)):
+            with self.subTest(command=command):
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
+                [error] = result.stderr.splitlines()
+                self.assertTrue(
+                    error.startswith(
+                        f"error: mu3-samples {command} would change the checkout at {self.root}, but the working "
+                        f"directory {left_behind / 'Project'} is in {left_behind}, "
+                    ),
+                    error,
+                )
+                self.assertIn('see "Worktree Removal" in tools/README.md.', error)
+
+
+class RepositoryRootLineTests(unittest.TestCase):
+    """Every unity command names the checkout it acts on, which for an installed mu3-unity is the one
+    it was installed from, wherever it runs (#416)."""
+
+    def test_selection_commands_name_the_root_before_running_the_entry_point(self) -> None:
+        root = repo_root()
+        for arguments in (["changes"], ["compile", "--dry-run"], ["test", "--dry-run"]):
+            with self.subTest(command=arguments[0]):
+                with mock.patch("mu3_unity.cli.run_entry_point", return_value=0) as run:
+                    result = CliRunner().invoke(unity_app, arguments)
+
+                self.assertEqual(0, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {root}"], result.stdout.splitlines())
+                self.assertEqual(root, run.call_args.args[2])
+
+    def test_doctor_names_the_root_in_text_and_in_json(self) -> None:
+        root = repo_root()
+        with mock.patch("mu3_unity.cli.run_unity_diagnostics", return_value=[]):
+            text = CliRunner().invoke(unity_app, ["doctor"])
+            as_json = CliRunner().invoke(unity_app, ["doctor", "--format", "json"])
+
+        self.assertEqual(0, text.exit_code, text.output)
+        self.assertEqual([f"Repository root: {root}", "Summary: 0 pass, 0 warn, 0 fail"], text.stdout.splitlines())
+        self.assertEqual(0, as_json.exit_code, as_json.output)
+        self.assertEqual(
+            {"repository_root": str(root), "diagnostics": [], "summary": {"pass": 0, "warn": 0, "fail": 0}},
+            json.loads(as_json.stdout),
+        )
+
+    def test_doctor_names_the_root_before_it_refuses_a_target(self) -> None:
+        root = repo_root()
+
+        text = CliRunner().invoke(unity_app, ["doctor", "--target", "missing"])
+        as_json = CliRunner().invoke(unity_app, ["doctor", "--format", "json", "--target", "missing"])
+
+        self.assertEqual(2, text.exit_code, text.output)
+        self.assertEqual([f"Repository root: {root}"], text.stdout.splitlines())
+        self.assertIn("Unknown Unity target 'missing'", text.stderr)
+        # The JSON report names the root only as a field of the report, which a refused target never reaches.
+        self.assertEqual(2, as_json.exit_code, as_json.output)
+        self.assertEqual("", as_json.stdout)
 
 
 class BashDiscoveryTests(unittest.TestCase):
@@ -399,12 +718,12 @@ class CommandErrorTests(unittest.TestCase):
             raise BashNotFoundError("No bash here.", "Install it.")
 
         runner = CliRunner()
-        with mock.patch("mu3_cli.unity.platform.system", return_value="Windows"), mock.patch(
-            "mu3_cli.unity.find_windows_bash", missing
+        with mock.patch("mu3_common.bash.platform.system", return_value="Windows"), mock.patch(
+            "mu3_common.bash.find_windows_bash", missing
         ):
-            changes = runner.invoke(app, ["unity", "changes"])
-            compile_run = runner.invoke(app, ["unity", "compile", "--dry-run"])
-            test_run = runner.invoke(app, ["unity", "test", "--dry-run"])
+            changes = runner.invoke(unity_app, ["changes"])
+            compile_run = runner.invoke(unity_app, ["compile", "--dry-run"])
+            test_run = runner.invoke(unity_app, ["test", "--dry-run"])
 
         for result in (changes, compile_run, test_run):
             with self.subTest(command=result):
@@ -454,14 +773,27 @@ class ShortPathTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0)
 
         with mock.patch.object(Path, "cwd", return_value=self.short_root), mock.patch(
-            "mu3_cli.unity.find_windows_bash", return_value=Path("bash.exe")
-        ), mock.patch("mu3_cli.unity.subprocess.run", run):
-            result = CliRunner().invoke(app, ["unity", "compile", "built-in", "--dry-run"])
+            "mu3_common.bash.find_windows_bash", return_value=Path("bash.exe")
+        ), mock.patch("mu3_unity.cli.subprocess.run", run):
+            result = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run"])
 
         self.assertEqual(0, result.exit_code, result.output)
         [(command, keywords)] = calls
         self.assertIn(str(self.short_root / "compile-unity.sh"), command)
         self.assertEqual(self.short_root, keywords["cwd"])
+        self.assertEqual(f"Repository root: {self.short_root}", result.stdout.splitlines()[0])
+
+    def test_link_commands_run_from_the_short_path_of_their_own_checkout(self) -> None:
+        # An unknown target stops each command only after the working directory has passed, before any change.
+        for command in ("link", "unlink"):
+            with self.subTest(command=command):
+                with mock.patch.object(Path, "cwd", return_value=self.short_root / "UnityProject_BuiltIn"):
+                    result = CliRunner().invoke(samples_app, [command, "--target", "no-such-target"])
+
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertEqual([f"Repository root: {self.short_root}"], result.stdout.splitlines())
+                self.assertIn("Unknown Unity target 'no-such-target'", result.stderr)
+                self.assertNotIn("is outside it", result.stderr)
 
     def test_entry_point_keeps_the_short_path_it_was_started_from(self) -> None:
         # compile-unity.sh passes $REPO_ROOT/<project> to Unity as -projectPath.

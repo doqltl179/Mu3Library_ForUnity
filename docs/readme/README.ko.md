@@ -30,7 +30,7 @@
 - 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
-- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Mobile Notifications 조건부 활성화
+- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET 조건부 활성화
 - 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
@@ -58,7 +58,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.27.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
@@ -117,6 +117,8 @@ public class GameCore : CoreBase
 
 기반 클래스가 선언한 `[Inject]` 멤버도 private까지 포함해 주입됩니다. 클래스 계층을 거슬러 올라가는 탐색은 `CoreBase`에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
 
+필수 `[Inject]` 프로퍼티에는 setter가 있어야 합니다. private이어도 됩니다. 필수 `[Inject]` 필드는 `readonly`이면 안 됩니다. 어느 쪽도 `static`이면 안 됩니다. get만 있는 프로퍼티, 스트리핑한 플레이어에서 링커가 setter를 지운 프로퍼티, `readonly` 필드, `static` 필드나 프로퍼티처럼 컨테이너가 채울 수 없는 필수 `[Inject]` 멤버가 있는 객체를 주입하면, 컨테이너는 멤버를 하나도 주입하기 전에 `InvalidOperationException`을 던집니다. 서비스가 등록되지 않은 필수 멤버와 같습니다. `static` 멤버는 클래스에 속하므로 컨테이너는 이를 쓰지 않습니다. 쓰면 주입하는 객체마다 같은 클래스의 다른 객체가 읽는 값을 덮어씁니다. 에디터의 DI 검증기는 컨테이너가 만드는 클래스와 코어 자신에서 이런 멤버를 보고합니다. 등록된 인스턴스는 검사하지 않으며, 이는 실행 중의 동작과 같습니다. `ContainerScope.RegisterInstance`는 인스턴스를 등록하면서 주입하므로 이런 멤버가 있으면 예외를 던지고 아무것도 등록하지 않은 채로 두고, `Container.RegisterInstance`는 등록하는 인스턴스를 주입하지 않으므로 예외가 나지 않습니다. `InjectableMembers.GetUnwritableProperties`, `InjectableMembers.GetReadOnlyFields`, `InjectableMembers.GetStaticFields`, `InjectableMembers.GetStaticProperties`가 이런 멤버를 나열합니다. 이런 멤버가 선택적(`[Inject(false)]`)이면 건너뜁니다.
+
 등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다. 등록 하나(구현 타입, 키, 수명)는 어떤 서비스 타입으로 resolve하든 인스턴스 하나를 돌려줍니다. 싱글턴은 컨테이너당 하나, 스코프드 서비스는 스코프당 하나입니다. 예외를 던진 생명주기 콜백은 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 계속 실행됩니다.
 
 ```csharp
@@ -136,6 +138,8 @@ public class AudioCore : CoreBase
 ```
 
 `MVPManager`도 좁은 공개 계약인 `IObjectInjector`를 사용해 컨테이너 외부에서 생성된 presenter에 `[Inject]` 필드와 프로퍼티 주입을 적용합니다. 구체적인 `ContainerScope`와 내부 주입 구현은 DI 어셈블리 내부에 유지됩니다.
+
+**Managed Stripping Level**을 Medium이나 High로 설정해 빌드한 플레이어에서는 Unity 링커가 어디서도 호출되지 않는 코드를 제거하는데, 컨테이너는 생성자와 `[Inject]` 멤버에 리플렉션으로만 접근합니다. 그래서 Base의 에디터 코드가 이런 빌드마다 링커에 link.xml을 넘깁니다. 이 파일은 `Mu3Library.DI`를 참조하는 어셈블리와, 그 어셈블리가 직접 또는 간접으로 참조하는 모든 스크립트 어셈블리와 사전 컴파일된 어셈블리에서 빌드가 어차피 남기는 모든 클래스의 생성자를 지킵니다. 그래서 서비스가 컨테이너를 전혀 모르는 어셈블리에 있어도 됩니다. 이 클래스들의 `[Inject]` 필드와 프로퍼티도 지키며, 필수인 `static` 멤버도 지킵니다. 그래서 컨테이너가 플레이어에서도 그 멤버를 찾아 에디터에서처럼 예외를 던집니다. 이 필드들 가운데 하나라도 선언한 클래스는 모든 필드를 지킵니다. 링커는 link.xml이 이름을 적은 필드의 `[Inject]` 어트리뷰트를 코드가 그 필드를 읽을 때만 남기는데, 컨테이너는 이 어트리뷰트로 필드를 찾기 때문입니다. 그렇지 않으면 컨테이너가 서비스를 만들게 하려고만 두고 어떤 코드도 읽지 않는 `[Inject]` 필드가 비어 있게 됩니다. 아무것도 쓰지 않는 클래스와 어셈블리는 여전히 제거됩니다. `[Inject]` 멤버는 에디터가 불러온 어셈블리에서 읽으므로, `#if !UNITY_EDITOR` 안처럼 플레이어에서만 컴파일되는 `[Inject]` 멤버에는 `[Preserve]`(`UnityEngine.Scripting`)를 붙여야 하고, 직접 작성한 리플렉션으로만 닿는 코드도 마찬가지입니다. 사전 컴파일된 어셈블리는 파일 이름으로 찾으므로, 파일 이름이 어셈블리 이름과 다른 DLL은 경고 없이 빠지고, 에디터가 불러오지 않는 DLL은 위 어셈블리 중 하나가 참조할 때만 포함됩니다. 프로젝트 `Assets` 폴더 아래의 `link.xml`로 지켜도 됩니다. Unity는 패키지 안의 `link.xml`을 읽지 않습니다. 생성자 항목이 늘리는 크기는 작습니다. Unity 6000.6.7f1에서 Managed Stripping Level High로 빌드한 Watermelon Game 개발 프로젝트에서, Mono 플레이어의 관리 DLL은 21,504바이트(0.19%) 늘었고 그 대부분은 렌더 파이프라인이나 Input System 같은 Unity 패키지 어셈블리에서 늘었으며, IL2CPP 플레이어의 `GameAssembly.dll`은 123,904바이트(0.52%) 늘었습니다.
 
 ### MVP (Model-View-Presenter)
 UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
@@ -375,8 +379,11 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | 로컬 알림 (Android/iOS, 별도 `Mu3Library.Notifications` 어셈블리) |
+| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | 멀티플레이 세션의 Steam 백엔드 (2025.164.1 이상. 별도 `Mu3Library.Multiplayer.Steam` 어셈블리이며, 에디터에서는 빌드 대상이 스탠드얼론 플랫폼일 때 컴파일되고, 플레이어는 64비트 스탠드얼론인 Windows x64, macOS, Linux x64에만 들어가며 32비트 Windows에는 들어가지 않음) |
 
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
+
+Steam 지원은 에디터와 64비트 스탠드얼론 플레이어로 한정됩니다. `Mu3Library.Multiplayer.Steam`의 `includePlatforms`가 32비트 Windows를 제외하므로, 32비트 Windows 플레이어는 이 어셈블리 없이 빌드됩니다. 이 어셈블리의 타입을 쓰는 게임 코드는 자체 어셈블리 정의에 두고, 그 어셈블리 정의가 `Mu3Library.Multiplayer.Steam`을 참조하면서 `Mu3Library.Multiplayer.Steam.asmdef`의 `includePlatforms`, `defineConstraints`, `versionDefines` 항목을 그대로 옮겨 오게 하세요. `versionDefines`의 심볼은 그것을 선언한 어셈블리 안에만 존재하므로 이 항목도 필요합니다. 그러면 그 코드는 Steam 어셈블리가 컴파일되는 바로 그 플랫폼에서만 컴파일됩니다. `versionDefines` 심볼과 `UNITY_STANDALONE`에 `#if`를 거는 방법으로는 32비트 Windows 플레이어를 뺄 수 없습니다. 그 플레이어에서도 두 심볼이 모두 정의되기 때문입니다. Unity 6.6이 `UNITY_64`를 사용 중단했으므로 이 심볼을 더하는 방법에도 기댈 수 없습니다. 그래서 이 방법은 Multiplayer 샘플처럼 32비트 Windows 플레이어를 빌드하지 않는 게임에만 맞습니다. 어셈블리 정의가 없는 코드(`Assembly-CSharp`)는 `versionDefines`를 읽을 수 없고, `versionDefines`는 Package Manager가 설치한 패키지만 보며 `.unitypackage` 임포트는 보지 못합니다. `STEAMWORKS_NET`으로 감싸지 마세요. Steamworks.NET 설치 프로그램이 이 심볼을 프로젝트의 스크립팅 Define에 기록하고, 패키지를 제거해도 남기 때문입니다.
 
 아직 `EventSystem`이 없으면 `MVPManager`가 하나를 만듭니다. 그 입력 모듈은 Input System 패키지 설치 여부만이 아니라 Player Settings의 **Active Input Handling**이 켜 둔 입력 백엔드를 따릅니다. Input System 백엔드가 꺼져 있으면 `InputSystemUIInputModule`은 아무 입력도 읽지 못하기 때문입니다.
 
@@ -418,6 +425,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: Unity Localization 래퍼 (선택)
+- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 Steam 아바타, 친구 목록이 게임이 정의한 `steam_display` 토큰을 통해 보여 주는 상태와 `steam_player_group`으로 묶은 한 세션의 플레이어를 담는 Steam 리치 프레즌스를 다루는 플레이어 호스트 세션. `SteamBackend`(Steamworks.NET 필요, Steam 로비와 Steam 연결)와 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
@@ -436,6 +444,7 @@ Base 패키지 (**Mu3 Library**):
 - **Template**: 기본 Core 구조 및 사용 예제
 - **Attribute**: `ConditionalHideAttribute`와 `ButtonInvokeAttribute` 사용법
 - **UtilWindow**: 커스텀 에디터 윈도우 및 유틸리티 Drawer 예제
+- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다
 
 URP 패키지 (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale, Shake, GaussianBlur, DepthOutline 스크린 이펙트와 대응 handler 스크립트를 포함한 URP 스크린 이펙트 샘플 씬 및 보조 스크립트
@@ -455,7 +464,7 @@ Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
 - **Sample assets**: 패키지 샘플에는 `BoardConfig` 에셋, 과일/배경 이미지, 샘플 manager/core 스크립트, `Demo` 씬이 포함됩니다.
 
-**샘플의 입력과 텍스트:** Base의 Template·Attribute 샘플과 URP의 ScreenEffect 샘플 씬은 Input System 패키지가 있든 없든 입력에 반응합니다. 씬의 `EventSystem`에는 Input Manager를 읽는 `StandaloneInputModule`과 `SampleInputModuleSelector`가 있습니다. Input System 패키지가 설치되어 있고 **Active Input Handling**이 "Input System Package (New)"나 "Both"이면 `SampleInputModuleSelector`가 씬이 시작될 때 그 모듈을 `InputSystemUIInputModule`로 바꿉니다. `MVPManager`가 직접 만드는 `EventSystem`에 적용하는 규칙과 같습니다. Template 샘플의 `Sample_IS` 씬은 `InputSystemManager`를 보여 주므로 그 기능에는 Input System 패키지와 "Input System Package (New)"나 "Both"가 필요하며, 그 UI는 모든 설정에서 반응합니다. Template 샘플의 키보드 단축키와 마우스 클릭은 샘플의 `SampleInput` 클래스를 거치며, 이 클래스는 Input System 백엔드가 켜져 있으면 Input System을, 그렇지 않으면 Input Manager를 읽습니다. 이 샘플들의 TextMesh Pro 텍스트는 TMP Essential Resources 없이 만든 플레이어에서도 그려집니다. 각 샘플이 텍스트가 쓰는 폰트 에셋·스타일 시트·셰이더를 `Fonts/`와 `Shaders/`에 담고 있으며, 그 라이선스는 샘플의 `Third-Party Notices.txt`에 있습니다. 그런 플레이어에서 TextMesh Pro는 레이아웃에 텍스트 크기를 0으로 알리므로, WebRequest 씬의 스크롤 로그처럼 레이아웃이 텍스트 크기에 맞추는 곳은 Template 샘플의 `SampleTextPreferredSize`가 텍스트를 잽니다. Editor에서는 TMP Essential Resources를 가져오기 전까지 TextMesh Pro가 텍스트를 그리지 않으며, 가져오기를 제안합니다. Template 샘플에서 Addressables, Localization, UniTask는 계속 선택 사항입니다. 이 패키지들 없이도 샘플이 컴파일되며, 없는 패키지가 필요한 부분은 패키지가 설치되지 않았다는 로그를 남깁니다. UtilWindow 샘플의 Addressable·Localization 데이터 내보내기는 **Define Symbol** 필드에 설정된 `TEMPLATE_ADDRESSABLES_SUPPORT`와 `TEMPLATE_LOCALIZATION_SUPPORT` 안에 Template 샘플의 키 스크립트를 쓰므로, 키 스크립트를 다시 생성해도 그 패키지들 없이 컴파일됩니다.
+**샘플의 입력과 텍스트:** Base의 Template·Attribute 샘플과 URP의 ScreenEffect 샘플 씬은 Input System 패키지가 있든 없든 입력에 반응합니다. 씬의 `EventSystem`에는 Input Manager를 읽는 `StandaloneInputModule`과 `SampleInputModuleSelector`가 있습니다. Input System 패키지가 설치되어 있고 **Active Input Handling**이 "Input System Package (New)"나 "Both"이면 `SampleInputModuleSelector`가 씬이 시작될 때 그 모듈을 `InputSystemUIInputModule`로 바꿉니다. `MVPManager`가 직접 만드는 `EventSystem`에 적용하는 규칙과 같습니다. Template 샘플의 `Sample_IS` 씬은 `InputSystemManager`를 보여 주므로 그 기능에는 Input System 패키지와 "Input System Package (New)"나 "Both"가 필요하며, 그 UI는 모든 설정에서 반응합니다. Template 샘플의 키보드 단축키와 마우스 클릭은 샘플의 `SampleInput` 클래스를 거치며, 이 클래스는 Input System 백엔드가 켜져 있으면 Input System을, 그렇지 않으면 Input Manager를 읽습니다. 이 샘플들의 TextMesh Pro 텍스트는 TMP Essential Resources 없이 만든 플레이어에서도 그려집니다. 각 샘플이 텍스트가 쓰는 폰트 에셋·스타일 시트·셰이더를 `Fonts/`와 `Shaders/`에 담고 있으며, 그 라이선스는 샘플의 `Third-Party Notices.txt`에 있습니다. 그런 플레이어에서 TextMesh Pro는 레이아웃에 텍스트 크기를 0으로 알리므로, WebRequest 씬의 스크롤 로그처럼 레이아웃이 텍스트 크기에 맞추는 곳은 Template 샘플의 `SampleTextPreferredSize`가 텍스트를 잽니다. Editor에서는 TMP Essential Resources를 가져오기 전까지 TextMesh Pro가 텍스트를 그리지 않으며, 가져오기를 제안합니다. Template 샘플에서 Addressables, Localization, UniTask는 계속 선택 사항입니다. 이 패키지들 없이도 샘플이 컴파일되며, 없는 패키지가 필요한 부분은 패키지가 설치되지 않았다는 로그를 남깁니다. UtilWindow 샘플의 Addressable·Localization 데이터 내보내기는 **Define Symbol** 필드에 설정된 `TEMPLATE_ADDRESSABLES_SUPPORT`와 `TEMPLATE_LOCALIZATION_SUPPORT` 안에 Template 샘플의 키 스크립트를 쓰므로, 키 스크립트를 다시 생성해도 그 패키지들 없이 컴파일됩니다. Base의 Multiplayer 샘플은 버튼을 IMGUI로 그리므로 `EventSystem`, 입력 모듈, TextMesh Pro 리소스가 필요 없고, Input System 패키지가 있든 없든 입력에 반응하며 플레이어와 에디터 모두에서 텍스트를 표시합니다.
 
 이 저장소에서는 Base 샘플 소스를 `Mu3Library_Base/Samples~`에서, URP 샘플 소스를 `Mu3Library_URP/Samples~/ScreenEffect`에서, Watermelon Game 샘플 소스를 `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`에서 확인할 수 있습니다.
 

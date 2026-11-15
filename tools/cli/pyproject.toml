@@ -3,20 +3,27 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mu3-cli"
+name = "mu3-tools"
 version = "0.1.0"
-description = "Auxiliary repository CLI for Mu3Library development and Unity automation workflows"
+description = "Auxiliary repository tools for Mu3Library development and Unity automation workflows"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer>=0.12,<1.0",
 ]
 
+# One command per tool; each also runs as python -m <package>. mu3_fixed_load is no command:
+# compile-unity.sh and test-unity.sh run its fixed_load.py by path.
 [project.scripts]
-mu3-cli = "mu3_cli.cli:app"
+mu3-repo = "mu3_repo.cli:app"
+mu3-unity = "mu3_unity.cli:app"
+mu3-samples = "mu3_samples.cli:app"
+mu3-di-strip-harness = "mu3_strip_harness.cli:app"
+mu3-verify-build = "mu3_verify_build.cli:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["mu3_*"]

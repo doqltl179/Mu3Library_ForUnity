@@ -1,0 +1,124 @@
+namespace Mu3Library.Multiplayer.Data
+{
+    public static class MultiplayerLimits
+    {
+        /// <summary>Smallest capacity a session accepts. A one-slot session plays alone on the same code path.</summary>
+        public const int MinCapacity = 1;
+        /// <summary>
+        /// Largest capacity a session accepts. The host's machine runs the game and sends to every
+        /// player, so the library supports and verifies sessions up to this size. A client drops a
+        /// welcome with a larger roster, and a join to a roster this size, as malformed.
+        /// </summary>
+        public const int MaxCapacity = 16;
+        public const int DefaultCapacity = 4;
+
+        /// <summary>
+        /// Largest start data, in bytes, that <see cref="IMultiplayerManager.StartGame"/> accepts.
+        /// A late joiner receives it together with the whole roster in one packet, which has to
+        /// stay well inside what one send may carry. A client drops a welcome or a game start
+        /// whose start data is larger as malformed, before it copies the data.
+        /// </summary>
+        public const int MaxStartDataSize = 64 * 1024;
+
+        /// <summary>
+        /// Longest player name, in characters, that the roster carries; longer names are cut to
+        /// it, or to one character fewer when the cut would split a surrogate pair, such as an
+        /// emoji, so a cut name never ends in half of one. The host cuts the name its backend
+        /// reports, and a client cuts a longer name it reads from the host's packets the same way.
+        /// </summary>
+        public const int MaxPlayerNameLength = 64;
+
+        /// <summary>
+        /// <paramref name="name"/> cut as the roster cuts it: to <see cref="MaxPlayerNameLength"/>
+        /// characters, or before a surrogate pair that the cut would split, so to one fewer. It
+        /// is the same instance, without allocating, when it is no longer than that, so a name
+        /// cut once is never cut again. The manager's roster, as the host builds it and as a
+        /// client reads it from the host's packets (#399), and the frames of a machine-wide local
+        /// network as a process sends a name and as it reads one, all cut with it, so every
+        /// player keeps the same name. Half of a pair would reach the other processes through
+        /// UTF-8 as U+FFFD while its own process kept the lone surrogate (#384). A surrogate the
+        /// name already held without its pair stays as it is; the host's roster then takes it as
+        /// U+FFFD (<see cref="Local.Utf8Text.AsCarried"/>, #398).
+        /// </summary>
+        internal static string CutPlayerName(string name)
+        {
+            if (name.Length <= MaxPlayerNameLength)
+            {
+                return name;
+            }
+
+            int length = char.IsSurrogatePair(name[MaxPlayerNameLength - 1], name[MaxPlayerNameLength])
+                ? MaxPlayerNameLength - 1
+                : MaxPlayerNameLength;
+            return name.Substring(0, length);
+        }
+
+        /// <summary>Longest key of lobby data or participant data, in characters.</summary>
+        public const int MaxDataKeyLength = 64;
+
+        /// <summary>
+        /// Largest game-defined lobby data, counted as the UTF-8 bytes of all its keys and values.
+        /// It stays well inside the 8 KB Steam takes for one lobby data value, and a joining player
+        /// receives all of it with the roster in one packet. A client drops a welcome or a change
+        /// that would take the lobby data past it as malformed, counting a change against the
+        /// lobby data it holds, as the host counts its own.
+        /// </summary>
+        public const int MaxLobbyDataSize = 4 * 1024;
+
+        /// <summary>
+        /// Largest participant data of one player, counted as the UTF-8 bytes of all its keys and
+        /// values. A joining player receives every player's with the roster in one packet, which
+        /// has to stay inside one send even for <see cref="MaxCapacity"/> players. A client drops a
+        /// welcome, a join, or a change that would take a player's data past it as malformed,
+        /// counting a change against the data it holds for that player, as the host counts it.
+        /// </summary>
+        public const int MaxParticipantDataSize = 2 * 1024;
+
+        /// <summary>
+        /// Longest lobby chat message, in UTF-8 bytes: the 4 KB Steam allows for one lobby chat
+        /// message, so a game that fits here fits there. It holds whatever
+        /// <see cref="MultiplayerConfig.MaxMessageSize"/> is, which caps game messages only.
+        /// </summary>
+        public const int MaxChatMessageSize = 4 * 1024;
+
+        /// <summary>
+        /// Longest status text, in UTF-8 bytes, that <see cref="IMultiplayerManager.SetPresenceStatus"/>
+        /// takes: the longest rich presence value Steam keeps, which takes 256 bytes with the NUL
+        /// character that ends it.
+        /// </summary>
+        public const int MaxPresenceStatusSize = 255;
+
+        /// <summary>
+        /// Most ready changes, load reports, and participant data requests of one client that the
+        /// host holds back for the rate limits (<see cref="SessionRules.MaxMessagesPerSecond"/>,
+        /// <see cref="SessionRules.MaxBytesPerSecond"/>) at a time. One more disconnects the client
+        /// with <see cref="MultiplayerReason.RateLimited"/>, even when
+        /// <see cref="SessionRules.RateLimitKickSeconds"/> is 0, but without a ban, so it may join
+        /// again. Each request holds no more than a data entry may, as the host refuses a larger
+        /// one as it arrives.
+        /// </summary>
+        public const int MaxDelayedRequests = 64;
+
+        /// <summary>
+        /// Most connections of one account that the host keeps while they wait for its welcome,
+        /// from the moment they open until the host admits the player or
+        /// <see cref="MultiplayerConfig.HandshakeTimeoutSeconds"/> runs out. A player holds one
+        /// such connection, and a returning player's next attempt may meet its last one for a
+        /// moment. The host closes one more at once with <see cref="MultiplayerReason.Timeout"/>,
+        /// as it closes a connection whose handshake timed out, so a returning player tries again.
+        /// The backend names the account of each connection, and Steam's relays hide the remote
+        /// address, so the limit counts accounts rather than addresses.
+        /// </summary>
+        public const int MaxPendingConnectionsPerAccount = 2;
+
+        /// <summary>
+        /// How often, in seconds, the host tells every client the ping of each player with a
+        /// connection, which <see cref="IMultiplayerManager.TryGetParticipantPing"/> reads. Each
+        /// report is one unreliable packet of 2 bytes and 10 more for each client, sent to every
+        /// client, so a client receives 2 + 10 × (clients) bytes a second and the host sends that
+        /// to each of them: in a session of <see cref="MaxCapacity"/> players, 152 bytes a second
+        /// per client and 2,280 bytes a second from the host, before the backend's own headers.
+        /// </summary>
+        public const float PingReportIntervalSeconds = 1f;
+    }
+}

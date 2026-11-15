@@ -6,7 +6,23 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Every command substitution, pipeline, and external command costs Git Bash a
+# process, about 10 to 20 ms, which adds up over a run and over the tool tests;
+# so the paths every run takes find targets, read files, and pass results back
+# in this shell where that is no harder, and keep processes for real work.
+
+# The folder of this file, cut from its path as dirname cuts it: the dirname of
+# Git Bash and Cygwin also takes \ as a separator, which a Windows path that
+# bash was given holds.
+case "${OSTYPE:-}" in
+    msys*|cygwin*) SCRIPT_DIR="${BASH_SOURCE[0]%[/\\]*}" ;;
+    *) SCRIPT_DIR="${BASH_SOURCE[0]%/*}" ;;
+esac
+if [[ "$SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="."
+fi
+SCRIPT_DIR="$(cd "${SCRIPT_DIR:-/}" && pwd)"
+readonly SCRIPT_DIR
 readonly REPO_ROOT="$SCRIPT_DIR"
 readonly PACKAGE_CONFIG="$REPO_ROOT/unity-cli-packages.tsv"
 
@@ -25,9 +41,55 @@ RUN_PROJECT_PATH=""
 RUN_LOCATION=""
 RUN_NOTE=""
 UNITY_STATUS=0
+readonly COMPILE_LOG_DIR="$REPO_ROOT/log/unity-compile"
+# run_unity_for_target keeps Unity's log in UNITY_LOG_FILE, which each entry
+# point names for its target, and stops Unity once that log has not grown for
+# UNITY_STALL_SECONDS (0 never stops it), setting UNITY_STALLED. --stall-timeout
+# sets the seconds; test-unity.sh sets its own default. A compile's default is
+# about 12 times the longest silence measured in a first import, where script
+# compilation logged nothing for up to 25 s (tools/README.md).
+UNITY_LOG_FILE=""
+UNITY_STALL_SECONDS=300
+UNITY_STALLED=0
+# How often, in seconds, run_unity_logged looks at that log. A real run keeps
+# 1; the tool tests set UNITY_LOG_POLL_SECONDS in the environment to a fraction
+# so that a fake Unity, which exits at once, does not wait out a whole second.
+UNITY_LOG_POLL_SECONDS="${UNITY_LOG_POLL_SECONDS:-1}"
+# The stall watch's clock, which read_unity_clock sets: the time in
+# microseconds, and how much shorter than the difference of two readings the
+# time between them may be.
+UNITY_CLOCK=0
+UNITY_CLOCK_SLACK=0
+# On Windows Unity's asset import cannot read a file whose full path has
+# WINDOWS_PATH_LIMIT characters or more, even with long paths enabled, and the
+# run still succeeds. LONGEST_PROJECT_FILE_PATH is the longest path below a
+# project folder that Unity could not read in the measured deep runs
+# (tools/README.md), Library\PackageCache\com.unity.render-pipelines.core@...
+# \RenderPipelineConverterVisualElementListFilter.uxml, so a project folder
+# whose path reaches the limit with it loses package files.
+readonly WINDOWS_PATH_LIMIT=260
+readonly LONGEST_PROJECT_FILE_PATH=161
+# run_unity_for_target leaves its warnings about that limit for the target it
+# ran last here: about the project folder, before Unity starts, and about the
+# files Unity's log says it could not read, after it exits. COMPILE_WARNINGS
+# keeps every one of a compile run, which compile_main repeats once every target
+# has compiled; a failed compile ends the run right after its own warnings.
+PATH_LIMIT_WARNING=""
+UNREADABLE_PATHS_WARNING=""
+COMPILE_WARNINGS=()
+# The helper that runs beside each run of a target, the Python that runs it,
+# found by find_load_python, or why there is none. It records when each Unity
+# Data Store service of the run started and ended and its exit code, and counts
+# the Unity processes that are not the run's own; test-unity.sh also has it put
+# its runs under a fixed load.
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_fixed_load/fixed_load.py"
+LOAD_PYTHON=""
+LOAD_UNAVAILABLE=""
+LOAD_HELPER_PID=""
+LOAD_STOP_FILE=""
 
 SKIP_SAMPLES=0
-readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples"
+readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_samples link"
 
 TARGET_KEYS=()
 PACKAGE_PATHS=()
@@ -39,6 +101,15 @@ CHANGED_FILES=()
 RELEVANT_CHANGES=()
 IGNORED_CHANGES=()
 SELECTED_TARGETS=()
+# Results that functions leave in these variables instead of printing them, so
+# that their callers need no command substitution.
+HOST_PLATFORM=""
+TARGET_INDEX=0
+PROJECT_EDITOR_VERSION=""
+FOUND_UNITY_PATH=""
+HUB_EDITOR_SUFFIX=""
+PROJECT_LOCK_STATE=""
+SAMPLE_LINK_PROBLEM=""
 
 fail() {
     printf 'error: %s\n' "$*" >&2
@@ -59,6 +130,14 @@ host_platform() {
     esac
 }
 
+# Sets HOST_PLATFORM to what host_platform prints, asking it only once in a
+# shell.
+detect_host_platform() {
+    if [[ -z "$HOST_PLATFORM" ]]; then
+        HOST_PLATFORM="$(host_platform)"
+    fi
+}
+
 to_windows_path() {
     local path="$1"
 
@@ -70,13 +149,15 @@ to_windows_path() {
     printf '%s\n' "$path"
 }
 
-target_index() {
+# Sets TARGET_INDEX to the index of a configured target in the mapping arrays,
+# or returns 1.
+find_target() {
     local requested_target="$1"
     local i
 
     for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
         if [[ "${TARGET_KEYS[$i]}" == "$requested_target" ]]; then
-            printf '%d\n' "$i"
+            TARGET_INDEX="$i"
             return 0
         fi
     done
@@ -115,7 +196,7 @@ load_package_config() {
         if [[ "$samples_link" == /* || "/$samples_link/" == *"/../"* ]]; then
             fail "the samples link must be a path inside the project at $PACKAGE_CONFIG:$line_number"
         fi
-        if target_index "$target_key" >/dev/null; then
+        if find_target "$target_key"; then
             fail "duplicate target '$target_key' at $PACKAGE_CONFIG:$line_number"
         fi
         [[ -d "$REPO_ROOT/$package_path" ]] || fail "package directory not found: $REPO_ROOT/$package_path"
@@ -135,9 +216,17 @@ project_references_package() {
     local project_path="$1"
     local package_path="$2"
     local manifest_file="$REPO_ROOT/$project_path/Packages/manifest.json"
+    local line
 
-    [[ -f "$manifest_file" ]] || return 1
-    grep -Fq "\"file:../../$package_path\"" "$manifest_file"
+    [[ -f "$manifest_file" && -r "$manifest_file" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" == *"\"file:../../$package_path\""* ]]; then
+            return 0
+        fi
+    done < "$manifest_file"
+
+    return 1
 }
 
 # A package compiles in every development project whose manifest references it, and
@@ -194,6 +283,10 @@ Options:
                     Run with the Unity Hub Editor of that exact version, such
                     as 6000.3.17f1, instead of the one ProjectVersion.txt
                     names, always in an isolated mirror retargeted to it.
+  --stall-timeout <seconds>
+                    Stop Unity and fail the target once its log has not
+                    grown for this long (default 300; 0 waits as long as
+                    Unity runs).
   -h, --help        Show this help.
 
 Environment:
@@ -205,9 +298,18 @@ Environment:
       Optional folder that holds one folder per installed Editor version, for
       a Unity Hub set to install Editors outside its default location
       (Program Files\Unity\Hub\Editor, /Applications/Unity/Hub/Editor, or
-      ~/Unity/Hub/Editor). mu3-cli unity doctor reads the same variable.
+      ~/Unity/Hub/Editor). mu3-unity doctor reads the same variable.
   TMPDIR
       Where isolated mirrors are created. Keep it short on Windows.
+
+On Windows Unity cannot import a package file whose path has 260 characters or
+more, and the run does not fail for it. Before Unity starts, the script warns
+when the project folder Unity opens, in place or in a mirror, has 98 characters
+or more; after Unity exits, it warns when the log names files Unity could not
+read for that reason. Once every target of a run of several has compiled, the
+script repeats the warnings; a failed compile ends the run at once, right after
+its own warnings and error. Run from a shorter path, such as a drive letter
+that subst maps to the checkout; see tools/README.md.
 
 Changed mode includes staged, unstaged, and untracked files. With --base it
 also includes committed changes from the requested ref through HEAD. Package
@@ -218,7 +320,7 @@ references it, because each project compiles it with different defines.
 Unity skips a package's Samples~ folder, so a project compiles the samples only
 through the link the fourth column of unity-cli-packages.tsv names. A run stops
 before Unity starts when a selected project lacks that link; create the links
-with: PYTHONPATH=tools/cli/src python -m mu3_cli unity link-samples
+with: PYTHONPATH=tools/cli/src python -m mu3_samples link
 
 The default execution mode compiles in place when a project is closed. If the
 same project is open in Unity, it compiles a temporary mirror instead, leaving
@@ -234,6 +336,19 @@ repository project. The mirror's ProjectVersion.txt names the requested
 version, its packages-lock.json is removed, and each Unity package version in
 its manifest becomes the one that Editor bundles; a built-in module the Editor
 does not ship is dropped, and a package it does not bundle stays as it is.
+
+The script prints Unity's log as Unity writes it and keeps it in
+log/unity-compile/<target>.log. A compile that stops writing, such as one
+waiting on a dialog that batch mode cannot show, is stopped with its child
+processes after --stall-timeout seconds and fails its target.
+
+Beside that log, a helper run with python or python3 of version 3.10 or later
+from PATH records in <target>.load when each Unity Data Store service of the
+run, the process that serves the Editor the files it imported, started and
+ended and its exit code, and a run whose Unity launched the service keeps the
+log the service wrote, the project's Logs/UDS-Service.log, as
+<target>.uds-service.log, also from an isolated mirror. The script judges
+neither; without the Python, it warns and records no service.
 EOF
 }
 
@@ -280,7 +395,7 @@ cleanup_staging() {
         return 0
     fi
 
-    case "$(basename "$staging_root")" in
+    case "${staging_root##*/}" in
         mu3library-unity-compile.*)
             if ! removal_error="$(remove_staging_root "$staging_root")"; then
                 printf 'warning: could not remove the isolated project; delete it by hand: %s\n' "$staging_root" >&2
@@ -347,7 +462,7 @@ select_target() {
     local requested_target="$1"
     local selected_target
 
-    target_index "$requested_target" >/dev/null \
+    find_target "$requested_target" \
         || fail "unknown $SELECTION_LABEL target: $requested_target"
 
     if [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]]; then
@@ -457,48 +572,34 @@ select_changed_targets() {
     done
 }
 
-project_path_for_target() {
-    local requested_target="$1"
-    local index
-
-    index="$(target_index "$requested_target")" || return 1
-    printf '%s\n' "${PROJECT_PATHS[$index]}"
-}
-
-package_path_for_target() {
-    local requested_target="$1"
-    local index
-
-    index="$(target_index "$requested_target")" || return 1
-    printf '%s\n' "${PACKAGE_PATHS[$index]}"
-}
-
 # Unity skips folders whose name ends in ~, so a development project compiles a
 # package's samples only through a link from its Assets folder to Samples~.
-# Prints why the target's link is unusable and returns 1, or returns 0 when the
-# link works or the target configures none.
+# Sets SAMPLE_LINK_PROBLEM to why the target's link is unusable and returns 1,
+# or returns 0 when the link works or the target configures none.
 sample_link_problem() {
     local target_key="$1"
     local index
     local link_path
     local samples_path
 
-    index="$(target_index "$target_key")" || return 0
+    SAMPLE_LINK_PROBLEM=""
+    find_target "$target_key" || return 0
+    index="$TARGET_INDEX"
     [[ -n "${SAMPLE_LINKS[$index]}" ]] || return 0
 
     link_path="${PROJECT_PATHS[$index]}/${SAMPLE_LINKS[$index]}"
     samples_path="${PACKAGE_PATHS[$index]}/Samples~"
 
     if [[ ! -d "$REPO_ROOT/$samples_path" ]]; then
-        printf '%s does not exist' "$samples_path"
+        SAMPLE_LINK_PROBLEM="$samples_path does not exist"
         return 1
     fi
     if [[ ! -e "$REPO_ROOT/$link_path" ]]; then
-        printf '%s is missing' "$link_path"
+        SAMPLE_LINK_PROBLEM="$link_path is missing"
         return 1
     fi
     if [[ ! "$REPO_ROOT/$link_path" -ef "$REPO_ROOT/$samples_path" ]]; then
-        printf '%s does not link to %s' "$link_path" "$samples_path"
+        SAMPLE_LINK_PROBLEM="$link_path does not link to $samples_path"
         return 1
     fi
 }
@@ -509,23 +610,22 @@ sample_link_problem() {
 check_sample_links() {
     local severity="$1"
     local target_key
-    local problem
     local check_status=0
 
     # bash before 4.4 treats an empty array as unset under set -u.
     [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]] || return 0
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        if problem="$(sample_link_problem "$target_key")"; then
+        if sample_link_problem "$target_key"; then
             continue
         fi
 
         if [[ "$SKIP_SAMPLES" -eq 1 ]]; then
             printf 'warning: %s: %s, so its samples are left out as --without-samples asks.\n' \
-                "$target_key" "$problem" >&2
+                "$target_key" "$SAMPLE_LINK_PROBLEM" >&2
         else
             printf '%s: %s: %s, so its samples would not compile. Run "%s" to link them, or pass --without-samples.\n' \
-                "$severity" "$target_key" "$problem" "$LINK_SAMPLES_COMMAND" >&2
+                "$severity" "$target_key" "$SAMPLE_LINK_PROBLEM" "$LINK_SAMPLES_COMMAND" >&2
             check_status=1
         fi
     done
@@ -572,28 +672,38 @@ print_selection() {
 
     printf 'Selected %s targets:\n' "$SELECTION_LABEL"
     for selected_target in "${SELECTED_TARGETS[@]}"; do
+        find_target "$selected_target"
         printf '  - %s: %s -> %s\n' \
-            "$selected_target" \
-            "$(package_path_for_target "$selected_target")" \
-            "$(project_path_for_target "$selected_target")"
+            "$selected_target" "${PACKAGE_PATHS[$TARGET_INDEX]}" "${PROJECT_PATHS[$TARGET_INDEX]}"
     done
 }
 
+# Sets PROJECT_EDITOR_VERSION to the Editor version that a project's
+# ProjectSettings/ProjectVersion.txt names on its m_EditorVersion line, up to
+# any further ": ", or to nothing when no line names one. Returns 1 when the
+# file is missing. A checkout with core.autocrlf holds the file with CRLF, and
+# read keeps the CR, so each line drops it, as it does in every file these
+# scripts read line by line.
 project_editor_version() {
-    local target_key="$1"
-    local project_path
-    local version_file
+    local project_path="$1"
+    local version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
+    local line
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
-    version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
-
+    PROJECT_EDITOR_VERSION=""
     [[ -f "$version_file" ]] || return 1
-    awk -F': ' '/^m_EditorVersion: / { print $2; exit }' "$version_file"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" == "m_EditorVersion: "* ]]; then
+            line="${line#m_EditorVersion: }"
+            PROJECT_EDITOR_VERSION="${line%%: *}"
+            return 0
+        fi
+    done < "$version_file"
 }
 
 # Unity Hub's install location, which holds one folder per Editor version.
 # UNITY_HUB_EDITOR_ROOT replaces it for a Hub set to install Editors elsewhere;
-# mu3-cli unity doctor reads the same variable.
+# mu3-unity doctor reads the same variable.
 hub_editor_root() {
     local editor_root="${UNITY_HUB_EDITOR_ROOT:-}"
     local program_files
@@ -602,14 +712,16 @@ hub_editor_root() {
         if [[ "$editor_root" == "~" || "$editor_root" == "~/"* ]]; then
             editor_root="$HOME${editor_root:1}"
         fi
-        if [[ "$(host_platform)" == "windows" ]] && command -v cygpath >/dev/null 2>&1; then
+        detect_host_platform
+        if [[ "$HOST_PLATFORM" == "windows" ]] && command -v cygpath >/dev/null 2>&1; then
             editor_root="$(cygpath -u "$editor_root")"
         fi
         printf '%s\n' "${editor_root%/}"
         return
     fi
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
             printf '/Applications/Unity/Hub/Editor\n'
             ;;
@@ -632,7 +744,8 @@ hub_editor_executable() {
     local editor_root
 
     editor_root="$(hub_editor_root)"
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
             printf '%s/%s/Unity.app/Contents/MacOS/Unity\n' "$editor_root" "$required_version"
             ;;
@@ -645,26 +758,34 @@ hub_editor_executable() {
     esac
 }
 
-# Trailing part of a Hub installation path, used to tell whether an explicit
-# override still points at the Editor version the project asks for.
+# Sets HUB_EDITOR_SUFFIX to the trailing part of a Hub installation path, used
+# to tell whether an explicit override still points at the Editor version the
+# project asks for.
 hub_editor_suffix() {
     local required_version="$1"
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         macos)
-            printf '/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Unity.app/Contents/MacOS/Unity"
             ;;
         windows)
-            printf '/Editor/%s/Editor/Unity.exe\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Editor/Unity.exe"
             ;;
         *)
-            printf '/Editor/%s/Editor/Unity\n' "$required_version"
+            HUB_EDITOR_SUFFIX="/Editor/$required_version/Editor/Unity"
             ;;
     esac
 }
 
+# Sets FOUND_UNITY_PATH to the Unity executable for a target, or prints why
+# there is none and returns 1. It warns when an explicit override is not the
+# Editor the target asks for, unless the second argument is quiet: the
+# preflight warns once for each target, before any Unity starts, so the run
+# that follows passes quiet.
 unity_executable() {
     local target_key="$1"
+    local warn_about_override=1
     local project_path
     local required_version
     local override_path="${UNITY_EDITOR:-${UNITY:-}}"
@@ -672,16 +793,22 @@ unity_executable() {
     # Who asks for the version, as the messages below name it.
     local requester
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    if [[ "${2:-}" == "quiet" ]]; then
+        warn_about_override=0
+    fi
+    FOUND_UNITY_PATH=""
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     requester="$project_path"
     if [[ -n "$EDITOR_VERSION" ]]; then
         required_version="$EDITOR_VERSION"
         requester="--editor-version"
     else
-        required_version="$(project_editor_version "$target_key")" || {
+        project_editor_version "$project_path" || {
             printf 'error: Unity version file not found for %s\n' "$project_path" >&2
             return 1
         }
+        required_version="$PROJECT_EDITOR_VERSION"
     fi
 
     if [[ -n "$override_path" ]]; then
@@ -695,7 +822,8 @@ unity_executable() {
             return 1
         fi
 
-        if [[ "$candidate" != *"$(hub_editor_suffix "$required_version")" ]]; then
+        hub_editor_suffix "$required_version"
+        if [[ "$warn_about_override" -eq 1 && "$candidate" != *"$HUB_EDITOR_SUFFIX" ]]; then
             printf 'warning: %s requires Unity %s but the explicit override will be used: %s\n' \
                 "$requester" "$required_version" "$candidate" >&2
         fi
@@ -708,7 +836,7 @@ unity_executable() {
         fi
     fi
 
-    printf '%s\n' "$candidate"
+    FOUND_UNITY_PATH="$candidate"
 }
 
 # Prints held when some process has the file open, free when none does, gone
@@ -719,7 +847,8 @@ file_holder_state() {
     local holders
     local probe_status=0
 
-    case "$(host_platform)" in
+    detect_host_platform
+    case "$HOST_PLATFORM" in
         windows)
             if ! command -v powershell.exe >/dev/null 2>&1; then
                 printf 'unknown\n'
@@ -767,27 +896,24 @@ file_holder_state() {
     esac
 }
 
-# Prints absent, open, stale, or unknown for the project's Temp/UnityLockfile.
-# A running Editor keeps the file open, so a lock file that no process holds
-# was left behind by an Editor that crashed or was killed.
+# Sets PROJECT_LOCK_STATE to absent, open, stale, or unknown for the
+# Temp/UnityLockfile of a project, given by its repository path. A running
+# Editor keeps the file open, so a lock file that no process holds was left
+# behind by an Editor that crashed or was killed.
 project_lock_state() {
-    local target_key="$1"
-    local project_path
-    local lock_file
-
-    project_path="$(project_path_for_target "$target_key")" || return 1
-    lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
+    local project_path="$1"
+    local lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
 
     if [[ ! -e "$lock_file" ]]; then
-        printf 'absent\n'
+        PROJECT_LOCK_STATE="absent"
         return 0
     fi
 
     case "$(file_holder_state "$lock_file")" in
-        held) printf 'open\n' ;;
-        free) printf 'stale\n' ;;
-        gone) printf 'absent\n' ;;
-        *) printf 'unknown\n' ;;
+        held) PROJECT_LOCK_STATE="open" ;;
+        free) PROJECT_LOCK_STATE="stale" ;;
+        gone) PROJECT_LOCK_STATE="absent" ;;
+        *) PROJECT_LOCK_STATE="unknown" ;;
     esac
 }
 
@@ -800,7 +926,8 @@ decide_run_location() {
     local held_reason=""
     local held_remedy="close it"
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     RUN_LOCATION="in-place"
     RUN_NOTE=""
 
@@ -811,14 +938,16 @@ decide_run_location() {
         return 0
     fi
 
-    case "$(project_lock_state "$target_key")" in
+    project_lock_state "$project_path"
+    case "$PROJECT_LOCK_STATE" in
         open)
             held_reason="$project_path is open in Unity"
             ;;
         unknown)
             # Closing an Editor does not help here: the lock may be stale, and only
             # deleting it, or a way to check its holder, lets the run go in place.
-            if [[ "$(host_platform)" == "windows" ]]; then
+            detect_host_platform
+            if [[ "$HOST_PLATFORM" == "windows" ]]; then
                 held_reason="$project_path/Temp/UnityLockfile exists and PowerShell could not open it to check whether an Editor holds it"
                 held_remedy="delete the file if no Editor has the project open"
             else
@@ -879,7 +1008,9 @@ print_run_plan() {
 
     printf 'Run plan:\n'
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        printf '  - %s: %s\n' "$target_key" "$(run_plan_entry "$target_key")"
+        # run_plan_entry prints the rest of the line.
+        printf '  - %s: ' "$target_key"
+        run_plan_entry "$target_key" || true
     done
 }
 
@@ -898,24 +1029,111 @@ copy_tree_contents() {
     cp -RL "$source_dir/." "$destination_dir/"
 }
 
-# Unity clones git-URL package dependencies into Library/PackageCache, which adds
-# roughly 130 characters to the project path. On Windows a long staging root
-# pushes that clone past MAX_PATH and package resolution fails before compiling.
-warn_long_staging_path() {
-    local staging_project="$1"
+# Sets PATH_LIMIT_WARNING to a warning, or to nothing, about the folder that
+# Unity opens as the project, in place or in a mirror as the location says: on
+# Windows, when the longest path measured below a project reaches
+# WINDOWS_PATH_LIMIT there. Unity also clones git-URL package dependencies into
+# Library/PackageCache, which a path this long can break as well. Bash counts
+# the folder's length by the locale, as find_unreadable_long_paths says of awk.
+check_project_path_length() {
+    local project_folder="$1"
+    local location="$2"
     local windows_path
-    local path_length
+    local longest_path
+    # A file path holds the folder, a separator, and the path below it.
+    local longest_folder=$((WINDOWS_PATH_LIMIT - 2 - LONGEST_PROJECT_FILE_PATH))
+    local subject="project path"
+    local remedy="run from a project path of at most $longest_folder characters, such as on a drive letter that subst maps to the checkout"
 
-    [[ "$(host_platform)" == "windows" ]] || return 0
+    PATH_LIMIT_WARNING=""
+    detect_host_platform
+    [[ "$HOST_PLATFORM" == "windows" ]] || return 0
 
-    windows_path="$(to_windows_path "$staging_project")"
-    path_length="${#windows_path}"
+    windows_path="$(to_windows_path "$project_folder")"
+    longest_path=$((${#windows_path} + 1 + LONGEST_PROJECT_FILE_PATH))
+    [[ "$longest_path" -ge "$WINDOWS_PATH_LIMIT" ]] || return 0
 
-    if [[ "$path_length" -gt 120 ]]; then
-        printf 'warning: staging project path is %d characters, so Unity may fail to clone git package dependencies: %s\n' \
-            "$path_length" "$windows_path" >&2
-        printf 'warning: set TMPDIR to a shorter directory to stay inside the Windows path limit.\n' >&2
+    if [[ "$location" == "isolated" ]]; then
+        subject="mirror path"
+        remedy="set TMPDIR so that the mirror path has at most $longest_folder characters"
     fi
+    PATH_LIMIT_WARNING="the $subject $windows_path is ${#windows_path} characters, so the longest package file path measured below a project reaches $longest_path there, and Unity cannot import a file whose path has $WINDOWS_PATH_LIMIT characters or more on Windows; $remedy (tools/README.md)"
+}
+
+# Sets UNREADABLE_PATHS_WARNING to a warning, or to nothing, about the files that
+# Unity's log says it could not find at paths of WINDOWS_PATH_LIMIT characters or
+# more, and the asset imports that failed on them, naming each DLL among them:
+# on Windows only, the one host with that limit. With -automated Unity logs each
+# error again in a ##utp: line, which is left out, and a file or an asset that
+# fails twice counts once.
+# awk counts length() in characters under a UTF-8 locale and in bytes otherwise,
+# as the gawk 5.0.0 of Git Bash does without LANG. Bytes never fall short of the
+# UTF-16 units that Windows counts, so a non-ASCII path can only be over-counted
+# and warned about early; characters match those units except outside the Basic
+# Multilingual Plane.
+find_unreadable_long_paths() {
+    local log_file="$1"
+    local files=""
+    local imports=""
+    local dlls=""
+
+    UNREADABLE_PATHS_WARNING=""
+    detect_host_platform
+    [[ "$HOST_PLATFORM" == "windows" ]] || return 0
+    [[ -f "$log_file" ]] || return 0
+
+    {
+        read -r files imports || true
+        IFS= read -r dlls || true
+    } < <(awk -v limit="$WINDOWS_PATH_LIMIT" '
+        BEGIN {
+            marker = "DirectoryNotFoundException: Could not find a part of the path \""
+            import_marker = "Asset import failed, \""
+        }
+        /^##utp:/ { next }
+        {
+            start = index($0, marker)
+            if (start == 0) {
+                next
+            }
+            rest = substr($0, start + length(marker))
+            end = index(rest, "\"")
+            if (end == 0) {
+                next
+            }
+            path = substr(rest, 1, end - 1)
+            if (length(path) < limit) {
+                next
+            }
+            if (!(path in seen_files)) {
+                seen_files[path] = 1
+                file_count++
+                name = path
+                sub(/.*\\/, "", name)
+                if (tolower(name) ~ /\.dll$/) {
+                    dlls = dlls (dlls == "" ? "" : ", ") name
+                }
+            }
+            if (index($0, import_marker) == 1) {
+                asset = substr($0, length(import_marker) + 1)
+                asset = substr(asset, 1, index(asset, "\"") - 1)
+                if (!(asset in seen_assets)) {
+                    seen_assets[asset] = 1
+                    import_count++
+                }
+            }
+        }
+        END {
+            print file_count + 0, import_count + 0
+            print dlls
+        }' "$log_file" 2>/dev/null || true)
+
+    [[ "${files:-0}" -gt 0 ]] || return 0
+    UNREADABLE_PATHS_WARNING="Unity could not read $files file(s) whose paths have $WINDOWS_PATH_LIMIT characters or more${dlls:+, among them $dlls}"
+    if [[ "${imports:-0}" -gt 0 ]]; then
+        UNREADABLE_PATHS_WARNING+=", and $imports asset import(s) failed on them"
+    fi
+    UNREADABLE_PATHS_WARNING+="; see ${log_file#"$REPO_ROOT"/}"
 }
 
 # Prints the folder in which an Editor keeps the packages it bundles: beside the
@@ -1064,7 +1282,8 @@ prepare_isolated_project() {
     local package_path
     local i
 
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     source_project="$REPO_ROOT/$project_path"
     manifest_file="$source_project/Packages/manifest.json"
 
@@ -1089,8 +1308,6 @@ prepare_isolated_project() {
         fi
     done
 
-    warn_long_staging_path "$staging_project"
-
     if [[ -n "$EDITOR_VERSION" ]]; then
         retarget_isolated_project "$staging_project" "$unity_path"
     fi
@@ -1098,20 +1315,249 @@ prepare_isolated_project() {
     RUN_PROJECT_PATH="$staging_project"
 }
 
+# Prints the processes that descend from a process and share its process
+# group, one PID a line. Git Bash lists the processes of every session, and a
+# process whose parent ended keeps that parent's PID, which a new process can
+# take; the group keeps another session's processes out.
+process_descendants() {
+    local root="$1"
+    local processes
+
+    if [[ -r "/proc/$$/winpid" ]]; then
+        # Git Bash's ps prints PID, PPID, and PGID first, after a status letter
+        # on some lines; a Windows program it started is listed under the PID
+        # it gave it.
+        processes="$(ps -e | awk 'NR > 1 { if ($1 ~ /^[0-9]+$/) print $1, $2, $3; else print $2, $3, $4 }')"
+    else
+        processes="$(ps -A -o pid= -o ppid= -o pgid=)"
+    fi
+
+    awk -v root="$root" '
+        { parent[$1] = $2; group[$1] = $3 }
+        END {
+            if (!(root in group)) {
+                exit
+            }
+            found[root] = 1
+            do {
+                added = 0
+                for (pid in parent) {
+                    if (!(pid in found) && group[pid] == group[root] && (parent[pid] in found)) {
+                        found[pid] = 1
+                        added = 1
+                    }
+                }
+            } while (added)
+            for (pid in found) {
+                if (pid != root) {
+                    print pid
+                }
+            }
+        }' <<<"$processes"
+}
+
+# Stops a process that this script started and every process descending from
+# it, which it lists first, since a process whose parent ended loses its place
+# in the tree.
+stop_process_tree() {
+    local root="$1"
+    local pid
+    local processes
+
+    read -r -d '' -a processes < <(process_descendants "$root" || true) || true
+    for pid in "$root" ${processes[@]+"${processes[@]}"}; do
+        # A Windows program ends through taskkill, which needs its Windows PID;
+        # /T also ends the child processes it started itself, which Git Bash
+        # does not list.
+        if [[ -r "/proc/$pid/winpid" ]] && command -v taskkill >/dev/null 2>&1 \
+            && taskkill //F //T //PID "$(cat "/proc/$pid/winpid")" >/dev/null 2>&1; then
+            continue
+        fi
+        kill -KILL "$pid" 2>/dev/null || true
+    done
+}
+
+# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
+# later, the version tools/cli needs, or LOAD_UNAVAILABLE to why the helper cannot
+# run. python comes first: on Windows python3 is often the stand-in of the
+# Microsoft Store, which only says how to install Python.
+find_load_python() {
+    local candidate
+
+    LOAD_PYTHON=""
+    LOAD_UNAVAILABLE=""
+    if [[ ! -f "$LOAD_HELPER" ]]; then
+        LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
+        return 1
+    fi
+    for candidate in python python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+            LOAD_PYTHON="$candidate"
+            return 0
+        fi
+    done
+    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
+    return 1
+}
+
+# Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
+# record, <base>.load, and its stop file beside it. It first removes what an
+# earlier run left there, that record and the Data Store service's log that
+# keep_data_store_service_log keeps as <base>.uds-service.log, before the run
+# can fail, as when its mirror cannot be made, so that neither stands in for
+# this run's; a file it cannot remove, such as one another program holds open,
+# gets a warning and does not stop the run. The helper watches the run's Data
+# Store service and counts the Unity processes that do not descend from this
+# script, whose Windows process ID it needs under Git Bash. Given a number of
+# spinners, it starts them waiting, to spin from the first test the log shows;
+# the tool tests set UNITY_LOAD_SPINNERS_IDLE=1 so that they wait instead.
+start_load_helper() {
+    local base="$1"
+    local spinners="${2:-0}"
+    local root_pid="$$"
+    local idle=()
+    local earlier
+
+    LOAD_STOP_FILE="$base.load-stop"
+    for earlier in "$base.load" "$LOAD_STOP_FILE" "$base.uds-service.log"; do
+        rm -f -- "$earlier" 2>/dev/null \
+            || printf 'warning: could not remove %s, which an earlier run left\n' "${earlier#"$REPO_ROOT"/}" >&2
+    done
+    [[ -n "$LOAD_PYTHON" ]] || return 0
+
+    if [[ -r "/proc/$$/winpid" ]]; then
+        read -r root_pid <"/proc/$$/winpid"
+    fi
+    if [[ "${UNITY_LOAD_SPINNERS_IDLE:-0}" == 1 ]]; then
+        idle=(--idle)
+    fi
+
+    "$LOAD_PYTHON" -I "$(to_windows_path "$LOAD_HELPER")" supervise \
+        --log "$(to_windows_path "$UNITY_LOG_FILE")" \
+        --spinners "$spinners" \
+        --root-pid "$root_pid" \
+        --stop "$(to_windows_path "$LOAD_STOP_FILE")" \
+        --record "$(to_windows_path "$base.load")" \
+        ${idle[@]+"${idle[@]}"} </dev/null &
+    LOAD_HELPER_PID=$!
+}
+
+# Tells the helper that the run ended, so that it stops the spinners and writes
+# its record, and waits for it; one that has not ended after 10 s is stopped
+# with every process it started. An exit, an interrupt included, calls it too.
+stop_load_helper() {
+    local helper_pid="$LOAD_HELPER_PID"
+    local look
+
+    LOAD_HELPER_PID=""
+    [[ -n "$helper_pid" ]] || return 0
+
+    : >"$LOAD_STOP_FILE" 2>/dev/null || true
+    for ((look = 0; look < 100; look++)); do
+        kill -0 "$helper_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if kill -0 "$helper_pid" 2>/dev/null; then
+        stop_process_tree "$helper_pid"
+    fi
+    wait "$helper_pid" 2>/dev/null || true
+    # A stop file left here only stops the next helper at once, and
+    # start_load_helper warns that it cannot remove it.
+    rm -f -- "$LOAD_STOP_FILE" 2>/dev/null || true
+}
+
+# Sets UNITY_CLOCK to the time in microseconds. Bash 5 reads it to the
+# microsecond from EPOCHREALTIME, whose decimal separator follows the locale.
+# An older bash, such as the 3.2 that macOS ships, has only SECONDS, which
+# counts whole seconds, so two of its readings N seconds apart may be little
+# more than N - 1 seconds apart in fact; UNITY_CLOCK_SLACK says by how much.
+read_unity_clock() {
+    local stamp="${EPOCHREALTIME:-}"
+
+    if [[ -n "$stamp" ]]; then
+        stamp="${stamp//[!0-9]/}"
+        UNITY_CLOCK=$((10#$stamp))
+        UNITY_CLOCK_SLACK=0
+    else
+        UNITY_CLOCK=$((SECONDS * 1000000))
+        UNITY_CLOCK_SLACK=1000000
+    fi
+}
+
+# Succeeds when the log, which has not grown since the reading $1 of
+# read_unity_clock, has surely stood still for UNITY_STALL_SECONDS by the
+# reading in UNITY_CLOCK. Taking the clock's slack off keeps the watch from
+# stopping Unity before that time, however coarse the clock is.
+unity_log_stalled() {
+    local last_growth="$1"
+
+    [[ "$UNITY_STALL_SECONDS" -gt 0 ]] \
+        && [[ $((UNITY_CLOCK - last_growth - UNITY_CLOCK_SLACK)) -ge $((UNITY_STALL_SECONDS * 1000000)) ]]
+}
+
+# Runs a Unity command with its standard output in UNITY_LOG_FILE, prints the
+# log as it grows, and returns Unity's exit status. A log that has not grown for
+# UNITY_STALL_SECONDS stops Unity and sets UNITY_STALLED, so a compile or a test
+# that never ends fails its target instead of holding the script forever.
+run_unity_logged() {
+    local unity_pid
+    local status
+    local size
+    local shown=0
+    local last_growth
+
+    "$@" >"$UNITY_LOG_FILE" &
+    unity_pid=$!
+    read_unity_clock
+    last_growth="$UNITY_CLOCK"
+    # Unity runs in the background now, so an interrupt must stop it as well.
+    # shellcheck disable=SC2064
+    trap "stop_process_tree $unity_pid; exit 130" INT TERM
+
+    while kill -0 "$unity_pid" 2>/dev/null; do
+        sleep "$UNITY_LOG_POLL_SECONDS"
+        # The clock is read before the log is measured, so a silence it times
+        # has been seen whole, and again once growth is printed, so the growth
+        # is never dated earlier than the script saw it.
+        read_unity_clock
+        size=$(($(wc -c <"$UNITY_LOG_FILE")))
+        if [[ "$size" -gt "$shown" ]]; then
+            tail -c "+$((shown + 1))" "$UNITY_LOG_FILE" | head -c "$((size - shown))"
+            shown="$size"
+            read_unity_clock
+            last_growth="$UNITY_CLOCK"
+        elif unity_log_stalled "$last_growth"; then
+            UNITY_STALLED=1
+            stop_process_tree "$unity_pid"
+            break
+        fi
+    done
+
+    wait "$unity_pid"
+    status=$?
+    trap - INT TERM
+    tail -c "+$((shown + 1))" "$UNITY_LOG_FILE"
+    return "$status"
+}
+
 # Runs Unity in batch mode for one target, in place or in an isolated mirror,
-# with the arguments that follow the verb, and leaves its exit code in
-# UNITY_STATUS. The mirror is removed before this returns.
+# with the arguments that follow the verb and its log in UNITY_LOG_FILE, and
+# leaves its exit code in UNITY_STATUS. The mirror is removed before this returns.
 run_unity_for_target() {
     local target_key="$1"
     local verb="$2"
     local unity_path
     local project_path
     local run_project_path
+    local unity_command
 
     shift 2
-    project_path="$(project_path_for_target "$target_key")" || return 1
+    find_target "$target_key" || return 1
+    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
     run_project_path="$REPO_ROOT/$project_path"
-    unity_path="$(unity_executable "$target_key")"
+    unity_executable "$target_key" quiet
+    unity_path="$FOUND_UNITY_PATH"
 
     if ! decide_run_location "$target_key"; then
         fail "$RUN_NOTE"
@@ -1130,23 +1576,69 @@ run_unity_for_target() {
 
     printf 'Unity: %s\n' "$unity_path"
     printf 'Project: %s\n' "$run_project_path"
+    check_project_path_length "$run_project_path" "$RUN_LOCATION"
+    if [[ -n "$PATH_LIMIT_WARNING" ]]; then
+        printf 'warning: %s: %s\n' "$target_key" "$PATH_LIMIT_WARNING" >&2
+    fi
 
+    unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
+    UNITY_STALLED=0
     set +e
-    "$unity_path" \
-        -batchmode \
-        -projectPath "$run_project_path" \
-        "$@" \
-        -logFile -
+    run_unity_logged "${unity_command[@]}"
     UNITY_STATUS=$?
     set -e
 
+    find_unreadable_long_paths "$UNITY_LOG_FILE"
+    if [[ -n "$UNREADABLE_PATHS_WARNING" ]]; then
+        printf 'warning: %s: %s\n' "$target_key" "$UNREADABLE_PATHS_WARNING" >&2
+    fi
+
+    keep_data_store_service_log "$run_project_path"
     cleanup_staging
+}
+
+# Keeps the log that Unity's Data Store service wrote in the folder Unity
+# opened as the project, Logs/UDS-Service.log, beside Unity's log as
+# <name>.uds-service.log, when Unity's log says that it launched the service;
+# run_unity_for_target calls it before an isolated mirror goes. Every such run
+# keeps it, since Unity logs a service's end only as it next reads an imported
+# file, so an end late in a run may never reach its log, and a service that
+# ended with its Editor gives the log to compare with. In a run that launched
+# no service, the log there is an earlier run's. start_load_helper removes the
+# one an earlier run kept before the run starts.
+keep_data_store_service_log() {
+    local service_log="$1/Logs/UDS-Service.log"
+    local kept_log="${UNITY_LOG_FILE%.log}.uds-service.log"
+
+    grep -q -F 'Launching Unity Data Store' "$UNITY_LOG_FILE" 2>/dev/null || return 0
+    [[ -f "$service_log" ]] || return 0
+    cp -- "$service_log" "$kept_log" 2>/dev/null \
+        || printf 'warning: could not keep %s beside the results\n' "$service_log" >&2
 }
 
 compile_target() {
     local target_key="$1"
+    local warning
 
+    mkdir -p "$COMPILE_LOG_DIR"
+    UNITY_LOG_FILE="$COMPILE_LOG_DIR/$target_key.log"
+    # The helper records the run's Data Store service in <target>.load, as for
+    # a test run; a compile judges neither the service nor the other Unity
+    # processes the helper counts.
+    start_load_helper "$COMPILE_LOG_DIR/$target_key"
     run_unity_for_target "$target_key" "Compiling" -quit
+    stop_load_helper
+    for warning in "$PATH_LIMIT_WARNING" "$UNREADABLE_PATHS_WARNING"; do
+        if [[ -n "$warning" ]]; then
+            COMPILE_WARNINGS+=("$target_key: $warning")
+        fi
+    done
+
+    if [[ "$UNITY_STALLED" -eq 1 ]]; then
+        printf 'error: Unity compilation failed for %s: Unity wrote nothing to its log for %s s, so the script stopped it; see %s\n' \
+            "$target_key" "$UNITY_STALL_SECONDS" "${UNITY_LOG_FILE#"$REPO_ROOT"/}" >&2
+        return 1
+    fi
 
     if [[ "$UNITY_STATUS" -ne 0 ]]; then
         printf 'error: Unity compilation failed for %s (exit %d)\n' "$target_key" "$UNITY_STATUS" >&2
@@ -1187,6 +1679,11 @@ parse_arguments() {
                     || fail "--editor-version expects a full Unity version such as 6000.3.17f1: $1"
                 EDITOR_VERSION="$1"
                 ;;
+            --stall-timeout)
+                shift
+                [[ "$#" -gt 0 && "$1" =~ ^[0-9]+$ ]] || fail "--stall-timeout expects a whole number of seconds"
+                UNITY_STALL_SECONDS="$((10#$1))"
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -1223,18 +1720,25 @@ select_requested_targets() {
 
 # Checks every selected target before Unity starts, so that a missing Editor
 # or sample link does not surface only after earlier targets have spent
-# minutes running.
+# minutes running. It is also the one place that warns about an explicit
+# Editor that a target does not ask for.
 preflight_selected_targets() {
     local target_key
     local preflight_failed=0
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
-        if ! unity_executable "$target_key" >/dev/null; then
+        if ! unity_executable "$target_key"; then
             preflight_failed=1
         fi
     done
 
     check_sample_links error || preflight_failed=1
+
+    # A value sleep refuses, or 0, would turn the stall watch into a busy loop.
+    if ! [[ "$UNITY_LOG_POLL_SECONDS" =~ ^[0-9]*\.?[0-9]+$ && "$UNITY_LOG_POLL_SECONDS" =~ [1-9] ]]; then
+        printf 'error: UNITY_LOG_POLL_SECONDS expects a positive number of seconds: %s\n' "$UNITY_LOG_POLL_SECONDS" >&2
+        preflight_failed=1
+    fi
 
     [[ "$preflight_failed" -eq 0 ]]
 }
@@ -1258,13 +1762,23 @@ compile_main() {
         exit 0
     fi
 
-    trap cleanup_staging EXIT
+    # The helper that a run starts stops with the script, however it ends.
+    trap 'stop_load_helper; cleanup_staging' EXIT
 
     preflight_selected_targets || fail "preflight failed; no projects were compiled"
+    if ! find_load_python; then
+        printf 'warning: the Data Store service of each run will not be recorded: %s\n' "$LOAD_UNAVAILABLE" >&2
+    fi
 
     for target_key in "${SELECTED_TARGETS[@]}"; do
         compile_target "$target_key"
     done
+
+    # Each later target's Unity log follows a target's warnings, so a run of
+    # several targets gives them all again once the last one has compiled.
+    if [[ "${#SELECTED_TARGETS[@]}" -gt 1 && "${#COMPILE_WARNINGS[@]}" -gt 0 ]]; then
+        printf 'warning: %s\n' "${COMPILE_WARNINGS[@]}" >&2
+    fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

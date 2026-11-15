@@ -82,20 +82,22 @@ crashlytics-build.properties
 !UnityProject_BuiltIn/Assets/AddressableAssetsData.meta
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
-**/[Aa]ssets/builtin_shaders
-**/[Aa]ssets/builtin_shaders.meta
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json.meta
 
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
-# Links to package samples (source of truth is Samples~), created by mu3-cli unity link-samples:
+# Links to package samples (source of truth is Samples~), created by mu3-samples link:
 # a junction on Windows, a symbolic link elsewhere. No trailing slash: Git applies a pattern
 # ending in / only to real directories, so it would miss a symbolic link.
 UnityProject_BuiltIn/Assets/Mu3LibrarySamples
 UnityProject_URP/Assets/Mu3LibrarySamplesURP
 UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame
+
+# Temporary folders that the Mu3Window edit-mode tests create inside the Base package while they
+# run. A run that is cut off leaves one behind; the next run deletes it, and it must never ship.
+/Mu3Library_Base/Mu3WindowTests_*
 
 .vscode/
 .venv/
@@ -104,9 +106,16 @@ tools/**/[Bb]in/
 tools/**/*.egg-info/
 /log/
 
+# The dump Git Bash writes, such as bash.EXE.stackdump, in its working directory when it fails
+# fatally, as a forked child of a script killed outright does (see tools/README.md).
+*.stackdump
+
 # agentkit working records and per-unit worktrees
 .ai/tasks/
 .worktrees/
 
 # Claude Code session worktrees
 .claude/worktrees/
+
+# Personal development environment variables (see tools/dev/env.local.example)
+.env.local

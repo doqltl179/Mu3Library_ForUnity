@@ -101,11 +101,11 @@ MonoBehaviour:
       - m_Id: 1f361e44290e9a348b9f533a553128d9
         m_Value: C:\Users\mumumu\Desktop\UnityProject\Mu3Web\Bundles\Windows
       - m_Id: 7c8eaa9c01f11754cb898a6857ef902a
-        m_Value: C:\Users\mumumu\Desktop\UnityProject\Mu3Web\Bundles\Windows
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: 983773c60fdc2ac4696dfcb6fa77688e
         m_Value: https://doqltl179.github.io/Bundles/Windows
       - m_Id: fa6c663e03e54c844ab7f5918f47c281
-        m_Value: C:\Users\mumumu\Desktop\UnityProject\Mu3Web\Bundles\Windows
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
     m_ProfileEntryNames:
     - m_Id: 01bb88842aeda8f49831412080323f14
       m_Name: BuildTarget

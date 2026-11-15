@@ -30,7 +30,7 @@
 - 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムをサポート
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
-- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Mobile Notificationsの条件付き有効化
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Input System、Mobile Notifications、Steamworks.NETの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
@@ -58,7 +58,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.27.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
@@ -117,6 +117,8 @@ public class GameCore : CoreBase
 
 基底クラスが宣言した `[Inject]` メンバーも、private を含めて注入されます。クラス階層をさかのぼる探索は `CoreBase` で止まります。エディタの DI 検証ツールも同じメンバーを検査します。
 
+必須の `[Inject]` プロパティには setter が必要です。private でも構いません。必須の `[Inject]` フィールドは `readonly` にできません。どちらも `static` にはできません。get だけのプロパティ、ストリッピングしたプレイヤーでリンカーが setter を削除したプロパティ、`readonly` フィールド、`static` のフィールドやプロパティのように、コンテナが埋められない必須の `[Inject]` メンバーを持つオブジェクトを注入すると、コンテナはどのメンバーも注入する前に `InvalidOperationException` を投げます。サービスが登録されていない必須メンバーと同じです。`static` メンバーはクラスに属するため、コンテナは書き込みません。書き込むと、注入するオブジェクトごとに、同じクラスのほかのオブジェクトが読む値を上書きしてしまいます。エディタの DI 検証ツールは、コンテナが生成するクラスとコア自身についてこのようなメンバーを報告します。登録されたインスタンスは検査しません。これは実行時の動作と一致します。`ContainerScope.RegisterInstance` はインスタンスを登録しながら注入するので、このようなメンバーがあれば例外を投げて何も登録しないままにし、`Container.RegisterInstance` は登録するインスタンスを注入しないので例外になりません。`InjectableMembers.GetUnwritableProperties`、`InjectableMembers.GetReadOnlyFields`、`InjectableMembers.GetStaticFields`、`InjectableMembers.GetStaticProperties` がこのようなメンバーを列挙します。このようなメンバーが任意（`[Inject(false)]`）なら飛ばされます。
+
 登録されたサービスも、生成後かつライフサイクル callback の前に `[Inject]` フィールドとプロパティへ自動注入されます。1 つの登録（実装型、キー、ライフタイム）は、どのサービス型で resolve しても 1 つのインスタンスを返します。シングルトンはコンテナごとに 1 つ、スコープドのサービスはスコープごとに 1 つです。例外を投げたライフサイクル callback は `Debug.LogException` で記録され、ほかのサービスとコアは動き続けます。
 
 ```csharp
@@ -136,6 +138,8 @@ public class AudioCore : CoreBase
 ```
 
 `MVPManager`も、狭い公開契約である `IObjectInjector` を使って、コンテナ外で生成された presenter に `[Inject]` フィールドとプロパティの注入を適用します。具体的な `ContainerScope` と内部の注入実装は DI アセンブリ内に保持されます。
+
+**Managed Stripping Level** を Medium または High にしてビルドしたプレイヤーでは、Unity リンカーがどこからも呼ばれないコードを取り除きますが、コンテナはコンストラクターと `[Inject]` メンバーにリフレクションでしかアクセスしません。そのため Base のエディターコードは、こうしたビルドのたびにリンカーへ link.xml を渡します。このファイルは、`Mu3Library.DI` を参照するアセンブリと、そのアセンブリが直接または間接に参照するすべてのスクリプトアセンブリとプリコンパイル済みアセンブリについて、ビルドがもともと残すすべてのクラスのコンストラクターを残します。そのため、サービスはコンテナをまったく知らないアセンブリにあっても構いません。これらのクラスの `[Inject]` フィールドとプロパティも残し、必須であれば `static` のものも残します。そのため、コンテナはプレイヤーでもそのメンバーを見つけ、エディターと同じように例外を投げます。これらのフィールドを一つでも宣言するクラスはすべてのフィールドを残します。リンカーは link.xml が名前を挙げたフィールドの `[Inject]` 属性を、コードがそのフィールドを読む場合にだけ残しますが、コンテナはこの属性でフィールドを見つけるためです。そうしないと、コンテナにサービスを生成させるためだけに置き、どのコードも読まない `[Inject]` フィールドが空のままになります。何からも使われないクラスとアセンブリは引き続き取り除かれます。`[Inject]` メンバーはエディターが読み込んだアセンブリから読み取るため、`#if !UNITY_EDITOR` の中のようにプレイヤーでだけコンパイルされる `[Inject]` メンバーには `[Preserve]`（`UnityEngine.Scripting`）を付ける必要があり、自分で書いたリフレクションからしか到達しないコードも同じです。プリコンパイル済みアセンブリはファイル名で照合するため、ファイル名がアセンブリ名と異なる DLL は警告なしに除外され、エディターが読み込まない DLL は上記のアセンブリのいずれかが参照している場合にだけ対象になります。プロジェクトの `Assets` フォルダー以下の `link.xml` で残すこともできます。Unity はパッケージ内の `link.xml` を読みません。コンストラクターの項目で増えるサイズはわずかです。Unity 6000.6.7f1 で Managed Stripping Level を High にしてビルドした Watermelon Game 開発プロジェクトでは、Mono プレイヤーのマネージド DLL が 21,504 バイト（0.19%）増え、その大半はレンダーパイプラインや Input System などの Unity パッケージのアセンブリで増えました。IL2CPP プレイヤーの `GameAssembly.dll` は 123,904 バイト（0.52%）増えました。
 
 ### MVP (Model-View-Presenter)
 UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
@@ -375,8 +379,11 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
 | Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | ローカル通知 (Android/iOS、独立した `Mu3Library.Notifications` アセンブリ) |
+| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターではビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされ、プレイヤーには 64 ビットのスタンドアロンである Windows x64、macOS、Linux x64 にだけ含まれ、32 ビット Windows には含まれない) |
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
+
+Steam のサポート対象は、エディターと 64 ビットのスタンドアロンプレイヤーだけです。`Mu3Library.Multiplayer.Steam` の `includePlatforms` が 32 ビット Windows を除外しているため、32 ビット Windows プレイヤーはこのアセンブリなしでビルドされます。このアセンブリの型を使うゲームコードは独自のアセンブリ定義に置き、そのアセンブリ定義で `Mu3Library.Multiplayer.Steam` を参照し、`Mu3Library.Multiplayer.Steam.asmdef` の `includePlatforms`、`defineConstraints`、`versionDefines` エントリをそのまま写してください。`versionDefines` のシンボルはそれを宣言したアセンブリの中にだけ存在するため、このエントリも必要です。こうすると、そのコードは Steam アセンブリがコンパイルされるまさにその場所でだけコンパイルされます。`versionDefines` のシンボルと `UNITY_STANDALONE` に `#if` を掛ける方法では、32 ビット Windows プレイヤーを除外できません。そのプレイヤーでも両方のシンボルが定義されるためです。Unity 6.6 で `UNITY_64` が非推奨になったため、このシンボルを加える方法にも頼れません。そのため、この方法は Multiplayer サンプルのように 32 ビット Windows プレイヤーをビルドしないゲームにだけ向いています。アセンブリ定義のないコード（`Assembly-CSharp`）は `versionDefines` を読めません。また、`versionDefines` は Package Manager がインストールしたパッケージしか見ず、`.unitypackage` のインポートは見えません。`STEAMWORKS_NET` で囲まないでください。Steamworks.NET のインストーラーがこのシンボルをプロジェクトのスクリプティング Define に書き込み、パッケージを削除した後も残るためです。
 
 `EventSystem` がまだない場合は `MVPManager` が作成します。その入力モジュールは Input System パッケージがインストールされているかどうかだけでなく、Player Settings の **Active Input Handling** が有効にしている入力バックエンドに従います。Input System バックエンドが無効のとき、`InputSystemUIInputModule` は入力を何も読まないためです。
 
@@ -418,6 +425,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: Unity Localizationラッパー（オプション）
+- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後に全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーの Steam アバター、フレンドリストがゲームの定義する `steam_display` トークンを通じて表示するステータスと、`steam_player_group` でまとめた 1 つのセッションのプレイヤーを含む Steam のリッチプレゼンスを扱うプレイヤーホスト型セッション。`SteamBackend`（Steamworks.NET が必要、Steam ロビーと Steam 接続）と `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
@@ -436,6 +444,7 @@ Base パッケージ (**Mu3 Library**):
 - **Template**: 基本的なCore構造と使用例
 - **Attribute**: `ConditionalHideAttribute` と `ButtonInvokeAttribute` の使用方法
 - **UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
+- **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、ホストによるロビーデータの設定と削除、全プレイヤーによる自分の参加者データの設定と削除、プレイヤーのキック。参加者一覧にはホストが測った各プレイヤーの ping が表示され、Steam では各一覧にプレイヤーのアバターが表示されます。Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。プレイヤービルドがなくても、Multiplayer Play Mode を使えばエディターだけで実行できます。Unity 6000.6.7f1 と、このエディターに同梱された Multiplayer Play Mode 3.0.0 で確認しました。仮想プレイヤーはメインエディターの環境を引き継ぐため、同じ一時フォルダーでメインエディターのロビーを見つけます。メインエディターと仮想プレイヤーは同じ Steam アカウントで、ホストはすでに参加したアカウントを `DuplicateAccount` で拒否するため、この場合は **Use Local Backend** をオンにする必要があります。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります
 
 URP パッケージ (**Mu3 Library URP**):
 - **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
@@ -455,7 +464,7 @@ Watermelon Game パッケージ (**Mu3 Library Game - Watermelon**):
 - **Board sound volumes**: `BoardController.SfxVolume` と `BoardController.BgmVolume` で `BoardConfig.SoundConfig` とは別に board の再生 volume を設定でき、両方とも 0–1 に clamp されます。
 - **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
 
-**サンプルの入力とテキスト:** Base の Template・Attribute サンプルと URP の ScreenEffect サンプルのシーンは、Input System パッケージの有無にかかわらず入力に反応します。シーンの `EventSystem` には、Input Manager を読む `StandaloneInputModule` と `SampleInputModuleSelector` があります。Input System パッケージがインストールされていて **Active Input Handling** が "Input System Package (New)" か "Both" のとき、`SampleInputModuleSelector` がシーンの開始時にそのモジュールを `InputSystemUIInputModule` に置き換えます。`MVPManager` が自分で作成する `EventSystem` に適用する規則と同じです。Template サンプルの `Sample_IS` シーンは `InputSystemManager` を示すため、その機能には Input System パッケージと "Input System Package (New)" か "Both" が必要で、UI はすべての設定で反応します。Template サンプルのキーボードショートカットとマウスクリックはサンプルの `SampleInput` クラスを通り、このクラスは Input System バックエンドが有効なら Input System を、そうでなければ Input Manager を読みます。これらのサンプルの TextMesh Pro テキストは、TMP Essential Resources なしで作成したプレイヤーでも描画されます。各サンプルがテキストの使うフォントアセット・スタイルシート・シェーダーを `Fonts/` と `Shaders/` に含んでおり、そのライセンスはサンプルの `Third-Party Notices.txt` にあります。そのようなプレイヤーでは TextMesh Pro がレイアウトにテキストのサイズを 0 と報告するため、WebRequest シーンのスクロールするログのようにレイアウトがテキストのサイズに合わせる箇所は、Template サンプルの `SampleTextPreferredSize` がテキストを測ります。Editor では、TMP Essential Resources をインポートするまで TextMesh Pro はテキストを描画せず、インポートを提案します。Template サンプルでは Addressables、Localization、UniTask は引き続きオプションです。これらのパッケージがなくてもサンプルはコンパイルでき、足りないパッケージを必要とする部分はパッケージがインストールされていないことをログに出します。UtilWindow サンプルの Addressable・Localization データエクスポーターは **Define Symbol** フィールドに設定された `TEMPLATE_ADDRESSABLES_SUPPORT` と `TEMPLATE_LOCALIZATION_SUPPORT` の中に Template サンプルのキースクリプトを書き出すため、キースクリプトを再生成してもそれらのパッケージなしでコンパイルできます。
+**サンプルの入力とテキスト:** Base の Template・Attribute サンプルと URP の ScreenEffect サンプルのシーンは、Input System パッケージの有無にかかわらず入力に反応します。シーンの `EventSystem` には、Input Manager を読む `StandaloneInputModule` と `SampleInputModuleSelector` があります。Input System パッケージがインストールされていて **Active Input Handling** が "Input System Package (New)" か "Both" のとき、`SampleInputModuleSelector` がシーンの開始時にそのモジュールを `InputSystemUIInputModule` に置き換えます。`MVPManager` が自分で作成する `EventSystem` に適用する規則と同じです。Template サンプルの `Sample_IS` シーンは `InputSystemManager` を示すため、その機能には Input System パッケージと "Input System Package (New)" か "Both" が必要で、UI はすべての設定で反応します。Template サンプルのキーボードショートカットとマウスクリックはサンプルの `SampleInput` クラスを通り、このクラスは Input System バックエンドが有効なら Input System を、そうでなければ Input Manager を読みます。これらのサンプルの TextMesh Pro テキストは、TMP Essential Resources なしで作成したプレイヤーでも描画されます。各サンプルがテキストの使うフォントアセット・スタイルシート・シェーダーを `Fonts/` と `Shaders/` に含んでおり、そのライセンスはサンプルの `Third-Party Notices.txt` にあります。そのようなプレイヤーでは TextMesh Pro がレイアウトにテキストのサイズを 0 と報告するため、WebRequest シーンのスクロールするログのようにレイアウトがテキストのサイズに合わせる箇所は、Template サンプルの `SampleTextPreferredSize` がテキストを測ります。Editor では、TMP Essential Resources をインポートするまで TextMesh Pro はテキストを描画せず、インポートを提案します。Template サンプルでは Addressables、Localization、UniTask は引き続きオプションです。これらのパッケージがなくてもサンプルはコンパイルでき、足りないパッケージを必要とする部分はパッケージがインストールされていないことをログに出します。UtilWindow サンプルの Addressable・Localization データエクスポーターは **Define Symbol** フィールドに設定された `TEMPLATE_ADDRESSABLES_SUPPORT` と `TEMPLATE_LOCALIZATION_SUPPORT` の中に Template サンプルのキースクリプトを書き出すため、キースクリプトを再生成してもそれらのパッケージなしでコンパイルできます。Base の Multiplayer サンプルはボタンを IMGUI で描画するため、`EventSystem`、入力モジュール、TextMesh Pro リソースが不要で、Input System パッケージの有無にかかわらず入力に反応し、プレイヤーでもエディターでもテキストを表示します。
 
 このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect`、Watermelon Game サンプルのソースは `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame` にあります。
 

@@ -19,7 +19,7 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | `CoreBase`, DI, MVP | Code-level module names | = | = |
 | sample | A package sample under `Samples~` | 샘플 | サンプル |
 | define symbol | A `MU3LIBRARY_*` scripting define | = (`Define`) | = (`Define`) |
-| optional integration | Code that compiles only while an optional package (UniTask, Addressables, Localization, Input System, Mobile Notifications) is installed | 선택 통합 | オプション統合 |
+| optional integration | Code that compiles only while an optional package (UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET) is installed | 선택 통합 | オプション統合 |
 | built-in module | A `com.unity.modules.*` package that switches an engine feature on or off | 내장 모듈 | 組み込みモジュール |
 | unscaled time, scaled time | The clock a timed transition follows: `Time.unscaledDeltaTime` (keeps running while `Time.timeScale` is 0) or `Time.deltaTime`; the values of `TimeMode` | 비스케일 시간, 스케일 시간 | 非スケール時間、スケール時間 |
 | time scale | `Time.timeScale` named in prose | 타임 스케일 | タイムスケール |
@@ -35,12 +35,32 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | snapshot | A saved board, `BoardSnapshot` | 스냅샷 | スナップショット |
 | screen effect | A full-screen render pass of the URP package (Grayscale, GaussianBlur, DepthOutline, Shake) driven through `ScreenEffectManager` | 스크린 이펙트 | スクリーンエフェクト |
 | player build, player | A standalone build of a project and the application it produces, as opposed to the Editor | 플레이어 빌드, 플레이어 | プレイヤービルド、プレイヤー |
+| Managed Stripping Level | The Player Settings option that sets how much unused managed code a build removes: Disabled, Minimal, Low, Medium, High | = | = |
+| Unity linker | The build tool (UnityLinker) that removes unused managed code, and that link.xml files instruct | Unity 링커 | Unity リンカー |
+| script assembly, precompiled assembly | An assembly Unity compiles from scripts (an assembly definition or `Assembly-CSharp`), and a managed DLL added to a project as a plug-in | 스크립트 어셈블리, 사전 컴파일된 어셈블리 | スクリプトアセンブリ、プリコンパイル済みアセンブリ |
 | Always Included Shaders | The Graphics settings list of shaders every build includes | = | = |
 | Resources folder | A folder named `Resources` whose assets every build includes and `Resources.Load` reads by path | Resources 폴더 | Resources フォルダー |
 | chain operation | An Addressables operation that waits for another operation before it starts the one it wraps, and that Addressables hands back in place of that one | 체인 작업 | チェーン操作 |
+| session, host, client | A player-hosted multiplayer session, the player whose machine hosts it, and every other player in it | 세션, 호스트, 클라이언트 | セッション、ホスト、クライアント |
+| roster | The players in a session, `IMultiplayerManager.Participants` | 참가자 목록 | 参加者一覧 |
+| lobby data, participant data | The session's key-value data the host sets, and one player's own key-value data (`Participant.Data`) | 로비 데이터, 참가자 데이터 | ロビーデータ、参加者データ |
+| lobby chat | Text messages between the players while the session is in the lobby | 로비 채팅 | ロビーチャット |
+| reliable, unreliable delivery | `DeliveryMode.Reliable` (resent and in order) and `DeliveryMode.Unreliable` (may be lost) | 신뢰 전송, 비신뢰 전송 | 信頼性あり、信頼性なし |
+| ping, packet loss | A connection's round-trip time and the share of packets lost on it, as `ConnectionQuality` reports them | 핑, 패킷 손실 | ping、パケットロス |
+| latency, jitter | The delay a simulated network adds to each packet, and how much that delay varies | 지연 시간, 지터 | レイテンシー、ジッター |
+| rate limit | The host's per-client cap on messages and bytes per second (`SessionRules.MaxMessagesPerSecond`, `MaxBytesPerSecond`) | 송신량 제한 | 送信量の制限 |
+| kick | The host removing a player from the session, who then cannot rejoin it | 강퇴 | キック |
+| reconnect, reservation | A dropped client connecting back to its session, and the time the host keeps its slot for it (`ReconnectReservationSeconds`) | 재접속, 예약 | 再接続、予約 |
+| outage | A simulated temporary loss of a local backend's connections (`LocalBackend.SimulateOutage`) | 네트워크 끊김 | 通信断 |
+| avatar | A player's Steam profile picture, loaded as a texture (`LoadAvatar`) | 아바타 | アバター |
+| release (an avatar) | The game letting the multiplayer manager destroy avatar textures it no longer shows (`ReleaseAvatar`, `ReleaseAvatars`) | 놓아주다 | 解放する |
+| Multiplayer Play Mode, virtual player, main Editor | Unity's `com.unity.multiplayer.playmode` package, the extra Editor instances it runs as players, and the Editor that starts them | Multiplayer Play Mode, 가상 플레이어, 메인 에디터 | Multiplayer Play Mode、仮想プレイヤー、メインエディター |
+| rich presence, friends list | Steam's per-player key-value status that friends see, and the Steam friends list that shows it | 리치 프레즌스, 친구 목록 | リッチプレゼンス、フレンドリスト |
 | TMP Essential Resources | The TextMesh Pro resources a project imports from the Editor: `TMP Settings`, the LiberationSans SDF font asset, the TextMesh Pro shaders, and the default style sheet | = | = |
 | font asset, style sheet | A TextMesh Pro `TMP_FontAsset` and `TMP_StyleSheet` | 폰트 에셋, 스타일 시트 | フォントアセット、スタイルシート |
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |
+| drawer, drawer list | A section of a `Mu3Window` editor window (`Mu3WindowDrawer`), and the `DrawerListDrawer` asset that lists the drawers a window shows | 드로어, 드로어 목록 | ドロワー、ドロワーリスト |
+| embedded package, local package | A package in the project's `Packages/` folder, and one a manifest references as a folder with `file:`; both can be changed, unlike a Git, registry, or tarball install | 임베디드 패키지, 로컬 패키지 | 埋め込みパッケージ、ローカルパッケージ |
 
 ## Style Notes
 

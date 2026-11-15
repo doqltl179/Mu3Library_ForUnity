@@ -4,6 +4,7 @@
     "references": [
         "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
         "Mu3Library.DI",
+        "Mu3Library.Multiplayer",
         "Unity.Localization",
         "Unity.Localization.Editor",
         "Unity.InputSystem",

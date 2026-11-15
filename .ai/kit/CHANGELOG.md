@@ -4,6 +4,78 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-15
+
+### Fixed
+- `git-worktree-cleanup`: the removal step runs `git -c core.longpaths=true worktree remove <worktree>`, and the unsaved-changes check runs `git -c core.longpaths=true -C <worktree> status --short`. Git for Windows reaches a path longer than 260 characters only when `core.longpaths` is on for the command that touches it, and a setting in the removed worktree's own configuration is not used when a removal run from the main checkout deletes the files. Before, removing a worktree that held such a path, in a tracked file or in an ignored folder such as a dependency folder or an engine cache, failed with `Filename too long`, unregistered the worktree anyway, and left its folder where `git worktree list` no longer finds it. When a tracked file had such a path and `core.longpaths` was not on for the worktree either, the status check listed that file as deleted and stopped the cleanup, and `git worktree remove` refused with a message that suggests `--force`. Git on other platforms has no such setting and ignores the key. (patch)
+
+## [0.10.0] - 2026-11-15
+
+### Added
+- `policy.work_root` accepts `env:NAME` for a work-folder root that differs per machine: the root is the value of the environment variable `NAME` on the machine running the agents, which must be an absolute path or start with `~`. «Work Folders» in `git-workflow.md` treats an unset or empty variable as an empty root, and the agent then proposes in its report that the user set that variable on the machine, instead of a change to the key; `git-worktree-cleanup` reads the same root before it builds `<work_root>/<project.name>/<unit>`, and the profile template comment names the form. Before, the key held one value for every machine, read only from the committed profile, so a project whose machines needed different roots, such as a short path at a drive root that another machine lacks, left the key empty and had every unit ask for a root and propose setting the key. Absolute, `~`, and empty values behave as before. (minor)
+
+### Fixed
+- `git-worktree-cleanup` and «Work Folders» in `git-workflow.md`: cleanup deletes only the work folders the pull request body names, and reports a folder at `<work_root>/<project.name>/<unit>` that the body does not name instead of deleting it. Before, step 9 deleted that path whenever it existed, so cleaning up a unit that made no work folder could delete the folder of another, still open unit with the same `<unit>`: `feat/a-b` and `feat/a/b` both give `feat-a-b`, and a short form that keeps the first 32 characters gives one name to branches whose first 32 characters match. Every form of `<unit>` must now also not end in `.` or a space, and must differ, ignoring letter case, from the `<unit>` of every other local or remote task branch; the unit checks both before making the folder and stops to ask when either fails. On Windows, PowerShell and cmd drop a trailing `.` or space when they make a folder while Git Bash keeps it, so such a path named different folders in different shells, and a delete in the other shell could exit with 0 and leave the folder behind. (patch)
+
+### Migration
+1. If `.ai/project/` gives `<unit>` a shorter form, such as the first characters of the task branch, change that form in the same file so that it never ends in `.` or a space, for example by dropping trailing dots and spaces after shortening; per «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md`, a unit whose `<unit>` ends in one stops to ask before making its folder. The cleanup of an open unit that already made a folder under the old form then reports that folder instead of deleting it; delete it by hand per «Work Folders» once that unit's pull request merges.
+2. If `.ai/project/`, `project.guardrails` in `.ai/project/profile.toml` included, tells agents to read the work-folder root from an environment variable while `policy.work_root` stays empty, set `policy.work_root = "env:<that variable>"` in `.ai/project/profile.toml`.
+3. When step 2 applied, delete that guidance from `.ai/project/`, keeping the other project facts in the same file: «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns the rule.
+
+## [0.9.0] - 2026-11-14
+
+### Added
+- Profile key `policy.work_root` and «Work Folders» in `git-workflow.md`: a folder a unit makes for its own run and throws away afterward, such as an engine mirror, a disposable copy of the project, or a tool's output, stays in an already ignored folder inside the unit's worktree when the work can run there, and otherwise goes to `<policy.work_root>/<project.name>/<unit>`, where `<unit>` is the task branch with slashes as dashes. Never directly in a drive root, the home folder, or the system temp folder. With the key empty, the agent asks the user for a root before making one and proposes setting the key as its own change instead of editing the profile within the unit; a relative root, or a path that already exists and the unit did not make, also stops it to ask. The unit names its work folders by absolute path in its pull request body («Pull Request Body» in `issues-and-prs.md`). `git-worktree-cleanup` deletes them after the merge, from the profile path and from the folders the body names whose last segment is `<unit>`, writes each path so that it ends with the folder's own name, since with anything after the name a link check reads the link's target, and with a trailing `/` or `\` `rm -rf` then deletes that target's contents, stops and asks when a folder is a link or junction, or holds one and no POSIX shell is available, and reports any other folder the unit made outside its checkout instead of deleting it. Work with no task branch, such as judging an idea, names its folder after the task and deletes it before its report; «Boundaries» in `idea-evaluation.md` links the rule for its disposable copy. Before, the kit named no place for such folders, so agents picked paths such as a drive root whose names did not show which unit made them, and nothing deleted them after the merge. The key is empty by default. (minor)
+
+### Migration
+1. If `.ai/project/` holds guidance on where units put folders outside their checkout, such as a short-path example at a drive root, ask the user which root that guidance means and set `policy.work_root` to it in `.ai/project/profile.toml`; work folders go to `<work_root>/<project.name>/<unit>` beneath it.
+2. Delete that guidance from `.ai/project/`, keeping the other project facts in the same file, such as a path-length limit: «Work Folders» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns the rule.
+
+## [0.8.0] - 2026-11-14
+
+### Changed
+- `git-branch-start`, «Worktrees» in `git-workflow.md`, «Scaling The Order» in `request-lifecycle.md`, and the `policy.worktrees` comment in the profile template: with `policy.worktrees = false`, a unit that runs at the same time as another unit still gets its own worktree under `policy.worktree_root`, through the target-path check, the check that the root is ignored, and `commands.worktree_setup`. Only a unit that runs alone cuts its task branch in the main checkout, and no other unit starts until that unit is cleaned up; `git-branch-start` stops before cutting a branch in place while a worktree under `policy.worktree_root` exists. Before, the policy alone chose the workspace, so a unit that ran at the same time as another also cut its branch in the main checkout and shared that working tree with it, which «Ordering Rules» in `concurrency.md` rules out, and skipped the checks that guard worktree creation. The main checkout stays on the integration branch while units run in worktrees, because `git-worktree-cleanup` switches it there after each merge: `git-branch-start` now stops before creating a worktree when the main checkout is on another branch, and «Stop Conditions» in `git-workflow.md` stops before project files are edited in the main checkout while another unit runs. (minor)
+
+### Fixed
+- `git-worktree-cleanup` and «Cleanup» in `git-workflow.md`: the cleanup stops before removing anything when the main checkout is on a branch that is neither the integration branch nor, for a unit without a worktree, the unit's own task branch. Step 7 switched the main checkout to the integration branch without looking, so it could take the main checkout away from another unit working there and carry that unit's uncommitted changes onto the integration branch. That unit could be one started in place while an agent host ran another unit in a worktree outside `policy.worktree_root`, which the checks in `git-branch-start` do not see. (patch)
+
+### Migration
+1. If `.ai/project/` holds guidance that gives units running at the same time a worktree while `policy.worktrees = false`, such as following the worktree steps of `git-branch-start` in place of its in-place step, delete only that guidance and keep the other project facts in the same file: «Worktrees» in `.ai/kit/core/wiki/workflows/git-workflow.md` now owns that rule.
+2. If `policy.worktrees = false` in `.ai/project/profile.toml`, units run at the same time, and a fresh worktree lacks something they need, set `commands.worktree_setup` there to recreate it, and `commands.worktree_teardown` when that setup makes links or junctions, per «Worktrees» in `.ai/kit/core/wiki/workflows/git-workflow.md`.
+
+## [0.7.3] - 2026-11-14
+
+### Fixed
+- `release-cut`: the previous release tag is read from the release branch and narrowed to the tag pattern of the repository or package: `git describe --tags --abbrev=0 --match '<glob>' origin/<release_branch>`. The old `git describe --tags --abbrev=0` described the checked-out commit. On the integration branch, where the main checkout stays, it could fail when the release branch differs, because the promotion commit that carries the tag is not on the integration branch, or return an older tag that an earlier merge of the release branch back into the integration branch had brought in; with `release.packages` it could return another package's tag. (patch)
+
+## [0.7.2] - 2026-11-14
+
+### Fixed
+- The `.ai/project/lessons.md` template and «Lessons» in `project-overlay.md` now point to «Promotion» in `memory-policy.md` for when a lesson is promoted and deleted. Both had joined proposing a lesson upstream and deleting it into one sentence ending "then delete it here", which read as deleting the lesson as soon as it was proposed, while «Promotion» keeps it locally until a kit release contains it. `update` does not rewrite an existing `.ai/project/lessons.md`, so a project created from the old template keeps the old header. (patch)
+
+## [0.7.1] - 2026-11-14
+
+### Changed
+- Stack pack `shell`: PowerShell's `$LASTEXITCODE` keeps its previous value when a command cannot start, such as a POSIX-only `VAR=value cmd`, or is a cmdlet, so a failure can read as `0` and a success as an earlier non-zero code. For a command that may not start or may be a cmdlet, the pack says to read `$?` in the next statement and names what `$?` misses: a non-terminating failure inside a function or inside a script that ends without `exit`, and, in Windows PowerShell 5.1, a failure inside `(...)`, `$(...)`, or `@(...)`. `git-worktree-cleanup` links this pitfall instead of stating it. (patch)
+
+### Fixed
+- `git-worktree-cleanup`: whether a unit has a worktree to check, tear down, and remove is decided by `git worktree list` showing its task branch checked out in a linked worktree, not by `policy.worktrees`. Parallel units and agent hosts create worktrees even while the policy is off; for such a unit the skill checked the main checkout for unsaved changes instead of the worktree, skipped `commands.worktree_teardown` and `git worktree remove`, and then failed to delete the branch, still checked out in the worktree. (patch)
+- `git-worktree-cleanup`: the PowerShell form of the `commands.worktree_teardown` step checks `$?` and throws on failure instead of checking `$LASTEXITCODE`, which keeps its previous value when the command cannot start, such as a POSIX-only `VAR=value cmd`, or is a cmdlet. A teardown that never ran or failed as a cmdlet could pass as a success, and the cleanup went on to `git worktree remove` with the links or junctions still in place. (patch)
+- `git-worktree-cleanup`: a worktree that holds another worktree stops the cleanup before `git worktree remove`, and the skill reports the inner worktrees' paths. `git worktree remove` does not count ignored files as changes, so a unit worktree that a session had created under an ignored folder such as `.worktrees/` inside its own worktree was deleted with its uncommitted and untracked files, while the outer worktree's status check printed nothing. (patch)
+- `git-worktree-cleanup`: the PowerShell form of the `commands.worktree_teardown` step now also sets `$global:LASTEXITCODE` to `0` before the command and treats it as failed when `$?` is `$false` or `$global:LASTEXITCODE` is not `0`. `$?` alone reads as success when a native program fails inside a teardown script that ends without `exit`, or, in Windows PowerShell 5.1, inside a command wrapped in `(...)`, so the cleanup could go on to `git worktree remove` with the links or junctions still in place. A teardown script whose last native program exits non-zero on purpose now stops the cleanup unless it ends with `exit 0`. Stack pack `shell` gives the same check, notes that PowerShell always sets `$LASTEXITCODE` in the global scope, and names what neither value catches. (patch)
+
+## [0.7.0] - 2026-11-14
+
+### Added
+- Profile key `commands.worktree_teardown`: `git-worktree-cleanup` runs it inside a worktree right before `git worktree remove`, to undo what `commands.worktree_setup` made that blocks removal, such as links or junctions. On Windows, junctions left in a worktree stopped `git worktree remove` with `Directory not empty` after Git had already unregistered the worktree, so its folder stayed behind. The key is empty by default and cleanup is unchanged without it; projects whose `worktree_setup` makes links or junctions may set it. (minor)
+
+### Changed
+- `verification.md`: a change that must hold an escape sequence as literal text, such as a Unicode escape in a string literal, JSON, a regular expression, or a doc example, is verified by the bytes that landed, not by what was typed. The path from an agent to its tools may decode typed escape text into the character itself, in file edits and shell commands alike, search needles included, so a plain text search can pass while the file holds the character. (minor)
+
+### Fixed
+- `git-branch-start`: the check that the worktree root is ignored runs `git check-ignore <worktree_root>/` with a trailing slash. Without it, the directory-only pattern that `install` writes to `.gitignore`, such as `.worktrees/`, does not match before the first worktree creates the folder, so the check reported an ignored root as not ignored. (patch)
+- `git-branch-start`: the worktree root is confirmed ignored before `git worktree add`, so a root that is not ignored stops the step with nothing created. Before, the check came after the worktree and its task branch were made, and stopping left them behind. (patch)
+
 ## [0.6.0] - 2026-10-31
 
 ### Added
