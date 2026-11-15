@@ -4,7 +4,7 @@
   "displayName": "Mu3 Library Game - Watermelon",
   "description": "A reusable 2D Watermelon Game board runtime with merge rules and configuration assets.",
   "unity": "6000.3",
-  "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/Mu3Library_Game_WatermelonGame/README.md",
+  "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/packages/game/watermelon/README.md",
   "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
   "license": "MIT",
   "author": {

@@ -15,6 +15,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 変更
+- Base: パッケージフォルダーが `Mu3Library_Base` から `packages/base` に移動しました（#525）。そのため、次のリリースから Git URL は `?path=packages/base` を使います。これまでにリリースされたタグの URL は引き続き `?path=Mu3Library_Base` を使います。`Scripts/` の階層がなくなり、`Runtime/Scripts/` と `Editor/Scripts/` の下にあったフォルダーとファイルは `Runtime/` と `Editor/` の直下に移りました。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
+- URP: パッケージフォルダーが `Mu3Library_URP` から `packages/urp` に移動しました（#525）。そのため、次のリリースから Git URL は `?path=packages/urp` を使います。これまでにリリースされたタグの URL は引き続き `?path=Mu3Library_URP` を使います。`Runtime/Scripts/` の下にあったフォルダーとファイルは `Runtime/` の直下に移り、スクリーンエフェクトのシェーダーと `ScreenEffectShaders` アセットを含む Resources フォルダーは `Runtime/ScreenEffect/` の下に移動しました。Resources フォルダー内でのアセットのパス `Mu3Library.URP/ScreenEffectShaders` は変わりません。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
+- Watermelon Game: パッケージフォルダーが `Mu3Library_Game_WatermelonGame` から `packages/game/watermelon` に移動しました（#525）。そのため、次のリリースから Git URL は `?path=packages/game/watermelon` を使います。これまでにリリースされたタグの URL は引き続き `?path=Mu3Library_Game_WatermelonGame` を使います。`Runtime/Scripts/` の下にあったフォルダーとファイルは `Runtime/` の直下に移り、`package.json` の `documentationUrl` は新しいフォルダーの README を指します。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
+
 ### 削除
 - Base: **Template**、**Attribute**、**UtilWindow** サンプルと、`package.json` の `samples` にあったそれぞれの項目を削除しました（#521）。**Multiplayer** サンプルは当面残ります。パッケージマネージャーはインポートしたサンプルをプロジェクト内にコピーするため、すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。README にすでにあるコード例が使い方の案内として残ります。
 - Base: `Runtime/Materials` のデフォルトカラーマテリアル（`Black`、`Blue`、`Green`、`Magenta`、`Red`、`White`）と `Runtime/Textures` のテクスチャ（`Circle_32px`、`Circle_64px` とそれぞれの `InnerShadow`、`OutShadow` バリエーション、`square_1px`）を削除しました（#521）。これらのアセットを参照するシーン、プレハブ、マテリアルは、更新後にその参照を失います。すでにインポートした Template サンプルも同様です。引き続き必要な場合は、更新前にアセットをプロジェクトへコピーしてください。

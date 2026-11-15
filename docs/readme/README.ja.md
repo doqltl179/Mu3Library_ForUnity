@@ -74,9 +74,9 @@
 2. Unity Editorで`Window` > `Package Manager`を開きます
 3. `+`ボタン > `Add package from disk...`をクリック
 4. 以下のいずれかを選択:
-    - `Mu3Library_Base/package.json`
-    - `Mu3Library_URP/package.json`（先に Base をインストール）
-    - `Mu3Library_Game_WatermelonGame/package.json`（先に Base と URP をインストール）
+    - `packages/base/package.json`
+    - `packages/urp/package.json`（先に Base をインストール）
+    - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
 
 ## 📚 コアモジュール
 
@@ -460,7 +460,7 @@ Watermelon Game パッケージ (**Mu3 Library Game - Watermelon**):
 
 **サンプルの入力とテキスト:** Base の Multiplayer サンプルはボタンを IMGUI で描画するため、`EventSystem`、入力モジュール、TextMesh Pro リソースが不要で、Input System パッケージの有無にかかわらず入力に反応し、プレイヤーでもエディターでもテキストを表示します。
 
-このリポジトリでは、Multiplayer サンプルのソースは `Mu3Library_Base/Samples~/Multiplayer` にあります。
+このリポジトリでは、Multiplayer サンプルのソースは `packages/base/Samples~/Multiplayer` にあります。
 
 新しい helper で MVP render camera を stack したい場合は、render camera を明示的に渡してください:
 

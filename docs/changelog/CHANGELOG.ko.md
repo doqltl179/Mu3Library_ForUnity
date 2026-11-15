@@ -13,6 +13,11 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 변경됨
+- Base: 패키지 폴더가 `Mu3Library_Base`에서 `packages/base`로 옮겨졌습니다(#525). 그래서 다음 릴리스부터 Git URL은 `?path=packages/base`를 씁니다. 지금까지 릴리스된 태그의 URL은 그대로 `?path=Mu3Library_Base`를 씁니다. `Scripts/` 단계가 없어져, `Runtime/Scripts/`와 `Editor/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/`과 `Editor/` 바로 아래에 있습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
+- URP: 패키지 폴더가 `Mu3Library_URP`에서 `packages/urp`로 옮겨졌습니다(#525). 그래서 다음 릴리스부터 Git URL은 `?path=packages/urp`를 씁니다. 지금까지 릴리스된 태그의 URL은 그대로 `?path=Mu3Library_URP`를 씁니다. `Runtime/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/` 바로 아래에 있고, 스크린 이펙트 셰이더와 `ScreenEffectShaders` 에셋이 든 Resources 폴더는 `Runtime/ScreenEffect/` 아래로 옮겨졌습니다. Resources 폴더 안에서의 에셋 경로 `Mu3Library.URP/ScreenEffectShaders`는 바뀌지 않았습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
+- Watermelon Game: 패키지 폴더가 `Mu3Library_Game_WatermelonGame`에서 `packages/game/watermelon`으로 옮겨졌습니다(#525). 그래서 다음 릴리스부터 Git URL은 `?path=packages/game/watermelon`을 씁니다. 지금까지 릴리스된 태그의 URL은 그대로 `?path=Mu3Library_Game_WatermelonGame`을 씁니다. `Runtime/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/` 바로 아래에 있고, `package.json`의 `documentationUrl`은 새 폴더의 README를 가리킵니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
+
 ### 제거됨
 - Base: **Template**, **Attribute**, **UtilWindow** 샘플과 `package.json`의 `samples`에 있던 각 항목을 제거했습니다(#521). **Multiplayer** 샘플은 당분간 남습니다. 패키지 매니저는 가져온 샘플을 프로젝트 안으로 복사하므로, 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다. README에 이미 있는 코드 예제가 사용법 안내로 남습니다.
 - Base: `Runtime/Materials`의 기본 색깔 머티리얼(`Black`, `Blue`, `Green`, `Magenta`, `Red`, `White`)과 `Runtime/Textures`의 텍스처(`Circle_32px`, `Circle_64px`와 각각의 `InnerShadow`, `OutShadow` 변형, `square_1px`)를 제거했습니다(#521). 이 에셋을 참조하는 씬, 프리팹, 머티리얼은 업데이트 후 그 참조를 잃습니다. 이미 가져온 Template 샘플도 마찬가지입니다. 계속 필요하면 업데이트 전에 에셋을 프로젝트로 복사하세요.
