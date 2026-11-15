@@ -4,8 +4,8 @@ One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted
 
 ## What It Needs
 
-- Base and the DI package (`com.github.doqltl179.mu3library.di`): `SampleMultiplayerCore` derives from its `CoreBase`, and the sample's assembly definition references `Mu3Library.DI`. Install the DI package before you import the sample, which does not compile without it. Steamworks.NET is optional: without it the sample compiles without the Steam code and plays on the local backend on every platform.
-- With Steamworks.NET, installed through the Package Manager, the sample builds for the editor and 64-bit standalone players only. `Mu3Library.Multiplayer.Steam` leaves out 32-bit Windows players, and the sample's Steam code, under `MULTIPLAYER_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, cannot tell them apart, so a 32-bit Windows player does not compile then.
+- Base and the DI package (`com.github.doqltl179.mu3library.di`): `SampleMultiplayerCore` derives from its `CoreBase`, and the sample's assembly definition references `Mu3Library.DI`. Install the DI package before you import the sample, which does not compile without it. Steam is optional: the sample's Steam code needs both the Steam package (`com.github.doqltl179.mu3library.steam`) and Steamworks.NET, and without either the sample compiles without it and plays on the local backend on every platform.
+- With the Steam package and Steamworks.NET, both installed through the Package Manager, the sample builds for the editor and 64-bit standalone players only. `Mu3Library.Steam.Multiplayer` leaves out 32-bit Windows players, and the sample's Steam code, under `MULTIPLAYER_STEAM_PACKAGE`, `MULTIPLAYER_STEAMWORKS_SUPPORT`, and `UNITY_STANDALONE`, cannot tell them apart, so a 32-bit Windows player does not compile then.
 - Nothing else: the buttons are drawn with IMGUI, which needs no `EventSystem`, no input module, and no TextMesh Pro resources, so the scene responds to input with or without the Input System package.
 
 ## How It Picks The Backend
@@ -14,15 +14,15 @@ One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted
 
 | Project | Backend |
 |---|---|
-| Steamworks.NET 2025.164.1 or later installed, a standalone build target, and the Steam client running | Steam, on the app ID in the core's **Steam App Id** field (Steam's test app 480 by default) |
+| The Steam package and Steamworks.NET 2025.164.1 or later installed, a standalone build target, and the Steam client running | Steam, on the app ID in the core's **Steam App Id** field (Steam's test app 480 by default) |
 | The same, but Steam cannot start | In the editor, `SteamBackend.CreateOrFallback` hands back the local backend through `SteamBackendOptions.EditorFallbackNetwork` with a warning; in a player, the sample falls back to the local backend itself, since a player build never falls back on its own |
-| No Steamworks.NET, another build target, the core's **Use Local Backend** field, or the `-mu3mp-local` option | The local backend |
+| No Steam package or no Steamworks.NET, another build target, the core's **Use Local Backend** field, or the `-mu3mp-local` option | The local backend |
 
 The local backend runs on `LocalNetwork.CreateMachineWide("mu3library-multiplayer-sample")`, so every editor and player build on this computer that runs the sample meets the others. Nothing outside this computer can see its lobbies or connect to it.
 
 ## Trying It On One Computer
 
-With Steamworks.NET installed and the Steam client running, an editor and a player on one computer both play on Steam with the same account, and the host refuses the join with `DuplicateAccount`, since one account takes one slot. Turn on **Use Local Backend** on the `SampleMultiplayerCore` object before building, or pass `-mu3mp-local` to both: to the player on its command line, and to the editor in the Unity Hub's command-line arguments for the project.
+With the Steam package and Steamworks.NET installed and the Steam client running, an editor and a player on one computer both play on Steam with the same account, and the host refuses the join with `DuplicateAccount`, since one account takes one slot. Turn on **Use Local Backend** on the `SampleMultiplayerCore` object before building, or pass `-mu3mp-local` to both: to the player on its command line, and to the editor in the Unity Hub's command-line arguments for the project.
 
 1. Add `Scenes/Sample_Multiplayer.unity` to the build profile's scene list and build a Windows, macOS, or Linux player.
 2. Start the player, and enter play mode in the editor with the same scene open.
@@ -51,7 +51,7 @@ A kicked player cannot come back into the same game: the host refuses them with 
 
 ## On Steam
 
-With Steamworks.NET installed and Steam running, the same buttons play on Steam lobbies and connections, and the lobby shows **Invite friends (Steam overlay)**, which opens the overlay's invite dialog. An accepted invite, a join from the friends list, or a launch from an invite joins by itself; the log shows the join request. While the Steam overlay is off for the game, the button logs `OverlayUnavailable` instead. One Steam account takes one slot in a session, so two players need two accounts, normally on two computers.
+With the Steam package and Steamworks.NET installed and Steam running, the same buttons play on Steam lobbies and connections, and the lobby shows **Invite friends (Steam overlay)**, which opens the overlay's invite dialog. An accepted invite, a join from the friends list, or a launch from an invite joins by itself; the log shows the join request. While the Steam overlay is off for the game, the button logs `OverlayUnavailable` instead. One Steam account takes one slot in a session, so two players need two accounts, normally on two computers.
 
 ## The Log
 
@@ -93,7 +93,7 @@ The editor reads the same options from its own command line, so an editor starte
 | `Scripts/SampleMultiplayerCore.cs` | The core: registers `MultiplayerManager` in its container, which updates and disposes it, attaches the backend, disposes the backend after the manager, and holds the flows, the event handlers, and the avatars the lists show |
 | `Scripts/SampleMultiplayerCore.Gui.cs` | The IMGUI buttons |
 | `Scripts/SampleMultiplayerCore.AutoRun.cs` | The unattended run |
-| `Scripts/SampleBackend.cs` | The backend choice; its Steam code compiles only with Steamworks.NET and a standalone build target (`MULTIPLAYER_STEAMWORKS_SUPPORT`) |
+| `Scripts/SampleBackend.cs` | The backend choice; its Steam code compiles only with the Steam package, Steamworks.NET, and a standalone build target (`MULTIPLAYER_STEAM_PACKAGE`, `MULTIPLAYER_STEAMWORKS_SUPPORT`) |
 | `Scripts/SampleGreeting.cs` | The game message and its payload |
 | `Scripts/SampleCommandLine.cs` | The command-line options |
 | `Scripts/SampleLog.cs` | The on-screen log and the time each line starts with |

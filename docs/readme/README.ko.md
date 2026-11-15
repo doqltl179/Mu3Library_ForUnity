@@ -30,7 +30,7 @@
 - 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원을 별도의 DI 패키지로 제공
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
-- 📦 **선택적 패키지 지원**: UniTask, Addressables, Input System, Steamworks.NET 조건부 활성화
+- 📦 **선택적 패키지 지원**: UniTask, Addressables, Input System 조건부 활성화
 - 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
@@ -80,6 +80,8 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
 
 `CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담은 DI 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
 
+Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`를 담은 Steam 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Steamworks.NET과 Base를 설치하세요.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
@@ -91,6 +93,7 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
     - `packages/localization/package.json` (먼저 Base 설치)
     - `packages/addressables/package.json` (먼저 Base 설치)
     - `packages/di/package.json` (먼저 Base 설치)
+    - `packages/steam/package.json` (먼저 Steamworks.NET과 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
@@ -317,7 +320,6 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await 비동기 API |
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Addressables 씬 로드 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
-| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | 멀티플레이 세션의 Steam 백엔드 (2025.164.1 이상. 별도 `Mu3Library.Multiplayer.Steam` 어셈블리이며, 에디터에서는 빌드 대상이 스탠드얼론 플랫폼일 때 컴파일되고, 플레이어는 64비트 스탠드얼론인 Windows x64, macOS, Linux x64에만 들어가며 32비트 Windows에는 들어가지 않음) |
 
 Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨졌습니다. 이 패키지는 Unity Mobile Notifications를 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/notifications/README.md)를 참고하세요.
 
@@ -327,9 +329,9 @@ Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨�
 
 `AddressablesManager`는 별도의 Addressables 패키지로 옮겨졌습니다. 이 패키지는 Unity Addressables를 의존 패키지로 함께 설치합니다. 자세한 내용은 그 [README](../../packages/addressables/README.md)를 참고하세요. Base는 위에서 설명한 `SceneLoader`의 Addressables 씬 로드를 위해 `MU3LIBRARY_ADDRESSABLES_SUPPORT`를 유지합니다.
 
-Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
+멀티플레이 세션의 Steam 백엔드는 별도의 Steam 패키지로 옮겨졌습니다. Steamworks.NET은 Git으로 배포되므로 이 패키지가 함께 설치할 수 없어, 이 패키지는 `MU3LIBRARY_STEAMWORKS_SUPPORT` 게이트를 유지합니다. 설치 순서와 지원 플랫폼은 그 [README](../../packages/steam/README.md)를 참고하세요.
 
-Steam 지원은 에디터와 64비트 스탠드얼론 플레이어로 한정됩니다. `Mu3Library.Multiplayer.Steam`의 `includePlatforms`가 32비트 Windows를 제외하므로, 32비트 Windows 플레이어는 이 어셈블리 없이 빌드됩니다. 이 어셈블리의 타입을 쓰는 게임 코드는 자체 어셈블리 정의에 두고, 그 어셈블리 정의가 `Mu3Library.Multiplayer.Steam`을 참조하면서 `Mu3Library.Multiplayer.Steam.asmdef`의 `includePlatforms`, `defineConstraints`, `versionDefines` 항목을 그대로 옮겨 오게 하세요. `versionDefines`의 심볼은 그것을 선언한 어셈블리 안에만 존재하므로 이 항목도 필요합니다. 그러면 그 코드는 Steam 어셈블리가 컴파일되는 바로 그 플랫폼에서만 컴파일됩니다. `versionDefines` 심볼과 `UNITY_STANDALONE`에 `#if`를 거는 방법으로는 32비트 Windows 플레이어를 뺄 수 없습니다. 그 플레이어에서도 두 심볼이 모두 정의되기 때문입니다. Unity 6.6이 `UNITY_64`를 사용 중단했으므로 이 심볼을 더하는 방법에도 기댈 수 없습니다. 그래서 이 방법은 Multiplayer 샘플처럼 32비트 Windows 플레이어를 빌드하지 않는 게임에만 맞습니다. 어셈블리 정의가 없는 코드(`Assembly-CSharp`)는 `versionDefines`를 읽을 수 없고, `versionDefines`는 Package Manager가 설치한 패키지만 보며 `.unitypackage` 임포트는 보지 못합니다. `STEAMWORKS_NET`으로 감싸지 마세요. Steamworks.NET 설치 프로그램이 이 심볼을 프로젝트의 스크립팅 Define에 기록하고, 패키지를 제거해도 남기 때문입니다.
+Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
 아직 `EventSystem`이 없으면 `MVPManager`가 하나를 만듭니다. 그 입력 모듈은 Input System 패키지 설치 여부만이 아니라 Player Settings의 **Active Input Handling**이 켜 둔 입력 백엔드를 따릅니다. Input System 백엔드가 꺼져 있으면 `InputSystemUIInputModule`은 아무 입력도 읽지 못하기 때문입니다.
 
@@ -371,7 +373,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: 별도의 Localization 패키지로 옮겨짐 ([README](../../packages/localization/README.md))
-- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 Steam 아바타, 친구 목록이 게임이 정의한 `steam_display` 토큰을 통해 보여 주는 상태와 `steam_player_group`으로 묶은 한 세션의 플레이어를 담는 Steam 리치 프레즌스를 다루는 플레이어 호스트 세션. `SteamBackend`(Steamworks.NET 필요, Steam 로비와 Steam 연결)와 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
+- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 아바타, 프레즌스 상태를 다루는 플레이어 호스트 세션. 백엔드로는 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있고, Steam 로비와 Steam 연결로 플레이하며 플레이어의 Steam 아바타와, 친구 목록에 상태를 보여 주는 Steam 리치 프레즌스를 다루는 `SteamBackend`는 별도의 Steam 패키지([README](../../packages/steam/README.md))에 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
   - **백엔드 작성**: 다른 플랫폼의 백엔드는 `Mu3Library.Multiplayer.Backend`의 `IMultiplayerBackend`를 구현하며, 매니저가 찾는 두 선택 인터페이스도 구현할 수 있습니다. 공개가 아닌 로비에 초대로만 들어갈 수 있으면 `ILobbyInviteBackend`를 구현해 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하게 하고, 백엔드를 사용할 수 없는 이유를 알리려면 Steam 백엔드가 `SteamNotRunning`을 알리듯 `IUnavailableReasonBackend`를 구현합니다. `LobbyDataKeys`는 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키를 담으며, 백엔드는 이 키를 다른 로비 데이터처럼 저장하며, 읽을 수도 있습니다. `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드는 `LobbySearchQuery.Clone()`으로 만든 쿼리 사본을 보관합니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
@@ -388,7 +390,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 Base에는 샘플이 하나 있으며, 패키지 매니저의 **Samples** 탭에서 가져올 수 있습니다. URP와 Watermelon Game 패키지에는 샘플이 없으며, 아래에 각 패키지의 주요 기능을 정리했습니다:
 
 Base 패키지 (**Mu3 Library**):
-- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다. 샘플의 코어가 DI 패키지의 `CoreBase`를 상속하므로 DI 패키지가 필요하며, 샘플을 가져오기 전에 그 패키지를 설치해야 합니다
+- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steam 패키지와 Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다. 샘플의 코어가 DI 패키지의 `CoreBase`를 상속하므로 DI 패키지가 필요하며, 샘플을 가져오기 전에 그 패키지를 설치해야 합니다
 
 URP 패키지 (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
@@ -450,6 +452,7 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - Localization: `com.github.doqltl179.mu3library.localization` (Base 의존, 다음 릴리스부터)
 - Addressables: `com.github.doqltl179.mu3library.addressables` (Base 의존, 다음 릴리스부터)
 - DI: `com.github.doqltl179.mu3library.di` (Base 의존, 다음 릴리스부터)
+- Steam: `com.github.doqltl179.mu3library.steam` (Base 의존, Steamworks.NET 필요, 다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)

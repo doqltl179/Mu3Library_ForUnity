@@ -30,7 +30,7 @@
 - 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムのサポートを、独立した DI パッケージで提供
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
-- 📦 **オプションパッケージサポート**: UniTask、Addressables、Input System、Steamworks.NETの条件付き有効化
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Input Systemの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
@@ -80,6 +80,8 @@ Android と iOS のローカル通知を扱う Notifications パッケージは�
 
 `CoreBase` のコンテナとその link.xml プロセッサー、検証ドロワーとランタイム診断ドロワーを含む DI パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
 
+Steam でマルチプレイセッションを実行する `SteamBackend` を含む Steam パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Steamworks.NET と Base をインストールしてください。
+
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
@@ -91,6 +93,7 @@ Android と iOS のローカル通知を扱う Notifications パッケージは�
     - `packages/localization/package.json`（先に Base をインストール）
     - `packages/addressables/package.json`（先に Base をインストール）
     - `packages/di/package.json`（先に Base をインストール）
+    - `packages/steam/package.json`（先に Steamworks.NET と Base をインストール）
     - `packages/urp/package.json`（先に Base をインストール）
     - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
 
@@ -317,7 +320,6 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await非同期API |
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Addressables シーンロード |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
-| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターではビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされ、プレイヤーには 64 ビットのスタンドアロンである Windows x64、macOS、Linux x64 にだけ含まれ、32 ビット Windows には含まれない) |
 
 Android と iOS のローカル通知は独立した Notifications パッケージに移りました。このパッケージは Unity Mobile Notifications を依存パッケージとして一緒にインストールするため、define シンボルで有効にするものではありません。詳しくはその [README](../../packages/notifications/README.md) を参照してください。
 
@@ -327,9 +329,9 @@ Android と iOS のローカル通知は独立した Notifications パッケー�
 
 `AddressablesManager` は独立した Addressables パッケージに移りました。このパッケージは Unity Addressables を依存パッケージとして一緒にインストールします。詳しくはその [README](../../packages/addressables/README.md) を参照してください。Base は、前述の `SceneLoader` の Addressables シーンロードのために `MU3LIBRARY_ADDRESSABLES_SUPPORT` を残します。
 
-Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
+マルチプレイセッションの Steam バックエンドは独立した Steam パッケージに移りました。Steamworks.NET は Git で配布されるため、このパッケージは一緒にインストールできず、`MU3LIBRARY_STEAMWORKS_SUPPORT` のゲートを残します。インストールの順序と対応プラットフォームはその [README](../../packages/steam/README.md) を参照してください。
 
-Steam のサポート対象は、エディターと 64 ビットのスタンドアロンプレイヤーだけです。`Mu3Library.Multiplayer.Steam` の `includePlatforms` が 32 ビット Windows を除外しているため、32 ビット Windows プレイヤーはこのアセンブリなしでビルドされます。このアセンブリの型を使うゲームコードは独自のアセンブリ定義に置き、そのアセンブリ定義で `Mu3Library.Multiplayer.Steam` を参照し、`Mu3Library.Multiplayer.Steam.asmdef` の `includePlatforms`、`defineConstraints`、`versionDefines` エントリをそのまま写してください。`versionDefines` のシンボルはそれを宣言したアセンブリの中にだけ存在するため、このエントリも必要です。こうすると、そのコードは Steam アセンブリがコンパイルされるまさにその場所でだけコンパイルされます。`versionDefines` のシンボルと `UNITY_STANDALONE` に `#if` を掛ける方法では、32 ビット Windows プレイヤーを除外できません。そのプレイヤーでも両方のシンボルが定義されるためです。Unity 6.6 で `UNITY_64` が非推奨になったため、このシンボルを加える方法にも頼れません。そのため、この方法は Multiplayer サンプルのように 32 ビット Windows プレイヤーをビルドしないゲームにだけ向いています。アセンブリ定義のないコード（`Assembly-CSharp`）は `versionDefines` を読めません。また、`versionDefines` は Package Manager がインストールしたパッケージしか見ず、`.unitypackage` のインポートは見えません。`STEAMWORKS_NET` で囲まないでください。Steamworks.NET のインストーラーがこのシンボルをプロジェクトのスクリプティング Define に書き込み、パッケージを削除した後も残るためです。
+Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
 `EventSystem` がまだない場合は `MVPManager` が作成します。その入力モジュールは Input System パッケージがインストールされているかどうかだけでなく、Player Settings の **Active Input Handling** が有効にしている入力バックエンドに従います。Input System バックエンドが無効のとき、`InputSystemUIInputModule` は入力を何も読まないためです。
 
@@ -371,7 +373,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: 独立した Localization パッケージに移動（[README](../../packages/localization/README.md)）
-- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後に全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーの Steam アバター、フレンドリストがゲームの定義する `steam_display` トークンを通じて表示するステータスと、`steam_player_group` でまとめた 1 つのセッションのプレイヤーを含む Steam のリッチプレゼンスを扱うプレイヤーホスト型セッション。`SteamBackend`（Steamworks.NET が必要、Steam ロビーと Steam 接続）と `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
+- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後に全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーのアバター、プレゼンスのステータスを扱うプレイヤーホスト型セッション。バックエンドには `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があり、Steam ロビーと Steam 接続でプレイし、プレイヤーの Steam アバターと、フレンドリストにステータスを表示する Steam のリッチプレゼンスを扱う `SteamBackend` は、独立した Steam パッケージ（[README](../../packages/steam/README.md)）にあります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
   - **バックエンドの作成**: 他のプラットフォームのバックエンドは `Mu3Library.Multiplayer.Backend` の `IMultiplayerBackend` を実装し、マネージャーが探す 2 つのオプションのインターフェースも実装できます。公開でないロビーに招待でしか入れない場合は `ILobbyInviteBackend` を実装して、保持される枠に戻ったプレイヤーをホストが招待し直せるようにし、バックエンドが利用できない理由を伝えるには、Steam バックエンドが `SteamNotRunning` を伝えるように `IUnavailableReasonBackend` を実装します。`LobbyDataKeys` は、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキーをまとめたもので、バックエンドはこれらを他のロビーデータと同じように保存し、読み取ることもできます。`SearchLobbies` が戻った後に検索を始めるバックエンドは、`LobbySearchQuery.Clone()` で作ったクエリのコピーを保持します
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
@@ -388,7 +390,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 Base にはサンプルが 1 つあり、パッケージマネージャーの**Samples**タブからインポートできます。URP と Watermelon Game パッケージにはサンプルがありません。各パッケージの主な機能を以下にまとめます:
 
 Base パッケージ (**Mu3 Library**):
-- **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、ホストによるロビーデータの設定と削除、全プレイヤーによる自分の参加者データの設定と削除、プレイヤーのキック。参加者一覧にはホストが測った各プレイヤーの ping が表示され、Steam では各一覧にプレイヤーのアバターが表示されます。Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。プレイヤービルドがなくても、Multiplayer Play Mode を使えばエディターだけで実行できます。Unity 6000.6.7f1 と、このエディターに同梱された Multiplayer Play Mode 3.0.0 で確認しました。仮想プレイヤーはメインエディターの環境を引き継ぐため、同じ一時フォルダーでメインエディターのロビーを見つけます。メインエディターと仮想プレイヤーは同じ Steam アカウントで、ホストはすでに参加したアカウントを `DuplicateAccount` で拒否するため、この場合は **Use Local Backend** をオンにする必要があります。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります。サンプルのコアは DI パッケージの `CoreBase` を継承するため DI パッケージが必要で、サンプルをインポートする前にそのパッケージをインストールしてください
+- **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、ホストによるロビーデータの設定と削除、全プレイヤーによる自分の参加者データの設定と削除、プレイヤーのキック。参加者一覧にはホストが測った各プレイヤーの ping が表示され、Steam では各一覧にプレイヤーのアバターが表示されます。Steam パッケージと Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。プレイヤービルドがなくても、Multiplayer Play Mode を使えばエディターだけで実行できます。Unity 6000.6.7f1 と、このエディターに同梱された Multiplayer Play Mode 3.0.0 で確認しました。仮想プレイヤーはメインエディターの環境を引き継ぐため、同じ一時フォルダーでメインエディターのロビーを見つけます。メインエディターと仮想プレイヤーは同じ Steam アカウントで、ホストはすでに参加したアカウントを `DuplicateAccount` で拒否するため、この場合は **Use Local Backend** をオンにする必要があります。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります。サンプルのコアは DI パッケージの `CoreBase` を継承するため DI パッケージが必要で、サンプルをインポートする前にそのパッケージをインストールしてください
 
 URP パッケージ (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` が `SetCameraStackToMain(...)` と `SetCameraStack(...)` helper を提供し、任意の URP overlay camera を `Camera.main` または明示的な root camera stack に挿入しつつ、必要に応じて挿入 index を制御できます。
@@ -450,6 +452,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 - Localization: `com.github.doqltl179.mu3library.localization`（Base に依存、次のリリースから）
 - Addressables: `com.github.doqltl179.mu3library.addressables`（Base に依存、次のリリースから）
 - DI: `com.github.doqltl179.mu3library.di`（Base に依存、次のリリースから）
+- Steam: `com.github.doqltl179.mu3library.steam`（Base に依存、Steamworks.NET が必要、次のリリースから）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)
