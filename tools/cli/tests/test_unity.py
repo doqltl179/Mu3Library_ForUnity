@@ -15,28 +15,19 @@ from typer.testing import CliRunner
 
 from mu3_common.bash import BashNotFoundError, find_bash, find_windows_bash
 from mu3_common.checkout import repo_root
-from mu3_common.editor import UnityTargetSpec, default_editor_path, load_target_specs, project_editor_version
-from mu3_common.sample_links import sample_link_state
-from mu3_samples.cli import (
-    SampleLinkResult,
-    create_directory_link,
-    link_samples,
-    remove_directory_link,
-    unlink_samples,
-)
-from mu3_samples.cli import app as samples_app
+from mu3_common.editor import default_editor_path
+from mu3_common.project_lock import file_is_held_open, project_lock_state
+from mu3_common.unity_projects import create_directory_link, remove_directory_link
 from mu3_unity.cli import (
     bash_diagnostic,
     entry_point_arguments,
     compile_script_path,
-    file_is_held_open,
     filter_arguments,
     load_arguments,
     platform_arguments,
     project_lock_diagnostic,
-    project_lock_state,
-    sample_link_diagnostic,
     stall_timeout_arguments,
+    work_dir_diagnostic,
 )
 from mu3_unity.cli import app as unity_app
 from shell_harness import run_sourced
@@ -49,57 +40,21 @@ def temporary_root(test: unittest.TestCase) -> Path:
 
 
 class UnityToolingTests(unittest.TestCase):
-    def test_repository_mapping_loads_all_targets(self) -> None:
-        specs = load_target_specs(repo_root())
-
-        self.assertEqual(["built-in", "urp", "watermelon"], list(specs))
-        self.assertEqual("Mu3Library_Base", specs["built-in"].package_path.as_posix())
-        self.assertEqual("UnityProject_URP", specs["urp"].project_path.as_posix())
-
-    def test_every_mapping_has_an_editor_version(self) -> None:
-        # The versions themselves change with every editor upgrade; the lookup has to find one.
-        root = repo_root()
-        specs = load_target_specs(root)
-
-        for key, spec in specs.items():
-            with self.subTest(target=key):
-                self.assertRegex(project_editor_version(spec, root) or "", r"^\d+\.\d+\.\d+[abfp]\d+$")
-
     def test_compile_arguments_preserve_change_selection(self) -> None:
         self.assertEqual(
             ["changed", "--base", "origin/develop", "--dry-run"],
-            entry_point_arguments("changed", "origin/develop", True, False, False, False),
-        )
-
-    def test_compile_arguments_reject_conflicting_modes(self) -> None:
-        with self.assertRaisesRegex(ValueError, "cannot be used together"):
-            entry_point_arguments("built-in", None, False, True, True, False)
-
-    def test_keep_staging_preserves_auto_isolation_behavior(self) -> None:
-        self.assertEqual(
-            ["built-in", "--keep-staging"],
-            entry_point_arguments("built-in", None, False, False, False, True),
+            entry_point_arguments("changed", "origin/develop", True),
         )
 
     def test_base_requires_changed_target(self) -> None:
         with self.assertRaisesRegex(ValueError, "changed target"):
-            entry_point_arguments("built-in", "origin/develop", False, False, False, False)
+            entry_point_arguments("full", "origin/develop", False)
 
-    def test_without_samples_reaches_the_script(self) -> None:
+    def test_work_dir_and_editor_version_reach_the_script(self) -> None:
         self.assertEqual(
-            ["built-in", "--without-samples"],
-            entry_point_arguments("built-in", None, False, False, False, False, without_samples=True),
+            ["all", "--work-dir", str(Path("D:/w/unit")), "--editor-version", "6000.3.17f1"],
+            entry_point_arguments("all", None, False, Path("D:/w/unit"), "6000.3.17f1"),
         )
-
-    def test_editor_version_reaches_the_script(self) -> None:
-        self.assertEqual(
-            ["all", "--editor-version", "6000.3.17f1"],
-            entry_point_arguments("all", None, False, False, False, False, editor_version="6000.3.17f1"),
-        )
-
-    def test_editor_version_rejects_in_place(self) -> None:
-        with self.assertRaisesRegex(ValueError, "--editor-version runs in an isolated mirror"):
-            entry_point_arguments("built-in", None, False, False, True, False, editor_version="6000.3.17f1")
 
     def test_platform_reaches_the_test_script(self) -> None:
         self.assertEqual(["--platform", "playmode"], platform_arguments("playmode"))
@@ -126,7 +81,7 @@ class UnityToolingTests(unittest.TestCase):
         calls: list[list[str]] = []
 
         with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
-            result = CliRunner().invoke(unity_app, ["test", "--filter", "--dry-run", "built-in"])
+            result = CliRunner().invoke(unity_app, ["test", "--filter", "--dry-run", "full"])
 
         self.assertEqual(2, result.exit_code, result.output)
         # The error box wraps the message, so the option it names can land on the next line.
@@ -152,7 +107,7 @@ class UnityToolingTests(unittest.TestCase):
                 unity_app,
                 [
                     "test",
-                    "built-in",
+                    "full",
                     "--dry-run",
                     "--filter",
                     "Mu3Library.Tests.MultiplayerPerformanceTests",
@@ -166,7 +121,7 @@ class UnityToolingTests(unittest.TestCase):
         self.assertEqual("test-unity.sh", script_path.name)
         self.assertEqual(
             [
-                "built-in",
+                "full",
                 "--dry-run",
                 "--platform",
                 "editmode",
@@ -192,13 +147,13 @@ class UnityToolingTests(unittest.TestCase):
 
         with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
             result = CliRunner().invoke(
-                unity_app, ["test", "built-in", "--dry-run", "--load-spinners", "16", "--repeat", "3"]
+                unity_app, ["test", "full", "--dry-run", "--load-spinners", "16", "--repeat", "3"]
             )
-            refused = CliRunner().invoke(unity_app, ["test", "built-in", "--repeat", "0"])
+            refused = CliRunner().invoke(unity_app, ["test", "full", "--repeat", "0"])
 
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual(
-            [["built-in", "--dry-run", "--platform", "editmode", "--load-spinners", "16", "--repeat", "3"]], calls
+            [["full", "--dry-run", "--platform", "editmode", "--load-spinners", "16", "--repeat", "3"]], calls
         )
         self.assertEqual(2, refused.exit_code, refused.output)
 
@@ -210,40 +165,18 @@ class UnityToolingTests(unittest.TestCase):
             return 0
 
         with mock.patch("mu3_unity.cli.run_entry_point", run):
-            result = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run", "--stall-timeout", "120"])
-            without = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run"])
+            result = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run", "--stall-timeout", "120"])
+            without = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run"])
 
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual(0, without.exit_code, without.output)
         self.assertEqual(
             [
-                ("compile-unity.sh", ["built-in", "--dry-run", "--stall-timeout", "120"]),
-                ("compile-unity.sh", ["built-in", "--dry-run"]),
+                ("compile-unity.sh", ["full", "--dry-run", "--stall-timeout", "120"]),
+                ("compile-unity.sh", ["full", "--dry-run"]),
             ],
             [(script_path.name, arguments) for script_path, arguments in calls],
         )
-
-    def test_repository_mapping_names_the_samples_link(self) -> None:
-        # Only Base still ships a sample (#521); the URP and Watermelon Game packages have none to link.
-        specs = load_target_specs(repo_root())
-
-        self.assertEqual(
-            {"built-in": "Assets/Mu3LibrarySamples"},
-            {key: spec.samples_link.as_posix() for key, spec in specs.items() if spec.samples_link},
-        )
-
-    def test_mapping_loads_without_the_samples_column(self) -> None:
-        root = temporary_root(self)
-        (root / "unity-cli-packages.tsv").write_text("plain\tPackage\tProject\n", encoding="utf-8")
-
-        self.assertIsNone(load_target_specs(root)["plain"].samples_link)
-
-    def test_mapping_rejects_a_samples_link_outside_the_project(self) -> None:
-        root = temporary_root(self)
-        (root / "unity-cli-packages.tsv").write_text("plain\tPackage\tProject\t../Elsewhere\n", encoding="utf-8")
-
-        with self.assertRaisesRegex(ValueError, "inside the repository"):
-            load_target_specs(root)
 
 
 class ProjectLockTests(unittest.TestCase):
@@ -251,62 +184,72 @@ class ProjectLockTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.root = temporary_root(self)
-        self.spec = UnityTargetSpec(key="sample", package_path=Path("Package"), project_path=Path("Project"))
-        self.lock_file = self.root / "Project" / "Temp" / "UnityLockfile"
+        self.project = self.root / "Project"
+        self.lock_file = self.project / "Temp" / "UnityLockfile"
 
     def write_lock_file(self) -> None:
         self.lock_file.parent.mkdir(parents=True)
         self.lock_file.write_text("", encoding="utf-8")
 
     def test_project_without_lock_file_is_not_locked(self) -> None:
-        self.assertEqual("absent", project_lock_state(self.root / "Project", lambda _: True))
+        self.assertEqual("absent", project_lock_state(self.project, lambda _: True))
 
     def test_held_lock_file_means_the_project_is_open(self) -> None:
         self.write_lock_file()
 
-        self.assertEqual("open", project_lock_state(self.root / "Project", lambda _: True))
+        self.assertEqual("open", project_lock_state(self.project, lambda _: True))
 
     def test_unheld_lock_file_is_stale(self) -> None:
         self.write_lock_file()
 
-        self.assertEqual("stale", project_lock_state(self.root / "Project", lambda _: False))
+        self.assertEqual("stale", project_lock_state(self.project, lambda _: False))
 
     def test_lock_file_is_unknown_when_the_holder_cannot_be_checked(self) -> None:
         self.write_lock_file()
 
-        self.assertEqual("unknown", project_lock_state(self.root / "Project", lambda _: None))
+        self.assertEqual("unknown", project_lock_state(self.project, lambda _: None))
 
     def test_doctor_reports_a_stale_lock_apart_from_an_open_project(self) -> None:
         self.write_lock_file()
 
-        open_project = project_lock_diagnostic(self.spec, self.root, lambda _: True)
-        stale_lock = project_lock_diagnostic(self.spec, self.root, lambda _: False)
+        open_project = project_lock_diagnostic("sample", self.project, lambda _: True)
+        stale_lock = project_lock_diagnostic("sample", self.project, lambda _: False)
 
         self.assertEqual("WARN", open_project.status)
         self.assertIn("is open in Unity", open_project.detail)
-        self.assertIn("isolated mirror", open_project.detail)
-        self.assertIn("Project/Temp/UnityLockfile is stale", stale_lock.detail)
-        self.assertIn("compiles in place", stale_lock.detail)
+        self.assertIn("refuse to refresh it", open_project.detail)
+        self.assertIn(f"{self.lock_file.as_posix()} is stale", stale_lock.detail)
+        self.assertIn("runs the project anyway", stale_lock.detail)
         self.assertNotIn("is open", stale_lock.detail)
         self.assertIsNotNone(stale_lock.suggestion)
 
     def test_unknown_lock_advice_fits_the_host(self) -> None:
         self.write_lock_file()
 
-        windows = project_lock_diagnostic(self.spec, self.root, lambda _: None, system="Windows")
-        linux = project_lock_diagnostic(self.spec, self.root, lambda _: None, system="Linux")
+        windows = project_lock_diagnostic("sample", self.project, lambda _: None, system="Windows")
+        linux = project_lock_diagnostic("sample", self.project, lambda _: None, system="Linux")
 
         self.assertIn("could not be opened", windows.detail)
         self.assertNotIn("lsof", windows.detail + windows.suggestion)
-        self.assertIn("delete Project/Temp/UnityLockfile", windows.suggestion)
+        self.assertIn(f"delete {self.lock_file.as_posix()}", windows.suggestion)
         self.assertIn("lsof", linux.detail)
         self.assertIn("Install lsof", linux.suggestion)
-        self.assertIn("delete Project/Temp/UnityLockfile", linux.suggestion)
+        self.assertIn(f"delete {self.lock_file.as_posix()}", linux.suggestion)
 
-    def test_doctor_passes_a_project_without_lock_file(self) -> None:
-        diagnostic = project_lock_diagnostic(self.spec, self.root, lambda _: True)
+    def test_doctor_passes_a_project_without_lock_file_or_not_generated_yet(self) -> None:
+        self.assertEqual("PASS", project_lock_diagnostic("sample", self.project, lambda _: True).status)
+        self.project.mkdir()
+        diagnostic = project_lock_diagnostic("sample", self.project, lambda _: True)
 
         self.assertEqual(("PASS", "Project is not locked."), (diagnostic.status, diagnostic.detail))
+
+    def test_doctor_fails_without_a_work_folder_and_names_what_to_set(self) -> None:
+        with mock.patch.dict(os.environ, {"MU3_WORK_ROOT": ""}):
+            diagnostic, folder = work_dir_diagnostic(repo_root())
+
+        self.assertEqual("FAIL", diagnostic.status)
+        self.assertIsNone(folder)
+        self.assertIn("MU3_WORK_ROOT", diagnostic.detail)
 
     @unittest.skipUnless(
         platform.system() == "Windows" or shutil.which("lsof"), "no way to check file holders on this host"
@@ -317,265 +260,6 @@ class ProjectLockTests(unittest.TestCase):
         with self.lock_file.open("rb"):
             self.assertIs(True, file_is_held_open(self.lock_file))
         self.assertIs(False, file_is_held_open(self.lock_file))
-
-
-class SampleLinkTests(unittest.TestCase):
-    """The development projects see package samples only through a link to Samples~."""
-
-    def setUp(self) -> None:
-        self.root = temporary_root(self)
-        self.spec = UnityTargetSpec("sample", Path("Package"), Path("Project"), Path("Assets/Samples"))
-        samples = self.root / "Package" / "Samples~"
-        samples.mkdir(parents=True)
-        (samples / "Sample.cs").write_text("// sample\n", encoding="utf-8")
-        (self.root / "Project" / "Assets").mkdir(parents=True)
-        self.link = self.root / "Project" / "Assets" / "Samples"
-        # Remove the link before the temporary folder goes, so cleanup never walks through it.
-        self.addCleanup(self.remove_link)
-
-    def remove_link(self) -> None:
-        # A real folder goes with the temporary folder; only a link has to be removed first.
-        if sample_link_state(self.spec, self.root).state in ("linked", "misdirected"):
-            remove_directory_link(self.link)
-
-    def link_all(self) -> list[SampleLinkResult]:
-        return link_samples({"sample": self.spec}, self.root)
-
-    def test_missing_link_is_created(self) -> None:
-        [result] = self.link_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertEqual("Linked Project/Assets/Samples -> Package/Samples~.", result.message)
-        self.assertTrue((self.link / "Sample.cs").is_file())
-        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
-
-    def test_correct_link_is_left_alone(self) -> None:
-        self.link_all()
-        before = os.lstat(self.link)
-
-        [result] = self.link_all()
-
-        self.assertTrue(result.ok)
-        self.assertEqual("Already linked: Project/Assets/Samples -> Package/Samples~.", result.message)
-        after = os.lstat(self.link)
-        self.assertEqual((before.st_ino, before.st_mtime_ns), (after.st_ino, after.st_mtime_ns))
-
-    def test_real_folder_is_not_overwritten(self) -> None:
-        self.link.mkdir()
-        (self.link / "Local.cs").write_text("// local\n", encoding="utf-8")
-
-        [result] = self.link_all()
-
-        self.assertFalse(result.ok)
-        self.assertIn("is a real folder, not a link to Package/Samples~", result.message)
-        self.assertIn("left untouched", result.message)
-        self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
-
-    def test_link_to_another_folder_is_replaced_without_touching_that_folder(self) -> None:
-        other = self.root / "Other"
-        other.mkdir()
-        (other / "Keep.cs").write_text("// keep\n", encoding="utf-8")
-        create_directory_link(self.link, other.resolve())
-
-        [result] = self.link_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertEqual("Relinked Project/Assets/Samples -> Package/Samples~.", result.message)
-        self.assertTrue((self.link / "Sample.cs").is_file())
-        self.assertTrue((other / "Keep.cs").is_file())
-
-    def test_dangling_link_is_replaced(self) -> None:
-        gone = self.root / "Gone"
-        gone.mkdir()
-        create_directory_link(self.link, gone.resolve())
-        gone.rmdir()
-
-        self.assertEqual("misdirected", sample_link_state(self.spec, self.root).state)
-        [result] = self.link_all()
-        self.assertTrue(result.ok, result.message)
-        self.assertTrue((self.link / "Sample.cs").is_file())
-
-    def test_missing_samples_folder_is_an_error(self) -> None:
-        shutil.rmtree(self.root / "Package" / "Samples~")
-
-        [result] = self.link_all()
-
-        self.assertFalse(result.ok)
-        self.assertIn("Package/Samples~ does not exist", result.message)
-
-    def test_doctor_fails_until_the_link_exists(self) -> None:
-        missing = sample_link_diagnostic(self.spec, self.root)
-        self.link_all()
-        linked = sample_link_diagnostic(self.spec, self.root)
-
-        self.assertEqual("FAIL", missing.status)
-        self.assertIn("Project/Assets/Samples is missing", missing.detail)
-        self.assertIn("python -m mu3_samples link", missing.suggestion)
-        self.assertEqual("PASS", linked.status)
-
-    def test_target_without_a_samples_link_is_left_out(self) -> None:
-        plain = UnityTargetSpec("plain", Path("Package"), Path("Project"))
-
-        self.assertEqual([], link_samples({"plain": plain}, self.root))
-        self.assertEqual([], unlink_samples({"plain": plain}, self.root))
-        self.assertIsNone(sample_link_diagnostic(plain, self.root))
-
-    def unlink_all(self) -> list[SampleLinkResult]:
-        return unlink_samples({"sample": self.spec}, self.root)
-
-    def test_unlink_removes_only_the_link(self) -> None:
-        self.link_all()
-
-        [result] = self.unlink_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertEqual("Unlinked Project/Assets/Samples, which pointed at Package/Samples~.", result.message)
-        self.assertFalse(os.path.lexists(self.link))
-        self.assertEqual(["Sample.cs"], [path.name for path in (self.root / "Package" / "Samples~").iterdir()])
-        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
-
-    def test_unlink_removes_a_link_to_another_folder_without_touching_that_folder(self) -> None:
-        other = self.root / "Other"
-        other.mkdir()
-        (other / "Keep.cs").write_text("// keep\n", encoding="utf-8")
-        create_directory_link(self.link, other.resolve())
-
-        [result] = self.unlink_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertIn("Unlinked Project/Assets/Samples, which pointed at ", result.message)
-        self.assertIn("Other", result.message)
-        self.assertFalse(os.path.lexists(self.link))
-        self.assertEqual(["Keep.cs"], [path.name for path in other.iterdir()])
-
-    def test_unlink_removes_a_link_whose_samples_folder_is_gone(self) -> None:
-        # link refuses a target without Samples~; its old link must still go.
-        self.link_all()
-        shutil.rmtree(self.root / "Package" / "Samples~")
-        self.assertEqual("no-samples", sample_link_state(self.spec, self.root).state)
-
-        [result] = self.unlink_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertFalse(os.path.lexists(self.link))
-
-    def test_unlink_leaves_a_real_folder_untouched(self) -> None:
-        self.link.mkdir()
-        (self.link / "Local.cs").write_text("// local\n", encoding="utf-8")
-
-        [result] = self.unlink_all()
-
-        self.assertFalse(result.ok)
-        self.assertEqual(
-            "error: Project/Assets/Samples is not a sample link (a real folder, file, or other reparse point);"
-            " it was left untouched.",
-            result.message,
-        )
-        self.assertEqual(["Local.cs"], [path.name for path in self.link.iterdir()])
-
-    def test_unlink_leaves_a_real_file_untouched(self) -> None:
-        self.link.write_text("local\n", encoding="utf-8")
-
-        [result] = self.unlink_all()
-
-        self.assertFalse(result.ok)
-        self.assertIn("Project/Assets/Samples is not a sample link", result.message)
-        self.assertEqual("local\n", self.link.read_text(encoding="utf-8"))
-
-    def test_unlink_without_a_link_reports_it_and_succeeds(self) -> None:
-        [result] = self.unlink_all()
-
-        self.assertTrue(result.ok, result.message)
-        self.assertEqual("Not linked: Project/Assets/Samples does not exist.", result.message)
-
-    def test_unlink_command_removes_links_and_fails_on_a_real_folder(self) -> None:
-        (self.root / "unity-cli-packages.tsv").write_text(
-            "sample\tPackage\tProject\tAssets/Samples\nblocked\tPackage\tBlocked\tAssets/Samples\n",
-            encoding="utf-8",
-        )
-        blocked = self.root / "Blocked" / "Assets" / "Samples"
-        blocked.mkdir(parents=True)
-        (blocked / "Local.cs").write_text("// local\n", encoding="utf-8")
-        self.link_all()
-
-        with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
-            Path, "cwd", return_value=self.root / "Project"
-        ):
-            result = CliRunner().invoke(samples_app, ["unlink"])
-            unknown = CliRunner().invoke(samples_app, ["unlink", "--target", "missing"])
-
-        self.assertEqual(1, result.exit_code, result.output)
-        self.assertEqual(f"Repository root: {self.root}", result.stdout.splitlines()[0])
-        self.assertIn("[sample] Unlinked Project/Assets/Samples", result.output)
-        self.assertIn("[blocked] error: Blocked/Assets/Samples is not a sample link", result.output)
-        self.assertFalse(os.path.lexists(self.link))
-        self.assertTrue((self.root / "Package" / "Samples~" / "Sample.cs").is_file())
-        self.assertTrue((blocked / "Local.cs").is_file())
-        self.assertEqual(2, unknown.exit_code, unknown.output)
-        self.assertIn("Unknown Unity target 'missing'", unknown.output)
-
-    def test_link_commands_change_nothing_from_a_working_directory_outside_the_checkout(self) -> None:
-        # An installed tool acts on the checkout it was installed from, here self.root (#416).
-        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
-        outside = temporary_root(self)
-
-        def invoke(command: str) -> object:
-            with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
-                Path, "cwd", return_value=outside
-            ):
-                return CliRunner().invoke(samples_app, [command])
-
-        refused_link = invoke("link")
-        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
-        self.link_all()
-        refused_unlink = invoke("unlink")
-        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
-
-        for command, result in (("link", refused_link), ("unlink", refused_unlink)):
-            with self.subTest(command=command):
-                self.assertEqual(2, result.exit_code, result.output)
-                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
-                self.assertEqual(
-                    [
-                        f"error: mu3-samples {command} would change the checkout at {self.root}, "
-                        f"but the working directory {outside} is outside it and in no checkout, so nothing was changed. "
-                        "Run it from inside that checkout."
-                    ],
-                    result.stderr.splitlines(),
-                )
-
-    def test_link_commands_change_nothing_from_a_folder_left_in_a_worktree_folder_of_the_checkout(self) -> None:
-        # A failed git worktree remove leaves a folder with no AGENTS.md or .github in it; run there,
-        # unlink would remove self.root's links instead of that folder's own (#436).
-        (self.root / "unity-cli-packages.tsv").write_text("sample\tPackage\tProject\tAssets/Samples\n", encoding="utf-8")
-        left_behind = self.root / ".worktrees" / "removed"
-        (left_behind / "Project").mkdir(parents=True)
-
-        def invoke(command: str) -> object:
-            with mock.patch("mu3_samples.cli.repo_root", return_value=self.root), mock.patch.object(
-                Path, "cwd", return_value=left_behind / "Project"
-            ):
-                return CliRunner().invoke(samples_app, [command])
-
-        refused_link = invoke("link")
-        self.assertEqual("missing", sample_link_state(self.spec, self.root).state)
-        self.link_all()
-        refused_unlink = invoke("unlink")
-        self.assertEqual("linked", sample_link_state(self.spec, self.root).state)
-
-        for command, result in (("link", refused_link), ("unlink", refused_unlink)):
-            with self.subTest(command=command):
-                self.assertEqual(2, result.exit_code, result.output)
-                self.assertEqual([f"Repository root: {self.root}"], result.stdout.splitlines())
-                [error] = result.stderr.splitlines()
-                self.assertTrue(
-                    error.startswith(
-                        f"error: mu3-samples {command} would change the checkout at {self.root}, but the working "
-                        f"directory {left_behind / 'Project'} is in {left_behind}, "
-                    ),
-                    error,
-                )
-                self.assertIn('see "Worktree Removal" in tools/README.md.', error)
 
 
 class RepositoryRootLineTests(unittest.TestCase):
@@ -751,7 +435,7 @@ class EditorRootTests(unittest.TestCase):
 
 
 class ShortPathTests(unittest.TestCase):
-    """Unity must open a project on the subst drive a command ran from, not on the long path it maps.
+    """Unity must open the packages on the subst drive a command ran from, not on the long path it maps.
 
     A link to the checkout stands in for the drive: Path.resolve() follows both back to the long path.
     """
@@ -772,7 +456,7 @@ class ShortPathTests(unittest.TestCase):
         with mock.patch.object(Path, "cwd", return_value=self.short_root), mock.patch(
             "mu3_common.bash.find_windows_bash", return_value=Path("bash.exe")
         ), mock.patch("mu3_unity.cli.subprocess.run", run):
-            result = CliRunner().invoke(unity_app, ["compile", "built-in", "--dry-run"])
+            result = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run"])
 
         self.assertEqual(0, result.exit_code, result.output)
         [(command, keywords)] = calls
@@ -780,24 +464,13 @@ class ShortPathTests(unittest.TestCase):
         self.assertEqual(self.short_root, keywords["cwd"])
         self.assertEqual(f"Repository root: {self.short_root}", result.stdout.splitlines()[0])
 
-    def test_link_commands_run_from_the_short_path_of_their_own_checkout(self) -> None:
-        # An unknown target stops each command only after the working directory has passed, before any change.
-        for command in ("link", "unlink"):
-            with self.subTest(command=command):
-                with mock.patch.object(Path, "cwd", return_value=self.short_root / "UnityProject_BuiltIn"):
-                    result = CliRunner().invoke(samples_app, [command, "--target", "no-such-target"])
-
-                self.assertEqual(2, result.exit_code, result.output)
-                self.assertEqual([f"Repository root: {self.short_root}"], result.stdout.splitlines())
-                self.assertIn("Unknown Unity target 'no-such-target'", result.stderr)
-                self.assertNotIn("is outside it", result.stderr)
-
     def test_entry_point_keeps_the_short_path_it_was_started_from(self) -> None:
-        # compile-unity.sh passes $REPO_ROOT/<project> to Unity as -projectPath.
-        completed = run_sourced(self.short_root / "compile-unity.sh", 'to_windows_path "$REPO_ROOT/UnityProject_BuiltIn"')
+        # compile-unity.sh passes $REPO_ROOT to the project generator, which writes each checkout
+        # package's folder below it into the generated project's manifest, for Unity to open.
+        completed = run_sourced(self.short_root / "compile-unity.sh", 'to_windows_path "$REPO_ROOT/Mu3Library_Base"')
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertEqual(self.short_root / "UnityProject_BuiltIn", Path(completed.stdout.strip()))
+        self.assertEqual(self.short_root / "Mu3Library_Base", Path(completed.stdout.strip()))
 
 
 if __name__ == "__main__":
