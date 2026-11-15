@@ -41,7 +41,7 @@ namespace Mu3Library.Tests
     /// would, the frames keep to 60 a second in real time, and the timing includes the loopback
     /// sockets; those cases take about 36 seconds each, so <see cref="ExplicitAttribute"/> keeps
     /// them out of a normal run. Run them by name: in this repository with <c>bash
-    /// ./test-unity.sh built-in --filter Mu3Library.Tests.MultiplayerPerformanceTests</c>,
+    /// ./test-unity.sh full --filter Mu3Library.Tests.MultiplayerPerformanceTests</c>,
     /// elsewhere with the Unity Test Framework's <c>-testFilter</c>. The players share this
     /// thread, so a garbage collection that another player's
     /// allocation starts can land in a host frame.
