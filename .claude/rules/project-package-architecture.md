@@ -16,7 +16,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 - which package or folder: [overview.md](.ai/project/wiki/overview.md),
 - compile targets and EditMode tests: [unity-verification.md](.ai/project/wiki/unity-verification.md),
-- manager initialization, disposal, and async operations, or the Watermelon board commands and sample: [runtime-design.md](.ai/project/wiki/runtime-design.md),
+- manager initialization, disposal, and async operations, or the Watermelon board commands: [runtime-design.md](.ai/project/wiki/runtime-design.md),
 - sample scenes and prefabs: [unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md).
 
 ## Package Surfaces
