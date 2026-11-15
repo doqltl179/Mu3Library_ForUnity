@@ -4,7 +4,7 @@
 
 [project]
 name = "Mu3Library_ForUnity"
-summary = "Reusable Unity UPM packages (Base, Notifications, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects."
+summary = "Reusable Unity UPM packages (Base, Input System, Notifications, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects."
 language = "ko"
 guardrails = [
     "Behavior lands in the packages under packages/; the projects generated from tools/unity-projects only consume and exercise them (.ai/project/wiki/overview.md).",
@@ -63,6 +63,12 @@ version_file = "packages/notifications/package.json"
 changelog = "packages/notifications/CHANGELOG.md"
 tag_pattern = "notifications/v{version}"
 
+[[release.packages]]
+name = "inputsystem"
+version_file = "packages/inputsystem/package.json"
+changelog = "packages/inputsystem/CHANGELOG.md"
+tag_pattern = "inputsystem/v{version}"
+
 [agents]
 enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
 
@@ -77,13 +83,13 @@ unity = ["packages/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.p
 unity-upm = ["packages/**/package.json", "packages/**/CHANGELOG.md", "packages/**/*.asmdef", "packages/**/Samples~/**", "packages/**/Documentation~/**"]
 
 [bindings.game-runtime-engineer]
-paths = ["packages/base/Runtime/**", "packages/base/Tests/**", "packages/notifications/Runtime/**", "packages/game/watermelon/Runtime/**", "packages/game/watermelon/Tests/**"]
+paths = ["packages/base/Runtime/**", "packages/base/Tests/**", "packages/notifications/Runtime/**", "packages/inputsystem/Runtime/**", "packages/inputsystem/Tests/**", "packages/game/watermelon/Runtime/**", "packages/game/watermelon/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
-paths = ["packages/base/Editor/**"]
+paths = ["packages/base/Editor/**", "packages/inputsystem/Editor/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build"]
 notes = "Editor tooling of the UPM packages. Compile targets and tests: .ai/project/wiki/unity-verification.md."
@@ -95,7 +101,7 @@ commands = ["build", "test"]
 notes = "The URP package: camera, screen effects, renderer features, and shaders. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.optional-integration-engineer]
-paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "packages/base/Runtime/Addressable/**", "packages/base/Runtime/Localization/**", "packages/base/Runtime/IS/**"]
+paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs", "packages/base/Runtime/Addressable/**", "packages/base/Runtime/Localization/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
 

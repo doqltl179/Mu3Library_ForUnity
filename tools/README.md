@@ -91,7 +91,7 @@ The repository commits no Unity project. Each folder in [unity-projects/](unity-
 | Config | Packages | Optional SDKs | Notes |
 |---|---|---|---|
 | `minimal` | Base | none | Active input handling is the Input Manager, since the Input System package is absent |
-| `full` | Base, Notifications | UniTask, Steamworks.NET, Addressables (through Localization), Localization, Input System, Mobile Notifications | Input handling Both, `steam_appid.txt`, the Addressables settings, and Base's samples linked in |
+| `full` | Base, Input System, Notifications | UniTask, Steamworks.NET, Addressables (through Localization), Localization, Input System, Mobile Notifications | Input handling Both, `steam_appid.txt`, the Addressables settings, and Base's samples linked in |
 | `urp` | Base, URP | Input System | Input handling Input System, the URP settings assets |
 | `watermelon` | Base, URP, Watermelon Game | UniTask, Input System | Input handling Both, the URP settings assets, the Input Actions |
 
@@ -112,7 +112,7 @@ The default command compiles the projects selected from staged, unstaged, and un
 ./compile-unity.sh
 ```
 
-A changed package selects every config whose `Packages/manifest.json` names it as `"checkout"`, since each config installs different optional packages and so compiles the shared sources with a different define set: a `packages/base` change selects `full`, `minimal`, `urp`, and `watermelon`, a `packages/notifications` change `full`, a `packages/urp` change `urp` and `watermelon`, and a `packages/game/watermelon` change `watermelon`. A change inside `tools/unity-projects/<config>/` selects that config.
+A changed package selects every config whose `Packages/manifest.json` names it as `"checkout"`, since each config installs different optional packages and so compiles the shared sources with a different define set: a `packages/base` change selects `full`, `minimal`, `urp`, and `watermelon`, a `packages/inputsystem` or `packages/notifications` change `full`, a `packages/urp` change `urp` and `watermelon`, and a `packages/game/watermelon` change `watermelon`. A change inside `tools/unity-projects/<config>/` selects that config.
 
 Package Markdown, licenses, `Documentation~`, and other repository tooling changes do not trigger Unity compilation.
 
