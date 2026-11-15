@@ -11,7 +11,9 @@ A project is generated in a work folder outside the checkout, by default
 ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<config>, and refreshed on every run: each file the
 config holds is written when it differs, each file that an earlier run wrote and the config no longer
 holds is removed, and everything else, Library/ and Unity's other folders among them, stays for the
-next run. A project folder is the tool's only once its marker file says so.
+next run. A project folder is the tool's only once its marker file says so, and it belongs to the
+checkout the marker names, so that two checkouts whose branches share a unit's folder name never
+refresh each other's projects.
 
 compile-unity.sh and test-unity.sh run this file by its path, as `python -I <path> describe|generate`,
 so it uses the standard library and the mu3_common modules that need nothing else.
@@ -60,8 +62,8 @@ WORK_FOLDER = "Mu3Library_ForUnity"
 UNIT_LENGTH = 32
 PROJECT_MARKER = ".mu3-unity-project"
 PROJECT_MARKER_TEXT = (
-    "mu3_common.unity_projects generated this Unity project from tools/unity-projects and may change or "
-    "delete the files and links it lists below.\n"
+    "mu3_common.unity_projects generated this Unity project from tools/unity-projects for the checkout it "
+    "names below and may change or delete the files and links it lists below.\n"
 )
 _WINDOWS_REPARSE_TAG_MOUNT_POINT = 0xA0000003
 
@@ -278,10 +280,11 @@ def remove_directory_link(link_path: Path) -> None:
 
 @dataclass
 class ProjectRecord:
-    """What the last run wrote into a project folder, as its marker file lists it."""
+    """What the last run wrote into a project folder, as its marker file lists it, and the checkout it wrote them for."""
 
     files: set[str] = field(default_factory=set)
     links: set[str] = field(default_factory=set)
+    checkout: str | None = None
 
 
 def read_record(project: Path) -> ProjectRecord:
@@ -295,12 +298,20 @@ def read_record(project: Path) -> ProjectRecord:
             record.files.add(path)
         elif kind == "link" and path:
             record.links.add(path)
+        elif kind == "checkout" and path:
+            record.checkout = path
     return record
 
 
 def write_record(project: Path, record: ProjectRecord) -> None:
-    lines = [f"file {path}" for path in sorted(record.files)] + [f"link {path}" for path in sorted(record.links)]
+    lines = [f"checkout {record.checkout}"] if record.checkout else []
+    lines += [f"file {path}" for path in sorted(record.files)] + [f"link {path}" for path in sorted(record.links)]
     (project / PROJECT_MARKER).write_text(PROJECT_MARKER_TEXT + "".join(f"{line}\n" for line in lines), encoding="utf-8")
+
+
+def checkout_identity(root: Path) -> str:
+    """The checkout a project is generated for, spelled the same way through a subst drive or a link."""
+    return Path(root).resolve().as_posix()
 
 
 def _inside_project(project: Path, relative: str) -> Path:
@@ -397,6 +408,19 @@ def generate_project(
     except OSError as error:
         raise GenerateError(f"{project} cannot be prepared: {error}") from error
 
+    owner = checkout_identity(root)
+    try:
+        previous = read_record(project)
+    except OSError as error:
+        raise GenerateError(f"{project / PROJECT_MARKER} cannot be read: {error}") from error
+    # Branches whose first 32 characters agree share a unit's folder; a marker without the line comes
+    # from before the line existed, from this branch, and takes this checkout as its owner.
+    if previous.checkout is not None and os.path.normcase(previous.checkout) != os.path.normcase(owner):
+        raise GenerateError(
+            f"{project} was generated for the checkout at {previous.checkout}, not for {owner}, since their branches "
+            "share the unit's folder name; pass --work-dir <folder> to give this checkout's projects a folder of their own"
+        )
+
     state = project_lock_state(project, probe)
     if state == "open":
         raise GenerateError(f"{project} is open in Unity; close it, since a refresh would change its files under the Editor")
@@ -404,7 +428,6 @@ def generate_project(
         raise GenerateError(f"{project}/Temp/UnityLockfile exists and could not be checked; delete it if no Editor has the project open")
 
     try:
-        previous = read_record(project)
         files = expected_files(root, config, project, editor_version, editor_path, result)
 
         # A link goes first, without following it, when the config no longer wants it or it points elsewhere.
@@ -440,7 +463,7 @@ def generate_project(
         # Git keeps no empty folder, so a config without assets, such as minimal, holds no Assets/,
         # which a Unity project needs.
         (project / "Assets").mkdir(exist_ok=True)
-        write_record(project, ProjectRecord(files=set(files), links=set(config.sample_links)))
+        write_record(project, ProjectRecord(files=set(files), links=set(config.sample_links), checkout=owner))
     except OSError as error:
         raise GenerateError(f"refreshing {project} failed: {error}") from error
     return result

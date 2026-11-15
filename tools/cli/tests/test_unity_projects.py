@@ -146,6 +146,23 @@ class GeneratedProjectTests(unittest.TestCase):
             self.generate()
         self.assertEqual(["Mine.cs"], [path.name for path in (self.project / "Assets").iterdir()])
 
+    def test_a_project_that_another_checkout_generated_is_refused(self) -> None:
+        # Branches whose first 32 characters agree share a unit's folder name.
+        self.generate()
+        marker = self.project / PROJECT_MARKER
+        lines = marker.read_text(encoding="utf-8").splitlines()
+        owner = f"checkout {self.root.resolve().as_posix()}"
+        self.assertIn(owner, lines)
+
+        marker.write_text("".join(f"{line}\n" for line in lines if line != owner) + "checkout D:/other\n", encoding="utf-8")
+        with self.assertRaisesRegex(GenerateError, "generated for the checkout at D:/other, .*pass --work-dir <folder>"):
+            self.generate()
+
+        # A marker from before the owner line takes this checkout as its owner.
+        marker.write_text("".join(f"{line}\n" for line in lines if line != owner), encoding="utf-8")
+        self.generate()
+        self.assertIn(owner, marker.read_text(encoding="utf-8").splitlines())
+
     def test_a_project_an_editor_has_open_is_refused(self) -> None:
         self.generate()
         (self.project / "Temp").mkdir()
