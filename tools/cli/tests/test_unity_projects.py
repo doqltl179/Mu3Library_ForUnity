@@ -35,7 +35,12 @@ class RepositoryConfigTests(unittest.TestCase):
     def test_the_four_configs_name_their_packages_from_the_checkout(self) -> None:
         self.assertEqual(["full", "minimal", "urp", "watermelon"], list(self.configs))
         self.assertEqual(
-            {BASE, "com.github.doqltl179.mu3library.inputsystem", "com.github.doqltl179.mu3library.notifications"},
+            {
+                BASE,
+                "com.github.doqltl179.mu3library.inputsystem",
+                "com.github.doqltl179.mu3library.localization",
+                "com.github.doqltl179.mu3library.notifications",
+            },
             set(self.configs["full"].packages),
         )
         self.assertEqual({BASE, "com.github.doqltl179.mu3library.urp"}, set(self.configs["urp"].packages))
