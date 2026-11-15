@@ -4,78 +4,16 @@ import json
 import os
 import platform
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from mu3_common.checkout import repo_root
 
+def folder_editor_version(project_folder: Path) -> str | None:
+    """The Editor version that a project folder's ProjectSettings/ProjectVersion.txt names, or None.
 
-TARGET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-RESERVED_TARGETS = {"all", "changed"}
-
-
-@dataclass(frozen=True)
-class UnityTargetSpec:
-    key: str
-    package_path: Path
-    project_path: Path
-    # Where the project links to the package's Samples~ folder, relative to the project.
-    samples_link: Path | None = None
-
-    @property
-    def samples_path(self) -> Path:
-        return self.package_path / "Samples~"
-
-
-def package_config_path(root: Path) -> Path:
-    return root / "unity-cli-packages.tsv"
-
-
-def _safe_relative_path(value: str, line_number: int) -> Path:
-    path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError(f"Mapping paths must remain inside the repository at line {line_number}: {value}")
-    return path
-
-
-def load_target_specs(root: Path | None = None) -> dict[str, UnityTargetSpec]:
-    root = root or repo_root()
-    config_path = package_config_path(root)
-    if not config_path.is_file():
-        raise ValueError(f"Unity package mapping not found: {config_path}")
-
-    specs: dict[str, UnityTargetSpec] = {}
-    for line_number, raw_line in enumerate(config_path.read_text(encoding="utf-8-sig").splitlines(), start=1):
-        if not raw_line or raw_line.startswith("#"):
-            continue
-
-        # The fourth column, the samples link, is optional.
-        columns = raw_line.split("\t")
-        if len(columns) not in (3, 4) or not all(columns[:3]):
-            raise ValueError(f"Invalid Unity package mapping at {config_path}:{line_number}")
-
-        key, package_value, project_value = columns[:3]
-        samples_value = columns[3] if len(columns) == 4 else ""
-        if not TARGET_PATTERN.fullmatch(key) or key in RESERVED_TARGETS:
-            raise ValueError(f"Invalid or reserved Unity target '{key}' at {config_path}:{line_number}")
-        if key in specs:
-            raise ValueError(f"Duplicate Unity target '{key}' at {config_path}:{line_number}")
-
-        specs[key] = UnityTargetSpec(
-            key=key,
-            package_path=_safe_relative_path(package_value, line_number),
-            project_path=_safe_relative_path(project_value, line_number),
-            samples_link=_safe_relative_path(samples_value, line_number) if samples_value else None,
-        )
-
-    if not specs:
-        raise ValueError(f"No Unity package mappings found in {config_path}")
-    return specs
-
-
-def project_editor_version(spec: UnityTargetSpec, root: Path) -> str | None:
-    version_file = root / spec.project_path / "ProjectSettings" / "ProjectVersion.txt"
+    compile-unity.sh and test-unity.sh take each config's version from it, through unity_projects.py describe.
+    """
+    version_file = project_folder / "ProjectSettings" / "ProjectVersion.txt"
     if not version_file.is_file():
         return None
 
@@ -137,7 +75,7 @@ def editor_package_manager_dir(editor_path: Path) -> Path | None:
     """The folder in which an Editor keeps the packages it bundles, or None when it has none.
 
     It lies beside the executable in Data/ on Windows and Linux, and in Contents/Resources of
-    Unity.app on macOS, as compile-unity.sh's editor_package_manager_dir looks for it.
+    Unity.app on macOS.
     """
     for candidate in (
         editor_path.parent / "Data" / "Resources" / "PackageManager",
@@ -166,10 +104,9 @@ def _read_json_object(path: Path) -> dict:
 def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[str]) -> dict[str, str]:
     """The version an Editor bundles of each named package it bundles.
 
-    The rule is compile-unity.sh's editor_bundled_version, which retargets its --editor-version
-    mirrors: the version the Editor's package manifest recommends, or else the version of the
-    package's built-in copy. A package with neither is left out. A file of a shape other than
-    the Editor writes raises ValueError naming it.
+    The version the Editor's package manifest recommends, or else the version of the package's
+    built-in copy. A package with neither is left out. A file of a shape other than the Editor
+    writes raises ValueError naming it.
     """
     manifest_file = package_manager_dir / "Editor" / "manifest.json"
     recommended: dict = {}
@@ -188,3 +125,36 @@ def editor_bundled_versions(package_manager_dir: Path, package_names: Iterable[s
         if version is not None:
             versions[name] = version
     return versions
+
+
+def retarget_dependencies(
+    dependencies: dict[str, str], package_manager_dir: Path, editor_version: str
+) -> tuple[dict[str, str], list[str], list[str]]:
+    """Point a manifest's dependencies at the Unity packages another Editor bundles.
+
+    Each com.unity.* package pinned to a version takes the version the Editor bundles, a built-in
+    module the Editor does not ship is dropped, since Unity cannot resolve it, and any other package
+    it does not bundle keeps its version. Returns the dependencies, the changes, and the warnings to
+    print. The generated projects of compile-unity.sh --editor-version and the DI stripping
+    harness's mirror both follow it.
+    """
+    pinned = [
+        name for name, version in dependencies.items() if name.startswith("com.unity.") and re.match(r"[0-9]", version)
+    ]
+    bundled = editor_bundled_versions(package_manager_dir, pinned)
+    retargeted: dict[str, str] = {}
+    changes: list[str] = []
+    warnings: list[str] = []
+    for name, version in dependencies.items():
+        if name not in pinned:
+            retargeted[name] = version
+        elif name in bundled:
+            retargeted[name] = bundled[name]
+            if bundled[name] != version:
+                changes.append(f"{name} {version} -> {bundled[name]}")
+        elif name.startswith("com.unity.modules."):
+            changes.append(f"{name} removed, Unity {editor_version} does not ship it")
+        else:
+            retargeted[name] = version
+            warnings.append(f"Unity {editor_version} does not bundle {name}, so the project keeps {version}")
+    return retargeted, changes, warnings

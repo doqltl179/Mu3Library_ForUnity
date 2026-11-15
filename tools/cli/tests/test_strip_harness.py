@@ -4,6 +4,7 @@ import contextlib
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 import unittest
@@ -13,10 +14,9 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
-from shell_harness import run_sourced
 from test_unity_runs import FAKE_EDITOR_PACKAGES, FLOOR_VERSION
 from mu3_common.checkout import repo_root
-from mu3_common.editor import editor_bundled_versions, editor_package_manager_dir
+from mu3_common.editor import editor_package_manager_dir, retarget_dependencies
 from mu3_common.process import stop_process_tree
 from mu3_strip_harness.cli import (
     EXIT_BUILD_FAILED,
@@ -30,7 +30,6 @@ from mu3_strip_harness.cli import (
     claim_work_dir,
     mirror_manifest,
     parse_player_log,
-    retarget_dependencies,
     run_harness,
     run_problems,
     sync_template,
@@ -67,21 +66,30 @@ def write(path: Path, text: str) -> Path:
     return path
 
 
+MINIMAL = Path("tools", "unity-projects", "minimal")
+FULL = Path("tools", "unity-projects", "full")
+
+
 def fixture_root(test: unittest.TestCase) -> Path:
-    """A repository with the files the harness reads: the mapping, two projects, Base, and the template."""
+    """A repository with the files the harness reads: the two configs, Base, and the template.
+
+    It is a Git repository, since the harness finds Base by the name in its package.json among the
+    files Git lists.
+    """
     root = temporary_root(test)
+    git_config = write(root.parent / f"{root.name}.gitconfig", "[safe]\n\tdirectory = *\n")
+    environment = mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": str(git_config), "GIT_CONFIG_NOSYSTEM": "1"})
+    environment.start()
+    test.addCleanup(environment.stop)
+    test.addCleanup(git_config.unlink, missing_ok=True)
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+    write(root / MINIMAL / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
     write(
-        root / "unity-cli-packages.tsv",
-        "built-in\tMu3Library_Base\tUnityProject_BuiltIn\n"
-        "urp\tMu3Library_URP\tUnityProject_URP\n",
-    )
-    write(root / "UnityProject_URP" / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
-    write(
-        root / "UnityProject_URP" / "Packages" / "manifest.json",
+        root / MINIMAL / "Packages" / "manifest.json",
         json.dumps(
             {
                 "dependencies": {
-                    "com.unity.render-pipelines.universal": "17.6.0",
+                    "com.github.doqltl179.mu3library.base": "checkout",
                     "com.unity.test-framework": "1.8.0",
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
@@ -91,14 +99,14 @@ def fixture_root(test: unittest.TestCase) -> Path:
         ),
     )
     write(
-        root / "UnityProject_BuiltIn" / "Packages" / "manifest.json",
+        root / FULL / "Packages" / "manifest.json",
         json.dumps({"dependencies": {"com.cysharp.unitask": UNITASK_URL}}),
     )
     write(
-        root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json",
+        root / FULL / "Packages" / "packages-lock.json",
         json.dumps({"dependencies": {"com.cysharp.unitask": {"version": UNITASK_URL, "hash": "abc123"}}}),
     )
-    (root / "Mu3Library_Base").mkdir()
+    write(root / "Packages" / "Base" / "package.json", json.dumps({"name": "com.github.doqltl179.mu3library.base"}))
     write(root / "tools" / "di-strip-harness" / "Assets" / "Harness" / "Boot.cs", "// boot\n")
     write(root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs", "// plugin\n")
     return root
@@ -154,18 +162,18 @@ class StripHarnessManifestTests(unittest.TestCase):
                     "com.unity.render-pipelines.universal": "17.6.0",
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
-                    "com.github.doqltl179.mu3library.base": "file:../../Mu3Library_Base",
+                    "com.github.doqltl179.mu3library.base": "checkout",
                 },
                 "testables": ["com.github.doqltl179.mu3library.base"],
             },
-            root / "Mu3Library_Base",
+            root / "Packages" / "Base",
             None,
         )
 
         self.assertEqual(["dependencies"], list(manifest))
         self.assertEqual(
             {
-                "com.github.doqltl179.mu3library.base": "file:" + (root / "Mu3Library_Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.6.0",
             },
@@ -188,7 +196,7 @@ class StripHarnessManifestTests(unittest.TestCase):
     def test_unitask_url_that_already_names_a_commit_is_kept(self) -> None:
         root = fixture_root(self)
         write(
-            root / "UnityProject_BuiltIn" / "Packages" / "manifest.json",
+            root / FULL / "Packages" / "manifest.json",
             json.dumps({"dependencies": {"com.cysharp.unitask": f"{UNITASK_URL}#pinned"}}),
         )
 
@@ -529,7 +537,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         def urp_dependencies(dependencies: str) -> Callable[[Path], None]:
             def arrange(root: Path) -> None:
                 fake_editor(root)
-                write(root / "UnityProject_URP" / "Packages" / "manifest.json", f'{{"dependencies": {dependencies}}}')
+                write(root / MINIMAL / "Packages" / "manifest.json", f'{{"dependencies": {dependencies}}}')
 
             return arrange
 
@@ -545,21 +553,21 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
                 "package.json does not hold a JSON object"),
             "lock file entry that is not an object": (
                 lambda root: write(
-                    root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json", '{"dependencies": {"com.cysharp.unitask": "x"}}'
+                    root / FULL / "Packages" / "packages-lock.json", '{"dependencies": {"com.cysharp.unitask": "x"}}'
                 ),
                 ("--with-unitask",), None, "the dependency com.cysharp.unitask is not a JSON object"),
             "unmarked work folder": (lambda root: write(root / "work" / "project" / "Assets" / "Mine.cs", ""), (), None,
                                      f"has no {WORK_DIR_MARKER} marker"),
-            "malformed manifest": (lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", "{"), (), None,
+            "malformed manifest": (lambda root: write(root / MINIMAL / "Packages" / "manifest.json", "{"), (), None,
                                    "manifest.json is not valid JSON: JSONDecodeError"),
             "manifest that is not an object": (
-                lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", '{"dependencies": []}'), (), None,
+                lambda root: write(root / MINIMAL / "Packages" / "manifest.json", '{"dependencies": []}'), (), None,
                 "manifest.json is not a package manifest"),
             "manifest without UniTask": (
-                lambda root: write(root / "UnityProject_BuiltIn" / "Packages" / "manifest.json", '{"dependencies": {}}'),
+                lambda root: write(root / FULL / "Packages" / "manifest.json", '{"dependencies": {}}'),
                 ("--with-unitask",), None, "has no com.cysharp.unitask dependency"),
             "UniTask lock file missing": (
-                lambda root: (root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json").unlink(),
+                lambda root: (root / FULL / "Packages" / "packages-lock.json").unlink(),
                 ("--with-unitask",), None, "FileNotFoundError"),
             "locked mirror file": (lambda root: None, (), ("mu3_strip_harness.cli.write_if_changed", locked),
                                    "preparing the mirror project"),
@@ -648,7 +656,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
 
     def test_the_mirror_gets_its_own_folder_and_the_unity_packages_that_editor_bundles(self) -> None:
         root = fixture_root(self)
-        manifest_file = root / "UnityProject_URP" / "Packages" / "manifest.json"
+        manifest_file = root / MINIMAL / "Packages" / "manifest.json"
         reference = json.loads(manifest_file.read_text(encoding="utf-8"))
         reference["dependencies"]["com.unity.modules.tetgen"] = "1.0.0"
         write(manifest_file, json.dumps(reference))
@@ -676,7 +684,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         )
         self.assertEqual(
             {
-                "com.github.doqltl179.mu3library.base": "file:" + (root / "Mu3Library_Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.0.0",
             },
@@ -703,8 +711,8 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         for name, location, editor_version, warning in (
             ("other Editor for --editor-version", "elsewhere", FLOOR_VERSION,
              f"warning: --editor-version requires Unity {FLOOR_VERSION} but the explicit override will be used: "),
-            ("other Editor for the URP project", "elsewhere", None,
-             "warning: UnityProject_URP requires Unity 6000.6.7f1 but the explicit override will be used: "),
+            ("other Editor for the minimal config", "elsewhere", None,
+             "warning: tools/unity-projects/minimal requires Unity 6000.6.7f1 but the explicit override will be used: "),
             ("Hub install of the requested Editor", f"Hub/Editor/{FLOOR_VERSION}", FLOOR_VERSION, None),
         ):
             with self.subTest(name):
@@ -733,7 +741,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
 
         self.assertEqual([], unity.commands)
 
-    def test_what_the_editor_does_not_bundle_is_kept_or_dropped_as_compile_unity_does(self) -> None:
+    def test_what_the_editor_does_not_bundle_is_kept_or_dropped(self) -> None:
         package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
 
         dependencies, changes, warnings = retarget_dependencies(
@@ -767,29 +775,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
             ],
             changes,
         )
-        self.assertEqual([f"Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the mirror keeps 5.3.3"], warnings)
-
-    def test_bundled_versions_are_the_ones_compile_unity_reads(self) -> None:
-        package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
-        names = [
-            "com.unity.ugui",
-            "com.unity.inputsystem",
-            "com.unity.textmeshpro",
-            "com.unity.modules.audio",
-            "com.unity.modules.tetgen",
-            "com.unity.terrain-tools",
-        ]
-
-        completed = run_sourced(
-            repo_root() / "compile-unity.sh",
-            'for name in "${@:2}"; do printf \'%s=%s\\n\' "$name" "$(editor_bundled_version "$1" "$name" || printf -- -)"; done',
-            arguments=[package_manager.as_posix(), *names],
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        bundled = editor_bundled_versions(package_manager, names)
-        self.assertEqual([f"{name}={bundled.get(name, '-')}" for name in names], completed.stdout.splitlines())
-        self.assertEqual({"com.unity.ugui", "com.unity.inputsystem", "com.unity.textmeshpro", "com.unity.modules.audio"}, set(bundled))
+        self.assertEqual([f"Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the project keeps 5.3.3"], warnings)
 
 
 class StripHarnessCommandTests(unittest.TestCase):

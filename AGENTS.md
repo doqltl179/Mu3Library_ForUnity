@@ -54,14 +54,14 @@ Each line's full rule lives on the linked page.
 
 ## This Project
 
-- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; three UnityProject_* development projects exercise them.
+- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects.
 - Kit: version 0.10.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 
 ### Project Rules
 
-- Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).
+- Behavior lands in the Mu3Library_* packages; the projects generated from tools/unity-projects only consume and exercise them (.ai/project/wiki/overview.md).
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
 - Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).
@@ -72,12 +72,10 @@ Each line's full rule lives on the linked page.
 |---|---|
 | `commands.build` | `bash ./compile-unity.sh changed` |
 | `commands.test` | `bash ./test-unity.sh changed` |
-| `commands.worktree_setup` | `PYTHONPATH=tools/cli/src python -m mu3_samples link` |
-| `commands.worktree_teardown` | `PYTHONPATH=tools/cli/src python -m mu3_samples unlink` |
 | `commands.test_playmode` | `bash ./test-unity.sh changed --platform playmode` |
 | `commands.test_tools` | `PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests` |
 
-Not available (report the gap, do not guess): `install`, `lint`, `format`, `typecheck`, `e2e`, `run`
+Not available (report the gap, do not guess): `install`, `lint`, `format`, `typecheck`, `e2e`, `run`, `worktree_setup`, `worktree_teardown`
 
 ### Parameters
 

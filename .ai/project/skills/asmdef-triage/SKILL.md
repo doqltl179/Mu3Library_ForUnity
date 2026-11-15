@@ -3,7 +3,7 @@ name: asmdef-triage
 description: "Diagnose a Unity assembly-definition problem in the Mu3Library packages and choose the narrowest fix: missing or wrong references, optional-package define gates, code in the wrong assembly, or compile fallout. Use when a compile error points at assembly boundaries or an .asmdef edit is proposed; it first decides whether the edit is needed at all."
 category: code-change
 volatility: evolving
-reviewed: 2026-10-09
+reviewed: 2026-11-15
 ---
 
 # Asmdef Triage
@@ -18,7 +18,7 @@ reviewed: 2026-10-09
 - Upgrading the optional package itself → `dependency-upgrade`.
 
 ## Inputs
-- The failing file or compile log, and the development project it was compiled in.
+- The failing file or compile log, and the target, a project config in `tools/unity-projects/`, it was compiled in.
 
 ## Steps
 1. Identify the failing file, the assembly it compiles into, and the nearest `.asmdef`.

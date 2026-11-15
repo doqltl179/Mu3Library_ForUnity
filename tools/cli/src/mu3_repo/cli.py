@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 
 from mu3_common.checkout import repo_root
-from mu3_common.editor import load_target_specs
+from mu3_common.unity_projects import ConfigError, checkout_packages, load_configs
 from mu3_repo.hygiene import agentkit_cli_path, repository_hygiene_issues, run_agentkit_check
 
 
@@ -16,14 +16,16 @@ def repo_info() -> None:
     root = repo_root()
 
     typer.echo(f"Repository root: {root}")
-    # unity-cli-packages.tsv is the one list of packages and the projects that develop them.
+    # The configs in tools/unity-projects name the packages each generated Unity project develops.
     try:
-        specs = load_target_specs(root)
-    except ValueError as error:
-        typer.echo(f"Packages: unreadable mapping ({error})")
+        packages = checkout_packages(root)
+        configs = load_configs(root)
+    except ConfigError as error:
+        typer.echo(f"Packages: unreadable project configs ({error})")
     else:
-        for spec in specs.values():
-            typer.echo(f"Package ({spec.key}): {root / spec.package_path}, developed in {spec.project_path}")
+        for name, folder in packages.items():
+            developed = ", ".join(config.name for config in configs.values() if name in config.packages) or "no config"
+            typer.echo(f"Package {name}: {root / folder}, developed in {developed}")
     typer.echo(f"Agent kit: {root / '.ai' / 'kit'}")
     typer.echo(f"Agent overlay: {root / '.ai' / 'project'}")
     typer.echo(f"CLI tooling: {root / 'tools' / 'cli'}")

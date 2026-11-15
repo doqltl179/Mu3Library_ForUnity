@@ -14,240 +14,55 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from fixture_repository import FAKE_UNITY, LOAD_HELPER, MAPPING, FixtureRepositoryTestCase, repository_ignore_line
+from fixture_repository import CONFIGS, FAKE_UNITY, LOAD_HELPER, FixtureRepositoryTestCase
 from shell_harness import bash_or_skip
-from test_compile_selection import CAN_CHECK_LOCK_HOLDERS, run_plan
+from test_compile_selection import run_plan
 from mu3_common.bash import bash_script_command
-from mu3_common.checkout import repo_root
-from mu3_common.editor import load_target_specs
-from mu3_common.sample_links import is_directory_link
+from mu3_common.unity_projects import is_directory_link
 from mu3_fixed_load import fixed_load
-from mu3_samples.cli import link_samples, remove_directory_link, unlink_samples
-
-# rm and sleep become shell functions, which take precedence over the commands on PATH. rm fails
-# only for the isolated mirror, whose folder MIRROR_REMOVAL names, so that the run's records beside
-# its log are still replaced.
-MIRROR_REMOVAL = "*mu3library-unity-compile.*"
-FAILING_REMOVAL = f"""rm() {{
-    case "$*" in
-        {MIRROR_REMOVAL}) printf 'rm: cannot remove: Device or resource busy\\n' >&2; return 1 ;;
-    esac
-    command rm "$@"
-}}
-sleep() {{ :; }}
-"""
 
 
-class MirrorCleanupTests(FixtureRepositoryTestCase):
-    """A mirror that cannot be removed must not decide what the run reports."""
+class GeneratedProjectRunTests(FixtureRepositoryTestCase):
+    """Each run generates its target's project under the unit's work folder, or refreshes it, and
+    Unity opens it there."""
 
-    def compile_with_failing_removal(self, *arguments: str, unity_status: int = 0):
-        return self.run_functions(
-            "compile-unity.sh",
-            FAILING_REMOVAL + 'compile_main "$@"',
-            *arguments,
-            environment=self.unity_environment(FAKE_UNITY_STATUS=str(unity_status)),
-        )
+    SAMPLE_LINKS = {"leaf": ("Assets/Samples", "PkgLeaf")}
 
-    def test_mirror_is_removed_after_the_run(self) -> None:
-        completed = self.run_entry_point("compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment())
+    def test_a_run_generates_the_project_and_the_next_one_refreshes_it_keeping_library(self) -> None:
+        environment = self.unity_environment()
+        project = self.project_folder("leaf")
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=environment)
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("Unity compilation succeeded: leaf", completed.stdout)
-        self.assertEqual([], self.mirrors_left())
+        self.assertIn(f"Generated {project.as_posix()} from tools/unity-projects/leaf:", completed.stdout)
+        self.assertIn(f"fake unity ran {project.as_posix()}", completed.stdout.splitlines())
+        manifest = json.loads((project / "Packages" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual("file:" + (self.root / "PkgLeaf").as_posix(), manifest["dependencies"]["fixture.pkgleaf"])
+        # The samples compile through the link, which a refresh keeps without walking through it.
+        self.assertTrue(is_directory_link(project / "Assets" / "Samples"))
+        (project / "Library").mkdir()
+        (project / "Library" / "imported").write_text("", encoding="utf-8")
 
-    def test_failed_removal_still_reports_success_and_runs_every_target(self) -> None:
-        completed = self.compile_with_failing_removal("all", "--isolated")
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        for key, _, _ in MAPPING:
-            self.assertIn(f"Unity compilation succeeded: {key}", completed.stdout.splitlines())
-        warnings = [line for line in completed.stderr.splitlines() if "could not remove the isolated project" in line]
-        self.assertEqual(len(MAPPING), len(warnings), completed.stderr)
-        self.assertIn(str(self.mirrors_left()[0].name), completed.stderr)
-        self.assertIn("warning: rm: cannot remove: Device or resource busy", completed.stderr)
-
-    def test_failed_removal_keeps_the_unity_exit_code(self) -> None:
-        completed = self.compile_with_failing_removal("leaf", "--isolated", unity_status=3)
-
-        self.assertEqual(3, completed.returncode, completed.stderr)
-        self.assertIn("error: Unity compilation failed for leaf (exit 3)", completed.stderr)
-        self.assertIn("could not remove the isolated project", completed.stderr)
-
-    def test_removal_retries_before_it_gives_up(self) -> None:
-        # The first two attempts fail, as they do while a Unity child process still holds a file.
-        # Each attempt runs in its own subshell, so a file counts them.
-        flaky_removal = f"""rm() {{
-    case "$*" in
-        {MIRROR_REMOVAL})
-            printf x >> "$TMPDIR/removal-attempts"
-            if [[ "$(wc -c < "$TMPDIR/removal-attempts")" -le 2 ]]; then return 1; fi
-            ;;
-    esac
-    command rm "$@"
-}}
-sleep() {{ :; }}
-"""
-        completed = self.run_functions(
-            "compile-unity.sh",
-            flaky_removal + 'compile_main "$@"',
-            "leaf",
-            "--isolated",
-            environment=self.unity_environment(),
-        )
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=environment)
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertNotIn("could not remove", completed.stderr)
-        self.assertEqual("xxx", (self.mirror_directory / "removal-attempts").read_text(encoding="utf-8"))
-        self.assertEqual([], self.mirrors_left())
-
-
-class SampleLinkPreflightTests(FixtureRepositoryTestCase):
-    """A project whose samples link is missing must not compile as if it had its samples."""
-
-    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
-
-    def link_leaf_samples(self) -> None:
-        specs = load_target_specs(self.root)
-        [result] = link_samples({"leaf": specs["leaf"]}, self.root)
-        self.assertTrue(result.ok, result.message)
-        self.addCleanup(remove_directory_link, self.root / "ProjLeaf" / "Assets" / "Samples")
-
-    def test_missing_link_stops_the_run_before_unity_starts(self) -> None:
-        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=self.unity_environment())
-
-        self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("error: leaf: ProjLeaf/Assets/Samples is missing, so its samples would not compile.", completed.stderr)
-        self.assertIn("python -m mu3_samples link", completed.stderr)
-        self.assertNotIn("fake unity ran", completed.stdout)
-
-    def test_without_samples_runs_and_says_what_it_left_out(self) -> None:
-        completed = self.run_entry_point(
-            "compile-unity.sh", "leaf", "--without-samples", environment=self.unity_environment()
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("leaf: ProjLeaf/Assets/Samples is missing, so its samples are left out", completed.stderr)
-        self.assertIn("fake unity ran", completed.stdout)
-
-    def test_dry_run_warns_about_a_missing_link(self) -> None:
-        completed = self.run_entry_point("compile-unity.sh", "leaf", "--dry-run")
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("warning: leaf: ProjLeaf/Assets/Samples is missing", completed.stderr)
-
-    def test_real_folder_in_place_of_the_link_stops_the_run(self) -> None:
-        folder = self.root / "ProjLeaf" / "Assets" / "Samples"
-        folder.mkdir()
-        self.addCleanup(folder.rmdir)
-
-        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=self.unity_environment())
-
-        self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("ProjLeaf/Assets/Samples does not link to PkgLeaf/Samples~", completed.stderr)
-
-    def test_linked_samples_are_copied_into_the_isolated_mirror(self) -> None:
-        self.link_leaf_samples()
-
-        completed = self.run_entry_point(
-            "compile-unity.sh", "leaf", "--isolated", "--keep-staging", environment=self.unity_environment()
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertNotIn("Samples", completed.stderr)
-        [mirror] = self.mirrors_left()
-        copied = mirror / "ProjLeaf" / "Assets" / "Samples"
-        self.assertTrue((copied / "Sample.cs").is_file())
-        self.assertFalse(is_directory_link(copied))
-
-
-def repository_sample_links() -> dict[str, str]:
-    """Each repository target's samples link, relative to the repository."""
-    return {
-        key: (spec.project_path / spec.samples_link).as_posix()
-        for key, spec in load_target_specs(repo_root()).items()
-        if spec.samples_link is not None
-    }
-
-
-class SampleLinkIgnoreTests(FixtureRepositoryTestCase):
-    """A samples link is an untracked path inside a project's Assets/, so unless Git ignores it,
-    changed selection picks it up on every run."""
-
-    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        # The fixture ignores its link with a line written exactly as the repository writes its own.
-        real_link = next(iter(repository_sample_links().values()))
-        real_line = repository_ignore_line(real_link)
-        cls.GITIGNORE_LINES = (real_line.replace(real_link, "ProjLeaf/Assets/Samples"),) if real_line else ()
-        super().setUpClass()
-
-    def test_every_repository_samples_link_is_ignored_in_a_form_that_matches_a_symbolic_link(self) -> None:
-        for key, link in repository_sample_links().items():
-            with self.subTest(target=key):
-                line = repository_ignore_line(link)
-                self.assertIsNotNone(line, f"{link} has no .gitignore line")
-                # Git applies a pattern that ends in / only to real directories.
-                self.assertFalse(line.endswith("/"), line)
-
-    def test_linked_samples_select_no_target(self) -> None:
-        [result] = link_samples({"leaf": load_target_specs(self.root)["leaf"]}, self.root)
-        self.assertTrue(result.ok, result.message)
-        self.addCleanup(remove_directory_link, self.root / "ProjLeaf" / "Assets" / "Samples")
-
-        for entry_point, heading in (("compile-unity.sh", "compile"), ("test-unity.sh", "test")):
-            with self.subTest(entry_point=entry_point):
-                completed = self.run_entry_point(entry_point, "changed", "--dry-run")
-
-                self.assertEqual(0, completed.returncode, completed.stderr)
-                self.assertIn("Git changes inspected: 0", completed.stdout.splitlines(), completed.stdout)
-                self.assertIn(f"Selected {heading} targets: none", completed.stdout.splitlines())
-
-
-class WorktreeRemovalTests(FixtureRepositoryTestCase):
-    """On Windows git worktree remove stops at the first junction it meets and leaves the
-    worktree's folder behind, so a linked worktree is removed only after mu3-samples unlink."""
-
-    SAMPLE_LINKS = {"leaf": "Assets/Samples"}
-    # Ignored as the repository ignores its links, so the linked worktree counts as clean.
-    GITIGNORE_LINES = ("ProjLeaf/Assets/Samples",)
-
-    def remove_leftover(self, worktree: Path) -> None:
-        # The link goes first, so that nothing walks through it into the folder it points at.
-        link = worktree / "ProjLeaf" / "Assets" / "Samples"
-        if is_directory_link(link):
-            remove_directory_link(link)
-        shutil.rmtree(worktree, ignore_errors=True)
-        self._git("worktree", "prune")
-
-    def test_worktree_whose_samples_were_unlinked_is_removed_with_its_folder(self) -> None:
-        worktree = self.root.parent / "unit"
-        self._git("worktree", "add", "--detach", str(worktree))
-        self.addCleanup(self.remove_leftover, worktree)
-        # Git does not track the fixture's empty Assets folder, which a real project fills.
-        (worktree / "ProjLeaf" / "Assets").mkdir()
-        specs = load_target_specs(worktree)
-        [linked] = link_samples(specs, worktree)
-        self.assertTrue(linked.ok, linked.message)
-
-        [unlinked] = unlink_samples(specs, worktree)
-        self.assertTrue(unlinked.ok, unlinked.message)
-        self.assertTrue((worktree / "PkgLeaf" / "Samples~" / "Sample.cs").is_file())
-        completed = subprocess.run(
-            ["git", "worktree", "remove", str(worktree)],
-            cwd=self.root,
-            env=self._environment(),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertFalse(os.path.lexists(worktree))
+        self.assertIn(f"Refreshed {project.as_posix()} from tools/unity-projects/leaf: already up to date", completed.stdout)
+        self.assertTrue((project / "Library" / "imported").is_file())
         self.assertTrue((self.root / "PkgLeaf" / "Samples~" / "Sample.cs").is_file())
+
+    def test_a_folder_the_tools_did_not_make_stops_the_run_before_unity(self) -> None:
+        environment = self.unity_environment()
+        project = self.project_folder("leaf")
+        project.mkdir(parents=True)
+        (project / "Notes.txt").write_text("someone's\n", encoding="utf-8")
+
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=environment)
+
+        self.assertEqual(1, completed.returncode, completed.stdout)
+        self.assertIn("has no .mu3-unity-project marker", completed.stderr)
+        self.assertNotIn("fake unity ran", completed.stdout)
+        self.assertEqual(["Notes.txt"], [path.name for path in project.iterdir()])
 
 
 def nunit_results(
@@ -386,7 +201,7 @@ def data_store_loss_log(running: str | None) -> str:
 class TestEntryPointTests(FixtureRepositoryTestCase):
     """Runs the real test-unity.sh with a fake Unity that writes the results it is given."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"shared", "leaf"})
 
     def run_tests(self, *arguments: str, results: str = "", unity_status: int = 0, **fake: str):
         """Run test-unity.sh; fake sets FAKE_UNITY_<NAME> variables, such as log, ticks, and sleep."""
@@ -498,24 +313,6 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("Test filter: Fixture.Tests.Benchmark", completed.stdout.splitlines())
         self.assertNotIn("fake unity ran", completed.stdout)
-
-    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
-    def test_filtered_run_of_an_open_project_runs_in_the_mirror(self) -> None:
-        lock_file = self.root / "ProjLeaf" / "Temp" / "UnityLockfile"
-        lock_file.parent.mkdir(parents=True)
-        lock_file.write_text("", encoding="utf-8")
-        self.addCleanup(shutil.rmtree, lock_file.parent)
-
-        with lock_file.open("rb"):
-            completed = self.run_tests(
-                "leaf", "--filter", "Fixture.Tests.Benchmark", results=nunit_results(passed=1)
-            )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because ProjLeaf is open in Unity.", completed.stdout)
-        self.assertIn("fake unity test filter: [Fixture.Tests.Benchmark]", completed.stdout.splitlines())
-        self.assertTrue(self.results_file("leaf").is_file())
-        self.assertEqual([], self.mirrors_left())
 
     def test_unity_logs_each_test_into_a_log_kept_beside_the_results(self) -> None:
         completed = self.run_tests("leaf", results=nunit_results(), log=UTP_BEGIN)
@@ -1024,11 +821,9 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual([f"  - leaf: FAILED, {reason}", f"    {warning}"], self.summary(completed)[:2])
 
     def test_a_run_whose_unity_launched_the_data_store_service_keeps_the_service_s_log(self) -> None:
-        # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
         service_log = "Starting Unity Data Store Application\nShut down UDS service system complete"
         completed = self.run_tests(
             "leaf",
-            "--isolated",
             results=nunit_results(passed=2, failed=("Breaks",), messages={"Breaks": FRAMEWORK_LOSS_FAILURE}),
             unity_status=2,
             log=f"{DATA_STORE_LAUNCH}\n{data_store_loss_log('Fixture.Tests.Breaks')}",
@@ -1036,8 +831,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         )
 
         self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
-        self.assertEqual([], self.mirrors_left())
+        self.assertIn(f"Testing leaf in {self.project_folder('leaf').as_posix()}.", completed.stdout)
         kept = self.root / "log" / "unity-tests" / "leaf-editmode.uds-service.log"
         self.assertEqual(f"{service_log}\n", kept.read_text(encoding="utf-8"))
         # The fake is not a child of the script as Windows sees it, so the helper finds no service.
@@ -1049,13 +843,11 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(f"    {line}", self.summary(completed)[2])
 
     def test_a_service_log_that_the_run_s_unity_did_not_launch_the_service_for_is_not_kept(self) -> None:
-        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
-        logs = self.root / "ProjLeaf" / "Logs"
+        self.assertEqual(0, self.run_tests("leaf", results=nunit_results(passed=1)).returncode)
+        logs = self.project_folder("leaf") / "Logs"
         logs.mkdir()
-        self.addCleanup(shutil.rmtree, logs)
         (logs / "UDS-Service.log").write_text("an earlier run's service\n", encoding="utf-8")
         kept = self.root / "log" / "unity-tests" / "leaf-editmode.uds-service.log"
-        kept.parent.mkdir(parents=True)
         kept.write_text("kept by an earlier run\n", encoding="utf-8")
 
         completed = self.run_tests("leaf", results=nunit_results(passed=1), log=UTP_BEGIN)
@@ -1104,7 +896,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         completed = self.run_tests("orphan", results=nunit_results())
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("  - orphan: skipped, ProjOrphan/Packages/manifest.json lists no testables", completed.stdout)
+        self.assertIn("  - orphan: skipped, tools/unity-projects/orphan/Packages/manifest.json lists no testables", completed.stdout)
         self.assertNotIn("fake unity ran", completed.stdout)
 
     def test_every_target_runs_after_one_fails(self) -> None:
@@ -1115,22 +907,14 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         self.assertEqual(2, len(ran), completed.stdout)
         self.assertIn("EditMode tests failed for 2 target(s)", completed.stderr)
 
-    def test_results_outlive_the_isolated_mirror(self) -> None:
-        completed = self.run_tests("leaf", "--isolated", results=nunit_results())
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("Testing leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
-        self.assertTrue(self.results_file("leaf").is_file())
-        self.assertEqual([], self.mirrors_left())
-
     def test_dry_run_shows_where_each_target_would_run(self) -> None:
         completed = self.run_tests("all", "--dry-run")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         lines = completed.stdout.splitlines()
         self.assertIn("Selected test targets:", lines)
-        self.assertIn("  - shared: in place", lines)
-        self.assertIn("  - layered: skipped, ProjLayered/Packages/manifest.json lists no testables", lines)
+        self.assertIn(f"  - shared: generate {self.project_folder('shared').as_posix()}", lines)
+        self.assertIn("  - layered: skipped, tools/unity-projects/layered/Packages/manifest.json lists no testables", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
 
 
@@ -1143,7 +927,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
     """Runs test-unity.sh with --load-spinners and --repeat; the fixture's spinners wait instead
     of spinning a core."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"shared", "leaf"})
     # The summary line that totals the other Unity processes of a target's runs.
     OTHERS_OVER_RUNS = r"^    other Unity processes: \d+ (at every count of|to \d+ over) the \d+ runs$"
 
@@ -1338,18 +1122,16 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         self.assertIn("Repeat: 3 runs of each target", lines)
         self.assertNotIn("fake unity ran", completed.stdout)
 
-    @unittest.skipUnless(CAN_CHECK_LOCK_HOLDERS, "no way to check file holders on this host")
     def test_a_run_that_stops_the_script_before_unity_starts_still_stops_its_spinners(self) -> None:
-        lock_file = self.root / "ProjLeaf" / "Temp" / "UnityLockfile"
-        lock_file.parent.mkdir(parents=True)
-        lock_file.write_text("", encoding="utf-8")
-        self.addCleanup(shutil.rmtree, lock_file.parent)
+        # A folder that the tools did not make stops the run as it would generate the project there.
+        project = self.project_folder("leaf")
+        project.mkdir(parents=True)
+        (project / "Notes.txt").write_text("someone's\n", encoding="utf-8")
 
-        with lock_file.open("rb"):
-            completed = self.run_tests("leaf", "--in-place", "--load-spinners", "2", results=nunit_results())
+        completed = self.run_tests("leaf", "--load-spinners", "2", results=nunit_results())
 
         self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("is open in Unity", completed.stderr)
+        self.assertIn("has no .mu3-unity-project marker", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
         record = read_record(self.results_dir() / "leaf-editmode.load")
         self.assertEqual(("none", "yes"), (record["load"], record["complete"]))
@@ -1710,7 +1492,7 @@ class InterruptedLoadRunTests(FixtureRepositoryTestCase):
     """Interrupts test-unity.sh while a fake Unity runs a test under the load, whose spinners wait
     instead of spinning a core, and checks that neither the helper nor a spinner outlives it."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"leaf"})
 
     def start_loaded_run(self) -> tuple[subprocess.Popen[str], dict[str, str], Path]:
         """Starts a run whose fake Unity logs its first test and then stays silent for 60 s, and
@@ -1916,16 +1698,16 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
     def test_a_target_that_stalls_or_fails_ends_the_run_before_the_remaining_targets(self) -> None:
-        # all compiles the five fixture targets in mapping order, and the fake stalls or fails in
-        # each, so the first target ends the run and none of the other four may start.
+        # all compiles the five fixture targets in the order of their names, and the fake stalls or
+        # fails in each, so the first target ends the run and none of the other four may start.
         for fake, status, error in (
             (
                 {"sleep": "120"},
                 1,
-                "error: Unity compilation failed for shared: Unity wrote nothing to its log for 1 s, "
-                "so the script stopped it; see log/unity-compile/shared.log",
+                "error: Unity compilation failed for extra: Unity wrote nothing to its log for 1 s, "
+                "so the script stopped it; see log/unity-compile/extra.log",
             ),
-            ({"unity_status": 3}, 3, "error: Unity compilation failed for shared (exit 3)"),
+            ({"unity_status": 3}, 3, "error: Unity compilation failed for extra (exit 3)"),
         ):
             with self.subTest(error=error):
                 completed = self.compile("all", "--stall-timeout", "1", **fake)
@@ -1934,18 +1716,16 @@ class CompileLogTests(FixtureRepositoryTestCase):
                 self.assertIn(error, completed.stderr)
                 ran = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
                 self.assertEqual(1, len(ran), completed.stdout)
-                self.assertTrue(ran[0].endswith("/ProjShared"), ran[0])
+                self.assertTrue(ran[0].endswith("/extra"), ran[0])
                 self.assertNotIn("Compiling layered", completed.stdout)
                 self.assertNotIn("Unity compilation succeeded", completed.stdout)
 
     def test_a_compile_keeps_the_record_of_its_data_store_service_and_the_service_s_log(self) -> None:
-        # In an isolated mirror, which goes as the run ends, the log is kept before it goes.
         service_log = "Starting Unity Data Store Application\nShut down UDS service system complete"
-        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log=service_log)
+        completed = self.compile("leaf", log=DATA_STORE_LAUNCH, service_log=service_log)
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("Compiling leaf (ProjLeaf) in an isolated mirror because it was requested.", completed.stdout)
-        self.assertEqual([], self.mirrors_left())
+        self.assertIn(f"Compiling leaf in {self.project_folder('leaf').as_posix()}.", completed.stdout)
         logs = self.log_file("leaf").parent
         self.assertEqual(f"{service_log}\n", (logs / "leaf.uds-service.log").read_text(encoding="utf-8"))
         # The helper ran beside the compile, without spinners; the fake is not a child of the
@@ -1956,13 +1736,11 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertNotIn("will not be recorded", completed.stderr)
 
     def test_a_compile_whose_unity_did_not_launch_the_service_keeps_no_service_log(self) -> None:
-        self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
-        project_logs = self.root / "ProjLeaf" / "Logs"
+        self.assertEqual(0, self.compile("leaf", log="Compiling scripts").returncode)
+        project_logs = self.project_folder("leaf") / "Logs"
         project_logs.mkdir()
-        self.addCleanup(shutil.rmtree, project_logs)
         (project_logs / "UDS-Service.log").write_text("an earlier run's service\n", encoding="utf-8")
         kept = self.log_file("leaf").with_name("leaf.uds-service.log")
-        kept.parent.mkdir(parents=True)
         kept.write_text("kept by an earlier run\n", encoding="utf-8")
 
         completed = self.compile("leaf", log="Compiling scripts")
@@ -1981,7 +1759,7 @@ class CompileLogTests(FixtureRepositoryTestCase):
         record.parent.mkdir(parents=True)
         record.write_text("complete=yes\n", encoding="utf-8")
 
-        completed = self.compile("leaf", "--isolated", log=DATA_STORE_LAUNCH, service_log="Shut down")
+        completed = self.compile("leaf", log=DATA_STORE_LAUNCH, service_log="Shut down")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(
@@ -2000,7 +1778,7 @@ class CompileLogTests(FixtureRepositoryTestCase):
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         logs = self.log_file("leaf").parent
-        for key, _, _ in MAPPING:
+        for key in CONFIGS:
             with self.subTest(target=key):
                 self.assertIn(f"Unity compilation succeeded: {key}", completed.stdout.splitlines())
                 record = read_record(logs / f"{key}.load")
@@ -2031,16 +1809,17 @@ class CompileLogTests(FixtureRepositoryTestCase):
             )
 
     def test_records_of_an_earlier_run_go_before_a_run_that_fails_to_start(self) -> None:
-        # A mirror cannot be made in a temporary folder that does not exist, so the run stops before Unity.
+        # A folder that the tools did not make stops the run as it would generate the project there.
         self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
         logs = self.log_file("leaf").parent
         logs.mkdir(parents=True)
         (logs / "leaf.uds-service.log").write_text("kept by an earlier run\n", encoding="utf-8")
         (logs / "leaf.load").write_text("earlier=yes\n", encoding="utf-8")
+        project = self.project_folder("leaf")
+        project.mkdir(parents=True)
+        (project / "Notes.txt").write_text("someone's\n", encoding="utf-8")
 
-        completed = self.run_entry_point(
-            "compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment(TMPDIR=str(self.root / "missing"))
-        )
+        completed = self.run_entry_point("compile-unity.sh", "leaf", environment=self.unity_environment())
 
         self.assertNotEqual(0, completed.returncode, completed.stdout)
         self.assertNotIn("fake unity ran", completed.stdout)
@@ -2719,9 +2498,9 @@ FLOOR_VERSION = "6000.3.17f1"
 
 
 class EditorVersionTests(FixtureRepositoryTestCase):
-    """--editor-version runs another Editor, which must only ever open a mirror set up for it."""
+    """--editor-version runs another Editor, which must only ever open a project of its own set up for it."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"leaf"})
 
     def fake_editor(self, with_packages: bool = True) -> Path:
         """A fake Unity executable, beside the bundled packages of an older Editor when asked."""
@@ -2738,15 +2517,14 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         return executable
 
     def give_leaf_unity_packages(self) -> tuple[Path, Path]:
-        """Gives the leaf project Unity packages and a lock file until the test ends."""
-        packages = self.root / "ProjLeaf" / "Packages"
+        """Gives the leaf config Unity packages and a lock file until the test ends."""
+        packages = self.root / "tools" / "unity-projects" / "leaf" / "Packages"
         manifest, lock = packages / "manifest.json", packages / "packages-lock.json"
         original = manifest.read_bytes()
         self.addCleanup(manifest.write_bytes, original)
         self.addCleanup(lock.unlink, missing_ok=True)
 
         content = json.loads(original)
-        # The module the older Editor lacks comes last, so dropping it must also drop a comma.
         content["dependencies"].update(
             {
                 "com.unity.inputsystem": "1.20.1",
@@ -2761,36 +2539,26 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         lock.write_text("{}\n", encoding="utf-8")
         return manifest, lock
 
-    def test_mirror_is_retargeted_to_the_requested_editor(self) -> None:
+    def retargeted_project(self) -> Path:
+        return self.unit_folder(self.own_work_root()) / f"leaf-{FLOOR_VERSION}"
+
+    def test_project_of_its_own_is_retargeted_to_the_requested_editor(self) -> None:
         manifest, lock = self.give_leaf_unity_packages()
-        repository_manifest = manifest.read_bytes()
+        config_manifest = manifest.read_bytes()
 
         completed = self.run_entry_point(
             "compile-unity.sh",
             "leaf",
             "--editor-version",
             FLOOR_VERSION,
-            "--keep-staging",
             environment=self.unity_environment(UNITY_EDITOR=str(self.fake_editor())),
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn(
-            f"Compiling leaf (ProjLeaf) in an isolated mirror because --editor-version asks for Unity {FLOOR_VERSION}.",
-            completed.stdout,
-        )
-        [mirror] = self.mirrors_left()
-        project = mirror / "ProjLeaf"
-        [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
-        self.assertIn(mirror.name, ran)
-        # The manifest was written with CRLF, as a core.autocrlf checkout holds it, and every line
-        # the retargeting writes back has dropped the CR.
-        self.assertNotIn(b"\r", (project / "Packages" / "manifest.json").read_bytes())
-        # The mirror holds the packages that manifest references, and no other.
-        self.assertEqual(
-            ["PkgLayered", "PkgLeaf", "PkgShared", "ProjLeaf"],
-            sorted(path.name for path in mirror.iterdir() if path.is_dir()),
-        )
+        project = self.retargeted_project()
+        self.assertIn(f"Compiling leaf in {project.as_posix()}.", completed.stdout)
+        self.assertIn(f"fake unity ran {project.as_posix()}", completed.stdout.splitlines())
+        self.assertFalse(self.project_folder("leaf").exists())
         self.assertEqual(
             f"m_EditorVersion: {FLOOR_VERSION}\n",
             (project / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
@@ -2798,9 +2566,9 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         self.assertFalse((project / "Packages" / "packages-lock.json").exists())
         self.assertEqual(
             {
-                "fixture.pkgshared": "file:../../PkgShared",
-                "fixture.pkglayered": "file:../../PkgLayered",
-                "fixture.pkgleaf": "file:../../PkgLeaf",
+                "fixture.pkgshared": "file:" + (self.root / "PkgShared").as_posix(),
+                "fixture.pkglayered": "file:" + (self.root / "PkgLayered").as_posix(),
+                "fixture.pkgleaf": "file:" + (self.root / "PkgLeaf").as_posix(),
                 "com.unity.inputsystem": "1.19.0",
                 "com.unity.terrain-tools": "5.3.3",
                 "com.unity.textmeshpro": "5.0.0",
@@ -2813,33 +2581,22 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         self.assertIn("  - com.unity.ugui 2.6.0 -> 2.0.0", lines)
         self.assertIn(f"  - com.unity.modules.tetgen removed, Unity {FLOOR_VERSION} does not ship it", lines)
         self.assertIn(
-            f"warning: Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the mirror keeps 5.3.3",
+            f"warning: Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the project keeps 5.3.3",
             completed.stderr,
         )
-        # The repository project keeps its own version, manifest, and lock file.
-        self.assertEqual(repository_manifest, manifest.read_bytes())
+        # The config keeps its own version, manifest, and lock file.
+        self.assertEqual(config_manifest, manifest.read_bytes())
         self.assertTrue(lock.is_file())
-        self.assertEqual(
-            "m_EditorVersion: 6000.6.7f1\n",
-            (self.root / "ProjLeaf" / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"),
-        )
 
-    def test_every_target_of_both_entry_points_runs_in_a_mirror(self) -> None:
+    def test_every_target_of_both_entry_points_gets_a_project_of_its_own(self) -> None:
         for entry_point in ("compile-unity.sh", "test-unity.sh"):
             with self.subTest(entry_point=entry_point):
-                completed = self.run_entry_point(entry_point, "all", "--editor-version", FLOOR_VERSION, "--dry-run")
-
-                self.assertEqual(0, completed.returncode, completed.stderr)
-                self.assertIn(
-                    f"  - leaf: isolated mirror, because --editor-version asks for Unity {FLOOR_VERSION}",
-                    completed.stdout.splitlines(),
+                completed = self.run_entry_point(
+                    entry_point, "all", "--editor-version", FLOOR_VERSION, "--dry-run", environment=self.unity_environment()
                 )
 
-    def test_in_place_is_refused(self) -> None:
-        completed = self.run_entry_point("compile-unity.sh", "leaf", "--editor-version", FLOOR_VERSION, "--in-place")
-
-        self.assertEqual(1, completed.returncode, completed.stdout)
-        self.assertIn("cannot be combined with --in-place", completed.stderr)
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                self.assertIn(f"  - leaf: generate {self.retargeted_project().as_posix()}", completed.stdout.splitlines())
 
     def test_version_must_name_a_full_release(self) -> None:
         for version in ("6000.3", "../6000.3.17f1", "6000.3.17f1/x"):
@@ -2875,7 +2632,6 @@ class EditorVersionTests(FixtureRepositoryTestCase):
         self.assertEqual(1, completed.returncode, completed.stdout)
         self.assertIn(f"cannot find the packages that Unity {FLOOR_VERSION} bundles", completed.stderr)
         self.assertNotIn("fake unity ran", completed.stdout)
-        self.assertEqual([], self.mirrors_left())
 
 
 # Where Unity Hub keeps an Editor's executable inside the folder of its version.
@@ -2885,26 +2641,26 @@ HUB_EXECUTABLE = {"Windows": "Editor/Unity.exe", "Darwin": "Unity.app/Contents/M
 
 
 class CrlfCheckoutTests(FixtureRepositoryTestCase):
-    """A checkout with core.autocrlf holds each project's ProjectVersion.txt and Packages/manifest.json
-    with CRLF, and every line the entry points read from them must drop the CR.
+    """A checkout with core.autocrlf holds each config's ProjectVersion.txt and Packages/manifest.json
+    with CRLF, and every value the entry points read from them must drop the CR.
 
-    A CR left on a line would change the Editor version the scripts look for. The manifest readers
-    match part of a line, which a trailing CR cannot change, so these tests check their results.
-    EditorVersionTests retargets a mirror from a manifest written with CRLF.
+    A CR left on a line would change the Editor version the scripts look for. The tool that reads
+    the configs prints its own lines with CRLF on Windows, which the scripts must drop too.
+    EditorVersionTests retargets a project from a manifest written with CRLF.
     """
 
-    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"leaf"})
 
     def setUp(self) -> None:
         super().setUp()
-        version_file = self.root / "ProjLeaf" / "ProjectSettings" / "ProjectVersion.txt"
+        version_file = self.root / "tools" / "unity-projects" / "leaf" / "ProjectSettings" / "ProjectVersion.txt"
         self.addCleanup(version_file.write_bytes, version_file.read_bytes())
         version_file.write_bytes(
             b"m_EditorVersion: 6000.6.7f1\r\nm_EditorVersionWithRevision: 6000.6.7f1 (0123456789ab)\r\n"
         )
         # As bytes, so that every manifest holds CRLF on every OS.
-        for _, _, project in MAPPING:
-            manifest = self.root / project / "Packages" / "manifest.json"
+        for config in CONFIGS:
+            manifest = self.root / "tools" / "unity-projects" / config / "Packages" / "manifest.json"
             content = manifest.read_bytes()
             self.addCleanup(manifest.write_bytes, content)
             manifest.write_bytes(content.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
@@ -2923,7 +2679,7 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
 
     def test_the_editor_version_has_no_cr(self) -> None:
         completed = self.run_functions(
-            "compile-unity.sh", 'project_editor_version ProjLeaf\nprintf "[%s]" "$PROJECT_EDITOR_VERSION"'
+            "compile-unity.sh", 'load_project_configs\nfind_target leaf\nprintf "[%s]" "${CONFIG_EDITOR_VERSIONS[$TARGET_INDEX]}"'
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
@@ -2941,24 +2697,27 @@ class CrlfCheckoutTests(FixtureRepositoryTestCase):
         self.assertTrue(unity.endswith(f"/Hub/Editor/6000.6.7f1/{HUB_EXECUTABLE}"), unity)
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())
 
-    def test_each_package_compiles_in_the_projects_whose_manifest_references_it(self) -> None:
+    def test_each_package_compiles_in_the_configs_whose_manifest_names_it(self) -> None:
         completed = self.run_functions(
             "compile-unity.sh",
-            'load_package_config\nload_package_consumers\nprintf "%s\\n" "${PACKAGE_CONSUMER_TARGETS[@]}"',
+            'load_project_configs\nfor i in "${!PACKAGE_FOLDERS[@]}"; do printf "%s: %s\\n" "${PACKAGE_FOLDERS[$i]}" "${PACKAGE_CONSUMER_TARGETS[$i]}"; done',
         )
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertEqual(["shared layered leaf", "layered leaf", "leaf", "extra", "orphan"], completed.stdout.splitlines())
+        self.assertEqual(
+            ["PkgLayered: layered leaf", "PkgLeaf: leaf", "PkgShared: layered leaf shared", "PkgSharedExtra: extra"],
+            completed.stdout.splitlines(),
+        )
 
     def test_only_the_manifest_that_lists_testables_has_tests_to_run(self) -> None:
         completed = self.run_entry_point("test-unity.sh", "all", "--dry-run")
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         plan = run_plan(completed.stdout)
-        self.assertEqual("in place", plan["leaf"])
-        for key, _, project in MAPPING:
+        self.assertEqual(f"generate {self.unit_folder(self.class_work_root).as_posix()}/leaf", plan["leaf"])
+        for key in CONFIGS:
             if key != "leaf":
-                self.assertEqual(f"skipped, {project}/Packages/manifest.json lists no testables", plan[key])
+                self.assertEqual(f"skipped, tools/unity-projects/{key}/Packages/manifest.json lists no testables", plan[key])
 
     def test_the_hub_editor_tests_the_project_without_an_override(self) -> None:
         hub, _ = self.hub_editor()
@@ -2990,12 +2749,12 @@ class OverrideWarningTests(FixtureRepositoryTestCase):
     """An explicit Editor that is not the one a target asks for is warned about once per target, by
     the preflight, before any Unity starts; the run of the target does not repeat it."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"shared", "leaf"})
 
     def test_each_target_is_warned_about_once_before_unity_starts(self) -> None:
         runs = (
-            ("compile-unity.sh", "compile_main", [project for _, _, project in MAPPING]),
-            ("test-unity.sh", "test_main", ["ProjShared", "ProjLeaf"]),
+            ("compile-unity.sh", "compile_main", [f"tools/unity-projects/{key}" for key in CONFIGS]),
+            ("test-unity.sh", "test_main", ["tools/unity-projects/leaf", "tools/unity-projects/shared"]),
         )
         for entry_point, main, projects in runs:
             with self.subTest(entry_point=entry_point):
@@ -3032,7 +2791,7 @@ class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
     A script that cut its own folder wrong would fall back to the working directory, which the other
     tests keep at the fixture's root, where the result would look the same."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"leaf"})
 
     def setUp(self) -> None:
         super().setUp()
@@ -3072,12 +2831,12 @@ class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
                     self.assertEqual(0, completed.returncode, completed.stderr)
                     self.assertIn(success, completed.stdout.splitlines())
                     [ran] = [line for line in completed.stdout.splitlines() if line.startswith("fake unity ran ")]
-                    self.assertTrue(ran.endswith("/repository/ProjLeaf"), ran)
+                    self.assertEqual(f"fake unity ran {self.project_folder('leaf').as_posix()}", ran)
                     self.assertTrue(kept.is_file(), completed.stdout)
                     self.assertEqual([], list(self.outside.iterdir()))
 
     def test_sourced_entry_points_find_the_repository_from_outside_it(self) -> None:
-        body = 'load_package_config\nprintf "root %s\\ntargets %s\\n" "$REPO_ROOT" "${TARGET_KEYS[*]}"'
+        body = 'load_project_configs\nprintf "root %s\\ntargets %s\\n" "$REPO_ROOT" "${TARGET_KEYS[*]}"'
         for entry_point in ("compile-unity.sh", "test-unity.sh"):
             for spelling, script in self.spellings(entry_point).items():
                 with self.subTest(entry_point=entry_point, spelling=spelling):
@@ -3086,7 +2845,7 @@ class OutsideWorkingDirectoryTests(FixtureRepositoryTestCase):
                     self.assertEqual(0, completed.returncode, completed.stderr)
                     root, targets = completed.stdout.splitlines()
                     self.assertTrue(root.endswith("/repository"), root)
-                    self.assertEqual(f"targets {' '.join(key for key, _, _ in MAPPING)}", targets)
+                    self.assertEqual(f"targets {' '.join(CONFIGS)}", targets)
 
 
 def package_cache_path(length: int, name: str) -> str:
@@ -3177,14 +2936,13 @@ class ProjectPathLengthTests(FixtureRepositoryTestCase):
     """check_project_path_length warns on Windows when the longest path measured below a project, 161
     characters, reaches the 260-character limit in the folder Unity opens."""
 
-    def warning(self, length: int, location: str = "in-place", host: str = "windows") -> str:
+    def warning(self, length: int, host: str = "windows") -> str:
         # On Windows /c/... becomes C:\... of the same length; elsewhere it stays as it is.
         folder = "/c/" + "p" * (length - 3)
         completed = self.run_functions(
             "compile-unity.sh",
-            'HOST_PLATFORM="$3"\ncheck_project_path_length "$1" "$2"\nprintf %s "$PATH_LIMIT_WARNING"',
+            'HOST_PLATFORM="$2"\ncheck_project_path_length "$1"\nprintf %s "$PATH_LIMIT_WARNING"',
             folder,
-            location,
             host,
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
@@ -3199,19 +2957,10 @@ class ProjectPathLengthTests(FixtureRepositoryTestCase):
         self.assertIn("Unity cannot import a file whose path has 260 characters or more on Windows", warning)
         self.assertTrue(
             warning.endswith(
-                "run from a project path of at most 97 characters, such as on a drive letter that subst maps to "
-                "the checkout (tools/README.md)"
+                "set a shorter MU3_WORK_ROOT or pass a shorter --work-dir, so that the project path has at most "
+                "97 characters (tools/README.md)"
             ),
             warning,
-        )
-
-    def test_a_mirror_is_told_to_take_a_shorter_tmpdir(self) -> None:
-        warning = self.warning(120, location="isolated")
-
-        self.assertTrue(warning.startswith("the mirror path "), warning)
-        self.assertIn(" is 120 characters, so the longest package file path measured below a project reaches 282 there", warning)
-        self.assertTrue(
-            warning.endswith("set TMPDIR so that the mirror path has at most 97 characters (tools/README.md)"), warning
         )
 
     def test_another_host_is_not_warned(self) -> None:
@@ -3223,11 +2972,11 @@ class ProjectPathLengthTests(FixtureRepositoryTestCase):
 class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
     """Both entry points warn when Unity's log names a file it could not read past the path limit."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjShared", "ProjLeaf"})
+    TESTABLE_CONFIGS = frozenset({"shared", "leaf"})
     LOG = unreadable(package_cache_path(270, "Window.uss"))
 
     def test_compile_warns_after_each_target_and_again_at_the_end_of_a_run_of_several(self) -> None:
-        for target, keys in (("leaf", ["leaf"]), ("all", [key for key, _, _ in MAPPING])):
+        for target, keys in (("leaf", ["leaf"]), ("all", list(CONFIGS))):
             with self.subTest(target=target):
                 # One stream keeps the warnings in order with the runs they follow.
                 completed = self.run_functions(
@@ -3262,11 +3011,11 @@ class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
         self.assertEqual(3, completed.returncode, completed.stdout)
         lines = completed.stdout.splitlines()
         warning = (
-            "warning: shared: Unity could not read 1 file(s) whose paths have 260 characters or more; "
-            "see log/unity-compile/shared.log"
+            "warning: extra: Unity could not read 1 file(s) whose paths have 260 characters or more; "
+            "see log/unity-compile/extra.log"
         )
         self.assertEqual(
-            [warning, "error: Unity compilation failed for shared (exit 3)"], lines[-2:], completed.stdout
+            [warning, "error: Unity compilation failed for extra (exit 3)"], lines[-2:], completed.stdout
         )
         self.assertEqual(1, lines.count(warning), completed.stdout)
 
@@ -3296,50 +3045,33 @@ class UnreadableLongPathRunTests(FixtureRepositoryTestCase):
 
 
 @unittest.skipUnless(platform.system() == "Windows", "only Windows limits the paths Unity's asset import reads")
-class DeepCheckoutTests(FixtureRepositoryTestCase):
-    """A checkout deep enough that the longest package path measured below a project reaches the
-    Windows limit is warned about before Unity starts, in place and in a mirror."""
+class DeepWorkRootTests(FixtureRepositoryTestCase):
+    """A work root deep enough that the longest package path measured below a project reaches the
+    Windows limit is warned about before Unity starts."""
 
-    TESTABLE_PROJECTS = frozenset({"ProjLeaf"})
-    # Long enough that the project folder passes 97 characters below any temporary directory.
-    ROOT_NAME = "repository-" + "deep" * 22
+    TESTABLE_CONFIGS = frozenset({"leaf"})
 
     def test_both_entry_points_warn_before_unity_starts(self) -> None:
+        # Long enough that the project folder passes 97 characters below any temporary directory.
+        deep = self.own_work_root() / ("deep" * 22)
         for entry_point, main in (("compile-unity.sh", "compile_main"), ("test-unity.sh", "test_main")):
             with self.subTest(entry_point=entry_point):
                 completed = self.run_functions(
                     entry_point,
                     f'{main} "$@" 2>&1',
                     "leaf",
-                    environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results()),
+                    environment=self.unity_environment(FAKE_UNITY_RESULTS=nunit_results(), MU3_WORK_ROOT=str(deep)),
                 )
 
                 self.assertEqual(0, completed.returncode, completed.stdout)
                 lines = completed.stdout.splitlines()
                 [warning] = [index for index, line in enumerate(lines) if line.startswith("warning: leaf: the project path ")]
-                self.assertRegex(lines[warning], r"\\ProjLeaf is \d+ characters, so the longest package file path")
-                self.assertIn("at most 97 characters, such as on a drive letter that subst maps", lines[warning])
+                self.assertRegex(lines[warning], r"\\leaf is \d+ characters, so the longest package file path")
+                self.assertIn("set a shorter MU3_WORK_ROOT or pass a shorter --work-dir", lines[warning])
                 [ran] = [index for index, line in enumerate(lines) if line.startswith("fake unity ran ")]
                 self.assertLess(warning, ran, completed.stdout)
                 if entry_point == "test-unity.sh":
                     self.assertIn(f"    {lines[warning].replace('warning: leaf: ', 'warning: ', 1)}", lines)
-
-    def test_a_mirror_in_a_deep_tmpdir_is_warned_about_and_told_to_shorten_it(self) -> None:
-        directory = tempfile.TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        deep_tmpdir = Path(directory.name) / ("t" * 90)
-        deep_tmpdir.mkdir()
-
-        completed = self.run_entry_point(
-            "compile-unity.sh", "leaf", "--isolated", environment=self.unity_environment(TMPDIR=str(deep_tmpdir))
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        [warning] = [line for line in completed.stderr.splitlines() if line.startswith("warning: leaf: ")]
-        self.assertIn("the mirror path ", warning)
-        self.assertIn("mu3library-unity-compile.", warning)
-        self.assertTrue(warning.endswith("set TMPDIR so that the mirror path has at most 97 characters (tools/README.md)"))
-        self.assertNotIn("the project path ", completed.stderr)
 
 
 if __name__ == "__main__":

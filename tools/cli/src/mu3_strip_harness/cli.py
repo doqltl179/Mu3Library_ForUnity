@@ -24,27 +24,26 @@ import typer
 
 from mu3_common.checkout import echo_repository_root, repo_root
 from mu3_common.editor import (
-    editor_bundled_versions,
     editor_package_manager_dir,
+    folder_editor_version,
     is_hub_editor_for,
-    load_target_specs,
-    project_editor_version,
     resolve_editor_path,
+    retarget_dependencies,
 )
 from mu3_common.process import run_with_timeout
+from mu3_common.unity_projects import CONFIGS_FOLDER, checkout_packages
 from mu3_common.work_dir import FolderNotClaimedError, claim_folder
 
 
 BACKENDS = ("mono", "il2cpp")
 STRIPPING_LEVELS = ("Disabled", "Minimal", "Low", "Medium", "High")
 BASE_PACKAGE = "com.github.doqltl179.mu3library.base"
-BASE_PACKAGE_PATH = "Mu3Library_Base"
 UNITASK_PACKAGE = "com.cysharp.unitask"
-# The development project whose Editor version and Unity modules the mirror takes: it lacks
-# UniTask, so the mirror runs the coroutine path unless --with-unitask adds UniTask.
-REFERENCE_TARGET = "urp"
-# The development project whose manifest and lock file pin the UniTask that --with-unitask adds.
-UNITASK_TARGET = "built-in"
+# The config whose Editor version and Unity modules the mirror takes: like the mirror, it holds Base
+# without any optional SDK, so the mirror runs the coroutine path unless --with-unitask adds UniTask.
+REFERENCE_CONFIG = "minimal"
+# The config whose manifest and lock file pin the UniTask that --with-unitask adds.
+UNITASK_CONFIG = "full"
 PLAYER_NAME = "Harness"
 # Exit codes beside 0 (every check passed) and typer's 2 (a usage error). 1 means only that the
 # player ran and a check failed or it did not report; anything that stops the harness before or
@@ -52,7 +51,7 @@ PLAYER_NAME = "Harness"
 EXIT_CHECKS_FAILED = 1
 EXIT_BUILD_FAILED = 3
 # A project path longer than this risks the Windows path limit inside Library/ and the IL2CPP
-# build folders, as compile-unity.sh warns for its mirrors.
+# build folders, as compile-unity.sh warns for its projects.
 LONG_PROJECT_PATH = 100
 # The file that marks a --work-dir as the harness's own. The harness writes it into a new or empty
 # folder and changes or deletes files only in a folder that has it.
@@ -80,8 +79,8 @@ def setup_step(action: str) -> Iterator[None]:
     """Turn a file, permission, or data error raised while doing `action` into a HarnessSetupError.
 
     A locked or unwritable file raises OSError, a malformed manifest ValueError (JSONDecodeError)
-    or KeyError; none of them says anything about the checks, so none may end the command as a
-    failed check.
+    or KeyError, and an unreadable checkout package ConfigError, a ValueError; none of them says
+    anything about the checks, so none may end the command as a failed check.
     """
     try:
         yield
@@ -145,10 +144,13 @@ def read_dependencies(path: Path, entry_type: type) -> dict:
     return dependencies
 
 
+def config_folder(root: Path, name: str) -> Path:
+    return root / CONFIGS_FOLDER / name
+
+
 def unitask_source(root: Path) -> str:
-    """The UniTask Git URL of the built-in development project, pinned to the commit its lock file names."""
-    specs = load_target_specs(root)
-    project = root / specs[UNITASK_TARGET].project_path / "Packages"
+    """The UniTask Git URL of the full config, pinned to the commit its lock file names."""
+    project = config_folder(root, UNITASK_CONFIG) / "Packages"
     url = read_dependencies(project / "manifest.json", str).get(UNITASK_PACKAGE)
     if url is None:
         raise HarnessSetupError(f"{project / 'manifest.json'} has no {UNITASK_PACKAGE} dependency for --with-unitask to pin")
@@ -161,7 +163,7 @@ def unitask_source(root: Path) -> str:
 def mirror_manifest(reference_manifest: dict, base_path: Path, unitask: str | None) -> dict:
     """The mirror's Packages/manifest.json.
 
-    It keeps the reference project's built-in modules and uGUI, which Base's runtime needs, adds Base
+    It keeps the reference config's built-in modules and uGUI, which Base's runtime needs, adds Base
     from this checkout, and adds UniTask only when asked: no render pipeline, IDE, or test package,
     and no testables, so the player holds little besides Base and the harness.
     """
@@ -174,38 +176,6 @@ def mirror_manifest(reference_manifest: dict, base_path: Path, unitask: str | No
     if unitask:
         dependencies[UNITASK_PACKAGE] = unitask
     return {"dependencies": dict(sorted(dependencies.items()))}
-
-
-def retarget_dependencies(
-    dependencies: dict[str, str], package_manager_dir: Path, editor_version: str
-) -> tuple[dict[str, str], list[str], list[str]]:
-    """Point the mirror's dependencies at the Unity packages another Editor bundles.
-
-    This is what compile-unity.sh --editor-version does to its mirrors: each com.unity.* package
-    pinned to a version takes the version the Editor bundles, a built-in module the Editor does
-    not ship is dropped, since Unity cannot resolve it, and any other package it does not bundle
-    keeps its version. Returns the dependencies, the changes, and the warnings to print.
-    """
-    pinned = [
-        name for name, version in dependencies.items() if name.startswith("com.unity.") and re.match(r"[0-9]", version)
-    ]
-    bundled = editor_bundled_versions(package_manager_dir, pinned)
-    retargeted: dict[str, str] = {}
-    changes: list[str] = []
-    warnings: list[str] = []
-    for name, version in dependencies.items():
-        if name not in pinned:
-            retargeted[name] = version
-        elif name in bundled:
-            retargeted[name] = bundled[name]
-            if bundled[name] != version:
-                changes.append(f"{name} {version} -> {bundled[name]}")
-        elif name.startswith("com.unity.modules."):
-            changes.append(f"{name} removed, Unity {editor_version} does not ship it")
-        else:
-            retargeted[name] = version
-            warnings.append(f"Unity {editor_version} does not bundle {name}, so the mirror keeps {version}")
-    return retargeted, changes, warnings
 
 
 def write_if_changed(path: Path, data: bytes) -> bool:
@@ -374,7 +344,7 @@ class HarnessOptions:
     work_dir: Path | None = None
     build_timeout: float = 3600
     player_timeout: float = 120
-    # Another installed Editor to build with, such as 6000.3.17f1; None takes the URP project's.
+    # Another installed Editor to build with, such as 6000.3.17f1; None takes the minimal config's.
     editor_version: str | None = None
 
 
@@ -390,10 +360,9 @@ def prepare_mirror(
     """Create or refresh the mirror project and return what changed in it.
 
     With editor_version the mirror names that Editor and takes the Unity package versions it
-    bundles; without it, the mirror takes the URP project's ProjectVersion.txt.
+    bundles; without it, the mirror takes the minimal config's ProjectVersion.txt.
     """
-    specs = load_target_specs(root)
-    reference = root / specs[REFERENCE_TARGET].project_path
+    reference = config_folder(root, REFERENCE_CONFIG)
     template = template_dir(root)
     changed: list[str] = []
 
@@ -403,9 +372,12 @@ def prepare_mirror(
     synced = sync_template(template / "Assets", project_dir / "Assets", generated)
     changed += [f"Assets/{path}" for path in synced]
 
+    packages = checkout_packages(root)
+    if BASE_PACKAGE not in packages:
+        raise HarnessSetupError(f"no package.json in the checkout names {BASE_PACKAGE}")
     manifest = mirror_manifest(
         {"dependencies": read_dependencies(reference / "Packages" / "manifest.json", str)},
-        root / BASE_PACKAGE_PATH,
+        root / packages[BASE_PACKAGE],
         unitask_source(root) if with_unitask else None,
     )
     version_file = project_dir / "ProjectSettings" / "ProjectVersion.txt"
@@ -461,12 +433,10 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
     if platform.system() != "Windows":
         raise HarnessSetupError("the harness builds a Windows x64 player, so it runs only on Windows")
 
-    with setup_step("reading the development projects"):
-        specs = load_target_specs(root)
-        reference = specs[REFERENCE_TARGET]
-        version = options.editor_version or project_editor_version(reference, root)
+    reference = (CONFIGS_FOLDER / REFERENCE_CONFIG).as_posix()
+    version = options.editor_version or folder_editor_version(config_folder(root, REFERENCE_CONFIG))
     if version is None:
-        raise HarnessSetupError(f"no Editor version in {reference.project_path}/ProjectSettings/ProjectVersion.txt")
+        raise HarnessSetupError(f"no Editor version in {reference}/ProjectSettings/ProjectVersion.txt")
     editor_path, overridden = resolve_editor_path(version)
     if not editor_path.is_file():
         requester = " for --editor-version" if options.editor_version else ""
@@ -482,7 +452,7 @@ def run_harness(root: Path, options: HarnessOptions, runner: Runner = default_ru
     echo(f"Unity: {editor_path}" + (" (UNITY_EDITOR override)" if overridden else ""))
     if overridden and not is_hub_editor_for(editor_path, version):
         # As compile-unity.sh warns: the mirror and the labels name the version, the override decides.
-        requester = "--editor-version" if options.editor_version else reference.project_path.as_posix()
+        requester = "--editor-version" if options.editor_version else reference
         echo(f"warning: {requester} requires Unity {version} but the explicit override will be used: {editor_path}")
     echo(f"Mirror project: {project_dir}")
     if len(str(project_dir)) > LONG_PROJECT_PATH:
@@ -563,7 +533,7 @@ def di_strip_harness(
     stripping: str = typer.Option("High", "--stripping", help="Managed Stripping Level: " + ", ".join(STRIPPING_LEVELS) + "."),
     backend: str = typer.Option("mono", "--backend", help="Scripting backend: mono or il2cpp."),
     with_unitask: bool = typer.Option(
-        False, "--with-unitask", help="Add UniTask, pinned as the built-in project pins it, so cores prepare through UniTask."
+        False, "--with-unitask", help="Add UniTask, pinned as the full config pins it, so cores prepare through UniTask."
     ),
     work_dir: Path | None = typer.Option(
         None,

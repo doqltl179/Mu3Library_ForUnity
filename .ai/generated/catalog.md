@@ -28,7 +28,7 @@ Active owners, skills, and stack packs for this project. Choose an owner with [r
 
 | Owner | Use when | Binding |
 |---|---|---|
-| [`devtools-engineer`](.ai/kit/core/agents/platform/devtools-engineer.md) | Maintains developer tooling inside the repository: local scripts and CLIs, engine-independent tooling, dev containers and toolchain pins, cross-compilation and flashing tools, linter, formatter, build-tool, and monorepo configuration, and git hooks. Use when the change is to how developers build, lint, flash, or run the project locally; not for CI pipelines, test frameworks, or product code. | `tools/**`, `compile-unity.sh`, `test-unity.sh`, `unity-cli-packages.tsv`, `.editorconfig`, `.gitattributes`; python, shell |
+| [`devtools-engineer`](.ai/kit/core/agents/platform/devtools-engineer.md) | Maintains developer tooling inside the repository: local scripts and CLIs, engine-independent tooling, dev containers and toolchain pins, cross-compilation and flashing tools, linter, formatter, build-tool, and monorepo configuration, and git hooks. Use when the change is to how developers build, lint, flash, or run the project locally; not for CI pipelines, test frameworks, or product code. | `tools/**`, `compile-unity.sh`, `test-unity.sh`, `.editorconfig`, `.gitattributes`; python, shell |
 
 ### documentation (execution)
 
@@ -159,5 +159,5 @@ Inactive core owners (enable in `.ai/project/profile.toml` when work needs them)
 | [`csharp`](.ai/kit/core/stacks/languages/csharp.md) | language | `**/*.cs` | game-runtime-engineer, game-tools-engineer, graphics-engineer, optional-integration-engineer, sample-integrity-engineer |
 | [`python`](.ai/kit/core/stacks/languages/python.md) | language | `**/*.py`, `**/*.pyi` | devtools-engineer |
 | [`shell`](.ai/kit/core/stacks/languages/shell.md) | language | `**/*.sh`, `**/*.bash`, `**/*.ps1`, `**/*.psm1` | devtools-engineer |
-| [`unity`](.ai/kit/core/stacks/frameworks/unity.md) | framework | `Mu3Library_*/**/*.cs`, `UnityProject_*/Assets/**/*.cs`, `**/*.asmdef`, `**/*.asmref`, `**/*.unity`, `**/*.prefab`, `**/*.asset` | game-runtime-engineer, game-tools-engineer, graphics-engineer, optional-integration-engineer, sample-integrity-engineer |
+| [`unity`](.ai/kit/core/stacks/frameworks/unity.md) | framework | `Mu3Library_*/**/*.cs`, `**/*.asmdef`, `**/*.asmref`, `**/*.unity`, `**/*.prefab`, `**/*.asset` | game-runtime-engineer, game-tools-engineer, graphics-engineer, optional-integration-engineer, sample-integrity-engineer |
 | [`unity-upm`](.ai/kit/core/stacks/frameworks/unity-upm.md) | framework | `Mu3Library_*/package.json`, `Mu3Library_*/CHANGELOG.md`, `Mu3Library_*/**/*.asmdef`, `Mu3Library_*/Samples~/**`, `Mu3Library_*/Documentation~/**` | game-runtime-engineer, game-tools-engineer, graphics-engineer, optional-integration-engineer, sample-integrity-engineer, release-manager |

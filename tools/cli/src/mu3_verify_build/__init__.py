@@ -1,1 +1,1 @@
-"""The verification build, a player of a copy of UnityProject_BuiltIn whose Addressables output stays in the checkout: mu3-verify-build."""
+"""The verification build, a Windows player of a project generated from tools/unity-projects/full: mu3-verify-build."""
