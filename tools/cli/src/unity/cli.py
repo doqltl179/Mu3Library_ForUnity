@@ -187,11 +187,11 @@ def run_unity_diagnostics(
 
     if os.access(root, os.W_OK):
         diagnostics.append(
-            _diagnostic("PASS", "global", "Log root", "Repository is writable for future log/unity run records.")
+            _diagnostic("PASS", "global", "Log root", "Repository is writable for the run records under log/.")
         )
     else:
         diagnostics.append(
-            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for future log/unity run records.")
+            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for the run records under log/.")
         )
 
     work_diagnostic, folder = work_dir_diagnostic(root, work_dir)
