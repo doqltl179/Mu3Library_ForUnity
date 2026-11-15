@@ -1,4 +1,3 @@
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
 using System.Collections.Generic;
 using System.IO;
 using Mu3Library.Editor.FileUtil;
@@ -283,4 +282,3 @@ namespace Mu3Library.Editor.Window.Drawer
             => ScriptIdentifier.SanitizeUnderscore(name);
     }
 }
-#endif

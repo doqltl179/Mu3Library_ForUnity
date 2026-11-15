@@ -8,7 +8,6 @@
         "Mu3Library.Multiplayer",
         "Unity.Localization",
         "Unity.Localization.Editor",
-        "Unity.InputSystem",
         "Unity.Addressables",
         "Unity.Addressables.Editor"
     ],
@@ -26,11 +25,6 @@
             "name": "com.unity.localization",
             "expression": "",
             "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
-        },
-        {
-            "name": "com.unity.inputsystem",
-            "expression": "",
-            "define": "MU3LIBRARY_INPUTSYSTEM_SUPPORT"
         },
         {
             "name": "com.unity.addressables",

@@ -1,4 +1,3 @@
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
 using System.Text.RegularExpressions;
 using Mu3Library.IS;
 using NUnit.Framework;
@@ -122,4 +121,3 @@ namespace Mu3Library.Tests
         }
     }
 }
-#endif

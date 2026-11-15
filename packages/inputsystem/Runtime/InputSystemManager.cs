@@ -1,4 +1,3 @@
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -758,4 +757,3 @@ namespace Mu3Library.IS
         }
     }
 }
-#endif
