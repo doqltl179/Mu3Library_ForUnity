@@ -20,9 +20,9 @@ The `unity` stack pack owns how serialized assets change: the route order (live 
 
 ## Reaching A Sample
 
-- Samples live in `Mu3Library_*/Samples~/`, which Unity does not import. `UnityProject_BuiltIn` exposes Base's samples through a Git-ignored link, a junction on Windows and a symbolic link elsewhere: `UnityProject_BuiltIn/Assets/Mu3LibrarySamples`. The URP and Watermelon Game packages ship no samples, so their projects have no link.
+- Samples live in `Mu3Library_*/Samples~/`, which Unity does not import. The project the tools generate from the `full` config exposes Base's samples through a link, a junction on Windows and a symbolic link elsewhere, at `Assets/Mu3LibrarySamples` of that project, in the unit's work folder outside the checkout ([tools/README.md](../../../tools/README.md#unity-project-configs)). The URP and Watermelon Game packages ship no samples, so no other project has a link.
 - The Editor and batch routes therefore edit a sample in place through that path. There is no copy to bring back, and the `.meta` files Unity writes land in `Samples~`, where they are tracked.
-- A fresh clone or worktree has no link until `commands.worktree_setup` (`mu3-samples link`) creates it; run it before taking the Editor or batch route.
+- The link exists once a run of `compile-unity.sh full` or `test-unity.sh full` has generated the project; run one before taking the Editor or batch route, and close the Editor before the next run, which refuses a project an Editor has open.
 
 ## Declared Direct-YAML Edit
 

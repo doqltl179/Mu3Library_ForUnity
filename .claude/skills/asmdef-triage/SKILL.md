@@ -16,7 +16,7 @@ description: "Diagnose a Unity assembly-definition problem in the Mu3Library pac
 - Upgrading the optional package itself → `dependency-upgrade`.
 
 ## Inputs
-- The failing file or compile log, and the development project it was compiled in.
+- The failing file or compile log, and the target, a project config in `tools/unity-projects/`, it was compiled in.
 
 ## Steps
 1. Identify the failing file, the assembly it compiles into, and the nearest `.asmdef`.
