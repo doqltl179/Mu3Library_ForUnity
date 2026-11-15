@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-16 (inputsystem package)
+
+### Changed
+- The `full` project config names the new Input System package, `packages/inputsystem`, as `"checkout"` and lists it under `testables` (#535, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `InputSystemManagerTests` from the package's own test assembly. `urp` and `watermelon` install the Input System without the package, so they no longer run those tests, which Base held until now. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
 ## 2026-11-15 (notifications package)
 
 ### Changed

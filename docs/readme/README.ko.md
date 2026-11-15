@@ -40,8 +40,8 @@
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
-- 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩와 바인딩 오버라이드 퍼시스턴스 지원 (선택)
-- 🧰 **에디터 유틸리티 Drawer**: Input System/Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩, 바인딩 오버라이드 퍼시스턴스와 이름 내보내기 드로어를 별도의 Input System 패키지로 제공
+- 🧰 **에디터 유틸리티 Drawer**: Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper를 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
 
@@ -71,6 +71,8 @@
 
 Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 다른 Mu3Library 패키지는 필요하지 않습니다.
 
+`InputSystemManager`와 그 이름 내보내기 드로어를 담은 Input System 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
@@ -78,6 +80,7 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
 4. 다음 중 하나를 선택합니다:
     - `packages/base/package.json`
     - `packages/notifications/package.json`
+    - `packages/inputsystem/package.json` (먼저 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
@@ -385,6 +388,8 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 
 Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨졌습니다. 이 패키지는 Unity Mobile Notifications를 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/notifications/README.md)를 참고하세요.
 
+`InputSystemManager`는 별도의 Input System 패키지로 옮겨졌습니다. 이 패키지는 Unity Input System을 의존 패키지로 함께 설치합니다. 자세한 내용은 그 [README](../../packages/inputsystem/README.md)를 참고하세요. Base는 아래에서 설명하는, `MVPManager`가 만드는 `EventSystem`의 입력 모듈을 위해 `MU3LIBRARY_INPUTSYSTEM_SUPPORT`를 유지합니다.
+
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
 Steam 지원은 에디터와 64비트 스탠드얼론 플레이어로 한정됩니다. `Mu3Library.Multiplayer.Steam`의 `includePlatforms`가 32비트 Windows를 제외하므로, 32비트 Windows 플레이어는 이 어셈블리 없이 빌드됩니다. 이 어셈블리의 타입을 쓰는 게임 코드는 자체 어셈블리 정의에 두고, 그 어셈블리 정의가 `Mu3Library.Multiplayer.Steam`을 참조하면서 `Mu3Library.Multiplayer.Steam.asmdef`의 `includePlatforms`, `defineConstraints`, `versionDefines` 항목을 그대로 옮겨 오게 하세요. `versionDefines`의 심볼은 그것을 선언한 어셈블리 안에만 존재하므로 이 항목도 필요합니다. 그러면 그 코드는 Steam 어셈블리가 컴파일되는 바로 그 플랫폼에서만 컴파일됩니다. `versionDefines` 심볼과 `UNITY_STANDALONE`에 `#if`를 거는 방법으로는 32비트 Windows 플레이어를 뺄 수 없습니다. 그 플레이어에서도 두 심볼이 모두 정의되기 때문입니다. Unity 6.6이 `UNITY_64`를 사용 중단했으므로 이 심볼을 더하는 방법에도 기댈 수 없습니다. 그래서 이 방법은 Multiplayer 샘플처럼 32비트 Windows 플레이어를 빌드하지 않는 게임에만 맞습니다. 어셈블리 정의가 없는 코드(`Assembly-CSharp`)는 `versionDefines`를 읽을 수 없고, `versionDefines`는 Package Manager가 설치한 패키지만 보며 `.unitypackage` 임포트는 보지 못합니다. `STEAMWORKS_NET`으로 감싸지 마세요. Steamworks.NET 설치 프로그램이 이 심볼을 프로젝트의 스크립팅 Define에 기록하고, 패키지를 제거해도 남기 때문입니다.
@@ -437,7 +442,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Resource**: Resources 폴더 로딩
 - **Scene**: phase/status 조회, lifecycle/progress callback, 일회성 lifecycle 구독 helper, 통합 rejection event를 제공하는 씬 로딩 추상화
 - **UI**: MVP 패턴 구현, 축별 일괄/단일 분할선으로 자식을 9개 영역 중 하나에 anchor로 맞추는 `UIAreaGrid`/`UIAreaElement`, canvas를 화면 safe area 안에 유지하는 `SafeCanvas`/`SafeRect`
-- **IS**: Unity Input System 래퍼 및 바인딩 매니저 (선택)
+- **IS**: 별도의 Input System 패키지로 옮겨짐 ([README](../../packages/inputsystem/README.md))
 - **Utility**: Singleton, EasingFunctions, Settings, 카메라 뷰포트에 `SpriteRenderer` 배경을 맞추는 `Mu3Library.Utility.WorldSpaceBackground`, 게임이 도는 동안 매 프레임 직접 확인하지 않고 크기나 safe area가 바뀐 화면을 따라가는 `Mu3Library.Utility.ScreenChangeNotifier`
 - **WebRequest**: HTTP 요청 관리
 
@@ -552,6 +557,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 **패키지 정보:**
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications` (다음 릴리스부터)
+- Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존, 다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)

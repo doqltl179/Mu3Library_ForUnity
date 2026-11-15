@@ -40,8 +40,8 @@
 - 🔁 **高信頼ネットワーキング**: WebRequest 結果型 API にステータス、ヘッダー、タイムアウト、リトライと、必要時のみのキャンセル伝播を提供
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
 - ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
-- 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
-- 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
+- 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化と名前エクスポーターのドロワーを、独立した Input System パッケージで提供
+- 🧰 **エディタユーティリティドロワー**: Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
 - 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
 
@@ -71,6 +71,8 @@
 
 Android と iOS のローカル通知を扱う Notifications パッケージは次のリリースで公開され、そのときこの一覧に URL が加わります。ほかの Mu3Library パッケージは必要ありません。
 
+`InputSystemManager` とその名前エクスポーターのドロワーを含む Input System パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
@@ -78,6 +80,7 @@ Android と iOS のローカル通知を扱う Notifications パッケージは�
 4. 以下のいずれかを選択:
     - `packages/base/package.json`
     - `packages/notifications/package.json`
+    - `packages/inputsystem/package.json`（先に Base をインストール）
     - `packages/urp/package.json`（先に Base をインストール）
     - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
 
@@ -385,6 +388,8 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 
 Android と iOS のローカル通知は独立した Notifications パッケージに移りました。このパッケージは Unity Mobile Notifications を依存パッケージとして一緒にインストールするため、define シンボルで有効にするものではありません。詳しくはその [README](../../packages/notifications/README.md) を参照してください。
 
+`InputSystemManager` は独立した Input System パッケージに移りました。このパッケージは Unity Input System を依存パッケージとして一緒にインストールします。詳しくはその [README](../../packages/inputsystem/README.md) を参照してください。Base は、後述する `MVPManager` が作成する `EventSystem` の入力モジュールのために `MU3LIBRARY_INPUTSYSTEM_SUPPORT` を残します。
+
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
 Steam のサポート対象は、エディターと 64 ビットのスタンドアロンプレイヤーだけです。`Mu3Library.Multiplayer.Steam` の `includePlatforms` が 32 ビット Windows を除外しているため、32 ビット Windows プレイヤーはこのアセンブリなしでビルドされます。このアセンブリの型を使うゲームコードは独自のアセンブリ定義に置き、そのアセンブリ定義で `Mu3Library.Multiplayer.Steam` を参照し、`Mu3Library.Multiplayer.Steam.asmdef` の `includePlatforms`、`defineConstraints`、`versionDefines` エントリをそのまま写してください。`versionDefines` のシンボルはそれを宣言したアセンブリの中にだけ存在するため、このエントリも必要です。こうすると、そのコードは Steam アセンブリがコンパイルされるまさにその場所でだけコンパイルされます。`versionDefines` のシンボルと `UNITY_STANDALONE` に `#if` を掛ける方法では、32 ビット Windows プレイヤーを除外できません。そのプレイヤーでも両方のシンボルが定義されるためです。Unity 6.6 で `UNITY_64` が非推奨になったため、このシンボルを加える方法にも頼れません。そのため、この方法は Multiplayer サンプルのように 32 ビット Windows プレイヤーをビルドしないゲームにだけ向いています。アセンブリ定義のないコード（`Assembly-CSharp`）は `versionDefines` を読めません。また、`versionDefines` は Package Manager がインストールしたパッケージしか見ず、`.unitypackage` のインポートは見えません。`STEAMWORKS_NET` で囲まないでください。Steamworks.NET のインストーラーがこのシンボルをプロジェクトのスクリプティング Define に書き込み、パッケージを削除した後も残るためです。
@@ -437,7 +442,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Resource**: Resourcesフォルダローディング
 - **Scene**: phase/status 参照、lifecycle/progress callback、one-shot lifecycle 購読 helper、統合 rejection event を提供するシーンローディング抽象化
 - **UI**: MVPパターン実装、軸ごとの一括/個別の分割線で子を9つの領域のいずれかに anchor で合わせる `UIAreaGrid`/`UIAreaElement`、canvas を画面の safe area 内に保つ `SafeCanvas`/`SafeRect`
-- **IS**: Unity Input System ラッパーおよびバインディングマネージャー（オプション）
+- **IS**: 独立した Input System パッケージに移動（[README](../../packages/inputsystem/README.md)）
 - **Utility**: Singleton、EasingFunctions、Settings、カメラのビューポートに `SpriteRenderer` 背景を合わせる `Mu3Library.Utility.WorldSpaceBackground`、ゲームが動いている間、毎フレーム自分で確認せずに大きさや safe area が変わった画面に追従する `Mu3Library.Utility.ScreenChangeNotifier`
 - **WebRequest**: HTTPリクエスト管理
 
@@ -552,6 +557,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications`（次のリリースから）
+- Input System: `com.github.doqltl179.mu3library.inputsystem`（Base に依存、次のリリースから）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)

@@ -1,0 +1,25 @@
+{
+    "name": "com.github.doqltl179.mu3library.inputsystem",
+    "version": "0.1.0",
+    "displayName": "Mu3 Library Input System",
+    "description": "Input System management for Mu3Library: InputSystemManager keeps Input Action assets under string IDs, finds their action maps and actions by ID or by name, runs interactive rebinds, and saves and restores binding overrides as JSON. The InputSystem Data Exporter drawer generates a script of the names and IDs of an asset, its action maps, and its actions.",
+    "unity": "6000.3",
+    "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/packages/inputsystem/README.md",
+    "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
+    "license": "MIT",
+    "author": {
+        "name": "Mu3",
+        "url": "https://github.com/doqltl179"
+    },
+    "keywords": [
+        "Mu3Library",
+        "Input System",
+        "Input Actions",
+        "Rebinding",
+        "Binding Overrides"
+    ],
+    "dependencies": {
+        "com.github.doqltl179.mu3library.base": "0.29.0",
+        "com.unity.inputsystem": "1.18.0"
+    }
+}

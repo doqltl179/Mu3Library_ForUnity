@@ -40,8 +40,8 @@
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
-- 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
-- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
+- 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence, with a name exporter drawer, in the separate Input System package
+- 🧰 **Editor Utility Drawers**: Includes a Localization name exporter, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
 - 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, and board fitting and coordinate helpers
 
@@ -71,6 +71,8 @@ Install the packages in the order Base, URP, Watermelon Game: URP depends on Bas
 
 The Notifications package, local notifications for Android and iOS, ships with the next release, and its URL joins this list then. It needs no other Mu3Library package.
 
+The Input System package, `InputSystemManager` and its name exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
+
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
@@ -78,6 +80,7 @@ The Notifications package, local notifications for Android and iOS, ships with t
 4. Select one of the following:
     - `packages/base/package.json`
     - `packages/notifications/package.json`
+    - `packages/inputsystem/package.json` (install Base first)
     - `packages/urp/package.json` (install Base first)
     - `packages/game/watermelon/package.json` (install Base and URP first)
 
@@ -385,6 +388,8 @@ When the following packages are installed, their features are automatically enab
 
 Local notifications for Android and iOS moved to the separate Notifications package, which installs Unity Mobile Notifications as its dependency, so no define symbol switches them on: see its [README](packages/notifications/README.md).
 
+`InputSystemManager` moved to the separate Input System package, which installs Unity Input System as its dependency: see its [README](packages/inputsystem/README.md). Base keeps `MU3LIBRARY_INPUTSYSTEM_SUPPORT` for the input module of the `EventSystem` that `MVPManager` creates, described below.
+
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
 Steam support covers the editor and 64-bit standalone players only: the `includePlatforms` of `Mu3Library.Multiplayer.Steam` leave out 32-bit Windows, so a 32-bit Windows player builds without that assembly. Put game code that uses its types in an assembly definition of your own that references `Mu3Library.Multiplayer.Steam` and copies the `includePlatforms`, `defineConstraints`, and `versionDefines` entry of `Mu3Library.Multiplayer.Steam.asmdef`; the entry is needed too, since a `versionDefines` symbol is defined only in the assembly that declares it. That code then compiles exactly where the Steam assembly does. `#if` on a `versionDefines` symbol and `UNITY_STANDALONE` cannot leave out a 32-bit Windows player, where both are defined, and adding `UNITY_64` is no way out either, since Unity 6.6 deprecates it, so that gate suits only a game that builds no 32-bit Windows player, as the Multiplayer sample does. Code without an assembly definition of its own (`Assembly-CSharp`) cannot read `versionDefines`, and `versionDefines` sees only a package that the Package Manager installed, not a `.unitypackage` import. Do not gate on `STEAMWORKS_NET`: the Steamworks.NET installer writes it into the project's scripting defines, where it stays after the package is removed.
@@ -437,7 +442,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Resource**: Resources folder loading
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
-- **IS**: Unity Input System wrapper and binding manager (optional)
+- **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))
 - **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area while the game runs, without a per frame check of your own
 - **WebRequest**: HTTP request management
 
@@ -552,6 +557,7 @@ This project is distributed under the MIT License.
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications` (from the next release)
+- Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base, from the next release)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

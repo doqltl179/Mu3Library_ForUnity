@@ -54,7 +54,7 @@ Each line's full rule lives on the linked page.
 
 ## This Project
 
-- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, Notifications, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects.
+- Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Base, Input System, Notifications, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects.
 - Kit: version 0.10.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
@@ -105,4 +105,4 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `docs.glossary` | .ai/project/wiki/glossary.md |
 | `docs.locale_paths` | README.md → docs/readme/README.{locale}.md; CHANGELOG.md → docs/changelog/CHANGELOG.{locale}.md |
 | `release.tag_pattern` | v{version} |
-| `release.packages` | base, urp, watermelon, notifications |
+| `release.packages` | base, urp, watermelon, notifications, inputsystem |

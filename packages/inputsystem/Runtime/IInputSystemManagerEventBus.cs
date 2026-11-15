@@ -1,4 +1,3 @@
-#if MU3LIBRARY_INPUTSYSTEM_SUPPORT
 using System;
 using UnityEngine.InputSystem;
 
@@ -34,4 +33,3 @@ namespace Mu3Library.IS
         event Action<InputAction, int> OnRebindCanceled;
     }
 }
-#endif

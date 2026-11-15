@@ -1,7 +1,7 @@
 ---
 owns: "What this repository is: the package model, the package-first rule, the project configs and where their Unity projects are generated, which checkout a Claude app session's unit uses, where units running at the same time put their worktrees, where each machine sets the work-folder root and how short `<unit>` is, removing a worktree, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
-reviewed: 2026-11-15
+reviewed: 2026-11-16
 ---
 
 # Overview
@@ -27,6 +27,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | Package | Folder | Depends on | Scope and area label |
 |---|---|---|---|
 | Base | `packages/base/` | — | `base` |
+| Input System | `packages/inputsystem/` | Base | `inputsystem`; no area label of its own yet |
 | Notifications | `packages/notifications/` | — | `notifications`; no area label of its own yet |
 | URP | `packages/urp/` | Base | `urp` |
 | Watermelon Game | `packages/game/watermelon/` | Base, URP | `watermelon`, never `game` |
@@ -35,7 +36,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Config | Exercises | Compile target |
 |---|---|---|
-| `tools/unity-projects/full` | Base and Notifications on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
+| `tools/unity-projects/full` | Base, Input System, and Notifications on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
 | `tools/unity-projects/minimal` | Base without any optional SDK | `minimal` |
 | `tools/unity-projects/urp` | URP layered on Base | `urp` |
 | `tools/unity-projects/watermelon` | Watermelon Game | `watermelon` |
@@ -52,7 +53,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | Path | Holds |
 |---|---|
 | `packages/<name>/Runtime/` | Package runtime, one folder per feature with the assets it needs, such as URP's `ScreenEffect/`, which holds the screen-effect shaders and the `Resources/` asset that keeps them in player builds |
-| `packages/<name>/Editor/` | Editor tooling (Base) |
+| `packages/<name>/Editor/` | Editor tooling (Base, Input System) |
 | `packages/<name>/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
 | `packages/<name>/Tests/` | EditMode tests (each package that has tests) |
 | `tools/unity-projects/` | Project configs, from which the tools generate the Unity projects in the work folder; the `full` project links Base's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source. The URP and Watermelon Game packages ship no samples |
@@ -62,8 +63,8 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 ## Commit Scopes
 
-- A scope names a package (`base`, `notifications`, `urp`, `watermelon`), a surface inside one (`di`, `object-pool`, `audio`, `mvp`, `localization`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
-- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Notifications has no label of its own yet: adding one creates a GitHub label, so it waits for the user.
+- A scope names a package (`base`, `inputsystem`, `notifications`, `urp`, `watermelon`), a surface inside one (`di`, `object-pool`, `audio`, `mvp`, `localization`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
+- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Input System and Notifications have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
 - Commits written before Korean became the commit language keep their original language; never rewrite them.
 
 ## Human-Facing Docs
