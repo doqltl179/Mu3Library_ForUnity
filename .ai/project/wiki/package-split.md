@@ -54,7 +54,7 @@ How a feature leaves Base for a package of its own under [ADR 0001](../../../doc
 
 ## Docs Until The First Release
 
-- Move the feature's documentation from Base's README and the root README into the package README, and leave a pointer to it in each. Once Base keeps no gate for the SDK, it also leaves the optional-integration lists: the root README's feature list and «Optional Packages» table and their copies, Base's README, and the glossary, as Mobile Notifications and Localization did.
+- Move the feature's documentation from Base's README and the root README into the package README, and leave a pointer to it in each. Once Base keeps no gate for the SDK, it also leaves the optional-integration lists: the root README's feature list and «Optional Packages» table and their copies, Base's README, the `description` in Base's `package.json`, and the glossary, as Mobile Notifications and Localization did.
 - Under Unreleased in the root CHANGELOG and its copies: a Base entry saying that the feature moved, that a project using it installs the new package from its first release, and what D5 says stays or changes for that feature, such as an assembly reference to add (D7) or a renamed assembly and namespace (D19); and an entry for the new package. The package-local CHANGELOG gets its first version entry at the release.
 - List the package in the root README and its copies, in the local-disk install list and the package list at the end, and say that it ships with the next release: no install URL names a tag that does not exist yet. «Install URLs» in package-release.md covers adding the URL.
 - Add a dated entry to `docs/repository/CHANGELOG.md` for the config change.
