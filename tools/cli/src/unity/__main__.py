@@ -1,4 +1,4 @@
-from mu3_verify_build.cli import app
+from unity.cli import app
 
 
 if __name__ == "__main__":

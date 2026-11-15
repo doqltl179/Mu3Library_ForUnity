@@ -16,7 +16,7 @@ checkout the marker names, so that two checkouts whose branches share a unit's f
 refresh each other's projects.
 
 compile-unity.sh and test-unity.sh run this file by its path, as `python -I <path> describe|generate`,
-so it uses the standard library and the mu3_common modules that need nothing else.
+so it uses the standard library and the common modules that need nothing else.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import os
 import sys
 
 if __name__ == "__main__" and not __package__:
-    # Run by its path, the file finds the other mu3_common modules beside it; -I leaves PYTHONPATH out.
+    # Run by its path, the file finds the other common modules beside it; -I leaves PYTHONPATH out.
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
@@ -39,9 +39,9 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Callable, Mapping
 
-from mu3_common.editor import editor_package_manager_dir, folder_editor_version, retarget_dependencies
-from mu3_common.project_lock import file_is_held_open, project_lock_state
-from mu3_common.work_dir import FolderNotClaimedError, claim_folder
+from common.editor import editor_package_manager_dir, folder_editor_version, retarget_dependencies
+from common.project_lock import file_is_held_open, project_lock_state
+from common.work_dir import FolderNotClaimedError, claim_folder
 
 
 CONFIGS_FOLDER = Path("tools", "unity-projects")
@@ -62,7 +62,7 @@ WORK_FOLDER = "Mu3Library_ForUnity"
 UNIT_LENGTH = 32
 PROJECT_MARKER = ".mu3-unity-project"
 PROJECT_MARKER_TEXT = (
-    "mu3_common.unity_projects generated this Unity project from tools/unity-projects for the checkout it "
+    "common.unity_projects generated this Unity project from tools/unity-projects for the checkout it "
     "names below and may change or delete the files and links it lists below.\n"
 )
 _WINDOWS_REPARSE_TAG_MOUNT_POINT = 0xA0000003

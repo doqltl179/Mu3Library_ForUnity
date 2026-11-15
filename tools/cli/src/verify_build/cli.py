@@ -22,10 +22,10 @@ from typing import Callable, Iterator, Sequence
 
 import typer
 
-from mu3_common.checkout import echo_repository_root, repo_root
-from mu3_common.editor import folder_editor_version, is_hub_editor_for, resolve_editor_path
-from mu3_common.process import run_with_timeout
-from mu3_common.unity_projects import (
+from common.checkout import echo_repository_root, repo_root
+from common.editor import folder_editor_version, is_hub_editor_for, resolve_editor_path
+from common.process import run_with_timeout
+from common.unity_projects import (
     CONFIGS_FOLDER,
     ConfigError,
     GenerateError,
@@ -33,7 +33,7 @@ from mu3_common.unity_projects import (
     load_configs,
     remove_generated_project,
 )
-from mu3_common.work_dir import FolderNotClaimedError, claim_folder
+from common.work_dir import FolderNotClaimedError, claim_folder
 
 
 # The config whose project the player is built from, the only one with Addressables settings.
