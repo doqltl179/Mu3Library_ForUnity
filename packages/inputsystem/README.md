@@ -62,7 +62,7 @@ public class PlayerControls : MonoBehaviour
 
 Adding an asset under an ID already in use replaces the earlier asset, with a warning. `Dispose` disables every asset the manager holds and destroys only the assets it built itself from JSON with `AddInputActionAssetFromJson`; an asset added from outside stays with its owner.
 
-With Mu3Library's DI, a core registers the manager like any other service, as a singleton under `InputSystemManager` and its interfaces `IInputSystemManager` and `IInputSystemManagerEventBus`:
+With the Mu3 Library DI package ([README](../di/README.md)), a core registers the manager like any other service, as a singleton under `InputSystemManager` and its interfaces `IInputSystemManager` and `IInputSystemManagerEventBus`:
 
 ```csharp
 using Mu3Library.DI;

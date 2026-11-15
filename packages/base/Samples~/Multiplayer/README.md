@@ -4,7 +4,7 @@ One scene, `Scenes/Sample_Multiplayer.unity`, that walks through a player-hosted
 
 ## What It Needs
 
-- Base alone. Steamworks.NET is optional: without it the sample compiles without the Steam code and plays on the local backend on every platform.
+- Base and the DI package (`com.github.doqltl179.mu3library.di`): `SampleMultiplayerCore` derives from its `CoreBase`, and the sample's assembly definition references `Mu3Library.DI`. Install the DI package before you import the sample, which does not compile without it. Steamworks.NET is optional: without it the sample compiles without the Steam code and plays on the local backend on every platform.
 - With Steamworks.NET, installed through the Package Manager, the sample builds for the editor and 64-bit standalone players only. `Mu3Library.Multiplayer.Steam` leaves out 32-bit Windows players, and the sample's Steam code, under `MULTIPLAYER_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, cannot tell them apart, so a 32-bit Windows player does not compile then.
 - Nothing else: the buttons are drawn with IMGUI, which needs no `EventSystem`, no input module, and no TextMesh Pro resources, so the scene responds to input with or without the Input System package.
 

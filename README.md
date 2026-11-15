@@ -26,8 +26,8 @@
 
 ## ✨ Key Features
 
-- 🏗 **Modular Core System**: Clear separation of concerns through independent `CoreBase` modules
-- 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes
+- 🏗 **Modular Core System**: Clear separation of concerns through independent `CoreBase` modules, in the separate DI package
+- 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes, in the separate DI package
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
 - 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Input System, Steamworks.NET
@@ -38,7 +38,7 @@
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
-- 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
+- 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable, in the separate DI package
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence, with a name exporter drawer, in the separate Input System package
 - 🌍 **Localization Manager**: String and localized asset lookup and locale changes that every subscriber hears, with a data exporter that splits locales, tables, and entries into focused scripts and a character collector, in the separate Localization package
@@ -78,6 +78,8 @@ The Localization package, `LocalizationManager` and its data exporter and charac
 
 The Addressables package, `AddressablesManager` and its group data exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
 
+The DI package, the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers, also ships with the next release, and its URL joins this list then. Install Base before it.
+
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
@@ -88,71 +90,14 @@ The Addressables package, `AddressablesManager` and its group data exporter draw
     - `packages/inputsystem/package.json` (install Base first)
     - `packages/localization/package.json` (install Base first)
     - `packages/addressables/package.json` (install Base first)
+    - `packages/di/package.json` (install Base first)
     - `packages/urp/package.json` (install Base first)
     - `packages/game/watermelon/package.json` (install Base and URP first)
 
 ## 📚 Core Modules
 
 ### DI (Dependency Injection)
-Custom DI container that automates service registration and dependency injection.
-
-```csharp
-using Mu3Library.DI;
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        // Register AudioManager as a singleton — automatically maps to IAudioManager
-        RegisterClass<AudioManager>();
-    }
-}
-
-public class GameCore : CoreBase
-{
-    [SerializeField] private AudioClip _mainThemeClip;
-
-    // Auto-injection (within same Core)
-    [Inject] private IAudioManager _audioManager;
-
-    // Injection from different Core
-    [Inject(typeof(UICore))] private IMVPManager _mvpManager;
-
-    protected override void Start()
-    {
-        base.Start(); // Injection must be executed first!
-        _audioManager.PlayBgm(_mainThemeClip);
-    }
-}
-```
-
-A core that overrides `Awake`, `Start`, `OnEnable`, `OnDisable`, or `OnDestroy` must call the base method: together they register the core with `CoreRoot`, inject it, prepare it, and take it out again.
-
-`[Inject]` members that a base class declares, private ones included, are injected as well; the search up the class hierarchy stops at `CoreBase`. The editor DI validator checks the same members.
-
-A required `[Inject]` property needs a setter, which may be private, a required `[Inject]` field must not be `readonly`, and neither may be `static`. When the container injects an object with a required `[Inject]` member that it can never fill, a get-only property, one whose setter the linker removed in a stripped player, a `readonly` field, or a `static` field or property, it throws `InvalidOperationException` before it injects any member, as it does for a required member whose service is not registered. A `static` member belongs to the class, so the container never writes one: each object it injects would overwrite the value the other objects of the class read. The editor DI validator reports such a member on the classes the container creates and on the core itself. It does not check registered instances, which matches what runs: `ContainerScope.RegisterInstance` injects an instance as it registers it, so such a member makes it throw and leave nothing registered, and `Container.RegisterInstance` does not inject the instance it registers, so nothing throws for it. `InjectableMembers.GetUnwritableProperties`, `InjectableMembers.GetReadOnlyFields`, `InjectableMembers.GetStaticFields`, and `InjectableMembers.GetStaticProperties` list such members. An optional one (`[Inject(false)]`) is skipped.
-
-Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks. One registration, which is its implementation type, key, and lifetime, yields one instance whatever service type resolves it: one per container for a singleton and one per scope for a scoped service. A lifecycle callback that throws is logged with `Debug.LogException`, and the other services and cores keep running.
-
-```csharp
-public class AudioPlaybackService
-{
-    [Inject] private IAudioManager _audioManager;
-}
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        RegisterClass<AudioManager>();
-        RegisterClass<AudioPlaybackService>(); // [Inject] members are populated automatically
-    }
-}
-```
-
-`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
-
-In a player built with **Managed Stripping Level** set to Medium or High, the Unity linker removes code that nothing calls, and the container reaches constructors and `[Inject]` members only through reflection. For each such build, Base's editor therefore hands the linker a link.xml. It keeps the constructors of every class the build keeps anyway in the assemblies that reference `Mu3Library.DI` or `Mu3Library.Foundation`, which holds `[Inject]` and the lifecycle interfaces, and in every script or precompiled assembly they reference, directly or not, so a service may live in an assembly that knows nothing of the container, and it keeps the `[Inject]` fields and properties of those classes, `static` ones too when they are required, so that the container finds them and throws in the player as it does in the Editor. A class that declares one of those fields keeps all its fields, since the linker keeps the `[Inject]` attribute of a field that a link.xml names only when code reads the field, and the container finds the field by that attribute: an `[Inject]` field that is there only so that the container creates a service, and that no code reads, would otherwise stay empty. Classes and assemblies that nothing uses are still removed. The `[Inject]` members are read from the assemblies the Editor loads, so an `[Inject]` member that only the player compiles, inside `#if !UNITY_EDITOR` for example, needs `[Preserve]` (`UnityEngine.Scripting`), and so does code that only your own reflection reaches. Precompiled assemblies are matched by file name, so a DLL whose file name differs from its assembly name is skipped without a warning, and a DLL the Editor does not load is covered only when one of those assemblies references it. A `link.xml` under the project's `Assets` folder works as well; Unity does not read one inside a package. The constructor entries cost little: in the Watermelon Game development project on Unity 6000.6.7f1 with Managed Stripping Level High, they added 21,504 bytes (0.19%) to the managed DLLs of a Mono player, most of it in Unity package assemblies such as the render pipeline's and the Input System's, and 123,904 bytes (0.52%) to `GameAssembly.dll` of an IL2CPP one.
+The DI container, with `CoreBase` and `CoreRoot`, moved to the separate DI package: see its [README](packages/di/README.md) for registration, injection, cores, and the link.xml it writes for player builds that strip managed code. Base keeps the contracts its managers implement, `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `[Inject]`, in its `Mu3Library.Foundation` assembly. The examples below inject Base's services with `[Inject]`, as a core of the DI package does.
 
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
@@ -422,7 +367,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
-- **DI**: Dependency Injection container
+- **DI**: Moved to the separate DI package ([README](packages/di/README.md)); Base keeps the lifecycle and injection contracts in `Mu3Library.Foundation`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
@@ -443,7 +388,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 Base ships one sample, which you can import from the **Samples** tab in Package Manager. The URP and Watermelon Game packages ship no sample; their main features are listed under their packages below:
 
 Base package (**Mu3 Library**):
-- **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when Steamworks.NET is installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them
+- **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when Steamworks.NET is installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them. It needs the DI package, whose `CoreBase` its core derives from, so install that package before you import the sample
 
 URP package (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
@@ -474,55 +419,7 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 
 ## 🏗 Architecture Overview
 
-### Core System
-Each `CoreBase` owns an independent DI container (`ContainerScope`), and `CoreRoot` manages the lifecycle.
-
-```
-CoreRoot (Singleton)
-├── AudioCore (Independent ContainerScope)
-│   └── AudioManager, BgmController, SfxController
-├── UICore (Independent ContainerScope)
-│   └── MVPManager, Presenters...
-└── NetworkCore (Independent ContainerScope)
-    └── WebRequestManager
-```
-
-### Cross-Core Communication
-To access services from different Cores:
-
-```csharp
-// Method 1: Manual acquisition in Start()
-protected override void Start()
-{
-    base.Start();
-    _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
-}
-
-// Method 2: Inject attribute (in a core, a registered service, or a presenter)
-[Inject(typeof(AudioCore))] private IAudioManager _audioManager;
-```
-
-To run code once a specific Core has finished initializing, subscribe through `ICoreRoot`:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
-{
-    _audioManager = CoreRoot.Instance.GetClass<AudioCore, IAudioManager>();
-});
-```
-
-The callback is invoked once after the target Core has completed its initialization.
-
-For asynchronous preparation work, subscribe to the preparation completion notification:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
-{
-    // Run code after AudioCore preparation completes.
-});
-```
-
-The callback is invoked once after the target Core has completed its preparation.
+Cores, the container each one owns, and how one core reaches the services of another moved with the container to the DI package: see [Cores and CoreRoot](packages/di/README.md#cores-and-coreroot) in its README.
 
 ## 📝 Recent Updates
 
@@ -552,6 +449,7 @@ This project is distributed under the MIT License.
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base, from the next release)
 - Localization: `com.github.doqltl179.mu3library.localization` (depends on Base, from the next release)
 - Addressables: `com.github.doqltl179.mu3library.addressables` (depends on Base, from the next release)
+- DI: `com.github.doqltl179.mu3library.di` (depends on Base, from the next release)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)
