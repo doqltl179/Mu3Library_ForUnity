@@ -23,7 +23,7 @@ Mu3Library는 외부 Unity 프로젝트가 Git URL로 설치해 쓰는 UPM 패�
 | ③ 항상 포함되는 인프라 | DI | Base의 매니저 6개가 `Mu3Library.DI.IUpdatable`을 구현한다. 플레이어 빌드마다 `DILinkerProcessor`가 link.xml을 만들고, 끌 방법이 없다. |
 | ④ 항상 포함되는 일반 기능 | Scene, Audio, UI/MVP, Multiplayer(코어와 로컬 백엔드), ObjectPool, Observable, WebRequest 등 | 쓰지 않는 코드가 들어 있을 뿐, 외부 SDK와 엮이거나 빌드 단계가 도는 일은 없다. |
 
-런타임 부작용은 확인한 범위에서 없다. 예를 들어 Steam은 `SteamBackend.Create`를 호출하기 전에는 초기화되지 않는다. 문제는 컴파일, 빌드, 의존 관계에서 생기는 강제성이다.
+런타임 부작용은 확인한 범위에서 없다. 예를 들어 Steam은 `SteamBackend.TryCreate`나 `SteamBackend.CreateOrFallback`을 호출하기 전에는 초기화되지 않는다. 문제는 컴파일, 빌드, 의존 관계에서 생기는 강제성이다.
 
 저장소 쪽에도 문제가 있다. AI 에이전트와 Unity CLI로 저장소를 유지하면서, 사람이 에디터에서 다듬어야 하는 샘플(Base만 해도 씬 13개, 프리팹 8개, 에셋 29개)과 커밋된 개발 프로젝트 3개가 유지 부담이 되었다. 저장소 루트에 패키지 폴더와 프로젝트 폴더가 섞여 있어 구분도 잘 되지 않는다.
 
@@ -82,7 +82,7 @@ B를 택한다. 강제성이 실제로 생기는 곳은 ①(외부 SDK와의 컴
 
 **D8. DI 분리 방법.** 계약은 Base, 구현은 DI 패키지로 나눈다.
 
-- 매니저가 쓰는 계약 5개(`IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, `InjectAttribute`)를 Base의 `Mu3Library.Foundation` 어셈블리로 옮기고, 네임스페이스 `Mu3Library.DI`는 그대로 둔다.
+- DI 계약 5개(`IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, `InjectAttribute`)를 Base의 `Mu3Library.Foundation` 어셈블리로 옮기고, 네임스페이스 `Mu3Library.DI`는 그대로 둔다. Base 런타임이 쓰는 것은 그중 `IUpdatable`(매니저 6개)과 `InjectAttribute`, `IObjectInjector`(`MVPManager`)이고, `IInitializable`과 `ILateUpdatable`은 같은 생명주기 계약이라 함께 옮긴다.
 - 컨테이너(`Container`, `ContainerScope`, `CoreBase`, `CoreRoot` 등)는 di 패키지에 두고, di 패키지가 Base에 의존한다.
 - `MVPManager`의 `[Inject] IObjectInjector`는 계약이 Base에 있으므로 그대로 동작한다. 우리 DI가 없으면 값이 비어 있고, 지금처럼 건너뛴다.
 - Multiplayer Debugger가 `CoreRoot`에서 매니저를 찾던 `MultiplayerManagerLookup`은, `MultiplayerManager`가 Base 안의 인스턴스 목록에 스스로 등록하고 디버거가 그 목록을 읽는 방식으로 바꾼다.
@@ -107,7 +107,7 @@ B를 택한다. 강제성이 실제로 생기는 곳은 ①(외부 SDK와의 컴
 | 도구 | 갈 곳 | 에디터 어셈블리 |
 |---|---|---|
 | `DILinkerProcessor`, `DIValidatorDrawer` | di | `Mu3Library.DI.Editor` |
-| `RuntimeDiagnosticsDrawer` | di. 지금처럼 Addressables가 있을 때만 컴파일되며, 기준이 addressables 패키지로 바뀐다 | `Mu3Library.DI.Editor` |
+| `RuntimeDiagnosticsDrawer` | di. MVP 진단은 늘 컴파일되고, Addressables 캐시 진단은 지금처럼 Addressables가 있을 때만 컴파일되며 그 기준이 addressables 패키지로 바뀐다 | `Mu3Library.DI.Editor` |
 | `AddressableGroupDataExporterDrawer` | addressables | `Mu3Library.Addressables.Editor` |
 | `LocalizationDataExporterDrawer`, `LocalizationCharacterCollectorDrawer` | localization | `Mu3Library.Localization.Editor` |
 | `InputSystemDataExporterDrawer` | inputsystem | `Mu3Library.InputSystem.Editor` |
@@ -136,7 +136,7 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 
 | 구성 | 담는 패키지 | 선택 SDK | 대신하는 것과 특징 |
 |---|---|---|---|
-| `minimal` | base, di | 없음 | 새 구성. 지금은 모든 개발 프로젝트에 Input System이 있어서, Input System 없이 Base를 컴파일해 본 적이 없다. DI의 UniTask 없는 경로도 여기서 컴파일된다. |
+| `minimal` | base, di | 없음 | 새 구성. 지금은 모든 개발 프로젝트에 Input System이 있어서, `compile-unity.sh`와 `test-unity.sh`는 Input System 없이 Base를 컴파일하거나 테스트하지 않는다. Input System 없이 Base를 컴파일하는 것은 DI strip harness의 플레이어 빌드뿐이다. DI의 UniTask 없는 경로도 여기서 컴파일된다. |
 | `full` | base, di, steam, notifications, addressables, localization, inputsystem | UniTask, Steamworks.NET, Addressables, Localization, Input System, Mobile Notifications | `UnityProject_BuiltIn`. 입력 백엔드 Both, `steam_appid.txt` |
 | `urp` | base, urp | Input System | `UnityProject_URP`. 입력 백엔드 Input System, URP 설정 에셋 |
 | `watermelon` | base, urp, game/watermelon | UniTask, Input System | `UnityProject_Game_WatermelonGame`. 입력 백엔드 Both, URP 설정 에셋, Input Actions |
@@ -160,7 +160,7 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 
 **D14. 샘플.** 모든 패키지의 샘플(Base의 Template, Attribute, UtilWindow, Multiplayer, URP의 ScreenEffect, Watermelon Game의 WatermelonGame)과 `package.json`의 `samples` 항목을 지운다. README의 Samples 섹션도 지우고, README에 이미 있는 코드 예제가 사용법 안내로 남는다. AI 에이전트와 Unity CLI 중심의 최소 구성에서는 샘플의 의미가 대부분 사라지고, 샘플은 유지하기도 가장 어렵다. 검토한 다른 선택지: 씬을 코드로 만드는 최소 샘플만 남기기, 지금처럼 유지하기.
 
-**D18. 범용 유틸 에셋.** Base의 머티리얼 6개(`Runtime/Materials`)와 텍스처 7개(`Runtime/Textures`)를 지운다. 저장소 안에서 이 에셋을 참조하는 곳은 Template 샘플뿐이고, 코드에서 불러오는 곳은 없다. URP의 셰이더 4개와 `ScreenEffectShaders.asset`은 스크린 이펙트 기능 그 자체라서 남긴다. README가 기본 색 머티리얼이 Base와 함께 제공된다고 안내하는 문단은 지우고, 외부 프로젝트의 참조가 끊길 수 있으므로 CHANGELOG에 알린다.
+**D18. 범용 유틸 에셋.** Base의 머티리얼 6개(`Runtime/Materials`)와 텍스처 7개(`Runtime/Textures`)를 지운다. 저장소 안에서 이 에셋을 참조하는 곳은 Template 샘플뿐이고, 코드에서 불러오는 곳은 없다. URP의 셰이더 4개와 `ScreenEffectShaders.asset`은 스크린 이펙트 기능 그 자체라서 남긴다. README가 기본 색 머티리얼이 Base와 함께 제공된다고 안내하는 문단은 지우고, 외부 프로젝트의 참조가 끊길 수 있으므로 CHANGELOG에 알린다. 검토한 다른 선택지: 에셋을 Base에 그대로 두기, URP의 셰이더 4개와 `ScreenEffectShaders.asset`까지 범용 에셋으로 보고 함께 지우기.
 
 ### 3.5 배포, 버전, 이전
 
@@ -171,12 +171,12 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 **D5. 기존 사용자 이전.** 옮기는 코드의 어셈블리 이름, 네임스페이스, `.meta` GUID를 될 수 있는 한 유지한다. 이 개편은 Base의 breaking release로 내고, CHANGELOG에 이전 방법을 안내한다. 이름을 유지하지 못하는 예외는 다음과 같다.
 
 - D8: 계약 5개가 `Mu3Library.Foundation` 어셈블리로 옮겨 간다. asmdef로 `Mu3Library.DI`만 참조하고 이 계약을 쓰던 프로젝트는 `Mu3Library.Foundation` 참조를 더해야 한다.
-- D19: Steam 네임스페이스가 `Mu3Library.Steam.Multiplayer`로 바뀐다. `using Mu3Library.Multiplayer.Steam;`을 `using Mu3Library.Steam.Multiplayer;`로 바꿔야 한다.
+- D19: Steam 어셈블리와 네임스페이스가 `Mu3Library.Steam.Multiplayer`로 바뀐다. `using Mu3Library.Multiplayer.Steam;`을 `using Mu3Library.Steam.Multiplayer;`로 바꿔야 한다. asmdef가 `Mu3Library.Multiplayer.Steam`을 이름으로 참조하던 프로젝트는 그 참조를 `Mu3Library.Steam.Multiplayer`로 바꿔야 하고, GUID로 참조하던 프로젝트는 `.meta` GUID가 유지되므로 바꿀 것이 없다.
 - D7: Addressables, Localization, Input System은 어셈블리가 새로 생긴다. asmdef로 `Mu3Library`를 참조하던 프로젝트는 새 어셈블리 참조를 더해야 한다. asmdef 없이 쓰는 코드(Assembly-CSharp)는 바꿀 것이 없다.
 
 검토한 다른 선택지: 한 버전 동안 Base에 옛 코드를 남기는 과도기(같은 이름의 타입이 두 패키지에 동시에 있으면 충돌한다).
 
-**D6. 용어.** 패키지(UPM으로 설치하는 단위), 어셈블리(asmdef로 컴파일하는 단위), 기능 모듈(Scene, Audio 같은 기능 폴더)을 구분해서 쓴다. "기본 기능 패키지"는 Base를 가리킨다.
+**D6. 용어.** 패키지(UPM으로 설치하는 단위), 어셈블리(asmdef로 컴파일하는 단위), 기능 모듈(Scene, Audio 같은 기능 폴더)을 구분해서 쓴다. "기본 기능 패키지"는 Base를 가리킨다. 용어를 정하는 결정이라 검토한 다른 선택지는 없었다.
 
 ### 3.6 작업 순서
 
@@ -206,7 +206,7 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 - 도구를 먼저 바꿔야 개발 프로젝트를 지운 뒤에도 매 단위를 Unity CLI로 컴파일하고 테스트할 수 있다.
 - 폴더 이동을 분리보다 먼저 하면 새 패키지를 처음부터 제자리에 만들 수 있다. 다른 작업이 끼기 전, 이른 시점에 옮겨야 충돌도 적다.
 - D8과 D22는 분리의 전제다. Base가 DI를 모르고, steam이 public API만 쓰게 된 뒤에 떼어낸다.
-- 분리는 Base를 참조하지 않는 단순한 패키지부터 해서 방식을 먼저 굳히고, 다른 패키지를 참조하는 di(`RuntimeDiagnosticsDrawer`가 addressables를 본다)와 steam(D22의 API를 쓴다)을 뒤에 둔다.
+- 분리는 Base 말고 다른 패키지를 참조하지 않는 단순한 패키지부터 해서 방식을 먼저 굳히고, 다른 패키지를 참조하는 di(`RuntimeDiagnosticsDrawer`가 addressables를 본다)와 steam(D22의 API를 쓴다)을 뒤에 둔다.
 - 릴리스는 분리가 모두 끝난 뒤 한 번에 한다. Base에서 빠진 기능을 새 패키지가 같은 날 제공해야 사용자가 넘어올 수 있다.
 
 각 단위의 README, CHANGELOG, 위키 경로 갱신은 그 단위의 PR에 함께 넣는다. Unity를 오래 또는 여러 번 돌리는 단위는 시작 전에 실행 시간대를 정한다. 4번을 시작하기 전에 다른 워크트리에 진행 중인 작업이 없는지 확인한다.
@@ -221,7 +221,7 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 - 다른 DI 컨테이너를 쓰는 프로젝트도 Base의 매니저를 쓸 수 있다.
 - 개발 프로젝트를 짧은 경로에 만들게 되어, 워크트리에서 생기던 98자 경로 문제가 사라진다.
 - 사람이 에디터에서 다듬어야 하는 파일이 저장소에서 없어진다.
-- Input System 없이 Base를 컴파일하는 구성(`minimal`)이 생긴다.
+- Input System 없이 Base를 컴파일하고 테스트하는 구성(`minimal`)이 생긴다.
 
 ### 4.2 어려워지는 것
 
