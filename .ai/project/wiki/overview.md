@@ -28,6 +28,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 |---|---|---|---|
 | Addressables | `packages/addressables/` | Base | `addressables`; no area label of its own yet |
 | Base | `packages/base/` | — | `base` |
+| DI | `packages/di/` | Base | `di`; no area label of its own yet |
 | Input System | `packages/inputsystem/` | Base | `inputsystem`; no area label of its own yet |
 | Localization | `packages/localization/` | Base | `localization`; no area label of its own yet |
 | Notifications | `packages/notifications/` | — | `notifications`; no area label of its own yet |
@@ -38,8 +39,8 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Config | Exercises | Compile target |
 |---|---|---|
-| `tools/unity-projects/full` | Addressables, Base, Input System, Localization, and Notifications on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
-| `tools/unity-projects/minimal` | Base without any optional SDK | `minimal` |
+| `tools/unity-projects/full` | Addressables, Base, DI, Input System, Localization, and Notifications on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
+| `tools/unity-projects/minimal` | Base and DI without any optional SDK | `minimal` |
 | `tools/unity-projects/urp` | URP layered on Base | `urp` |
 | `tools/unity-projects/watermelon` | Watermelon Game | `watermelon` |
 
@@ -55,9 +56,9 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | Path | Holds |
 |---|---|
 | `packages/<name>/Runtime/` | Package runtime, one folder per feature with the assets it needs, such as URP's `ScreenEffect/`, which holds the screen-effect shaders and the `Resources/` asset that keeps them in player builds |
-| `packages/<name>/Editor/` | Editor tooling (Addressables, Base, Input System, Localization) |
+| `packages/<name>/Editor/` | Editor tooling (Addressables, Base, DI, Input System, Localization) |
 | `packages/<name>/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
-| `packages/<name>/Tests/` | EditMode tests (each package that has tests) |
+| `packages/<name>/Tests/` | EditMode tests in `Tests/Editor/` (each package that has tests) and PlayMode tests in `Tests/Runtime/` (Base and DI) |
 | `tools/unity-projects/` | Project configs, from which the tools generate the Unity projects in the work folder; the `full` project links Base's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source. The URP and Watermelon Game packages ship no samples |
 | `tools/`, `compile-unity.sh`, `test-unity.sh` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |
@@ -65,8 +66,8 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 ## Commit Scopes
 
-- A scope names a package (`addressables`, `base`, `inputsystem`, `localization`, `notifications`, `urp`, `watermelon`), a surface inside one (`di`, `object-pool`, `audio`, `mvp`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
-- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Addressables, Input System, Localization, and Notifications have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
+- A scope names a package (`addressables`, `base`, `di`, `inputsystem`, `localization`, `notifications`, `urp`, `watermelon`), a surface inside one (`object-pool`, `audio`, `mvp`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
+- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Addressables, DI, Input System, Localization, and Notifications have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
 - Commits written before Korean became the commit language keep their original language; never rewrite them.
 
 ## Human-Facing Docs
