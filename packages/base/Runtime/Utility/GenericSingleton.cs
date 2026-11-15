@@ -8,9 +8,9 @@ namespace Mu3Library.Utility
     /// <br/> scene and is destroyed with it.
     /// </summary>
     /// <remarks>
-    /// This package drives its own services through <see cref="DI.CoreBase"/> and does not use
-    /// this base itself. It is kept for a project that consumes the package and wants a plain
-    /// singleton component.
+    /// This package does not use this base itself: its own services are plain classes that a DI
+    /// container creates and updates. It is kept for a project that consumes the package and
+    /// wants a plain singleton component.
     /// </remarks>
     public class GenericSingleton<T> : MonoBehaviour where T : MonoBehaviour
     {
