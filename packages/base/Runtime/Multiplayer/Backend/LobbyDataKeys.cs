@@ -36,7 +36,7 @@ namespace Mu3Library.Multiplayer.Backend
         public const string WireVersion = "mu3.wire";
 
         /// <summary>
-        /// The host's <see cref="PlayerId"/> value, as a decimal number. A client connects to this
+        /// The host's <see cref="Data.PlayerId"/> value, as a decimal number. A client connects to this
         /// player after it enters the lobby, and the search reads it into
         /// <see cref="Data.LobbyInfo.HostId"/>.
         /// </summary>
