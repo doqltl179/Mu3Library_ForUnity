@@ -88,12 +88,10 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
-# Links to package samples (source of truth is Samples~), created by mu3-samples link:
+# The link to the package samples (source of truth is Samples~), created by mu3-samples link:
 # a junction on Windows, a symbolic link elsewhere. No trailing slash: Git applies a pattern
 # ending in / only to real directories, so it would miss a symbolic link.
 UnityProject_BuiltIn/Assets/Mu3LibrarySamples
-UnityProject_URP/Assets/Mu3LibrarySamplesURP
-UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame
 
 # Temporary folders that the Mu3Window edit-mode tests create inside the Base package while they
 # run. A run that is cut off leaves one behind; the next run deletes it, and it must never ship.

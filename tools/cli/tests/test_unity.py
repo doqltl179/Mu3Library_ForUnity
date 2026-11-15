@@ -223,15 +223,12 @@ class UnityToolingTests(unittest.TestCase):
             [(script_path.name, arguments) for script_path, arguments in calls],
         )
 
-    def test_repository_mapping_names_every_samples_link(self) -> None:
+    def test_repository_mapping_names_the_samples_link(self) -> None:
+        # Only Base still ships a sample (#521); the URP and Watermelon Game packages have none to link.
         specs = load_target_specs(repo_root())
 
         self.assertEqual(
-            {
-                "built-in": "Assets/Mu3LibrarySamples",
-                "urp": "Assets/Mu3LibrarySamplesURP",
-                "watermelon": "Assets/Mu3LibrarySamplesWatermelonGame",
-            },
+            {"built-in": "Assets/Mu3LibrarySamples"},
             {key: spec.samples_link.as_posix() for key, spec in specs.items() if spec.samples_link},
         )
 

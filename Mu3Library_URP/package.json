@@ -20,12 +20,5 @@
     "dependencies": {
         "com.github.doqltl179.mu3library.base": "0.25.0",
         "com.unity.render-pipelines.universal": "17.3.0"
-    },
-    "samples": [
-        {
-            "displayName": "ScreenEffect",
-            "description": "URP screen effect sample scene and scripts for Mu3Library URP. Its scene responds to input with or without the Input System package, and its TextMesh Pro text renders in a player without the TMP Essential Resources.",
-            "path": "Samples~/ScreenEffect"
-        }
-    ]
+    }
 }

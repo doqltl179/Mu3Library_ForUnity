@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (samples removal)
+
+### Changed
+- `unity-cli-packages.tsv` names no samples link for `urp` and `watermelon`, whose packages no longer ship samples, and `.gitignore` keeps only the link of `UnityProject_BuiltIn` (#521). `mu3-samples link` and the sample-link check of `compile-unity.sh` and `test-unity.sh` therefore cover only Base's `Samples~`, which holds the Multiplayer sample. The URP and Watermelon Game development projects lost the `.meta` of their link, and the Watermelon Game project's build settings no longer list the sample's `Demo` scene. A checkout that already linked those two samples keeps junctions or symbolic links that point at nothing once it updates, and `mu3-samples unlink` no longer knows them: run `PYTHONPATH=tools/cli/src python -m mu3_samples unlink --target urp` and `--target watermelon` before updating, or remove the two links afterwards from the checkout root, which removes only the link: on Windows `cmd /c rmdir UnityProject_URP\Assets\Mu3LibrarySamplesURP` and `cmd /c rmdir UnityProject_Game_WatermelonGame\Assets\Mu3LibrarySamplesWatermelonGame`, with backslashes since `cmd` reads a forward slash as a switch, and `cmd //c` in place of `cmd /c` from Git Bash (see [Worktree Removal](../../tools/README.md#worktree-removal)); elsewhere `rm UnityProject_URP/Assets/Mu3LibrarySamplesURP UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame`.
+
 ## 2026-11-15 (development environment)
 
 ### Fixed

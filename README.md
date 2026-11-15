@@ -43,7 +43,7 @@
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
 - 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
-- 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, board fitting and coordinate helpers, and a playable sample scene
+- 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, and board fitting and coordinate helpers
 
 ## 📋 Requirements
 
@@ -438,20 +438,15 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 
 ## 🎓 Samples
 
-You can import the following samples from the **Samples** tab in Package Manager:
+Base ships one sample, which you can import from the **Samples** tab in Package Manager. The URP and Watermelon Game packages ship no sample; their main features are listed under their packages below:
 
 Base package (**Mu3 Library**):
-- **Template**: Basic Core structure and usage examples
-- **Attribute**: `ConditionalHideAttribute` and `ButtonInvokeAttribute` usage
-- **UtilWindow**: Custom editor window and utility drawer examples
 - **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when Steamworks.NET is installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them
 
 URP package (**Mu3 Library URP**):
-- **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
 
 Watermelon Game package (**Mu3 Library Game - Watermelon**):
-- **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
 - **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
 - **Item contact area**: The board-relative resize sizes the item collider, so an item index keeps the same contact area in every `BoardConfig`; `BoardItemInfo.ColliderScale` decides how much of the sprite that collider covers, `BoardItemInfo.ColliderOffset` moves it as a fraction of the collider diameter, and the sprite is drawn around the collider
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
@@ -462,11 +457,10 @@ Watermelon Game package (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
 - **Board commands**: `BoardController.EnqueueCommand(...)` takes commands into the board's public command queue. `IUpdatableBoardCommand` and `ICancelableBoardCommand` let a command run frame by frame and be canceled, and `BoardCommand` builds both on lifecycle hooks. `BoardController.CommandContext` is the narrow surface through which an external command reaches items, the score, and sounds, and the package carries Flow, Item, and Score commands, `MergingCommand` among them
 - **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
-- **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
 
-**Sample input and text:** the scenes of the Template and Attribute samples of Base and the ScreenEffect sample of URP respond to input with or without the Input System package. Their `EventSystem` holds a `StandaloneInputModule`, which reads the Input Manager, and a `SampleInputModuleSelector`, which replaces it with an `InputSystemUIInputModule` when the scene starts if the Input System package is installed and **Active Input Handling** is "Input System Package (New)" or "Both", the rule `MVPManager` follows for the `EventSystem` it creates. The Template sample's `Sample_IS` scene shows `InputSystemManager`, so its own features need the Input System package with "Input System Package (New)" or "Both"; its UI responds in every setup. The Template sample's keyboard shortcuts and mouse clicks go through its `SampleInput` class, which reads the Input System while its backend is on and the Input Manager otherwise. The TextMesh Pro text of these samples renders in a player built without the TMP Essential Resources: each sample ships the font asset, style sheet, and shader its text uses under `Fonts/` and `Shaders/`, and its `Third-Party Notices.txt` lists their licenses. TextMesh Pro reports the size of a text as 0 to the layout system there, so the Template sample's `SampleTextPreferredSize` measures the texts that a layout sizes itself to, such as the WebRequest scene's scrolling log. In the Editor, TextMesh Pro draws no text until the TMP Essential Resources are imported, and it offers to import them. Addressables, Localization, and UniTask stay optional for the Template sample: it compiles without them, and a part that needs a missing package logs that the package is not installed. The UtilWindow sample's Addressable and Localization data exporters write the Template sample's key scripts inside `TEMPLATE_ADDRESSABLES_SUPPORT` and `TEMPLATE_LOCALIZATION_SUPPORT`, set in their **Define Symbol** field, so regenerated key scripts still compile without those packages. The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
+**Sample input and text:** The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
 
-In this repository, the base sample sources live under `Mu3Library_Base/Samples~`, the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`, and the Watermelon Game sample source lives under `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`.
+In this repository, the Multiplayer sample source lives under `Mu3Library_Base/Samples~/Multiplayer`.
 
 To stack an MVP render camera with the new helper, pass the render camera explicitly:
 
@@ -475,13 +469,6 @@ using Mu3Library.URP.Cam;
 
 CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 ```
-
-**Template Key Components:**
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
-- Localization: Locales (KO/JA/EN), String Table samples
-- Resources: Prefabs and settings for MVP samples
-
-The default color materials (Black, Blue, Green, Magenta, Red, White) are not part of the Template sample. They ship with the Base package runtime in `Mu3Library_Base/Runtime/Materials/`, so a project has them under `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` as soon as Base is installed.
 
 ## 🏗 Architecture Overview
 

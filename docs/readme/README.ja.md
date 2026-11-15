@@ -43,7 +43,7 @@
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化をサポート（オプション）
 - 🧰 **エディタユーティリティドロワー**: Input System / Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
-- 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper、プレイ可能な sample scene を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
+- 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
 
 ## 📋 要件
 
@@ -438,20 +438,15 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 
 ## 🎓 サンプル
 
-パッケージマネージャーの**Samples**タブから以下のサンプルをインポートできます:
+Base にはサンプルが 1 つあり、パッケージマネージャーの**Samples**タブからインポートできます。URP と Watermelon Game パッケージにはサンプルがありません。各パッケージの主な機能を以下にまとめます:
 
 Base パッケージ (**Mu3 Library**):
-- **Template**: 基本的なCore構造と使用例
-- **Attribute**: `ConditionalHideAttribute` と `ButtonInvokeAttribute` の使用方法
-- **UtilWindow**: カスタムエディターウィンドウとユーティリティドロワーの例
 - **Multiplayer**: ボタンで操作するプレイヤーホスト型セッション: 公開ロビーの作成、ロビーの検索、ロビー ID での参加、Steam オーバーレイでのフレンド招待、準備、開始データ付きのゲーム開始、`MessageWriter` で書き込み `MessageReader` で読み取るメッセージのやり取り、ホストによるロビーデータの設定と削除、全プレイヤーによる自分の参加者データの設定と削除、プレイヤーのキック。参加者一覧にはホストが測った各プレイヤーの ping が表示され、Steam では各一覧にプレイヤーのアバターが表示されます。Steamworks.NET がインストールされ Steam クライアントが動作していれば Steam で、そうでなければ `LocalNetwork.CreateMachineWide` 上のローカルバックエンドでプレイし、同じ PC のエディターとプレイヤービルドが互いに出会います。ローカルバックエンドには招待がないため、ホストがロビー ID を共有します。プレイヤービルドがなくても、Multiplayer Play Mode を使えばエディターだけで実行できます。Unity 6000.6.7f1 と、このエディターに同梱された Multiplayer Play Mode 3.0.0 で確認しました。仮想プレイヤーはメインエディターの環境を引き継ぐため、同じ一時フォルダーでメインエディターのロビーを見つけます。メインエディターと仮想プレイヤーは同じ Steam アカウントで、ホストはすでに参加したアカウントを `DuplicateAccount` で拒否するため、この場合は **Use Local Backend** をオンにする必要があります。コマンドラインオプション（`-mu3mp-host`、`-mu3mp-join` など）は全体の流れを無人で実行し、`AUTO PASS` または `AUTO FAIL` を記録します。オプションの一覧はサンプルの `README.md` にあります
 
 URP パッケージ (**Mu3 Library URP**):
-- **ScreenEffect**: Grayscale / Shake / GaussianBlur / DepthOutline の 4 種類のスクリーンエフェクトと対応 handler スクリプトを含む URP スクリーンエフェクトのサンプルシーンと補助スクリプト
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` が `SetCameraStackToMain(...)` と `SetCameraStack(...)` helper を提供し、任意の URP overlay camera を `Camera.main` または明示的な root camera stack に挿入しつつ、必要に応じて挿入 index を制御できます。
 
 Watermelon Game パッケージ (**Mu3 Library Game - Watermelon**):
-- **Watermelon Game**: 設定可能なボード、フルーツ sprite、sample manager/core script を含むプレイ可能な 2D 落下フルーツマージ scene
 - **Fruit item indexes**: ボード設定は常に11個のフルーツ項目を含み、0始まりのリスト index でアクセスします。
 - **Item contact area**: board 基準の resize が item collider の大きさを合わせるため、どの `BoardConfig` でも item index ごとの接触領域は同じです。`BoardItemInfo.ColliderScale` は collider が sprite に占める割合を、`BoardItemInfo.ColliderOffset` は collider 直径に対する比率でその中心を決め、sprite は collider を包むように描かれます。
 - **Board fitting**: `BoardArea.Fit(...)` で設定したカメラビューポートの padding 内にボードスプライトを合わせられます。
@@ -462,11 +457,10 @@ Watermelon Game パッケージ (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)` を override して標準の三角数 score progression をカスタマイズできます。
 - **Board commands**: `BoardController.EnqueueCommand(...)` は board の公開 command queue に command を追加します。`IUpdatableBoardCommand` と `ICancelableBoardCommand` により command をフレーム単位で実行し、キャンセルでき、`BoardCommand` はその両方を lifecycle hook の上に組み立てます。`BoardController.CommandContext` は外部 command が item・score・sound に触れるための狭い surface で、package は `MergingCommand` を含む Flow / Item / Score command を用意しています。
 - **Board sound volumes**: `BoardController.SfxVolume` と `BoardController.BgmVolume` で `BoardConfig.SoundConfig` とは別に board の再生 volume を設定でき、両方とも 0–1 に clamp されます。
-- **Sample assets**: package sample には `BoardConfig` asset、フルーツ/背景画像、sample manager/core script、`Demo` scene が含まれます。
 
-**サンプルの入力とテキスト:** Base の Template・Attribute サンプルと URP の ScreenEffect サンプルのシーンは、Input System パッケージの有無にかかわらず入力に反応します。シーンの `EventSystem` には、Input Manager を読む `StandaloneInputModule` と `SampleInputModuleSelector` があります。Input System パッケージがインストールされていて **Active Input Handling** が "Input System Package (New)" か "Both" のとき、`SampleInputModuleSelector` がシーンの開始時にそのモジュールを `InputSystemUIInputModule` に置き換えます。`MVPManager` が自分で作成する `EventSystem` に適用する規則と同じです。Template サンプルの `Sample_IS` シーンは `InputSystemManager` を示すため、その機能には Input System パッケージと "Input System Package (New)" か "Both" が必要で、UI はすべての設定で反応します。Template サンプルのキーボードショートカットとマウスクリックはサンプルの `SampleInput` クラスを通り、このクラスは Input System バックエンドが有効なら Input System を、そうでなければ Input Manager を読みます。これらのサンプルの TextMesh Pro テキストは、TMP Essential Resources なしで作成したプレイヤーでも描画されます。各サンプルがテキストの使うフォントアセット・スタイルシート・シェーダーを `Fonts/` と `Shaders/` に含んでおり、そのライセンスはサンプルの `Third-Party Notices.txt` にあります。そのようなプレイヤーでは TextMesh Pro がレイアウトにテキストのサイズを 0 と報告するため、WebRequest シーンのスクロールするログのようにレイアウトがテキストのサイズに合わせる箇所は、Template サンプルの `SampleTextPreferredSize` がテキストを測ります。Editor では、TMP Essential Resources をインポートするまで TextMesh Pro はテキストを描画せず、インポートを提案します。Template サンプルでは Addressables、Localization、UniTask は引き続きオプションです。これらのパッケージがなくてもサンプルはコンパイルでき、足りないパッケージを必要とする部分はパッケージがインストールされていないことをログに出します。UtilWindow サンプルの Addressable・Localization データエクスポーターは **Define Symbol** フィールドに設定された `TEMPLATE_ADDRESSABLES_SUPPORT` と `TEMPLATE_LOCALIZATION_SUPPORT` の中に Template サンプルのキースクリプトを書き出すため、キースクリプトを再生成してもそれらのパッケージなしでコンパイルできます。Base の Multiplayer サンプルはボタンを IMGUI で描画するため、`EventSystem`、入力モジュール、TextMesh Pro リソースが不要で、Input System パッケージの有無にかかわらず入力に反応し、プレイヤーでもエディターでもテキストを表示します。
+**サンプルの入力とテキスト:** Base の Multiplayer サンプルはボタンを IMGUI で描画するため、`EventSystem`、入力モジュール、TextMesh Pro リソースが不要で、Input System パッケージの有無にかかわらず入力に反応し、プレイヤーでもエディターでもテキストを表示します。
 
-このリポジトリでは、Base サンプルのソースは `Mu3Library_Base/Samples~`、URP サンプルのソースは `Mu3Library_URP/Samples~/ScreenEffect`、Watermelon Game サンプルのソースは `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame` にあります。
+このリポジトリでは、Multiplayer サンプルのソースは `Mu3Library_Base/Samples~/Multiplayer` にあります。
 
 新しい helper で MVP render camera を stack したい場合は、render camera を明示的に渡してください:
 
@@ -475,13 +469,6 @@ using Mu3Library.URP.Cam;
 
 CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 ```
-
-**Template 主要構成:**
-- Scenes: Main、Sample_MVP、Sample_Addressables、Sample_Localization、Sample_WebRequest、Sample_Audio、Sample_Audio3D、Sample_IS
-- Localization: Locales（KO/JA/EN）、String Tableサンプル
-- Resources: MVPサンプル用のPrefabと設定
-
-デフォルトカラーマテリアル（Black、Blue、Green、Magenta、Red、White）は Template サンプルには含まれていません。Base パッケージのランタイムとして `Mu3Library_Base/Runtime/Materials/` に同梱されているため、Base をインストールした時点で `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` から使えます。
 
 ## 🏗 アーキテクチャ概要
 

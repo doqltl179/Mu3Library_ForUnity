@@ -15,7 +15,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 - which package or folder: [overview.md](.ai/project/wiki/overview.md),
 - compile targets and EditMode tests: [unity-verification.md](.ai/project/wiki/unity-verification.md),
-- manager initialization, disposal, and async operations, or the Watermelon board commands and sample: [runtime-design.md](.ai/project/wiki/runtime-design.md),
+- manager initialization, disposal, and async operations, or the Watermelon board commands: [runtime-design.md](.ai/project/wiki/runtime-design.md),
 - sample scenes and prefabs: [unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md).
 
 ## Package Surfaces
@@ -27,7 +27,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 | URP | Runtime `Runtime/Scripts` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
 | URP | Shaders `Runtime/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
 | Watermelon Game | Runtime `Runtime/Scripts` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
-| All | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
+| Base | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
 
 ## Assemblies And Optional Integrations
 
@@ -46,7 +46,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 - Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in that integration's folder (`Addressable/`, `Localization/`, `IS/`, `Notifications/`, `Multiplayer/Steam/`).
 - `Notifications/` is its own assembly, `Mu3Library.Notifications`, which lists `MU3LIBRARY_NOTIFICATIONS_SUPPORT` in `defineConstraints`: without the package Unity skips the whole assembly, so its files need no `#if` for that symbol. `Mu3Library.Multiplayer.Steam` does the same with `MU3LIBRARY_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, since Steamworks.NET hides its types on other build targets; `UnityProject_BuiltIn` installs Steamworks.NET so the assembly compiles there, and the other projects prove Base compiles without it.
 - `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui` or `com.unity.render-pipelines.universal` is declared at the version the `unity` floor bundles (`2.0.0` and `17.3.0` for `6000.3`); a higher version raises the floor in effect. The development projects enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit.
-- A module that only a sample under `Samples~` uses is not declared, such as the 3D physics of Base's Template sample, and an optional integration from the table above never is: it stays behind its define gate.
+- A module that only a sample under `Samples~` uses is not declared, and an optional integration from the table above never is: it stays behind its define gate.
 
 ## DI, CoreBase, And MVP
 
