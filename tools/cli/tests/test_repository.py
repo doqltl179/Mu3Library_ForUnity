@@ -44,8 +44,8 @@ class RepositoryHygieneTests(unittest.TestCase):
 
         self.assertEqual(0, result.exit_code, result.output)
         package_lines = [line for line in result.output.splitlines() if line.startswith("Package ")]
-        self.assertEqual(3, len(package_lines), result.output)
-        for package in ("packages/base", "packages/urp", "packages/game/watermelon"):
+        self.assertEqual(4, len(package_lines), result.output)
+        for package in ("packages/base", "packages/notifications", "packages/urp", "packages/game/watermelon"):
             self.assertIn(str(repo_root() / package), result.output)
         self.assertIn("developed in full, minimal, urp, watermelon", result.output)
 

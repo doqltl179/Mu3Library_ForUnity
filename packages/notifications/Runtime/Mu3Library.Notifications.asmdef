@@ -15,15 +15,8 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "MU3LIBRARY_NOTIFICATIONS_SUPPORT"
-    ],
+    "defineConstraints": [],
     "versionDefines": [
-        {
-            "name": "com.unity.mobile.notifications",
-            "expression": "",
-            "define": "MU3LIBRARY_NOTIFICATIONS_SUPPORT"
-        },
         {
             "name": "com.cysharp.unitask",
             "expression": "",

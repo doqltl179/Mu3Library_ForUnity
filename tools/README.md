@@ -91,7 +91,7 @@ The repository commits no Unity project. Each folder in [unity-projects/](unity-
 | Config | Packages | Optional SDKs | Notes |
 |---|---|---|---|
 | `minimal` | Base | none | Active input handling is the Input Manager, since the Input System package is absent |
-| `full` | Base | UniTask, Steamworks.NET, Addressables (through Localization), Localization, Input System, Mobile Notifications | Input handling Both, `steam_appid.txt`, the Addressables settings, and Base's samples linked in |
+| `full` | Base, Notifications | UniTask, Steamworks.NET, Addressables (through Localization), Localization, Input System, Mobile Notifications | Input handling Both, `steam_appid.txt`, the Addressables settings, and Base's samples linked in |
 | `urp` | Base, URP | Input System | Input handling Input System, the URP settings assets |
 | `watermelon` | Base, URP, Watermelon Game | UniTask, Input System | Input handling Both, the URP settings assets, the Input Actions |
 
@@ -112,7 +112,7 @@ The default command compiles the projects selected from staged, unstaged, and un
 ./compile-unity.sh
 ```
 
-A changed package selects every config whose `Packages/manifest.json` names it as `"checkout"`, since each config installs different optional packages and so compiles the shared sources with a different define set: a `packages/base` change selects `full`, `minimal`, `urp`, and `watermelon`, a `packages/urp` change `urp` and `watermelon`, and a `packages/game/watermelon` change `watermelon`. A change inside `tools/unity-projects/<config>/` selects that config.
+A changed package selects every config whose `Packages/manifest.json` names it as `"checkout"`, since each config installs different optional packages and so compiles the shared sources with a different define set: a `packages/base` change selects `full`, `minimal`, `urp`, and `watermelon`, a `packages/notifications` change `full`, a `packages/urp` change `urp` and `watermelon`, and a `packages/game/watermelon` change `watermelon`. A change inside `tools/unity-projects/<config>/` selects that config.
 
 Package Markdown, licenses, `Documentation~`, and other repository tooling changes do not trigger Unity compilation.
 
@@ -219,7 +219,7 @@ On 2026-11-14, with Unity 6000.6.7f1 and no other Unity process running, the com
 
 ## Lowest Supported Editor
 
-Each package declares the lowest Editor it supports in the `unity` field of its `package.json`, `6000.3` for all three, while the configs name a newer Editor. `--editor-version <version>` compiles or tests the selected targets with another Editor installed through Unity Hub, such as a 6000.3 release:
+Each package declares the lowest Editor it supports in the `unity` field of its `package.json`, `6000.3` for every package, while the configs name a newer Editor. `--editor-version <version>` compiles or tests the selected targets with another Editor installed through Unity Hub, such as a 6000.3 release:
 
 ```bash
 ./compile-unity.sh all --editor-version 6000.3.17f1

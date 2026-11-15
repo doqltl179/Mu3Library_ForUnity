@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (notifications package)
+
+### Changed
+- The `full` project config names the new Notifications package, `packages/notifications`, as `"checkout"` (#533, ADR 0001 D7, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder. The package has no tests, so the config lists it under no `testables`. `.ai/project/profile.toml` lists it under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
 ## 2026-11-15 (tool package names)
 
 ### Changed

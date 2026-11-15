@@ -30,7 +30,7 @@
 - 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
-- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET
+- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization, Input System, Steamworks.NET
 - 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
@@ -69,12 +69,15 @@
 
 Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
 
+The Notifications package, local notifications for Android and iOS, ships with the next release, and its URL joins this list then. It needs no other Mu3Library package.
+
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
 3. Click `+` button > `Add package from disk...`
 4. Select one of the following:
     - `packages/base/package.json`
+    - `packages/notifications/package.json`
     - `packages/urp/package.json` (install Base first)
     - `packages/game/watermelon/package.json` (install Base and URP first)
 
@@ -378,8 +381,9 @@ When the following packages are installed, their features are automatically enab
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Dynamic asset loading |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
-| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | Local notifications (Android/iOS, separate `Mu3Library.Notifications` assembly) |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | Steam backend for multiplayer sessions (2025.164.1 or later; separate `Mu3Library.Multiplayer.Steam` assembly, compiled in the editor while the build target is a standalone platform, and into 64-bit standalone players only: Windows x64, macOS, and Linux x64, not 32-bit Windows) |
+
+Local notifications for Android and iOS moved to the separate Notifications package, which installs Unity Mobile Notifications as its dependency, so no define symbol switches them on: see its [README](packages/notifications/README.md).
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
@@ -547,6 +551,7 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base`
+- Notifications: `com.github.doqltl179.mu3library.notifications` (from the next release)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

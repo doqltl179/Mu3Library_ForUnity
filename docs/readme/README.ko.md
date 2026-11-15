@@ -30,7 +30,7 @@
 - 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
-- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET 조건부 활성화
+- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Input System, Steamworks.NET 조건부 활성화
 - 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
@@ -69,12 +69,15 @@
 
 패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.
 
+Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 다른 Mu3Library 패키지는 필요하지 않습니다.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
 3. `+` 버튼 > `Add package from disk...`
 4. 다음 중 하나를 선택합니다:
     - `packages/base/package.json`
+    - `packages/notifications/package.json`
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
@@ -378,8 +381,9 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 동적 에셋 로딩 |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
-| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | 로컬 알림 (Android/iOS, 별도 `Mu3Library.Notifications` 어셈블리) |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | 멀티플레이 세션의 Steam 백엔드 (2025.164.1 이상. 별도 `Mu3Library.Multiplayer.Steam` 어셈블리이며, 에디터에서는 빌드 대상이 스탠드얼론 플랫폼일 때 컴파일되고, 플레이어는 64비트 스탠드얼론인 Windows x64, macOS, Linux x64에만 들어가며 32비트 Windows에는 들어가지 않음) |
+
+Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨졌습니다. 이 패키지는 Unity Mobile Notifications를 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/notifications/README.md)를 참고하세요.
 
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
@@ -547,6 +551,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 
 **패키지 정보:**
 - Base: `com.github.doqltl179.mu3library.base`
+- Notifications: `com.github.doqltl179.mu3library.notifications` (다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)

@@ -1,0 +1,26 @@
+{
+    "name": "com.github.doqltl179.mu3library.notifications",
+    "version": "0.1.0",
+    "displayName": "Mu3 Library Notifications",
+    "description": "Local notifications for Mu3Library on Android and iOS: NotificationManager wraps the unified NotificationCenter of Unity's Mobile Notifications package for initialization, permission requests, scheduling, cancels, badge clearing, and the notification the app was opened from. Supports UniTask async variants when UniTask is installed.",
+    "unity": "6000.3",
+    "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/packages/notifications/README.md",
+    "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
+    "license": "MIT",
+    "author": {
+        "name": "Mu3",
+        "url": "https://github.com/doqltl179"
+    },
+    "keywords": [
+        "Mu3Library",
+        "Notifications",
+        "Local Notifications",
+        "Mobile Notifications",
+        "Android",
+        "iOS",
+        "UniTask"
+    ],
+    "dependencies": {
+        "com.unity.mobile.notifications": "2.4.3"
+    }
+}
