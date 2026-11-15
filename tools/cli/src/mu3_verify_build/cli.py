@@ -1,11 +1,11 @@
 """The verification build: a player of a copy of UnityProject_BuiltIn that keeps its Addressables output in the checkout.
 
-The tracked Addressables profile, GitHub_Windows, builds the bundles and the remote catalog into an
-absolute folder outside the checkout, the one the real bundle deployment uses, and by the user's
-decision (#481) neither that profile nor the deployment changes. This tool makes a copy of the
-project and Base from HEAD's tracked files, changes the copy alone so that a player build writes
-nothing outside the checkout and its work folder, and builds a Windows x64 player of it, with the
-Addressables content or without it.
+The tracked Addressables profile, GitHub_Windows, builds the remote bundles and the remote catalog
+into an absolute folder outside the checkout, the one the real bundle deployment uses, and by the
+user's decision (#481) neither those paths nor the deployment change; its local paths are the Default
+profile's (#498). This tool makes a copy of the project and Base from HEAD's tracked files, changes
+the copy alone so that a player build writes nothing outside the checkout and its work folder, and
+builds a Windows x64 player of it, with the Addressables content or without it.
 """
 
 from __future__ import annotations
@@ -36,7 +36,12 @@ TARGET = "built-in"
 SETTINGS_ASSET = Path("Assets", "AddressableAssetsData", "AddressableAssetSettings.asset")
 PROJECT_SETTINGS_ASSET = Path("ProjectSettings", "ProjectSettings.asset")
 PROFILE_NAME = "GitHub_Windows"
-BUILD_PATH_VARIABLES = ("Remote.BuildPath", "Local.BuildPath")
+REMOTE_BUILD_PATH = "Remote.BuildPath"
+LOCAL_BUILD_PATH = "Local.BuildPath"
+# The Default profile's Local.BuildPath, which GitHub_Windows holds too (#498). It builds a local group's
+# bundles into the project's Library/com.unity.addressables/aa, the folder a player build copies into
+# StreamingAssets/aa, where Local.LoadPath finds them; in the bundles folder the player would lack them.
+LOCAL_BUILD_PATH_DEFAULT = "[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]"
 # The values of AddressableAssetSettings.PlayerBuildOption that each --content sets:
 # BuildWithPlayer and DoNotBuildWithPlayer, in the order of the enum in Addressables 2.11.2.
 CONTENT_MODES = {"build": 1, "none": 2}
@@ -208,6 +213,13 @@ def _value(line: str) -> str:
     return line.split(":", 1)[1].strip()
 
 
+def _scalar(text: str) -> str:
+    """A YAML scalar as Unity writes it, plain or single-quoted, without its quotes."""
+    if len(text) >= 2 and text[0] == "'" and text[-1] == "'":
+        return text[1:-1].replace("''", "'")
+    return text
+
+
 def _single_key_line(lines: Sequence[str], key: str, indent: int, label: str) -> int:
     prefix = " " * indent + key + ":"
     found = [index for index, line in enumerate(lines) if line.startswith(prefix)]
@@ -223,11 +235,12 @@ def _replace_line(lines: list[str], index: int, text: str) -> None:
 
 
 def override_addressables_settings(text: str, bundles: str, content: str) -> str:
-    """The copy's AddressableAssetSettings.asset with the decided changes (#481).
+    """The copy's AddressableAssetSettings.asset with the decided changes (#481, #498).
 
-    In the active profile, which must be GitHub_Windows, Remote.BuildPath and Local.BuildPath name
-    the bundles folder, and m_BuildAddressablesWithPlayerBuild takes the value of the --content mode.
-    Every other line stays as it was, Remote.LoadPath included. A file of another shape raises
+    In the active profile, which must be GitHub_Windows, Remote.BuildPath names the bundles folder,
+    and m_BuildAddressablesWithPlayerBuild takes the value of the --content mode. Every other line
+    stays as it was, Remote.LoadPath and Local.BuildPath included, and Local.BuildPath must hold
+    LOCAL_BUILD_PATH_DEFAULT. A file of another shape, or another Local.BuildPath, raises
     SettingsFormatError, so the tool never guesses which line to change.
     """
     label = SETTINGS_ASSET.as_posix()
@@ -240,7 +253,7 @@ def override_addressables_settings(text: str, bundles: str, content: str) -> str
         fields = _item_fields(keys, start, end)
         if "m_Id" in fields and "m_Name" in fields:
             names[_value(keys[fields["m_Name"]])] = _value(keys[fields["m_Id"]])
-    missing = [name for name in BUILD_PATH_VARIABLES if name not in names]
+    missing = [name for name in (REMOTE_BUILD_PATH, LOCAL_BUILD_PATH) if name not in names]
     if missing:
         raise SettingsFormatError(f"{label} names no profile variable {', '.join(missing)}")
 
@@ -264,8 +277,8 @@ def override_addressables_settings(text: str, bundles: str, content: str) -> str
         if "m_Id" in fields and "m_Value" in fields:
             values[_value(keys[fields["m_Id"]])] = (fields["m_Value"], end)
 
-    replacements: dict[int, tuple[str, int]] = {}
-    for name in BUILD_PATH_VARIABLES:
+    value_lines: dict[str, tuple[int, int]] = {}
+    for name in (REMOTE_BUILD_PATH, LOCAL_BUILD_PATH):
         if names[name] not in values:
             raise SettingsFormatError(f"the profile {PROFILE_NAME} of {label} has no value for {name}")
         value_index, item_end = values[names[name]]
@@ -273,7 +286,19 @@ def override_addressables_settings(text: str, bundles: str, content: str) -> str
         continued = value_index + 1
         while continued < item_end and _indent(keys[continued]) > _indent(keys[value_index]):
             continued += 1
-        replacements[value_index] = (" " * _indent(keys[value_index]) + "m_Value: " + yaml_single_quoted(bundles), continued)
+        value_lines[name] = (value_index, continued)
+
+    local_index, local_end = value_lines[LOCAL_BUILD_PATH]
+    local_value = " ".join([_value(keys[local_index])] + [line.strip() for line in keys[local_index + 1:local_end]])
+    if _scalar(local_value) != LOCAL_BUILD_PATH_DEFAULT:
+        raise SettingsFormatError(
+            f"the profile {PROFILE_NAME} of {label} has {LOCAL_BUILD_PATH} {local_value}, not the default "
+            f"{yaml_single_quoted(LOCAL_BUILD_PATH_DEFAULT)}, which builds local bundles into the copy's Library for the player to carry"
+        )
+
+    replacements: dict[int, tuple[str, int]] = {}
+    remote_index, remote_end = value_lines[REMOTE_BUILD_PATH]
+    replacements[remote_index] = (" " * _indent(keys[remote_index]) + "m_Value: " + yaml_single_quoted(bundles), remote_end)
 
     option_index = _single_key_line(keys, "m_BuildAddressablesWithPlayerBuild", 2, label)
     replacements[option_index] = (f"  m_BuildAddressablesWithPlayerBuild: {CONTENT_MODES[content]}", option_index + 1)
@@ -487,10 +512,10 @@ def prepare_copy(
         script.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / BUILD_SCRIPT, script)
     echo(
-        f"Changed in the copy only: {PROFILE_NAME}'s {' and '.join(BUILD_PATH_VARIABLES)} -> {bundles}, "
+        f"Changed in the copy only: {PROFILE_NAME}'s {REMOTE_BUILD_PATH} -> {bundles}, "
         f"m_BuildAddressablesWithPlayerBuild -> {CONTENT_MODES[options.content]}, "
         f"companyName/productName -> {COMPANY_NAME}/{PRODUCT_NAME}, and {COPY_BUILD_SCRIPT.as_posix()} added; "
-        "Remote.LoadPath is left as it is"
+        f"{LOCAL_BUILD_PATH} keeps its default, in the copy's Library, and Remote.LoadPath is left as it is"
     )
     return copy_project
 
