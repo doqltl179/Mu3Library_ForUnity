@@ -7,6 +7,15 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (tool package names)
+
+### Changed
+- The Python packages in `tools/cli/src` drop their `mu3_` prefix (#529), since the `mu3` mark names this library's code in namespaces and assemblies, not folders: `mu3_common` is now `common`, `mu3_fixed_load` is `fixed_load`, `mu3_repo` is `repo`, `mu3_strip_harness` is `strip_harness`, `mu3_unity` is `unity`, and `mu3_verify_build` is `verify_build`. Run them from the repository root as `PYTHONPATH=tools/cli/src python -m repo check`, `python -m unity doctor`, `python -m strip_harness`, and `python -m verify_build`; `compile-unity.sh` and `test-unity.sh` run `tools/cli/src/common/unity_projects.py` and `tools/cli/src/fixed_load/fixed_load.py`. The commands on `PATH`, `mu3-repo`, `mu3-unity`, `mu3-di-strip-harness`, and `mu3-verify-build`, and the distribution `mu3-tools` keep their names.
+
+### What an existing checkout needs
+- Entering the development environment reinstalls the tools in an existing `.venv`, since their commands now point at the new packages (#504).
+- The former folders can stay behind with the `__pycache__` folders Git ignores in them, such as `tools/cli/src/mu3_repo/__pycache__`, and nothing reads them: delete them.
+
 ## 2026-11-15 (packages folder)
 
 ### Changed

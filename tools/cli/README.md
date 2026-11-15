@@ -1,6 +1,6 @@
 ﻿# Repository Tools
 
-The Python tools in `tools/cli` automate repository work. Each tool is a package of its own under `src/` with its own command, and the code the tools share lives once, in `mu3_common`.
+The Python tools in `tools/cli` automate repository work. Each tool is a package of its own under `src/` with its own command, and the code the tools share lives once, in `common`.
 
 They are intentionally scoped to tooling-safe roots and should not modify Unity runtime or editor package surfaces unless that is explicitly requested.
 
@@ -8,14 +8,14 @@ They are intentionally scoped to tooling-safe roots and should not modify Unity 
 
 | Package | Command | Covers |
 |---|---|---|
-| `mu3_repo` | `mu3-repo` | Repository checks |
-| `mu3_unity` | `mu3-unity` | Unity Editor diagnostics, and compiles and test runs through `compile-unity.sh` and `test-unity.sh` |
-| `mu3_strip_harness` | `mu3-di-strip-harness` | The [DI stripping harness](../README.md#di-stripping-harness) |
-| `mu3_verify_build` | `mu3-verify-build` | The [verification build](../README.md#verification-build), a player of a project generated from the `full` config |
-| `mu3_fixed_load` | none | The helper that `compile-unity.sh` and `test-unity.sh` run beside each Unity run, by its path, `src/mu3_fixed_load/fixed_load.py`, with nothing but the standard library (see [../README.md](../README.md#fixed-load-and-repeated-runs)) |
-| `mu3_common` | none | The code the tools share: the repository root (`checkout`), the Editor each project needs and the Unity package versions it bundles (`editor`), the [project configs](../README.md#unity-project-configs) and the projects generated from them (`unity_projects`), whose `unity_projects.py` `compile-unity.sh` and `test-unity.sh` run by its path with nothing but the standard library, whether an Editor holds a project's lock file (`project_lock`), the bash that runs the shell entrypoints (`bash`), the marker file that lets a tool change only a folder it made (`work_dir`), and a command run with a timeout that also stops the processes it started (`process`) |
+| `repo` | `mu3-repo` | Repository checks |
+| `unity` | `mu3-unity` | Unity Editor diagnostics, and compiles and test runs through `compile-unity.sh` and `test-unity.sh` |
+| `strip_harness` | `mu3-di-strip-harness` | The [DI stripping harness](../README.md#di-stripping-harness) |
+| `verify_build` | `mu3-verify-build` | The [verification build](../README.md#verification-build), a player of a project generated from the `full` config |
+| `fixed_load` | none | The helper that `compile-unity.sh` and `test-unity.sh` run beside each Unity run, by its path, `src/fixed_load/fixed_load.py`, with nothing but the standard library (see [../README.md](../README.md#fixed-load-and-repeated-runs)) |
+| `common` | none | The code the tools share: the repository root (`checkout`), the Editor each project needs and the Unity package versions it bundles (`editor`), the [project configs](../README.md#unity-project-configs) and the projects generated from them (`unity_projects`), whose `unity_projects.py` `compile-unity.sh` and `test-unity.sh` run by its path with nothing but the standard library, whether an Editor holds a project's lock file (`project_lock`), the bash that runs the shell entrypoints (`bash`), the marker file that lets a tool change only a folder it made (`work_dir`), and a command run with a timeout that also stops the processes it started (`process`) |
 
-Each command also runs as `python -m <package>`, such as `python -m mu3_unity doctor`, and so from the repository root without installing the tools, with `PYTHONPATH=tools/cli/src`. A tool imports `mu3_common` and nothing of another tool, so code that two tools need goes into `mu3_common` rather than into a copy.
+Each command also runs as `python -m <package>`, such as `python -m unity doctor`, and so from the repository root without installing the tools, with `PYTHONPATH=tools/cli/src`. A tool imports `common` and nothing of another tool, so code that two tools need goes into `common` rather than into a copy.
 
 - `mu3-repo info`: print key repository roots, each package and the configs that develop it, and the agent kit and overlay locations.
 - `mu3-repo check`: validate repository document layout, README links, stale routing references, invisible and private-use characters and the replacement character U+FFFD in package `.cs` files, and tracked tooling artifacts, then run `python .ai/kit/tools/agentkit.py check` on the agent docs. A package `.cs` file that is not UTF-8 is reported with the line where its bytes stop being UTF-8. When those bytes start like an unpaired surrogate written out as bytes, `ED` and then a byte from `A0` to `BF`, the report says they may be one; otherwise it asks to save the file as UTF-8, as for Korean saved as CP949.
@@ -68,7 +68,7 @@ Run the dependency-light tool unit tests from the repository root:
 ```powershell
 $env:PYTHONPATH = "tools/cli/src"
 python -m unittest discover -s tools/cli/tests -v
-python -m mu3_repo check
+python -m repo check
 ```
 
 The same suite runs from Git Bash:
@@ -81,13 +81,13 @@ The tests that run `compile-unity.sh` find bash the way `mu3-unity` does, so the
 
 ## Bash on Windows
 
-`mu3-unity changes`, `mu3-unity compile`, `mu3-unity test`, and the tool tests run the shell entry points through the bash of Git for Windows. The Git for Windows installer puts `git` on `PATH` but not `bash`, so `mu3_common` looks in this order:
+`mu3-unity changes`, `mu3-unity compile`, `mu3-unity test`, and the tool tests run the shell entry points through the bash of Git for Windows. The Git for Windows installer puts `git` on `PATH` but not `bash`, so `common` looks in this order:
 
 1. `bash` on `PATH`, unless it is the WSL launcher (`C:\Windows\System32\bash.exe` or its `WindowsApps` alias), which runs the script inside Linux where the Windows Unity Editor is out of reach.
 2. `bin\bash.exe` of the Git installation whose `git` is on `PATH`.
 3. `Git\bin\bash.exe` under `Program Files`, `Program Files (x86)`, and `%LOCALAPPDATA%\Programs`.
 
-When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `mu3-unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks `mu3_common` for this bash and puts it first on the PowerShell session's `PATH`.
+When none of them exists, the commands stop with a usage error that says what to install or add to `PATH`, and `mu3-unity doctor` fails its `Bash` check. `tools/dev/activate.ps1` asks `common` for this bash and puts it first on the PowerShell session's `PATH`.
 
 Git Bash also rewrites an argument that starts with `/` as a Windows path before it starts a Windows program such as `python`, so `mu3-unity test --filter /x`, typed in Git Bash, passes `C:/Program Files/Git/x` on; no test matches it and the target fails with `no test matched --filter`. `test-unity.sh` itself refuses a filter that starts with `/`, and PowerShell passes it unchanged for `mu3-unity` to refuse.
 
