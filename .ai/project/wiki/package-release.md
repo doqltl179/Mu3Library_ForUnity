@@ -30,6 +30,7 @@ The detailed notes go in the root `CHANGELOG.md` (and its localized copies) unde
 | `localization` | `## [localization/X.Y.Z] - YYYY-MM-DD` | `[Localization] vX.Y.Z` |
 | `addressables` | `## [addressables/X.Y.Z] - YYYY-MM-DD` | `[Addressables] vX.Y.Z` |
 | `di` | `## [di/X.Y.Z] - YYYY-MM-DD` | `[DI] vX.Y.Z` |
+| `steam` | `## [steam/X.Y.Z] - YYYY-MM-DD` | `[Steam] vX.Y.Z` |
 
 - Plain `vX.Y.Z` tags (`v0.0.20` through `v0.6.0`) are historical.
 - The Watermelon Game tag path is `game/watermelon` while its commit scope is `watermelon`; keep each as written.

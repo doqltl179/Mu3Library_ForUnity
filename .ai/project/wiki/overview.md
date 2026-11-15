@@ -32,6 +32,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | Input System | `packages/inputsystem/` | Base | `inputsystem`; no area label of its own yet |
 | Localization | `packages/localization/` | Base | `localization`; no area label of its own yet |
 | Notifications | `packages/notifications/` | — | `notifications`; no area label of its own yet |
+| Steam | `packages/steam/` | Base | `steam`; no area label of its own yet |
 | URP | `packages/urp/` | Base | `urp` |
 | Watermelon Game | `packages/game/watermelon/` | Base, URP | `watermelon`, never `game` |
 
@@ -39,7 +40,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Config | Exercises | Compile target |
 |---|---|---|
-| `tools/unity-projects/full` | Addressables, Base, DI, Input System, Localization, and Notifications on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
+| `tools/unity-projects/full` | Addressables, Base, DI, Input System, Localization, Notifications, and Steam on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
 | `tools/unity-projects/minimal` | Base and DI without any optional SDK | `minimal` |
 | `tools/unity-projects/urp` | URP layered on Base | `urp` |
 | `tools/unity-projects/watermelon` | Watermelon Game | `watermelon` |
@@ -66,8 +67,8 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 ## Commit Scopes
 
-- A scope names a package (`addressables`, `base`, `di`, `inputsystem`, `localization`, `notifications`, `urp`, `watermelon`), a surface inside one (`object-pool`, `audio`, `mvp`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
-- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Addressables, DI, Input System, Localization, and Notifications have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
+- A scope names a package (`addressables`, `base`, `di`, `inputsystem`, `localization`, `notifications`, `steam`, `urp`, `watermelon`), a surface inside one (`object-pool`, `audio`, `mvp`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
+- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Addressables, DI, Input System, Localization, Notifications, and Steam have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
 - Commits written before Korean became the commit language keep their original language; never rewrite them.
 
 ## Human-Facing Docs
