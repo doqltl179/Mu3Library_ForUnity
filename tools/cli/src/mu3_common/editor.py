@@ -11,7 +11,7 @@ from typing import Iterable
 def folder_editor_version(project_folder: Path) -> str | None:
     """The Editor version that a project folder's ProjectSettings/ProjectVersion.txt names, or None.
 
-    compile-unity.sh's project_editor_version reads the same line.
+    compile-unity.sh and test-unity.sh take each config's version from it, through unity_projects.py describe.
     """
     version_file = project_folder / "ProjectSettings" / "ProjectVersion.txt"
     if not version_file.is_file():
