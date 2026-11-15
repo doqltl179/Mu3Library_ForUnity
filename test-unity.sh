@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# Runs the EditMode or PlayMode tests of the development projects through the
-# Unity Test Framework CLI. Target selection, the Editor lookup, the lock check,
-# the sample links, and the isolated mirror come from compile-unity.sh, which
-# this sources.
+# Runs the EditMode or PlayMode tests of the Unity projects generated from the
+# configs in tools/unity-projects through the Unity Test Framework CLI. Target
+# selection, the Editor lookup, the lock check, and project generation come from
+# compile-unity.sh, which this sources.
 
 set -euo pipefail
 
@@ -120,23 +120,26 @@ FAILURE_RATE=""
 COUNTED_REPEAT_PHRASE=""
 
 usage() {
-    local i
+    local config_dir
 
     cat <<'EOF'
 Usage: ./test-unity.sh [changed|all|target] [options]
 
-Runs the EditMode or PlayMode tests of the selected development projects with
-the Unity Test Framework, and exits non-zero when a test fails or is
-inconclusive or a run reports no result.
+Runs the EditMode or PlayMode tests of the selected projects with the Unity
+Test Framework, and exits non-zero when a test fails or is inconclusive or a
+run reports no result.
 
 Selection:
-  changed          Test every project that consumes a package affected by Git
-                   changes (default), selected as compile-unity.sh selects it.
-  all              Test every configured project.
+  changed          Test every project whose config names a package affected
+                   by Git changes, or whose config changed (default), selected
+                   as compile-unity.sh selects it.
+  all              Test the project of every config.
 EOF
 
-    for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
-        printf '  %-16s Test %s\n' "${TARGET_KEYS[$i]}" "${PROJECT_PATHS[$i]}"
+    for config_dir in "$CONFIGS_DIR"/*/; do
+        [[ -d "$config_dir" ]] || continue
+        config_dir="${config_dir%/}"
+        printf '  %-16s Test the project of tools/unity-projects/%s\n' "${config_dir##*/}" "${config_dir##*/}"
     done
 
     cat <<'EOF'
@@ -166,27 +169,27 @@ Options:
                     for each run, keep each run's results apart, and total
                     them (default 1).
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
-  --dry-run         Print the selection and where each target would run,
-                    without Unity.
-  --isolated        Always test a temporary source-only project mirror.
-  --in-place        Test the repository project directly; fail if it is open.
-  --keep-staging    Keep an isolated project after the run for diagnostics.
-  --without-samples Run even when a project's link to its package samples is
-                    missing, leaving the samples out with a warning.
+  --dry-run         Print the selection and the project folder each target
+                    would generate or refresh, without Unity and without
+                    creating anything.
+  --work-dir <folder>
+                    Generate the projects in <folder>/<target> instead of
+                    ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>.
   --editor-version <version>
                     Test with the Unity Hub Editor of that exact version, such
                     as 6000.3.17f1, instead of the one ProjectVersion.txt
-                    names, always in an isolated mirror retargeted to it.
+                    names, in a project of its own, <target>-<version>,
+                    retargeted to it.
   -h, --help        Show this help.
 
-A project runs the tests of the packages its Packages/manifest.json lists under
-"testables"; a selected project that lists none is skipped. Each run writes
+A project runs the tests of the packages its config's Packages/manifest.json
+lists under "testables"; a selected config that lists none is skipped. Each run writes
 NUnit XML results to log/unity-tests/<target>-<platform>.xml, such as
 log/unity-tests/urp-playmode.xml, and Unity's log, with a line as each test
 begins and ends, beside it as <target>-<platform>.log. A failed test or a
 stalled or failed Unity run does not stop the remaining targets, and a summary
-closes the run; a target that cannot start, such as an open project under
---in-place or a mirror that cannot be copied, stops the script at once.
+closes the run; a target that cannot start, such as a project that an Editor
+has open or that cannot be generated, stops the script at once.
 
 Under each run the summary gives how many other Unity processes, those the run
 did not start, ran as it started and while it ran, and with --load-spinners
@@ -219,11 +222,10 @@ service keeps the log the service wrote, the project's Logs/UDS-Service.log,
 as <target>-<platform>.uds-service.log. Under a run in which the service
 ended, the summary gives its exit code, when it ended, and that log.
 
-Where a target runs (in place, or in an isolated mirror while an Editor has the
-project open), how --editor-version retargets the mirror, the sample-link
-check, the warnings about the Windows path limit, which the summary gives again
-under each target, and the environment variables work as in compile-unity.sh;
-see ./compile-unity.sh --help.
+Where a target's project is generated and how it is refreshed, the lock check,
+how --editor-version retargets the project, the warnings about the Windows path
+limit, which the summary gives again under each target, and the environment
+variables work as in compile-unity.sh; see ./compile-unity.sh --help.
 EOF
 }
 
@@ -279,28 +281,15 @@ parse_test_arguments() {
 }
 
 # Unity runs package tests only for the packages a project's manifest lists
-# under "testables", so a project without that list has nothing to run; this
+# under "testables", so a config without that list has nothing to run; this
 # returns 1 for it, with the reason in NO_TESTABLES_REASON.
 project_has_testables() {
     local target_key="$1"
-    local manifest_path
-    local line
 
     NO_TESTABLES_REASON=""
     find_target "$target_key" || return 1
-    manifest_path="${PROJECT_PATHS[$TARGET_INDEX]}/Packages/manifest.json"
-    NO_TESTABLES_REASON="$manifest_path lists no testables"
-
-    [[ -f "$REPO_ROOT/$manifest_path" && -r "$REPO_ROOT/$manifest_path" ]] || return 1
-    # As in compile-unity.sh, a line read from a CRLF checkout drops its CR.
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-        if [[ "$line" == *'"testables"'* ]]; then
-            return 0
-        fi
-    done < "$REPO_ROOT/$manifest_path"
-
-    return 1
+    NO_TESTABLES_REASON="tools/unity-projects/$target_key/Packages/manifest.json lists no testables"
+    [[ "${CONFIG_TESTABLES[$TARGET_INDEX]}" == 1 ]]
 }
 
 run_plan_entry() {
@@ -311,7 +300,7 @@ run_plan_entry() {
         return 0
     fi
 
-    run_location_phrase "$target_key"
+    project_plan_phrase "$target_key"
 }
 
 # Narrows SELECTED_TARGETS to the projects that have tests to run and records
@@ -1482,9 +1471,9 @@ test_main() {
     local results_name
     local environment_phrase=""
 
-    load_package_config
     parse_test_arguments "$@"
     parse_arguments ${COMPILE_ARGUMENTS[@]+"${COMPILE_ARGUMENTS[@]}"}
+    load_project_configs
     select_requested_targets
     print_selection
     if [[ -n "$TEST_FILTER" ]]; then
@@ -1498,14 +1487,16 @@ test_main() {
     fi
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
+        # Without a work folder no target has a project folder to name.
+        if [[ "${#SELECTED_TARGETS[@]}" -gt 0 && -n "$WORK_DIR_ERROR" ]]; then
+            fail "$WORK_DIR_ERROR"
+        fi
         print_run_plan
-        keep_testable_targets
-        check_sample_links warning || true
         exit 0
     fi
 
     if [[ "${#SELECTED_TARGETS[@]}" -eq 0 ]]; then
-        printf 'No Unity package or development-project changes detected; nothing to test.\n'
+        printf 'No Unity package or project config changes detected; nothing to test.\n'
         exit 0
     fi
 
@@ -1516,7 +1507,7 @@ test_main() {
     fi
 
     # The helper that a run starts stops with the script, however it ends.
-    trap 'stop_load_helper; cleanup_staging' EXIT
+    trap 'stop_load_helper' EXIT
 
     preflight_failed=0
     preflight_selected_targets || preflight_failed=1
