@@ -94,7 +94,7 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `policy.commit_language` | — |
 | `hosting.platform` | github |
 | `hosting.ci` | false |
-| `hosting.area_labels` | base, urp, watermelon, agents, tooling |
+| `hosting.area_labels` | base, urp, watermelon, notifications, inputsystem, localization, addressables, di, steam, agents, tooling |
 | `docs.readme` | README.md |
 | `docs.changelog` | CHANGELOG.md |
 | `docs.source_locale` | en |

@@ -26,13 +26,13 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Package | Folder | Depends on | Scope and area label |
 |---|---|---|---|
-| Addressables | `packages/addressables/` | Base | `addressables`; no area label of its own yet |
+| Addressables | `packages/addressables/` | Base | `addressables` |
 | Base | `packages/base/` | — | `base` |
-| DI | `packages/di/` | Base | `di`; no area label of its own yet |
-| Input System | `packages/inputsystem/` | Base | `inputsystem`; no area label of its own yet |
-| Localization | `packages/localization/` | Base | `localization`; no area label of its own yet |
-| Notifications | `packages/notifications/` | — | `notifications`; no area label of its own yet |
-| Steam | `packages/steam/` | Base | `steam`; no area label of its own yet |
+| DI | `packages/di/` | Base | `di` |
+| Input System | `packages/inputsystem/` | Base | `inputsystem` |
+| Localization | `packages/localization/` | Base | `localization` |
+| Notifications | `packages/notifications/` | — | `notifications` |
+| Steam | `packages/steam/` | Base | `steam` |
 | URP | `packages/urp/` | Base | `urp` |
 | Watermelon Game | `packages/game/watermelon/` | Base, URP | `watermelon`, never `game` |
 
@@ -68,7 +68,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 ## Commit Scopes
 
 - A scope names a package (`addressables`, `base`, `di`, `inputsystem`, `localization`, `notifications`, `steam`, `urp`, `watermelon`), a surface inside one (`object-pool`, `audio`, `mvp`, and similar), or repository-level work (`release`, `agents`, `workflow`, `tooling`, `project`).
-- Area labels are `hosting.area_labels`: `base`, `urp`, and `watermelon` for those packages, `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. Addressables, DI, Input System, Localization, Notifications, and Steam have no label of their own yet: adding one creates a GitHub label, so it waits for the user.
+- Area labels are `hosting.area_labels`: one per package, named as its scope (`addressables`, `base`, `di`, `inputsystem`, `localization`, `notifications`, `steam`, `urp`, `watermelon`), `agents` for `.ai/` and the generated agent files, and `tooling` for `tools/`, `compile-unity.sh`, and `test-unity.sh`. A change to a project config takes `tooling`, as the rest of `tools/` does. The six labels of the split packages exist since 2026-11-16 by the user's decision; a new package's label is a GitHub label, so creating it waits for the user.
 - Commits written before Korean became the commit language keep their original language; never rewrite them.
 
 ## Human-Facing Docs
