@@ -17,9 +17,9 @@ from pathlib import Path
 from fixture_repository import CONFIGS, FAKE_UNITY, LOAD_HELPER, FixtureRepositoryTestCase
 from shell_harness import bash_or_skip
 from test_compile_selection import run_plan
-from mu3_common.bash import bash_script_command
-from mu3_common.unity_projects import is_directory_link
-from mu3_fixed_load import fixed_load
+from common.bash import bash_script_command
+from common.unity_projects import is_directory_link
+from fixed_load import fixed_load
 
 
 class GeneratedProjectRunTests(FixtureRepositoryTestCase):
@@ -1077,7 +1077,7 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
         moved = helper.with_name("fixed_load.py.away")
         helper.rename(moved)
         self.addCleanup(moved.rename, helper)
-        missing = "tools/cli/src/mu3_fixed_load/fixed_load.py is missing"
+        missing = "tools/cli/src/fixed_load/fixed_load.py is missing"
 
         completed = self.run_tests("leaf", results=nunit_results())
 
@@ -1764,7 +1764,7 @@ class CompileLogTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(
             "warning: the Data Store service of each run will not be recorded: "
-            "tools/cli/src/mu3_fixed_load/fixed_load.py is missing",
+            "tools/cli/src/fixed_load/fixed_load.py is missing",
             completed.stderr.splitlines(),
         )
         self.assertIn("Unity compilation succeeded: leaf", completed.stdout.splitlines())

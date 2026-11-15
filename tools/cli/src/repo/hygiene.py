@@ -6,7 +6,7 @@ import unicodedata
 from pathlib import Path
 from typing import Iterable
 
-from mu3_common.checkout import repo_root
+from common.checkout import repo_root
 
 
 REQUIRED_DOC_PATHS = (

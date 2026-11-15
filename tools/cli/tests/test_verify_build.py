@@ -11,9 +11,9 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
-from mu3_common.checkout import repo_root
-from mu3_common.unity_projects import is_directory_link
-from mu3_verify_build.cli import (
+from common.checkout import repo_root
+from common.unity_projects import is_directory_link
+from verify_build.cli import (
     BUILD_SCRIPT,
     EXIT_BUILD_FAILED,
     PLAYER_CONTENT,
@@ -241,7 +241,7 @@ class RunTests(unittest.TestCase):
         self.project = self.work / "full"
         editor = self.root.parent / "Unity.exe"
         write(editor, "")
-        patcher = mock.patch("mu3_verify_build.cli.resolve_editor_path", return_value=(editor, False))
+        patcher = mock.patch("verify_build.cli.resolve_editor_path", return_value=(editor, False))
         patcher.start()
         self.addCleanup(patcher.stop)
         self.output: list[str] = []

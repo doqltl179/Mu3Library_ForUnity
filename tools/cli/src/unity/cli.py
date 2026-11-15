@@ -11,11 +11,11 @@ from typing import Callable
 
 import typer
 
-from mu3_common.bash import BashNotFoundError, bash_script_command, find_bash
-from mu3_common.checkout import echo_repository_root, repo_root
-from mu3_common.editor import resolve_editor_path
-from mu3_common.project_lock import file_is_held_open, project_lock_state
-from mu3_common.unity_projects import (
+from common.bash import BashNotFoundError, bash_script_command, find_bash
+from common.checkout import echo_repository_root, repo_root
+from common.editor import resolve_editor_path
+from common.project_lock import file_is_held_open, project_lock_state
+from common.unity_projects import (
     CONFIGS_FOLDER,
     ConfigError,
     ProjectConfig,
@@ -187,11 +187,11 @@ def run_unity_diagnostics(
 
     if os.access(root, os.W_OK):
         diagnostics.append(
-            _diagnostic("PASS", "global", "Log root", "Repository is writable for future log/mu3_unity run records.")
+            _diagnostic("PASS", "global", "Log root", "Repository is writable for the run records under log/.")
         )
     else:
         diagnostics.append(
-            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for future log/mu3_unity run records.")
+            _diagnostic("FAIL", "global", "Log root", "Repository is not writable for the run records under log/.")
         )
 
     work_diagnostic, folder = work_dir_diagnostic(root, work_dir)

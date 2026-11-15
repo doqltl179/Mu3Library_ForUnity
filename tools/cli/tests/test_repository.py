@@ -9,10 +9,10 @@ from unittest import mock
 from typer.testing import CliRunner
 
 from fixture_repository import FixtureRepositoryTestCase
-from mu3_common import checkout
-from mu3_common.checkout import repo_root
-from mu3_repo.cli import app
-from mu3_repo.hygiene import (
+from common import checkout
+from common.checkout import repo_root
+from repo.cli import app
+from repo.hygiene import (
     STALE_AGENT_REFERENCE_PARTS,
     agentkit_cli_path,
     is_generated_tool_artifact,
@@ -22,9 +22,9 @@ from mu3_repo.hygiene import (
     repository_text_paths,
     tracked_tool_paths,
 )
-from mu3_common.unity_projects import create_directory_link, remove_directory_link
+from common.unity_projects import create_directory_link, remove_directory_link
 
-MODULE_PATH = Path("tools", "cli", "src", "mu3_common", "checkout.py")
+MODULE_PATH = Path("tools", "cli", "src", "common", "checkout.py")
 
 
 class RepositoryHygieneTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class RepositoryHygieneTests(unittest.TestCase):
     def test_generated_tool_artifacts_are_detected(self) -> None:
         self.assertTrue(is_generated_tool_artifact("tools/cli/build/obj/generated.json"))
         self.assertTrue(is_generated_tool_artifact("tools/cli/src/mu3_tools.egg-info/PKG-INFO"))
-        self.assertFalse(is_generated_tool_artifact("tools/cli/src/mu3_repo/hygiene.py"))
+        self.assertFalse(is_generated_tool_artifact("tools/cli/src/repo/hygiene.py"))
 
     def test_agentkit_is_installed(self) -> None:
         self.assertTrue(agentkit_cli_path(repo_root()).is_file())
@@ -263,7 +263,7 @@ class RepositoryRootSpellingTests(unittest.TestCase):
             return repo_root()
 
     def test_root_keeps_the_short_path_the_module_was_imported_from(self) -> None:
-        # PYTHONPATH=tools/cli/src python -m <tool>, such as mu3_unity, run from the short path.
+        # PYTHONPATH=tools/cli/src python -m <tool>, such as unity, run from the short path.
         self.assertEqual(self.short_root, self.root_for(self.short_root, self.temporary))
 
     def test_working_directory_in_the_same_checkout_supplies_its_short_path(self) -> None:

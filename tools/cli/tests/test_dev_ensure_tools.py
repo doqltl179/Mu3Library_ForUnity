@@ -11,7 +11,7 @@ from importlib.metadata import EntryPoint
 from pathlib import Path
 from unittest import mock
 
-from mu3_common.checkout import repo_root
+from common.checkout import repo_root
 
 SCRIPT_PATH = repo_root() / "tools" / "dev" / "ensure_tools.py"
 _SPEC = importlib.util.spec_from_file_location("mu3_dev_ensure_tools", SCRIPT_PATH)
@@ -99,8 +99,8 @@ class ReadProjectTests(unittest.TestCase):
                 "]",
                 "",
                 "[project.scripts]",
-                'mu3-repo = "mu3_repo.cli:app"',
-                '"mu3-unity" = "mu3_unity.cli:app"',
+                'mu3-repo = "repo.cli:app"',
+                '"mu3-unity" = "unity.cli:app"',
                 "",
                 "[tool.setuptools]",
                 'package-dir = {"" = "src"}',
@@ -112,7 +112,7 @@ class ReadProjectTests(unittest.TestCase):
         self.assertEqual("mu3-tools", project["name"])
         self.assertEqual("1.2.3", project["version"])
         self.assertEqual(["typer>=0.12,<1.0", "tomli; python_version < '3.11'"], project["dependencies"])
-        self.assertEqual({"mu3-repo": "mu3_repo.cli:app", "mu3-unity": "mu3_unity.cli:app"}, project["scripts"])
+        self.assertEqual({"mu3-repo": "repo.cli:app", "mu3-unity": "unity.cli:app"}, project["scripts"])
 
     def test_the_minimal_reader_drops_comments_at_the_end_of_a_line_but_not_inside_a_string(self) -> None:
         text = "\n".join(
@@ -123,7 +123,7 @@ class ReadProjectTests(unittest.TestCase):
                 'dependencies = ["typer>=0.12,<1.0"]  # pinned',
                 "",
                 "[project.scripts]  # commands",
-                'mu3-repo = "mu3_repo.cli:app"',
+                'mu3-repo = "repo.cli:app"',
                 "",
                 "[project.optional-dependencies]",
                 "lint = [",
@@ -137,7 +137,7 @@ class ReadProjectTests(unittest.TestCase):
         self.assertEqual("mu3-tools", project["name"])
         self.assertEqual("1.0#not-a-comment", project["version"])
         self.assertEqual(["typer>=0.12,<1.0"], project["dependencies"])
-        self.assertEqual({"mu3-repo": "mu3_repo.cli:app"}, project["scripts"])
+        self.assertEqual({"mu3-repo": "repo.cli:app"}, project["scripts"])
         self.assertNotIn("mu3-repo", project)
 
     def test_the_minimal_reader_reads_what_tomllib_reads_with_end_of_line_comments(self) -> None:
@@ -155,7 +155,7 @@ class ReadProjectTests(unittest.TestCase):
                 "    'tomli; python_version < \"3.11\"',",
                 "]  # end",
                 "[project.scripts]",
-                'mu3-repo = "mu3_repo.cli:app"  # repo',
+                'mu3-repo = "repo.cli:app"  # repo',
             ]
         )
 

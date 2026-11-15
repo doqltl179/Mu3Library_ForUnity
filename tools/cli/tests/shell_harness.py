@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from mu3_common.bash import BashNotFoundError, find_bash
+from common.bash import BashNotFoundError, find_bash
 
 
 def bash_or_skip() -> Path:

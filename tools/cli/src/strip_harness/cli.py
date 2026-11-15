@@ -22,17 +22,17 @@ from typing import Callable, Iterator, Sequence
 
 import typer
 
-from mu3_common.checkout import echo_repository_root, repo_root
-from mu3_common.editor import (
+from common.checkout import echo_repository_root, repo_root
+from common.editor import (
     editor_package_manager_dir,
     folder_editor_version,
     is_hub_editor_for,
     resolve_editor_path,
     retarget_dependencies,
 )
-from mu3_common.process import run_with_timeout
-from mu3_common.unity_projects import CONFIGS_FOLDER, checkout_packages
-from mu3_common.work_dir import FolderNotClaimedError, claim_folder
+from common.process import run_with_timeout
+from common.unity_projects import CONFIGS_FOLDER, checkout_packages
+from common.work_dir import FolderNotClaimedError, claim_folder
 
 
 BACKENDS = ("mono", "il2cpp")

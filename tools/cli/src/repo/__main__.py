@@ -1,4 +1,4 @@
-from mu3_strip_harness.cli import app
+from repo.cli import app
 
 
 if __name__ == "__main__":

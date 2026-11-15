@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import typer
 
-from mu3_common.checkout import repo_root
-from mu3_common.unity_projects import ConfigError, checkout_packages, load_configs
-from mu3_repo.hygiene import agentkit_cli_path, repository_hygiene_issues, run_agentkit_check
+from common.checkout import repo_root
+from common.unity_projects import ConfigError, checkout_packages, load_configs
+from repo.hygiene import agentkit_cli_path, repository_hygiene_issues, run_agentkit_check
 
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Repository discovery commands.")

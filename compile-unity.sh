@@ -30,7 +30,7 @@ readonly CONFIGS_DIR="$REPO_ROOT/tools/unity-projects"
 # Reads the configs, the checkout packages their manifests name, and the work
 # folder, and generates a config's project; it runs with nothing but the
 # standard library (tools/cli/README.md).
-readonly PROJECTS_TOOL="$REPO_ROOT/tools/cli/src/mu3_common/unity_projects.py"
+readonly PROJECTS_TOOL="$REPO_ROOT/tools/cli/src/common/unity_projects.py"
 
 # The word the selection messages use for what the entry point does with a target.
 SELECTION_LABEL="compile"
@@ -91,7 +91,7 @@ COMPILE_WARNINGS=()
 # Data Store service of the run started and ended and its exit code, and counts
 # the Unity processes that are not the run's own; test-unity.sh also has it put
 # its runs under a fixed load.
-readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_fixed_load/fixed_load.py"
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/fixed_load/fixed_load.py"
 LOAD_PYTHON=""
 LOAD_UNAVAILABLE=""
 LOAD_HELPER_PID=""

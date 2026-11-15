@@ -10,9 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mu3_common.bash import bash_script_command
-from mu3_common.checkout import repo_root
-from mu3_common.unity_projects import PROJECT_MARKER, WORK_FOLDER, remove_generated_project
+from common.bash import bash_script_command
+from common.checkout import repo_root
+from common.unity_projects import PROJECT_MARKER, WORK_FOLDER, remove_generated_project
 from shell_harness import bash_or_skip, run_sourced
 
 # Mirrors the shape of this repository: one package every config names, one layered on it, one
@@ -31,8 +31,8 @@ ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
 CONFIGS_FOLDER = Path("tools", "unity-projects")
 # The helper test-unity.sh runs beside each run, and the package whose unity_projects.py reads the
 # configs and generates the projects, which the fixture keeps at their paths.
-LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_fixed_load" / "fixed_load.py"
-COMMON_PACKAGE = Path("tools") / "cli" / "src" / "mu3_common"
+LOAD_HELPER = Path("tools") / "cli" / "src" / "fixed_load" / "fixed_load.py"
+COMMON_PACKAGE = Path("tools") / "cli" / "src" / "common"
 # The fixture's branch, which names the unit's folder under the work root.
 BRANCH = "main"
 

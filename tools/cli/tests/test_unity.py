@@ -13,12 +13,12 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
-from mu3_common.bash import BashNotFoundError, find_bash, find_windows_bash
-from mu3_common.checkout import repo_root
-from mu3_common.editor import default_editor_path
-from mu3_common.project_lock import file_is_held_open, project_lock_state
-from mu3_common.unity_projects import create_directory_link, remove_directory_link
-from mu3_unity.cli import (
+from common.bash import BashNotFoundError, find_bash, find_windows_bash
+from common.checkout import repo_root
+from common.editor import default_editor_path
+from common.project_lock import file_is_held_open, project_lock_state
+from common.unity_projects import create_directory_link, remove_directory_link
+from unity.cli import (
     bash_diagnostic,
     entry_point_arguments,
     compile_script_path,
@@ -29,7 +29,7 @@ from mu3_unity.cli import (
     stall_timeout_arguments,
     work_dir_diagnostic,
 )
-from mu3_unity.cli import app as unity_app
+from unity.cli import app as unity_app
 from shell_harness import run_sourced
 
 
@@ -80,7 +80,7 @@ class UnityToolingTests(unittest.TestCase):
     def test_test_command_refuses_an_option_as_its_filter(self) -> None:
         calls: list[list[str]] = []
 
-        with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+        with mock.patch("unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
             result = CliRunner().invoke(unity_app, ["test", "--filter", "--dry-run", "full"])
 
         self.assertEqual(2, result.exit_code, result.output)
@@ -102,7 +102,7 @@ class UnityToolingTests(unittest.TestCase):
             calls.append((script_path, arguments))
             return 0
 
-        with mock.patch("mu3_unity.cli.run_entry_point", run):
+        with mock.patch("unity.cli.run_entry_point", run):
             result = CliRunner().invoke(
                 unity_app,
                 [
@@ -145,7 +145,7 @@ class UnityToolingTests(unittest.TestCase):
     def test_test_command_hands_the_load_and_the_repeats_to_the_test_script(self) -> None:
         calls: list[list[str]] = []
 
-        with mock.patch("mu3_unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
+        with mock.patch("unity.cli.run_entry_point", lambda _script, arguments, _root: calls.append(arguments) or 0):
             result = CliRunner().invoke(
                 unity_app, ["test", "full", "--dry-run", "--load-spinners", "16", "--repeat", "3"]
             )
@@ -164,7 +164,7 @@ class UnityToolingTests(unittest.TestCase):
             calls.append((script_path, arguments))
             return 0
 
-        with mock.patch("mu3_unity.cli.run_entry_point", run):
+        with mock.patch("unity.cli.run_entry_point", run):
             result = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run", "--stall-timeout", "120"])
             without = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run"])
 
@@ -270,7 +270,7 @@ class RepositoryRootLineTests(unittest.TestCase):
         root = repo_root()
         for arguments in (["changes"], ["compile", "--dry-run"], ["test", "--dry-run"]):
             with self.subTest(command=arguments[0]):
-                with mock.patch("mu3_unity.cli.run_entry_point", return_value=0) as run:
+                with mock.patch("unity.cli.run_entry_point", return_value=0) as run:
                     result = CliRunner().invoke(unity_app, arguments)
 
                 self.assertEqual(0, result.exit_code, result.output)
@@ -279,7 +279,7 @@ class RepositoryRootLineTests(unittest.TestCase):
 
     def test_doctor_names_the_root_in_text_and_in_json(self) -> None:
         root = repo_root()
-        with mock.patch("mu3_unity.cli.run_unity_diagnostics", return_value=[]):
+        with mock.patch("unity.cli.run_unity_diagnostics", return_value=[]):
             text = CliRunner().invoke(unity_app, ["doctor"])
             as_json = CliRunner().invoke(unity_app, ["doctor", "--format", "json"])
 
@@ -399,8 +399,8 @@ class CommandErrorTests(unittest.TestCase):
             raise BashNotFoundError("No bash here.", "Install it.")
 
         runner = CliRunner()
-        with mock.patch("mu3_common.bash.platform.system", return_value="Windows"), mock.patch(
-            "mu3_common.bash.find_windows_bash", missing
+        with mock.patch("common.bash.platform.system", return_value="Windows"), mock.patch(
+            "common.bash.find_windows_bash", missing
         ):
             changes = runner.invoke(unity_app, ["changes"])
             compile_run = runner.invoke(unity_app, ["compile", "--dry-run"])
@@ -454,8 +454,8 @@ class ShortPathTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0)
 
         with mock.patch.object(Path, "cwd", return_value=self.short_root), mock.patch(
-            "mu3_common.bash.find_windows_bash", return_value=Path("bash.exe")
-        ), mock.patch("mu3_unity.cli.subprocess.run", run):
+            "common.bash.find_windows_bash", return_value=Path("bash.exe")
+        ), mock.patch("unity.cli.subprocess.run", run):
             result = CliRunner().invoke(unity_app, ["compile", "full", "--dry-run"])
 
         self.assertEqual(0, result.exit_code, result.output)

@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from mu3_common.checkout import repo_root
-from mu3_common.unity_projects import (
+from common.checkout import repo_root
+from common.unity_projects import (
     PROJECT_MARKER,
     ConfigError,
     GenerateError,
@@ -210,7 +210,7 @@ class WorkDirTests(unittest.TestCase):
             default_work_dir(repo_root(), environ={})
 
     def test_work_root_is_absolute_or_starts_with_the_home_folder(self) -> None:
-        with mock.patch("mu3_common.unity_projects.current_branch", return_value="feat/x"):
+        with mock.patch("common.unity_projects.current_branch", return_value="feat/x"):
             home = default_work_dir(repo_root(), environ={"MU3_WORK_ROOT": "~/w"})
             with self.assertRaisesRegex(WorkDirError, "MU3_WORK_ROOT is w, which is not an absolute folder"):
                 default_work_dir(repo_root(), environ={"MU3_WORK_ROOT": "w"})

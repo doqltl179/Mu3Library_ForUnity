@@ -131,11 +131,11 @@
 
     # --- Git Bash --------------------------------------------------------------------------
     # PowerShell on Windows has no bash on PATH, or finds WSL's, which cannot run the
-    # repository's scripts. The tools' own lookup in mu3_common (tools/cli/README.md, "Bash on
+    # repository's scripts. The tools' own lookup in common (tools/cli/README.md, "Bash on
     # Windows") chooses the bash, so both run the same one. Exit code 3 means the tools are missing.
     $bash = $null
     if ($onWindows) {
-        $bash = & python -I -c "import contextlib, sys`ntry: import mu3_common.bash as b`nexcept ImportError: sys.exit(3)`nwith contextlib.suppress(Exception): print(b.find_windows_bash())"
+        $bash = & python -I -c "import contextlib, sys`ntry: import common.bash as b`nexcept ImportError: sys.exit(3)`nwith contextlib.suppress(Exception): print(b.find_windows_bash())"
         if ($LASTEXITCODE -eq 3) {
             Write-Warning "[mu3] The repository tools are not installed in $venv, so Git Bash was not looked up; delete the folder and enter again."
         }
