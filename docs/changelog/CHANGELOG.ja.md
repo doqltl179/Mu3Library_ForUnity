@@ -16,7 +16,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ## [Unreleased]
 
 ### 削除
-- Base: **Template**、**Attribute**、**UtilWindow** サンプルと、`package.json` の `samples` にあったそれぞれの項目を削除しました（#521）。**Multiplayer** サンプルは当面残ります。パッケージマネージャーはインポートしたサンプルをプロジェクト内にコピーするため、すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。これらのサンプルが示していた機能は README のコード例で扱います。
+- Base: **Template**、**Attribute**、**UtilWindow** サンプルと、`package.json` の `samples` にあったそれぞれの項目を削除しました（#521）。**Multiplayer** サンプルは当面残ります。パッケージマネージャーはインポートしたサンプルをプロジェクト内にコピーするため、すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。README にすでにあるコード例が使い方の案内として残ります。
 - Base: `Runtime/Materials` のデフォルトカラーマテリアル（`Black`、`Blue`、`Green`、`Magenta`、`Red`、`White`）と `Runtime/Textures` のテクスチャ（`Circle_32px`、`Circle_64px` とそれぞれの `InnerShadow`、`OutShadow` バリエーション、`square_1px`）を削除しました（#521）。これらのアセットを参照するシーン、プレハブ、マテリアルは、更新後にその参照を失います。すでにインポートした Template サンプルも同様です。引き続き必要な場合は、更新前にアセットをプロジェクトへコピーしてください。
 - URP: **ScreenEffect** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
 - Watermelon Game: **Watermelon Game** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
