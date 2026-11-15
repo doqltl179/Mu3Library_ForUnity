@@ -4,7 +4,7 @@
 
 [project]
 name = "Mu3Library_ForUnity"
-summary = "Reusable Unity UPM packages (Addressables, Base, DI, Input System, Localization, Notifications, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects."
+summary = "Reusable Unity UPM packages (Addressables, Base, DI, Input System, Localization, Notifications, Steam, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects."
 language = "ko"
 guardrails = [
     "Behavior lands in the packages under packages/; the projects generated from tools/unity-projects only consume and exercise them (.ai/project/wiki/overview.md).",
@@ -87,6 +87,12 @@ version_file = "packages/di/package.json"
 changelog = "packages/di/CHANGELOG.md"
 tag_pattern = "di/v{version}"
 
+[[release.packages]]
+name = "steam"
+version_file = "packages/steam/package.json"
+changelog = "packages/steam/CHANGELOG.md"
+tag_pattern = "steam/v{version}"
+
 [agents]
 enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
 
@@ -101,7 +107,7 @@ unity = ["packages/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.p
 unity-upm = ["packages/**/package.json", "packages/**/CHANGELOG.md", "packages/**/*.asmdef", "packages/**/Samples~/**", "packages/**/Documentation~/**"]
 
 [bindings.game-runtime-engineer]
-paths = ["packages/base/Runtime/**", "packages/base/Tests/**", "packages/notifications/Runtime/**", "packages/inputsystem/Runtime/**", "packages/inputsystem/Tests/**", "packages/localization/Runtime/**", "packages/localization/Tests/**", "packages/addressables/Runtime/**", "packages/addressables/Tests/**", "packages/di/Runtime/**", "packages/di/Tests/**", "packages/game/watermelon/Runtime/**", "packages/game/watermelon/Tests/**"]
+paths = ["packages/base/Runtime/**", "packages/base/Tests/**", "packages/notifications/Runtime/**", "packages/inputsystem/Runtime/**", "packages/inputsystem/Tests/**", "packages/localization/Runtime/**", "packages/localization/Tests/**", "packages/addressables/Runtime/**", "packages/addressables/Tests/**", "packages/di/Runtime/**", "packages/di/Tests/**", "packages/steam/Runtime/**", "packages/steam/Tests/**", "packages/game/watermelon/Runtime/**", "packages/game/watermelon/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
 notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."

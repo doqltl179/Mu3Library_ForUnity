@@ -7,6 +7,7 @@
     "com.github.doqltl179.mu3library.inputsystem": "checkout",
     "com.github.doqltl179.mu3library.localization": "checkout",
     "com.github.doqltl179.mu3library.notifications": "checkout",
+    "com.github.doqltl179.mu3library.steam": "checkout",
     "com.rlabrecque.steamworks.net": "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#2025.164.1",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.ide.visualstudio": "2.0.27",
@@ -57,6 +58,7 @@
     "com.github.doqltl179.mu3library.base",
     "com.github.doqltl179.mu3library.di",
     "com.github.doqltl179.mu3library.inputsystem",
-    "com.github.doqltl179.mu3library.localization"
+    "com.github.doqltl179.mu3library.localization",
+    "com.github.doqltl179.mu3library.steam"
   ]
 }
