@@ -1,6 +1,7 @@
 # Enters the repository's development environment in this PowerShell session:
 #   - creates .venv at the repository root on first use and installs the repository tools
 #     (tools/cli) into it,
+#   - installs them again when they differ from tools/cli/pyproject.toml (tools/dev/ensure_tools.py),
 #   - sets the variables in .env.local (see tools/dev/env.local.example),
 #   - activates that virtual environment,
 #   - on Windows, puts Git Bash first on PATH so `bash ./test-unity.sh` runs.
@@ -32,6 +33,7 @@
     $onWindows = $env:OS -eq 'Windows_NT'
     $venv = Join-Path $root '.venv'
     $scripts = if ($onWindows) { Join-Path $venv 'Scripts' } else { Join-Path $venv 'bin' }
+    $venvPython = if ($onWindows) { Join-Path $scripts 'python.exe' } else { Join-Path $scripts 'python' }
 
     # CPython names the script Activate.ps1 and uv names it activate.ps1, which differ on a
     # case-sensitive file system.
@@ -56,7 +58,6 @@
         }
         elseif ($python) {
             & $python.Source -m venv $venv --prompt mu3
-            $venvPython = if ($onWindows) { Join-Path $scripts 'python.exe' } else { Join-Path $scripts 'python' }
             if ($LASTEXITCODE -eq 0) { & $venvPython -m pip install --quiet -e $cli }
         }
         else {
@@ -69,6 +70,14 @@
             Write-Error "[mu3] Setting up $venv failed; nothing was activated. Delete the folder and try again."
             return
         }
+    }
+
+    # A .venv made before tools/cli/pyproject.toml last changed lacks its new commands and may
+    # keep a former distribution such as mu3-cli; ensure_tools.py installs the tools again then.
+    # activate.sh runs the same script. A failure still enters, with the tools as they are.
+    & $venvPython -I (Join-Path $root 'tools\dev\ensure_tools.py')
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "[mu3] The repository tools in $venv may not match tools/cli; see the lines above."
     }
 
     # --- What deactivate restores ----------------------------------------------------------

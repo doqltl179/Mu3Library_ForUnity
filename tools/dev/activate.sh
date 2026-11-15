@@ -2,6 +2,7 @@
 # Enters the repository's development environment in this bash session:
 #   - creates .venv at the repository root on first use and installs the repository tools
 #     (tools/cli) into it,
+#   - installs them again when they differ from tools/cli/pyproject.toml (tools/dev/ensure_tools.py),
 #   - sets the variables in .env.local (see tools/dev/env.local.example),
 #   - activates that virtual environment.
 #
@@ -52,6 +53,12 @@ _mu3_dev_enter() {
             return 1
         }
     fi
+
+    # A .venv made before tools/cli/pyproject.toml last changed lacks its new commands and may
+    # keep a former distribution such as mu3-cli; ensure_tools.py installs the tools again then.
+    # activate.ps1 runs the same script. A failure still enters, with the tools as they are.
+    "$_mu3_scripts/python" -I "$_mu3_root/tools/dev/ensure_tools.py" \
+        || printf '[mu3] The repository tools in %s may not match tools/cli; see the lines above.\n' "$_mu3_venv" >&2
 
     # Activating over another virtual environment would leave half of it behind after deactivate.
     if [[ -n "${VIRTUAL_ENV:-}" ]] && declare -F deactivate >/dev/null; then

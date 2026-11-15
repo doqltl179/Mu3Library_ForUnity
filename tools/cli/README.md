@@ -63,7 +63,7 @@ Enter the repository's development environment from PowerShell. The first run cr
 mu3-unity --help
 ```
 
-From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. A `.venv` made before the tools were split into one command each (#485) holds the former single command and none of the commands above, since entering only installs into a new `.venv`; delete the folder and enter again. One made before `mu3-verify-build` was added (#481) lacks that command: delete it and enter again. To keep it instead, install the tools into it again from the repository root, with `uv pip install --python .venv -e tools/cli` when `uv` made it, since such a `.venv` has no pip, and otherwise with `python -m pip install -e tools/cli` while it is active. Entering does not reinstall them on its own yet (#504).
+From bash, `source tools/dev/activate.sh` does the same. [../README.md](../README.md#development-environment) describes what else entering it sets and how to leave it. Every time it enters, `tools/dev/ensure_tools.py` compares what `.venv` holds with `pyproject.toml`: `mu3-tools` installed in editable mode from this checkout's `tools/cli`, with the file's version, dependencies, and commands and a launcher for each, and no former `mu3-cli`. When they differ, as in a `.venv` made before the tools were split into one command each (#485) or before `mu3-verify-build` was added (#481), it removes `mu3-cli` and installs the tools again, with `uv` when it is on `PATH` and the `.venv`'s pip otherwise, and says so (#504). When that fails, entering still activates the `.venv` with the tools as they are and says to delete the folder and enter again.
 
 ## Verification
 

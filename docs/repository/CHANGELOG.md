@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (development environment)
+
+### Fixed
+- Entering the development environment with `tools/dev/activate.sh` or `tools/dev/activate.ps1` now brings the tools of an existing `.venv` in step with `tools/cli/pyproject.toml` (#504). Both scripts run the new `tools/dev/ensure_tools.py` with the `.venv`'s Python, which compares the installed `mu3-tools` with the file, its editable source in this checkout's `tools/cli`, version, dependencies, and commands with a launcher for each, and looks for the former `mu3-cli`; when any differs, it removes `mu3-cli`, installs `tools/cli` again in editable mode, with `uv` when it is on `PATH` and the `.venv`'s pip otherwise, and checks again. Before, the scripts installed the tools only into a new `.venv`, so one made before #485 kept a `mu3-cli` whose module was gone and had none of the new commands, and one made before #481 lacked `mu3-verify-build`. The check reads only the `.venv`'s site-packages, since the former build can leave `src/mu3_cli.egg-info` in the source folder that an editable install puts on `sys.path`, which would read as installed after `mu3-cli` was removed. When installing again fails, entering still activates the `.venv` with the tools as they are and says to delete the folder and enter again. The root `.envrc`, which installs nothing, is unchanged. The entries of #485 and #481 below, which say to delete such a `.venv` and enter again, or to install the tools into it again by hand, describe the state before this change; entering again now does it. On 2026-11-15 a `.venv` made by `uv` that held `mu3-cli` from before #485, entered with `activate.sh`; one made by `python -m venv` that held the same, entered with `activate.ps1` while `uv` was off `PATH`; and one made by `uv` that held `mu3-tools` from before #481, entered with `activate.ps1`, each ended with the five commands and without `mu3-cli`, and entering again printed nothing about the tools. The check takes about 0.3 s.
+
 ## 2026-11-15 (agentkit 0.10.1)
 
 ### Changed
