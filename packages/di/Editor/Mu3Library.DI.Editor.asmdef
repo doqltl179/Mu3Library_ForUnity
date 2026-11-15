@@ -1,0 +1,28 @@
+{
+    "name": "Mu3Library.DI.Editor",
+    "rootNamespace": "Mu3Library.Editor",
+    "references": [
+        "Mu3Library",
+        "Mu3Library.Addressables",
+        "Mu3Library.DI",
+        "Mu3Library.Editor",
+        "Mu3Library.Foundation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.github.doqltl179.mu3library.addressables",
+            "expression": "",
+            "define": "MU3LIBRARY_ADDRESSABLES_PACKAGE"
+        }
+    ],
+    "noEngineReferences": false
+}

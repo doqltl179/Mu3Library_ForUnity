@@ -3,9 +3,6 @@
     "rootNamespace": "Mu3Library.Editor",
     "references": [
         "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
-        "Mu3Library.Addressables",
-        "Mu3Library.DI",
-        "Mu3Library.Foundation",
         "Mu3Library.Multiplayer"
     ],
     "includePlatforms": [
@@ -17,12 +14,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.github.doqltl179.mu3library.addressables",
-            "expression": "",
-            "define": "MU3LIBRARY_ADDRESSABLES_PACKAGE"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }
