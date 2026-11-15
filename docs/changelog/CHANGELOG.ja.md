@@ -15,6 +15,9 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+### 追加
+- Base: マルチプレイのバックエンドが実装または使用する API が public になりました（#531）。そのため、Steam バックエンドのように別のアセンブリにあるバックエンドは public API だけでビルドできます。`Mu3Library.Multiplayer.Backend` には、公開でないロビーに招待でしか入れないバックエンドのオプションのインターフェースで、保持される枠に戻ったプレイヤーをホストが招待し直すための `ILobbyInviteBackend`、Steam バックエンドが `SteamNotRunning` を伝えるように、バックエンドが利用できない理由を伝えるオプションのインターフェース `IUnavailableReasonBackend`、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキー `LobbyDataKeys` があります。`LobbySearchQuery.Clone()` は、`SearchLobbies` が戻った後に検索を始めるバックエンドのためにクエリをコピーします。
+
 ### 変更
 - Base: パッケージフォルダーが `Mu3Library_Base` から `packages/base` に移動しました（#525）。そのため、次のリリースから Git URL は `?path=packages/base` を使います。これまでにリリースされたタグの URL は引き続き `?path=Mu3Library_Base` を使います。`Scripts/` の階層がなくなり、`Runtime/Scripts/` と `Editor/Scripts/` の下にあったフォルダーとファイルは `Runtime/` と `Editor/` の直下に移りました。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
 - Base: DI の契約 `IInitializable`、`IUpdatable`、`ILateUpdatable`、`IObjectInjector`、`InjectAttribute` が `Mu3Library.DI` アセンブリから `Mu3Library.Foundation` に移動しました（#527）。そのため、これらを実装する Base のマネージャーに DI コンテナは不要になり、`Mu3Library` と `Mu3Library.Multiplayer` のアセンブリは `Mu3Library.DI` を参照しなくなりました。名前空間は引き続き `Mu3Library.DI` で、`.meta` ファイルの GUID も変わらないため、変更する `using` ディレクティブはありません。アセンブリ定義が `Mu3Library.DI` を参照し、これらの型を使うプロジェクトは、`AudioManager` を `IAudioManager` に代入する場合のように、これらを実装する Base のマネージャーを通して使う場合も含めて、`Mu3Library.Foundation` への参照を追加する必要があります。アセンブリ定義なしで使うコード（Assembly-CSharp）は変更不要です。Managed Stripping Level を Medium または High にしてビルドするプレイヤーのために Base のエディターコードがリンカーへ渡す link.xml は、`Mu3Library.Foundation` を参照するアセンブリのコンストラクターも残し、それらのアセンブリからも `[Inject]` メンバーを読み取るようになりました。そのため、ストリッピングしたプレイヤーは以前と同じものを残します。

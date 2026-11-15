@@ -13,6 +13,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 추가됨
+- Base: 멀티플레이 백엔드가 구현하거나 쓰는 API가 public이 되었습니다(#531). 그래서 Steam 백엔드처럼 다른 어셈블리에 있는 백엔드가 public API만으로 빌드됩니다. `Mu3Library.Multiplayer.Backend`에는 공개가 아닌 로비에 초대로만 들어갈 수 있는 백엔드의 선택 인터페이스로, 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하는 `ILobbyInviteBackend`, Steam 백엔드가 `SteamNotRunning`을 알리듯 백엔드를 사용할 수 없는 이유를 알리는 선택 인터페이스 `IUnavailableReasonBackend`, 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키 `LobbyDataKeys`가 있습니다. `LobbySearchQuery.Clone()`은 `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드를 위해 쿼리를 복사합니다.
+
 ### 변경됨
 - Base: 패키지 폴더가 `Mu3Library_Base`에서 `packages/base`로 옮겨졌습니다(#525). 그래서 다음 릴리스부터 Git URL은 `?path=packages/base`를 씁니다. 지금까지 릴리스된 태그의 URL은 그대로 `?path=Mu3Library_Base`를 씁니다. `Scripts/` 단계가 없어져, `Runtime/Scripts/`와 `Editor/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/`과 `Editor/` 바로 아래에 있습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
 - Base: DI 계약 `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, `InjectAttribute`가 `Mu3Library.DI` 어셈블리에서 `Mu3Library.Foundation`으로 옮겨졌습니다(#527). 그래서 이 계약을 구현하는 Base의 매니저에 DI 컨테이너가 더는 필요 없고, `Mu3Library`와 `Mu3Library.Multiplayer` 어셈블리는 `Mu3Library.DI`를 참조하지 않습니다. 네임스페이스는 그대로 `Mu3Library.DI`이고 `.meta` 파일의 GUID도 바뀌지 않았으므로, 바꿀 `using` 지시문은 없습니다. 어셈블리 정의가 `Mu3Library.DI`를 참조하면서 이 타입을 쓰는 프로젝트는, `AudioManager`를 `IAudioManager`에 대입할 때처럼 이 타입을 구현하는 Base 매니저를 거쳐 쓰는 경우도 포함해, `Mu3Library.Foundation` 참조를 더해야 합니다. 어셈블리 정의 없이 쓰는 코드(Assembly-CSharp)는 바꿀 것이 없습니다. Managed Stripping Level을 Medium이나 High로 설정해 빌드한 플레이어를 위해 Base의 에디터 코드가 링커에 넘기는 link.xml은 이제 `Mu3Library.Foundation`을 참조하는 어셈블리의 생성자도 지키고, 그 어셈블리에서도 `[Inject]` 멤버를 읽습니다. 그래서 스트리핑한 플레이어는 전과 같은 것을 남깁니다.

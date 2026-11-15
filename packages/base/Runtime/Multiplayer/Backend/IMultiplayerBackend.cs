@@ -32,6 +32,13 @@ namespace Mu3Library.Multiplayer.Backend
     /// session, never for an outage it may recover from, which it reports through its
     /// connections as above.
     /// </para>
+    /// <para>
+    /// A backend may also implement optional capability interfaces, which the manager looks for
+    /// on the backend it runs on: <see cref="ILobbyInviteBackend"/>, when its lobbies that are not
+    /// public let a player in only by invite, and <see cref="IUnavailableReasonBackend"/>, to name
+    /// why it is not available. The manager writes the keys of <see cref="LobbyDataKeys"/> in
+    /// every lobby it creates; a backend stores them as any other lobby data and may read them.
+    /// </para>
     /// </remarks>
     public interface IMultiplayerBackend : IDisposable
     {

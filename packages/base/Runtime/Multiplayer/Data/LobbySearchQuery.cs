@@ -117,7 +117,14 @@ namespace Mu3Library.Multiplayer.Data
             return this;
         }
 
-        internal LobbySearchQuery Clone()
+        /// <summary>
+        /// A copy with the same filters, <see cref="Distance"/>, and <see cref="MaxResults"/>,
+        /// which a later change to this query does not reach. A backend that starts a search after
+        /// <see cref="Backend.IMultiplayerBackend.SearchLobbies"/> returns keeps such a copy, as the
+        /// Steam and local backends do, since code that calls the backend itself may change the
+        /// query before the search starts.
+        /// </summary>
+        public LobbySearchQuery Clone()
         {
             LobbySearchQuery clone = new LobbySearchQuery
             {
