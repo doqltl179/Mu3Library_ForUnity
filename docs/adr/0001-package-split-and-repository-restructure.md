@@ -206,7 +206,7 @@ drawer는 `ScriptableObject`이고 창은 drawer 목록 에셋으로 drawer를 �
 - 도구를 먼저 바꿔야 개발 프로젝트를 지운 뒤에도 매 단위를 Unity CLI로 컴파일하고 테스트할 수 있다.
 - 폴더 이동을 분리보다 먼저 하면 새 패키지를 처음부터 제자리에 만들 수 있다. 다른 작업이 끼기 전, 이른 시점에 옮겨야 충돌도 적다.
 - D8과 D22는 분리의 전제다. Base가 DI를 모르고, steam이 public API만 쓰게 된 뒤에 떼어낸다.
-- 분리는 Base 말고 다른 패키지를 참조하지 않는 단순한 패키지부터 해서 방식을 먼저 굳히고, 다른 패키지를 참조하는 di(`RuntimeDiagnosticsDrawer`가 addressables를 본다)와 steam(D22의 API를 쓴다)을 뒤에 둔다.
+- 분리는 Base 말고 다른 패키지를 참조하지 않는 단순한 패키지부터 해서 방식을 먼저 굳히고, Base 밖의 패키지를 참조하는 di(`RuntimeDiagnosticsDrawer`가 addressables를 본다)와, D22로 공개한 Base의 백엔드 작성용 API에 기대는 steam을 뒤에 둔다.
 - 릴리스는 분리가 모두 끝난 뒤 한 번에 한다. Base에서 빠진 기능을 새 패키지가 같은 날 제공해야 사용자가 넘어올 수 있다.
 
 각 단위의 README, CHANGELOG, 위키 경로 갱신은 그 단위의 PR에 함께 넣는다. Unity를 오래 또는 여러 번 돌리는 단위는 시작 전에 실행 시간대를 정한다. 4번을 시작하기 전에 다른 워크트리에 진행 중인 작업이 없는지 확인한다.
