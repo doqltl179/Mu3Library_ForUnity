@@ -21,6 +21,6 @@
         "UniTask"
     ],
     "dependencies": {
-        "com.unity.mobile.notifications": "2.5.0"
+        "com.unity.mobile.notifications": "2.4.3"
     }
 }
