@@ -7,6 +7,17 @@
 
 set -euo pipefail
 
+# Test names reach the script in UTF-8, from Unity's log and the result file,
+# and bash, grep, and awk read them in the encoding of the locale. In a locale
+# whose encoding is not UTF-8, such as ja_JP.SJIS, they drop bytes of a name
+# outside ASCII or match nothing in it (#494), so the script runs in the C
+# locale there, which reads each byte as it is. UTF-8 is self-synchronizing, so
+# a character's bytes match only that character there too. Exported, so that
+# the tools it runs read the same.
+if [[ "$(locale charmap 2>/dev/null || true)" != UTF-8 ]]; then
+    export LC_ALL=C
+fi
+
 # compile-unity.sh lies beside this file, whose folder is cut from its path as
 # compile-unity.sh cuts its own.
 case "${OSTYPE:-}" in
