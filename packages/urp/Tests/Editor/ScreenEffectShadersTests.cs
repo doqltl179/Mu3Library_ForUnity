@@ -47,7 +47,7 @@ namespace Mu3Library.URP.Tests
             ScreenEffectShaders shaders = LoadShaders();
 
             // An Editor/Resources folder would load here as well but stays out of players.
-            Assert.AreEqual(PackagePath + "Runtime/Resources/" + ScreenEffectShaders.ResourcePath + ".asset", AssetDatabase.GetAssetPath(shaders));
+            Assert.AreEqual(PackagePath + "Runtime/ScreenEffect/Resources/" + ScreenEffectShaders.ResourcePath + ".asset", AssetDatabase.GetAssetPath(shaders));
         }
 
         [Test]
@@ -58,7 +58,7 @@ namespace Mu3Library.URP.Tests
             foreach (Shader shader in shaders.Shaders)
             {
                 Assert.IsNotNull(shader, "The asset holds an empty shader slot.");
-                StringAssert.StartsWith(PackagePath + "Runtime/Shaders/", AssetDatabase.GetAssetPath(shader));
+                StringAssert.StartsWith(PackagePath + "Runtime/ScreenEffect/Shaders/", AssetDatabase.GetAssetPath(shader));
             }
 
             string[] expected = PackagePassTypes.Select(GetShaderPath).OrderBy(name => name, StringComparer.Ordinal).ToArray();
