@@ -1,4 +1,3 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
 using System.Collections.Generic;
 using Mu3Library.Localization.Data;
@@ -44,4 +43,3 @@ namespace Mu3Library.Localization
         public IReadOnlyList<Locale> GetAvailableLocales();
     }
 }
-#endif

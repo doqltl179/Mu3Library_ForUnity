@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-16 (localization package)
+
+### Changed
+- The `full` project config names the new Localization package, `packages/localization`, as `"checkout"` and lists it under `testables` (#537, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `LocalizationManagerTests` from the package's own test assembly. No other config ran those tests under Base, since they need both UniTask and Localization, so no other count changes. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
 ## 2026-11-16 (inputsystem package)
 
 ### Changed

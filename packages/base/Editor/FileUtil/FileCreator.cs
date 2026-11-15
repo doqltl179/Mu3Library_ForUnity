@@ -80,10 +80,11 @@ namespace Mu3Library.Editor.FileUtil {
         /// 생성한 스크립트를 define 심볼 조건 안에 넣는다.
         /// <br/> 선택 패키지를 쓰는 스크립트가 그 패키지가 없는 프로젝트에서 컴파일되지 않게 할 때 쓴다.
         /// <br/> 맨 앞의 주석 줄(자동 생성 표시)은 조건 밖에 남긴다. 심볼이 비어 있으면 스크립트를 그대로 돌려준다.
+        /// <br/> 다른 패키지의 내보내기 드로어도 쓰도록 public이다.
         /// </summary>
         /// <param name="script"> 스크립트 본문 </param>
         /// <param name="defineSymbol"> 조건으로 쓸 define 심볼, 앞뒤 공백은 무시한다 </param>
-        internal static string WrapInDefineSymbol(string script, string defineSymbol) {
+        public static string WrapInDefineSymbol(string script, string defineSymbol) {
             if(script == null) {
                 script = "";
             }

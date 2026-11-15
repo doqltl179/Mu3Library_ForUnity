@@ -1,0 +1,27 @@
+{
+    "name": "com.github.doqltl179.mu3library.localization",
+    "version": "0.1.0",
+    "displayName": "Mu3 Library Localization",
+    "description": "Localization management for Mu3Library: LocalizationManager wraps Unity's Localization package to initialize it with a result, read strings and localized assets by table and key, list the keys of a table and the available locales, and change the locale by locale, by English name, or to the system language, announcing every locale change. Supports UniTask async variants when UniTask is installed. The Localization Data Exporter drawer generates scripts of the locales, tables, and entries, and the Localization Character Collector drawer writes the characters the string tables use to a text file per locale.",
+    "unity": "6000.3",
+    "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/packages/localization/README.md",
+    "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
+    "license": "MIT",
+    "author": {
+        "name": "Mu3",
+        "url": "https://github.com/doqltl179"
+    },
+    "keywords": [
+        "Mu3Library",
+        "Localization",
+        "Locale",
+        "String Table",
+        "Asset Table",
+        "UniTask"
+    ],
+    "dependencies": {
+        "com.github.doqltl179.mu3library.base": "0.29.0",
+        "com.unity.addressables": "2.9.0",
+        "com.unity.localization": "1.5.8"
+    }
+}

@@ -1,4 +1,3 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System.Collections.Generic;
 
 namespace Mu3Library.Localization.Data
@@ -17,4 +16,3 @@ namespace Mu3Library.Localization.Data
         }
     }
 }
-#endif

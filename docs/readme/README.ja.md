@@ -30,7 +30,7 @@
 - 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムをサポート
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
-- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Input System、Steamworks.NETの条件付き有効化
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Input System、Steamworks.NETの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
@@ -41,7 +41,8 @@
 - 🧭 **決定的 Core 更新**: Core 実行順序が明示的かつ安定
 - ⏳ **Scene 非同期 API**: built-in / Addressables シーン向けの phase ベース UniTask helper と、resolved scene name を含む構造化 lifecycle callback
 - 🎮 **Input System Manager**: アクションアセット管理、対話的リバインド、バインディングオーバーライドの永続化と名前エクスポーターのドロワーを、独立した Input System パッケージで提供
-- 🧰 **エディタユーティリティドロワー**: Localization の名前エクスポーター、ラベル/ロケール、グループ/テーブル、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループおよび Localization データエクスポート、Localization 文字収集ツールを提供
+- 🌍 **Localization Manager**: 文字列とローカライズされたアセットの取得、すべての購読者に通知されるロケール変更と、ロケール/テーブル/エントリを役割別スクリプトへ分けるデータエクスポーター、文字収集ツールを、独立した Localization パッケージで提供
+- 🧰 **エディタユーティリティドロワー**: ラベル、グループ、エントリを役割別スクリプトへ分け、そのスクリプトを define シンボルで囲める Addressable グループデータエクスポートを提供
 - 🖼 **World-Space Background ユーティリティ**: 必須の `SpriteRenderer` 背景をカメラのビューポートに合わせ、任意で自動フィット、カメラ前面への配置、レンダラー表示設定を利用できます
 - 🍉 **スイカゲームテンプレート**: 11 個のアイテムによる 2D マージボード、設定可能な `BoardConfig`、ボード fitting / 座標変換 helper を提供する再利用可能な `Mu3Library.Game.WatermelonGame` runtime assembly
 
@@ -73,6 +74,8 @@ Android と iOS のローカル通知を扱う Notifications パッケージは�
 
 `InputSystemManager` とその名前エクスポーターのドロワーを含む Input System パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
 
+`LocalizationManager` とそのデータエクスポーター、文字収集のドロワーを含む Localization パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
@@ -81,6 +84,7 @@ Android と iOS のローカル通知を扱う Notifications パッケージは�
     - `packages/base/package.json`
     - `packages/notifications/package.json`
     - `packages/inputsystem/package.json`（先に Base をインストール）
+    - `packages/localization/package.json`（先に Base をインストール）
     - `packages/urp/package.json`（先に Base をインストール）
     - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
 
@@ -382,13 +386,14 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await非同期API |
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 動的アセットロード |
-| Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターではビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされ、プレイヤーには 64 ビットのスタンドアロンである Windows x64、macOS、Linux x64 にだけ含まれ、32 ビット Windows には含まれない) |
 
 Android と iOS のローカル通知は独立した Notifications パッケージに移りました。このパッケージは Unity Mobile Notifications を依存パッケージとして一緒にインストールするため、define シンボルで有効にするものではありません。詳しくはその [README](../../packages/notifications/README.md) を参照してください。
 
 `InputSystemManager` は独立した Input System パッケージに移りました。このパッケージは Unity Input System を依存パッケージとして一緒にインストールします。詳しくはその [README](../../packages/inputsystem/README.md) を参照してください。Base は、後述する `MVPManager` が作成する `EventSystem` の入力モジュールのために `MU3LIBRARY_INPUTSYSTEM_SUPPORT` を残します。
+
+`LocalizationManager` は独立した Localization パッケージに移りました。このパッケージは Unity Localization を依存パッケージとして一緒にインストールするため、define シンボルで有効にするものではありません。詳しくはその [README](../../packages/localization/README.md) を参照してください。
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
@@ -433,7 +438,7 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **DI**: Dependency Injectionコンテナ
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
-- **Localization**: Unity Localizationラッパー（オプション）
+- **Localization**: 独立した Localization パッケージに移動（[README](../../packages/localization/README.md)）
 - **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後に全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーの Steam アバター、フレンドリストがゲームの定義する `steam_display` トークンを通じて表示するステータスと、`steam_player_group` でまとめた 1 つのセッションのプレイヤーを含む Steam のリッチプレゼンスを扱うプレイヤーホスト型セッション。`SteamBackend`（Steamworks.NET が必要、Steam ロビーと Steam 接続）と `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
   - **バックエンドの作成**: 他のプラットフォームのバックエンドは `Mu3Library.Multiplayer.Backend` の `IMultiplayerBackend` を実装し、マネージャーが探す 2 つのオプションのインターフェースも実装できます。公開でないロビーに招待でしか入れない場合は `ILobbyInviteBackend` を実装して、保持される枠に戻ったプレイヤーをホストが招待し直せるようにし、バックエンドが利用できない理由を伝えるには、Steam バックエンドが `SteamNotRunning` を伝えるように `IUnavailableReasonBackend` を実装します。`LobbyDataKeys` は、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキーをまとめたもので、バックエンドはこれらを他のロビーデータと同じように保存し、読み取ることもできます。`SearchLobbies` が戻った後に検索を始めるバックエンドは、`LobbySearchQuery.Clone()` で作ったクエリのコピーを保持します
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
@@ -558,6 +563,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications`（次のリリースから）
 - Input System: `com.github.doqltl179.mu3library.inputsystem`（Base に依存、次のリリースから）
+- Localization: `com.github.doqltl179.mu3library.localization`（Base に依存、次のリリースから）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)

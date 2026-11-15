@@ -1,4 +1,3 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
 using Mu3Library.Foundation.Event;
 using UnityEngine.Localization;
@@ -23,4 +22,3 @@ namespace Mu3Library.Localization
         public ISubscriptionInfo SubscribeOnInitializeResultOnce(Action<bool, string> callback, Action onDisposed);
     }
 }
-#endif

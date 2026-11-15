@@ -30,7 +30,7 @@
 - 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
-- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization, Input System, Steamworks.NET
+- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Input System, Steamworks.NET
 - 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
@@ -41,7 +41,8 @@
 - 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
 - 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence, with a name exporter drawer, in the separate Input System package
-- 🧰 **Editor Utility Drawers**: Includes a Localization name exporter, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
+- 🌍 **Localization Manager**: String and localized asset lookup and locale changes that every subscriber hears, with a data exporter that splits locales, tables, and entries into focused scripts and a character collector, in the separate Localization package
+- 🧰 **Editor Utility Drawers**: Includes an Addressable group data export with labels, groups, and entries split into focused scripts that the exporter can wrap in a define symbol
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
 - 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, and board fitting and coordinate helpers
 
@@ -73,6 +74,8 @@ The Notifications package, local notifications for Android and iOS, ships with t
 
 The Input System package, `InputSystemManager` and its name exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
 
+The Localization package, `LocalizationManager` and its data exporter and character collector drawers, also ships with the next release, and its URL joins this list then. Install Base before it.
+
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
@@ -81,6 +84,7 @@ The Input System package, `InputSystemManager` and its name exporter drawer, als
     - `packages/base/package.json`
     - `packages/notifications/package.json`
     - `packages/inputsystem/package.json` (install Base first)
+    - `packages/localization/package.json` (install Base first)
     - `packages/urp/package.json` (install Base first)
     - `packages/game/watermelon/package.json` (install Base and URP first)
 
@@ -382,13 +386,14 @@ When the following packages are installed, their features are automatically enab
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await asynchronous API |
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Dynamic asset loading |
-| Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | Steam backend for multiplayer sessions (2025.164.1 or later; separate `Mu3Library.Multiplayer.Steam` assembly, compiled in the editor while the build target is a standalone platform, and into 64-bit standalone players only: Windows x64, macOS, and Linux x64, not 32-bit Windows) |
 
 Local notifications for Android and iOS moved to the separate Notifications package, which installs Unity Mobile Notifications as its dependency, so no define symbol switches them on: see its [README](packages/notifications/README.md).
 
 `InputSystemManager` moved to the separate Input System package, which installs Unity Input System as its dependency: see its [README](packages/inputsystem/README.md). Base keeps `MU3LIBRARY_INPUTSYSTEM_SUPPORT` for the input module of the `EventSystem` that `MVPManager` creates, described below.
+
+`LocalizationManager` moved to the separate Localization package, which installs Unity Localization as its dependency, so no define symbol switches it on: see its [README](packages/localization/README.md).
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
 
@@ -433,7 +438,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **DI**: Dependency Injection container
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
-- **Localization**: Unity Localization wrapper (optional)
+- **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
 - **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' Steam avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, and Steam rich presence: a status, which the friends list shows through a `steam_display` token the game defines, and the players of one session grouped together through `steam_player_group`, over a pluggable backend: `SteamBackend` (Steam lobbies and Steam connections, with Steamworks.NET) and `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages; per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
   - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
@@ -558,6 +563,7 @@ This project is distributed under the MIT License.
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications` (from the next release)
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base, from the next release)
+- Localization: `com.github.doqltl179.mu3library.localization` (depends on Base, from the next release)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

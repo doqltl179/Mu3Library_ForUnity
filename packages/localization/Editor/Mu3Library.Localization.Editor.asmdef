@@ -1,0 +1,20 @@
+{
+    "name": "Mu3Library.Localization.Editor",
+    "rootNamespace": "Mu3Library.Editor",
+    "references": [
+        "Mu3Library.Editor",
+        "Unity.Localization",
+        "Unity.Localization.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

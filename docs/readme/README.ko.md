@@ -30,7 +30,7 @@
 - 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
-- 📦 **선택적 패키지 지원**: UniTask, Addressables, Localization, Input System, Steamworks.NET 조건부 활성화
+- 📦 **선택적 패키지 지원**: UniTask, Addressables, Input System, Steamworks.NET 조건부 활성화
 - 🎵 **Audio 시스템**: BGM/SFX/Environment 채널의 볼륨 제어, 믹서 그룹 라우팅, BGM 덕킹, 볼륨 저장/복원, await 가능한 페이드
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
@@ -41,7 +41,8 @@
 - 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩, 바인딩 오버라이드 퍼시스턴스와 이름 내보내기 드로어를 별도의 Input System 패키지로 제공
-- 🧰 **에디터 유틸리티 Drawer**: Localization 이름 내보내기, 라벨/로케일, 그룹/테이블, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 및 Localization 데이터 내보내기, Localization 문자 수집 도구 제공
+- 🌍 **Localization Manager**: 문자열과 로컬라이즈된 에셋 조회, 모든 구독자가 전달받는 로케일 변경, 로케일/테이블/엔트리를 역할별 스크립트로 분리하는 데이터 내보내기와 문자 수집 도구를 별도의 Localization 패키지로 제공
+- 🧰 **에디터 유틸리티 Drawer**: 라벨, 그룹, 엔트리를 역할별 스크립트로 분리하고 그 스크립트를 define 심볼로 감쌀 수 있는 Addressable 그룹 데이터 내보내기 제공
 - 🖼 **World-Space Background 유틸리티**: 필수 `SpriteRenderer` 배경을 카메라 뷰포트에 맞추고, 자동 맞춤·카메라 전면 배치·렌더러 표시 설정을 선택적으로 제공합니다
 - 🍉 **수박 게임 템플릿**: 11개 아이템 2D 병합 보드, 설정 가능한 `BoardConfig`, 보드 맞춤/좌표 변환 helper를 제공하는 재사용 가능한 `Mu3Library.Game.WatermelonGame` 런타임 어셈블리
 
@@ -73,6 +74,8 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
 
 `InputSystemManager`와 그 이름 내보내기 드로어를 담은 Input System 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
 
+`LocalizationManager`와 그 데이터 내보내기, 문자 수집 드로어를 담은 Localization 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
@@ -81,6 +84,7 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
     - `packages/base/package.json`
     - `packages/notifications/package.json`
     - `packages/inputsystem/package.json` (먼저 Base 설치)
+    - `packages/localization/package.json` (먼저 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
@@ -382,13 +386,14 @@ Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await 비동기 API |
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 동적 에셋 로딩 |
-| Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 다국어 지원 |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 새로운 입력 시스템 |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | 멀티플레이 세션의 Steam 백엔드 (2025.164.1 이상. 별도 `Mu3Library.Multiplayer.Steam` 어셈블리이며, 에디터에서는 빌드 대상이 스탠드얼론 플랫폼일 때 컴파일되고, 플레이어는 64비트 스탠드얼론인 Windows x64, macOS, Linux x64에만 들어가며 32비트 Windows에는 들어가지 않음) |
 
 Android와 iOS의 로컬 알림은 별도의 Notifications 패키지로 옮겨졌습니다. 이 패키지는 Unity Mobile Notifications를 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/notifications/README.md)를 참고하세요.
 
 `InputSystemManager`는 별도의 Input System 패키지로 옮겨졌습니다. 이 패키지는 Unity Input System을 의존 패키지로 함께 설치합니다. 자세한 내용은 그 [README](../../packages/inputsystem/README.md)를 참고하세요. Base는 아래에서 설명하는, `MVPManager`가 만드는 `EventSystem`의 입력 모듈을 위해 `MU3LIBRARY_INPUTSYSTEM_SUPPORT`를 유지합니다.
+
+`LocalizationManager`는 별도의 Localization 패키지로 옮겨졌습니다. 이 패키지는 Unity Localization을 의존 패키지로 함께 설치하므로, define 심볼로 켜지 않습니다. 자세한 내용은 그 [README](../../packages/localization/README.md)를 참고하세요.
 
 Unity 6.6에서는 UniTask 2.5.11 이상을 쓰세요. 그 이전 릴리스의 에디터 트래커 창은 제네릭이 아닌 `TreeView`를 써서, 6.6에서는 `UniTask.Editor`가 컴파일되지 않습니다.
 
@@ -433,7 +438,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **DI**: Dependency Injection 컨테이너
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
-- **Localization**: Unity Localization 래퍼 (선택)
+- **Localization**: 별도의 Localization 패키지로 옮겨짐 ([README](../../packages/localization/README.md))
 - **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 Steam 아바타, 친구 목록이 게임이 정의한 `steam_display` 토큰을 통해 보여 주는 상태와 `steam_player_group`으로 묶은 한 세션의 플레이어를 담는 Steam 리치 프레즌스를 다루는 플레이어 호스트 세션. `SteamBackend`(Steamworks.NET 필요, Steam 로비와 Steam 연결)와 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
   - **백엔드 작성**: 다른 플랫폼의 백엔드는 `Mu3Library.Multiplayer.Backend`의 `IMultiplayerBackend`를 구현하며, 매니저가 찾는 두 선택 인터페이스도 구현할 수 있습니다. 공개가 아닌 로비에 초대로만 들어갈 수 있으면 `ILobbyInviteBackend`를 구현해 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하게 하고, 백엔드를 사용할 수 없는 이유를 알리려면 Steam 백엔드가 `SteamNotRunning`을 알리듯 `IUnavailableReasonBackend`를 구현합니다. `LobbyDataKeys`는 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키를 담으며, 백엔드는 이 키를 다른 로비 데이터처럼 저장하며, 읽을 수도 있습니다. `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드는 `LobbySearchQuery.Clone()`으로 만든 쿼리 사본을 보관합니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
@@ -558,6 +563,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 - Base: `com.github.doqltl179.mu3library.base`
 - Notifications: `com.github.doqltl179.mu3library.notifications` (다음 릴리스부터)
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존, 다음 릴리스부터)
+- Localization: `com.github.doqltl179.mu3library.localization` (Base 의존, 다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)
