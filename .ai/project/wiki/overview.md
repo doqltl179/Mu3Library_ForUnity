@@ -52,7 +52,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | `Mu3Library_*/Editor/` | Editor tooling (Base) |
 | `Mu3Library_*/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
 | `Mu3Library_*/Tests/` | EditMode tests (each package) |
-| `UnityProject_*/` | Development projects; `Assets/Mu3LibrarySamples*` is a Git-ignored link to the package's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source |
+| `UnityProject_*/` | Development projects; `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` is a Git-ignored link to Base's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source. The URP and Watermelon Game packages ship no samples, so their projects have no link |
 | `tools/`, `compile-unity.sh`, `test-unity.sh`, `unity-cli-packages.tsv` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |
 | `docs/repository/CHANGELOG.md` | Repository workflow and tooling changes, kept out of package release notes |
