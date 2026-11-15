@@ -803,14 +803,14 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
                 self.assertNotIn("Invalid multibyte data", completed.stderr)
 
     def assert_fails_on_the_environment(
-        self, name: str, written: str, logged: str, shown: str, logged_shown: str | None = None, **variables: str
+        self, name: str, written: str, logged: str, shown: str, **variables: str
     ) -> None:
         """Run a target whose one failure is Fixture.Tests.<name>, which failed on the error Unity logs
         as its Data Store service ends and nothing else, and check that the run fails on the environment.
 
         written is the name as the result file writes it, logged as Unity's log writes it in a JSON
-        string, shown as the failed: line prints it, and logged_shown as the environment: line prints
-        it when the two lines differ (#493), each after Fixture.Tests.; variables go to the script's
+        string, and shown as the failed: and the environment: lines print it, which print it alike
+        (#493), each after Fixture.Tests.; variables go to the script's
         environment.
         """
         full_name = f"Fixture.Tests.{name}"
@@ -829,7 +829,7 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
 
         self.assertEqual(1, completed.returncode, completed.stdout)
         environment = (
-            f"  environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.{logged_shown or shown} "
+            f"  environment: Unity's Data Store service (pid 13480) ended while Fixture.Tests.{shown} "
             "ran, and the error Unity logged for it failed that test, so the test reached no verdict; run the target "
             "again"
         )
@@ -847,11 +847,10 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
         # digits, and Unity's log writes an escape and U+0001 as JSON escapes with uppercase digits
         # and U+FFFE and U+FFFF as themselves, as Unity 6000.6.7f1 and com.unity.ext.nunit 2.1.0
         # wrote the names of tests named so (#476). The failed: line prints the result file's text.
-        # The environment: line prints the name from the log through one_line_name, which writes an
-        # escape and U+0001 as the result file does (#459) but leaves U+FFFE and U+FFFF as they are,
-        # so for those two the lines differ; #493 is to print them alike and will change that
-        # expectation. A name read in the C locale, or in a locale whose multibyte encoding is not
-        # UTF-8 (#494), is matched alike.
+        # The environment: line prints the name from the log through one_line_name, which writes
+        # each of them as the result file does (#459, #493), so the two lines print it alike. A name
+        # read in the C locale, or in a locale whose multibyte encoding is not UTF-8 (#494), is
+        # matched alike.
         b = chr(92)
         for character, digits, logged in (
             (chr(0x1B), "001b", f"{b}u001B"),
@@ -860,11 +859,10 @@ class TestEntryPointTests(FixtureRepositoryTestCase):
             (chr(0xFFFF), "ffff", chr(0xFFFF)),
         ):
             written = f"Named_a{b}u{digits}b"
-            logged_shown = None if ord(character) < 0x20 else f"Named_a{character}b"
             for variables in ({}, {"LC_ALL": "C"}, {"LC_ALL": NOT_UTF_8_LOCALE}):
                 with self.subTest(character=f"U+{ord(character):04X}", **variables):
                     self.assert_fails_on_the_environment(
-                        f"Named_a{character}b", written, f"Named_a{logged}b", written, logged_shown, **variables
+                        f"Named_a{character}b", written, f"Named_a{logged}b", written, **variables
                     )
         # Each time the character comes, it is written so.
         with self.subTest(character="U+001B twice"):
@@ -2143,16 +2141,21 @@ class OneLineNameTests(FixtureRepositoryTestCase):
         self.assertEqual(r'F.Case("a\nb\tc\r\nd")', self.shown(f'F.Case("a{chr(10)}b{chr(9)}c{chr(13)}{chr(10)}d")'))
 
     def test_writes_every_other_control_character_and_the_line_and_paragraph_separators_as_u_and_four_digits(self) -> None:
-        # As NUnit's XML writes a control character that XML cannot hold, such as \u001b.
+        # As NUnit's XML writes a character that XML cannot hold, such as \u001b and \ufffe; so a
+        # name with U+FFFE or U+FFFF from Unity's log, which writes them as themselves, is printed as
+        # the result file gives it (#493).
         self.assertEqual(
-            r"a\u001bb\u0007\u007f\u0085\u009f\u2028\u2029",
-            self.shown(f"a{chr(0x1B)}b{chr(7)}{chr(0x7F)}{chr(0x85)}{chr(0x9F)}{chr(0x2028)}{chr(0x2029)}"),
+            r"a\u001bb\u0007\u007f\u0085\u009f\u2028\u2029\ufffe\uffff",
+            self.shown(
+                f"a{chr(0x1B)}b{chr(7)}{chr(0x7F)}{chr(0x85)}{chr(0x9F)}{chr(0x2028)}{chr(0x2029)}"
+                f"{chr(0xFFFE)}{chr(0xFFFF)}"
+            ),
         )
-        codes = [*range(0x01, 0x20), *range(0x7F, 0xA0), 0x2028, 0x2029]
+        codes = [*range(0x01, 0x20), *range(0x7F, 0xA0), 0x2028, 0x2029, 0xFFFE, 0xFFFF]
         named = {0x09: r"\t", 0x0A: r"\n", 0x0D: r"\r"}
         expected = "|".join(named.get(code, f"\\u{code:04x}") for code in codes)
-        for environment in (None, {**self._environment(), "LC_ALL": "C"}):
-            with self.subTest(environment="C locale" if environment else "default"):
+        for environment in (None, {**self._environment(), "LC_ALL": "C"}, {**self._environment(), "LC_ALL": NOT_UTF_8_LOCALE}):
+            with self.subTest(environment=environment["LC_ALL"] if environment else "default"):
                 self.assertEqual(expected, self.shown("|".join(chr(code) for code in codes), environment))
 
     def test_keeps_every_other_character_and_a_name_without_control_characters_as_it_is(self) -> None:
@@ -2160,7 +2163,9 @@ class OneLineNameTests(FixtureRepositoryTestCase):
         # takes a string, and as in the \u001b with which NUnit's XML writes a control character.
         for name in (
             r'F.Case("C:\\Temp\n", "\u001b")',
-            f'F.Text("caf{chr(0xE9)} {chr(0x4E2D)} {chr(0x1F600)} {chr(0xA0)}{chr(0x2027)}{chr(0x202A)}")',
+            f'F.Text("caf{chr(0xE9)} {chr(0x4E2D)} {chr(0x1F600)} {chr(0xA0)}{chr(0x2027)}{chr(0x202A)}{chr(0xFFFD)}{chr(0xFFEF)}")',
+            # The text \ufffe is printed as it is, which is how U+FFFE is printed too.
+            r"F.Named_a\ufffeb",
             "F.Odd(&foo; &#0; \\u0000) ~ !",
             "",
         ):
