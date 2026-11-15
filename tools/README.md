@@ -322,7 +322,7 @@ The shell entrypoints and `mu3-unity doctor` read the same variables, so the Edi
 
 | Variable | Effect |
 |---|---|
-| `MU3_WORK_ROOT` | Folder outside the checkout, such as `D:/w`, below which the shell entrypoints generate each unit's projects, in `${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>`, unless `--work-dir` names another folder. Keep it short on Windows, where a long path pushes Unity's package cache past the path limit. |
+| `MU3_WORK_ROOT` | Absolute folder outside the checkout, such as `D:/w`, or one that starts with `~` for the home folder (a relative one stops the run), below which the shell entrypoints generate each unit's projects, in `${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>`, unless `--work-dir` names another folder. Keep it short on Windows, where a long path pushes Unity's package cache past the path limit. |
 | `UNITY_EDITOR` or `UNITY` | Path to a Unity executable (or `Unity.app`) used for every target instead of the version in `ProjectVersion.txt` or the one `--editor-version` names. |
 | `UNITY_HUB_EDITOR_ROOT` | Folder that holds one folder per installed Editor version, for a Unity Hub set to install Editors outside its default location (`C:\Program Files\Unity\Hub\Editor`, `/Applications/Unity/Hub/Editor`, or `~/Unity/Hub/Editor`). |
 

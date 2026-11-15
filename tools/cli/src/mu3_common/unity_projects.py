@@ -229,7 +229,14 @@ def default_work_dir(root: Path, environ: Mapping[str, str] = os.environ) -> Pat
     unit = unit_name(branch)
     if not unit:
         raise WorkDirError(f"the branch {branch} leaves no folder name; pass --work-dir <folder>")
-    return Path(os.path.abspath(work_root)) / WORK_FOLDER / unit
+    # «Work Folders» in the kit's git-workflow.md: the root is absolute or starts with ~ for the home folder.
+    folder = Path(work_root).expanduser()
+    if not folder.is_absolute():
+        raise WorkDirError(
+            f"{WORK_ROOT_VARIABLE} is {work_root}, which is not an absolute folder; set it to one outside the checkout, "
+            "such as D:/w, or pass --work-dir <folder>"
+        )
+    return folder / WORK_FOLDER / unit
 
 
 def resolve_work_dir(root: Path, work_dir: Path | None, environ: Mapping[str, str] = os.environ) -> Path:
