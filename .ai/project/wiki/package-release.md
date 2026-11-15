@@ -1,7 +1,7 @@
 ---
-owns: "How the Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, and GitHub Release titles and notes"
+owns: "How the Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, the dependency versions checked at a package's first release, and GitHub Release titles and notes"
 volatility: evolving
-reviewed: 2026-10-24
+reviewed: 2026-11-16
 ---
 
 # Package Release
@@ -40,6 +40,11 @@ https://github.com/doqltl179/Mu3Library_ForUnity.git?path=<package folder>#<tag>
 - A package README that shows install URLs (Watermelon Game) writes them with version placeholders and links to the root README, so a release leaves it unchanged.
 - The first release of a package that no release has shipped yet, such as one split out of Base ([package-split.md](package-split.md)), adds its URL there in place of the sentence that it ships with the next release, and drops that wording from the package list at the end of the root READMEs, from Base's README, and from «Installation» in the package's own README, which then sends the reader to the root README for the URL.
 - The first release of a package from `packages/<name>` also changes `?path=` in its URLs, in the root READMEs and in the Watermelon Game README, from the former `Mu3Library_*` folder to that folder; a tag released before keeps the folder its tree holds.
+
+## Dependency Versions
+
+- A package names the lowest version of another Mu3Library package that it works with: URP and Watermelon Game name Base 0.25.0.
+- The release that first ships a package split out of Base checks each `dependencies` entry of its `package.json`: Base at the version this release gives Base, the first without the moved code, and each Unity SDK at the version the `unity` floor bundles ([package-split.md](package-split.md) «Dependencies»). Correct an entry that names another version in the release commit, before the tag.
 
 ## GitHub Release
 
