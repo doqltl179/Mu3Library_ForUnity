@@ -437,6 +437,9 @@ def generate_project(
                 parent.rmdir()
                 parent = parent.parent
 
+        # Git keeps no empty folder, so a config without assets, such as minimal, holds no Assets/,
+        # which a Unity project needs.
+        (project / "Assets").mkdir(exist_ok=True)
         write_record(project, ProjectRecord(files=set(files), links=set(config.sample_links)))
     except OSError as error:
         raise GenerateError(f"refreshing {project} failed: {error}") from error
