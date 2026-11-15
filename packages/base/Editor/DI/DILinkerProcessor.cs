@@ -29,9 +29,10 @@ namespace Mu3Library.Editor.DI
     /// </para>
     /// <para>
     /// Constructors are kept in every assembly that can hold a registered class: the player script
-    /// assemblies and loaded precompiled assemblies that reference Mu3Library.DI, and every player
-    /// script or precompiled assembly they reference, directly or not, since a registration can name
-    /// a class of an assembly that knows nothing of the container. A wildcard entry lets the linker
+    /// assemblies and loaded precompiled assemblies that reference the container's assembly or the
+    /// assembly of its contracts ([Inject] and the lifecycle interfaces), and every player script
+    /// or precompiled assembly they reference, directly or not, since a registration can name a
+    /// class of an assembly that knows nothing of the container. A wildcard entry lets the linker
     /// match them against the assemblies it actually links, so a class that only the player
     /// compiles is covered as well. Precompiled assemblies are matched by file name: a DLL whose
     /// file name differs from its assembly name is skipped without a warning, and one the editor
@@ -39,7 +40,8 @@ namespace Mu3Library.Editor.DI
     /// </para>
     /// <para>
     /// [Inject] members are listed by name, read from the assemblies the editor has loaded that
-    /// reference Mu3Library.DI. A member that only the player compiles, inside
+    /// reference the assembly of <see cref="InjectAttribute"/>, as every assembly that declares
+    /// one must. A member that only the player compiles, inside
     /// <c>#if !UNITY_EDITOR</c> for example, or one in an assembly the editor does not load, is
     /// not listed. An entry for a member the player lacks is ignored.
     /// </para>
@@ -75,7 +77,10 @@ namespace Mu3Library.Editor.DI
 
         public string GenerateAdditionalLinkXmlFile(BuildReport report, UnityLinkerBuildPipelineData data)
         {
-            string diAssemblyName = typeof(InjectAttribute).Assembly.GetName().Name;
+            // The container and its contracts can lie in different assemblies, so a class the
+            // container creates or injects can lie in an assembly that references only one of them.
+            string containerAssemblyName = typeof(ContainerScope).Assembly.GetName().Name;
+            string contractAssemblyName = typeof(InjectAttribute).Assembly.GetName().Name;
 
 #if UNITY_6000_5_OR_NEWER
             IEnumerable<Assembly> loaded = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
@@ -112,9 +117,9 @@ namespace Mu3Library.Editor.DI
                     .ToArray();
             }
 
-            IReadOnlyCollection<string> constructorAssemblies = SelectAssemblies(references, diAssemblyName);
+            IReadOnlyCollection<string> constructorAssemblies = SelectAssemblies(references, containerAssemblyName, contractAssemblyName);
             IEnumerable<Assembly> injectAssemblies = constructorAssemblies
-                .Where(name => references[name].Contains(diAssemblyName) && loadedByName.ContainsKey(name))
+                .Where(name => references[name].Contains(contractAssemblyName) && loadedByName.ContainsKey(name))
                 .Select(name => loadedByName[name]);
 
             string path = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Library", "Mu3Library", "DI.link.xml");
@@ -124,15 +129,16 @@ namespace Mu3Library.Editor.DI
         }
 
         /// <summary>
-        /// The assemblies that reference <paramref name="diAssemblyName"/> directly and every
-        /// assembly of <paramref name="references"/> they reach through their references, in name order.
+        /// The assemblies that reference one of <paramref name="diAssemblyNames"/> directly and
+        /// every assembly of <paramref name="references"/> they reach through their references, in
+        /// name order.
         /// </summary>
         internal static IReadOnlyCollection<string> SelectAssemblies(
-            IReadOnlyDictionary<string, IReadOnlyCollection<string>> references, string diAssemblyName)
+            IReadOnlyDictionary<string, IReadOnlyCollection<string>> references, params string[] diAssemblyNames)
         {
             SortedSet<string> selected = new(StringComparer.Ordinal);
             Queue<string> pending = new(references
-                .Where(pair => pair.Value.Contains(diAssemblyName))
+                .Where(pair => pair.Value.Any(reference => diAssemblyNames.Contains(reference)))
                 .Select(pair => pair.Key));
 
             while (pending.Count > 0)

@@ -123,6 +123,15 @@ namespace Mu3Library.Multiplayer
 
 
 
+        /// <summary>
+        /// Lists the manager among the ones the editor's Multiplayer Debugger window shows, until
+        /// <see cref="Dispose"/>, whichever container or code creates it.
+        /// </summary>
+        public MultiplayerManager()
+        {
+            MultiplayerManagerRegistry.Add(this);
+        }
+
         public MultiplayerResult Initialize(IMultiplayerBackend backend, MultiplayerConfig config)
         {
             if (_isDisposed || _isInitialized)
@@ -222,7 +231,8 @@ namespace Mu3Library.Multiplayer
         /// Leaves any session without raising events, then lets go of the backend. The backend
         /// itself belongs to whoever created it. Every avatar texture the manager handed out is
         /// destroyed, the requests still waiting for one and the lobby searches still waiting are
-        /// never answered, and the presence the session showed is removed.
+        /// never answered, and the presence the session showed is removed. The Multiplayer Debugger
+        /// window no longer lists the manager.
         /// </summary>
         public void Dispose()
         {
@@ -241,6 +251,7 @@ namespace Mu3Library.Multiplayer
             DisposeAvatars();
             _pendingSearches.Clear();
             _isDisposed = true;
+            MultiplayerManagerRegistry.Remove(this);
 
             _onStateChanged.Clear();
             _onParticipantJoined.Clear();
