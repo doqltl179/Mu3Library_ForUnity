@@ -39,9 +39,11 @@ SETTINGS = "UnityProject_BuiltIn/Assets/AddressableAssetsData/AddressableAssetSe
 OUTSIDE = r"C:\Users\someone\Desktop\UnityProject\Mu3Web\Bundles\Windows"
 BUNDLES = r"D:\checkout\log\verify-build-bundles"
 REMOTE_LOAD = "https://doqltl179.github.io/Bundles/Windows"
+LOCAL_BUILD = "'[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'"
+LOCAL_LOAD = "'{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'"
 
-# The lines of the tracked AddressableAssetSettings.asset that the tool reads, as of 2026-11-15,
-# with the user's folder shortened.
+# The lines of the tracked AddressableAssetSettings.asset that the tool reads, as of 2026-11-15 after
+# #498, with the user's folder shortened.
 SAMPLE_SETTINGS = f"""%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
@@ -79,11 +81,11 @@ MonoBehaviour:
       - m_Id: 1f361e44290e9a348b9f533a553128d9
         m_Value: {OUTSIDE}
       - m_Id: 7c8eaa9c01f11754cb898a6857ef902a
-        m_Value: {OUTSIDE}
+        m_Value: {LOCAL_BUILD}
       - m_Id: 983773c60fdc2ac4696dfcb6fa77688e
         m_Value: {REMOTE_LOAD}
       - m_Id: fa6c663e03e54c844ab7f5918f47c281
-        m_Value: {OUTSIDE}
+        m_Value: {LOCAL_LOAD}
     m_ProfileEntryNames:
     - m_Id: 01bb88842aeda8f49831412080323f14
       m_Name: BuildTarget
@@ -104,6 +106,10 @@ MonoBehaviour:
   m_ActivePlayerDataBuilderIndex: 2
   m_ActiveProfileId: 1630fff1998e9e244a84795e159c3c73
 """
+
+# GitHub_Windows's Local.BuildPath item with the Remote.LoadPath item after it, which only that profile has.
+GITHUB_REMOTE_LOAD = f"      - m_Id: 983773c60fdc2ac4696dfcb6fa77688e\n        m_Value: {REMOTE_LOAD}\n"
+GITHUB_LOCAL_BUILD = f"      - m_Id: 7c8eaa9c01f11754cb898a6857ef902a\n        m_Value: {LOCAL_BUILD}\n" + GITHUB_REMOTE_LOAD
 
 SAMPLE_PROJECT_SETTINGS = """%YAML 1.1
 --- !u!129 &1
@@ -131,27 +137,28 @@ def changed_lines(before: str, after: str) -> list[tuple[str, str]]:
 
 
 class AddressablesSettingsOverrideTests(unittest.TestCase):
-    def test_build_mode_changes_the_two_build_paths_and_the_player_build_option_only(self) -> None:
+    def test_build_mode_changes_the_remote_build_path_and_the_player_build_option_only(self) -> None:
         after = override_addressables_settings(SAMPLE_SETTINGS, BUNDLES, "build")
 
         self.assertEqual(
             [
                 ("  m_BuildAddressablesWithPlayerBuild: 0", "  m_BuildAddressablesWithPlayerBuild: 1"),
                 (f"        m_Value: {OUTSIDE}", f"        m_Value: '{BUNDLES}'"),
-                (f"        m_Value: {OUTSIDE}", f"        m_Value: '{BUNDLES}'"),
             ],
             changed_lines(SAMPLE_SETTINGS, after),
         )
-        # Remote.LoadPath and Local.LoadPath of the profile, and the Default profile, stay.
+        # Local.BuildPath and the two load paths of the profile, and the Default profile, stay.
         self.assertIn(f"        m_Value: {REMOTE_LOAD}\n", after)
-        self.assertEqual(1, after.count(f"        m_Value: {OUTSIDE}\n"))
+        self.assertEqual(2, after.count(f"        m_Value: {LOCAL_BUILD}\n"))
+        self.assertEqual(2, after.count(f"        m_Value: {LOCAL_LOAD}\n"))
+        self.assertNotIn(OUTSIDE, after)
         self.assertIn("        m_Value: 'ServerData/[BuildTarget]'\n", after)
 
     def test_none_mode_turns_the_content_build_off(self) -> None:
         after = override_addressables_settings(SAMPLE_SETTINGS, BUNDLES, "none")
 
         self.assertIn("  m_BuildAddressablesWithPlayerBuild: 2\n", after)
-        self.assertEqual(2, after.count(f"        m_Value: '{BUNDLES}'\n"))
+        self.assertEqual(1, after.count(f"        m_Value: '{BUNDLES}'\n"))
 
     def test_applying_it_again_gives_the_same_file(self) -> None:
         once = override_addressables_settings(SAMPLE_SETTINGS, BUNDLES, "build")
@@ -162,7 +169,7 @@ class AddressablesSettingsOverrideTests(unittest.TestCase):
     def test_quotes_an_apostrophe_in_the_folder(self) -> None:
         after = override_addressables_settings(SAMPLE_SETTINGS, r"D:\O'Neil\log\b", "build")
 
-        self.assertEqual(2, after.count(r"        m_Value: 'D:\O''Neil\log\b'" + "\n"))
+        self.assertEqual(1, after.count(r"        m_Value: 'D:\O''Neil\log\b'" + "\n"))
 
     def test_keeps_crlf_line_endings(self) -> None:
         crlf = SAMPLE_SETTINGS.replace("\n", "\r\n")
@@ -174,14 +181,27 @@ class AddressablesSettingsOverrideTests(unittest.TestCase):
 
     def test_replaces_a_value_that_continues_on_the_next_line(self) -> None:
         wrapped = SAMPLE_SETTINGS.replace(
-            f"      - m_Id: 7c8eaa9c01f11754cb898a6857ef902a\n        m_Value: {OUTSIDE}\n",
-            "      - m_Id: 7c8eaa9c01f11754cb898a6857ef902a\n        m_Value: C:\\a very long folder\n          that Unity wrapped\n",
+            f"      - m_Id: 1f361e44290e9a348b9f533a553128d9\n        m_Value: {OUTSIDE}\n",
+            "      - m_Id: 1f361e44290e9a348b9f533a553128d9\n        m_Value: C:\\a very long folder\n          that Unity wrapped\n",
         )
 
         after = override_addressables_settings(wrapped, BUNDLES, "build")
 
         self.assertNotIn("that Unity wrapped", after)
-        self.assertEqual(2, after.count(f"        m_Value: '{BUNDLES}'\n"))
+        self.assertEqual(1, after.count(f"        m_Value: '{BUNDLES}'\n"))
+        self.assertEqual(2, after.count(f"        m_Value: {LOCAL_BUILD}\n"))
+
+    def test_refuses_a_local_build_path_other_than_the_default(self) -> None:
+        # The folder the profile named before #498, a value one variable short, and the default wrapped onto a second line.
+        for value in (OUTSIDE, "'[UnityEngine.AddressableAssets.Addressables.BuildPath]'", f"{LOCAL_BUILD}\n          wrapped"):
+            with self.subTest(value=value):
+                other = SAMPLE_SETTINGS.replace(
+                    GITHUB_LOCAL_BUILD, f"      - m_Id: 7c8eaa9c01f11754cb898a6857ef902a\n        m_Value: {value}\n" + GITHUB_REMOTE_LOAD
+                )
+                self.assertNotEqual(SAMPLE_SETTINGS, other)
+
+                with self.assertRaisesRegex(SettingsFormatError, "GitHub_Windows .* has Local.BuildPath .*, not the default"):
+                    override_addressables_settings(other, BUNDLES, "build")
 
     def test_refuses_another_active_profile(self) -> None:
         default_active = SAMPLE_SETTINGS.replace(
@@ -204,9 +224,7 @@ class AddressablesSettingsOverrideTests(unittest.TestCase):
             override_addressables_settings(without_local, BUNDLES, "build")
 
     def test_refuses_a_profile_without_a_value_for_a_build_path(self) -> None:
-        without_value = SAMPLE_SETTINGS.replace(
-            f"      - m_Id: 7c8eaa9c01f11754cb898a6857ef902a\n        m_Value: {OUTSIDE}\n", ""
-        )
+        without_value = SAMPLE_SETTINGS.replace(GITHUB_LOCAL_BUILD, GITHUB_REMOTE_LOAD)
 
         with self.assertRaisesRegex(SettingsFormatError, "GitHub_Windows .* has no value for Local.BuildPath"):
             override_addressables_settings(without_value, BUNDLES, "build")
@@ -219,15 +237,12 @@ class AddressablesSettingsOverrideTests(unittest.TestCase):
         with self.assertRaisesRegex(SettingsFormatError, "2 m_BuildAddressablesWithPlayerBuild lines, not one"):
             override_addressables_settings(doubled, BUNDLES, "build")
 
-    def test_the_tracked_asset_changes_in_three_lines(self) -> None:
+    def test_the_tracked_asset_changes_in_two_lines(self) -> None:
         tracked = (repo_root() / SETTINGS).read_text(encoding="utf-8")
 
         pairs = changed_lines(tracked, override_addressables_settings(tracked, BUNDLES, "build"))
 
-        self.assertEqual(
-            ["  m_BuildAddressablesWithPlayerBuild: 1", f"        m_Value: '{BUNDLES}'", f"        m_Value: '{BUNDLES}'"],
-            [after for _, after in pairs],
-        )
+        self.assertEqual(["  m_BuildAddressablesWithPlayerBuild: 1", f"        m_Value: '{BUNDLES}'"], [after for _, after in pairs])
 
 
 class ProjectNameTests(unittest.TestCase):
@@ -418,7 +433,8 @@ class RunTests(unittest.TestCase):
 
         copy = self.work / "UnityProject_BuiltIn"
         settings = (copy / "Assets" / "AddressableAssetsData" / "AddressableAssetSettings.asset").read_text(encoding="utf-8")
-        self.assertIn(f"        m_Value: '{bundles_dir(self.root)}'\n", settings)
+        self.assertEqual(1, settings.count(f"        m_Value: '{bundles_dir(self.root)}'\n"))
+        self.assertEqual(2, settings.count(f"        m_Value: {LOCAL_BUILD}\n"))
         self.assertIn("  m_BuildAddressablesWithPlayerBuild: 1\n", settings)
         self.assertIn("  productName: VerifyBuild\n", (copy / "ProjectSettings" / "ProjectSettings.asset").read_text(encoding="utf-8"))
         self.assertTrue((copy / COPY_BUILD_SCRIPT).is_file())
