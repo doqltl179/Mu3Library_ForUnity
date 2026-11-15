@@ -64,6 +64,7 @@ Each line's full rule lives on the linked page.
 - Behavior lands in the Mu3Library_* packages; the UnityProject_* development projects only consume and exercise them (.ai/project/wiki/overview.md).
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
+- Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).
 
 ### Commands
 
