@@ -1,0 +1,25 @@
+{
+    "name": "Mu3Library.Localization",
+    "rootNamespace": "Mu3Library.Localization",
+    "references": [
+        "Mu3Library.Foundation",
+        "UniTask",
+        "Unity.Localization",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}

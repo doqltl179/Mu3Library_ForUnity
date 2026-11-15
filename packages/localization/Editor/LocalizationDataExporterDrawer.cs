@@ -1,4 +1,3 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -575,4 +574,3 @@ namespace Mu3Library.Editor.Window.Drawer
         }
     }
 }
-#endif

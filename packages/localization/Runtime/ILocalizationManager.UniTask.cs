@@ -1,4 +1,4 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT && MU3LIBRARY_UNITASK_SUPPORT
+#if MU3LIBRARY_UNITASK_SUPPORT
 using Cysharp.Threading.Tasks;
 using Mu3Library.Localization.Data;
 using UnityEngine.Localization;

@@ -6,8 +6,6 @@
         "Mu3Library.DI",
         "Mu3Library.Foundation",
         "Mu3Library.Multiplayer",
-        "Unity.Localization",
-        "Unity.Localization.Editor",
         "Unity.Addressables",
         "Unity.Addressables.Editor"
     ],
@@ -21,11 +19,6 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
-        {
-            "name": "com.unity.localization",
-            "expression": "",
-            "define": "MU3LIBRARY_LOCALIZATION_SUPPORT"
-        },
         {
             "name": "com.unity.addressables",
             "expression": "",

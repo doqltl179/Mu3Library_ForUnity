@@ -1,4 +1,3 @@
-#if MU3LIBRARY_LOCALIZATION_SUPPORT
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -677,4 +676,3 @@ namespace Mu3Library.Localization
         #endregion
     }
 }
-#endif
