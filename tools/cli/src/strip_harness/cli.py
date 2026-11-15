@@ -4,8 +4,8 @@ Managed code stripping removes code that only reflection reaches, and the DI con
 constructors and [Inject] members it fills only through reflection. The Editor and the EditMode and
 PlayMode tests never strip, so only a player shows such a regression. The harness template under
 tools/di-strip-harness/ registers services that nothing creates with `new`; this module copies it
-into a mirror project that references the checkout's Base package, builds a player at the chosen
-backend and Managed Stripping Level, runs it, and reads the HARNESS lines the player logs.
+into a mirror project that references the checkout's Base and DI packages, builds a player at the
+chosen backend and Managed Stripping Level, runs it, and reads the HARNESS lines the player logs.
 """
 
 from __future__ import annotations
@@ -38,9 +38,14 @@ from common.work_dir import FolderNotClaimedError, claim_folder
 BACKENDS = ("mono", "il2cpp")
 STRIPPING_LEVELS = ("Disabled", "Minimal", "Low", "Medium", "High")
 BASE_PACKAGE = "com.github.doqltl179.mu3library.base"
+DI_PACKAGE = "com.github.doqltl179.mu3library.di"
+# The checkout packages the mirror references: the container and the link.xml processor live in DI,
+# which depends on Base.
+MIRROR_PACKAGES = (BASE_PACKAGE, DI_PACKAGE)
 UNITASK_PACKAGE = "com.cysharp.unitask"
 # The config whose Editor version and Unity modules the mirror takes: like the mirror, it holds Base
-# without any optional SDK, so the mirror runs the coroutine path unless --with-unitask adds UniTask.
+# and DI without any optional SDK, so the mirror runs the coroutine path unless --with-unitask adds
+# UniTask.
 REFERENCE_CONFIG = "minimal"
 # The config whose manifest and lock file pin the UniTask that --with-unitask adds.
 UNITASK_CONFIG = "full"
@@ -160,19 +165,21 @@ def unitask_source(root: Path) -> str:
     return f"{url}#{commit}" if isinstance(commit, str) and commit else url
 
 
-def mirror_manifest(reference_manifest: dict, base_path: Path, unitask: str | None) -> dict:
+def mirror_manifest(reference_manifest: dict, package_paths: dict[str, Path], unitask: str | None) -> dict:
     """The mirror's Packages/manifest.json.
 
-    It keeps the reference config's built-in modules and uGUI, which Base's runtime needs, adds Base
-    from this checkout, and adds UniTask only when asked: no render pipeline, IDE, or test package,
-    and no testables, so the player holds little besides Base and the harness.
+    It keeps the reference config's built-in modules and uGUI, which Base's runtime needs, adds each
+    package of package_paths, by name, from its folder in this checkout, and adds UniTask only when
+    asked: no render pipeline, IDE, or test package, and no testables, so the player holds little
+    besides Base, DI, and the harness.
     """
     dependencies = {
         name: version
         for name, version in reference_manifest.get("dependencies", {}).items()
         if name.startswith("com.unity.modules.") or name == "com.unity.ugui"
     }
-    dependencies[BASE_PACKAGE] = "file:" + base_path.resolve().as_posix()
+    for name, path in package_paths.items():
+        dependencies[name] = "file:" + path.resolve().as_posix()
     if unitask:
         dependencies[UNITASK_PACKAGE] = unitask
     return {"dependencies": dict(sorted(dependencies.items()))}
@@ -373,11 +380,12 @@ def prepare_mirror(
     changed += [f"Assets/{path}" for path in synced]
 
     packages = checkout_packages(root)
-    if BASE_PACKAGE not in packages:
-        raise HarnessSetupError(f"no package.json in the checkout names {BASE_PACKAGE}")
+    for name in MIRROR_PACKAGES:
+        if name not in packages:
+            raise HarnessSetupError(f"no package.json in the checkout names {name}")
     manifest = mirror_manifest(
         {"dependencies": read_dependencies(reference / "Packages" / "manifest.json", str)},
-        root / packages[BASE_PACKAGE],
+        {name: root / packages[name] for name in MIRROR_PACKAGES},
         unitask_source(root) if with_unitask else None,
     )
     version_file = project_dir / "ProjectSettings" / "ProjectVersion.txt"
