@@ -24,6 +24,7 @@ from common.unity_projects import (
 
 
 BASE = "com.github.doqltl179.mu3library.base"
+DI = "com.github.doqltl179.mu3library.di"
 
 
 class RepositoryConfigTests(unittest.TestCase):
@@ -37,6 +38,7 @@ class RepositoryConfigTests(unittest.TestCase):
         self.assertEqual(
             {
                 BASE,
+                DI,
                 "com.github.doqltl179.mu3library.addressables",
                 "com.github.doqltl179.mu3library.inputsystem",
                 "com.github.doqltl179.mu3library.localization",
@@ -56,11 +58,11 @@ class RepositoryConfigTests(unittest.TestCase):
                 for folder in config.packages.values():
                     self.assertTrue((repo_root() / folder / "package.json").is_file())
 
-    def test_minimal_holds_base_without_an_optional_sdk(self) -> None:
+    def test_minimal_holds_base_and_di_without_an_optional_sdk(self) -> None:
         minimal = self.configs["minimal"]
         dependencies = minimal.manifest["dependencies"]
 
-        self.assertEqual({BASE}, set(minimal.packages))
+        self.assertEqual({BASE, DI}, set(minimal.packages))
         for sdk in (
             "com.cysharp.unitask",
             "com.rlabrecque.steamworks.net",

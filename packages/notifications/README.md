@@ -51,7 +51,7 @@ public class RewardReminder : MonoBehaviour
 
 `OnNotificationReceived`, from `INotificationManagerEventBus`, reports a notification that arrives while the app runs: on Android also when the app returns from the background, on iOS only while the app is in the foreground. `Dispose` takes the manager's subscription to the Mobile Notifications package back off and ends any permission request or query it still follows, whose callback then never runs.
 
-With Mu3Library's DI, a core registers the manager like any other service, as a singleton under `NotificationManager` and its interfaces `INotificationManager` and `INotificationManagerEventBus`:
+With the Mu3 Library DI package ([README](../di/README.md)), a core registers the manager like any other service, as a singleton under `NotificationManager` and its interfaces `INotificationManager` and `INotificationManagerEventBus`:
 
 ```csharp
 using Mu3Library.DI;

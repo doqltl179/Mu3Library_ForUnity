@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-16 (di package)
+
+### Changed
+- The `full` and `minimal` project configs name the new DI package, `packages/di`, as `"checkout"` and list it under `testables` (#541, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select both for a change under that folder, and both run the DI tests from the package's own test assemblies, `Mu3Library.DI.Tests.Editor` and `Mu3Library.DI.Tests.Runtime`, with their counts unchanged. `urp` and `watermelon` do not get the package, so they now compile and test Base without the DI container and no longer run those tests: `urp` runs 756 EditMode tests where it ran 859, without the 103 DI tests, two of which skip themselves where preparation is a coroutine, and 4 PlayMode tests where it ran 16, without the 12 core preparation and lifetime tests; `watermelon` runs 850 EditMode tests where it ran 953 and 4 PlayMode tests where it ran 10, without the 103 and the 6 that run with UniTask. `minimal` is now the only config that runs `CoreBase`'s coroutine preparation under test. The DI stripping harness's mirror takes the DI package from the checkout beside Base, found by the name in its `package.json`, since the container and `DILinkerProcessor` live there now. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` and `minimal` projects and the harness's mirror, whose manifests then name the new package.
+
 ## 2026-11-16 (addressables package)
 
 ### Changed

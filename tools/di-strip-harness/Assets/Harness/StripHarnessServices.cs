@@ -8,7 +8,7 @@ using UnityEngine.Scripting;
 // The services of the DI stripping harness (tools/README.md#di-stripping-harness). No game code
 // creates them with `new`: only the container does, through reflection, which the Unity linker
 // cannot see, so a player built with Managed Stripping Level Medium or High keeps them only
-// through the link.xml that Base's DILinkerProcessor writes.
+// through the link.xml that the DI package's DILinkerProcessor writes.
 namespace StripHarness
 {
     public static class Probe

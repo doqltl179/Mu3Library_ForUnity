@@ -71,10 +71,10 @@ FULL = Path("tools", "unity-projects", "full")
 
 
 def fixture_root(test: unittest.TestCase) -> Path:
-    """A repository with the files the harness reads: the two configs, Base, and the template.
+    """A repository with the files the harness reads: the two configs, Base, DI, and the template.
 
-    It is a Git repository, since the harness finds Base by the name in its package.json among the
-    files Git lists.
+    It is a Git repository, since the harness finds Base and DI by the names in their package.json
+    files among the files Git lists.
     """
     root = temporary_root(test)
     git_config = write(root.parent / f"{root.name}.gitconfig", "[safe]\n\tdirectory = *\n")
@@ -90,11 +90,12 @@ def fixture_root(test: unittest.TestCase) -> Path:
             {
                 "dependencies": {
                     "com.github.doqltl179.mu3library.base": "checkout",
+                    "com.github.doqltl179.mu3library.di": "checkout",
                     "com.unity.test-framework": "1.8.0",
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
                 },
-                "testables": ["com.github.doqltl179.mu3library.base"],
+                "testables": ["com.github.doqltl179.mu3library.base", "com.github.doqltl179.mu3library.di"],
             }
         ),
     )
@@ -107,6 +108,7 @@ def fixture_root(test: unittest.TestCase) -> Path:
         json.dumps({"dependencies": {"com.cysharp.unitask": {"version": UNITASK_URL, "hash": "abc123"}}}),
     )
     write(root / "Packages" / "Base" / "package.json", json.dumps({"name": "com.github.doqltl179.mu3library.base"}))
+    write(root / "Packages" / "DI" / "package.json", json.dumps({"name": "com.github.doqltl179.mu3library.di"}))
     write(root / "tools" / "di-strip-harness" / "Assets" / "Harness" / "Boot.cs", "// boot\n")
     write(root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs", "// plugin\n")
     return root
@@ -154,7 +156,7 @@ class FakeUnity:
 
 
 class StripHarnessManifestTests(unittest.TestCase):
-    def test_mirror_keeps_only_modules_and_ugui_and_adds_this_checkouts_base(self) -> None:
+    def test_mirror_keeps_only_modules_and_ugui_and_adds_this_checkouts_base_and_di(self) -> None:
         root = temporary_root(self)
         manifest = mirror_manifest(
             {
@@ -163,10 +165,14 @@ class StripHarnessManifestTests(unittest.TestCase):
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
                     "com.github.doqltl179.mu3library.base": "checkout",
+                    "com.github.doqltl179.mu3library.di": "checkout",
                 },
-                "testables": ["com.github.doqltl179.mu3library.base"],
+                "testables": ["com.github.doqltl179.mu3library.base", "com.github.doqltl179.mu3library.di"],
             },
-            root / "Packages" / "Base",
+            {
+                "com.github.doqltl179.mu3library.base": root / "Packages" / "Base",
+                "com.github.doqltl179.mu3library.di": root / "Packages" / "DI",
+            },
             None,
         )
 
@@ -174,6 +180,7 @@ class StripHarnessManifestTests(unittest.TestCase):
         self.assertEqual(
             {
                 "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.di": "file:" + (root / "Packages" / "DI").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.6.0",
             },
@@ -181,12 +188,10 @@ class StripHarnessManifestTests(unittest.TestCase):
         )
 
     def test_mirror_adds_unitask_only_when_asked(self) -> None:
-        root = temporary_root(self)
-
-        with_unitask = mirror_manifest({"dependencies": {}}, root, "url#abc")
+        with_unitask = mirror_manifest({"dependencies": {}}, {}, "url#abc")
 
         self.assertEqual("url#abc", with_unitask["dependencies"]["com.cysharp.unitask"])
-        self.assertNotIn("com.cysharp.unitask", mirror_manifest({"dependencies": {}}, root, None)["dependencies"])
+        self.assertNotIn("com.cysharp.unitask", mirror_manifest({"dependencies": {}}, {}, None)["dependencies"])
 
     def test_unitask_is_pinned_to_the_commit_the_lock_file_names(self) -> None:
         root = fixture_root(self)
@@ -685,6 +690,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         self.assertEqual(
             {
                 "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.di": "file:" + (root / "Packages" / "DI").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.0.0",
             },

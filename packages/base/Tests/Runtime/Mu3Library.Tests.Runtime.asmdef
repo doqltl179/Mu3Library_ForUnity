@@ -3,9 +3,7 @@
     "rootNamespace": "Mu3Library.Tests",
     "references": [
         "Mu3Library",
-        "Mu3Library.DI",
         "Mu3Library.Multiplayer",
-        "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -20,12 +18,6 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [
-        {
-            "name": "com.cysharp.unitask",
-            "expression": "",
-            "define": "MU3LIBRARY_UNITASK_SUPPORT"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

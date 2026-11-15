@@ -44,10 +44,11 @@ class RepositoryHygieneTests(unittest.TestCase):
 
         self.assertEqual(0, result.exit_code, result.output)
         package_lines = [line for line in result.output.splitlines() if line.startswith("Package ")]
-        self.assertEqual(7, len(package_lines), result.output)
+        self.assertEqual(8, len(package_lines), result.output)
         for package in (
             "packages/addressables",
             "packages/base",
+            "packages/di",
             "packages/inputsystem",
             "packages/localization",
             "packages/notifications",

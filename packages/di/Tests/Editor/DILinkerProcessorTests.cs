@@ -260,7 +260,7 @@ namespace Mu3Library.Tests
             CollectionAssert.Contains(assemblies, "Mu3Library");
             CollectionAssert.Contains(assemblies, "Mu3Library.DI");
             CollectionAssert.Contains(assemblies, "Mu3Library.Foundation");
-            CollectionAssert.DoesNotContain(assemblies, "Mu3Library.Editor");
+            CollectionAssert.DoesNotContain(assemblies, "Mu3Library.DI.Editor");
             Assert.IsTrue(document.Descendants("type").Any(type =>
                 (string)type.Attribute("fullname") == "Mu3Library.UI.MVP.MVPManager" &&
                 Names(type, "field").Contains("_objectInjector")));

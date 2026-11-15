@@ -35,7 +35,7 @@ Dictionary<string, Texture2D> textures =
 
 Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
 
-With Mu3Library's DI, a core registers the manager like any other service, as a singleton under `AddressablesManager` and its interfaces `IAddressablesManager` and `IAddressablesManagerEventBus`, and the core calls its `Update`, which reports the initialization and download progress through `OnInitializeProgress` and `OnDownloadProgress`:
+With the Mu3 Library DI package ([README](../di/README.md)), a core registers the manager like any other service, as a singleton under `AddressablesManager` and its interfaces `IAddressablesManager` and `IAddressablesManagerEventBus`, and the core calls its `Update`, which reports the initialization and download progress through `OnInitializeProgress` and `OnDownloadProgress`:
 
 ```csharp
 using Mu3Library.Addressable;
@@ -50,7 +50,7 @@ public class AddressablesCore : CoreBase
 }
 ```
 
-While the game runs, the **Runtime Diagnostics** drawer of Base's editor window lists, for each `AddressablesManager` a registered core holds, how many assets it caches, how many load handles it tracks, and the keys it caches assets for.
+While the game runs, the **Runtime Diagnostics** drawer of the DI package lists, for each `AddressablesManager` a registered core holds, how many assets it caches, how many load handles it tracks, and the keys it caches assets for.
 
 ### Addressable Group Data Exporter
 

@@ -69,7 +69,7 @@ public class LanguageMenu : MonoBehaviour
 
 With UniTask installed, `InitializeAsync`, `GetStringAsync`, `GetAssetAsync`, `GetSelectedLocaleAsync`, and the `ChangeLocale…Async` methods await the same work. `ChangeLocaleAsync` completes once the Localization package has initialized again for the new locale and announced it; a newer call or `CancelChangeLocale` ends the wait early, and `IsLocaleChanging` is true while it waits.
 
-With Mu3Library's DI, a core registers the manager like any other service, as a singleton under `LocalizationManager` and its interfaces `ILocalizationManager` and `ILocalizationManagerEventBus`, and the core calls its `Update`:
+With the Mu3 Library DI package ([README](../di/README.md)), a core registers the manager like any other service, as a singleton under `LocalizationManager` and its interfaces `ILocalizationManager` and `ILocalizationManagerEventBus`, and the core calls its `Update`:
 
 ```csharp
 using Mu3Library.DI;

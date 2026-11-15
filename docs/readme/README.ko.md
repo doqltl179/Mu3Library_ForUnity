@@ -26,8 +26,8 @@
 
 ## ✨ 주요 특징
 
-- 🏗 **모듈화된 Core 시스템**: 기능별로 독립된 `CoreBase`를 통한 명확한 책임 분리
-- 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원
+- 🏗 **모듈화된 Core 시스템**: 기능별로 독립된 `CoreBase`를 통한 명확한 책임 분리를 별도의 DI 패키지로 제공
+- 💉 **커스텀 DI 컨테이너**: Singleton, Transient, Scoped 라이프타임 지원을 별도의 DI 패키지로 제공
 - 🎨 **MVP UI 패턴**: View-Presenter-Model 분리로 테스트 가능한 UI 로직
 - 🔄 **자동 생명주기 관리**: `IInitializable`, `IUpdatable`, `IDisposable` 인터페이스 기반
 - 📦 **선택적 패키지 지원**: UniTask, Addressables, Input System, Steamworks.NET 조건부 활성화
@@ -38,7 +38,7 @@
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
-- 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작
+- 🧭 **결정론적 Core 업데이트**: Core 실행 순서가 명시적이고 안정적으로 동작하는 업데이트를 별도의 DI 패키지로 제공
 - ⏳ **Scene 비동기 API**: built-in 및 Addressables 씬용 phase 기반 UniTask 헬퍼와 resolved scene name을 포함한 구조화 lifecycle 콜백 제공
 - 🎮 **Input System Manager**: 액션 에셋 관리, 인터랙티브 리바인딩, 바인딩 오버라이드 퍼시스턴스와 이름 내보내기 드로어를 별도의 Input System 패키지로 제공
 - 🌍 **Localization Manager**: 문자열과 로컬라이즈된 에셋 조회, 모든 구독자가 전달받는 로케일 변경, 로케일/테이블/엔트리를 역할별 스크립트로 분리하는 데이터 내보내기와 문자 수집 도구를 별도의 Localization 패키지로 제공
@@ -78,6 +78,8 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
 
 `AddressablesManager`와 그 그룹 데이터 내보내기 드로어를 담은 Addressables 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
 
+`CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담은 DI 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
 2. Unity Editor에서 `Window` > `Package Manager`
@@ -88,71 +90,14 @@ Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴�
     - `packages/inputsystem/package.json` (먼저 Base 설치)
     - `packages/localization/package.json` (먼저 Base 설치)
     - `packages/addressables/package.json` (먼저 Base 설치)
+    - `packages/di/package.json` (먼저 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
     - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
 
 ## 📚 핵심 모듈
 
 ### DI (Dependency Injection)
-커스텀 DI 컨테이너로 서비스 등록 및 의존성 주입을 자동화합니다.
-
-```csharp
-using Mu3Library.DI;
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        // AudioManager를 싱글톤으로 등록 — IAudioManager에도 자동 매핑됨
-        RegisterClass<AudioManager>();
-    }
-}
-
-public class GameCore : CoreBase
-{
-    [SerializeField] private AudioClip _mainThemeClip;
-
-    // 자동 주입 (같은 Core 내)
-    [Inject] private IAudioManager _audioManager;
-
-    // 다른 Core에서 주입
-    [Inject(typeof(UICore))] private IMVPManager _mvpManager;
-
-    protected override void Start()
-    {
-        base.Start(); // 주입이 먼저 실행되어야 함!
-        _audioManager.PlayBgm(_mainThemeClip);
-    }
-}
-```
-
-`Awake`, `Start`, `OnEnable`, `OnDisable`, `OnDestroy`를 재정의하는 코어는 반드시 base 메서드를 호출해야 합니다. 이 메서드들이 함께 코어를 `CoreRoot`에 등록하고, 주입하고, 준비시키고, 다시 등록 해제합니다.
-
-기반 클래스가 선언한 `[Inject]` 멤버도 private까지 포함해 주입됩니다. 클래스 계층을 거슬러 올라가는 탐색은 `CoreBase`에서 멈춥니다. 에디터의 DI 검증기도 같은 멤버를 검사합니다.
-
-필수 `[Inject]` 프로퍼티에는 setter가 있어야 합니다. private이어도 됩니다. 필수 `[Inject]` 필드는 `readonly`이면 안 됩니다. 어느 쪽도 `static`이면 안 됩니다. get만 있는 프로퍼티, 스트리핑한 플레이어에서 링커가 setter를 지운 프로퍼티, `readonly` 필드, `static` 필드나 프로퍼티처럼 컨테이너가 채울 수 없는 필수 `[Inject]` 멤버가 있는 객체를 주입하면, 컨테이너는 멤버를 하나도 주입하기 전에 `InvalidOperationException`을 던집니다. 서비스가 등록되지 않은 필수 멤버와 같습니다. `static` 멤버는 클래스에 속하므로 컨테이너는 이를 쓰지 않습니다. 쓰면 주입하는 객체마다 같은 클래스의 다른 객체가 읽는 값을 덮어씁니다. 에디터의 DI 검증기는 컨테이너가 만드는 클래스와 코어 자신에서 이런 멤버를 보고합니다. 등록된 인스턴스는 검사하지 않으며, 이는 실행 중의 동작과 같습니다. `ContainerScope.RegisterInstance`는 인스턴스를 등록하면서 주입하므로 이런 멤버가 있으면 예외를 던지고 아무것도 등록하지 않은 채로 두고, `Container.RegisterInstance`는 등록하는 인스턴스를 주입하지 않으므로 예외가 나지 않습니다. `InjectableMembers.GetUnwritableProperties`, `InjectableMembers.GetReadOnlyFields`, `InjectableMembers.GetStaticFields`, `InjectableMembers.GetStaticProperties`가 이런 멤버를 나열합니다. 이런 멤버가 선택적(`[Inject(false)]`)이면 건너뜁니다.
-
-등록된 서비스도 생성이 완료된 후 생명주기 콜백이 실행되기 전에 `[Inject]` 필드와 프로퍼티 주입을 받습니다. 등록 하나(구현 타입, 키, 수명)는 어떤 서비스 타입으로 resolve하든 인스턴스 하나를 돌려줍니다. 싱글턴은 컨테이너당 하나, 스코프드 서비스는 스코프당 하나입니다. 예외를 던진 생명주기 콜백은 `Debug.LogException`으로 기록되고, 나머지 서비스와 코어는 계속 실행됩니다.
-
-```csharp
-public class AudioPlaybackService
-{
-    [Inject] private IAudioManager _audioManager;
-}
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        RegisterClass<AudioManager>();
-        RegisterClass<AudioPlaybackService>(); // [Inject] 멤버가 자동으로 채워짐
-    }
-}
-```
-
-`MVPManager`도 좁은 공개 계약인 `IObjectInjector`를 사용해 컨테이너 외부에서 생성된 presenter에 `[Inject]` 필드와 프로퍼티 주입을 적용합니다. 구체적인 `ContainerScope`와 내부 주입 구현은 DI 어셈블리 내부에 유지됩니다.
-
-**Managed Stripping Level**을 Medium이나 High로 설정해 빌드한 플레이어에서는 Unity 링커가 어디서도 호출되지 않는 코드를 제거하는데, 컨테이너는 생성자와 `[Inject]` 멤버에 리플렉션으로만 접근합니다. 그래서 Base의 에디터 코드가 이런 빌드마다 링커에 link.xml을 넘깁니다. 이 파일은 `Mu3Library.DI`나, `[Inject]`와 생명주기 인터페이스가 든 `Mu3Library.Foundation`을 참조하는 어셈블리와, 그 어셈블리가 직접 또는 간접으로 참조하는 모든 스크립트 어셈블리와 사전 컴파일된 어셈블리에서 빌드가 어차피 남기는 모든 클래스의 생성자를 지킵니다. 그래서 서비스가 컨테이너를 전혀 모르는 어셈블리에 있어도 됩니다. 이 클래스들의 `[Inject]` 필드와 프로퍼티도 지키며, 필수인 `static` 멤버도 지킵니다. 그래서 컨테이너가 플레이어에서도 그 멤버를 찾아 에디터에서처럼 예외를 던집니다. 이 필드들 가운데 하나라도 선언한 클래스는 모든 필드를 지킵니다. 링커는 link.xml이 이름을 적은 필드의 `[Inject]` 어트리뷰트를 코드가 그 필드를 읽을 때만 남기는데, 컨테이너는 이 어트리뷰트로 필드를 찾기 때문입니다. 그렇지 않으면 컨테이너가 서비스를 만들게 하려고만 두고 어떤 코드도 읽지 않는 `[Inject]` 필드가 비어 있게 됩니다. 아무것도 쓰지 않는 클래스와 어셈블리는 여전히 제거됩니다. `[Inject]` 멤버는 에디터가 불러온 어셈블리에서 읽으므로, `#if !UNITY_EDITOR` 안처럼 플레이어에서만 컴파일되는 `[Inject]` 멤버에는 `[Preserve]`(`UnityEngine.Scripting`)를 붙여야 하고, 직접 작성한 리플렉션으로만 닿는 코드도 마찬가지입니다. 사전 컴파일된 어셈블리는 파일 이름으로 찾으므로, 파일 이름이 어셈블리 이름과 다른 DLL은 경고 없이 빠지고, 에디터가 불러오지 않는 DLL은 위 어셈블리 중 하나가 참조할 때만 포함됩니다. 프로젝트 `Assets` 폴더 아래의 `link.xml`로 지켜도 됩니다. Unity는 패키지 안의 `link.xml`을 읽지 않습니다. 생성자 항목이 늘리는 크기는 작습니다. Unity 6000.6.7f1에서 Managed Stripping Level High로 빌드한 Watermelon Game 개발 프로젝트에서, Mono 플레이어의 관리 DLL은 21,504바이트(0.19%) 늘었고 그 대부분은 렌더 파이프라인이나 Input System 같은 Unity 패키지 어셈블리에서 늘었으며, IL2CPP 플레이어의 `GameAssembly.dll`은 123,904바이트(0.52%) 늘었습니다.
+`CoreBase`와 `CoreRoot`를 포함한 DI 컨테이너는 별도의 DI 패키지로 옮겨졌습니다. 등록, 주입, 코어, 그리고 관리 코드를 스트리핑하는 플레이어 빌드를 위해 이 패키지가 만드는 link.xml은 그 [README](../../packages/di/README.md)를 참고하세요. Base는 매니저가 구현하는 계약 `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, `[Inject]`를 `Mu3Library.Foundation` 어셈블리에 유지합니다. 아래 예제는 DI 패키지의 코어처럼 `[Inject]`로 Base의 서비스를 주입합니다.
 
 ### MVP (Model-View-Presenter)
 UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
@@ -422,7 +367,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Attribute**: `ConditionalHideAttribute`, `ButtonInvokeAttribute` 등의 커스텀 속성
 - **Audio**: BGM/SFX 관리 시스템
 - **Particle**: 편리한 `ParticleSystem` 제어, loop 설정과 `OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted` 이벤트를 제공하는 `ParticleHandler` MonoBehaviour
-- **DI**: Dependency Injection 컨테이너
+- **DI**: 별도의 DI 패키지로 옮겨짐 ([README](../../packages/di/README.md)). 생명주기와 주입 계약은 Base의 `Mu3Library.Foundation`에 남음
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: 별도의 Localization 패키지로 옮겨짐 ([README](../../packages/localization/README.md))
@@ -443,7 +388,7 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 Base에는 샘플이 하나 있으며, 패키지 매니저의 **Samples** 탭에서 가져올 수 있습니다. URP와 Watermelon Game 패키지에는 샘플이 없으며, 아래에 각 패키지의 주요 기능을 정리했습니다:
 
 Base 패키지 (**Mu3 Library**):
-- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다
+- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다. 샘플의 코어가 DI 패키지의 `CoreBase`를 상속하므로 DI 패키지가 필요하며, 샘플을 가져오기 전에 그 패키지를 설치해야 합니다
 
 URP 패키지 (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
@@ -474,55 +419,7 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 
 ## 🏗 아키텍처 개요
 
-### Core 시스템
-각 `CoreBase`는 독립적인 DI 컨테이너(`ContainerScope`)를 소유하며, `CoreRoot`가 생명주기를 관리합니다.
-
-```
-CoreRoot (Singleton)
-├── AudioCore (독립 ContainerScope)
-│   └── AudioManager, BgmController, SfxController
-├── UICore (독립 ContainerScope)
-│   └── MVPManager, Presenters...
-└── NetworkCore (독립 ContainerScope)
-    └── WebRequestManager
-```
-
-### Core 간 통신
-다른 Core의 서비스에 접근하려면:
-
-```csharp
-// 방법 1: Start()에서 수동 획득
-protected override void Start()
-{
-    base.Start();
-    _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
-}
-
-// 방법 2: Inject 속성 (코어, 등록된 서비스, presenter에서 사용 가능)
-[Inject(typeof(AudioCore))] private IAudioManager _audioManager;
-```
-
-특정 Core의 초기화가 완료된 뒤 한 번만 코드를 실행하려면 `ICoreRoot`를 통해 구독합니다:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
-{
-    _audioManager = CoreRoot.Instance.GetClass<AudioCore, IAudioManager>();
-});
-```
-
-callback은 대상 Core의 초기화가 완료된 후 한 번 호출됩니다.
-
-비동기 준비 작업이 있는 경우, 준비 완료 알림을 구독할 수 있습니다:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
-{
-    // AudioCore의 준비가 완료된 뒤 코드를 실행합니다.
-});
-```
-
-callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니다.
+코어와 각 코어가 소유하는 컨테이너, 한 코어가 다른 코어의 서비스에 접근하는 방법은 컨테이너와 함께 DI 패키지로 옮겨졌습니다. 그 README의 [Cores and CoreRoot](../../packages/di/README.md#cores-and-coreroot)를 참고하세요.
 
 ## 📝 최근 업데이트
 
@@ -552,6 +449,7 @@ callback은 대상 Core의 준비 단계가 완료된 후 한 번 호출됩니�
 - Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존, 다음 릴리스부터)
 - Localization: `com.github.doqltl179.mu3library.localization` (Base 의존, 다음 릴리스부터)
 - Addressables: `com.github.doqltl179.mu3library.addressables` (Base 의존, 다음 릴리스부터)
+- DI: `com.github.doqltl179.mu3library.di` (Base 의존, 다음 릴리스부터)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)
