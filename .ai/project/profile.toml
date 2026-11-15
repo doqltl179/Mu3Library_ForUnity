@@ -22,7 +22,7 @@ work_root = "env:MU3_WORK_ROOT"
 
 [hosting]
 ci = false
-area_labels = ["base", "urp", "watermelon", "agents", "tooling"]
+area_labels = ["base", "urp", "watermelon", "notifications", "inputsystem", "localization", "addressables", "di", "steam", "agents", "tooling"]
 
 [commands]
 build = "bash ./compile-unity.sh changed"
