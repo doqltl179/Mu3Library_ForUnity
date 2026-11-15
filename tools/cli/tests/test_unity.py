@@ -467,10 +467,10 @@ class ShortPathTests(unittest.TestCase):
     def test_entry_point_keeps_the_short_path_it_was_started_from(self) -> None:
         # compile-unity.sh passes $REPO_ROOT to the project generator, which writes each checkout
         # package's folder below it into the generated project's manifest, for Unity to open.
-        completed = run_sourced(self.short_root / "compile-unity.sh", 'to_windows_path "$REPO_ROOT/Mu3Library_Base"')
+        completed = run_sourced(self.short_root / "compile-unity.sh", 'to_windows_path "$REPO_ROOT/packages/base"')
 
         self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertEqual(self.short_root / "Mu3Library_Base", Path(completed.stdout.strip()))
+        self.assertEqual(self.short_root / "packages" / "base", Path(completed.stdout.strip()))
 
 
 if __name__ == "__main__":

@@ -74,9 +74,9 @@ Install the packages in the order Base, URP, Watermelon Game: URP depends on Bas
 2. Open `Window` > `Package Manager` in Unity Editor
 3. Click `+` button > `Add package from disk...`
 4. Select one of the following:
-    - `Mu3Library_Base/package.json`
-    - `Mu3Library_URP/package.json` (install Base first)
-    - `Mu3Library_Game_WatermelonGame/package.json` (install Base and URP first)
+    - `packages/base/package.json`
+    - `packages/urp/package.json` (install Base first)
+    - `packages/game/watermelon/package.json` (install Base and URP first)
 
 ## 📚 Core Modules
 
@@ -460,7 +460,7 @@ Watermelon Game package (**Mu3 Library Game - Watermelon**):
 
 **Sample input and text:** The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
 
-In this repository, the Multiplayer sample source lives under `Mu3Library_Base/Samples~/Multiplayer`.
+In this repository, the Multiplayer sample source lives under `packages/base/Samples~/Multiplayer`.
 
 To stack an MVP render camera with the new helper, pass the render camera explicitly:
 

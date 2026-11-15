@@ -25,9 +25,9 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Package | Folder | Depends on | Scope and area label |
 |---|---|---|---|
-| Base | `Mu3Library_Base/` | — | `base` |
-| URP | `Mu3Library_URP/` | Base | `urp` |
-| Watermelon Game | `Mu3Library_Game_WatermelonGame/` | Base, URP | `watermelon`, never `game` |
+| Base | `packages/base/` | — | `base` |
+| URP | `packages/urp/` | Base | `urp` |
+| Watermelon Game | `packages/game/watermelon/` | Base, URP | `watermelon`, never `game` |
 
 ## Development Projects
 
@@ -49,10 +49,10 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Path | Holds |
 |---|---|
-| `Mu3Library_*/Runtime/` | Package runtime: scripts, plus materials and textures in Base, and in URP shaders and the `Resources/` asset that keeps the screen-effect shaders in player builds |
-| `Mu3Library_*/Editor/` | Editor tooling (Base) |
-| `Mu3Library_*/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
-| `Mu3Library_*/Tests/` | EditMode tests (each package) |
+| `packages/<name>/Runtime/` | Package runtime, one folder per feature with the assets it needs, such as URP's `ScreenEffect/`, which holds the screen-effect shaders and the `Resources/` asset that keeps them in player builds |
+| `packages/<name>/Editor/` | Editor tooling (Base) |
+| `packages/<name>/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
+| `packages/<name>/Tests/` | EditMode tests (each package) |
 | `tools/unity-projects/` | Project configs, from which the tools generate the Unity projects in the work folder; the `full` project links Base's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source. The URP and Watermelon Game packages ship no samples |
 | `tools/`, `compile-unity.sh`, `test-unity.sh` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |

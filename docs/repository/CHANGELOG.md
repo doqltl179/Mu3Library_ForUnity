@@ -7,6 +7,18 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (packages folder)
+
+### Changed
+- The packages moved into a top-level `packages/` folder (#525, ADR 0001 D3, D16, D20): `Mu3Library_Base` is now `packages/base`, `Mu3Library_URP` is `packages/urp`, and `Mu3Library_Game_WatermelonGame` is `packages/game/watermelon`, so each folder matches its tag path. Inside each package the `Scripts/` level is gone, so the feature folders lie directly under `Runtime/` and `Editor/`, and URP's shaders and its `Resources/` folder lie under `Runtime/ScreenEffect/`. The `.meta` files moved with their assets, so no GUID changed. The project configs find the packages by the names in their `package.json`, so they needed no edit, and `compile-unity.sh changed` selects the configs from the new folders.
+- `mu3-repo check` looks for package code under `packages/` instead of `Mu3Library_*`, and the `.gitignore` entry for the temporary folders that the `Mu3Window` edit-mode tests create names `packages/base/`. The agent docs, `.ai/project/profile.toml` (its bindings, stack globs, and release version files and changelogs), the READMEs, and `tools/README.md` name the new paths. The install URLs in the READMEs keep the old paths until the next release, since they point at tags whose trees hold them.
+
+### What an existing checkout or open branch needs
+- Updating removes the three `Mu3Library_*` folders. A folder that still holds files Git does not track, such as a `Mu3WindowTests_*` folder that a cut-off test run left in Base, stays behind with them, and no tool reads it any more: delete it.
+- A branch cut before this change merges `develop` as usual for the files it edits: Git follows the moves, so an edit to a moved file lands in its new place. A file the branch added under a moved folder stops the merge with `CONFLICT (file location)`, and Git has already put it in the folder it suggests (checked with Git 2.41): check that place, `git add` the file and its `.meta`, and commit the merge. A new subfolder that the branch added without its folder `.meta`, under a moved folder where it added nothing else, can merge cleanly and stay at its old path, so after the merge `git ls-files "Mu3Library_*"` must list nothing; move whatever it lists into the new folder.
+- Commands, scripts, and notes outside the repository that name the old folders need the new paths, as does a Unity project that added a package from disk.
+- The generated Unity projects refresh on their own: the next run writes the new package folders into each manifest and replaces the `full` project's samples link, which pointed at `Mu3Library_Base/Samples~`.
+
 ## 2026-11-15 (generated Unity projects)
 
 ### Changed

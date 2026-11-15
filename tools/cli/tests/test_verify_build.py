@@ -193,8 +193,8 @@ def fixture_repository(test: unittest.TestCase) -> Path:
     write(root / FULL / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
     write(root / FULL / "Assets" / "Mu3LibrarySamples.meta", "meta\n")
     write(root / FULL / "sample-links.json", '{"Assets/Mu3LibrarySamples": "com.github.doqltl179.mu3library.base"}\n')
-    write(root / "Mu3Library_Base" / "package.json", '{"name": "com.github.doqltl179.mu3library.base"}\n')
-    write(root / "Mu3Library_Base" / "Samples~" / "Demo" / "Demo.cs", "class Demo {}\n")
+    write(root / "packages" / "base" / "package.json", '{"name": "com.github.doqltl179.mu3library.base"}\n')
+    write(root / "packages" / "base" / "Samples~" / "Demo" / "Demo.cs", "class Demo {}\n")
     write(root / BUILD_SCRIPT, "// build script\n")
     isolate_git(test, root.parent)
     git(root.parent, "init", "-q", str(root))
@@ -306,7 +306,7 @@ class RunTests(unittest.TestCase):
             self.run_tool("none", FakeUnity())
         self.assertEqual(0, self.run_tool("none", FakeUnity(), fresh=True))
         # --fresh deleted the project through its link without touching the samples.
-        self.assertTrue((self.root / "Mu3Library_Base" / "Samples~" / "Demo" / "Demo.cs").is_file())
+        self.assertTrue((self.root / "packages" / "base" / "Samples~" / "Demo" / "Demo.cs").is_file())
 
     def test_none_mode_fails_when_content_was_built_anyway(self) -> None:
         self.assertEqual(EXIT_BUILD_FAILED, self.run_tool("none", FakeUnity(builds_content=True)))

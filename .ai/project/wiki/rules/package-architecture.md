@@ -1,6 +1,6 @@
 ---
 owns: "Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, Unity package and built-in module declarations in package.json, DI and CoreBase, project C# conventions, and the review focus for package changes"
-applies_to: ["Mu3Library_*/**"]
+applies_to: ["packages/**"]
 volatility: evolving
 reviewed: 2026-11-15
 ---
@@ -24,11 +24,11 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 | Package | Surface | Rules |
 |---|---|---|
-| Base | Runtime `Runtime/Scripts`: `Mu3Library.asmdef`, with four folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references), `DI/` (`Mu3Library.DI.asmdef`), `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface, with `Multiplayer/Steam/` in `Mu3Library.Multiplayer.Steam.asmdef`, the Steam backend, standalone players and the editor only), and `Notifications/` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
-| Base | Editor `Editor/Scripts` (`Mu3Library.Editor.asmdef`) | Match nearby drawer, window, and utility patterns. Generated-script helpers live in `Editor/Scripts/FileUtil`: identifier rules in `ScriptIdentifier`, output in `FileCreator`, asset path checks in `FileFinder` |
-| URP | Runtime `Runtime/Scripts` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
-| URP | Shaders `Runtime/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
-| Watermelon Game | Runtime `Runtime/Scripts` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
+| Base | Runtime `Runtime`: `Mu3Library.asmdef`, with four folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references), `DI/` (`Mu3Library.DI.asmdef`), `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface, with `Multiplayer/Steam/` in `Mu3Library.Multiplayer.Steam.asmdef`, the Steam backend, standalone players and the editor only), and `Notifications/` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
+| Base | Editor `Editor` (`Mu3Library.Editor.asmdef`) | Match nearby drawer, window, and utility patterns. Generated-script helpers live in `Editor/FileUtil`: identifier rules in `ScriptIdentifier`, output in `FileCreator`, asset path checks in `FileFinder` |
+| URP | Runtime `Runtime` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
+| URP | Shaders `Runtime/ScreenEffect/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
+| Watermelon Game | Runtime `Runtime` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
 | Base | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
 
 ## Assemblies And Optional Integrations
@@ -58,8 +58,8 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## C# Conventions
 
-- A namespace follows its folder under the `Mu3Library` root: `Foundation/Coroutine` is `Mu3Library.Foundation.Coroutine`, `Runtime/Scripts/Utility` is `Mu3Library.Utility`. The existing exceptions stay, since renaming a public namespace breaks consumers, and no new one is added:
-  - a leaf named like a Unity type its own code uses: `URP/Runtime/Scripts/Camera` is `Mu3Library.URP.Cam`;
+- A namespace follows its folder under the `Mu3Library` root: `Foundation/Coroutine` is `Mu3Library.Foundation.Coroutine`, `Runtime/Utility` is `Mu3Library.Utility`. The existing exceptions stay, since renaming a public namespace breaks consumers, and no new one is added:
+  - a leaf named like a Unity type its own code uses: `URP/Runtime/Camera` is `Mu3Library.URP.Cam`;
   - a folder that only groups the parts of one feature keeps its parent's namespace: Base's `UI/Area/Boundary` is `Mu3Library.UI.Area` in the runtime and `Mu3Library.Editor.UI.Area` in the editor;
   - a file of a partial class takes the namespace of the class it extends, since every part shares one: Watermelon Game's `Board/Area/BoardArea.*.cs` and `Board/Controller/BoardController.*.cs` are `Mu3Library.Game.WatermelonGame.Board`, while the other types in `Board/Area` follow the folder rule as `Mu3Library.Game.WatermelonGame.Board.Area`.
 - An oversized `MonoBehaviour` keeps its serialized façade at its existing path and GUID and moves responsibilities into partial files grouped under named subfolders, such as `Controller`, `Area`, and `Item`.

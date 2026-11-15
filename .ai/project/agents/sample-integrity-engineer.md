@@ -1,6 +1,6 @@
 ---
 name: sample-integrity-engineer
-description: "Maintains the importable package samples under Mu3Library_*/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
+description: "Maintains the importable package samples under packages/<name>/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
 department: client
 tier: standard
 access: read-write

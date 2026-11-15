@@ -1,5 +1,5 @@
 ---
-applyTo: "Mu3Library_*/**/*.cs,**/*.asmdef,**/*.asmref,**/*.unity,**/*.prefab,**/*.asset"
+applyTo: "packages/**/*.cs,**/*.asmdef,**/*.asmref,**/*.unity,**/*.prefab,**/*.asset"
 ---
 <!-- agentkit:generated from .ai/kit/core/stacks/frameworks/unity.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 

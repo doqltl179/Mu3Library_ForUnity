@@ -1,6 +1,6 @@
 ---
 name: sample-integrity-engineer
-description: "Maintains the importable package samples under Mu3Library_*/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
+description: "Maintains the importable package samples under packages/<name>/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
 ---
 <!-- agentkit:generated from .ai/kit/core/agents/client/game-tools-engineer.md, .ai/project/agents/sample-integrity-engineer.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
@@ -73,6 +73,6 @@ Mission: give content creators reliable editor tools and deterministic asset pip
 
 ## Project Binding
 
-- Paths: `Mu3Library_*/Samples~/**`
+- Paths: `packages/**/Samples~/**`
 - Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
 - Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)

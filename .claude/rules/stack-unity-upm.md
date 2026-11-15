@@ -1,10 +1,10 @@
 ---
 paths:
-  - "Mu3Library_*/package.json"
-  - "Mu3Library_*/CHANGELOG.md"
-  - "Mu3Library_*/**/*.asmdef"
-  - "Mu3Library_*/Samples~/**"
-  - "Mu3Library_*/Documentation~/**"
+  - "packages/**/package.json"
+  - "packages/**/CHANGELOG.md"
+  - "packages/**/*.asmdef"
+  - "packages/**/Samples~/**"
+  - "packages/**/Documentation~/**"
 ---
 <!-- agentkit:generated from .ai/kit/core/stacks/frameworks/unity-upm.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
