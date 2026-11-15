@@ -45,7 +45,7 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code, result.output)
         package_lines = [line for line in result.output.splitlines() if line.startswith("Package ")]
         self.assertEqual(3, len(package_lines), result.output)
-        for package in ("Mu3Library_Base", "Mu3Library_URP", "Mu3Library_Game_WatermelonGame"):
+        for package in ("packages/base", "packages/urp", "packages/game/watermelon"):
             self.assertIn(str(repo_root() / package), result.output)
         self.assertIn("developed in full, minimal, urp, watermelon", result.output)
 
@@ -59,7 +59,7 @@ class PackageCodeCharacterTests(unittest.TestCase):
         self.root = Path(directory.name)
 
     def write(self, data: bytes) -> str:
-        relative_path = "Mu3Library_Base/Runtime/Scripts/Code.cs"
+        relative_path = "packages/base/Runtime/Code.cs"
         path = self.root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
@@ -174,8 +174,8 @@ class PackageCodeCharacterTests(unittest.TestCase):
     def test_package_code_paths_lists_the_package_csharp_files(self) -> None:
         paths = package_code_paths(repo_root())
 
-        self.assertIn("Mu3Library_Base/Runtime/Scripts/Multiplayer/Local/LobbyFilter.cs", paths)
-        self.assertTrue(all(path.startswith("Mu3Library_") and path.endswith(".cs") for path in paths), paths)
+        self.assertIn("packages/base/Runtime/Multiplayer/Local/LobbyFilter.cs", paths)
+        self.assertTrue(all(path.startswith("packages/") and path.endswith(".cs") for path in paths), paths)
 
 
 # Caf\u00e9, a name with a character outside ASCII.
@@ -189,8 +189,8 @@ class NonAsciiPathTests(FixtureRepositoryTestCase):
 
     # A package file Git tracks and one it does not, which git ls-files lists in separate passes.
     PACKAGE_CODE = {
-        f"Mu3Library_X/Runtime/{NON_ASCII_NAME}.cs": True,
-        f"Mu3Library_X/Editor/{NON_ASCII_NAME}.cs": False,
+        f"packages/x/Runtime/{NON_ASCII_NAME}.cs": True,
+        f"packages/x/Editor/{NON_ASCII_NAME}.cs": False,
     }
     REPOSITORY_TEXT = f"docs/{NON_ASCII_NAME}.md"
     TOOL_ARTIFACT = f"tools/obj/{NON_ASCII_NAME}.json"
@@ -268,7 +268,7 @@ class RepositoryRootSpellingTests(unittest.TestCase):
 
     def test_working_directory_in_the_same_checkout_supplies_its_short_path(self) -> None:
         # An installed tool keeps the long path it was installed from, but runs from the short path.
-        working_directory = self.short_root / "Mu3Library_Base"
+        working_directory = self.short_root / "packages" / "base"
 
         self.assertEqual(self.short_root, self.root_for(self.real_root, working_directory))
 

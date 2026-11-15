@@ -163,7 +163,7 @@ def utp_status(phase: str, name: str, message: str = "") -> str:
 
 def counted_repeat_name(name: str) -> str:
     """A test's full name as [CountedRepeat] writes it into each of its lines, on one line, as LogName
-    in Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes it (#492): a backslash as two, a
+    in packages/base/Tests/Editor/CountedRepeatAttribute.cs writes it (#492): a backslash as two, a
     line break as \\n, and a carriage return as \\r."""
     b = chr(92)
     return name.replace(b, b + b).replace(chr(10), b + "n").replace(chr(13), b + "r")
@@ -174,7 +174,7 @@ def counted_repeat_totals(
 ) -> str:
     """The line [CountedRepeat] logs once the runs of the test named have ended, with the name as
     counted_repeat_name gives it and the totals as Tally.Totals in
-    Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes them."""
+    packages/base/Tests/Editor/CountedRepeatAttribute.cs writes them."""
     rate = f"{100.0 * failed / ended:.2f}%" if ended else "none, no run ended"
     return (
         f"[Repeat] {counted_repeat_name(name)}: totals: runs {ended} of {runs}, passed {passed}, failed {failed}, "

@@ -1037,7 +1037,7 @@ add_load_to_summary() {
 
 # Sets COUNTED_REPEAT_TESTS, COUNTED_REPEAT_COUNTS, and COUNTED_REPEAT_RATES
 # from the lines of a Unity log in which [CountedRepeat], an attribute of the
-# Base EditMode tests (Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs),
+# Base EditMode tests (packages/base/Tests/Editor/CountedRepeatAttribute.cs),
 # gives the totals of a test it ran many times in one Unity:
 #   [Repeat] <full name>: totals: runs <ended> of <runs>, passed <p>,
 #   failed <f>, inconclusive <i>, skipped <s>, failure rate <rate>

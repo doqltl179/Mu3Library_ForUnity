@@ -38,7 +38,7 @@ STALE_AGENT_REFERENCE_PARTS = (
     "urp-package-" + "routing",
 )
 REPOSITORY_TEXT_SUFFIXES = {".md", ".py", ".yml"}
-PACKAGE_CODE_PATHSPEC = "Mu3Library_*"
+PACKAGE_CODE_PATHSPEC = "packages"
 PACKAGE_CODE_SUFFIXES = {".cs"}
 # Characters a diff or an editor shows as nothing, or as something else: controls other than tab and
 # carriage return, format characters such as zero-width spaces, bidirectional controls, and a byte

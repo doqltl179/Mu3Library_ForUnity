@@ -92,7 +92,7 @@ crashlytics-build.properties
 
 # Temporary folders that the Mu3Window edit-mode tests create inside the Base package while they
 # run. A run that is cut off leaves one behind; the next run deletes it, and it must never ship.
-/Mu3Library_Base/Mu3WindowTests_*
+/packages/base/Mu3WindowTests_*
 
 .vscode/
 .venv/
