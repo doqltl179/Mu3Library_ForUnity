@@ -309,8 +309,9 @@ namespace Mu3Library.Editor.Window.Drawer
         /// <summary>
         /// <see cref="DrawNamespaceField"/>에 입력한 namespace로 컴파일되는 스크립트를 만들 수 없는 이유를 반환한다. 만들 수 있으면 null이다.
         /// <br/> 비어 있는 namespace는 namespace 블록 없이 생성하므로 유효하다.
+        /// <br/> 다른 패키지의 drawer도 쓰도록 protected이고, 편집 모드 테스트가 직접 부르도록 internal이기도 하다.
         /// </summary>
-        internal static string GetNamespaceWarning(string scriptNamespace)
+        protected internal static string GetNamespaceWarning(string scriptNamespace)
         {
             string trimmed = scriptNamespace?.Trim() ?? string.Empty;
             if (trimmed.Length == 0 || ScriptIdentifier.IsValidNamespace(trimmed))
