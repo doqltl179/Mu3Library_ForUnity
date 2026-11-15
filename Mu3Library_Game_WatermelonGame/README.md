@@ -184,8 +184,4 @@ https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_Waterm
 
 The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
 
-The development projects in this repository reference the package folder by a relative path instead, which resolves only from a `UnityProject_*` folder of this repository:
-
-```json
-"com.github.doqltl179.mu3library.game.watermelon": "file:../../Mu3Library_Game_WatermelonGame"
-```
+Inside this repository, the project config `tools/unity-projects/watermelon` names the package as `"checkout"` instead, and the repository's tools write the absolute path of the package folder into each Unity project they generate from it, which works only for that checkout.
