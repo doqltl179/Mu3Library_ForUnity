@@ -219,7 +219,7 @@ On 2026-11-14, with Unity 6000.6.7f1 and no other Unity process running, the com
 
 ## Lowest Supported Editor
 
-Each package declares the lowest Editor it supports in the `unity` field of its `package.json`, `6000.3` for all three, while the configs name a newer Editor. `--editor-version <version>` compiles or tests the selected targets with another Editor installed through Unity Hub, such as a 6000.3 release:
+Each package declares the lowest Editor it supports in the `unity` field of its `package.json`, `6000.3` for every package, while the configs name a newer Editor. `--editor-version <version>` compiles or tests the selected targets with another Editor installed through Unity Hub, such as a 6000.3 release:
 
 ```bash
 ./compile-unity.sh all --editor-version 6000.3.17f1

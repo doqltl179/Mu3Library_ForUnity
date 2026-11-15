@@ -15,7 +15,7 @@ Up to Base 0.28.0, `NotificationManager` came with Base. A project that uses it 
 
 ## Usage
 
-Initialize the manager before anything else: until then every call logs an error and answers a safe default, such as `-1` from `Schedule` and `Denied` from `RequestPermission`. In the editor the Mobile Notifications package delivers nothing, so the calls do nothing there.
+Initialize the manager before anything else: until then every method other than `Initialize` and `Dispose` logs an error and does nothing or answers a safe default, such as `-1` from `Schedule` and `Denied` from `RequestPermission`. Subscribing to `OnNotificationReceived` needs no initialization. In the editor the Mobile Notifications package delivers nothing, so the calls do nothing there.
 
 ```csharp
 using System;
