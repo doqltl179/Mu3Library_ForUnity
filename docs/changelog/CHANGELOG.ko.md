@@ -15,6 +15,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ### 추가됨
 - Base: 멀티플레이 백엔드가 구현하거나 쓰는 API가 public이 되었습니다(#531). 그래서 Steam 백엔드처럼 다른 어셈블리에 있는 백엔드가 public API만으로 빌드됩니다. `Mu3Library.Multiplayer.Backend`에는 공개가 아닌 로비에 초대로만 들어갈 수 있는 백엔드의 선택 인터페이스로, 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하는 `ILobbyInviteBackend`, Steam 백엔드가 `SteamNotRunning`을 알리듯 백엔드를 사용할 수 없는 이유를 알리는 선택 인터페이스 `IUnavailableReasonBackend`, 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키 `LobbyDataKeys`가 있습니다. `LobbySearchQuery.Clone()`은 `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드를 위해 쿼리를 복사합니다.
+- Notifications: 새 패키지 `com.github.doqltl179.mu3library.notifications`("Mu3 Library Notifications")가 Base에 있던 `Mu3Library.Notifications` 어셈블리를 담습니다(#533). `NotificationManager`는 Android, iOS, 에디터에서 Mobile Notifications 패키지의 통합 `NotificationCenter`를 감쌉니다. 이 패키지는 `com.unity.mobile.notifications` 2.5.0을 의존 패키지로 선언하므로 패키지 매니저가 그 패키지를 함께 설치하고, 다른 Mu3Library 패키지는 필요하지 않습니다. UniTask가 설치되어 있으면 지금처럼 `RequestPermissionAsync`와 `GetLastRespondedNotificationAsync`를 쓸 수 있습니다. 이 패키지는 다음 릴리스부터 제공되며, 그 릴리스에서 README에 Git URL이 추가됩니다.
 
 ### 변경됨
 - Base: 패키지 폴더가 `Mu3Library_Base`에서 `packages/base`로 옮겨졌습니다(#525). 그래서 다음 릴리스부터 Git URL은 `?path=packages/base`를 씁니다. 지금까지 릴리스된 태그의 URL은 그대로 `?path=Mu3Library_Base`를 씁니다. `Scripts/` 단계가 없어져, `Runtime/Scripts/`와 `Editor/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/`과 `Editor/` 바로 아래에 있습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
@@ -27,6 +28,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 제거됨
 - Base: **Template**, **Attribute**, **UtilWindow** 샘플과 `package.json`의 `samples`에 있던 각 항목을 제거했습니다(#521). **Multiplayer** 샘플은 당분간 남습니다. 패키지 매니저는 가져온 샘플을 프로젝트 안으로 복사하므로, 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다. README에 이미 있는 코드 예제가 사용법 안내로 남습니다.
 - Base: `Runtime/Materials`의 기본 색깔 머티리얼(`Black`, `Blue`, `Green`, `Magenta`, `Red`, `White`)과 `Runtime/Textures`의 텍스처(`Circle_32px`, `Circle_64px`와 각각의 `InnerShadow`, `OutShadow` 변형, `square_1px`)를 제거했습니다(#521). 이 에셋을 참조하는 씬, 프리팹, 머티리얼은 업데이트 후 그 참조를 잃습니다. 이미 가져온 Template 샘플도 마찬가지입니다. 계속 필요하면 업데이트 전에 에셋을 프로젝트로 복사하세요.
+- Base: `Mu3Library.Notifications` 어셈블리가 새 Notifications 패키지로 옮겨졌습니다(#533). `NotificationManager`를 쓰는 프로젝트는 Base를 업데이트할 때, 그 패키지의 첫 릴리스부터 `com.github.doqltl179.mu3library.notifications`를 Git URL로 설치합니다. 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았으므로 코드는 바꿀 것이 없고, `Mu3Library.Notifications`를 이름이나 GUID로 참조하는 어셈블리 정의도 그대로 동작합니다. 새 패키지가 Mobile Notifications를 함께 설치하므로 `MU3LIBRARY_NOTIFICATIONS_SUPPORT` 심볼은 더 이상 이 어셈블리를 켜고 끄지 않습니다. 직접 만든 어셈블리 정의가 `versionDefines`에 이 심볼을 선언했다면 그 심볼은 계속 정의됩니다.
 - URP: **ScreenEffect** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
 - Watermelon Game: **Watermelon Game** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
 

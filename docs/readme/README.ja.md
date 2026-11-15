@@ -30,7 +30,7 @@
 - 💉 **カスタムDIコンテナ**: Singleton、Transient、Scopedライフタイムをサポート
 - 🎨 **MVP UIパターン**: View-Presenter-Model分離によるテスト可能なUIロジック
 - 🔄 **自動ライフサイクル管理**: `IInitializable`、`IUpdatable`、`IDisposable`インターフェースベース
-- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Input System、Mobile Notifications、Steamworks.NETの条件付き有効化
+- 📦 **オプションパッケージサポート**: UniTask、Addressables、Localization、Input System、Steamworks.NETの条件付き有効化
 - 🎵 **Audioシステム**: BGM/SFX/Environment チャンネルのボリューム制御、ミキサーグループのルーティング、BGM ダッキング、ボリュームの保存/復元、await 可能なフェード
 - ✨ **Particle Handler**: 必須の `ParticleSystem` に対する再生、一時停止、停止、クリア、再起動、`Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 制御、状態取得、ライフサイクルイベントを提供する便利なコンポーネント
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE、ダウンロードサイズクエリ、リトライバックオフ、実行中のキャンセル、ダウンロード進捗、UniTaskサポート
@@ -69,12 +69,15 @@
 
 パッケージは Base、URP、Watermelon Game の順にインストールしてください。URP は Base に、Watermelon Game はその両方に依存します。
 
+Android と iOS のローカル通知を扱う Notifications パッケージは次のリリースで公開され、そのときこの一覧に URL が加わります。ほかの Mu3Library パッケージは必要ありません。
+
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
 2. Unity Editorで`Window` > `Package Manager`を開きます
 3. `+`ボタン > `Add package from disk...`をクリック
 4. 以下のいずれかを選択:
     - `packages/base/package.json`
+    - `packages/notifications/package.json`
     - `packages/urp/package.json`（先に Base をインストール）
     - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
 
@@ -378,8 +381,9 @@ Observable フィールドは、コンポーネントや ScriptableObject の `[
 | Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | 動的アセットロード |
 | Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | 多言語サポート |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | 新しい入力システム |
-| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | ローカル通知 (Android/iOS、独立した `Mu3Library.Notifications` アセンブリ) |
 | [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | マルチプレイセッションの Steam バックエンド (2025.164.1 以降。独立した `Mu3Library.Multiplayer.Steam` アセンブリで、エディターではビルドターゲットがスタンドアロンプラットフォームのときにコンパイルされ、プレイヤーには 64 ビットのスタンドアロンである Windows x64、macOS、Linux x64 にだけ含まれ、32 ビット Windows には含まれない) |
+
+Android と iOS のローカル通知は独立した Notifications パッケージに移りました。このパッケージは Unity Mobile Notifications を依存パッケージとして一緒にインストールするため、define シンボルで有効にするものではありません。詳しくはその [README](../../packages/notifications/README.md) を参照してください。
 
 Unity 6.6 では UniTask 2.5.11 以降を使ってください。それより前のリリースのエディタトラッカーウィンドウは非ジェネリックの `TreeView` を使っているため、6.6 では `UniTask.Editor` がコンパイルできません。
 
@@ -547,6 +551,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base`
+- Notifications: `com.github.doqltl179.mu3library.notifications`（次のリリースから）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)

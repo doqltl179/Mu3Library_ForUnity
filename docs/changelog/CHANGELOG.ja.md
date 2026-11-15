@@ -17,6 +17,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ### 追加
 - Base: マルチプレイのバックエンドが実装または使用する API が public になりました（#531）。そのため、Steam バックエンドのように別のアセンブリにあるバックエンドは public API だけでビルドできます。`Mu3Library.Multiplayer.Backend` には、公開でないロビーに招待でしか入れないバックエンドのオプションのインターフェースで、保持される枠に戻ったプレイヤーをホストが招待し直すための `ILobbyInviteBackend`、Steam バックエンドが `SteamNotRunning` を伝えるように、バックエンドが利用できない理由を伝えるオプションのインターフェース `IUnavailableReasonBackend`、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキー `LobbyDataKeys` があります。`LobbySearchQuery.Clone()` は、`SearchLobbies` が戻った後に検索を始めるバックエンドのためにクエリをコピーします。
+- Notifications: 新しいパッケージ `com.github.doqltl179.mu3library.notifications`（"Mu3 Library Notifications"）が、Base にあった `Mu3Library.Notifications` アセンブリを持つようになりました（#533）。`NotificationManager` は Android、iOS、エディターで Mobile Notifications パッケージの統合 `NotificationCenter` を包みます。このパッケージは `com.unity.mobile.notifications` 2.5.0 を依存パッケージとして宣言するため、パッケージマネージャーがそのパッケージを一緒にインストールし、ほかの Mu3Library パッケージは必要ありません。UniTask がインストールされていれば、これまでどおり `RequestPermissionAsync` と `GetLastRespondedNotificationAsync` を使えます。このパッケージは次のリリースから提供され、そのリリースで README に Git URL が加わります。
 
 ### 変更
 - Base: パッケージフォルダーが `Mu3Library_Base` から `packages/base` に移動しました（#525）。そのため、次のリリースから Git URL は `?path=packages/base` を使います。これまでにリリースされたタグの URL は引き続き `?path=Mu3Library_Base` を使います。`Scripts/` の階層がなくなり、`Runtime/Scripts/` と `Editor/Scripts/` の下にあったフォルダーとファイルは `Runtime/` と `Editor/` の直下に移りました。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
@@ -29,6 +30,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 削除
 - Base: **Template**、**Attribute**、**UtilWindow** サンプルと、`package.json` の `samples` にあったそれぞれの項目を削除しました（#521）。**Multiplayer** サンプルは当面残ります。パッケージマネージャーはインポートしたサンプルをプロジェクト内にコピーするため、すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。README にすでにあるコード例が使い方の案内として残ります。
 - Base: `Runtime/Materials` のデフォルトカラーマテリアル（`Black`、`Blue`、`Green`、`Magenta`、`Red`、`White`）と `Runtime/Textures` のテクスチャ（`Circle_32px`、`Circle_64px` とそれぞれの `InnerShadow`、`OutShadow` バリエーション、`square_1px`）を削除しました（#521）。これらのアセットを参照するシーン、プレハブ、マテリアルは、更新後にその参照を失います。すでにインポートした Template サンプルも同様です。引き続き必要な場合は、更新前にアセットをプロジェクトへコピーしてください。
+- Base: `Mu3Library.Notifications` アセンブリが新しい Notifications パッケージに移動しました（#533）。`NotificationManager` を使うプロジェクトは、Base を更新するときに、そのパッケージの最初のリリースから `com.github.doqltl179.mu3library.notifications` を Git URL でインストールします。アセンブリ名、名前空間、`.meta` ファイルの GUID は変わらないため、コードを変更する必要はなく、`Mu3Library.Notifications` を名前または GUID で参照するアセンブリ定義もそのまま動作します。新しいパッケージが Mobile Notifications を一緒にインストールするため、`MU3LIBRARY_NOTIFICATIONS_SUPPORT` シンボルがこのアセンブリを有効・無効にすることはなくなりました。独自のアセンブリ定義が `versionDefines` でこのシンボルを宣言している場合、そのシンボルは引き続き定義されます。
 - URP: **ScreenEffect** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
 - Watermelon Game: **Watermelon Game** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
 
