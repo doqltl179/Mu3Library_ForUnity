@@ -15,7 +15,7 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | Source term | Meaning and context | ko | ja |
 |---|---|---|---|
 | Mu3Library | Product name | = | = |
-| Base, Input System, Localization, Notifications, URP, Watermelon Game | Package names in headings, tables, and release titles | = | = |
+| Addressables, Base, Input System, Localization, Notifications, URP, Watermelon Game | Package names in headings, tables, and release titles | = | = |
 | `CoreBase`, DI, MVP | Code-level module names | = | = |
 | sample | A package sample under `Samples~` | 샘플 | サンプル |
 | define symbol | A `MU3LIBRARY_*` scripting define | = (`Define`) | = (`Define`) |
