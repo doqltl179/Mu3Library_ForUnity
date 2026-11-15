@@ -80,6 +80,10 @@ crashlytics-build.properties
 # settings, so they are tracked there; the content state files stay ignored (Packed Addressables).
 !UnityProject_BuiltIn/Assets/AddressableAssetsData
 !UnityProject_BuiltIn/Assets/AddressableAssetsData.meta
+# The full project config keeps the Addressables settings that edit-mode Addressables initializes
+# from (tools/README.md, Unity Project Configs).
+!tools/unity-projects/full/Assets/AddressableAssetsData
+!tools/unity-projects/full/Assets/AddressableAssetsData.meta
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro
 **/[Aa]ssets/[Tt]ext[Mm]esh [Pp]ro.meta
 **/[Aa]ssets/[Rr]esources/AI-Game-Developer-Config.json
