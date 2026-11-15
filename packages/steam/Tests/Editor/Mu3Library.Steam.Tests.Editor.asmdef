@@ -1,0 +1,33 @@
+{
+    "name": "Mu3Library.Steam.Tests.Editor",
+    "rootNamespace": "Mu3Library.Tests",
+    "references": [
+        "Mu3Library.Multiplayer",
+        "Mu3Library.Steam.Multiplayer",
+        "Mu3Library.Tests.Editor",
+        "com.rlabrecque.steamworks.net",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "2025.164.1",
+            "define": "MU3LIBRARY_STEAMWORKS_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -40,7 +40,7 @@ namespace Mu3Library.Sample.Multiplayer
         private static readonly string[] Maps = { "forest", "desert", "harbor", "castle" };
         private static readonly string[] Colors = { "red", "green", "blue", "yellow" };
 
-        [Tooltip("The app ID Steam starts with when Steamworks.NET is installed. Steam's test app 480 works during development.")]
+        [Tooltip("The app ID Steam starts with when the Steam package and Steamworks.NET are installed. Steam's test app 480 works during development.")]
         [SerializeField] private uint _steamAppId = 480;
 
         [Tooltip("Plays on the machine-wide local backend even where Steam would start, as the -mu3mp-local option does. "

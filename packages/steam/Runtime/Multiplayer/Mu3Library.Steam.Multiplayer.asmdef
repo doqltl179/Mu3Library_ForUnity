@@ -1,6 +1,6 @@
 {
-    "name": "Mu3Library.Multiplayer.Steam",
-    "rootNamespace": "Mu3Library.Multiplayer.Steam",
+    "name": "Mu3Library.Steam.Multiplayer",
+    "rootNamespace": "Mu3Library.Steam.Multiplayer",
     "references": [
         "GUID:e8cd03960cfe03647ada1ecc7577e225",
         "com.rlabrecque.steamworks.net"

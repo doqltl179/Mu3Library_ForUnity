@@ -5,7 +5,7 @@ using Mu3Library.Multiplayer.Data;
 using Steamworks;
 using UnityEngine;
 
-namespace Mu3Library.Multiplayer.Steam
+namespace Mu3Library.Steam.Multiplayer
 {
     public sealed partial class SteamBackend : ILobbyInviteBackend
     {

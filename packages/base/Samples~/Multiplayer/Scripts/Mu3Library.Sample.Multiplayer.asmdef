@@ -15,6 +15,11 @@
     "defineConstraints": [],
     "versionDefines": [
         {
+            "name": "com.github.doqltl179.mu3library.steam",
+            "expression": "",
+            "define": "MULTIPLAYER_STEAM_PACKAGE"
+        },
+        {
             "name": "com.rlabrecque.steamworks.net",
             "expression": "2025.164.1",
             "define": "MULTIPLAYER_STEAMWORKS_SUPPORT"

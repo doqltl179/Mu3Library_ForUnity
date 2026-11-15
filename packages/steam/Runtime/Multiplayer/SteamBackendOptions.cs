@@ -1,7 +1,8 @@
+using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 
-namespace Mu3Library.Multiplayer.Steam
+namespace Mu3Library.Steam.Multiplayer
 {
     public sealed class SteamBackendOptions
     {

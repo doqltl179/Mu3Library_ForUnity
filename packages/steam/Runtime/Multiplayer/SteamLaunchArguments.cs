@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Mu3Library.Multiplayer.Data;
 
-namespace Mu3Library.Multiplayer.Steam
+namespace Mu3Library.Steam.Multiplayer
 {
     /// <summary>
     /// Reads the lobby Steam names when it launches the game from an accepted invite or a join

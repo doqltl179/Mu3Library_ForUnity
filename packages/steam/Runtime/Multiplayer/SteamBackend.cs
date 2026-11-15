@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
 using Steamworks;
 using UnityEngine;
 
-namespace Mu3Library.Multiplayer.Steam
+namespace Mu3Library.Steam.Multiplayer
 {
     /// <summary>
     /// A backend on Steam: Steam lobbies to find and enter sessions, and Steam networking sockets
@@ -24,7 +25,7 @@ namespace Mu3Library.Multiplayer.Steam
     /// Package Manager, and only in the editor and in 64-bit standalone players (Windows x64,
     /// macOS, Linux x64): its <c>includePlatforms</c> leave out 32-bit Windows players. Game code
     /// that uses this type needs the same gate, preferably an assembly definition of its own that
-    /// references <c>Mu3Library.Multiplayer.Steam</c> with the same <c>includePlatforms</c>,
+    /// references <c>Mu3Library.Steam.Multiplayer</c> with the same <c>includePlatforms</c>,
     /// <c>defineConstraints</c>, and <c>versionDefines</c> entry, since a <c>versionDefines</c>
     /// symbol is defined only in the assembly that declares it. <c>#if</c> on such a symbol and
     /// <c>UNITY_STANDALONE</c> also holds in a 32-bit Windows player, where this assembly is
