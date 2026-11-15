@@ -7,6 +7,11 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-15 (samples removal)
+
+### Changed
+- `unity-cli-packages.tsv` names no samples link for `urp` and `watermelon`, whose packages no longer ship samples, and `.gitignore` keeps only the link of `UnityProject_BuiltIn` (#521). `mu3-samples link` and the sample-link check of `compile-unity.sh` and `test-unity.sh` therefore cover only Base's `Samples~`, which holds the Multiplayer sample. The URP and Watermelon Game development projects lost the `.meta` of their link, and the Watermelon Game project's build settings no longer list the sample's `Demo` scene.
+
 ## 2026-11-15 (development environment)
 
 ### Fixed

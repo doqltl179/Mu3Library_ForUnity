@@ -27,7 +27,7 @@ A new clone or worktree holds only tracked files. Set it up in this order before
    PYTHONPATH=tools/cli/src python -m mu3_samples link
    ```
 
-   Each development project sees its package's samples only through a Git-ignored link from `Assets/` to the package's `Samples~` folder, which Unity skips on its own; the fourth column of `unity-cli-packages.tsv` names the link. The command creates a junction on Windows and a relative symbolic link elsewhere, leaves a correct link alone, replaces a link that points elsewhere, and stops without touching a real folder of the same name. `compile-unity.sh` refuses to run a project whose link is missing unless `--without-samples` is given, so a compile without the samples never passes silently. On Windows, remove the links again before removing a worktree; see [Worktree Removal](#worktree-removal).
+   A development project sees its package's samples only through a Git-ignored link from `Assets/` to the package's `Samples~` folder, which Unity skips on its own; the optional fourth column of `unity-cli-packages.tsv` names the link. Only `UnityProject_BuiltIn` has one, since the URP and Watermelon Game packages ship no samples. The command creates a junction on Windows and a relative symbolic link elsewhere, leaves a correct link alone, replaces a link that points elsewhere, and stops without touching a real folder of the same name. `compile-unity.sh` refuses to run a project whose link is missing unless `--without-samples` is given, so a compile without the samples never passes silently. On Windows, remove the links again before removing a worktree; see [Worktree Removal](#worktree-removal).
 4. Check the environment; every line should pass:
 
    ```bash
