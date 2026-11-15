@@ -87,6 +87,9 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]amples
 **/[Aa]ssets/[Ss]amples.meta
 
+# Leftovers of the removed development projects in an older checkout; docs/repository/CHANGELOG.md (2026-11-15, generated Unity projects) says how to delete them.
+/UnityProject_*/
+
 # Temporary folders that the Mu3Window edit-mode tests create inside the Base package while they
 # run. A run that is cut off leaves one behind; the next run deletes it, and it must never ship.
 /Mu3Library_Base/Mu3WindowTests_*
