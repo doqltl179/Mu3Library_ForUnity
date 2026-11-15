@@ -109,13 +109,15 @@ namespace Mu3Library.Tests
         }
 
         [Test]
-        public void SelectAssemblies_FollowsReferencesOutOfTheAssembliesThatReferenceDI()
+        public void SelectAssemblies_FollowsReferencesOutOfTheAssembliesThatReferenceTheContainerOrItsContracts()
         {
             Dictionary<string, IReadOnlyCollection<string>> references = new()
             {
                 ["Game"] = new[] { "Mu3Library.DI", "Domain", "UnityEngine.CoreModule" },
                 ["Domain"] = new[] { "Shared" },
                 ["Shared"] = new[] { "Domain" },
+                ["Presenters"] = new[] { "Mu3Library.Foundation", "Views" },
+                ["Views"] = new string[0],
                 ["Mu3Library.DI"] = new[] { "Mu3Library.Foundation" },
                 ["Mu3Library.Foundation"] = new string[0],
                 ["Tool"] = new[] { "Helper" },
@@ -123,8 +125,8 @@ namespace Mu3Library.Tests
             };
 
             CollectionAssert.AreEqual(
-                new[] { "Domain", "Game", "Mu3Library.DI", "Mu3Library.Foundation", "Shared" },
-                DILinkerProcessor.SelectAssemblies(references, "Mu3Library.DI").ToArray());
+                new[] { "Domain", "Game", "Mu3Library.DI", "Mu3Library.Foundation", "Presenters", "Shared", "Views" },
+                DILinkerProcessor.SelectAssemblies(references, "Mu3Library.DI", "Mu3Library.Foundation").ToArray());
         }
 
         [Test]
