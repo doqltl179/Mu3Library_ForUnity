@@ -14,8 +14,8 @@ namespace Mu3Library.Tests
 {
     /// <summary>
     /// The message counts and the editor's Multiplayer Debugger of FR-42. The debugger captures
-    /// live sessions on the local network here, the way it captures the managers that the cores
-    /// hold in play mode, with the test's clock standing in for the editor's.
+    /// live sessions on the local network here, the way it captures every manager in play mode,
+    /// with the test's clock standing in for the editor's.
     /// </summary>
     public partial class MultiplayerSessionTests
     {

@@ -9,7 +9,5 @@ using System.Runtime.CompilerServices;
 // same way the local backend does; it ships with this assembly, only behind its own gate.
 [assembly: InternalsVisibleTo("Mu3Library.Multiplayer.Steam")]
 
-// The editor's Multiplayer Debugger window finds the managers through MultiplayerManagerLookup,
-// which the play-mode tests check in play mode, where editor code is out of their reach.
+// The editor's Multiplayer Debugger window reads the managers from MultiplayerManagerRegistry.
 [assembly: InternalsVisibleTo("Mu3Library.Editor")]
-[assembly: InternalsVisibleTo("Mu3Library.Tests.Runtime")]

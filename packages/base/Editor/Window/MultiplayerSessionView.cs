@@ -45,7 +45,7 @@ namespace Mu3Library.Editor.Window
         private readonly Dictionary<ushort, MessageCounts> _previousCounts = new Dictionary<ushort, MessageCounts>();
         private double _previousCapture = double.NaN;
 
-        /// <summary>The core that holds the manager.</summary>
+        /// <summary>The name the window shows the manager under.</summary>
         public string Source { get; }
         public IMultiplayerManager Manager { get; }
 

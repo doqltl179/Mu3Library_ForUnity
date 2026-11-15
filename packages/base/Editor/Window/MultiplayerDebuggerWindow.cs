@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Mu3Library.DI;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Data;
 using UnityEditor;
@@ -15,9 +14,9 @@ namespace Mu3Library.Editor.Window
     /// Shows the multiplayer sessions of the game in play mode: each manager's session state, its
     /// players with each one's ping as the host measures it, which a client reads for every player
     /// too, and the quality of this player's own connection to each, and how many messages of each
-    /// type it sent and received. It finds the managers among the singletons that the cores under
-    /// <see cref="CoreRoot"/> hold, as the Runtime Diagnostics drawer finds its services, and reads
-    /// them again every <see cref="RefreshIntervalSeconds"/>. Reading changes nothing.
+    /// type it sent and received. It lists every <see cref="MultiplayerManager"/> from its creation
+    /// until it is disposed, whichever container or code created it, and reads them again every
+    /// <see cref="RefreshIntervalSeconds"/>. Reading changes nothing.
     /// </summary>
     internal sealed class MultiplayerDebuggerWindow : EditorWindow
     {
@@ -112,12 +111,17 @@ namespace Mu3Library.Editor.Window
         }
 
         /// <summary>
-        /// The managers that the running cores hold as singletons, with the core that holds each,
-        /// through the lookup that the play-mode tests check.
+        /// The managers created and not yet disposed, oldest first, each under its type and its
+        /// place among them, such as <c>MultiplayerManager 1</c>.
         /// </summary>
         internal static void FindManagers(List<(string Source, IMultiplayerManager Manager)> results)
         {
-            MultiplayerManagerLookup.FindInCores(results);
+            IReadOnlyList<IMultiplayerManager> managers = MultiplayerManagerRegistry.Managers;
+            for (int i = 0; i < managers.Count; i++)
+            {
+                IMultiplayerManager manager = managers[i];
+                results.Add((string.Format(CultureInfo.InvariantCulture, "{0} {1}", manager.GetType().Name, i + 1), manager));
+            }
         }
 
         #region GUI
@@ -131,7 +135,7 @@ namespace Mu3Library.Editor.Window
 
             if (_views.Count == 0)
             {
-                EditorGUILayout.HelpBox("No core under CoreRoot holds a multiplayer manager. The debugger lists the managers that cores register as singletons.", MessageType.Info);
+                EditorGUILayout.HelpBox("No multiplayer manager exists. The debugger lists every MultiplayerManager from its creation until it is disposed.", MessageType.Info);
                 return;
             }
 
