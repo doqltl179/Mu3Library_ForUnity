@@ -120,10 +120,32 @@ namespace Mu3Library.Tests
             AssertRunsEveryRun(target);
         }
 
+        [Test]
+        public void NamesATestWhoseFullNameHoldsALineBreak_OnOneLine_InEveryLine()
+        {
+            TestMethod target = BuildExplicit(typeof(PlainShape));
+            // A TestName can give a full name a line break and a carriage return, while NUnit names
+            // a test case that takes them in a string as the text \n and \r (#492).
+            target.FullName = "Fixture.Case(\"a\nb\r\nc\\nd\")";
+
+            AssertRunsEveryRun(target, @"Fixture.Case(""a\nb\r\nc\\nd"")");
+        }
+
+        [TestCase("Fixture.Case(\"a\nb\")", @"Fixture.Case(""a\nb"")")]
+        [TestCase(@"Fixture.Case(""a\nb"")", @"Fixture.Case(""a\\nb"")")]
+        [TestCase("Fixture.Case(\"\r\n\\\")", @"Fixture.Case(""\r\n\\"")")]
+        [TestCase(@"Fixture.Case(""C:\\Temp"", ""\"""")", @"Fixture.Case(""C:\\\\Temp"", ""\\"""")")]
+        [TestCase("Fixture.Case(\"a\tb\")", "Fixture.Case(\"a\tb\")")]
+        public void LogName_WritesABackslashAsTwo_ALineBreakAsN_AndACarriageReturnAsR(string fullName, string logged)
+        {
+            Assert.That(CountedRepeatAttribute.LogName(fullName), Is.EqualTo(logged));
+        }
+
         // Wraps the command with a list as the log target and runs it three times, the number that
-        // the run takes from MU3LIBRARY_TEST_REPEAT, which is set only around the call. No line may
+        // the run takes from MU3LIBRARY_TEST_REPEAT, which is set only around the call, and checks
+        // that each line names the test as logged gives it, by default its full name. No line may
         // reach Unity's log, where test-unity.sh's summary would report a counted repeat.
-        private static void AssertRunsEveryRun(TestMethod target)
+        private static void AssertRunsEveryRun(TestMethod target, string logged = null)
         {
             List<string> lines = new List<string>();
             List<string> unityLines = new List<string>();
@@ -154,7 +176,7 @@ namespace Mu3Library.Tests
                 Environment.SetEnvironmentVariable(CountedRepeatAttribute.RunsVariable, runsBefore);
             }
 
-            string name = target.FullName;
+            string name = logged ?? target.FullName;
             string totals = "runs 3 of 3, passed 3, failed 0, inconclusive 0, skipped 0, failure rate 0.00%";
             Assert.That(result.ResultState, Is.EqualTo(ResultState.Success));
             Assert.That(result.Message, Is.EqualTo(totals));

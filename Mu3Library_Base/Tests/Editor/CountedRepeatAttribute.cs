@@ -31,8 +31,9 @@ namespace Mu3Library.Tests
     /// </para>
     /// <para>
     /// Each run logs a line that starts with <see cref="LinePrefix"/>, with its result, how long
-    /// it took, and the message of a result that has one, and the last line gives the totals. The
-    /// test fails when a run failed, with the totals and the first failure as its message.
+    /// it took, and the message of a result that has one, and the last line gives the totals. Each
+    /// line names the test in the form <see cref="LogName"/> gives, on one line. The test fails
+    /// when a run failed, with the totals and the first failure as its message.
     /// </para>
     /// <para>
     /// It holds a <c>[Test]</c> that returns nothing; the framework refuses it on a
@@ -73,12 +74,13 @@ namespace Mu3Library.Tests
         /// <paramref name="repeated"/>, each with a result of its own and its timeout counted from
         /// its start, until the run of the tests stops, and goes on after a run that does not pass.
         /// Gives <paramref name="log"/> the line that starts the runs, a line for each run, and the
-        /// totals, under the full name of <paramref name="repeated"/>, and returns a result of
-        /// <paramref name="reported"/> for all the runs, which it also makes the context's.
+        /// totals, under the full name of <paramref name="repeated"/> as <see cref="LogName"/> gives
+        /// it, and returns a result of <paramref name="reported"/> for all the runs, which it also
+        /// makes the context's.
         /// </summary>
         internal static TestResult RunCounted(ITestExecutionContext context, Test repeated, Test reported, Func<ITestExecutionContext, TestResult> execute, int runs, string source, Action<string> log)
         {
-            string name = repeated.FullName;
+            string name = LogName(repeated.FullName);
             log($"{name}: start, runs {runs} ({source})");
 
             Tally tally = new Tally();
@@ -212,6 +214,21 @@ namespace Mu3Library.Tests
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// A test's full name in the form in which the lines give it, on one line: a backslash as
+        /// two, a line break as <c>\n</c>, and a carriage return as <c>\r</c>, the escapes of a JSON
+        /// string. Unity's log ends a line at a line break in a message, so the totals line of such a
+        /// name took two lines, of which test-unity.sh read neither or read the second as the totals
+        /// of another test (#492). Every backslash of the name is doubled, so test-unity.sh, which
+        /// replaces these escapes, reads back the name itself, and a name that holds the text
+        /// <c>\n</c> stays apart from one that holds a line break. Every other character stays as
+        /// it is.
+        /// </summary>
+        internal static string LogName(string name)
+        {
+            return name.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "\\r");
         }
 
         internal static void Log(string line)

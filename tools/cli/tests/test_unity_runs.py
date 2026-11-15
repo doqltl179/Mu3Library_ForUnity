@@ -346,14 +346,23 @@ def utp_status(phase: str, name: str, message: str = "") -> str:
     )
 
 
+def counted_repeat_name(name: str) -> str:
+    """A test's full name as [CountedRepeat] writes it into each of its lines, on one line, as LogName
+    in Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes it (#492): a backslash as two, a
+    line break as \\n, and a carriage return as \\r."""
+    b = chr(92)
+    return name.replace(b, b + b).replace(chr(10), b + "n").replace(chr(13), b + "r")
+
+
 def counted_repeat_totals(
     name: str, ended: int, runs: int, passed: int, failed: int = 0, inconclusive: int = 0, skipped: int = 0
 ) -> str:
-    """The line [CountedRepeat] logs once the runs of the test named have ended, as Tally.Totals in
-    Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes it."""
+    """The line [CountedRepeat] logs once the runs of the test named have ended, with the name as
+    counted_repeat_name gives it and the totals as Tally.Totals in
+    Mu3Library_Base/Tests/Editor/CountedRepeatAttribute.cs writes them."""
     rate = f"{100.0 * failed / ended:.2f}%" if ended else "none, no run ended"
     return (
-        f"[Repeat] {name}: totals: runs {ended} of {runs}, passed {passed}, failed {failed}, "
+        f"[Repeat] {counted_repeat_name(name)}: totals: runs {ended} of {runs}, passed {passed}, failed {failed}, "
         f"inconclusive {inconclusive}, skipped {skipped}, failure rate {rate}"
     )
 
@@ -1622,6 +1631,48 @@ class FixedLoadRunTests(FixtureRepositoryTestCase):
             summary[: len(summary) - 2],
         )
 
+    def test_the_counted_repeat_lines_give_the_totals_of_a_name_that_holds_a_line_break(self) -> None:
+        # [CountedRepeat] writes the name on one line (#492), so the totals of a name with a line
+        # break reach the summary, even when the part after the line break starts as a [Repeat] line
+        # does, which was then read as the totals of a test named b"). A name with the text \n,
+        # printed alike, keeps totals of its own.
+        run_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(run_directory.cleanup)
+        line_break = f'Fixture.Tests.Case("a{chr(10)}[Repeat] b")'
+        shown = r'Fixture.Tests.Case("a\n[Repeat] b")'
+        completed = self.run_tests(
+            "leaf",
+            "--repeat",
+            "2",
+            run_file=str(Path(run_directory.name) / "runs"),
+            results=nunit_results(passed=1),
+            log_1=counted_repeat_totals(line_break, 2, 2, passed=1, failed=1),
+            log_2=chr(10).join(
+                [counted_repeat_totals(line_break, 1, 1, passed=1), counted_repeat_totals(shown, 4, 4, passed=4)]
+            ),
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        summary = [line for line in self.summary(completed) if not re.match(OTHER_UNITY_PROCESSES, line)]
+        self.assertEqual(
+            [
+                "  - leaf run 1 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 2 of 2, passed 1, failed 1, inconclusive 0, skipped 0, "
+                "failure rate 50.00%",
+                "  - leaf run 2 of 2: 1 tests, 1 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat: {shown}: runs 1 of 1, passed 1, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                f"    counted repeat: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, skipped 0, "
+                "failure rate 0.00%",
+                "  - leaf, 2 runs: 0 of 2 failed; 2 tests, 2 passed, 0 failed, 0 skipped, 0 inconclusive",
+                f"    counted repeat in 2 of 2 runs: {shown}: runs 3 of 3, passed 2, failed 1, inconclusive 0, "
+                "skipped 0, failure rate 33.33%",
+                f"    counted repeat in 1 of 2 runs: {shown}: runs 4 of 4, passed 4, failed 0, inconclusive 0, "
+                "skipped 0, failure rate 0.00%",
+            ],
+            summary[: len(summary) - 2],
+        )
+
     def test_results_that_an_earlier_repeat_left_are_removed(self) -> None:
         results_dir = self.results_dir()
         results_dir.mkdir(parents=True)
@@ -2177,22 +2228,24 @@ class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
     """find_counted_repeats reads the totals that [CountedRepeat] logs, and compute_failure_rate gives
     the failure rate of summed totals as the attribute gives it."""
 
-    # Prints what find_counted_repeats found, a test a line.
+    # Writes what find_counted_repeats found into a file, a test a record, each ended by a NUL, so
+    # that a name keeps its line breaks and carriage returns, which output read as text would change.
     PRINT_FOUND = (
         'find_counted_repeats "$1"\n'
         "for ((i = 0; i < ${#COUNTED_REPEAT_TESTS[@]}; i++)); do\n"
-        '    printf "%s|%s|%s\\n" "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"\n'
-        "done"
+        '    printf "%s|%s|%s\\0" "${COUNTED_REPEAT_TESTS[$i]}" "${COUNTED_REPEAT_COUNTS[$i]}" "${COUNTED_REPEAT_RATES[$i]}"\n'
+        'done >"$2"'
     )
 
     def found(self, *lines: str) -> list[str]:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         log = Path(directory.name) / "unity.log"
+        found = Path(directory.name) / "found.txt"
         log.write_bytes("".join(f"{line}\n" for line in lines).encode("utf-8"))
-        completed = self.run_functions("test-unity.sh", self.PRINT_FOUND, str(log))
+        completed = self.run_functions("test-unity.sh", self.PRINT_FOUND, str(log), str(found))
         self.assertEqual(0, completed.returncode, completed.stderr)
-        return completed.stdout.splitlines()
+        return found.read_bytes().decode("utf-8").split(chr(0))[:-1]
 
     def test_reads_each_test_s_counts_and_rate_from_a_line_of_its_own(self) -> None:
         self.assertEqual(
@@ -2226,13 +2279,41 @@ class CountedRepeatTotalsTests(FixtureRepositoryTestCase):
         )
         self.assertEqual([], self.found())
 
-    def test_misses_the_totals_of_a_name_that_holds_a_line_break(self) -> None:
-        # A known limit (#475): [CountedRepeat] logs the name as it is, so a line break in it splits
-        # the totals line in two, and neither line holds the totals whole.
+    def test_reads_the_name_back_from_the_one_line_form_of_the_attribute(self) -> None:
+        # [CountedRepeat] writes a backslash as two, a line break as \n, and a carriage return as \r
+        # (#492), so the totals of a name with a line break take one line, and the name read back is
+        # the test's own: a name with the text \n stays apart from one with a line break, and a tab,
+        # a quote, and the text of another escape, such as \u001b, stay as they are.
+        b = chr(92)
+        names = [
+            f'Fixture.Tests.Case("a{chr(10)}b")',
+            f'Fixture.Tests.Case("a{b}nb")',
+            f'Fixture.Tests.Case("c{chr(13)}{chr(10)}d{chr(13)}e")',
+            f'Fixture.Tests.Case("C:{b}{b}Temp{b}{b}", "{b}u001b {b}{b}n {b}"{chr(9)}")',
+            f'Fixture.Tests.Case("f{chr(10)}")',
+        ]
         self.assertEqual(
-            ["Fixture.Tests.After|1 1 1 0 0 0|0.00%"],
+            r'[Repeat] Fixture.Tests.Case("a\nb"): totals: runs 2 of 2, passed 1, failed 1, inconclusive 0, '
+            "skipped 0, failure rate 50.00%",
+            counted_repeat_totals(names[0], 2, 2, passed=1, failed=1),
+        )
+        self.assertEqual(
+            r'Fixture.Tests.Case("C:\\\\Temp\\\\", "\\u001b \\\\n \\"' + chr(9) + '")', counted_repeat_name(names[3])
+        )
+        self.assertEqual(
+            [f"{name}|2 2 1 1 0 0|50.00%" for name in names],
+            self.found(*(counted_repeat_totals(name, 2, 2, passed=1, failed=1) for name in names)),
+        )
+
+    def test_reads_no_other_test_s_totals_from_a_name_whose_line_break_precedes_a_repeat_line_s_start(self) -> None:
+        # Logged as it is, the part of such a name after its line break began a line that read as the
+        # totals of a test named y") (#492).
+        name = f'Fixture.Tests.Case("x{chr(10)}[Repeat] y")'
+
+        self.assertEqual(
+            [f"{name}|2 2 1 1 0 0|50.00%", "Fixture.Tests.After|1 1 1 0 0 0|0.00%"],
             self.found(
-                counted_repeat_totals(f'Fixture.Tests.Case("a{chr(10)}b")', 2, 2, passed=1, failed=1),
+                counted_repeat_totals(name, 2, 2, passed=1, failed=1),
                 counted_repeat_totals("Fixture.Tests.After", 1, 1, passed=1),
             ),
         )

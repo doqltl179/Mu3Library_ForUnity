@@ -1058,9 +1058,11 @@ add_load_to_summary() {
 # after another start, such as the ##utp: line of a test's failure, is not one.
 # The line of one run whose failure message ends in such totals reads as one
 # too, which only a test that fails with that text as its message writes. The
-# attribute logs the name as it is, so the totals of a test whose name holds a
-# line break take two lines of the log, neither of them in that form, and are
-# not read.
+# attribute writes a backslash of the name as \\, a line break as \n, and a
+# carriage return as \r, since Unity's log ends a line at a line break in a
+# message (#492), and json_string_text replaces them. Every backslash of the
+# name is doubled, so the name read back is the test's own, and one that holds
+# the text \n stays apart from one that holds a line break.
 find_counted_repeats() {
     local log_file="$1"
     local line
@@ -1078,9 +1080,11 @@ find_counted_repeats() {
     while IFS= read -r line; do
         line="${line%$'\r'}"
         if [[ "$line" =~ $pattern ]]; then
-            COUNTED_REPEAT_TESTS+=("${BASH_REMATCH[1]}")
             COUNTED_REPEAT_COUNTS+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]} ${BASH_REMATCH[5]} ${BASH_REMATCH[6]} ${BASH_REMATCH[7]}")
             COUNTED_REPEAT_RATES+=("${BASH_REMATCH[8]}")
+            # Last, since json_string_text matches patterns of its own.
+            json_string_text "${BASH_REMATCH[1]}"
+            COUNTED_REPEAT_TESTS+=("$JSON_TEXT")
         fi
     done < <(grep -U -a '^\[Repeat] .*: totals: runs ' "$log_file" || true)
 }
