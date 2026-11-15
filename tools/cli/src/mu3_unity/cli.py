@@ -13,8 +13,17 @@ import typer
 
 from mu3_common.bash import BashNotFoundError, bash_script_command, find_bash
 from mu3_common.checkout import echo_repository_root, repo_root
-from mu3_common.editor import UnityTargetSpec, load_target_specs, project_editor_version, resolve_editor_path
-from mu3_common.sample_links import LINK_SAMPLES_COMMAND, sample_link_state
+from mu3_common.editor import resolve_editor_path
+from mu3_common.project_lock import file_is_held_open, project_lock_state
+from mu3_common.unity_projects import (
+    CONFIGS_FOLDER,
+    ConfigError,
+    ProjectConfig,
+    WorkDirError,
+    load_configs,
+    project_folder,
+    resolve_work_dir,
+)
 
 
 app = typer.Typer(
@@ -65,107 +74,32 @@ def installed_playback_engines(editor_path: Path) -> list[str]:
     return sorted(engines)
 
 
-_WINDOWS_GENERIC_READ = 0x80000000
-_WINDOWS_OPEN_EXISTING = 3
-_WINDOWS_FILE_ATTRIBUTE_NORMAL = 0x80
-_WINDOWS_ERROR_FILE_NOT_FOUND = 2
-_WINDOWS_ERROR_PATH_NOT_FOUND = 3
-_WINDOWS_ERROR_SHARING_VIOLATION = 32
-
-
-def _windows_file_is_held_open(path: Path) -> bool | None:
-    import ctypes
-    from ctypes import wintypes
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    create_file = kernel32.CreateFileW
-    create_file.argtypes = (
-        wintypes.LPCWSTR,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.LPVOID,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        wintypes.HANDLE,
-    )
-    create_file.restype = wintypes.HANDLE
-    close_handle = kernel32.CloseHandle
-    close_handle.argtypes = (wintypes.HANDLE,)
-    close_handle.restype = wintypes.BOOL
-
-    # Opening the file without sharing fails with a sharing violation for as long
-    # as any other handle is open, whatever access that handle asked for.
-    handle = create_file(
-        str(path), _WINDOWS_GENERIC_READ, 0, None, _WINDOWS_OPEN_EXISTING, _WINDOWS_FILE_ATTRIBUTE_NORMAL, None
-    )
-    if handle is None or handle == ctypes.c_void_p(-1).value:
-        error = ctypes.get_last_error()
-        if error == _WINDOWS_ERROR_SHARING_VIOLATION:
-            return True
-        if error in (_WINDOWS_ERROR_FILE_NOT_FOUND, _WINDOWS_ERROR_PATH_NOT_FOUND):
-            return False
-        return None
-
-    close_handle(handle)
-    return False
-
-
-def file_is_held_open(path: Path) -> bool | None:
-    """Return whether a process holds the file open, or None when this host cannot tell.
-
-    compile-unity.sh answers the same question with PowerShell on Windows and lsof elsewhere.
-    """
-    if platform.system() == "Windows":
-        return _windows_file_is_held_open(path)
-
-    lsof = shutil.which("lsof")
-    if lsof is None:
-        return None
-    # lsof prints the holders' process IDs and exits 1 when there are none.
-    completed = subprocess.run([lsof, "-t", "--", str(path)], capture_output=True, text=True, check=False)
-    return bool(completed.stdout.strip())
-
-
-def project_lock_state(project_root: Path, probe: Callable[[Path], bool | None] = file_is_held_open) -> str:
-    """Return absent, open, stale, or unknown for the project's Temp/UnityLockfile.
-
-    A running Editor keeps the file open, so a lock file that no process holds was left
-    behind by an Editor that crashed or was killed and does not mean the project is open.
-    """
-    lock_file = project_root / "Temp" / "UnityLockfile"
-    if not lock_file.exists():
-        return "absent"
-
-    held = probe(lock_file)
-    if held is None:
-        return "unknown"
-    if held:
-        return "open"
-    return "stale" if lock_file.exists() else "absent"
-
-
 def project_lock_diagnostic(
-    spec: UnityTargetSpec,
-    root: Path,
+    config: str,
+    project: Path,
     probe: Callable[[Path], bool | None] = file_is_held_open,
     system: str | None = None,
 ) -> UnityDiagnostic:
-    lock_path = (spec.project_path / "Temp" / "UnityLockfile").as_posix()
-    state = project_lock_state(root / spec.project_path, probe)
+    """The lock of a config's generated project, which compile-unity.sh refreshes only while no Editor has it open."""
+    lock_path = (project / "Temp" / "UnityLockfile").as_posix()
+    if not project.exists():
+        return _diagnostic("PASS", config, "Project lock", f"{project.as_posix()} is not generated yet.")
+    state = project_lock_state(project, probe)
 
     if state == "open":
         return _diagnostic(
             "WARN",
-            spec.key,
+            config,
             "Project lock",
-            f"{spec.project_path} is open in Unity; compile-unity.sh will use an isolated mirror.",
+            f"{project.as_posix()} is open in Unity; compile-unity.sh and test-unity.sh refuse to refresh it.",
+            "Close the Editor that has it open.",
         )
     if state == "stale":
         return _diagnostic(
             "WARN",
-            spec.key,
+            config,
             "Project lock",
-            f"{lock_path} is stale: no running process holds it, so compile-unity.sh compiles in place.",
+            f"{lock_path} is stale: no running process holds it, so compile-unity.sh runs the project anyway.",
             f"Delete {lock_path} unless an Editor should have the project open.",
         )
     if state == "unknown":
@@ -173,42 +107,18 @@ def project_lock_diagnostic(
         # holder, such as denied access; elsewhere it needs lsof, which is missing.
         if (system or platform.system()) == "Windows":
             cause = "could not be opened to check whether an Editor holds it"
-            suggestion = (
-                f"If no Editor has {spec.project_path} open, delete {lock_path}; otherwise check that it can be read."
-            )
+            suggestion = f"If no Editor has {project.as_posix()} open, delete {lock_path}; otherwise check that it can be read."
         else:
             cause = "exists, and lsof, which checks whether an Editor holds it, is not installed"
-            suggestion = f"Install lsof, or delete {lock_path} if no Editor has {spec.project_path} open."
+            suggestion = f"Install lsof, or delete {lock_path} if no Editor has {project.as_posix()} open."
         return _diagnostic(
             "WARN",
-            spec.key,
+            config,
             "Project lock",
-            f"{lock_path} {cause}; compile-unity.sh will use an isolated mirror and refuses --in-place.",
+            f"{lock_path} {cause}; compile-unity.sh and test-unity.sh refuse to run the project.",
             suggestion,
         )
-    return _diagnostic("PASS", spec.key, "Project lock", "Project is not locked.")
-
-
-def sample_link_diagnostic(spec: UnityTargetSpec, root: Path) -> UnityDiagnostic | None:
-    current = sample_link_state(spec, root)
-    if current is None:
-        return None
-    if current.state == "linked":
-        return _diagnostic("PASS", spec.key, "Sample link", current.detail)
-
-    if current.state == "blocked":
-        suggestion = f"Move it out of the way, then run {LINK_SAMPLES_COMMAND}."
-    elif current.state == "no-samples":
-        suggestion = "Restore the package's Samples~ folder or remove the samples link from unity-cli-packages.tsv."
-    else:
-        suggestion = f"Run {LINK_SAMPLES_COMMAND}."
-    return _diagnostic(
-        "FAIL",
-        spec.key,
-        "Sample link",
-        f"{current.detail} compile-unity.sh refuses to run without it unless --without-samples is given.",
-        suggestion,
-    )
+    return _diagnostic("PASS", config, "Project lock", "Project is not locked.")
 
 
 def _diagnostic(
@@ -221,21 +131,13 @@ def _diagnostic(
     return UnityDiagnostic(status=status, target=target, title=title, detail=detail, suggestion=suggestion)
 
 
-def _project_manifest_references_package(spec: UnityTargetSpec, root: Path) -> tuple[bool, str]:
-    manifest_path = root / spec.project_path / "Packages" / "manifest.json"
-    if not manifest_path.is_file():
-        return False, f"Missing {manifest_path.relative_to(root)}."
-
+def work_dir_diagnostic(root: Path, work_dir: Path | None = None) -> tuple[UnityDiagnostic, Path | None]:
+    """Where the projects are generated, which compile-unity.sh and test-unity.sh need, and that folder."""
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-    except json.JSONDecodeError as error:
-        return False, f"Invalid JSON in {manifest_path.relative_to(root)}: {error}"
-
-    dependencies = manifest.get("dependencies", {})
-    expected_reference = f"file:../../{spec.package_path.as_posix()}"
-    if isinstance(dependencies, dict) and expected_reference in dependencies.values():
-        return True, f"References {expected_reference}."
-    return False, f"Does not reference {expected_reference}."
+        folder = resolve_work_dir(root, work_dir)
+    except WorkDirError as error:
+        return _diagnostic("FAIL", "global", "Work folder", f"{error}."), None
+    return _diagnostic("PASS", "global", "Work folder", f"Projects are generated in {folder.as_posix()}."), folder
 
 
 def bash_diagnostic(finder: Callable[[], Path] = find_bash) -> UnityDiagnostic:
@@ -248,8 +150,9 @@ def bash_diagnostic(finder: Callable[[], Path] = find_bash) -> UnityDiagnostic:
 
 
 def run_unity_diagnostics(
-    specs: dict[str, UnityTargetSpec],
+    configs: dict[str, ProjectConfig],
     root: Path,
+    work_dir: Path | None = None,
 ) -> list[UnityDiagnostic]:
     diagnostics: list[UnityDiagnostic] = []
 
@@ -291,70 +194,29 @@ def run_unity_diagnostics(
             _diagnostic("FAIL", "global", "Log root", "Repository is not writable for future log/mu3_unity run records.")
         )
 
-    for spec in specs.values():
-        package_root = root / spec.package_path
-        project_root = root / spec.project_path
-        package_manifest = package_root / "package.json"
+    work_diagnostic, folder = work_dir_diagnostic(root, work_dir)
+    diagnostics.append(work_diagnostic)
 
-        if package_root.is_dir() and package_manifest.is_file():
-            diagnostics.append(
-                _diagnostic("PASS", spec.key, "Package root", f"Found {spec.package_path}/package.json.")
-            )
-        else:
-            diagnostics.append(
-                _diagnostic(
-                    "FAIL",
-                    spec.key,
-                    "Package root",
-                    f"Missing package root or manifest at {spec.package_path}.",
-                )
-            )
-
-        if project_root.is_dir():
-            diagnostics.append(_diagnostic("PASS", spec.key, "Unity project", f"Found {spec.project_path}."))
-        else:
-            diagnostics.append(
-                _diagnostic("FAIL", spec.key, "Unity project", f"Missing Unity project {spec.project_path}.")
-            )
-
-        references_package, reference_detail = _project_manifest_references_package(spec, root)
+    for config in configs.values():
+        # load_configs already refused a config whose checkout packages do not resolve.
+        packages = ", ".join(f"{name} ({path})" for name, path in config.packages.items()) or "none"
         diagnostics.append(
-            _diagnostic(
-                "PASS" if references_package else "FAIL",
-                spec.key,
-                "Local package reference",
-                reference_detail,
-            )
+            _diagnostic("PASS", config.name, "Checkout packages", f"{(CONFIGS_FOLDER / config.name).as_posix()} names {packages}.")
         )
 
-        samples = sample_link_diagnostic(spec, root)
-        if samples is not None:
-            diagnostics.append(samples)
-
-        version = project_editor_version(spec, root)
-        if version is None:
-            diagnostics.append(
-                _diagnostic(
-                    "FAIL",
-                    spec.key,
-                    "Editor version",
-                    "ProjectVersion.txt is missing or has no m_EditorVersion.",
-                )
-            )
-            continue
-
-        diagnostics.append(_diagnostic("PASS", spec.key, "Editor version", f"Requires Unity {version}."))
+        version = config.editor_version
+        diagnostics.append(_diagnostic("PASS", config.name, "Editor version", f"Requires Unity {version}."))
         editor_path, is_override = resolve_editor_path(version)
         if editor_path.is_file() and os.access(editor_path, os.X_OK):
             detail = f"Found executable {editor_path}."
             if is_override:
                 detail += " Explicit UNITY_EDITOR/UNITY override is active."
-            diagnostics.append(_diagnostic("PASS", spec.key, "Editor executable", detail))
+            diagnostics.append(_diagnostic("PASS", config.name, "Editor executable", detail))
             engines = installed_playback_engines(editor_path)
             diagnostics.append(
                 _diagnostic(
                     "PASS",
-                    spec.key,
+                    config.name,
                     "Platform modules",
                     f"Detected {len(engines)} playback engine(s): {', '.join(engines) if engines else 'none'}.",
                 )
@@ -363,7 +225,7 @@ def run_unity_diagnostics(
             diagnostics.append(
                 _diagnostic(
                     "FAIL",
-                    spec.key,
+                    config.name,
                     "Editor executable",
                     f"Required Editor is not executable: {editor_path}",
                     f"Install Unity {version} through Unity Hub, set UNITY_HUB_EDITOR_ROOT when the Hub installs "
@@ -371,7 +233,8 @@ def run_unity_diagnostics(
                 )
             )
 
-        diagnostics.append(project_lock_diagnostic(spec, root))
+        if folder is not None:
+            diagnostics.append(project_lock_diagnostic(config.name, project_folder(folder, config.name)))
 
     return diagnostics
 
@@ -409,32 +272,19 @@ def entry_point_arguments(
     target: str,
     base: str | None,
     dry_run: bool,
-    isolated: bool,
-    in_place: bool,
-    keep_staging: bool,
-    without_samples: bool = False,
+    work_dir: Path | None = None,
     editor_version: str | None = None,
 ) -> list[str]:
-    if isolated and in_place:
-        raise ValueError("--isolated and --in-place cannot be used together.")
     if base and target != "changed":
         raise ValueError("--base can only be used with the changed target.")
-    if editor_version and in_place:
-        raise ValueError("--editor-version runs in an isolated mirror, so it cannot be used with --in-place.")
 
     arguments = [target]
     if base:
         arguments.extend(["--base", base])
     if dry_run:
         arguments.append("--dry-run")
-    if isolated:
-        arguments.append("--isolated")
-    if in_place:
-        arguments.append("--in-place")
-    if keep_staging:
-        arguments.append("--keep-staging")
-    if without_samples:
-        arguments.append("--without-samples")
+    if work_dir is not None:
+        arguments.extend(["--work-dir", str(work_dir)])
     if editor_version:
         arguments.extend(["--editor-version", editor_version])
     return arguments
@@ -500,25 +350,26 @@ def run_entry_point(script_path: Path, arguments: list[str], root: Path) -> int:
 
 @app.command("doctor")
 def unity_doctor(
-    target: str | None = typer.Option(None, "--target", "-t", help="Optional configured target to inspect."),
+    target: str | None = typer.Option(None, "--target", "-t", help="Optional config in tools/unity-projects to inspect."),
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="The work folder the shell entrypoints are given, if any."),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
 ) -> None:
-    """Diagnose Unity package mappings, projects, Editors, modules, locks, and log readiness."""
+    """Diagnose bash, the project configs, the work folder, Editors, modules, project locks, and log readiness."""
     root = repo_root()
     # The JSON report carries the root as a field, so that its output stays one JSON object.
     if output_format != "json":
         echo_repository_root(root)
     try:
-        specs = load_target_specs(root)
-    except ValueError as error:
+        configs = load_configs(root)
+    except ConfigError as error:
         raise typer.BadParameter(str(error)) from error
 
     if target is not None:
-        if target not in specs:
-            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(specs)}.")
-        specs = {target: specs[target]}
+        if target not in configs:
+            raise typer.BadParameter(f"Unknown Unity target '{target}'. Choose one of: {', '.join(configs)}.")
+        configs = {target: configs[target]}
 
-    summary = render_diagnostics(run_unity_diagnostics(specs, root), output_format, root)
+    summary = render_diagnostics(run_unity_diagnostics(configs, root, work_dir), output_format, root)
     if summary["fail"]:
         raise typer.Exit(code=1)
 
@@ -527,11 +378,11 @@ def unity_doctor(
 def unity_changes(
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
 ) -> None:
-    """Explain which package projects are selected from Git changes."""
+    """Explain which project configs the Git changes select."""
     root = repo_root()
     echo_repository_root(root)
     try:
-        arguments = entry_point_arguments("changed", base, True, False, False, False)
+        arguments = entry_point_arguments("changed", base, True)
         return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
@@ -542,19 +393,16 @@ def unity_changes(
 
 @app.command("compile")
 def unity_compile(
-    target: str = typer.Argument("changed", help="changed, all, or a target from unity-cli-packages.tsv."),
+    target: str = typer.Argument("changed", help="changed, all, or a config in tools/unity-projects."),
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Print selection without launching Unity."),
-    isolated: bool = typer.Option(False, "--isolated", help="Always compile an isolated source mirror."),
-    in_place: bool = typer.Option(False, "--in-place", help="Compile directly and fail when the project is open."),
-    keep_staging: bool = typer.Option(False, "--keep-staging", help="Keep an explicitly isolated mirror."),
-    without_samples: bool = typer.Option(
-        False, "--without-samples", help="Compile even when a samples link is missing, leaving the samples out."
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the selection and the project folders without launching Unity."),
+    work_dir: Path | None = typer.Option(
+        None, "--work-dir", help="Generate the projects here instead of in ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>."
     ),
     editor_version: str | None = typer.Option(
         None,
         "--editor-version",
-        help="Compile with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
+        help="Compile with this installed Editor version, such as 6000.3.17f1, in a project retargeted to it.",
     ),
     stall_timeout: int | None = typer.Option(
         None,
@@ -566,9 +414,9 @@ def unity_compile(
     root = repo_root()
     echo_repository_root(root)
     try:
-        arguments = entry_point_arguments(
-            target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version
-        ) + stall_timeout_arguments(stall_timeout)
+        arguments = entry_point_arguments(target, base, dry_run, work_dir, editor_version) + stall_timeout_arguments(
+            stall_timeout
+        )
         return_code = run_entry_point(compile_script_path(root), arguments, root)
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
@@ -577,22 +425,18 @@ def unity_compile(
         raise typer.Exit(code=return_code)
 
 
-
 @app.command("test")
 def unity_test(
-    target: str = typer.Argument("changed", help="changed, all, or a target from unity-cli-packages.tsv."),
+    target: str = typer.Argument("changed", help="changed, all, or a config in tools/unity-projects."),
     base: str | None = typer.Option(None, "--base", help="Optional Git ref for <ref>...HEAD selection."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Print selection without launching Unity."),
-    isolated: bool = typer.Option(False, "--isolated", help="Always test an isolated source mirror."),
-    in_place: bool = typer.Option(False, "--in-place", help="Test directly and fail when the project is open."),
-    keep_staging: bool = typer.Option(False, "--keep-staging", help="Keep an explicitly isolated mirror."),
-    without_samples: bool = typer.Option(
-        False, "--without-samples", help="Test even when a samples link is missing, leaving the samples out."
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the selection and the project folders without launching Unity."),
+    work_dir: Path | None = typer.Option(
+        None, "--work-dir", help="Generate the projects here instead of in ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>."
     ),
     editor_version: str | None = typer.Option(
         None,
         "--editor-version",
-        help="Test with this installed Editor version, such as 6000.3.17f1, in a mirror retargeted to it.",
+        help="Test with this installed Editor version, such as 6000.3.17f1, in a project retargeted to it.",
     ),
     test_platform: str = typer.Option(
         "editmode", "--platform", help="editmode or playmode: the Unity Test Framework platform to run."
@@ -621,7 +465,7 @@ def unity_test(
     echo_repository_root(root)
     try:
         arguments = (
-            entry_point_arguments(target, base, dry_run, isolated, in_place, keep_staging, without_samples, editor_version)
+            entry_point_arguments(target, base, dry_run, work_dir, editor_version)
             + platform_arguments(test_platform)
             + filter_arguments(test_filter)
             + stall_timeout_arguments(stall_timeout)
