@@ -37,7 +37,7 @@ import stat
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 from common.editor import editor_package_manager_dir, folder_editor_version, retarget_dependencies
 from common.project_lock import file_is_held_open, project_lock_state
@@ -60,6 +60,9 @@ WORK_FOLDER = "Mu3Library_ForUnity"
 # Unity cannot read every package file from a project folder of 98 characters or more on Windows,
 # so the unit's folder takes no more than this much of the branch name (.ai/project/wiki/overview.md).
 UNIT_LENGTH = 32
+# That length: Unity's asset import cannot read every package file from a project folder of this many
+# characters or more on Windows (tools/README.md, Fresh Clone Setup).
+PROJECT_PATH_LIMIT = 98
 PROJECT_MARKER = ".mu3-unity-project"
 PROJECT_MARKER_TEXT = (
     "common.unity_projects generated this Unity project from tools/unity-projects for the checkout it "
@@ -340,6 +343,49 @@ def write_if_changed(path: Path, data: bytes) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return True
+
+
+def sync_template(template: Path, target: Path, generated: Sequence[str] = ()) -> list[str]:
+    """Copy a tool's template folder into a folder of a Unity project and remove the files it no longer has.
+
+    A file whose content is unchanged is left alone, so Unity reimports only what changed, and the
+    .meta files Unity wrote are kept. `generated` names the paths, relative to the folder, that the
+    run itself creates there, such as a plugin DLL or a scene, which stay too.
+    Returns the paths, relative to the folder, that were written or removed.
+    """
+    changed: list[str] = []
+    expected: set[str] = set(generated)
+    for source in sorted(path for path in template.rglob("*") if path.is_file()):
+        relative = source.relative_to(template).as_posix()
+        expected.add(relative)
+        if write_if_changed(target / relative, source.read_bytes()):
+            changed.append(relative)
+
+    if target.is_dir():
+        for existing in sorted(path for path in target.rglob("*") if path.is_file()):
+            relative = existing.relative_to(target).as_posix()
+            if relative.endswith(".meta"):
+                # Unity removes the .meta of a missing asset on its next import.
+                continue
+            if relative not in expected:
+                existing.unlink()
+                changed.append(relative)
+    return changed
+
+
+def project_path_problem(project: Path, system: str | None = None, also: str = "") -> str | None:
+    """Why a project folder is too deep for Unity on Windows, or None when it is not.
+
+    `also` names what else fails from such a folder, such as ", and a content build fails from deeper ones".
+    """
+    if (system or platform.system()) != "Windows" or len(str(project)) < PROJECT_PATH_LIMIT:
+        return None
+    return (
+        f"the project folder {project} has {len(str(project))} characters; on Windows Unity "
+        f"cannot read every package file from a project folder of {PROJECT_PATH_LIMIT} characters or more{also} "
+        "(Fresh Clone Setup in tools/README.md); pass a shorter "
+        "--work-dir, such as a folder in the unit's work folder under MU3_WORK_ROOT"
+    )
 
 
 @dataclass

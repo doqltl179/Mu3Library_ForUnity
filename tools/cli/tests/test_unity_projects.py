@@ -11,6 +11,7 @@ from unittest import mock
 from common.checkout import repo_root
 from common.unity_projects import (
     PROJECT_MARKER,
+    PROJECT_PATH_LIMIT,
     ConfigError,
     GenerateError,
     WorkDirError,
@@ -18,7 +19,9 @@ from common.unity_projects import (
     generate_project,
     is_directory_link,
     load_configs,
+    project_path_problem,
     remove_generated_project,
+    sync_template,
     unit_name,
 )
 
@@ -209,6 +212,52 @@ class GeneratedProjectTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ConfigError, 'names fixture.missing as "checkout"'):
             load_configs(self.root)
+
+
+class TemplateSyncTests(unittest.TestCase):
+    """A tool's template folder, copied into a folder of the Unity project the tool builds."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+
+    def write(self, path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def test_sync_copies_new_files_removes_stale_ones_and_keeps_meta_and_generated_files(self) -> None:
+        template = self.root / "template"
+        project = self.root / "project"
+        self.write(template / "Harness" / "Boot.cs", "boot")
+        self.write(project / "Harness" / "Boot.cs.meta", "guid")
+        self.write(project / "Harness" / "Old.cs", "old")
+        self.write(project / "Plugins" / "HarnessPlugin.dll", "dll")
+
+        changed = sync_template(template, project, ["Plugins/HarnessPlugin.dll"])
+
+        self.assertEqual(["Harness/Boot.cs", "Harness/Old.cs"], changed)
+        self.assertEqual("boot", (project / "Harness" / "Boot.cs").read_text(encoding="utf-8"))
+        self.assertFalse((project / "Harness" / "Old.cs").exists())
+        self.assertTrue((project / "Harness" / "Boot.cs.meta").exists())
+        self.assertTrue((project / "Plugins" / "HarnessPlugin.dll").exists())
+
+    def test_sync_leaves_an_unchanged_folder_alone(self) -> None:
+        self.write(self.root / "template" / "Harness" / "Boot.cs", "boot")
+        sync_template(self.root / "template", self.root / "project")
+
+        self.assertEqual([], sync_template(self.root / "template", self.root / "project"))
+
+
+class ProjectPathTests(unittest.TestCase):
+    def test_refuses_a_deep_project_folder_on_windows_only(self) -> None:
+        short = Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 4))
+        deep = Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 3))
+        self.assertEqual(PROJECT_PATH_LIMIT - 1, len(str(short)))
+
+        self.assertIsNone(project_path_problem(short, "Windows"))
+        self.assertIn(f"has {PROJECT_PATH_LIMIT} characters", project_path_problem(deep, "Windows"))
+        self.assertIsNone(project_path_problem(deep, "Linux"))
 
 
 class WorkDirTests(unittest.TestCase):

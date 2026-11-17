@@ -4,9 +4,10 @@ Repository-local support tooling lives here. These tools can help agents inspect
 
 | Path | Owns |
 |---|---|
-| [cli/](cli/README.md) | Python tools, one package and command each: `mu3-repo` for repository checks, `mu3-unity` for Unity diagnostics, compiles, and test runs, `mu3-di-strip-harness`, and `mu3-verify-build`; beside them the fixed load helper the shell entrypoints run, and `common`, the code the tools share, the project generator among it |
+| [cli/](cli/README.md) | Python tools, one package and command each: `mu3-repo` for repository checks, `mu3-unity` for Unity diagnostics, compiles, and test runs, `mu3-di-strip-harness`, `mu3-multiplayer-harness`, and `mu3-verify-build`; beside them the fixed load helper the shell entrypoints run, and `common`, the code the tools share, the project generator among it |
 | [unity-projects/](unity-projects/) | The [project configs](#unity-project-configs) `minimal`, `full`, `urp`, and `watermelon`, from which the tools generate the Unity projects they compile, test, and build |
 | [di-strip-harness/](di-strip-harness/) | The assets of the [DI stripping harness](#di-stripping-harness), which `mu3-di-strip-harness` copies into a mirror project, builds as a player, and runs |
+| [multiplayer-harness/](multiplayer-harness/) | The player and build scripts of the [multiplayer harness](#multiplayer-harness), which `mu3-multiplayer-harness` adds to the project it generates from the `minimal` config, builds as a player, and runs as a host and a guest |
 | [verify-build/](verify-build/) | The build script of the [verification build](#verification-build), which `mu3-verify-build` adds to the project it generates from the `full` config |
 | [dev/](dev/) | The scripts that enter the [development environment](#development-environment), which the root `.envrc` mirrors for direnv, `ensure_tools.py`, which both scripts run to keep the tools in `.venv` in step with `tools/cli`, and `env.local.example`, the template for personal variables |
 | [../compile-unity.sh](../compile-unity.sh) | Git-change-aware Unity batchmode compilation of the projects generated from the configs |
@@ -298,6 +299,58 @@ Every run was on the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300),
 | 2026-11-04 | 6000.6.7f1 | Mono | High | no | 0 | 36 of 36 | imported | 28 s | two at the start | 7,431,168 | #364 |
 | 2026-11-04 | 6000.3.17f1 | Mono | Medium | no | 0 | 36 of 36 | new | 41 s | two at the start | 9,569,280 | #364 |
 | 2026-11-04 | 6000.3.17f1 | Mono | High | no | 0 | 36 of 36 | imported | 25 s | none at the start | 9,276,928 | #364 |
+
+## Multiplayer Harness
+
+Two processes on one computer show what the tests in one process cannot: a session between two players over the machine-wide local network's loopback sockets and lobby files. `mu3-multiplayer-harness` builds a Windows x64 player of a project generated from the `minimal` config, starts it twice at once, as a host and a guest, and prints each player's checks:
+
+```bash
+PYTHONPATH=tools/cli/src python -m multiplayer_harness --work-dir "${MU3_WORK_ROOT:?set MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/multiplayer-harness"
+PYTHONPATH=tools/cli/src python -m multiplayer_harness --editor-version 6000.3.17f1 --work-dir "${MU3_WORK_ROOT:?set MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/multiplayer-harness"
+```
+
+It takes over the check that the Multiplayer sample's unattended run made (`-mu3mp-host` and `-mu3mp-join`, «Unattended Run» in the sample's README), without the sample, which stays for #187 and goes after it (ADR 0001 D14, D17). The command runs only on Windows.
+
+[multiplayer-harness/](multiplayer-harness/) holds what the command copies into the project's `Assets/MultiplayerHarness/`:
+
+- `Runtime/MultiplayerHarnessPlayer.cs`, in the assembly of `Runtime/MultiplayerHarness.asmdef`, which references `Mu3Library.Multiplayer` and `Mu3Library.Foundation` and nothing of the DI package. The player creates itself in an empty scene, creates a `LocalBackend` on `LocalNetwork.CreateMachineWide("mu3library-multiplayer-harness")`, a network no other game uses, and a `MultiplayerManager` with `new`, and calls the manager's `Update()` itself every frame, as a project with another container or none does (ADR 0001 D8). It plays the host's or the guest's part of one session, as `-mpharness-role host|guest` says, in the lobby that `-mpharness-lobby` names, and fails its run after `-mpharness-timeout` seconds.
+- `Editor/MultiplayerHarnessBuild.cs`: the `-executeMethod` entry that saves the empty scene, sets the Mono backend, turns off `forceSingleInstance`, since two players run at once, and builds the player.
+
+Each part goes through its steps in order, and each step is one check that logs one `MPHARNESS CHECK` line. A player first logs the names of its checks in an `MPHARNESS PLAN` line and ends with an `MPHARNESS RESULT` line. The values are fixed (`map` is `forest`, `color` is `blue`, and the start seed and each message's text and number are constants), so each player checks exactly what the other one sent:
+
+| The sample's unattended run | Host | Guest |
+|---|---|---|
+| The backend starts on the machine-wide network | `backend.start` | `backend.start` |
+| The host creates a public lobby with the lobby data `map` | `lobby.create`: in the lobby as its host, with `map` | |
+| The guest searches every second for the lobby by its name | | `lobby.search`: search returns the lobby, not in a game, with `map` |
+| The guest joins it by its lobby ID | `guest.join`: the guest, by its name | `lobby.join`: in the lobby as a client, with the host that search named, by its name, and `map` |
+| The guest sets its participant data `color` | `guest.participant-data`: the guest's `color` | `participant-data.set`: the host reports `color` back |
+| Both get ready, and the host starts the game | `guest.ready`, then `game.start`: in the game, with the start data | `ready`: the host reports this player ready; `game.started`: in the game, with the start data |
+| The host sends a message, and the guest answers it | `message.send`, then `message.reply`: the answer, from the guest | `message.receive`: the message, from the host; then `message.reply` |
+| The host deletes `map` once the guest answered | `lobby-data.delete`: the request, the lobby data, and the event | `lobby-data.deleted`: the event's null value and the lobby data |
+| The guest deletes `color` once it heard `map` deleted | `guest.participant-data-delete`: the guest's data without `color` | `participant-data.delete`: the host reports `color` deleted |
+| The host kicks the guest once it deleted `color` | `guest.kick`: the guest left with `Kicked` | `kicked`: the session ended with `Kicked` |
+
+That is 11 checks for each player. A step fails when the session ends before it is done, on the host also when the guest leaves, and at the timeout; the steps after it are then not reached. Each player also logs its state changes, the players who join and leave, and, as the sample does, the guest's ping as the host measures it, in `MPHARNESS INFO` lines, which the command prints among the checks. The ping is not checked, since the host reports it only every second. A finished player goes on updating for 2 seconds, so that the host's kick reaches the guest, then disposes the manager and the backend, and quits with 0 only when every check passed and nothing logged an error or exception.
+
+The harness leaves out what the sample's run covers beyond players on one computer: the Steam backend, which needs two accounts and stays a manual check (section 13 of [steam-player-hosted-multiplayer.md](../docs/specs/steam-player-hosted-multiplayer.md)); an Editor in play mode against a player, since the harness runs players only; and the sample's options for those cases (`-mu3mp-local`, `-mu3mp-name`). The sample's buttons that its unattended run never pressed, such as setting the lobby data again, the host's **Leave**, invites, and avatars, were never part of that check.
+
+`--work-dir`, `log/multiplayer-harness` by default, holds the project in `minimal/` (`minimal-<version>/` with `--editor-version`), generated and refreshed from the config as the shell entrypoints do it ([Unity Project Configs](#unity-project-configs)), the player in `players/<label>/MultiplayerHarness.exe`, and Unity's logs as `<label>-build.log`, `<label>-host.log`, and `<label>-guest.log`; the label is `harness`, or `harness-<version>` with `--editor-version`. Each run refreshes the project and keeps its `Library/`, writes the template's changed files into `Assets/MultiplayerHarness/`, and removes the files there that the template no longer has, but keeps the `.meta` files and the scene that Unity made; every other file of the project stays the generator's. The harness needs Base alone, and `minimal` is the config without an optional SDK; its DI package stays unused. `--editor-version` retargets the project as `compile-unity.sh --editor-version` retargets its projects. Each run gives its lobby a name of its own, such as `mpharness-20261117-213538-bcfa17`, so that a guest never joins a lobby an earlier run left.
+
+The harness changes and deletes files only in a work folder it marked: it writes `.mu3-multiplayer-harness` into a `--work-dir` that does not exist or is empty, and refuses any other. Give it a folder of its own in the unit's folder under `MU3_WORK_ROOT`, such as `multiplayer-harness/` beside the projects the shell entrypoints generate there. It refuses before it writes anything when the project folder would have 98 characters or more on Windows ([Fresh Clone Setup](#fresh-clone-setup)), as the default folder of a deep worktree does.
+
+Each player may take `--player-timeout` seconds, 120 by default, as in the sample's run; the command stops a player still running 30 seconds later, with the processes it started (`taskkill /T` on Windows). The build may take `--build-timeout` seconds, 3600 by default. The command exits 0 only when the player built and both players exited 0 and logged their plan, every planned check as passed, as many checks as they counted, and no error or exception; 1 when the players ran and a check failed or was not reached, or a player did not report or was stopped; 2 on a usage error; and 3 when the work folder was refused, the project could not be generated or refreshed, the previous player and logs could not be removed, the build failed or passed its timeout, or a player could not be started, with one `error:` line that names the cause. It prints how long the build and the players took.
+
+### Multiplayer Harness Runs
+
+Every run was on the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300) with no other Unity process. A run on a new project imports it first. Time is the whole command, with the shares of the build, which includes the Editor's start, and of the players.
+
+| Date | Editor | Players | Exit | Checks | Project | Time | Source |
+|---|---|---|---|---|---|---|---|
+| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | new | 49 s: build 39.0 s, players 9.3 s | #547 |
+| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | imported | 23 s: build 14.3 s, players 8.4 s | #547 |
+| 2026-11-17 | 6000.6.7f1 | host, and a guest given another lobby name, with `--player-timeout 20` | 1 | host 2 of 11, guest 1 of 11: `guest.join` and `lobby.search` timed out, the rest not reached | imported | 41 s: build 14.4 s, players 26.8 s | #547 |
+| 2026-11-17 | 6000.3.10f1 (`--editor-version`) | host and guest | 0 | 11 of 11 each | new | 79 s: build 69.6 s, players 8.1 s | #547 |
 
 ## Verification Build
 

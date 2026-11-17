@@ -18,7 +18,6 @@ from verify_build.cli import (
     EXIT_BUILD_FAILED,
     PLAYER_CONTENT,
     PROJECT_BUILD_SCRIPT,
-    PROJECT_PATH_LIMIT,
     SETTINGS_ASSET,
     WORK_DIR_MARKER,
     SettingsFormatError,
@@ -28,7 +27,6 @@ from verify_build.cli import (
     content_mode_problem,
     override_player_build_option,
     override_project_names,
-    project_path_problem,
     run_verify_build,
     scene_problem,
 )
@@ -115,16 +113,7 @@ class ProjectNameTests(unittest.TestCase):
             override_project_names(SAMPLE_PROJECT_SETTINGS.replace("  productName: Mu3Library\n", ""))
 
 
-class PathCheckTests(unittest.TestCase):
-    def test_refuses_a_deep_project_folder_on_windows_only(self) -> None:
-        short = Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 4))
-        deep = Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 3))
-        self.assertEqual(PROJECT_PATH_LIMIT - 1, len(str(short)))
-
-        self.assertIsNone(project_path_problem(short, "Windows"))
-        self.assertIn(f"has {PROJECT_PATH_LIMIT} characters", project_path_problem(deep, "Windows"))
-        self.assertIsNone(project_path_problem(deep, "Linux"))
-
+class SceneCheckTests(unittest.TestCase):
     def test_a_scene_is_an_asset_path_of_a_unity_scene(self) -> None:
         self.assertIsNone(scene_problem("Assets/Mu3LibrarySamples/Multiplayer/Sample_Multiplayer.unity"))
         self.assertIsNone(scene_problem("Packages/com.example/Scenes/A.unity"))

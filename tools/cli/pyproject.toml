@@ -18,6 +18,7 @@ dependencies = [
 mu3-repo = "repo.cli:app"
 mu3-unity = "unity.cli:app"
 mu3-di-strip-harness = "strip_harness.cli:app"
+mu3-multiplayer-harness = "multiplayer_harness.cli:app"
 mu3-verify-build = "verify_build.cli:app"
 
 [tool.setuptools]
@@ -25,4 +26,4 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["common", "fixed_load", "repo", "strip_harness", "unity", "verify_build"]
+include = ["common", "fixed_load", "multiplayer_harness", "repo", "strip_harness", "unity", "verify_build"]
