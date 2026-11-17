@@ -1,0 +1,17 @@
+{
+    "name": "MultiplayerHarness",
+    "rootNamespace": "MultiplayerHarness",
+    "references": [
+        "Mu3Library.Multiplayer",
+        "Mu3Library.Foundation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
