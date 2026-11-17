@@ -1,6 +1,6 @@
 ---
 name: optional-integration-engineer
-description: "Implements the define-gated optional package integrations of the Mu3Library packages (UniTask, Addressables, Localization, Input System, Mobile Notifications): split files, define symbols, versionDefines, defineConstraints, and gated asmdef references. Use when the gate, the split file, or the optional dependency is the dominant concern; not for non-gated runtime or editor work."
+description: "Implements the define-gated optional integrations of the Mu3Library packages (UniTask, Steamworks.NET, and the Addressables and Input System extensions in Base, DI, and Watermelon Game): split files, define symbols, versionDefines, defineConstraints, and gated asmdef references. Use when the gate or the split file is the dominant concern; not for non-gated code, even in an assembly gated whole."
 ---
 <!-- agentkit:generated from .ai/kit/core/agents/client/game-runtime-engineer.md, .ai/project/agents/optional-integration-engineer.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
@@ -9,12 +9,12 @@ description: "Implements the define-gated optional package integrations of the M
 Mission: keep every optional package integration compiling and behaving the same whether its package is installed or not.
 
 ## Owns
-- Code behind the optional-integration define symbols in the table of «Assemblies And Optional Integrations» in [package-architecture.md](.ai/project/wiki/rules/package-architecture.md), the split files that hold it, and the assemblies that `defineConstraints` gate as a whole on one of those symbols.
-- The `versionDefines` and `defineConstraints` entries for those symbols, and the gated references, in the package `.asmdef` files.
+- Code inside `#if` blocks on the optional-integration define symbols in the table of «Assemblies And Optional Integrations» in [package-architecture.md](.ai/project/wiki/rules/package-architecture.md) and the split files that hold it.
+- The `versionDefines` and `defineConstraints` entries for those symbols, including those that gate an assembly as a whole, such as the Steam package's `Mu3Library.Steam.Multiplayer`, and the gated references, in the package `.asmdef` files.
 - The fallback behavior a consuming project gets when the optional package is absent.
 
 ## Does Not Own
-- Non-gated runtime behavior → `game-runtime-engineer`
+- Non-gated runtime behavior → `game-runtime-engineer`, including the code inside an assembly that `defineConstraints` gate as a whole, which needs no `#if`, and the code that uses the SDK a package split out of Base declares in `package.json` instead of gating it (ADR 0001 D21); those packages' `*.UniTask.cs` split files stay here
 - Non-gated editor tooling → `game-tools-engineer`
 - Sample scenes and imported sample copies → `sample-integrity-engineer`
 
