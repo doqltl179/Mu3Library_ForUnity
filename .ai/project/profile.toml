@@ -110,7 +110,7 @@ unity-upm = ["packages/**/package.json", "packages/**/CHANGELOG.md", "packages/*
 paths = ["packages/base/Runtime/**", "packages/base/Tests/**", "packages/notifications/Runtime/**", "packages/inputsystem/Runtime/**", "packages/inputsystem/Tests/**", "packages/localization/Runtime/**", "packages/localization/Tests/**", "packages/addressables/Runtime/**", "packages/addressables/Tests/**", "packages/di/Runtime/**", "packages/di/Tests/**", "packages/steam/Runtime/**", "packages/steam/Tests/**", "packages/game/watermelon/Runtime/**", "packages/game/watermelon/Tests/**"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
-notes = "Runtime of reusable UPM packages shipped into other projects, not one game. Compile targets and tests: .ai/project/wiki/unity-verification.md."
+notes = "Runtime of reusable UPM packages shipped into other projects, not one game. This project keeps realtime-engineer off: Base's Multiplayer module and the Steam package's backend, lobbies, transport, and session flow included, route here. Compile targets and tests: .ai/project/wiki/unity-verification.md."
 
 [bindings.game-tools-engineer]
 paths = ["packages/base/Editor/**", "packages/inputsystem/Editor/**", "packages/localization/Editor/**", "packages/addressables/Editor/**", "packages/di/Editor/**"]
