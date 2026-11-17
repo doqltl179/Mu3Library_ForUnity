@@ -11,7 +11,6 @@ the player, with the Addressables content or without it.
 from __future__ import annotations
 
 import os
-import platform
 import shutil
 import subprocess
 import time
@@ -31,6 +30,7 @@ from common.unity_projects import (
     GenerateError,
     generate_project,
     load_configs,
+    project_path_problem,
     remove_generated_project,
 )
 from common.work_dir import FolderNotClaimedError, claim_folder
@@ -58,9 +58,8 @@ PLAYER_CONTENT = Path(f"{PRODUCT_NAME}_Data", "StreamingAssets", "aa", "settings
 # changes or deletes files only in a folder that has it.
 WORK_DIR_MARKER = ".mu3-verify-build"
 WORK_DIR_MARKER_TEXT = "mu3-verify-build made this folder and may change or delete any file in it.\n"
-# Unity's asset import cannot read every package file from a project folder of this many characters
-# or more on Windows, and a content build fails from deeper folders (tools/README.md, Fresh Clone Setup).
-PROJECT_PATH_LIMIT = 98
+# What fails from a project folder too deep for Unity besides the import (tools/README.md, Fresh Clone Setup).
+DEEP_PROJECT_ALSO_FAILS = ", and a content build fails from deeper ones"
 LOG_PREFIX = "MU3VERIFY "
 CONTENT_BUILT_LINE = "Addressable content successfully built"
 # Exit codes beside 0 (the project is ready, and with a build the player built as asked) and typer's
@@ -91,18 +90,6 @@ def setup_step(action: str) -> Iterator[None]:
 
 def default_work_dir(root: Path) -> Path:
     return root / "log" / "verify-build"
-
-
-def project_path_problem(project: Path, system: str | None = None) -> str | None:
-    """Why the project folder is too deep for Unity on Windows, or None when it is not."""
-    if (system or platform.system()) != "Windows" or len(str(project)) < PROJECT_PATH_LIMIT:
-        return None
-    return (
-        f"the project folder {project} has {len(str(project))} characters; on Windows Unity "
-        f"cannot read every package file from a project folder of {PROJECT_PATH_LIMIT} characters or more, and "
-        "a content build fails from deeper ones (Fresh Clone Setup in tools/README.md); pass a shorter "
-        "--work-dir, such as a folder in the unit's work folder under MU3_WORK_ROOT"
-    )
 
 
 def content_mode_problem(project: Path, content: str) -> str | None:
@@ -266,7 +253,7 @@ def run_verify_build(root: Path, options: VerifyOptions, runner: Runner = defaul
     Unity cannot be started, or its log cannot be read.
     """
     work_dir = Path(os.path.abspath(options.work_dir or default_work_dir(root)))
-    problem = project_path_problem(work_dir / CONFIG)
+    problem = project_path_problem(work_dir / CONFIG, also=DEEP_PROJECT_ALSO_FAILS)
     if problem:
         raise VerifySetupError(problem)
 

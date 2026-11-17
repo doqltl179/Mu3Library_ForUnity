@@ -18,7 +18,6 @@ from multiplayer_harness.cli import (
     EXIT_CHECKS_FAILED,
     EXIT_SETUP_FAILED,
     PLAYER_EXIT_GRACE,
-    PROJECT_PATH_LIMIT,
     TEMPLATE,
     WORK_DIR_MARKER,
     HarnessOptions,
@@ -26,7 +25,6 @@ from multiplayer_harness.cli import (
     PlayerRun,
     app,
     parse_player_log,
-    project_path_problem,
     run_harness,
     run_problems,
 )
@@ -253,13 +251,6 @@ class MultiplayerHarnessLogTests(unittest.TestCase):
         self.assertIn("logged no MPHARNESS RESULT line", run_problems(no_result, 0))
         self.assertIn("did not exit before the timeout and was stopped", run_problems(parse_player_log(GUEST_LOG), None))
         self.assertIn("logged no MPHARNESS PLAN line", run_problems(PlayerRun(), 0))
-
-    def test_a_deep_project_folder_is_refused_on_windows_only(self) -> None:
-        deep = Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 3))
-
-        self.assertIsNone(project_path_problem(Path("D:/" + "a" * (PROJECT_PATH_LIMIT - 4)), "Windows"))
-        self.assertIn(f"has {PROJECT_PATH_LIMIT} characters", project_path_problem(deep, "Windows"))
-        self.assertIsNone(project_path_problem(deep, "Linux"))
 
 
 class MultiplayerHarnessTemplateTests(unittest.TestCase):

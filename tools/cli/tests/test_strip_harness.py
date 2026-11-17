@@ -32,7 +32,6 @@ from strip_harness.cli import (
     parse_player_log,
     run_harness,
     run_problems,
-    sync_template,
     template_dir,
     unitask_source,
 )
@@ -209,30 +208,6 @@ class StripHarnessManifestTests(unittest.TestCase):
 
 
 class StripHarnessTemplateTests(unittest.TestCase):
-    def test_sync_copies_new_files_removes_stale_ones_and_keeps_meta_and_generated_files(self) -> None:
-        root = temporary_root(self)
-        template = root / "template"
-        project = root / "project"
-        write(template / "Harness" / "Boot.cs", "boot")
-        write(project / "Harness" / "Boot.cs.meta", "guid")
-        write(project / "Harness" / "Old.cs", "old")
-        write(project / "Plugins" / "HarnessPlugin.dll", "dll")
-
-        changed = sync_template(template, project, ["Plugins/HarnessPlugin.dll"])
-
-        self.assertEqual(["Harness/Boot.cs", "Harness/Old.cs"], changed)
-        self.assertEqual("boot", (project / "Harness" / "Boot.cs").read_text(encoding="utf-8"))
-        self.assertFalse((project / "Harness" / "Old.cs").exists())
-        self.assertTrue((project / "Harness" / "Boot.cs.meta").exists())
-        self.assertTrue((project / "Plugins" / "HarnessPlugin.dll").exists())
-
-    def test_sync_leaves_an_unchanged_mirror_alone(self) -> None:
-        root = temporary_root(self)
-        write(root / "template" / "Harness" / "Boot.cs", "boot")
-        sync_template(root / "template", root / "project")
-
-        self.assertEqual([], sync_template(root / "template", root / "project"))
-
     def test_repository_template_logs_the_lines_the_parser_reads(self) -> None:
         template = template_dir(repo_root())
         boot = (template / "Assets" / "Harness" / "StripHarnessBoot.cs").read_text(encoding="utf-8")

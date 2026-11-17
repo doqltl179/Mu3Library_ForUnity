@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Iterable
 
 
+# A full Unity release, as compile-unity.sh --editor-version accepts it; it names a Unity Hub folder.
+EDITOR_VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?")
+
+
 def folder_editor_version(project_folder: Path) -> str | None:
     """The Editor version that a project folder's ProjectSettings/ProjectVersion.txt names, or None.
 

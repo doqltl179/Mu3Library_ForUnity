@@ -29,7 +29,8 @@ from typing import Callable, Iterator, Sequence
 import typer
 
 from common.checkout import echo_repository_root, repo_root
-from common.editor import is_hub_editor_for, resolve_editor_path
+from common.editor import EDITOR_VERSION_PATTERN, is_hub_editor_for, resolve_editor_path
+from common.errors import describe_error
 from common.process import run_with_timeout, stop_process_tree
 from common.unity_projects import (
     CONFIGS_FOLDER,
@@ -38,6 +39,8 @@ from common.unity_projects import (
     generate_project,
     load_configs,
     project_folder,
+    project_path_problem,
+    sync_template,
 )
 from common.work_dir import FolderNotClaimedError, claim_folder
 
@@ -59,9 +62,6 @@ ROLES = ("host", "guest")
 # harness before or around the players, from a refused --work-dir to a failed build, is 3.
 EXIT_CHECKS_FAILED = 1
 EXIT_SETUP_FAILED = 3
-# Unity's asset import cannot read every package file from a project folder of this many characters
-# or more on Windows (tools/README.md, Fresh Clone Setup).
-PROJECT_PATH_LIMIT = 98
 # How long the harness waits past --player-timeout for a player to report and quit before it stops
 # the player: each player fails its own run at the timeout and then tears down.
 PLAYER_EXIT_GRACE = 30
@@ -69,8 +69,6 @@ PLAYER_EXIT_GRACE = 30
 # folder and changes or deletes files only in a folder that has it.
 WORK_DIR_MARKER = ".mu3-multiplayer-harness"
 WORK_DIR_MARKER_TEXT = "mu3-multiplayer-harness made this folder and may change or delete any file in it.\n"
-# A full Unity release, as compile-unity.sh --editor-version accepts it; it names a Unity Hub folder.
-EDITOR_VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?")
 
 LOG_PREFIX = "MPHARNESS "
 PLAN_PATTERN = re.compile(r"^MPHARNESS PLAN (\S+) ?(.*)$")
@@ -82,12 +80,6 @@ BUILD_PREFIXES = ("MPHARNESS SETTINGS", "MPHARNESS BUILD", "MPHARNESS STEP-", "M
 
 class HarnessSetupError(RuntimeError):
     """The work folder or the project could not be prepared or cleaned, or the players could not be built or started."""
-
-
-def describe_error(error: BaseException) -> str:
-    """One line naming an exception and its message, such as PermissionError: [WinError 5] ..."""
-    message = " ".join(str(error).split())
-    return f"{type(error).__name__}: {message}" if message else type(error).__name__
 
 
 @contextmanager
@@ -116,17 +108,6 @@ def new_lobby_name() -> str:
     return f"mpharness-{datetime.now():%Y%m%d-%H%M%S}-{secrets.token_hex(3)}"
 
 
-def project_path_problem(project: Path, system: str | None = None) -> str | None:
-    """Why the project folder is too deep for Unity on Windows, or None when it is not."""
-    if (system or platform.system()) != "Windows" or len(str(project)) < PROJECT_PATH_LIMIT:
-        return None
-    return (
-        f"the project folder {project} has {len(str(project))} characters; on Windows Unity cannot read every "
-        f"package file from a project folder of {PROJECT_PATH_LIMIT} characters or more (Fresh Clone Setup in "
-        "tools/README.md); pass a shorter --work-dir, such as a folder in the unit's work folder under MU3_WORK_ROOT"
-    )
-
-
 def claim_work_dir(work_dir: Path) -> bool:
     """Make sure the harness may change and delete files in work_dir; returns whether this call marked it."""
     try:
@@ -135,39 +116,6 @@ def claim_work_dir(work_dir: Path) -> bool:
         raise HarnessSetupError(
             f"{error}, so the harness will not change or delete files in it; pass a new or empty --work-dir"
         ) from error
-
-
-def write_if_changed(path: Path, data: bytes) -> bool:
-    if path.is_file() and path.read_bytes() == data:
-        return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return True
-
-
-def sync_template(template: Path, target: Path, generated: Sequence[str] = GENERATED) -> list[str]:
-    """Copy the template into its folder of the project and remove the files the template no longer has.
-
-    A file whose content is unchanged is left alone, so Unity reimports only what changed, and the
-    .meta files Unity wrote are kept, as is each file of `generated`. Returns the paths, relative to
-    the folder, that were written or removed.
-    """
-    changed: list[str] = []
-    expected: set[str] = set(generated)
-    for source in sorted(path for path in template.rglob("*") if path.is_file()):
-        relative = source.relative_to(template).as_posix()
-        expected.add(relative)
-        if write_if_changed(target / relative, source.read_bytes()):
-            changed.append(relative)
-
-    if target.is_dir():
-        for existing in sorted(path for path in target.rglob("*") if path.is_file()):
-            relative = existing.relative_to(target).as_posix()
-            # Unity removes the .meta of a missing asset on its next import.
-            if not relative.endswith(".meta") and relative not in expected:
-                existing.unlink()
-                changed.append(relative)
-    return changed
 
 
 def build_command(editor_path: Path, project: Path, player_path: Path, log_path: Path) -> list[str]:
@@ -348,7 +296,7 @@ def prepare_project(root: Path, project: Path, editor_path: Path, editor_version
             echo(f"  - {change}")
 
     with setup_step(f"copying {TEMPLATE.as_posix()} into the project"):
-        synced = sync_template(root / TEMPLATE, project.joinpath(*PROJECT_FOLDER.parts))
+        synced = sync_template(root / TEMPLATE, project.joinpath(*PROJECT_FOLDER.parts), GENERATED)
     return [f"{PROJECT_FOLDER}/{path}" for path in synced]
 
 

@@ -18,20 +18,22 @@ import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterator, Sequence
+from typing import Callable, Iterator
 
 import typer
 
 from common.checkout import echo_repository_root, repo_root
 from common.editor import (
+    EDITOR_VERSION_PATTERN,
     editor_package_manager_dir,
     folder_editor_version,
     is_hub_editor_for,
     resolve_editor_path,
     retarget_dependencies,
 )
+from common.errors import describe_error
 from common.process import run_with_timeout
-from common.unity_projects import CONFIGS_FOLDER, checkout_packages
+from common.unity_projects import CONFIGS_FOLDER, checkout_packages, sync_template, write_if_changed
 from common.work_dir import FolderNotClaimedError, claim_folder
 
 
@@ -62,8 +64,6 @@ LONG_PROJECT_PATH = 100
 # folder and changes or deletes files only in a folder that has it.
 WORK_DIR_MARKER = ".mu3-di-strip-harness"
 WORK_DIR_MARKER_TEXT = "mu3-di-strip-harness made this folder and may change or delete any file in it.\n"
-# A full Unity release, as compile-unity.sh --editor-version accepts it; it names a Unity Hub folder.
-EDITOR_VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+([a-z][0-9]+)?")
 
 CHECK_PATTERN = re.compile(r"^HARNESS CHECK (\S+) (PASS|FAIL) ?(.*)$")
 RESULT_PATTERN = re.compile(r"^HARNESS RESULT (PASS|FAIL) checks=(\d+) failures=(\d+) errorLogs=(\d+)")
@@ -71,12 +71,6 @@ RESULT_PATTERN = re.compile(r"^HARNESS RESULT (PASS|FAIL) checks=(\d+) failures=
 
 class HarnessSetupError(RuntimeError):
     """The work folder or the mirror could not be prepared or cleaned, or the player could not be built or started."""
-
-
-def describe_error(error: BaseException) -> str:
-    """One line naming an exception and its message, such as PermissionError: [WinError 5] ..."""
-    message = " ".join(str(error).split())
-    return f"{type(error).__name__}: {message}" if message else type(error).__name__
 
 
 @contextmanager
@@ -183,42 +177,6 @@ def mirror_manifest(reference_manifest: dict, package_paths: dict[str, Path], un
     if unitask:
         dependencies[UNITASK_PACKAGE] = unitask
     return {"dependencies": dict(sorted(dependencies.items()))}
-
-
-def write_if_changed(path: Path, data: bytes) -> bool:
-    if path.is_file() and path.read_bytes() == data:
-        return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return True
-
-
-def sync_template(template_assets: Path, project_assets: Path, generated: Sequence[str] = ()) -> list[str]:
-    """Copy the template's assets into the mirror and remove the files it no longer has.
-
-    A file whose content is unchanged is left alone, so Unity reimports only what changed, and the
-    .meta files Unity wrote are kept. `generated` names the asset paths the run itself creates, such
-    as the plugin DLL and the scene.
-    Returns the asset paths that were written or removed.
-    """
-    changed: list[str] = []
-    expected: set[str] = set(generated)
-    for source in sorted(path for path in template_assets.rglob("*") if path.is_file()):
-        relative = source.relative_to(template_assets).as_posix()
-        expected.add(relative)
-        if write_if_changed(project_assets / relative, source.read_bytes()):
-            changed.append(relative)
-
-    if project_assets.is_dir():
-        for existing in sorted(path for path in project_assets.rglob("*") if path.is_file()):
-            relative = existing.relative_to(project_assets).as_posix()
-            if relative.endswith(".meta"):
-                # Unity removes the .meta of a missing asset on its next import.
-                continue
-            if relative not in expected:
-                existing.unlink()
-                changed.append(relative)
-    return changed
 
 
 def editor_mono(editor_path: Path) -> tuple[Path, Path]:
