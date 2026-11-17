@@ -11,6 +11,7 @@ They are intentionally scoped to tooling-safe roots and should not modify Unity 
 | `repo` | `mu3-repo` | Repository checks |
 | `unity` | `mu3-unity` | Unity Editor diagnostics, and compiles and test runs through `compile-unity.sh` and `test-unity.sh` |
 | `strip_harness` | `mu3-di-strip-harness` | The [DI stripping harness](../README.md#di-stripping-harness) |
+| `multiplayer_harness` | `mu3-multiplayer-harness` | The [multiplayer harness](../README.md#multiplayer-harness), a host and a guest player of a project generated from the `minimal` config that play one session on this computer |
 | `verify_build` | `mu3-verify-build` | The [verification build](../README.md#verification-build), a player of a project generated from the `full` config |
 | `fixed_load` | none | The helper that `compile-unity.sh` and `test-unity.sh` run beside each Unity run, by its path, `src/fixed_load/fixed_load.py`, with nothing but the standard library (see [../README.md](../README.md#fixed-load-and-repeated-runs)) |
 | `common` | none | The code the tools share: the repository root (`checkout`), the Editor each project needs and the Unity package versions it bundles (`editor`), the [project configs](../README.md#unity-project-configs) and the projects generated from them (`unity_projects`), whose `unity_projects.py` `compile-unity.sh` and `test-unity.sh` run by its path with nothing but the standard library, whether an Editor holds a project's lock file (`project_lock`), the bash that runs the shell entrypoints (`bash`), the marker file that lets a tool change only a folder it made (`work_dir`), and a command run with a timeout that also stops the processes it started (`process`) |
@@ -24,13 +25,14 @@ Each command also runs as `python -m <package>`, such as `python -m unity doctor
 - `mu3-unity compile`: invoke the repository's selective Unity batchmode compiler through the shared shell entrypoint; `--work-dir <folder>` names the folder the projects are generated in, and `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails (see [../README.md](../README.md#unity-compile-entrypoint)).
 - `mu3-unity test`: run the EditMode tests of the selected projects through `test-unity.sh`, with the same targets and options as `mu3-unity compile`, or with `--platform playmode` their PlayMode tests; `--filter <pattern>` runs only the tests whose full name matches it, `--stall-timeout <seconds>` sets how long Unity may write nothing before the target fails, `--load-spinners <n>` spins *n* CPU cores from the first test of each run to its last, and `--repeat <n>` runs each target *n* times and totals the runs (see [../README.md](../README.md#fixed-load-and-repeated-runs)).
 - `mu3-di-strip-harness`: build the DI stripping harness as a Windows player at a chosen scripting backend and Managed Stripping Level, with the Editor the `minimal` config names or another installed one, run it, and report each check (see [../README.md](../README.md#di-stripping-harness)).
+- `mu3-multiplayer-harness`: generate a project from the `minimal` config, build the multiplayer harness as a Windows player, run it as a host and a guest on the machine-wide local network, and report each player's checks (see [../README.md](../README.md#multiplayer-harness)).
 - `mu3-verify-build --content build|none`: generate a project from the `full` config, whose Addressables content builds into the project's own `Library/`, and build its Windows player with the content or without it (see [../README.md](../README.md#verification-build)).
 
 ## Repository Root
 
 The tools act on the checkout they were imported from. An installed command, such as one of the editable install in a checkout's `.venv`, keeps acting on the checkout it was installed from even when it runs in another checkout's folder. A working directory inside that same checkout only supplies the spelling of its root, such as the `subst` drive it was run from.
 
-- Every command of `mu3-unity`, and `mu3-di-strip-harness` and `mu3-verify-build`, prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `mu3-unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
+- Every command of `mu3-unity`, and `mu3-di-strip-harness`, `mu3-multiplayer-harness`, and `mu3-verify-build`, prints `Repository root: <root>` as its first line, before it acts, so the output names the checkout it changes or runs. `mu3-unity doctor --format json` gives the root as the `repository_root` field of its JSON object instead.
 
 ## Compile Verification
 

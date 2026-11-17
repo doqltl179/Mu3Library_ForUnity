@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-17 (multiplayer harness)
+
+### Added
+- `mu3-multiplayer-harness` (`python -m multiplayer_harness`) and its template, `tools/multiplayer-harness/` (#547, ADR 0001 D17): the command generates a project from the `minimal` config, adds a player script that drives Base's `MultiplayerManager` on a `LocalBackend` of the machine-wide local network with no DI core, calling its `Update()` itself, builds a Windows x64 player, and runs it twice at once as a host and a guest. The two play the flow of the Multiplayer sample's unattended run, from a public lobby with lobby data to the kick, and each logs 11 checks, which the command prints. It exits 0 when both pass, 1 when a check failed or was not reached or a player did not report, and 3 when the setup or the build failed, as `mu3-di-strip-harness` does. The Multiplayer sample stays until #187 is done (D14). [tools/README.md](../../tools/README.md#multiplayer-harness) describes the checks, what the harness leaves out, and its options.
+
+### What an existing checkout needs
+- Nothing for the shell entrypoints. A `.venv` gets the `mu3-multiplayer-harness` command the next time the development environment is entered, since `ensure_tools.py` finds the command missing and installs the tools again.
+
 ## 2026-11-16 (steam package)
 
 ### Changed
