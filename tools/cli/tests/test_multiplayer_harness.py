@@ -4,7 +4,9 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Sequence
@@ -24,6 +26,7 @@ from multiplayer_harness.cli import (
     HarnessSetupError,
     PlayerRun,
     app,
+    default_players_runner,
     parse_player_log,
     run_harness,
     run_problems,
@@ -251,6 +254,20 @@ class MultiplayerHarnessLogTests(unittest.TestCase):
         self.assertIn("logged no MPHARNESS RESULT line", run_problems(no_result, 0))
         self.assertIn("did not exit before the timeout and was stopped", run_problems(parse_player_log(GUEST_LOG), None))
         self.assertIn("logged no MPHARNESS PLAN line", run_problems(PlayerRun(), 0))
+        empty = parse_player_log("MPHARNESS PLAN host\nMPHARNESS RESULT PASS role=host checks=0 failures=0 errorLogs=0\n")
+        self.assertEqual(["logged no MPHARNESS CHECK line"], run_problems(empty, 0))
+
+
+class MultiplayerHarnessPlayersRunnerTests(unittest.TestCase):
+    def test_a_player_still_running_at_the_timeout_is_stopped_and_the_other_keeps_its_exit_code(self) -> None:
+        started = time.monotonic()
+
+        codes = default_players_runner(
+            [[sys.executable, "-c", "import time; time.sleep(60)"], [sys.executable, "-c", "import sys; sys.exit(3)"]], 2
+        )
+
+        self.assertEqual([None, 3], codes)
+        self.assertLess(time.monotonic() - started, 30)
 
 
 class MultiplayerHarnessTemplateTests(unittest.TestCase):

@@ -228,6 +228,8 @@ def run_problems(run: PlayerRun, exit_code: int | None) -> list[str]:
     unreached = run.unreached()
     if unreached:
         problems.append(f"{len(unreached)} planned checks were not reached: {', '.join(unreached)}")
+    if not run.checks:
+        problems.append("logged no MPHARNESS CHECK line")
     return problems
 
 
