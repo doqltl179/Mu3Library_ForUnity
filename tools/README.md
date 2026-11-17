@@ -347,9 +347,10 @@ Every run was on the measurement PC (AMD Ryzen 7 5800X3D, Windows 11 Pro 26300) 
 
 | Date | Editor | Players | Exit | Checks | Project | Time | Source |
 |---|---|---|---|---|---|---|---|
-| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | new | 82 s: build 71.9 s, players 9.6 s | #547 |
-| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | imported | 23 s: build 14.6 s, players 7.8 s | #547 |
-| 2026-11-17 | 6000.6.7f1 | host, and a guest given another lobby name, with `--player-timeout 20` | 1 | host 2 of 11, guest 1 of 11: `guest.join` and `lobby.search` timed out, the rest not reached | imported | 41 s: build 14.4 s, players 26.6 s | #547 |
+| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | new | 49 s: build 39.0 s, players 9.3 s | #547 |
+| 2026-11-17 | 6000.6.7f1 | host and guest | 0 | 11 of 11 each | imported | 23 s: build 14.3 s, players 8.4 s | #547 |
+| 2026-11-17 | 6000.6.7f1 | host, and a guest given another lobby name, with `--player-timeout 20` | 1 | host 2 of 11, guest 1 of 11: `guest.join` and `lobby.search` timed out, the rest not reached | imported | 41 s: build 14.4 s, players 26.8 s | #547 |
+| 2026-11-17 | 6000.3.10f1 (`--editor-version`) | host and guest | 0 | 11 of 11 each | new | 79 s: build 69.6 s, players 8.1 s | #547 |
 
 ## Verification Build
 
