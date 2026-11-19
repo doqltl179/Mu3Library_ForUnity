@@ -59,28 +59,46 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+
+    # Notifications package
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
+
+    # Input System package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/inputsystem#inputsystem/v0.1.0
+
+    # Localization package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
+
+    # Addressables package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+
+    # DI package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+
+    # Steam package (install Steamworks.NET and Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game package (install Base and URP first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.7.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
    ```
 
 Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
 
-The Notifications package, local notifications for Android and iOS, ships with the next release, and its URL joins this list then. It needs no other Mu3Library package.
+The Notifications package holds local notifications for Android and iOS. It needs no other Mu3Library package.
 
-The Input System package, `InputSystemManager` and its name exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
+The Input System package holds `InputSystemManager` and its name exporter drawer. Install Base before it.
 
-The Localization package, `LocalizationManager` and its data exporter and character collector drawers, also ships with the next release, and its URL joins this list then. Install Base before it.
+The Localization package holds `LocalizationManager` and its data exporter and character collector drawers. Install Base before it.
 
-The Addressables package, `AddressablesManager` and its group data exporter drawer, also ships with the next release, and its URL joins this list then. Install Base before it.
+The Addressables package holds `AddressablesManager` and its group data exporter drawer. Install Base before it.
 
-The DI package, the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers, also ships with the next release, and its URL joins this list then. Install Base before it.
+The DI package holds the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers. Install Base before it.
 
-The Steam package, `SteamBackend`, which runs multiplayer sessions on Steam, also ships with the next release, and its URL joins this list then. Install Steamworks.NET and Base before it.
+The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam. Install Steamworks.NET and Base before it.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
@@ -447,12 +465,12 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base`
-- Notifications: `com.github.doqltl179.mu3library.notifications` (from the next release)
-- Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base, from the next release)
-- Localization: `com.github.doqltl179.mu3library.localization` (depends on Base, from the next release)
-- Addressables: `com.github.doqltl179.mu3library.addressables` (depends on Base, from the next release)
-- DI: `com.github.doqltl179.mu3library.di` (depends on Base, from the next release)
-- Steam: `com.github.doqltl179.mu3library.steam` (depends on Base and needs Steamworks.NET, from the next release)
+- Notifications: `com.github.doqltl179.mu3library.notifications`
+- Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base)
+- Localization: `com.github.doqltl179.mu3library.localization` (depends on Base)
+- Addressables: `com.github.doqltl179.mu3library.addressables` (depends on Base)
+- DI: `com.github.doqltl179.mu3library.di` (depends on Base)
+- Steam: `com.github.doqltl179.mu3library.steam` (depends on Base and needs Steamworks.NET)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

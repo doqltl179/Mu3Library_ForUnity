@@ -59,28 +59,46 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+
+    # Notifications 패키지
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
+
+    # Input System 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/inputsystem#inputsystem/v0.1.0
+
+    # Localization 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
+
+    # Addressables 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+
+    # DI 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+
+    # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
 
     # URP 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game 패키지 (먼저 Base와 URP 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.7.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
    ```
 
 패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.
 
-Android와 iOS의 로컬 알림을 담은 Notifications 패키지는 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 다른 Mu3Library 패키지는 필요하지 않습니다.
+Notifications 패키지는 Android와 iOS의 로컬 알림을 담습니다. 다른 Mu3Library 패키지는 필요하지 않습니다.
 
-`InputSystemManager`와 그 이름 내보내기 드로어를 담은 Input System 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+Input System 패키지는 `InputSystemManager`와 그 이름 내보내기 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-`LocalizationManager`와 그 데이터 내보내기, 문자 수집 드로어를 담은 Localization 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+Localization 패키지는 `LocalizationManager`와 그 데이터 내보내기, 문자 수집 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-`AddressablesManager`와 그 그룹 데이터 내보내기 드로어를 담은 Addressables 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+Addressables 패키지는 `AddressablesManager`와 그 그룹 데이터 내보내기 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-`CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담은 DI 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Base를 설치하세요.
+DI 패키지는 `CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`를 담은 Steam 패키지도 다음 릴리스부터 제공되며, 그때 이 목록에 URL이 추가됩니다. 먼저 Steamworks.NET과 Base를 설치하세요.
+Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`를 담습니다. 먼저 Steamworks.NET과 Base를 설치하세요.
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
@@ -447,12 +465,12 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 
 **패키지 정보:**
 - Base: `com.github.doqltl179.mu3library.base`
-- Notifications: `com.github.doqltl179.mu3library.notifications` (다음 릴리스부터)
-- Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존, 다음 릴리스부터)
-- Localization: `com.github.doqltl179.mu3library.localization` (Base 의존, 다음 릴리스부터)
-- Addressables: `com.github.doqltl179.mu3library.addressables` (Base 의존, 다음 릴리스부터)
-- DI: `com.github.doqltl179.mu3library.di` (Base 의존, 다음 릴리스부터)
-- Steam: `com.github.doqltl179.mu3library.steam` (Base 의존, Steamworks.NET 필요, 다음 릴리스부터)
+- Notifications: `com.github.doqltl179.mu3library.notifications`
+- Input System: `com.github.doqltl179.mu3library.inputsystem` (Base 의존)
+- Localization: `com.github.doqltl179.mu3library.localization` (Base 의존)
+- Addressables: `com.github.doqltl179.mu3library.addressables` (Base 의존)
+- DI: `com.github.doqltl179.mu3library.di` (Base 의존)
+- Steam: `com.github.doqltl179.mu3library.steam` (Base 의존, Steamworks.NET 필요)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)

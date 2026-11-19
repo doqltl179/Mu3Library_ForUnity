@@ -9,7 +9,7 @@ Steam package of **Mu3Library For Unity**: `SteamBackend`, a backend that runs t
 
 ## Installation
 
-The package ships with the next release, and its Git URL then joins the others under Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation). Until then, add `packages/steam/package.json` from disk. Install in this order, since a Git URL install resolves neither dependency by itself:
+Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation) gives the package's Git URL with its latest release tag. Install in this order, since a Git URL install resolves neither dependency by itself:
 
 1. Steamworks.NET through the Package Manager (**Add package from git URL...**), at 2025.164.1 or a later tag:
    ```

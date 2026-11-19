@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-19
+
+- See `base/0.29.0` in the repository root `CHANGELOG.md`. Highlights: `NotificationManager`, `InputSystemManager`, `LocalizationManager`, `AddressablesManager`, the DI container with `CoreBase` and `CoreRoot`, and `SteamBackend` moved out of Base into six new packages, which a project that uses them installs with Base; the package folder moved to `packages/base`, so its Git URL takes `?path=packages/base`; the DI contracts moved to `Mu3Library.Foundation`, which an assembly definition that uses them through `Mu3Library.DI` adds as a reference; the Steam assembly and namespace are renamed to `Mu3Library.Steam.Multiplayer`; and the Template, Attribute, and UtilWindow samples and the default materials and textures are removed.
+
 ## [0.28.0] - 2026-11-15
 
 - See `base/0.28.0` in the repository root `CHANGELOG.md`. Highlights: the new `Mu3Library.Multiplayer` assembly runs player-hosted sessions, where one player's machine hosts and the others find it through a lobby, with lobbies, ready checks, session rules, and game messages through the host; with Steamworks.NET installed, `SteamBackend` runs them on Steam lobbies and Valve's relays, and `LocalNetwork.CreateMachineWide` lets editors and player builds on one computer play together without Steam; the new **Multiplayer** sample shows each flow; a required `[Inject]` property without a setter, `readonly` field, or `static` member now fails injection instead of staying null; and DI works in a player built with Managed Stripping Level Medium or High.

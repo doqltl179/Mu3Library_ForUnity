@@ -177,9 +177,9 @@ A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, 
 The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
 
 ```text
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v<base-version>
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v<urp-version>
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v<watermelon-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v<base-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v<urp-version>
+https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v<watermelon-version>
 ```
 
 The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
