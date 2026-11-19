@@ -13,7 +13,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
-## [base/0.29.0] - 2026-11-19
+## [base/0.29.0] - 2026-11-20
 
 ### 변경됨
 - 패키지 폴더가 `Mu3Library_Base`에서 `packages/base`로 옮겨졌습니다(#525). 그래서 이 릴리스부터 Git URL은 `?path=packages/base`를 씁니다. 이전 태그의 URL은 그대로 `?path=Mu3Library_Base`를 씁니다. `Scripts/` 단계가 없어져, `Runtime/Scripts/`와 `Editor/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/`과 `Editor/` 바로 아래에 있습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
@@ -35,7 +35,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 - 다른 어셈블리의 드로어도 `Mu3WindowDrawer.GetNamespaceWarning`을 부를 수 있습니다(#535). 이 메서드는 `DrawNamespaceField`에 입력한 네임스페이스로 컴파일할 수 없는 이유를 알려 줍니다. `internal`이던 이 메서드가 `protected internal`이 되어, Input System 패키지의 내보내기 드로어처럼 Base 밖에 있는 드로어도 Base의 드로어와 같은 방식으로 그 네임스페이스를 검사합니다.
 - 다른 어셈블리의 드로어도 `FileCreator.WrapInDefineSymbol`을 부를 수 있습니다(#537). 이 메서드는 생성한 스크립트를 define 심볼에 거는 `#if` 안에 넣고, 자동 생성 표시 같은 맨 앞의 주석 줄은 조건 밖에 남깁니다. `internal`이던 이 메서드가 `public`이 되어, Localization 패키지의 데이터 내보내기 드로어처럼 Base 밖에 있는 드로어도 Base의 드로어와 같은 방식으로 생성한 스크립트를 감쌉니다.
 
-## [urp/0.5.0] - 2026-11-19
+## [urp/0.5.0] - 2026-11-20
 
 ### 변경됨
 - 패키지 폴더가 `Mu3Library_URP`에서 `packages/urp`로 옮겨졌습니다(#525). 그래서 이 릴리스부터 Git URL은 `?path=packages/urp`를 씁니다. 이전 태그의 URL은 그대로 `?path=Mu3Library_URP`를 씁니다. `Runtime/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/` 바로 아래에 있고, 스크린 이펙트 셰이더와 `ScreenEffectShaders` 에셋이 든 Resources 폴더는 `Runtime/ScreenEffect/` 아래로 옮겨졌습니다. Resources 폴더 안에서의 에셋 경로 `Mu3Library.URP/ScreenEffectShaders`는 바뀌지 않았습니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
@@ -44,7 +44,7 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 제거됨
 - **ScreenEffect** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
 
-## [game/watermelon/0.8.0] - 2026-11-19
+## [game/watermelon/0.8.0] - 2026-11-20
 
 ### 변경됨
 - 패키지 폴더가 `Mu3Library_Game_WatermelonGame`에서 `packages/game/watermelon`으로 옮겨졌습니다(#525). 그래서 이 릴리스부터 Git URL은 `?path=packages/game/watermelon`을 씁니다. 이전 태그의 URL은 그대로 `?path=Mu3Library_Game_WatermelonGame`을 씁니다. `Runtime/Scripts/` 아래에 있던 폴더와 파일이 이제 `Runtime/` 바로 아래에 있고, `package.json`의 `documentationUrl`은 새 폴더의 README를 가리킵니다. 패키지 ID, 어셈블리 이름, 네임스페이스, `.meta` 파일의 GUID는 바뀌지 않았습니다. 그래서 Git URL로 설치한 프로젝트는 업데이트할 때 새 경로만 쓰면 되고, 디스크에서 추가한 프로젝트는 새 폴더의 `package.json`을 고르면 됩니다.
@@ -53,32 +53,32 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 ### 제거됨
 - **Watermelon Game** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#521). 이미 가져온 샘플은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
 
-## [notifications/0.1.0] - 2026-11-19
+## [notifications/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.notifications`("Mu3 Library Notifications")가 Base에 있던 `Mu3Library.Notifications` 어셈블리를 담습니다(#533). `NotificationManager`는 Android, iOS, 에디터에서 Mobile Notifications 패키지의 통합 `NotificationCenter`를 감쌉니다. 이 패키지는 Unity 6000.3이 함께 제공하는 버전인 `com.unity.mobile.notifications` 2.4.3을 의존 패키지로 선언하므로 패키지 매니저가 그 패키지를 함께 설치하고, 다른 Mu3Library 패키지는 필요하지 않습니다. UniTask가 설치되어 있으면 지금처럼 `RequestPermissionAsync`와 `GetLastRespondedNotificationAsync`를 쓸 수 있습니다.
 
-## [inputsystem/0.1.0] - 2026-11-19
+## [inputsystem/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.inputsystem`("Mu3 Library Input System")가 Base에 있던 `InputSystemManager`와 **InputSystem Data Exporter** 드로어를 담습니다(#535). 매니저는 새 어셈블리 `Mu3Library.InputSystem`에, 드로어는 새 에디터 어셈블리 `Mu3Library.InputSystem.Editor`에 있습니다. 이 패키지는 Unity 6000.3이 함께 제공하는 버전인 `com.unity.inputsystem` 1.18.0을 의존 패키지로 선언하므로 패키지 매니저가 그 패키지를 함께 설치합니다. 이 코드를 뺀 첫 Base인 Base 0.29.0도 의존 패키지로 선언하는데, Git URL 설치는 이 의존을 해결하지 못하므로 Base를 먼저 설치합니다.
 
-## [localization/0.1.0] - 2026-11-19
+## [localization/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.localization`("Mu3 Library Localization")가 Base에 있던 `LocalizationManager`, `Mu3Library.Localization.Data`의 타입, **Localization Data Exporter**와 **Localization Character Collector** 드로어를 담습니다(#537). 매니저와 데이터 타입은 새 어셈블리 `Mu3Library.Localization`에, 드로어는 새 에디터 어셈블리 `Mu3Library.Localization.Editor`에 있습니다. 이 패키지는 `com.unity.localization` 1.5.8과, 매니저가 그 작업 핸들을 기다리는 `com.unity.addressables` 2.9.0을 의존 패키지로 선언하므로(둘 다 Unity 6000.3이 함께 제공하는 버전) 패키지 매니저가 그 패키지들을 함께 설치합니다. 이 코드를 뺀 첫 Base인 Base 0.29.0도 의존 패키지로 선언하는데, Git URL 설치는 이 의존을 해결하지 못하므로 Base를 먼저 설치합니다. UniTask가 설치되어 있으면 지금처럼 매니저의 비동기 메서드를 쓸 수 있습니다.
 
-## [addressables/0.1.0] - 2026-11-19
+## [addressables/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.addressables`("Mu3 Library Addressables")가 Base에 있던 `AddressablesManager`, `Mu3Library.Addressable.Data`의 타입, **Addressable Group Data Exporter** 드로어를 담습니다(#539). 매니저와 데이터 타입은 새 어셈블리 `Mu3Library.Addressables`에, 드로어는 새 에디터 어셈블리 `Mu3Library.Addressables.Editor`에 있습니다. 이 패키지는 Unity 6000.3이 함께 제공하는 버전인 `com.unity.addressables` 2.9.0을 의존 패키지로 선언하므로 패키지 매니저가 그 패키지를 함께 설치합니다. 이 코드를 뺀 첫 Base인 Base 0.29.0도 의존 패키지로 선언하는데, Git URL 설치는 이 의존을 해결하지 못하므로 Base를 먼저 설치합니다. UniTask가 설치되어 있으면 지금처럼 매니저의 비동기 메서드를 쓸 수 있습니다.
 
-## [di/0.1.0] - 2026-11-19
+## [di/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.di`("Mu3 Library DI")가 Base에 있던 `Mu3Library.DI` 어셈블리, 곧 DI 컨테이너와 `CoreBase`, `CoreRoot`를 담고, Base의 에디터에 있던 link.xml 처리기와 **DI Validator**, **Runtime Diagnostics** 드로어도 담습니다(#541). 처리기와 드로어는 새 에디터 어셈블리 `Mu3Library.DI.Editor`에 있습니다. 이 코드를 뺀 첫 Base인 Base 0.29.0을 의존 패키지로 선언하는데, Git URL 설치는 이 의존을 해결하지 못하므로 Base를 먼저 설치합니다. UniTask가 설치되어 있으면 지금처럼 코어가 UniTask로 준비합니다.
 
-## [steam/0.1.0] - 2026-11-19
+## [steam/0.1.0] - 2026-11-20
 
 ### 추가됨
 - 새 패키지 `com.github.doqltl179.mu3library.steam`("Mu3 Library Steam")가 Base의 `Mu3Library.Multiplayer.Steam`에 있던 Steam 멀티플레이 백엔드, 곧 `SteamBackend`, `SteamBackendOptions`, `SteamLaunchArguments`를 담습니다(#543). 어셈블리와 네임스페이스는 이제 `Mu3Library.Steam.Multiplayer`입니다. Steamworks.NET은 Git으로 배포되어 이 패키지가 의존 패키지로 선언할 수 없으므로, 지금처럼 Steamworks.NET 2025.164.1 이상을 먼저 설치합니다. Steamworks.NET이 없거나 빌드 대상이 스탠드얼론 플랫폼이 아니면 Unity는 이 어셈블리를 건너뛰며, 어셈블리는 지금처럼 에디터와 64비트 스탠드얼론 플레이어에서만 컴파일됩니다. 이 코드를 뺀 첫 Base인 Base 0.29.0을 의존 패키지로 선언하는데, Git URL 설치는 이 의존을 해결하지 못하므로 Base를 먼저 설치합니다.

@@ -15,7 +15,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
-## [base/0.29.0] - 2026-11-19
+## [base/0.29.0] - 2026-11-20
 
 ### 変更
 - パッケージフォルダーが `Mu3Library_Base` から `packages/base` に移動しました（#525）。そのため、このリリースから Git URL は `?path=packages/base` を使います。以前のタグの URL は引き続き `?path=Mu3Library_Base` を使います。`Scripts/` の階層がなくなり、`Runtime/Scripts/` と `Editor/Scripts/` の下にあったフォルダーとファイルは `Runtime/` と `Editor/` の直下に移りました。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
@@ -37,7 +37,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 - ほかのアセンブリのドロワーも `Mu3WindowDrawer.GetNamespaceWarning` を呼べるようになりました（#535）。このメソッドは、`DrawNamespaceField` に入力した名前空間でコンパイルできない理由を返します。`internal` だったこのメソッドが `protected internal` になり、Input System パッケージのエクスポーターのように Base の外にあるドロワーも、Base のドロワーと同じ方法でその名前空間を検査します。
 - ほかのアセンブリのドロワーも `FileCreator.WrapInDefineSymbol` を呼べるようになりました（#537）。このメソッドは、生成したスクリプトを define シンボルの `#if` の中に入れ、自動生成の表示のような先頭のコメント行は条件の外に残します。`internal` だったこのメソッドが `public` になり、Localization パッケージのデータエクスポーターのように Base の外にあるドロワーも、Base のドロワーと同じ方法で生成したスクリプトを囲みます。
 
-## [urp/0.5.0] - 2026-11-19
+## [urp/0.5.0] - 2026-11-20
 
 ### 変更
 - パッケージフォルダーが `Mu3Library_URP` から `packages/urp` に移動しました（#525）。そのため、このリリースから Git URL は `?path=packages/urp` を使います。以前のタグの URL は引き続き `?path=Mu3Library_URP` を使います。`Runtime/Scripts/` の下にあったフォルダーとファイルは `Runtime/` の直下に移り、スクリーンエフェクトのシェーダーと `ScreenEffectShaders` アセットを含む Resources フォルダーは `Runtime/ScreenEffect/` の下に移動しました。Resources フォルダー内でのアセットのパス `Mu3Library.URP/ScreenEffectShaders` は変わりません。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
@@ -46,7 +46,7 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 削除
 - **ScreenEffect** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
 
-## [game/watermelon/0.8.0] - 2026-11-19
+## [game/watermelon/0.8.0] - 2026-11-20
 
 ### 変更
 - パッケージフォルダーが `Mu3Library_Game_WatermelonGame` から `packages/game/watermelon` に移動しました（#525）。そのため、このリリースから Git URL は `?path=packages/game/watermelon` を使います。以前のタグの URL は引き続き `?path=Mu3Library_Game_WatermelonGame` を使います。`Runtime/Scripts/` の下にあったフォルダーとファイルは `Runtime/` の直下に移り、`package.json` の `documentationUrl` は新しいフォルダーの README を指します。パッケージ ID、アセンブリ名、名前空間、`.meta` ファイルの GUID は変わりません。そのため、Git URL でインストールしたプロジェクトは更新時に新しいパスを使うだけで済み、ディスクから追加したプロジェクトは新しいフォルダーの `package.json` を選び直します。
@@ -55,32 +55,32 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 ### 削除
 - **Watermelon Game** サンプルと、`package.json` の `samples` にあった項目を削除しました（#521）。すでにインポートしたサンプルはプロジェクトの `Assets/Samples` フォルダーにそのまま残ります。
 
-## [notifications/0.1.0] - 2026-11-19
+## [notifications/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.notifications`（"Mu3 Library Notifications"）が、Base にあった `Mu3Library.Notifications` アセンブリを持つようになりました（#533）。`NotificationManager` は Android、iOS、エディターで Mobile Notifications パッケージの統合 `NotificationCenter` を包みます。このパッケージは Unity 6000.3 に同梱されるバージョンである `com.unity.mobile.notifications` 2.4.3 を依存パッケージとして宣言するため、パッケージマネージャーがそのパッケージを一緒にインストールし、ほかの Mu3Library パッケージは必要ありません。UniTask がインストールされていれば、これまでどおり `RequestPermissionAsync` と `GetLastRespondedNotificationAsync` を使えます。
 
-## [inputsystem/0.1.0] - 2026-11-19
+## [inputsystem/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.inputsystem`（"Mu3 Library Input System"）が、Base にあった `InputSystemManager` と **InputSystem Data Exporter** ドロワーを持つようになりました（#535）。マネージャーは新しいアセンブリ `Mu3Library.InputSystem` に、ドロワーは新しいエディターアセンブリ `Mu3Library.InputSystem.Editor` にあります。このパッケージは Unity 6000.3 に同梱されるバージョンである `com.unity.inputsystem` 1.18.0 を依存パッケージとして宣言するため、パッケージマネージャーがそのパッケージを一緒にインストールします。このコードを除いた最初の Base である Base 0.29.0 も依存パッケージとして宣言しますが、Git URL でのインストールはこの依存を解決しないため、先に Base をインストールします。
 
-## [localization/0.1.0] - 2026-11-19
+## [localization/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.localization`（"Mu3 Library Localization"）が、Base にあった `LocalizationManager`、`Mu3Library.Localization.Data` の型、**Localization Data Exporter** と **Localization Character Collector** ドロワーを持つようになりました（#537）。マネージャーとデータ型は新しいアセンブリ `Mu3Library.Localization` に、ドロワーは新しいエディターアセンブリ `Mu3Library.Localization.Editor` にあります。このパッケージは `com.unity.localization` 1.5.8 と、マネージャーがその操作ハンドルを待つ `com.unity.addressables` 2.9.0（どちらも Unity 6000.3 に同梱されるバージョン）を依存パッケージとして宣言するため、パッケージマネージャーがそれらのパッケージを一緒にインストールします。このコードを除いた最初の Base である Base 0.29.0 も依存パッケージとして宣言しますが、Git URL でのインストールはこの依存を解決しないため、先に Base をインストールします。UniTask がインストールされていれば、これまでどおりマネージャーの非同期メソッドを使えます。
 
-## [addressables/0.1.0] - 2026-11-19
+## [addressables/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.addressables`（"Mu3 Library Addressables"）が、Base にあった `AddressablesManager`、`Mu3Library.Addressable.Data` の型、**Addressable Group Data Exporter** ドロワーを持つようになりました（#539）。マネージャーとデータ型は新しいアセンブリ `Mu3Library.Addressables` に、ドロワーは新しいエディターアセンブリ `Mu3Library.Addressables.Editor` にあります。このパッケージは Unity 6000.3 に同梱されるバージョンである `com.unity.addressables` 2.9.0 を依存パッケージとして宣言するため、パッケージマネージャーがそのパッケージを一緒にインストールします。このコードを除いた最初の Base である Base 0.29.0 も依存パッケージとして宣言しますが、Git URL でのインストールはこの依存を解決しないため、先に Base をインストールします。UniTask がインストールされていれば、これまでどおりマネージャーの非同期メソッドを使えます。
 
-## [di/0.1.0] - 2026-11-19
+## [di/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.di`（"Mu3 Library DI"）が、Base にあった `Mu3Library.DI` アセンブリ、つまり DI コンテナと `CoreBase`、`CoreRoot` を持ち、Base のエディターにあった link.xml プロセッサーと **DI Validator**、**Runtime Diagnostics** ドロワーも持つようになりました（#541）。プロセッサーとドロワーは新しいエディターアセンブリ `Mu3Library.DI.Editor` にあります。このコードを除いた最初の Base である Base 0.29.0 を依存パッケージとして宣言しますが、Git URL でのインストールはこの依存を解決しないため、先に Base をインストールします。UniTask がインストールされていれば、これまでどおりコアは UniTask で準備します。
 
-## [steam/0.1.0] - 2026-11-19
+## [steam/0.1.0] - 2026-11-20
 
 ### 追加
 - 新しいパッケージ `com.github.doqltl179.mu3library.steam`（"Mu3 Library Steam"）が、Base の `Mu3Library.Multiplayer.Steam` にあった Steam マルチプレイバックエンド、つまり `SteamBackend`、`SteamBackendOptions`、`SteamLaunchArguments` を持つようになりました（#543）。アセンブリと名前空間は `Mu3Library.Steam.Multiplayer` になりました。Steamworks.NET は Git で配布されるため、このパッケージは依存パッケージとして宣言できず、これまでどおり先に Steamworks.NET 2025.164.1 以降をインストールします。Steamworks.NET がないとき、またはビルドターゲットがスタンドアロンプラットフォームでないとき、Unity はこのアセンブリをスキップし、アセンブリはこれまでどおりエディターと 64 ビットのスタンドアロンプレイヤーでのみコンパイルされます。このコードを除いた最初の Base である Base 0.29.0 を依存パッケージとして宣言しますが、Git URL でのインストールはこの依存を解決しないため、先に Base をインストールします。

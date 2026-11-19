@@ -6,7 +6,7 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-11-19
+## [0.5.0] - 2026-11-20
 
 - See `urp/0.5.0` in the repository root `CHANGELOG.md`. Highlights: the package folder moved to `packages/urp`, so its Git URL takes `?path=packages/urp`; the ScreenEffect sample is removed; and the assembly no longer references `Mu3Library.DI`, so URP compiles without the DI package.
 

@@ -15,11 +15,11 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
-## [base/0.29.0] - 2026-11-19
+## [base/0.29.0] - 2026-11-20
 
 ### Changed
 - The package folder moved from `Mu3Library_Base` to `packages/base` (#525), so from this release its Git URL takes `?path=packages/base`; the URLs of earlier tags keep `?path=Mu3Library_Base`. The `Scripts/` level is gone: the folders and files that were under `Runtime/Scripts/` and `Editor/Scripts/` now lie directly under `Runtime/` and `Editor/`. The package ID, the assembly names, the namespaces, and the GUIDs in the `.meta` files are unchanged, so a project that installed the package by Git URL needs only the new path when it updates, and one that added it from disk, the `package.json` in the new folder.
-- The DI contracts `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `InjectAttribute` moved from the `Mu3Library.DI` assembly to `Mu3Library.Foundation` (#527), so Base's managers, which implement them, no longer need the DI container, and the `Mu3Library` and `Mu3Library.Multiplayer` assemblies no longer reference `Mu3Library.DI`. Their namespace stays `Mu3Library.DI` and the GUIDs in their `.meta` files are unchanged, so no `using` directive changes. A project whose assembly definition references `Mu3Library.DI` and uses these types, directly or through a Base manager that implements them, as when it assigns an `AudioManager` to an `IAudioManager`, must add a reference to `Mu3Library.Foundation`; code without an assembly definition (Assembly-CSharp) needs no change. The assembly of Watermelon Game 0.7.0 references `Mu3Library.DI` in this way and does not compile against this Base, so a project that installs it also updates Watermelon Game to 0.8.0. The link.xml that Base's editor hands the linker for a player built with Managed Stripping Level Medium or High now also keeps the constructors in the assemblies that reference `Mu3Library.Foundation`, and reads `[Inject]` members from them, so a stripped player keeps what it kept before.
+- The DI contracts `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `InjectAttribute` moved from the `Mu3Library.DI` assembly to `Mu3Library.Foundation` (#527), so Base's managers, which implement them, no longer need the DI container, and the `Mu3Library` and `Mu3Library.Multiplayer` assemblies no longer reference `Mu3Library.DI`. Their namespace stays `Mu3Library.DI` and the GUIDs in their `.meta` files are unchanged, so no `using` directive changes. A project whose assembly definition references `Mu3Library.DI` and uses these types, directly or through a Base manager that implements them, as when it assigns an `AudioManager` to an `IAudioManager`, must add a reference to `Mu3Library.Foundation`; code without an assembly definition (Assembly-CSharp) needs no change. The assembly of Watermelon Game 0.7.0 references `Mu3Library.DI` in this way and does not compile against this Base, so a project that has Watermelon Game installed also updates it to 0.8.0. The link.xml that Base's editor hands the linker for a player built with Managed Stripping Level Medium or High now also keeps the constructors in the assemblies that reference `Mu3Library.Foundation`, and reads `[Inject]` members from them, so a stripped player keeps what it kept before.
 - The **Multiplayer Debugger** window lists every `MultiplayerManager` from its creation until it is disposed, whichever container or code created it, where it listed only the managers that cores under `CoreRoot` held as singletons (#527). It labels each one with its type and its place among the managers, such as `MultiplayerManager 1`, where the label was the type name of the core that held it.
 
 ### Removed
@@ -37,7 +37,7 @@ This changelog tracks package release changes only. Repository development workf
 - A drawer in another assembly can call `Mu3WindowDrawer.GetNamespaceWarning`, which names why the namespace entered in `DrawNamespaceField` cannot compile (#535). The method is `protected internal` where it was `internal`, so a drawer outside Base, such as the exporter of the Input System package, checks that namespace as Base's drawers do.
 - A drawer in another assembly can call `FileCreator.WrapInDefineSymbol`, which puts a generated script inside `#if` on a define symbol and leaves its leading comment lines, such as the generated-file header, outside the condition (#537). The method is `public` where it was `internal`, so a drawer outside Base, such as the data exporter of the Localization package, wraps the scripts it generates as Base's drawers do.
 
-## [urp/0.5.0] - 2026-11-19
+## [urp/0.5.0] - 2026-11-20
 
 ### Changed
 - The package folder moved from `Mu3Library_URP` to `packages/urp` (#525), so from this release its Git URL takes `?path=packages/urp`; the URLs of earlier tags keep `?path=Mu3Library_URP`. The folders and files that were under `Runtime/Scripts/` now lie directly under `Runtime/`, and the screen-effect shaders and the Resources folder that holds the `ScreenEffectShaders` asset moved under `Runtime/ScreenEffect/`; the asset's path inside the Resources folder, `Mu3Library.URP/ScreenEffectShaders`, is unchanged. The package ID, the assembly names, the namespaces, and the GUIDs in the `.meta` files are unchanged, so a project that installed the package by Git URL needs only the new path when it updates, and one that added it from disk, the `package.json` in the new folder.
@@ -46,7 +46,7 @@ This changelog tracks package release changes only. Repository development workf
 ### Removed
 - The **ScreenEffect** sample, with its entry under `samples` in `package.json` (#521). A copy a project imported earlier stays in its `Assets/Samples` folder.
 
-## [game/watermelon/0.8.0] - 2026-11-19
+## [game/watermelon/0.8.0] - 2026-11-20
 
 ### Changed
 - The package folder moved from `Mu3Library_Game_WatermelonGame` to `packages/game/watermelon` (#525), so from this release its Git URL takes `?path=packages/game/watermelon`; the URLs of earlier tags keep `?path=Mu3Library_Game_WatermelonGame`. The folders and files that were under `Runtime/Scripts/` now lie directly under `Runtime/`, and `documentationUrl` in `package.json` points at the README in the new folder. The package ID, the assembly names, the namespaces, and the GUIDs in the `.meta` files are unchanged, so a project that installed the package by Git URL needs only the new path when it updates, and one that added it from disk, the `package.json` in the new folder.
@@ -55,32 +55,32 @@ This changelog tracks package release changes only. Repository development workf
 ### Removed
 - The **Watermelon Game** sample, with its entry under `samples` in `package.json` (#521). A copy a project imported earlier stays in its `Assets/Samples` folder.
 
-## [notifications/0.1.0] - 2026-11-19
+## [notifications/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.notifications`, "Mu3 Library Notifications", holds the `Mu3Library.Notifications` assembly that Base held (#533): `NotificationManager` wraps the unified `NotificationCenter` of the Mobile Notifications package on Android, iOS, and in the editor. The package declares `com.unity.mobile.notifications` 2.4.3, the version Unity 6000.3 bundles, as a dependency, so Package Manager installs that package with it, and it needs no other Mu3Library package. With UniTask installed, `RequestPermissionAsync` and `GetLastRespondedNotificationAsync` are available as before.
 
-## [inputsystem/0.1.0] - 2026-11-19
+## [inputsystem/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.inputsystem`, "Mu3 Library Input System", holds `InputSystemManager` and the **InputSystem Data Exporter** drawer that Base held (#535), the manager in the new assembly `Mu3Library.InputSystem` and the drawer in the new editor assembly `Mu3Library.InputSystem.Editor`. The package declares `com.unity.inputsystem` 1.18.0, the version Unity 6000.3 bundles, as a dependency, so Package Manager installs that package with it. It also declares Base 0.29.0, the first Base without this code, which a Git URL install does not resolve, so install Base first.
 
-## [localization/0.1.0] - 2026-11-19
+## [localization/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.localization`, "Mu3 Library Localization", holds `LocalizationManager`, the `Mu3Library.Localization.Data` types, and the **Localization Data Exporter** and **Localization Character Collector** drawers that Base held (#537), the manager and the data types in the new assembly `Mu3Library.Localization` and the drawers in the new editor assembly `Mu3Library.Localization.Editor`. The package declares `com.unity.localization` 1.5.8 and `com.unity.addressables` 2.9.0, the versions Unity 6000.3 bundles, as dependencies, the second for the operation handles the manager waits on, so Package Manager installs those packages with it. It also declares Base 0.29.0, the first Base without this code, which a Git URL install does not resolve, so install Base first. With UniTask installed, the async variants of the manager are available as before.
 
-## [addressables/0.1.0] - 2026-11-19
+## [addressables/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.addressables`, "Mu3 Library Addressables", holds `AddressablesManager`, the `Mu3Library.Addressable.Data` types, and the **Addressable Group Data Exporter** drawer that Base held (#539), the manager and the data types in the new assembly `Mu3Library.Addressables` and the drawer in the new editor assembly `Mu3Library.Addressables.Editor`. The package declares `com.unity.addressables` 2.9.0, the version Unity 6000.3 bundles, as a dependency, so Package Manager installs that package with it. It also declares Base 0.29.0, the first Base without this code, which a Git URL install does not resolve, so install Base first. With UniTask installed, the async variants of the manager are available as before.
 
-## [di/0.1.0] - 2026-11-19
+## [di/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.di`, "Mu3 Library DI", holds the `Mu3Library.DI` assembly that Base held, with the DI container, `CoreBase`, and `CoreRoot`, and the link.xml processor and the **DI Validator** and **Runtime Diagnostics** drawers that Base's editor held (#541), the processor and the drawers in the new editor assembly `Mu3Library.DI.Editor`. The package declares Base 0.29.0, the first Base without this code, which a Git URL install does not resolve, so install Base first. With UniTask installed, a core prepares through UniTask as before.
 
-## [steam/0.1.0] - 2026-11-19
+## [steam/0.1.0] - 2026-11-20
 
 ### Added
 - The new package `com.github.doqltl179.mu3library.steam`, "Mu3 Library Steam", holds the Steam multiplayer backend that Base held in `Mu3Library.Multiplayer.Steam` (#543), `SteamBackend`, `SteamBackendOptions`, and `SteamLaunchArguments`, now in the assembly and namespace `Mu3Library.Steam.Multiplayer`. Steamworks.NET is distributed through Git, so the package cannot declare it as a dependency: install Steamworks.NET 2025.164.1 or later first, as before. Without it, or on a build target other than a standalone platform, Unity skips the assembly, which compiles in the editor and in 64-bit standalone players only, as before. The package declares Base 0.29.0, the first Base without this code, which a Git URL install does not resolve, so install Base first.
