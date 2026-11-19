@@ -8,7 +8,7 @@ Input System package of **Mu3Library For Unity**: `InputSystemManager` keeps the
 
 ## Installation
 
-The package ships with the next release, and its Git URL then joins the others under Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation). Until then, add `packages/inputsystem/package.json` from disk. Install Base first: a Git URL install does not resolve the Base dependency by itself.
+Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation) gives the package's Git URL with its latest release tag. Install Base first: a Git URL install does not resolve the Base dependency by itself.
 
 Up to Base 0.28.0, `InputSystemManager` and the drawer came with Base, compiled into the `Mu3Library` and `Mu3Library.Editor` assemblies while the Input System package was installed. A project that uses them installs this package when it updates Base past 0.28.0. The namespaces and the GUIDs in the `.meta` files are unchanged, so code without an assembly definition of its own needs no change, and a drawer asset made from the exporter keeps its script. An assembly definition that references `Mu3Library` for `InputSystemManager` adds a reference to `Mu3Library.InputSystem`, and one that references `Mu3Library.Editor` for the drawer adds `Mu3Library.InputSystem.Editor`.
 

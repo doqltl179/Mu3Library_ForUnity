@@ -9,7 +9,7 @@ DI package of **Mu3Library For Unity**: a dependency injection container built a
 
 ## Installation
 
-The package ships with the next release, and its Git URL then joins the others under Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation). Until then, add `packages/di/package.json` from disk. Install Base first: a Git URL install does not resolve the Base dependency by itself.
+Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation) gives the package's Git URL with its latest release tag. Install Base first: a Git URL install does not resolve the Base dependency by itself.
 
 Up to Base 0.28.0, the container came with Base in the `Mu3Library.DI` assembly, and the link.xml processor and the drawers in the `Mu3Library.Editor` assembly. A project that uses them installs this package when it updates Base past 0.28.0. The assembly name `Mu3Library.DI`, the namespaces, and the GUIDs in the `.meta` files are unchanged, so code needs no change, an assembly definition that references `Mu3Library.DI` by name or by GUID keeps working, and a drawer asset made from either drawer keeps its script. The drawers compile into the new editor assembly: an assembly definition that references `Mu3Library.Editor` for `DIValidatorDrawer` or `RuntimeDiagnosticsDrawer` adds `Mu3Library.DI.Editor`.
 

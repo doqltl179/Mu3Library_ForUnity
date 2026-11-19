@@ -9,7 +9,7 @@ Localization package of **Mu3Library For Unity**: `LocalizationManager` wraps Un
 
 ## Installation
 
-The package ships with the next release, and its Git URL then joins the others under Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation). Until then, add `packages/localization/package.json` from disk. Install Base first: a Git URL install does not resolve the Base dependency by itself.
+Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation) gives the package's Git URL with its latest release tag. Install Base first: a Git URL install does not resolve the Base dependency by itself.
 
 Up to Base 0.28.0, `LocalizationManager`, the `Mu3Library.Localization.Data` types, and the drawers came with Base, compiled into the `Mu3Library` and `Mu3Library.Editor` assemblies while the Localization package was installed. A project that uses them installs this package when it updates Base past 0.28.0. The namespaces and the GUIDs in the `.meta` files are unchanged, so code without an assembly definition of its own needs no change, and a drawer asset made from either drawer keeps its script. An assembly definition that references `Mu3Library` for `LocalizationManager` or for the scripts the exporter generated adds a reference to `Mu3Library.Localization`, and one that references `Mu3Library.Editor` for the drawers adds `Mu3Library.Localization.Editor`.
 

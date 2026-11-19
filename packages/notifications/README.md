@@ -9,7 +9,7 @@ Local notifications package of **Mu3Library For Unity**: `NotificationManager` w
 
 ## Installation
 
-The package ships with the next release, and its Git URL then joins the others under Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation). Until then, add `packages/notifications/package.json` from disk.
+Installation in the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity#-installation) gives the package's Git URL with its latest release tag.
 
 Up to Base 0.28.0, `NotificationManager` came with Base. A project that uses it installs this package when it updates Base past 0.28.0. The assembly name, the namespace, and the GUIDs in the `.meta` files are unchanged, so its code needs no change, and an assembly definition that references `Mu3Library.Notifications` by name or by GUID keeps working.
 

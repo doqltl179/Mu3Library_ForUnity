@@ -59,28 +59,46 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+
+    # Notifications パッケージ
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
+
+    # Input System パッケージ（先に Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/inputsystem#inputsystem/v0.1.0
+
+    # Localization パッケージ（先に Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
+
+    # Addressables パッケージ（先に Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+
+    # DI パッケージ（先に Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+
+    # Steam パッケージ（先に Steamworks.NET と Base をインストール）
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
 
     # URP パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game パッケージ（先に Base と URP をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.7.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
    ```
 
 パッケージは Base、URP、Watermelon Game の順にインストールしてください。URP は Base に、Watermelon Game はその両方に依存します。
 
-Android と iOS のローカル通知を扱う Notifications パッケージは次のリリースで公開され、そのときこの一覧に URL が加わります。ほかの Mu3Library パッケージは必要ありません。
+Notifications パッケージは Android と iOS のローカル通知を扱います。ほかの Mu3Library パッケージは必要ありません。
 
-`InputSystemManager` とその名前エクスポーターのドロワーを含む Input System パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+Input System パッケージは `InputSystemManager` とその名前エクスポーターのドロワーを含みます。先に Base をインストールしてください。
 
-`LocalizationManager` とそのデータエクスポーター、文字収集のドロワーを含む Localization パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+Localization パッケージは `LocalizationManager` とそのデータエクスポーター、文字収集のドロワーを含みます。先に Base をインストールしてください。
 
-`AddressablesManager` とそのグループデータエクスポーターのドロワーを含む Addressables パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+Addressables パッケージは `AddressablesManager` とそのグループデータエクスポーターのドロワーを含みます。先に Base をインストールしてください。
 
-`CoreBase` のコンテナとその link.xml プロセッサー、検証ドロワーとランタイム診断ドロワーを含む DI パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Base をインストールしてください。
+DI パッケージは `CoreBase` のコンテナとその link.xml プロセッサー、検証ドロワーとランタイム診断ドロワーを含みます。先に Base をインストールしてください。
 
-Steam でマルチプレイセッションを実行する `SteamBackend` を含む Steam パッケージも次のリリースで公開され、そのときこの一覧に URL が加わります。先に Steamworks.NET と Base をインストールしてください。
+Steam パッケージは Steam でマルチプレイセッションを実行する `SteamBackend` を含みます。先に Steamworks.NET と Base をインストールしてください。
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
@@ -447,12 +465,12 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 
 **パッケージ情報:**
 - Base: `com.github.doqltl179.mu3library.base`
-- Notifications: `com.github.doqltl179.mu3library.notifications`（次のリリースから）
-- Input System: `com.github.doqltl179.mu3library.inputsystem`（Base に依存、次のリリースから）
-- Localization: `com.github.doqltl179.mu3library.localization`（Base に依存、次のリリースから）
-- Addressables: `com.github.doqltl179.mu3library.addressables`（Base に依存、次のリリースから）
-- DI: `com.github.doqltl179.mu3library.di`（Base に依存、次のリリースから）
-- Steam: `com.github.doqltl179.mu3library.steam`（Base に依存、Steamworks.NET が必要、次のリリースから）
+- Notifications: `com.github.doqltl179.mu3library.notifications`
+- Input System: `com.github.doqltl179.mu3library.inputsystem`（Base に依存）
+- Localization: `com.github.doqltl179.mu3library.localization`（Base に依存）
+- Addressables: `com.github.doqltl179.mu3library.addressables`（Base に依存）
+- DI: `com.github.doqltl179.mu3library.di`（Base に依存）
+- Steam: `com.github.doqltl179.mu3library.steam`（Base に依存、Steamworks.NET が必要）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)
