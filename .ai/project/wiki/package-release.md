@@ -1,7 +1,7 @@
 ---
 owns: "How the Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, the dependency versions checked at a package's first release, and GitHub Release titles and notes"
 volatility: evolving
-reviewed: 2026-11-16
+reviewed: 2026-11-19
 ---
 
 # Package Release
@@ -48,7 +48,7 @@ https://github.com/doqltl179/Mu3Library_ForUnity.git?path=<package folder>#<tag>
 
 ## Dependency Versions
 
-- A package names the lowest version of another Mu3Library package that it works with: URP and Watermelon Game name Base 0.25.0.
+- A package names the lowest version of another Mu3Library package that it works with. URP names Base 0.25.0. Watermelon Game names URP 0.3.0 and Base 0.29.0, the first Base whose `Mu3Library.Foundation` holds the `IUpdatable` that its use of `AudioManager` needs; Watermelon Game 0.7.0 fails to compile with CS0012 against Base 0.29.0, so the two update together.
 - The release that first ships a package split out of Base checks each `dependencies` entry of its `package.json`: Base at the version this release gives Base, the first without the moved code, and each Unity SDK at the version the `unity` floor bundles ([package-split.md](package-split.md) «Dependencies»). Correct an entry that names another version in the release commit, before the tag.
 
 ## GitHub Release
