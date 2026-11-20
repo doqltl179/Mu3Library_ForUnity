@@ -59,7 +59,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
 
     # Notifications 패키지
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -77,7 +77,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
 
     # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0

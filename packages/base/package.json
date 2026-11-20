@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3library.base",
-    "version": "0.29.0",
+    "version": "0.30.0",
     "displayName": "Mu3 Library",
     "description": "A modular architecture framework for Unity featuring an MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more, with the lifecycle and injection contracts its managers implement for the separate DI package or another container. Supports optional packages like UniTask and Addressables.",
     "unity": "6000.3",

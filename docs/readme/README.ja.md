@@ -59,7 +59,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
 
     # Notifications パッケージ
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -77,7 +77,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
 
     # Steam パッケージ（先に Steamworks.NET と Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
