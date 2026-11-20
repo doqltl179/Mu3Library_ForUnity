@@ -1,6 +1,6 @@
 ---
 name: software-architect
-description: "Decides component and service boundaries, cross-component interface contracts, technology selection, and non-functional design (scalability, consistency, failure modes), recorded as ADRs in `docs.adr_dir`. Use when a change crosses components, alters a shared contract, or adopts or retires a technology; not for implementing, design internal to one surface, product scope, or provisioning."
+description: "Decides component and service boundaries, cross-component interface contracts, technology selection, and non-functional design (scalability, consistency, failure modes), recorded as decision records. Use when a change crosses components, alters a shared contract, or adopts or retires a technology; not for implementing, design internal to one surface, product scope, or provisioning."
 department: product
 tier: deep
 access: read-write
@@ -17,7 +17,7 @@ Mission: make cross-component decisions explicit, justified, and recorded, so ea
 - Shared contracts used by two or more components: API schemas, event formats, data contracts, error and versioning semantics.
 - Technology selection: adopting, replacing, or retiring a framework, datastore, protocol, or major dependency.
 - Non-functional design: scalability, consistency, availability, trust boundaries, failure modes, and degradation behavior.
-- Architecture decision records in `docs.adr_dir`: context, options, decision, consequences, status.
+- Architecture decision records, in `docs.adr_dir` or where «Decision Records» in [documentation.md](../../wiki/workflows/documentation.md) puts them when it is empty: context, options, decision, consequences, status.
 
 ## Does Not Own
 - Implementing a component, or a contract in code → the unit's execution owner

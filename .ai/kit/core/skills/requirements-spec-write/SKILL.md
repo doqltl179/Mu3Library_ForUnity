@@ -21,19 +21,19 @@ reviewed: 2026-10-09
 
 ## Inputs
 - The request, linked issues, the adopted idea proposal when there is one ([idea-records.md](../../wiki/workflows/idea-records.md)), and any prior specs, research, or support data.
-- `docs.specs_dir`, `docs.locales`, and `project.language` from the profile.
+- `docs.specs_dir` and `project.language` from the profile.
 
 ## Steps
-1. Read «Specifications» in [documentation.md](../../wiki/workflows/documentation.md) for file naming, statuses, and required content. Search `docs.specs_dir` for a spec on the same topic: `rg -il "<topic terms>" <docs.specs_dir>`. Update it instead of adding a neighbor.
+1. Read «Specifications» in [documentation.md](../../wiki/workflows/documentation.md) for where specs go, file naming, statuses, and required content. When `docs.specs_dir` is set, search it for a spec on the same topic: `rg -il "<topic terms>" <docs.specs_dir>`. Update it instead of adding a neighbor.
 2. Read the current behavior the request affects (code, docs, open issues), narrowly, so requirements state the change rather than the status quo.
 3. Write Problem: who is affected, what fails today, the evidence per «Evidence Kinds» in [product-evidence.md](../../wiki/workflows/product-evidence.md), and why it matters now. State no solution here.
 4. Write Users: primary and secondary users and the task each needs to accomplish.
 5. Write Scope and Out of scope. Give every out-of-scope item a one-line reason.
 6. Write Functional requirements, numbered `FR-1`, `FR-2`, …: one observable behavior each, phrased with "must", free of implementation choices.
 7. Write Acceptance criteria for each requirement, each testable by a person or an automated test. Use Given/When/Then when the outcome depends on prior state. Replace words like "fast" or "intuitive" with a measurable threshold.
-8. Write Non-functional requirements with thresholds for the categories that apply: performance, availability, security, privacy, accessibility, localization (`docs.locales`), compatibility, and observability.
+8. Write Non-functional requirements with thresholds for the categories that apply: performance, availability, security, privacy, accessibility, localization, compatibility, and observability.
 9. Write Open questions: each names the decision, the options, a recommendation, and the decision owner. Ask the user only for decisions they own per «Stop, Pause, or Proceed» in [integrity.md](../../wiki/principles/integrity.md); settle conventional choices yourself and record them as assumptions. When several questions are open, resolve them with `decision-interview`.
-10. Save it in `docs.specs_dir`, written in `project.language`, with the file name and `Status:` line per «Specifications» in documentation.md; it moves past draft only when the user approves scope and the open questions are resolved. Link it from the issue, and commit with `git-commit`.
+10. Write it in `project.language` with the `Status:` line per «Specifications» in documentation.md; it moves past draft only when the user approves scope and the open questions are resolved. When `docs.specs_dir` is set, save it there under the file name «Specifications» gives, link it from the issue when the unit has one, and commit with `git-commit`; otherwise put it where «Specifications» puts it.
 
 ## Output
-- The spec path, its requirement IDs, open questions with their owners, and the decisions requested from the user.
+- Where the spec lives (its path, or the issue, plan, pull request, or commit that holds it per «Specifications»), its requirement IDs, open questions with their owners, and the decisions requested from the user.

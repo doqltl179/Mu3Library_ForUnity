@@ -47,7 +47,7 @@ This covers reading existing sources to back a claim: local copies, exports, das
 1. Read in the order the project's metric sources give. Without one, read by cost: free local copies and exports, then quota-limited services, then metered queries.
 2. Move to a costlier source only when the cheaper one cannot answer the question. A stale or blocked cheaper source is not a reason to ask the same question of a costlier one.
 3. Estimate a metered read before running it (a dry run or the source's size estimate). Above the project's limit, or when no limit is set, stop and ask, stating the estimate and the question it answers.
-4. When sign-in blocks a source, stop and end the turn with the error line and the project's sign-in command; never reach the same data with other credentials. Continue with the value `unread` only when the user says so.
+4. When sign-in blocks a source, stop and end the turn with the error line and the project's sign-in command; «Secrets And Sensitive Data» in [integrity.md](../principles/integrity.md) rules out other credentials. Continue with the value `unread` only when the user says so.
 5. Record the query and the data date next to each value, so a later judgment can read the same value again.
 
 ## Interpreting Metrics

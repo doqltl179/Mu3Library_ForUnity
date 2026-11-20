@@ -36,7 +36,7 @@ reviewed: 2026-10-09
 7. Verify on a disposable copy with representative data: apply forward, roll back, apply forward again, then run `commands.test`. This task runs migrations only against that copy, never a shared or production database.
 8. Update models, queries, fixtures, and tests for the phase being shipped, regenerating generated models per «Generated Code» in code-changes.md; run checks per «Verification By Change Type» in [verification.md](../../wiki/workflows/verification.md).
 9. Commit each phase separately with `git-commit`. Register later phases, such as the contract step, with `github-issue-create`.
-10. Record the decision with `adr-write` when the change alters the data model's design; update docs per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md).
+10. When the change alters the data model's design, record the decision per «Decision Records» in [documentation.md](../../wiki/workflows/documentation.md), with `adr-write` when `docs.adr_dir` is set. Update docs per «Doc Sync Rule» on the same page.
 
 ## Output
 - The migration files with forward and rollback parts, and the phase plan with its deploy order.

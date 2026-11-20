@@ -14,6 +14,8 @@ Rules written for today's models can become noise for tomorrow's: a rule that co
 - agents repeatedly fail in the same way despite a rule,
 - a tool gains a capability that changes how work could be structured (longer context, native subagents, new loading mechanisms).
 
+Applies when maintaining the kit repository; in an installed project this page is read-only, except «Tier Mapping» and the project's own `[scaffold]` rules under `.ai/project/`.
+
 ## Route Away When
 
 - filing the trigger as a change: [change-intake.md](change-intake.md),
@@ -22,7 +24,7 @@ Rules written for today's models can become noise for tomorrow's: a rule that co
 ## Scaffold Rules
 
 - A rule that exists only because current models need it is a scaffold rule (see «Rule Types» in [ssot.md](../principles/ssot.md)). End it with `[scaffold]` and give the reason in the same sentence.
-- Find them with `rg -n "\[scaffold\]" core .ai/project`.
+- Find them with `rg -n "\[scaffold\]" core .ai/project`; in an installed project the kit core is `.ai/kit/core`.
 - Invariants and policies are never tagged; they hold regardless of model strength.
 
 ## Tier Mapping

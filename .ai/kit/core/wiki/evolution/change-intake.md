@@ -13,6 +13,8 @@ Every change to the kit, whatever triggered it, enters through one record and on
 - something outside or inside the kit suggests the kit is wrong, incomplete, or outdated,
 - a project proposes a change upstream.
 
+Applies when maintaining the kit repository; in an installed project this page is read-only, and `kit-upstream-propose` uses only «Intake Record» and «Impact Classes».
+
 ## Route Away When
 
 - routine re-verification on a schedule: [freshness-policy.md](freshness-policy.md),
@@ -24,7 +26,7 @@ Every change to the kit, whatever triggered it, enters through one record and on
 |---|---|---|
 | Radar scan | Tool, model, standard, or framework release | `trend-scout` via `kit-trend-scan` |
 | Model generation change | New model family or tier behavior | `trend-scout`; see [model-calibration.md](model-calibration.md) |
-| Project feedback | A lesson that applies beyond one project | Any agent via `kit-upstream-propose` |
+| Project feedback | A lesson that applies beyond one project | An agent in that project via `kit-upstream-propose`, when «Promotion» in [memory-policy.md](../operating-model/memory-policy.md) allows it |
 | Failure | An agent followed the kit and produced a wrong result | The agent that observed it |
 | Freshness review | A file found wrong during review | `kit-librarian` |
 | Maintainer request | A new need or idea | The maintainer |
@@ -44,7 +46,7 @@ When the hosting platform is unavailable, append the same fields to `.ai/project
 ## Triage
 
 - `kit-librarian` triages: accept, merge into an existing record, defer with a reason, or reject with a reason.
-- Changes to roles, routing, structure, or invariants also need `role-governor`.
+- Whether a change also needs `role-governor`: its row in «Choosing Gates» in [review.md](../workflows/review.md).
 - An accepted record becomes one bounded update unit, or several if it touches unrelated owners.
 
 ## Impact Classes
@@ -60,6 +62,6 @@ When the hosting platform is unavailable, append the same fields to `.ai/project
 1. Intake record → triage.
 2. Task branch in the kit repository; apply the change with the matching `kit-*` skill.
 3. `agentkit.py sync` and `agentkit.py check` pass.
-4. Review: `code-reviewer`, plus `role-governor` for structural changes.
+4. Review per «Choosing Gates» in [review.md](../workflows/review.md).
 5. Changelog entry under Unreleased, with migration steps for `minor` and `major`, per [versioning.md](versioning.md).
 6. Release; projects adopt it with `kit-update`.

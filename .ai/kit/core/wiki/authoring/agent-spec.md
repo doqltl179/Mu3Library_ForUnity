@@ -86,8 +86,8 @@ The tier never names a model. The profile maps tiers to concrete models per tool
 | `department` | yes | A value from «Departments» |
 | `tier` | yes | A value from «Tiers» |
 | `access` | yes | A value from «Access» |
-| `volatility` | yes | See [freshness-policy.md](../evolution/freshness-policy.md) |
-| `reviewed` | yes | `YYYY-MM-DD` |
+| `volatility` | core cards | See «Metadata» in [freshness-policy.md](../evolution/freshness-policy.md), which makes it optional on project cards |
+| `reviewed` | core cards | `YYYY-MM-DD` |
 | `extends` | project cards only | The core card this card narrows |
 
 ## Body Shape

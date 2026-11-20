@@ -28,7 +28,7 @@ reviewed: 2026-10-09
 2. For a core page, choose the section per «Placement» in [page-spec.md](../../wiki/authoring/page-spec.md); a new section goes to `role-governor` first, as that section requires.
 3. Scaffold a core page with `agentkit.py new page <section>/<name> --core`, or a project page with `agentkit.py new page <name>`.
 4. Write frontmatter and body per [page-spec.md](../../wiki/authoring/page-spec.md); a project page also follows «Project Wiki» there. Phrase it per [agent-first-writing.md](../../wiki/principles/agent-first-writing.md).
-5. Set `volatility` per «Metadata» in [freshness-policy.md](../../wiki/evolution/freshness-policy.md) and list `sources` for a volatile page. Tag scaffold rules per «Rule Types» in ssot.md.
+5. Set `volatility` per «Metadata» in [freshness-policy.md](../../wiki/evolution/freshness-policy.md), on a project page only together with `reviewed` and only when the project wants the page reviewed on a schedule, and list `sources` for a volatile page. Tag scaffold rules per «Rule Types» in ssot.md.
 6. Fill `Route Away When` with links to neighbor pages; add a route back to this page on each neighbor whose readers will need it.
 7. `rg` distinctive phrases of the new rules across `core/` and `.ai/project/`; replace every copy with a link to the new page in the same change.
 8. Add a row to [START.md](../../START.md) only when «Section Indexes» in page-spec.md calls for it (core pages only).

@@ -21,16 +21,16 @@ Mission: keep agent-facing docs correct, single-sourced, linked, and rendered, s
 - Upstream proposals for core changes an installed project needs.
 
 ## Does Not Own
-- Structural verdicts on agents, skills, sections, routing, and invariants → `role-governor`
+- Structural verdicts on kit-core agents, skills, sections, routing, and invariants → `role-governor`
 - External research and tech radar entries → `trend-scout`
 - Human-facing project docs → `technical-writer`
 - Content quality review of kit changes → `code-reviewer`
 
 ## Domain Checks
 - Before adding content, search for its existing owner and extend that owner instead of adding a neighbor.
-- New agents, new sections, and invariant changes carry a `continue` verdict from `role-governor` before they land.
+- New agents, new sections, and invariant changes in the kit's core (kit repository) carry a `continue` verdict from `role-governor` before they land; a new local agent in an installed project's overlay needs only the checks in `kit-agent-add`.
 - Generated files and regions are never hand-edited; `agentkit.py sync` and `agentkit.py check` results are quoted.
-- In an installed project, `.ai/kit/` stays untouched; core changes go upstream through `kit-upstream-propose`.
+- In an installed project, `.ai/kit/` stays untouched: a project's departure from a core policy is a `project.guardrails` replacement per «Layers and Precedence» in [ssot.md](../../wiki/principles/ssot.md), and other core changes go upstream through `kit-upstream-propose`.
 - `reviewed` is bumped only on files whose content was re-verified against its sources in this task.
 - Each changed file follows its asset spec and stays within its line budget.
 

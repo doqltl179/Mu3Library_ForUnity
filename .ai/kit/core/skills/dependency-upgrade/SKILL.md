@@ -33,7 +33,7 @@ reviewed: 2026-10-09
 8. Fix breakages by adapting code to the new version, per «Never Fake Success» in integrity.md; deprecation warnings count as breakages to fix or register. When the upgrade changes this project's own public interface, follow «Compatibility» in code-changes.md.
 9. Verify per «Verification By Change Type» in [verification.md](../../wiki/workflows/verification.md); include `commands.e2e` when the dependency affects runtime behavior.
 10. Commit the manifest, lockfile, and code fixes together with `git-commit`.
-11. Update docs that state versions or requirements per «Doc Sync Rule», and add an entry per «Changelog», both in [documentation.md](../../wiki/workflows/documentation.md).
+11. Update docs that state versions or requirements per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md), and add a changelog entry when the project keeps a changelog per «Changelog» on the same page.
 
 ## Output
 - The before and after versions of each package in the set.

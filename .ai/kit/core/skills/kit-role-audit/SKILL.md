@@ -1,6 +1,6 @@
 ---
 name: kit-role-audit
-description: "Audit agent boundaries for role-governor: list the agents involved, compare owned artifacts, decisions, and outputs pairwise, grade overlap, find missing ownership and routing ambiguity, decide keep, narrow, split, merge, or reject per agent, and issue a continue or rework verdict with required edits. Use when an agent is proposed, split, merged, or narrowed, or when routing keeps picking two owners or none."
+description: "Audit agent boundaries for role-governor: list the agents involved, compare owned artifacts, decisions, and outputs pairwise, grade overlap, find missing ownership and routing ambiguity, decide keep, narrow, split, merge, or reject per agent, and issue a continue or rework verdict with required edits. Use when a core agent is proposed, an agent is split, merged, or narrowed, or routing keeps picking two owners or none."
 category: kit
 volatility: evolving
 reviewed: 2026-10-09
@@ -9,7 +9,7 @@ reviewed: 2026-10-09
 # Audit Roles
 
 ## Use When
-- `kit-agent-add` submits a proposed card, or a card is being split, merged, or narrowed.
+- `kit-agent-add` submits a proposed core card, or a card is being split, merged, or narrowed.
 - Routing repeatedly finds two owners for one task, or none.
 - A department is added, removed, or has its coverage changed.
 

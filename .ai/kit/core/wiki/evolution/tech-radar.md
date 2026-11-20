@@ -14,6 +14,8 @@ The register `trend-scout` maintains: what the kit watches, where to look, and w
 - running a radar scan,
 - adding a dependency of the kit on an external tool, format, or standard.
 
+Applies when maintaining the kit repository; in an installed project this page is read-only.
+
 ## Route Away When
 
 - the scan procedure: the `kit-trend-scan` skill,

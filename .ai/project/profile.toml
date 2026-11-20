@@ -1,5 +1,6 @@
-# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
-# a key that merely repeats a default would pin today's default when a kit update changes it.
+# agentkit project profile. [policy], [hosting], and [docs] write every value the project confirmed, even one that equals
+# the kit default, so a kit update that changes a default leaves them as they are; the other sections keep only the keys
+# this project sets differently («Profile» in .ai/kit/core/wiki/integration/project-overlay.md).
 # Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
 
 [project]
@@ -14,13 +15,22 @@ guardrails = [
 ]
 
 [policy]
+integration_branch = "develop"
+release_branch = "main"
+protected_branches = ["develop", "main"]
+issue_first = true
 # Set while each committed development project's Library/ (1.3-2.3 GB) made a fresh worktree re-import it; the generated
 # projects now keep Library/ in the unit's work folder instead (.ai/project/wiki/overview.md).
 worktrees = false
 # The root differs per machine, so each machine sets the user environment variable MU3_WORK_ROOT (.ai/project/wiki/overview.md).
 work_root = "env:MU3_WORK_ROOT"
+worktree_root = ".worktrees"
+branch_pattern = "<type>/<scope>-<summary>"
+commit_convention = "conventional"
+review_gate = "non-trivial"
 
 [hosting]
+platform = "github"
 ci = false
 area_labels = ["base", "urp", "watermelon", "notifications", "inputsystem", "localization", "addressables", "di", "steam", "agents", "tooling"]
 
@@ -32,7 +42,12 @@ test_playmode = "bash ./test-unity.sh changed --platform playmode"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 
 [docs]
+readme = "README.md"
+changelog = "CHANGELOG.md"
 source_locale = "en"
+specs_dir = "docs/specs"
+adr_dir = "docs/adr"
+glossary = ".ai/project/wiki/glossary.md"
 locales = ["ko", "ja"]
 
 [docs.locale_paths]
@@ -97,7 +112,7 @@ tag_pattern = "steam/v{version}"
 enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
 
 [skills]
-disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform", "kit-trend-scan"]
+disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform"]
 
 [stack_paths]
 # The packages live in packages/ at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.

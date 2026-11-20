@@ -31,7 +31,7 @@ python tools/agentkit.py install <project-dir> --tools claude,codex,copilot
 
 This copies the kit payload (`core/`, `tools/agentkit.py`, `VERSION`, `CHANGELOG.md`, `LICENSE`) into `<project>/.ai/kit/` with an integrity manifest, creates `.ai/project/` from templates with a minimal profile (only the keys the project sets; every other key takes the kit default), adds `.ai/tasks/` and the worktree root (`policy.worktree_root`) to `.gitignore`, applies «Editor Settings» and «Line Endings», and runs `sync`. Exit code 0 means ready; 2 means installed but hand-written instruction files block generation and need «Adopt Existing Instructions»; 1 means an error. Commit `.ai/kit/`, `.ai/project/`, `.ai/generated/`, and the generated entry and tool files, so every collaborator and hosted agent sees the same setup.
 
-On a hosted repository, apply the settings in «Repository Settings» in [issues-and-prs.md](../workflows/issues-and-prs.md) after the user confirms them. When the project runs CI (`hosting.ci`), add `python .ai/kit/tools/agentkit.py check` to it so a hand-edited generated file, a local kit edit, or a broken link fails the build. Without CI, `check` is part of the verification run before every pull request.
+On a hosted repository, apply the settings in «Repository Settings» in [issues-and-prs.md](../workflows/issues-and-prs.md) after the user confirms them. When the project runs CI (`hosting.ci`), propose adding `python .ai/kit/tools/agentkit.py check` to it so a hand-edited generated file, a local kit edit, or a broken link fails the build, and add it after the user confirms. Without CI, `check` is part of the verification run before every pull request.
 
 The kit is copied, not linked as a Git submodule: tools load instruction files found in subdirectories they read, so a nested kit repository's own entry files would leak into the project's sessions.
 
@@ -45,7 +45,7 @@ The kit is copied, not linked as a Git submodule: tools load instruction files f
   .ai/project/                 the overlay, owned by the project
   .ai/generated/               catalog and manifest, generated
   .ai/tasks/                   plans and idea records, not committed
-  .worktrees/                  one worktree per unit, not committed
+  .worktrees/                  unit worktrees («Worktrees» in git-workflow.md), not committed
 ```
 
 ## Editor Settings
@@ -54,7 +54,7 @@ Agent files must stay UTF-8 without a byte-order mark: a BOM before the opening 
 
 ## Line Endings
 
-`agentkit.py` writes the kit, the overlay, and the generated agent files with LF on every platform. A checkout that converts line endings, such as one with `core.autocrlf=true`, holds text files that have no `eol` attribute with CRLF. Every file `agentkit.py` rewrites there, which on `update` is every kit file, gets a new size, so `git status` lists it as modified while `git diff` stays empty. `install` and `update` therefore append a section to `.gitattributes` that checks the paths of «Editor Settings» out with `text=auto eol=lf`, writing only the lines the file lacks; `text=auto` leaves binary files untouched. A later matching line overrides an earlier one ([gitattributes](https://git-scm.com/docs/gitattributes)), so the section must come after the project's own lines. To give a file under these paths other attributes, such as CRLF for a `.cmd` script under `.claude/`, add a line after the section instead of deleting one of its lines: `update` appends a missing line again at the end, where it would override the project's line.
+`agentkit.py` writes the kit, the overlay, and the generated agent files with LF on every platform. A checkout that converts line endings, such as one with `core.autocrlf=true`, holds text files that have no `eol` attribute with CRLF. Every file `agentkit.py` rewrites there, which on `update` is every kit file, gets a new size, so `git status` lists it as modified while `git diff` stays empty. `install` therefore appends a section to `.gitattributes` that checks the paths of «Editor Settings» out with `text=auto eol=lf`, writing only the lines the file lacks; `text=auto` leaves binary files untouched. `update` never writes `.gitattributes`, a project file: it prints the lines the file lacks, for the project to add at its end. A later matching line overrides an earlier one ([gitattributes](https://git-scm.com/docs/gitattributes)), so the section must come after the project's own lines. To give a file under these paths other attributes, such as CRLF for a `.cmd` script under `.claude/`, add a line after the section instead of deleting one of its lines: `update` reports a deleted line as missing, and adding it back at the end would override the project's line.
 
 The section does not rewrite files a clone already holds with CRLF. Run this once in each clone and worktree to check them out again with LF. It touches only tracked files whose attributes ask for LF, skips files marked `assume-unchanged` or `skip-worktree` (a `git ls-files -v` tag other than `H`), and skips files whose content differs from the index, so uncommitted edits stay:
 
@@ -76,7 +76,7 @@ Instruction files the kit did not generate keep being loaded by the tools next t
 
 For each file:
 
-1. Sort its content: rules the kit already owns (drop them), project facts and parameters (move to `.ai/project/profile.toml` or `.ai/project/wiki/`), and rules that would help every project (propose upstream).
+1. Sort its content: rules the kit already owns (drop them), project rules that depart from a core policy (record each as a `project.guardrails` replacement per «Layers and Precedence» in [ssot.md](../principles/ssot.md)), project facts and parameters (move to `.ai/project/profile.toml` or `.ai/project/wiki/`), and rules that would help every project (keep them in the overlay, then follow step 4 of «Promotion» in [memory-policy.md](../operating-model/memory-policy.md)).
 2. Show the user what will be dropped and get confirmation before deleting the file.
 3. Run `sync` again. A file that stays on purpose goes into `tools.keep_unmanaged` with a note in the project wiki saying why.
 
@@ -92,7 +92,7 @@ python .ai/kit/tools/agentkit.py update [--from <kit-repo-url-or-path>] [--ref <
 - From a git URL without `--ref`, the update installs the latest release tag (`vX.Y.Z`), never an unreleased branch; it stops when the source has no release tag. Pass `--ref` to choose a tag or branch explicitly.
 - From a local checkout, the update copies that checkout as it is; check out the wanted version there first (`--ref` is refused).
 
-The update refuses to run when kit files were edited locally, replaces `.ai/kit/`, appends the missing lines of the «Line Endings» section to `.gitattributes`, prints the changelog since the installed version, and runs `sync`. Apply every migration step it prints. See [versioning.md](../evolution/versioning.md).
+The update refuses to run when kit files were edited locally, replaces `.ai/kit/`, prints the «Line Endings» lines `.gitattributes` lacks, prints the profile keys the new defaults affect («Profile» in [project-overlay.md](project-overlay.md)), prints the changelog since the installed version, and runs `sync`. Apply every migration step it prints. See [versioning.md](../evolution/versioning.md).
 
 ## Remove
 

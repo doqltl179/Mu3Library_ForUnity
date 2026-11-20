@@ -1,6 +1,6 @@
 ---
 name: kit-agent-add
-description: "Add an agent card: confirm no existing owner fits, choose between a stack pack, a project-local extends card, and a new core card, pass a role audit, scaffold and write the card, update neighbor boundaries, enable and bind it in the profile, then render and validate. Use when recurring work has no owner, or one project needs a narrower owner inside an existing surface."
+description: "Add an agent card: confirm no existing owner fits, choose between a stack pack, a project-local extends card, and a new core card, pass a role audit (core) or an overlap check (local), scaffold and write the card, update neighbor boundaries, enable and bind it in the profile, then render and validate. Use when recurring work has no owner, or one project needs a narrower owner inside an existing surface."
 category: kit
 volatility: evolving
 reviewed: 2026-10-09
@@ -13,7 +13,7 @@ reviewed: 2026-10-09
 - One project needs a narrower owner inside a surface an existing card owns.
 
 ## Do Not Use When
-- The gap is language or framework knowledge → `kit-stack-add`.
+- The gap is language or framework knowledge → `kit-stack-add` in the kit repository; in an installed project, step 4 of «Promotion» in [memory-policy.md](../../wiki/operating-model/memory-policy.md).
 - The need is a repeatable procedure → `kit-skill-add`; a rule → `kit-page-add`.
 - An existing card's boundaries are wrong → `kit-role-audit`, then edit that card.
 - A core card is needed but you are in an installed project → `kit-upstream-propose`.
@@ -27,14 +27,14 @@ reviewed: 2026-10-09
 1. Run «Selection Procedure» in [routing.md](../../wiki/operating-model/routing.md) on each sample task. If one owner fits every task, stop and report that owner; if none fits, continue per «No Owner Fits».
 2. Choose the asset per «What To Add» in [agent-spec.md](../../wiki/authoring/agent-spec.md) and «Granularity Model». Leave this skill for any row other than a local `extends` card or a new core card.
 3. Draft the proposal: name, department per «Departments», tier, access, mission, `Owns`, `Does Not Own` with neighbor names, and for a local card the `extends` base.
-4. Have `role-governor` run `kit-role-audit` on the proposal. On `rework`, apply the required edits and audit again; when the audit rejects the proposal, stop and report its recommended alternative.
+4. For a core card, have `role-governor` run `kit-role-audit` on the proposal. On `rework`, apply the required edits and audit again; when the audit rejects the proposal, stop and report its recommended alternative. For a local card, check it yourself: compare its `Owns` with every active owner in the catalog, then re-run «Selection Procedure» in routing.md on each sample task with the draft description among the candidates. Stop and report when the card overlaps any owner other than its `extends` base, or when a task does not resolve to exactly one owner; an `extends` card wins over its base per step 3 there.
 5. Scaffold a core card in the kit repository with `agentkit.py new agent <name> --department <dept> --core`, or a local card with `agentkit.py new agent <name> --extends <base>`.
 6. Write the card per «Frontmatter» and «Body Shape» in [agent-spec.md](../../wiki/authoring/agent-spec.md). A local card states only how it narrows its base, per «Local Agents» in [project-overlay.md](../../wiki/integration/project-overlay.md).
-7. Add a `Does Not Own` line that routes the new card's surface to it on each neighbor card the audit named, in the new card's layer only.
+7. Add a `Does Not Own` line that routes the new card's surface to it on each neighbor card the audit or overlap check named, in the new card's layer only.
 8. For project use, enable a core card in `agents.enabled` and add `[bindings.<agent>]` with its paths, stacks, and notes per «Profile» in project-overlay.md. Local cards are always active; bind them the same way.
 9. In the kit repository, note the new agent under Unreleased per «Changelog Format» in [versioning.md](../../wiki/evolution/versioning.md).
 10. Run `agentkit.py sync` to render the tool agent files, then `agentkit.py check`; fix every error, including unknown `Does Not Own` targets.
 
 ## Output
-- The card path, the audit verdict, neighbor cards changed, and profile changes.
+- The card path, the audit verdict or overlap check result, neighbor cards changed, and profile changes.
 - The `check` result.

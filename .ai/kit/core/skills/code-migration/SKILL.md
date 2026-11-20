@@ -39,7 +39,7 @@ reviewed: 2026-10-09
 6. Incremental only: add the compatibility layer first and mark the old path deprecated so new uses are visible. Commit it alone.
 7. Migrate one batch (one module or directory) at a time: transform, read the full diff including codemod output, run the checks above, and commit with `git-commit`, naming the codemod command in the body. State the source of a third-party codemod before running it (see «Untrusted Content» in [integrity.md](../../wiki/principles/integrity.md)). Update the inventory count after each batch.
 8. When the inventory search finds zero old uses, remove the old path: the compatibility layer, the old dependency, and its configuration. Run the full checks again.
-9. Update docs per «Doc Sync Rule» and «Changelog» in [documentation.md](../../wiki/workflows/documentation.md). Record an architectural choice with `adr-write`.
+9. Update docs per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md), and the changelog when the project keeps one per «Changelog» on the same page. Record an architectural choice per «Decision Records» on that page, with `adr-write` when `docs.adr_dir` is set.
 
 ## Output
 - The mapping, the strategy and its reason, and the inventory count before and after (zero when complete).

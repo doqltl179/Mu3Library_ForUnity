@@ -26,9 +26,10 @@ reviewed: 2026-10-09
 | Idea proposals, defer records, and their reference files | `.ai/tasks/ideas/` in the main checkout, per «Location» in [idea-records.md](../workflows/idea-records.md) | Until the user deletes them |
 | A durable project fact (architecture, domain terms, local convention) | A page in `.ai/project/wiki/` | Until it stops being true |
 | A project parameter (commands, branches, languages, roles) | `.ai/project/profile.toml` | Until changed |
+| A project rule that departs from a core policy | A `project.guardrails` replacement in `.ai/project/profile.toml`, per «Layers and Precedence» in [ssot.md](../principles/ssot.md) | Until changed |
 | A rule a tool can check mechanically (a banned pattern or API, an import shape, a file location, a format) | An automated check in the project's lint, test, or CI configuration | Until the rule changes |
 | A project-specific lesson from a correction | `.ai/project/lessons.md` | Until promoted or obsolete |
-| A lesson or rule that would help every project | The kit, via the `kit-upstream-propose` skill | Kit release cycle |
+| A lesson or rule that would help every project | `.ai/project/lessons.md`, and the kit via the `kit-upstream-propose` skill when step 4 of «Promotion» allows it | Until a kit release contains it |
 | A user's personal cross-project preference | The tool's user-level memory | The user's choice |
 
 Tool-managed memory (for example auto-memory features) holds only personal preferences and pointers; project rules always live in the files above, where every tool and teammate can see them.
@@ -46,4 +47,4 @@ Tool-managed memory (for example auto-memory features) holds only personal prefe
 1. Session → plan: anything the next step or a resumed session needs.
 2. Plan → project wiki or lessons: at closeout, only what stays true after the task.
 3. Lessons → wiki page or automated check: when a lesson becomes a rule the project follows, move it to the owning page, or into an automated check when a tool can enforce it, and delete the lesson.
-4. Project → kit: when a lesson is not project-specific, propose it upstream; keep it locally until the kit release contains it.
+4. Project → kit: when a lesson, rule, or kit defect is not project-specific, run `kit-upstream-propose` only when the user asks for it or `evolution.propose_upstream` is true. Otherwise name it in the report as a candidate the user may propose. Either way, keep the lesson locally until a kit release contains it.

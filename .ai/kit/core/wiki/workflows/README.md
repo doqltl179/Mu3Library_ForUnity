@@ -13,7 +13,7 @@ Open this section when the question is what must hold during a recurring kind of
 |---|---|
 | [change-scope.md](change-scope.md) | How much a change may touch: assumptions to name before editing, the smallest change that meets the request, edit boundaries inside touched files, cleanup of what the change leaves unused, and findings outside the request |
 | [code-changes.md](code-changes.md) | Cross-cutting safety rules for changing code: adding dependencies, compatibility of public interfaces, schema and data migrations, and generated code |
-| [documentation.md](documentation.md) | Human-facing project documentation policy: doc sync with behavior, changelog entries, which localized variants exist and when they are updated, specifications, and decision records |
+| [documentation.md](documentation.md) | Human-facing project documentation policy: doc sync with behavior, changelog entries, specifications, and decision records |
 | [domain-terms.md](domain-terms.md) | How project concepts are named: one canonical term per concept, its definition, the synonyms to avoid, and using the terms in code, docs, and conversation |
 | [git-workflow.md](git-workflow.md) | Local Git policy: branch roles, preflight, per-unit worktrees and task branches, the work folders units make, commit convention, staging, integrating base changes, cleanup, and stop conditions |
 | [idea-evaluation.md](idea-evaluation.md) | How a product idea is judged before adoption: the three idea scopes, the project values they read, verdicts, the eight criteria and their order, hand-overs to another scope or owner, choosing when the user delegates the choice, and what idea work must not touch |
